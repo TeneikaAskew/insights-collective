@@ -1,350 +1,273 @@
+import { User, Course, Module, Lesson, Assignment, AssignmentSubmission, Quiz, QuizQuestion, Notification, Certificate } from '@/types';
 
-import { User, Course, Module, Notification } from '@/types';
-
-// Mock Users
-export const users: User[] = [
-  {
-    id: "user1",
-    name: "John Doe",
-    email: "john.doe@example.com",
-    role: "student",
-    bio: "Enthusiastic learner exploring new technologies.",
-    enrolledCourses: ["course1", "course2"]
-  },
-  {
-    id: "user2",
-    name: "Jane Smith",
-    email: "jane.smith@example.com",
-    role: "instructor",
-    bio: "Experienced instructor with 10+ years in web development.",
-    createdCourses: ["course1", "course3"]
-  },
-  {
-    id: "user3",
-    name: "Admin User",
-    email: "admin@learnflow.com",
-    role: "admin",
-    bio: "Platform administrator"
-  }
-];
-
-// Mock Courses
-export const courses: Course[] = [
-  {
-    id: "course1",
-    title: "Introduction to Web Development",
-    description: "Learn the fundamentals of web development including HTML, CSS, and JavaScript.",
-    instructor: users[1],
-    thumbnail: "https://images.unsplash.com/photo-1593720219276-0b1eacd0aef4?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1061&q=80",
-    enrollmentCount: 256,
-    rating: 4.7,
-    modules: [],
-    category: "Web Development",
-    tags: ["HTML", "CSS", "JavaScript", "Responsive Design"],
-    duration: "8 weeks",
-    level: "Beginner",
-    enrollmentStatus: "Open",
-    createdAt: "2023-01-15T00:00:00Z",
-    updatedAt: "2023-02-10T00:00:00Z"
-  },
-  {
-    id: "course2",
-    title: "Data Science Fundamentals",
-    description: "Explore essential concepts in data science, statistics, and machine learning algorithms.",
-    instructor: users[1],
-    thumbnail: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1050&q=80",
-    enrollmentCount: 198,
-    rating: 4.5,
-    modules: [],
-    category: "Data Science",
-    tags: ["Python", "Statistics", "Machine Learning", "Data Visualization"],
-    duration: "10 weeks",
-    level: "Intermediate",
-    enrollmentStatus: "Open",
-    createdAt: "2023-02-05T00:00:00Z",
-    updatedAt: "2023-03-12T00:00:00Z"
-  },
-  {
-    id: "course3",
-    title: "Mobile App Development with React Native",
-    description: "Build cross-platform mobile applications using React Native and JavaScript.",
-    instructor: users[1],
-    thumbnail: "https://images.unsplash.com/photo-1551650975-87deedd944c3?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1074&q=80",
-    enrollmentCount: 145,
-    rating: 4.8,
-    modules: [],
-    category: "Mobile Development",
-    tags: ["React Native", "JavaScript", "Mobile", "iOS", "Android"],
-    duration: "12 weeks",
-    level: "Intermediate",
-    enrollmentStatus: "In Progress",
-    createdAt: "2023-03-20T00:00:00Z",
-    updatedAt: "2023-04-15T00:00:00Z"
-  },
-  {
-    id: "course4",
-    title: "UX/UI Design Principles",
-    description: "Master the principles of user experience and interface design for digital products.",
-    instructor: users[1],
-    thumbnail: "https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1055&q=80",
-    enrollmentCount: 210,
-    rating: 4.6,
-    modules: [],
-    category: "Design",
-    tags: ["UX", "UI", "Wireframing", "Prototyping", "User Research"],
-    duration: "8 weeks",
-    level: "Beginner",
-    enrollmentStatus: "Open",
-    createdAt: "2023-04-10T00:00:00Z",
-    updatedAt: "2023-05-05T00:00:00Z"
-  }
-];
-
-// Mock Modules
-export const modules: Module[] = [
-  {
-    id: "module1",
-    title: "Week 1: HTML Fundamentals",
-    description: "Learn the basics of HTML and document structure.",
-    week: 1,
-    lessons: [
-      {
-        id: "lesson1",
-        title: "Introduction to HTML",
-        description: "Understanding the basics of HTML markup.",
-        content: "HTML (HyperText Markup Language) is the standard markup language for documents designed to be displayed in a web browser.",
-        videoUrl: "https://example.com/videos/intro-html",
-        duration: "45 minutes",
-        isCompleted: true
-      },
-      {
-        id: "lesson2",
-        title: "HTML Elements & Tags",
-        description: "Exploring common HTML elements and their usage.",
-        content: "HTML elements are represented by tags. Tags come in pairs, with opening and closing tags.",
-        videoUrl: "https://example.com/videos/html-elements",
-        duration: "60 minutes",
-        isCompleted: false
-      }
-    ],
-    assignments: [
-      {
-        id: "assignment1",
-        title: "Create a Basic Webpage",
-        description: "Build a simple webpage with proper HTML structure including headings, paragraphs, lists, and links.",
-        dueDate: "2023-01-22T23:59:59Z",
-        points: 100,
-        status: "Submitted",
-        submission: {
-          id: "submission1",
-          userId: "user1",
-          assignmentId: "assignment1",
-          content: "My submission for the basic webpage assignment.",
-          attachmentUrls: ["https://example.com/submissions/user1/assignment1.html"],
-          submittedAt: "2023-01-21T15:30:00Z",
-          grade: 95,
-          feedback: "Excellent work on the structure! Consider adding more semantic elements."
-        }
-      }
-    ],
-    quizzes: [
-      {
-        id: "quiz1",
-        title: "HTML Basics Quiz",
-        description: "Test your knowledge of basic HTML concepts.",
-        questions: [
-          {
-            id: "question1",
-            question: "What does HTML stand for?",
-            options: [
-              "Hyper Text Markup Language",
-              "High Tech Modern Language",
-              "Hyper Transfer Markup Language",
-              "Home Tool Markup Language"
-            ],
-            correctOptionIndex: 0,
-            points: 10
-          },
-          {
-            id: "question2",
-            question: "Which tag is used to create a paragraph in HTML?",
-            options: ["<paragraph>", "<p>", "<para>", "<text>"],
-            correctOptionIndex: 1,
-            points: 10
-          }
-        ],
-        timeLimit: 15,
-        dueDate: "2023-01-20T23:59:59Z",
-        status: "Completed",
-        score: 20
-      }
-    ],
-    completionStatus: 75
-  },
-  {
-    id: "module2",
-    title: "Week 2: CSS Styling",
-    description: "Master the fundamentals of CSS for styling web pages.",
-    week: 2,
-    lessons: [
-      {
-        id: "lesson3",
-        title: "Introduction to CSS",
-        description: "Learning the basics of Cascading Style Sheets.",
-        content: "CSS is a style sheet language used for describing the presentation of a document written in HTML.",
-        videoUrl: "https://example.com/videos/intro-css",
-        duration: "50 minutes",
-        isCompleted: false
-      },
-      {
-        id: "lesson4",
-        title: "CSS Selectors",
-        description: "Understanding different types of CSS selectors.",
-        content: "CSS selectors are patterns used to select the elements you want to style.",
-        videoUrl: "https://example.com/videos/css-selectors",
-        duration: "55 minutes",
-        isCompleted: false
-      }
-    ],
-    assignments: [
-      {
-        id: "assignment2",
-        title: "Style Your Webpage",
-        description: "Apply CSS styling to the webpage you created in the previous assignment.",
-        dueDate: "2023-01-29T23:59:59Z",
-        points: 100,
-        status: "Not Started"
-      }
-    ],
-    quizzes: [
-      {
-        id: "quiz2",
-        title: "CSS Fundamentals Quiz",
-        description: "Test your understanding of CSS concepts.",
-        questions: [
-          {
-            id: "question3",
-            question: "Which property is used to change the text color in CSS?",
-            options: ["text-color", "font-color", "color", "text-style"],
-            correctOptionIndex: 2,
-            points: 10
-          },
-          {
-            id: "question4",
-            question: "What is the correct CSS syntax for making all paragraph elements bold?",
-            options: [
-              "p {text-size: bold;}",
-              "p {font-weight: bold;}",
-              "p style='font-bold'",
-              "<p style='text-size: bold;'>"
-            ],
-            correctOptionIndex: 1,
-            points: 10
-          }
-        ],
-        timeLimit: 15,
-        dueDate: "2023-01-27T23:59:59Z",
-        status: "Not Started"
-      }
-    ],
-    completionStatus: 0
-  }
-];
-
-// Add modules to courses
-courses[0].modules = [modules[0], modules[1]];
-
-// Mock Notifications
-export const notifications: Notification[] = [
-  {
-    id: "notification1",
-    userId: "user1",
-    title: "Assignment Due Soon",
-    message: "Your 'Style Your Webpage' assignment is due in 2 days.",
-    type: "assignment",
-    isRead: false,
-    createdAt: "2023-01-27T09:00:00Z",
-    link: "/courses/course1/modules/module2"
-  },
-  {
-    id: "notification2",
-    userId: "user1",
-    title: "Assignment Graded",
-    message: "Your 'Create a Basic Webpage' assignment has been graded. You received 95/100.",
-    type: "feedback",
-    isRead: true,
-    createdAt: "2023-01-25T14:30:00Z",
-    link: "/courses/course1/modules/module1"
-  },
-  {
-    id: "notification3",
-    userId: "user1",
-    title: "New Announcement",
-    message: "Live Q&A session for Web Development course this Friday at 3 PM.",
-    type: "announcement",
-    isRead: false,
-    createdAt: "2023-01-26T11:15:00Z",
-    link: "/courses/course1"
-  }
-];
-
-// Mock service functions
-export const mockService = {
-  // User related functions
-  getCurrentUser: () => users[0],
-  getUserById: (id: string) => users.find(user => user.id === id),
-  
-  // Course related functions
-  getAllCourses: () => courses,
-  getCourseById: (id: string) => courses.find(course => course.id === id),
-  getEnrolledCourses: (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    if (!user || !user.enrolledCourses) return [];
-    return courses.filter(course => user.enrolledCourses?.includes(course.id));
-  },
-  
-  // Module related functions
-  getModuleById: (id: string) => modules.find(module => module.id === id),
-  getModulesByCourse: (courseId: string) => {
-    const course = courses.find(c => c.id === courseId);
-    return course ? course.modules : [];
-  },
-  
-  // Notification related functions
-  getUserNotifications: (userId: string) => 
-    notifications.filter(notification => notification.userId === userId),
-  
-  // Enrollment functions
-  enrollInCourse: (userId: string, courseId: string) => {
-    const user = users.find(u => u.id === userId);
-    if (user) {
-      if (!user.enrolledCourses) {
-        user.enrolledCourses = [];
-      }
-      if (!user.enrolledCourses.includes(courseId)) {
-        user.enrolledCourses.push(courseId);
-        return true;
-      }
+class MockDataService {
+  private users: User[] = [
+    {
+      id: 'user1',
+      name: 'John Doe',
+      email: 'john.doe@ic.tech',
+      role: 'student',
+      avatar: 'https://api.dicebear.com/6.x/avataaars/svg?seed=John',
+      bio: 'Passionate learner with interests in data science and machine learning.',
+      enrolledCourses: ['course1', 'course3', 'course5']
+    },
+    {
+      id: 'user2',
+      name: 'Jane Smith',
+      email: 'jane.smith@ic.tech',
+      role: 'instructor',
+      avatar: 'https://api.dicebear.com/6.x/avataaars/svg?seed=Jane',
+      bio: 'Experienced data scientist with 10+ years in the field. Passionate about teaching and helping others grow.',
+      createdCourses: ['course1', 'course2']
+    },
+    {
+      id: 'user3',
+      name: 'Admin User',
+      email: 'admin@ic.tech',
+      role: 'admin',
+      avatar: 'https://api.dicebear.com/6.x/avataaars/svg?seed=Admin',
+      bio: 'Platform administrator',
     }
-    return false;
-  },
-  
-  // Progress tracking
-  updateLessonStatus: (userId: string, lessonId: string, isCompleted: boolean) => {
-    // This would update the completion status in a real app
-    return true;
-  },
-  
-  // Assignment submission
-  submitAssignment: (userId: string, assignmentId: string, content: string, attachments: string[]) => {
-    // This would create a submission in a real app
-    return {
-      id: `submission-${Date.now()}`,
-      userId,
-      assignmentId,
-      content,
-      attachmentUrls: attachments,
-      submittedAt: new Date().toISOString(),
-    };
+  ];
+
+  private courses: Course[] = [
+    {
+      id: 'course1',
+      title: 'Introduction to Data Science',
+      description: 'Learn the fundamentals of data science, including data analysis, visualization, and basic machine learning concepts.',
+      instructor: this.users[1],
+      thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2000',
+      enrollmentCount: 1248,
+      rating: 4.7,
+      modules: [],
+      category: 'Data Science',
+      tags: ['Python', 'Data Analysis', 'Statistics'],
+      duration: '8 weeks',
+      level: 'Beginner',
+      enrollmentStatus: 'Open',
+      createdAt: '2023-01-15T00:00:00Z',
+      updatedAt: '2023-03-20T00:00:00Z'
+    },
+    {
+      id: 'course2',
+      title: 'Advanced Machine Learning',
+      description: 'Dive deep into machine learning algorithms, neural networks, and practical implementations using TensorFlow and PyTorch.',
+      instructor: this.users[1],
+      thumbnail: 'https://images.unsplash.com/photo-1620712943543-bcc4688e7485?auto=format&fit=crop&q=80&w=2000',
+      enrollmentCount: 856,
+      rating: 4.8,
+      modules: [],
+      category: 'Machine Learning & Artificial Intelligence',
+      tags: ['Deep Learning', 'TensorFlow', 'PyTorch'],
+      duration: '10 weeks',
+      level: 'Advanced',
+      enrollmentStatus: 'Open',
+      createdAt: '2023-02-10T00:00:00Z',
+      updatedAt: '2023-04-05T00:00:00Z'
+    },
+    {
+      id: 'course3',
+      title: 'Data Engineering Fundamentals',
+      description: 'Learn about data pipelines, ETL processes, data warehousing, and working with big data technologies.',
+      instructor: this.users[1],
+      thumbnail: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&q=80&w=2000',
+      enrollmentCount: 723,
+      rating: 4.5,
+      modules: [],
+      category: 'Data Engineering',
+      tags: ['SQL', 'ETL', 'Big Data'],
+      duration: '6 weeks',
+      level: 'Intermediate',
+      enrollmentStatus: 'Open',
+      createdAt: '2023-03-05T00:00:00Z',
+      updatedAt: '2023-04-20T00:00:00Z'
+    },
+    {
+      id: 'course4',
+      title: 'Business Intelligence with Power BI',
+      description: 'Master data visualization and reporting using Microsoft Power BI to create impactful business dashboards.',
+      instructor: this.users[1],
+      thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2000',
+      enrollmentCount: 934,
+      rating: 4.6,
+      modules: [],
+      category: 'Analytics & Business Intelligence',
+      tags: ['Power BI', 'Data Visualization', 'Dashboards'],
+      duration: '4 weeks',
+      level: 'Beginner',
+      enrollmentStatus: 'Open',
+      createdAt: '2023-04-10T00:00:00Z',
+      updatedAt: '2023-05-15T00:00:00Z'
+    },
+    {
+      id: 'course5',
+      title: 'Natural Language Processing',
+      description: 'Explore NLP techniques and applications, including text classification, sentiment analysis, and language generation.',
+      instructor: this.users[1],
+      thumbnail: 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&q=80&w=2000',
+      enrollmentCount: 612,
+      rating: 4.9,
+      modules: [],
+      category: 'Machine Learning & Artificial Intelligence',
+      tags: ['NLP', 'BERT', 'Transformers'],
+      duration: '8 weeks',
+      level: 'Advanced',
+      enrollmentStatus: 'Open',
+      createdAt: '2023-05-20T00:00:00Z',
+      updatedAt: '2023-06-25T00:00:00Z'
+    },
+    {
+      id: 'course6',
+      title: 'Data Visualization with Tableau',
+      description: 'Learn to create powerful, interactive visualizations and dashboards using Tableau.',
+      instructor: this.users[1],
+      thumbnail: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=2000',
+      enrollmentCount: 745,
+      rating: 4.6,
+      modules: [],
+      category: 'Analytics & Business Intelligence',
+      tags: ['Tableau', 'Data Visualization', 'Dashboards'],
+      duration: '6 weeks',
+      level: 'Intermediate',
+      enrollmentStatus: 'Open',
+      createdAt: '2023-01-15T00:00:00Z',
+      updatedAt: '2023-02-20T00:00:00Z'
+    }
+  ];
+
+  private modules: Module[] = [
+    {
+      id: 'module1',
+      title: 'Introduction to Data Science',
+      description: 'Learn the basics of data science',
+      week: 1,
+      lessons: [],
+      assignments: [],
+      quizzes: [],
+      completionStatus: 0
+    },
+    {
+      id: 'module2',
+      title: 'Advanced Machine Learning',
+      description: 'Dive deep into machine learning algorithms',
+      week: 2,
+      lessons: [],
+      assignments: [],
+      quizzes: [],
+      completionStatus: 0
+    }
+  ];
+
+  private lessons: Lesson[] = [
+    {
+      id: 'lesson1',
+      title: 'What is Data Science?',
+      description: 'An overview of data science',
+      content: '<h1>What is Data Science?</h1><p>Data science is the study of data</p>',
+      duration: '1 hour',
+      isCompleted: false
+    },
+    {
+      id: 'lesson2',
+      title: 'Machine Learning Basics',
+      description: 'Learn the basics of machine learning',
+      content: '<h1>Machine Learning Basics</h1><p>Machine learning is the study of algorithms</p>',
+      duration: '1 hour',
+      isCompleted: false
+    }
+  ];
+
+  private assignments: Assignment[] = [
+    {
+      id: 'assignment1',
+      title: 'Data Science Assignment',
+      description: 'Complete the data science assignment',
+      dueDate: '2023-12-31',
+      points: 100,
+      status: 'Not Started'
+    },
+    {
+      id: 'assignment2',
+      title: 'Machine Learning Assignment',
+      description: 'Complete the machine learning assignment',
+      dueDate: '2023-12-31',
+      points: 100,
+      status: 'Not Started'
+    }
+  ];
+
+  private quizzes: Quiz[] = [
+    {
+      id: 'quiz1',
+      title: 'Data Science Quiz',
+      description: 'Test your knowledge of data science',
+      questions: [],
+      dueDate: '2023-12-31',
+      status: 'Not Started'
+    },
+    {
+      id: 'quiz2',
+      title: 'Machine Learning Quiz',
+      description: 'Test your knowledge of machine learning',
+      questions: [],
+      dueDate: '2023-12-31',
+      status: 'Not Started'
+    }
+  ];
+
+  getAllUsers(): User[] {
+    return this.users;
   }
-};
+
+  getUserById(id: string): User | undefined {
+    return this.users.find(user => user.id === id);
+  }
+
+  getAllCourses(): Course[] {
+    return this.courses;
+  }
+
+  getCourseById(id: string): Course | undefined {
+    return this.courses.find(course => course.id === id);
+  }
+
+  getCoursesByCategory(category: string): Course[] {
+    return this.courses.filter(course => course.category === category);
+  }
+
+  getAllModules(): Module[] {
+    return this.modules;
+  }
+
+  getModuleById(id: string): Module | undefined {
+    return this.modules.find(module => module.id === id);
+  }
+
+  getAllLessons(): Lesson[] {
+    return this.lessons;
+  }
+
+  getLessonById(id: string): Lesson | undefined {
+    return this.lessons.find(lesson => lesson.id === id);
+  }
+
+  getAllAssignments(): Assignment[] {
+    return this.assignments;
+  }
+
+  getAssignmentById(id: string): Assignment | undefined {
+    return this.assignments.find(assignment => assignment.id === id);
+  }
+
+  getAllQuizzes(): Quiz[] {
+    return this.quizzes;
+  }
+
+  getQuizById(id: string): Quiz | undefined {
+    return this.quizzes.find(quiz => quiz.id === id);
+  }
+
+  // Update any additional methods as needed for the integration
+}
+
+export const mockService = new MockDataService();
