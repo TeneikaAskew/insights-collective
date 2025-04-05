@@ -19,7 +19,7 @@ type Message = {
 const INITIAL_MESSAGES: Message[] = [
   {
     id: '1',
-    content: 'Hi there! I'm the IC Assistant. I can help with questions about our courses, resources, events, or data career advice. What would you like to know?',
+    content: "Hi there! I'm the IC Assistant. I can help with questions about our courses, resources, events, or data career advice. What would you like to know?",
     role: 'assistant',
     timestamp: new Date(),
   },
