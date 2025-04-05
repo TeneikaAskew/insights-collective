@@ -98,6 +98,31 @@ const additionalResources = [
   },
 ];
 
+// Define mock tweets
+const mockTweets = [
+  {
+    id: '1',
+    content: 'Just released our updated Data Science curriculum! New modules on deep learning and reinforcement learning now available. #DataScience #AI',
+    date: '2025-04-01T10:15:00Z',
+    likes: 156,
+    retweets: 42,
+  },
+  {
+    id: '2',
+    content: 'Registration for our summer data science bootcamp is now open! Limited spots available. Apply today! #DataBootcamp #SummerLearning',
+    date: '2025-03-28T14:30:00Z',
+    likes: 98,
+    retweets: 35,
+  },
+  {
+    id: '3',
+    content: 'Check out our latest blog post: "10 Essential Skills for Data Scientists in 2025" - featuring insights from industry leaders. #CareerAdvice #DataScience',
+    date: '2025-03-26T09:45:00Z',
+    likes: 124,
+    retweets: 51,
+  },
+];
+
 // Add more mock tweets
 const additionalTweets = [
   {
