@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { CareerTrack, QuizQuestion, quizQuestions, getSkillLevel, getTrackPersona, getCourseRecommendations } from '@/data/careerQuizData';
-import { ArrowLeft, ArrowRight, BarChart2, Brain, Database, PresentationChart } from 'lucide-react';
+import { ArrowLeft, ArrowRight, BarChart2, Brain, Database, Presentation } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
