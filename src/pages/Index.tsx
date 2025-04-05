@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowRight, BookOpen, GraduationCap, Award, Layers } from 'lucide-react';
 import { mockService } from '@/lib/mockData';
+import QuizSection from '@/components/quiz/QuizSection';
 
 const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
@@ -30,6 +31,9 @@ const Index = () => {
           </div>
         </div>
       </section>
+      
+      {/* Career Quiz Section */}
+      <QuizSection />
       
       {/* Features Section */}
       <section className="py-16 bg-background">
