@@ -17,6 +17,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import Resources from "./pages/Resources";
 import NotFound from "./pages/NotFound";
 import Calendar from "./pages/Calendar";
+import DataBlueprintSeries from "./pages/DataBlueprintSeries";
 
 const queryClient = new QueryClient();
 
@@ -36,6 +37,7 @@ const App = () => (
             <Route path="/courses/:courseId" element={<CourseDetail />} />
             <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
             <Route path="/resources" element={<Resources />} />
+            <Route path="/resources/data-blueprint" element={<DataBlueprintSeries />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/admin" element={<AdminDashboard />} />
