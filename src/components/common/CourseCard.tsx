@@ -9,9 +9,10 @@ import EnrollmentBadge from "@/components/course/EnrollmentBadge";
 
 interface CourseCardProps {
   course: Course;
+  progress?: number;
 }
 
-const CourseCard = ({ course }: CourseCardProps) => {
+const CourseCard = ({ course, progress }: CourseCardProps) => {
   const { user } = useAuth();
   const isEnrolled = user?.enrolledCourses?.includes(course.id);
   
@@ -28,6 +29,17 @@ const CourseCard = ({ course }: CourseCardProps) => {
             <Badge variant="secondary">{course.level}</Badge>
             <Badge>{course.category}</Badge>
           </div>
+          {progress !== undefined && progress > 0 && (
+            <div className="absolute bottom-0 left-0 right-0 bg-background/80 px-3 py-1">
+              <div className="w-full bg-muted rounded-full h-2">
+                <div 
+                  className="bg-primary h-2 rounded-full" 
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+              <div className="text-xs text-right mt-1">{progress}% complete</div>
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="p-4 flex-grow">

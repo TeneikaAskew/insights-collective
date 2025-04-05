@@ -6,10 +6,10 @@ import { Link } from 'react-router-dom';
 
 interface NotificationItemProps {
   notification: Notification;
-  onRead?: (id: string) => void;
+  onMarkAsRead?: (id: string) => void;
 }
 
-const NotificationItem = ({ notification, onRead }: NotificationItemProps) => {
+const NotificationItem = ({ notification, onMarkAsRead }: NotificationItemProps) => {
   const formattedDate = new Date(notification.createdAt).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
@@ -33,8 +33,8 @@ const NotificationItem = ({ notification, onRead }: NotificationItemProps) => {
   };
   
   const handleClick = () => {
-    if (!notification.isRead && onRead) {
-      onRead(notification.id);
+    if (!notification.isRead && onMarkAsRead) {
+      onMarkAsRead(notification.id);
     }
   };
   

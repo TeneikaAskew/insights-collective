@@ -85,15 +85,13 @@ const CalendarPage = () => {
     })
     .sort((a, b) => a.date.getTime() - b.date.getTime());
   
-  // Function to get date with events
-  const getDatesWithEvents = (date: Date) => {
-    const hasEvent = mockEvents.some(event => 
+  // Function to get date with events - corrected to return boolean
+  const getDatesWithEvents = (date: Date): boolean => {
+    return mockEvents.some(event => 
       event.date.getDate() === date.getDate() &&
       event.date.getMonth() === date.getMonth() &&
       event.date.getFullYear() === date.getFullYear()
     );
-    
-    return hasEvent ? 'bg-primary/20 rounded-full' : undefined;
   };
   
   return (
@@ -144,6 +142,9 @@ const CalendarPage = () => {
                   className="w-full"
                   modifiers={{
                     hasEvent: getDatesWithEvents
+                  }}
+                  modifiersClassNames={{
+                    hasEvent: "bg-primary/20 rounded-full"
                   }}
                 />
               </CardContent>
