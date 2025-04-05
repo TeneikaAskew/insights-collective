@@ -95,7 +95,7 @@ const AppSidebar = () => {
             <SidebarMenu>
               {studentMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild active={item.active}>
+                  <SidebarMenuButton asChild isActive={item.active}>
                     <Link to={item.url}>
                       <item.icon className="h-5 w-5" />
                       <span>{item.title}</span>
@@ -113,7 +113,7 @@ const AppSidebar = () => {
             <SidebarMenu>
               {adminMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild active={item.active}>
+                  <SidebarMenuButton asChild isActive={item.active}>
                     <Link to={item.url}>
                       <item.icon className="h-5 w-5" />
                       <span>{item.title}</span>

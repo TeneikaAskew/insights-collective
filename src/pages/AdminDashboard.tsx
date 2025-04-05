@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,7 +29,11 @@ const AdminDashboard = () => {
   if (!user || user.role !== 'admin') return null;
   
   const allCourses = mockService.getAllCourses();
-  const allUsers = mockService.users;
+  const allUsers = [
+    mockService.getUserById('1'),
+    mockService.getUserById('2'),
+    mockService.getUserById('3')
+  ];
   
   return (
     <AppLayout>
