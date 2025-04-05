@@ -14,7 +14,7 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-6">
-              Welcome to LearnFlow Campus
+              Welcome to Insights Collective
             </h1>
             <p className="text-xl mb-8">
               A modern e-learning platform designed to help you achieve your educational goals
@@ -34,7 +34,7 @@ const Index = () => {
       {/* Features Section */}
       <section className="py-16 bg-background">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose LearnFlow Campus?</h2>
+          <h2 className="text-3xl font-bold text-center mb-12">Why Choose Insights Collective?</h2>
           
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card shadow-sm">
@@ -123,7 +123,7 @@ const Index = () => {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Ready to Start Learning?</h2>
           <p className="text-xl max-w-2xl mx-auto mb-8">
-            Join thousands of students already learning on LearnFlow Campus. Sign up today and take the first step towards your educational goals.
+            Join thousands of students already learning on Insights Collective. Sign up today and take the first step towards your educational goals.
           </p>
           <Button size="lg" variant="secondary" asChild>
             <Link to="/register">Create Free Account</Link>
@@ -134,37 +134,59 @@ const Index = () => {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-12">
         <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid md:grid-cols-4 gap-8">
             <div>
               <h3 className="text-xl font-bold mb-4 flex items-center">
                 <GraduationCap className="mr-2 h-6 w-6" />
-                LearnFlow Campus
+                Insights Collective
               </h3>
               <p className="text-gray-400">
                 A modern e-learning platform designed to help you achieve your educational goals
               </p>
+              <address className="text-gray-400 not-italic mt-4">
+                <p>Email: info@ic.tech</p>
+                <p>Phone: (123) 456-7890</p>
+              </address>
             </div>
             
             <div>
               <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2">
                 <li><Link to="/courses" className="text-gray-400 hover:text-white">Courses</Link></li>
+                <li><Link to="/resources" className="text-gray-400 hover:text-white">Resources</Link></li>
                 <li><Link to="/register" className="text-gray-400 hover:text-white">Sign Up</Link></li>
                 <li><Link to="/login" className="text-gray-400 hover:text-white">Sign In</Link></li>
               </ul>
             </div>
             
             <div>
-              <h4 className="text-lg font-semibold mb-4">Contact Us</h4>
-              <address className="text-gray-400 not-italic">
-                <p>Email: info@learnflow.com</p>
-                <p>Phone: (123) 456-7890</p>
-              </address>
+              <h4 className="text-lg font-semibold mb-4">Course Categories</h4>
+              <ul className="space-y-2">
+                <li><Link to="/courses?category=data-science" className="text-gray-400 hover:text-white">Data Science</Link></li>
+                <li><Link to="/courses?category=analytics" className="text-gray-400 hover:text-white">Analytics</Link></li>
+                <li><Link to="/courses?category=data-engineering" className="text-gray-400 hover:text-white">Data Engineering</Link></li>
+                <li><Link to="/courses?category=machine-learning" className="text-gray-400 hover:text-white">Machine Learning & AI</Link></li>
+              </ul>
+            </div>
+            
+            <div>
+              <h4 className="text-lg font-semibold mb-4">Follow Us</h4>
+              <div className="flex space-x-4">
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-twitter"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path></svg>
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-linkedin"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect width="4" height="12" x="2" y="9"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-instagram"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line></svg>
+                </a>
+              </div>
             </div>
           </div>
           
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400 text-sm">
-            <p>© {new Date().getFullYear()} LearnFlow Campus. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Insights Collective. All rights reserved.</p>
           </div>
         </div>
       </footer>

@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -30,6 +30,12 @@ const AppSidebar = () => {
       url: "/courses",
       icon: BookOpen,
       active: location.pathname.startsWith('/courses'),
+    },
+    {
+      title: "Resources",
+      url: "/resources",
+      icon: FileText,
+      active: location.pathname.startsWith('/resources'),
     },
     {
       title: "Calendar",
@@ -71,6 +77,12 @@ const AppSidebar = () => {
       active: location.pathname === '/admin/users',
     },
     {
+      title: "Resources",
+      url: "/admin/resources",
+      icon: FileText,
+      active: location.pathname === '/admin/resources',
+    },
+    {
       title: "Settings",
       url: "/admin/settings",
       icon: Settings,
@@ -83,7 +95,7 @@ const AppSidebar = () => {
       <SidebarHeader>
         <div className="flex items-center space-x-2 px-4 py-3">
           <GraduationCap className="h-6 w-6 text-sidebar-primary" />
-          <span className="font-bold text-lg">LearnFlow</span>
+          <span className="font-bold text-lg">Insights Collective</span>
         </div>
         <SidebarTrigger />
       </SidebarHeader>
@@ -129,7 +141,7 @@ const AppSidebar = () => {
       <SidebarFooter>
         <div className="px-3 py-2">
           <div className="text-xs text-muted-foreground">
-            <p>LearnFlow Campus v1.0</p>
+            <p>Insights Collective v1.0</p>
           </div>
         </div>
       </SidebarFooter>

@@ -19,7 +19,7 @@ const AppLayout = ({ children }: AppLayoutProps) => {
             {children}
           </main>
           <footer className="p-4 text-center text-sm text-muted-foreground border-t">
-            <p>© {new Date().getFullYear()} LearnFlow Campus. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} Insights Collective. All rights reserved.</p>
           </footer>
         </div>
       </div>
