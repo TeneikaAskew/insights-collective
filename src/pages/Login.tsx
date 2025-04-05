@@ -24,7 +24,7 @@ const Login = () => {
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center text-2xl font-bold text-primary">
             <GraduationCap className="h-8 w-8 mr-2" />
-            LearnFlow Campus
+            Insights Collective
           </Link>
         </div>
         
@@ -43,7 +43,7 @@ const Login = () => {
                 <Input
                   id="email"
                   type="email"
-                  placeholder="your.email@example.com"
+                  placeholder="your.email@ic.tech"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -76,9 +76,9 @@ const Login = () => {
               <div className="text-sm text-muted-foreground">
                 <p>Demo Accounts:</p>
                 <ul className="list-disc list-inside mt-1">
-                  <li>Student: john.doe@example.com / password</li>
-                  <li>Instructor: jane.smith@example.com / password</li>
-                  <li>Admin: admin@learnflow.com / password</li>
+                  <li>Student: john.doe@ic.tech / password</li>
+                  <li>Instructor: jane.smith@ic.tech / password</li>
+                  <li>Admin: admin@ic.tech / password</li>
                 </ul>
               </div>
             </CardContent>

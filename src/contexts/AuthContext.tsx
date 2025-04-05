@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User } from '@/types';
@@ -45,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // In a real app, this would make an API call to authenticate
       // For demo purposes, we're using hardcoded credentials
-      if (email === 'john.doe@example.com' && password === 'password') {
+      if (email === 'john.doe@ic.tech' && password === 'password') {
         const user = mockService.getUserById('user1');
         if (user) {
           setUser(user);
@@ -59,7 +58,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           throw new Error('User not found');
         }
-      } else if (email === 'jane.smith@example.com' && password === 'password') {
+      } else if (email === 'jane.smith@ic.tech' && password === 'password') {
         const user = mockService.getUserById('user2');
         if (user) {
           setUser(user);
@@ -73,7 +72,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           throw new Error('User not found');
         }
-      } else if (email === 'admin@learnflow.com' && password === 'password') {
+      } else if (email === 'admin@ic.tech' && password === 'password') {
         const user = mockService.getUserById('user3');
         if (user) {
           setUser(user);
