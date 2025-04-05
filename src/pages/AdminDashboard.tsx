@@ -1,6 +1,6 @@
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
