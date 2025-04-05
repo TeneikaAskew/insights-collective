@@ -30,10 +30,10 @@ const AdminDashboard = () => {
   
   const allCourses = mockService.getAllCourses();
   const allUsers = [
-    mockService.getUserById('1'),
-    mockService.getUserById('2'),
-    mockService.getUserById('3')
-  ];
+    mockService.getUserById('user1'),
+    mockService.getUserById('user2'),
+    mockService.getUserById('user3')
+  ].filter(Boolean);
   
   return (
     <AppLayout>
@@ -133,48 +133,56 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={allUsers[0].avatar} />
-                    <AvatarFallback>{allUsers[0].name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm"><span className="font-medium">{allUsers[0].name}</span> enrolled in <span className="font-medium">{allCourses[0].title}</span></p>
-                    <p className="text-xs text-muted-foreground">2 hours ago</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={allUsers[1].avatar} />
-                    <AvatarFallback>{allUsers[1].name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm"><span className="font-medium">{allUsers[1].name}</span> created a new course <span className="font-medium">{allCourses[2].title}</span></p>
-                    <p className="text-xs text-muted-foreground">5 hours ago</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src={allUsers[0].avatar} />
-                    <AvatarFallback>{allUsers[0].name.charAt(0)}</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm"><span className="font-medium">{allUsers[0].name}</span> completed a module in <span className="font-medium">{allCourses[1].title}</span></p>
-                    <p className="text-xs text-muted-foreground">Yesterday</p>
-                  </div>
-                </div>
-                
-                <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback>A</AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1">
-                    <p className="text-sm"><span className="font-medium">Admin User</span> issued a certificate to <span className="font-medium">{allUsers[0].name}</span></p>
-                    <p className="text-xs text-muted-foreground">2 days ago</p>
-                  </div>
-                </div>
+                {allUsers.length > 0 && allCourses.length > 0 && (
+                  <>
+                    <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage src={allUsers[0]?.avatar} />
+                        <AvatarFallback>{allUsers[0]?.name?.charAt(0) || 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="text-sm"><span className="font-medium">{allUsers[0]?.name || 'User'}</span> enrolled in <span className="font-medium">{allCourses[0]?.title || 'Course'}</span></p>
+                        <p className="text-xs text-muted-foreground">2 hours ago</p>
+                      </div>
+                    </div>
+                    
+                    {allUsers.length > 1 && (
+                      <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={allUsers[1]?.avatar} />
+                          <AvatarFallback>{allUsers[1]?.name?.charAt(0) || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm"><span className="font-medium">{allUsers[1]?.name || 'User'}</span> created a new course <span className="font-medium">{allCourses.length > 2 ? allCourses[2]?.title : allCourses[0]?.title || 'Course'}</span></p>
+                          <p className="text-xs text-muted-foreground">5 hours ago</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {allUsers.length > 0 && allCourses.length > 1 && (
+                      <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={allUsers[0]?.avatar} />
+                          <AvatarFallback>{allUsers[0]?.name?.charAt(0) || 'U'}</AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="text-sm"><span className="font-medium">{allUsers[0]?.name || 'User'}</span> completed a module in <span className="font-medium">{allCourses[1]?.title || 'Course'}</span></p>
+                          <p className="text-xs text-muted-foreground">Yesterday</p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex items-start gap-4 p-3 rounded-lg hover:bg-secondary">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>A</AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="text-sm"><span className="font-medium">Admin User</span> issued a certificate to <span className="font-medium">{allUsers[0]?.name || 'User'}</span></p>
+                        <p className="text-xs text-muted-foreground">2 days ago</p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
