@@ -18,6 +18,7 @@ import Resources from "./pages/Resources";
 import NotFound from "./pages/NotFound";
 import Calendar from "./pages/Calendar";
 import DataBlueprintSeries from "./pages/DataBlueprintSeries";
+import ChatBot from "./components/chat/ChatBot";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,7 @@ const App = () => (
             <Route path="/admin/settings" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <ChatBot />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

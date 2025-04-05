@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -8,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, ExternalLink, Calendar, Twitter } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import LoginWall from '@/components/common/LoginWall';
 
 // Mock resource data
 const mockResources = [
@@ -53,30 +54,82 @@ const mockResources = [
   },
 ];
 
-// Mock tweets
-const mockTweets = [
+// Add more mock resources to demonstrate login wall
+const additionalResources = [
   {
-    id: '1',
-    content: 'Excited to announce our new Data Science course! Join us to learn the fundamentals of data analysis, machine learning, and more. #DataScience #Learning',
-    date: '2025-04-02T14:30:00Z',
-    likes: 124,
-    retweets: 45,
+    id: '6',
+    name: 'Advanced Python for Data Scientists',
+    description: 'Masterclass on Python optimization, parallel processing, and advanced data structures for handling large-scale datasets.',
+    category: 'training',
+    link: 'https://example.com/advanced-python',
+    deadline: '2025-07-15',
   },
   {
-    id: '2',
-    content: 'Just published a new guide on advanced ML techniques. Check it out on our resources page! #MachineLearning #AI',
-    date: '2025-04-01T10:15:00Z',
-    likes: 87,
-    retweets: 32,
+    id: '7',
+    name: 'Data Science Grant Application',
+    description: 'Apply for funding to research novel machine learning approaches to climate prediction models.',
+    category: 'opportunity',
+    link: 'https://example.com/ds-grant',
+    deadline: '2025-05-20',
   },
   {
-    id: '3',
-    content: 'Registration for our summer analytics bootcamp is now open! Limited spots available. #Analytics #DataSkills',
-    date: '2025-03-28T09:45:00Z',
-    likes: 156,
-    retweets: 67,
+    id: '8',
+    name: 'Natural Language Processing Workshop',
+    description: 'Hands-on workshop on transformer models, sequence-to-sequence learning, and production NLP systems.',
+    category: 'event',
+    link: 'https://example.com/nlp-workshop',
+    deadline: '2025-06-01',
+  },
+  {
+    id: '9',
+    name: 'Data Visualization Best Practices',
+    description: 'Learn how to create compelling, informative visualizations that effectively communicate insights.',
+    category: 'training',
+    link: 'https://example.com/data-viz',
+    deadline: null,
+  },
+  {
+    id: '10',
+    name: 'MLOps Conference 2025',
+    description: 'Conference dedicated to machine learning operations, monitoring, and deployment strategies.',
+    category: 'event',
+    link: 'https://example.com/mlops-conf',
+    deadline: '2025-07-10',
   },
 ];
+
+// Add more mock tweets
+const additionalTweets = [
+  {
+    id: '4',
+    content: 'Our newest course on GANs and diffusion models is now open for enrollment! Limited spots available. #GenerativeAI #DeepLearning',
+    date: '2025-03-25T11:30:00Z',
+    likes: 203,
+    retweets: 89,
+  },
+  {
+    id: '5',
+    content: 'Excited to announce our partnership with leading tech companies to provide internship opportunities for our top students! #Careers #DataScience',
+    date: '2025-03-22T15:45:00Z',
+    likes: 178,
+    retweets: 56,
+  },
+  {
+    id: '6',
+    content: 'Registration for our annual data hackathon is now open! Join us for 48 hours of innovation, collaboration, and prizes! #Hackathon #DataInnovation',
+    date: '2025-03-20T13:20:00Z',
+    likes: 145,
+    retweets: 78,
+  },
+];
+
+// Combine the mock data
+const allResources = [...mockResources, ...additionalResources];
+const allTweets = [...mockTweets, ...additionalTweets];
+
+// Visible items count for non-authenticated users
+const VISIBLE_RESOURCES = 5;
+const VISIBLE_TWEETS = 3;
 
 type ResourceProps = {
   id: string;
@@ -172,9 +225,10 @@ const TweetCard = ({ tweet }: { tweet: any }) => {
 };
 
 const Resources = () => {
-  const [resources, setResources] = useState<ResourceProps[]>(mockResources);
+  const [resources, setResources] = useState<ResourceProps[]>(allResources);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const { isAuthenticated } = useAuth();
   
   const filteredResources = resources.filter((resource) => {
     const matchesSearch = resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -184,6 +238,10 @@ const Resources = () => {
     
     return matchesSearch && matchesCategory;
   });
+  
+  // Define which resources and tweets should be visible based on authentication
+  const visibleResources = isAuthenticated ? filteredResources : filteredResources.slice(0, VISIBLE_RESOURCES);
+  const visibleTweets = isAuthenticated ? allTweets : allTweets.slice(0, VISIBLE_TWEETS);
   
   return (
     <AppLayout>
@@ -226,13 +284,23 @@ const Resources = () => {
               </Select>
             </div>
             
-            {filteredResources.length > 0 ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {filteredResources.map((resource) => (
-                  <ResourceCard key={resource.id} resource={resource} />
-                ))}
-              </div>
-            ) : (
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {visibleResources.map((resource) => (
+                <ResourceCard key={resource.id} resource={resource} />
+              ))}
+              
+              {!isAuthenticated && filteredResources.length > VISIBLE_RESOURCES && (
+                <div className="md:col-span-2 lg:col-span-3">
+                  <LoginWall 
+                    message="Unlock all 40+ curated resources — log in or create an account to continue exploring." 
+                    visibleItems={VISIBLE_RESOURCES}
+                    totalItems={filteredResources.length}
+                  />
+                </div>
+              )}
+            </div>
+            
+            {visibleResources.length === 0 && (
               <div className="text-center py-12">
                 <h3 className="text-xl font-medium mb-2">No resources found</h3>
                 <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
@@ -243,9 +311,19 @@ const Resources = () => {
           <TabsContent value="tweets" className="space-y-6">
             <div className="max-w-3xl mx-auto">
               <div className="space-y-4">
-                {mockTweets.map((tweet) => (
+                {visibleTweets.map((tweet) => (
                   <TweetCard key={tweet.id} tweet={tweet} />
                 ))}
+                
+                {!isAuthenticated && allTweets.length > VISIBLE_TWEETS && (
+                  <div className="relative mt-8">
+                    <LoginWall 
+                      message="Sign in to view more curated insights from the IC community." 
+                      visibleItems={VISIBLE_TWEETS}
+                      totalItems={allTweets.length}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </TabsContent>
