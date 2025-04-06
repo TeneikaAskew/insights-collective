@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   name: string;
@@ -26,6 +25,8 @@ export interface Course {
   enrollmentStatus: 'Open' | 'Closed' | 'In Progress';
   createdAt: string;
   updatedAt: string;
+  prerequisites?: string[];
+  objectives?: string[];
 }
 
 export interface Module {

@@ -32,7 +32,7 @@ const featuredCourses: Course[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     prerequisites: [],
-    objectives: [],
+    objectives: []
   },
   {
     id: '2',
@@ -57,7 +57,7 @@ const featuredCourses: Course[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     prerequisites: [],
-    objectives: [],
+    objectives: []
   },
   {
     id: '3',
@@ -82,7 +82,7 @@ const featuredCourses: Course[] = [
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     prerequisites: [],
-    objectives: [],
+    objectives: []
   },
 ];
 
