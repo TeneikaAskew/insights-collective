@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ChevronRight } from 'lucide-react';
 import { DataCareerRole } from '@/data/dataCareerRoles';
-import { Dialog, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { CareerRoleDetails } from './CareerRoleDetails';
 
 interface RoleCardProps {
@@ -43,7 +43,17 @@ export const RoleCard: React.FC<RoleCardProps> = ({ role }) => {
               Explore Role <ChevronRight className="h-4 w-4" />
             </Button>
           </DialogTrigger>
-          <CareerRoleDetails role={role} />
+          <DialogClose className="hidden" id={`dialog-close-${role.id}`} />
+          <CareerRoleDetails 
+            role={role} 
+            onClose={() => {
+              // Find and click the DialogClose button to close the dialog
+              const closeButton = document.getElementById(`dialog-close-${role.id}`);
+              if (closeButton) {
+                (closeButton as HTMLButtonElement).click();
+              }
+            }} 
+          />
         </Dialog>
       </CardFooter>
     </Card>
