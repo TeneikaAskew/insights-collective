@@ -14,6 +14,7 @@ import CourseDetail from "./pages/CourseDetail";
 import ModuleDetail from "./pages/ModuleDetail";
 import Profile from "./pages/Profile";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminUsers from "./pages/AdminUsers";
 import Resources from "./pages/Resources";
 import Events from "./pages/Events";
 import AdminResources from "./pages/AdminResources";
@@ -49,7 +50,7 @@ const App = () => (
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/courses" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<AdminDashboard />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
             <Route path="/admin/resources" element={<AdminResources />} />
             <Route path="/admin/events" element={<AdminEvents />} />
             <Route path="/admin/settings" element={<AdminDashboard />} />

@@ -59,7 +59,7 @@ export const AdminDashboardMetrics = () => {
         value="1,245"
         description="Current course enrollments"
         icon={<BarChart2 className="h-4 w-4 text-primary" />}
-        linkTo="/admin/users"
+        linkTo="/admin/users?tab=enrollments"
         linkText="View enrollments"
       />
       <MetricCard
@@ -67,7 +67,7 @@ export const AdminDashboardMetrics = () => {
         value="857"
         description="Completion certificates"
         icon={<Award className="h-4 w-4 text-primary" />}
-        linkTo="/admin/users"
+        linkTo="/admin/users?tab=certificates"
         linkText="View certificates"
       />
     </div>

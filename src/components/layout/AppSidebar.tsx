@@ -39,6 +39,13 @@ const AppSidebar = () => {
       url: "/resources",
       icon: FileText,
       active: location.pathname.startsWith('/resources') && !location.pathname.includes('/admin/resources'),
+      subItems: [
+        {
+          title: "Data Blueprint",
+          url: "/resources/data-blueprint",
+          active: location.pathname === '/resources/data-blueprint',
+        }
+      ]
     },
     {
       title: "Explore Data Careers",
@@ -77,32 +84,32 @@ const AppSidebar = () => {
       title: "Manage Courses",
       url: "/admin/courses",
       icon: GraduationCap,
-      active: location.pathname === '/admin/courses',
+      active: location.pathname.startsWith('/admin/courses'),
     },
     {
       title: "Manage Users",
       url: "/admin/users",
       icon: Users,
-      active: location.pathname === '/admin/users',
+      active: location.pathname.startsWith('/admin/users'),
     },
     {
       title: "Resources",
       url: "/admin/resources",
       icon: FileText,
-      active: location.pathname === '/admin/resources',
+      active: location.pathname.startsWith('/admin/resources'),
     },
     {
       title: "Settings",
       url: "/admin/settings",
       icon: Settings,
-      active: location.pathname === '/admin/settings',
+      active: location.pathname.startsWith('/admin/settings'),
     },
   ];
 
   const isAdmin = user?.role === 'admin';
 
   return (
-    <Sidebar>
+    <Sidebar variant="floating">
       <SidebarHeader>
         <div className="flex items-center space-x-2 px-4 py-3">
           <GraduationCap className="h-6 w-6 text-sidebar-primary" />
@@ -124,6 +131,20 @@ const AppSidebar = () => {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
+                  
+                  {item.subItems && item.subItems.length > 0 && (
+                    <SidebarMenu>
+                      {item.subItems.map((subItem) => (
+                        <SidebarMenuItem key={subItem.title}>
+                          <SidebarMenuButton asChild isActive={subItem.active}>
+                            <Link to={subItem.url}>
+                              <span>{subItem.title}</span>
+                            </Link>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      ))}
+                    </SidebarMenu>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

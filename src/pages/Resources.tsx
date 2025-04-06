@@ -1,309 +1,282 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import { SearchIcon, FileIcon, FolderIcon, BookIcon, VideoIcon, LinkIcon, CalendarIcon } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, ExternalLink, Calendar, Twitter, FilterX } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import LoginWall from '@/components/common/LoginWall';
+import { Button } from '@/components/ui/button';
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from '@/components/ui/card';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { AddResourceModal } from '@/components/resources/AddResourceModal';
+import { useAuth } from '@/contexts/AuthContext';
+import { Link } from 'react-router-dom';
 
-// Mock resource data
+// Mock data
 const mockResources = [
   {
     id: '1',
-    name: 'Introduction to Data Science',
-    description: 'A comprehensive beginner guide to data science fundamentals.',
-    category: 'training',
-    link: 'https://example.com/data-science',
-    deadline: '2025-05-30',
+    title: 'Introduction to Data Science',
+    description: 'A comprehensive guide to getting started with data science.',
+    type: 'document',
+    format: 'PDF',
+    category: 'Fundamentals',
+    url: '#',
+    publishDate: '2025-02-15',
+    deadline: '2025-05-15',
+    author: 'Data Science Team',
   },
   {
     id: '2',
-    name: 'Machine Learning Conference 2025',
-    description: 'Annual conference showcasing the latest in ML research and applications.',
-    category: 'event',
-    link: 'https://example.com/ml-conference',
-    deadline: '2025-06-15',
+    title: 'Python for Data Analysis',
+    description: 'Learn how to use Python for effective data analysis.',
+    type: 'video',
+    format: 'MP4',
+    category: 'Programming',
+    url: '#',
+    publishDate: '2025-03-01',
+    deadline: null,
+    author: 'John Smith',
   },
   {
     id: '3',
-    name: 'AI Research Fellowship',
-    description: 'Apply for a 6-month fellowship to work on cutting-edge AI projects.',
-    category: 'opportunity',
-    link: 'https://example.com/ai-fellowship',
-    deadline: '2025-04-30',
+    title: 'SQL Fundamentals Cheat Sheet',
+    description: 'A quick reference guide for SQL syntax and commands.',
+    type: 'document',
+    format: 'PDF',
+    category: 'Databases',
+    url: '#',
+    publishDate: '2025-03-10',
+    deadline: '2025-04-20',
+    author: 'Database Team',
   },
   {
     id: '4',
-    name: 'Data Engineering Bootcamp',
-    description: 'Intensive 8-week program on data engineering best practices.',
-    category: 'training',
-    link: 'https://example.com/data-engineering',
-    deadline: '2025-05-10',
+    title: 'Data Visualization Best Practices',
+    description: 'Learn how to create effective and engaging data visualizations.',
+    type: 'article',
+    format: 'Web',
+    category: 'Visualization',
+    url: '#',
+    publishDate: '2025-03-15',
+    deadline: null,
+    author: 'Jane Doe',
   },
   {
     id: '5',
-    name: 'Analytics Certification Program',
-    description: 'Get certified in advanced analytics techniques and tools.',
-    category: 'program',
-    link: 'https://example.com/analytics-cert',
-    deadline: null,
+    title: 'Machine Learning Model Deployment',
+    description: 'A step-by-step guide to deploying ML models in production.',
+    type: 'video',
+    format: 'MP4',
+    category: 'Machine Learning',
+    url: '#',
+    publishDate: '2025-03-20',
+    deadline: '2025-05-01',
+    author: 'ML Engineering Team',
   },
-];
-
-// Add more mock resources to demonstrate login wall
-const additionalResources = [
   {
     id: '6',
-    name: 'Advanced Python for Data Scientists',
-    description: 'Masterclass on Python optimization, parallel processing, and advanced data structures for handling large-scale datasets.',
-    category: 'training',
-    link: 'https://example.com/advanced-python',
-    deadline: '2025-07-15',
+    title: 'Data Ethics and Privacy',
+    description: 'Understanding the ethical implications of data collection and use.',
+    type: 'course',
+    format: 'Interactive',
+    category: 'Ethics',
+    url: '#',
+    publishDate: '2025-04-01',
+    deadline: null,
+    author: 'Ethics Committee',
   },
   {
     id: '7',
-    name: 'Data Science Grant Application',
-    description: 'Apply for funding to research novel machine learning approaches to climate prediction models.',
-    category: 'opportunity',
-    link: 'https://example.com/ds-grant',
-    deadline: '2025-05-20',
+    title: 'Big Data Technologies Overview',
+    description: 'An introduction to Hadoop, Spark, and other big data tools.',
+    type: 'document',
+    format: 'PDF',
+    category: 'Big Data',
+    url: '#',
+    publishDate: '2025-04-05',
+    deadline: '2025-06-01',
+    author: 'Data Engineering Team',
   },
   {
     id: '8',
-    name: 'Natural Language Processing Workshop',
-    description: 'Hands-on workshop on transformer models, sequence-to-sequence learning, and production NLP systems.',
-    category: 'event',
-    link: 'https://example.com/nlp-workshop',
-    deadline: '2025-06-01',
-  },
-  {
-    id: '9',
-    name: 'Data Visualization Best Practices',
-    description: 'Learn how to create compelling, informative visualizations that effectively communicate insights.',
-    category: 'training',
-    link: 'https://example.com/data-viz',
-    deadline: null,
-  },
-  {
-    id: '10',
-    name: 'MLOps Conference 2025',
-    description: 'Conference dedicated to machine learning operations, monitoring, and deployment strategies.',
-    category: 'event',
-    link: 'https://example.com/mlops-conf',
-    deadline: '2025-07-10',
+    title: 'Natural Language Processing Workshop',
+    description: 'Hands-on workshop for NLP techniques and applications.',
+    type: 'workshop',
+    format: 'Interactive',
+    category: 'NLP',
+    url: '#',
+    publishDate: '2025-04-10',
+    deadline: '2025-05-10',
+    author: 'AI Research Team',
   },
 ];
 
-// Define mock tweets
-const mockTweets = [
-  {
-    id: '1',
-    content: 'Just released our updated Data Science curriculum! New modules on deep learning and reinforcement learning now available. #DataScience #AI',
-    date: '2025-04-01T10:15:00Z',
-    likes: 156,
-    retweets: 42,
-  },
-  {
-    id: '2',
-    content: 'Registration for our summer data science bootcamp is now open! Limited spots available. Apply today! #DataBootcamp #SummerLearning',
-    date: '2025-03-28T14:30:00Z',
-    likes: 98,
-    retweets: 35,
-  },
-  {
-    id: '3',
-    content: 'Check out our latest blog post: "10 Essential Skills for Data Scientists in 2025" - featuring insights from industry leaders. #CareerAdvice #DataScience',
-    date: '2025-03-26T09:45:00Z',
-    likes: 124,
-    retweets: 51,
-  },
-];
-
-// Add more mock tweets
-const additionalTweets = [
-  {
-    id: '4',
-    content: 'Our newest course on GANs and diffusion models is now open for enrollment! Limited spots available. #GenerativeAI #DeepLearning',
-    date: '2025-03-25T11:30:00Z',
-    likes: 203,
-    retweets: 89,
-  },
-  {
-    id: '5',
-    content: 'Excited to announce our partnership with leading tech companies to provide internship opportunities for our top students! #Careers #DataScience',
-    date: '2025-03-22T15:45:00Z',
-    likes: 178,
-    retweets: 56,
-  },
-  {
-    id: '6',
-    content: 'Registration for our annual data hackathon is now open! Join us for 48 hours of innovation, collaboration, and prizes! #Hackathon #DataInnovation',
-    date: '2025-03-20T13:20:00Z',
-    likes: 145,
-    retweets: 78,
-  },
-];
-
-// Combine the mock data
-const allResources = [...mockResources, ...additionalResources];
-const allTweets = [...mockTweets, ...additionalTweets];
-
-// Visible items count for non-authenticated users
-const VISIBLE_RESOURCES = 5;
-const VISIBLE_TWEETS = 3;
-
-type ResourceProps = {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  link: string;
-  deadline: string | null;
+// Resource type to icon mapping
+const resourceTypeIcons = {
+  document: <FileIcon className="h-4 w-4" />,
+  folder: <FolderIcon className="h-4 w-4" />,
+  article: <BookIcon className="h-4 w-4" />,
+  video: <VideoIcon className="h-4 w-4" />,
+  course: <BookIcon className="h-4 w-4" />,
+  link: <LinkIcon className="h-4 w-4" />,
+  workshop: <CalendarIcon className="h-4 w-4" />,
 };
 
-const ResourceCard = ({ resource }: { resource: ResourceProps }) => {
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null;
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-xl">{resource.name}</CardTitle>
-            <CardDescription className="mt-2">{resource.description}</CardDescription>
-          </div>
-          <Badge variant="outline" className="capitalize">
-            {resource.category}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {resource.deadline && (
-          <div className="flex items-center text-sm text-muted-foreground mb-4">
-            <Calendar className="h-4 w-4 mr-2" />
-            <span>Deadline: {formatDate(resource.deadline)}</span>
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" asChild>
-          <a href={resource.link} target="_blank" rel="noopener noreferrer" className="flex items-center">
-            Visit Resource
-            <ExternalLink className="ml-2 h-4 w-4" />
-          </a>
-        </Button>
-      </CardFooter>
-    </Card>
-  );
+// Resource type colors
+const resourceTypeColors = {
+  document: 'bg-blue-100 text-blue-800',
+  folder: 'bg-gray-100 text-gray-800',
+  article: 'bg-green-100 text-green-800',
+  video: 'bg-red-100 text-red-800',
+  course: 'bg-purple-100 text-purple-800',
+  link: 'bg-yellow-100 text-yellow-800',
+  workshop: 'bg-indigo-100 text-indigo-800',
 };
 
-const TweetCard = ({ tweet }: { tweet: any }) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-start gap-4">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Twitter className="h-5 w-5 text-primary" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold">Insights Collective</span>
-              <span className="text-sm text-muted-foreground">@InsightsCol</span>
-              <span className="text-sm text-muted-foreground">·</span>
-              <span className="text-sm text-muted-foreground">{formatDate(tweet.date)}</span>
-            </div>
-            <p className="text-sm mb-4">{tweet.content}</p>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-heart"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
-                <span>{tweet.likes}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-repeat"><path d="m17 2 4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="m7 22-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>
-                <span>{tweet.retweets}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-const Resources = () => {
-  const [resources, setResources] = useState<ResourceProps[]>(allResources);
+const ResourcesPage = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+  
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [deadlineFilter, setDeadlineFilter] = useState<boolean | null>(null);
-  const { isAuthenticated } = useAuth();
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [hasDeadlineFilter, setHasDeadlineFilter] = useState(false);
   
-  const filteredResources = resources.filter((resource) => {
-    const matchesSearch = resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        resource.description.toLowerCase().includes(searchQuery.toLowerCase());
+  // Extract unique categories
+  const categories = ['all', ...new Set(mockResources.map(r => r.category))];
+  
+  // Extract unique types
+  const types = ['all', ...new Set(mockResources.map(r => r.type))];
+  
+  // Filter resources based on search and filters
+  const filteredResources = mockResources.filter(resource => {
+    const matchesSearch = 
+      resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      resource.description.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesCategory = categoryFilter === 'all' || resource.category === categoryFilter;
+    const matchesType = typeFilter === 'all' || resource.type === typeFilter;
+    const matchesDeadline = hasDeadlineFilter ? resource.deadline !== null : true;
     
-    // Added deadline filter
-    const matchesDeadline = 
-      deadlineFilter === null ? true : 
-      deadlineFilter === true ? resource.deadline !== null : 
-      resource.deadline === null;
-    
-    return matchesSearch && matchesCategory && matchesDeadline;
+    return matchesSearch && matchesCategory && matchesType && matchesDeadline;
   });
   
-  // Define which resources and tweets should be visible based on authentication
-  const visibleResources = isAuthenticated ? filteredResources : filteredResources.slice(0, VISIBLE_RESOURCES);
-  const visibleTweets = isAuthenticated ? allTweets : allTweets.slice(0, VISIBLE_TWEETS);
-
-  const clearFilters = () => {
-    setSearchQuery('');
-    setCategoryFilter('all');
-    setDeadlineFilter(null);
+  // Sort resources by publish date (newest first)
+  const sortedResources = [...filteredResources].sort((a, b) => {
+    return new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime();
+  });
+  
+  const handleAddResource = (resourceData) => {
+    console.log('Resource added:', resourceData);
+    // In a real app, this would add the resource to the database
   };
   
   return (
     <AppLayout>
-      <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
-          <p className="text-muted-foreground mt-2">
-            Discover helpful resources, events, and learning opportunities.
-          </p>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
+            <p className="text-muted-foreground mt-2">
+              Access learning materials, templates, and guides to support your data journey.
+            </p>
+          </div>
+          
+          {isAdmin && (
+            <AddResourceModal onAddResource={handleAddResource}>
+              <Button>Add Resource</Button>
+            </AddResourceModal>
+          )}
         </div>
         
-        <Tabs defaultValue="resources" className="space-y-8">
-          <TabsList>
-            <TabsTrigger value="resources">Resource Directory</TabsTrigger>
-            <TabsTrigger value="tweets">Top Tweets</TabsTrigger>
-          </TabsList>
+        <div>
+          <Card className="mb-6">
+            <CardHeader className="pb-3">
+              <CardTitle>Featured Series</CardTitle>
+              <CardDescription>
+                Curated learning pathways for comprehensive skill development
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg">Data Blueprint Series</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Foundational knowledge for aspiring data professionals.
+                    </p>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link to="/resources/data-blueprint">Explore Series</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg">ML Engineering Path</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Advanced resources for machine learning deployment.
+                    </p>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link to="#">Explore Series</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-lg">Data Visualization Mastery</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                      Techniques for creating impactful data stories.
+                    </p>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" className="w-full" asChild>
+                      <Link to="#">Explore Series</Link>
+                    </Button>
+                  </CardFooter>
+                </Card>
+              </div>
+            </CardContent>
+          </Card>
           
-          <TabsContent value="resources" className="space-y-6">
-            <div className="flex flex-col space-y-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Tabs defaultValue="all" className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <TabsList className="md:flex-shrink-0">
+                <TabsTrigger value="all">All Resources</TabsTrigger>
+                <TabsTrigger value="documents">Documents</TabsTrigger>
+                <TabsTrigger value="videos">Videos</TabsTrigger>
+                <TabsTrigger value="interactive">Interactive</TabsTrigger>
+              </TabsList>
+              
+              <div className="flex flex-1 flex-col md:flex-row gap-4">
+                <div className="relative flex-1">
+                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
                     placeholder="Search resources..." 
                     className="pl-10"
@@ -311,114 +284,266 @@ const Resources = () => {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
+                
                 <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                   <SelectTrigger className="w-full md:w-[180px]">
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    <SelectItem value="training">Training</SelectItem>
-                    <SelectItem value="event">Events</SelectItem>
-                    <SelectItem value="opportunity">Opportunities</SelectItem>
-                    <SelectItem value="program">Programs</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category === 'all' ? 'All Categories' : category}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="withDeadline" 
-                      checked={deadlineFilter === true}
-                      onCheckedChange={(checked) => {
-                        setDeadlineFilter(checked ? true : (deadlineFilter === false ? null : false));
-                      }}
-                    />
-                    <label
-                      htmlFor="withDeadline"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      With deadline
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2 ml-4">
-                    <Checkbox 
-                      id="withoutDeadline" 
-                      checked={deadlineFilter === false}
-                      onCheckedChange={(checked) => {
-                        setDeadlineFilter(checked ? false : (deadlineFilter === true ? null : true));
-                      }}
-                    />
-                    <label
-                      htmlFor="withoutDeadline"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Without deadline
-                    </label>
-                  </div>
-                </div>
                 
-                {(searchQuery || categoryFilter !== 'all' || deadlineFilter !== null) && (
-                  <Button 
-                    variant="ghost" 
-                    className="h-8 px-2 lg:px-3" 
-                    onClick={clearFilters}
+                <Select value={typeFilter} onValueChange={setTypeFilter}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {types.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="hasDeadline" 
+                    checked={hasDeadlineFilter}
+                    onCheckedChange={setHasDeadlineFilter}
+                  />
+                  <label
+                    htmlFor="hasDeadline"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                   >
-                    <FilterX className="mr-2 h-4 w-4" />
-                    Clear filters
-                  </Button>
-                )}
+                    Has Deadline
+                  </label>
+                </div>
               </div>
             </div>
             
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {visibleResources.map((resource) => (
-                <ResourceCard key={resource.id} resource={resource} />
-              ))}
-              
-              {!isAuthenticated && filteredResources.length > VISIBLE_RESOURCES && (
-                <div className="md:col-span-2 lg:col-span-3">
-                  <LoginWall 
-                    message="Unlock all 40+ curated resources — log in or create an account to continue exploring." 
-                    visibleItems={VISIBLE_RESOURCES}
-                    totalItems={filteredResources.length}
-                  />
+            <TabsContent value="all" className="mt-0">
+              {sortedResources.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {sortedResources.map((resource) => (
+                    <Card key={resource.id}>
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-start">
+                          <CardTitle className="text-lg">{resource.title}</CardTitle>
+                          <Badge variant="outline" className={resourceTypeColors[resource.type]}>
+                            <span className="flex items-center gap-1">
+                              {resourceTypeIcons[resource.type]}
+                              {resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}
+                            </span>
+                          </Badge>
+                        </div>
+                        <CardDescription>{resource.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="text-sm space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Format:</span>
+                            <span>{resource.format}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Category:</span>
+                            <span>{resource.category}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Published:</span>
+                            <span>{new Date(resource.publishDate).toLocaleDateString()}</span>
+                          </div>
+                          {resource.deadline && (
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Deadline:</span>
+                              <span className="text-rose-600 font-medium">{new Date(resource.deadline).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <Button variant="outline" className="w-full" asChild>
+                          <a href={resource.url} target="_blank" rel="noopener noreferrer">
+                            Access Resource
+                          </a>
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <FileIcon className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-medium">No resources found</h3>
+                  <p className="mt-2 text-muted-foreground">
+                    Try adjusting your search or filters to find what you're looking for.
+                  </p>
                 </div>
               )}
-            </div>
+            </TabsContent>
             
-            {visibleResources.length === 0 && (
-              <div className="text-center py-12">
-                <h3 className="text-xl font-medium mb-2">No resources found</h3>
-                <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="tweets" className="space-y-6">
-            <div className="max-w-3xl mx-auto">
-              <div className="space-y-4">
-                {visibleTweets.map((tweet) => (
-                  <TweetCard key={tweet.id} tweet={tweet} />
+            <TabsContent value="documents" className="mt-0">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {sortedResources.filter(r => r.type === 'document' || r.type === 'article').map((resource) => (
+                  <Card key={resource.id}>
+                    {/* Same card content as above */}
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{resource.title}</CardTitle>
+                        <Badge variant="outline" className={resourceTypeColors[resource.type]}>
+                          <span className="flex items-center gap-1">
+                            {resourceTypeIcons[resource.type]}
+                            {resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}
+                          </span>
+                        </Badge>
+                      </div>
+                      <CardDescription>{resource.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Format:</span>
+                          <span>{resource.format}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Category:</span>
+                          <span>{resource.category}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Published:</span>
+                          <span>{new Date(resource.publishDate).toLocaleDateString()}</span>
+                        </div>
+                        {resource.deadline && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Deadline:</span>
+                            <span className="text-rose-600 font-medium">{new Date(resource.deadline).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button variant="outline" className="w-full" asChild>
+                        <a href={resource.url} target="_blank" rel="noopener noreferrer">
+                          Access Resource
+                        </a>
+                      </Button>
+                    </CardFooter>
+                  </Card>
                 ))}
-                
-                {!isAuthenticated && allTweets.length > VISIBLE_TWEETS && (
-                  <div className="relative mt-8">
-                    <LoginWall 
-                      message="Sign in to view more curated insights from the IC community." 
-                      visibleItems={VISIBLE_TWEETS}
-                      totalItems={allTweets.length}
-                    />
-                  </div>
-                )}
               </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+            </TabsContent>
+            
+            <TabsContent value="videos" className="mt-0">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {sortedResources.filter(r => r.type === 'video').map((resource) => (
+                  <Card key={resource.id}>
+                    {/* Same card content as above */}
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{resource.title}</CardTitle>
+                        <Badge variant="outline" className={resourceTypeColors[resource.type]}>
+                          <span className="flex items-center gap-1">
+                            {resourceTypeIcons[resource.type]}
+                            {resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}
+                          </span>
+                        </Badge>
+                      </div>
+                      <CardDescription>{resource.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Format:</span>
+                          <span>{resource.format}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Category:</span>
+                          <span>{resource.category}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Published:</span>
+                          <span>{new Date(resource.publishDate).toLocaleDateString()}</span>
+                        </div>
+                        {resource.deadline && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Deadline:</span>
+                            <span className="text-rose-600 font-medium">{new Date(resource.deadline).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button variant="outline" className="w-full" asChild>
+                        <a href={resource.url} target="_blank" rel="noopener noreferrer">
+                          Access Resource
+                        </a>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="interactive" className="mt-0">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {sortedResources.filter(r => r.type === 'course' || r.type === 'workshop').map((resource) => (
+                  <Card key={resource.id}>
+                    {/* Same card content as above */}
+                    <CardHeader className="pb-2">
+                      <div className="flex justify-between items-start">
+                        <CardTitle className="text-lg">{resource.title}</CardTitle>
+                        <Badge variant="outline" className={resourceTypeColors[resource.type]}>
+                          <span className="flex items-center gap-1">
+                            {resourceTypeIcons[resource.type]}
+                            {resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}
+                          </span>
+                        </Badge>
+                      </div>
+                      <CardDescription>{resource.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-sm space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Format:</span>
+                          <span>{resource.format}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Category:</span>
+                          <span>{resource.category}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Published:</span>
+                          <span>{new Date(resource.publishDate).toLocaleDateString()}</span>
+                        </div>
+                        {resource.deadline && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Deadline:</span>
+                            <span className="text-rose-600 font-medium">{new Date(resource.deadline).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                    <CardFooter>
+                      <Button variant="outline" className="w-full" asChild>
+                        <a href={resource.url} target="_blank" rel="noopener noreferrer">
+                          Access Resource
+                        </a>
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </AppLayout>
   );
 };
 
-export default Resources;
+export default ResourcesPage;
