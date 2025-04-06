@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -13,10 +13,13 @@ import {
   SidebarHeader,
   SidebarTrigger,
   SidebarFooter,
+  SidebarRail,
 } from '@/components/ui/sidebar';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AppSidebar = () => {
   const location = useLocation();
+  const { user, isAuthenticated } = useAuth();
   
   const studentMenuItems = [
     {
@@ -35,7 +38,13 @@ const AppSidebar = () => {
       title: "Resources",
       url: "/resources",
       icon: FileText,
-      active: location.pathname.startsWith('/resources'),
+      active: location.pathname.startsWith('/resources') && !location.pathname.includes('/admin/resources'),
+    },
+    {
+      title: "Explore Data Careers",
+      url: "/explore-data-careers",
+      icon: Briefcase,
+      active: location.pathname.startsWith('/explore-data-careers'),
     },
     {
       title: "Calendar",
@@ -90,6 +99,8 @@ const AppSidebar = () => {
     },
   ];
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <Sidebar>
       <SidebarHeader>
@@ -119,23 +130,25 @@ const AppSidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
         
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={item.active}>
-                    <Link to={item.url}>
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {isAuthenticated && isAdmin && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {adminMenuItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={item.active}>
+                      <Link to={item.url}>
+                        <item.icon className="h-5 w-5" />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
       
       <SidebarFooter>
@@ -145,6 +158,9 @@ const AppSidebar = () => {
           </div>
         </div>
       </SidebarFooter>
+      
+      {/* Add SidebarRail to allow reopening the sidebar after it's closed */}
+      <SidebarRail />
     </Sidebar>
   );
 };

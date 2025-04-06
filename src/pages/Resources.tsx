@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -6,9 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, ExternalLink, Calendar, Twitter } from 'lucide-react';
+import { Search, ExternalLink, Calendar, Twitter, FilterX } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginWall from '@/components/common/LoginWall';
+import { Checkbox } from '@/components/ui/checkbox';
 
 // Mock resource data
 const mockResources = [
@@ -253,6 +255,7 @@ const Resources = () => {
   const [resources, setResources] = useState<ResourceProps[]>(allResources);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const [deadlineFilter, setDeadlineFilter] = useState<boolean | null>(null);
   const { isAuthenticated } = useAuth();
   
   const filteredResources = resources.filter((resource) => {
@@ -261,12 +264,24 @@ const Resources = () => {
     
     const matchesCategory = categoryFilter === 'all' || resource.category === categoryFilter;
     
-    return matchesSearch && matchesCategory;
+    // Added deadline filter
+    const matchesDeadline = 
+      deadlineFilter === null ? true : 
+      deadlineFilter === true ? resource.deadline !== null : 
+      resource.deadline === null;
+    
+    return matchesSearch && matchesCategory && matchesDeadline;
   });
   
   // Define which resources and tweets should be visible based on authentication
   const visibleResources = isAuthenticated ? filteredResources : filteredResources.slice(0, VISIBLE_RESOURCES);
   const visibleTweets = isAuthenticated ? allTweets : allTweets.slice(0, VISIBLE_TWEETS);
+
+  const clearFilters = () => {
+    setSearchQuery('');
+    setCategoryFilter('all');
+    setDeadlineFilter(null);
+  };
   
   return (
     <AppLayout>
@@ -285,28 +300,76 @@ const Resources = () => {
           </TabsList>
           
           <TabsContent value="resources" className="space-y-6">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search resources..." 
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+            <div className="flex flex-col space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search resources..." 
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger className="w-full md:w-[180px]">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="training">Training</SelectItem>
+                    <SelectItem value="event">Events</SelectItem>
+                    <SelectItem value="opportunity">Opportunities</SelectItem>
+                    <SelectItem value="program">Programs</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-full md:w-[180px]">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="training">Training</SelectItem>
-                  <SelectItem value="event">Events</SelectItem>
-                  <SelectItem value="opportunity">Opportunities</SelectItem>
-                  <SelectItem value="program">Programs</SelectItem>
-                </SelectContent>
-              </Select>
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="withDeadline" 
+                      checked={deadlineFilter === true}
+                      onCheckedChange={(checked) => {
+                        setDeadlineFilter(checked ? true : (deadlineFilter === false ? null : false));
+                      }}
+                    />
+                    <label
+                      htmlFor="withDeadline"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      With deadline
+                    </label>
+                  </div>
+                  <div className="flex items-center space-x-2 ml-4">
+                    <Checkbox 
+                      id="withoutDeadline" 
+                      checked={deadlineFilter === false}
+                      onCheckedChange={(checked) => {
+                        setDeadlineFilter(checked ? false : (deadlineFilter === true ? null : true));
+                      }}
+                    />
+                    <label
+                      htmlFor="withoutDeadline"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      Without deadline
+                    </label>
+                  </div>
+                </div>
+                
+                {(searchQuery || categoryFilter !== 'all' || deadlineFilter !== null) && (
+                  <Button 
+                    variant="ghost" 
+                    className="h-8 px-2 lg:px-3" 
+                    onClick={clearFilters}
+                  >
+                    <FilterX className="mr-2 h-4 w-4" />
+                    Clear filters
+                  </Button>
+                )}
+              </div>
             </div>
             
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
