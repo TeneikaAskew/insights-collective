@@ -5,44 +5,75 @@ import Navbar from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
 import CourseCard from '@/components/common/CourseCard';
 import EventsSection from '@/components/homepage/EventsSection';
+import { Course } from '@/types';
 
 // Mock data for courses
-const featuredCourses = [
+const featuredCourses: Course[] = [
   {
     id: '1',
     title: 'Introduction to Data Science',
     description: 'Learn the fundamentals of data science, from data preprocessing to model deployment.',
     category: 'AI/ML',
-    author: 'Dr. John Smith',
+    instructor: {
+      id: '1',
+      name: 'Dr. John Smith',
+      title: 'Data Science Lead',
+      bio: 'Expert in data science with 10+ years of experience'
+    },
     duration: '8 weeks',
     level: 'Beginner',
-    enrollments: 523,
+    enrollmentCount: 523,
     rating: 4.8,
-    image: 'https://images.unsplash.com/photo-1557853197-aefb550b6fdc?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
+    thumbnail: 'https://images.unsplash.com/photo-1557853197-aefb550b6fdc?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
+    tags: ['python', 'data science', 'machine learning'],
+    modules: [],
+    prerequisites: [],
+    objectives: [],
+    price: 0
   },
   {
     id: '2',
     title: 'Advanced Python for Data Analysis',
     description: 'Master Python libraries like Pandas, NumPy, and Matplotlib for effective data analysis.',
     category: 'Analytics',
-    author: 'Jane Johnson, PhD',
+    instructor: {
+      id: '2',
+      name: 'Jane Johnson, PhD',
+      title: 'Senior Data Analyst',
+      bio: 'Specializes in Python data analysis techniques'
+    },
     duration: '6 weeks',
     level: 'Intermediate',
-    enrollments: 412,
+    enrollmentCount: 412,
     rating: 4.7,
-    image: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
+    thumbnail: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
+    tags: ['python', 'pandas', 'data analysis'],
+    modules: [],
+    prerequisites: [],
+    objectives: [],
+    price: 0
   },
   {
     id: '3',
     title: 'Data Engineering Fundamentals',
     description: 'Build data pipelines, design data lakes, and implement ETL processes for big data.',
     category: 'Data Engineering',
-    author: 'David Williams',
+    instructor: {
+      id: '3',
+      name: 'David Williams',
+      title: 'Data Engineering Director',
+      bio: 'Data engineering expert with experience in big data systems'
+    },
     duration: '10 weeks',
     level: 'Intermediate',
-    enrollments: 287,
+    enrollmentCount: 287,
     rating: 4.9,
-    image: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
+    thumbnail: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
+    tags: ['data engineering', 'ETL', 'big data'],
+    modules: [],
+    prerequisites: [],
+    objectives: [],
+    price: 0
   },
 ];
 

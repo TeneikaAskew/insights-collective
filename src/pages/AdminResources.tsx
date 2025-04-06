@@ -1,7 +1,6 @@
-
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { AddResourceModal } from '@/components/resources/AddResourceModal';
+import AddResourceModal from '@/components/resources/AddResourceModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -30,9 +29,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
-// Mock combined resources data
 const mockResources = [
   {
     id: '1',
@@ -121,7 +120,6 @@ export default function AdminResources() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [deadlineFilter, setDeadlineFilter] = useState<boolean | null>(null);
-  const { toast } = useToast();
 
   const handleAddResource = (newResource: any) => {
     setResources([...resources, newResource]);
@@ -132,7 +130,6 @@ export default function AdminResources() {
   };
 
   const handleEditResource = (resource: any) => {
-    // In a real app, this would open an edit modal
     toast({
       title: 'Edit Resource',
       description: `Editing ${resource.name}`,

@@ -187,7 +187,11 @@ const ResourceFilter = ({ searchTerm, setSearchTerm, showDeadlineOnly, setShowDe
         <Checkbox 
           id="with-deadline" 
           checked={showDeadlineOnly} 
-          onCheckedChange={setShowDeadlineOnly}
+          onCheckedChange={(checked) => {
+            if (typeof checked === 'boolean') {
+              setShowDeadlineOnly(checked);
+            }
+          }}
         />
         <label
           htmlFor="with-deadline"

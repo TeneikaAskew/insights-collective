@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -10,10 +9,21 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
-import { toast } from "@/components/ui/sonner";
+import { toast } from 'sonner';
 
-// Mock user data
+interface IssueCertificatesModalProps {
+  userId: string;
+  userName: string;
+}
+
+const IssueCertificatesModal = ({ userId, userName }: IssueCertificatesModalProps) => {
+  return (
+    <Button variant="outline" size="sm" onClick={() => toast.info(`Would issue certificate to ${userName}`)}>
+      Issue Certificate
+    </Button>
+  );
+};
+
 const mockUsers = [
   { 
     id: '1', 
@@ -72,7 +82,6 @@ const mockUsers = [
   },
 ];
 
-// Mock enrollment data
 const mockEnrollments = [
   { 
     id: '1', 
@@ -131,7 +140,6 @@ const mockEnrollments = [
   },
 ];
 
-// Mock certificate data
 const mockCertificates = [
   { 
     id: '1', 
@@ -202,7 +210,6 @@ const AdminUsers = () => {
 
   const handleMassIssueCertificates = () => {
     if (selectedCourse && selectedUsers.length > 0) {
-      // In a real app, this would call an API to issue certificates for all selected users
       toast.success(`Certificates issued to ${selectedUsers.length} users for the selected course`);
       setMassCertificateDialogOpen(false);
       setSelectedCourse('');
@@ -277,7 +284,13 @@ const AdminUsers = () => {
                     <TableRow>
                       <TableHead className="w-[40px]">
                         <Checkbox 
-                          onChange={handleSelectAll}
+                          onCheckedChange={(checked) => {
+                            if (checked === true) {
+                              setSelectedUsers(filteredUsers.map(user => user.id));
+                            } else {
+                              setSelectedUsers([]);
+                            }
+                          }}
                           checked={selectedUsers.length > 0 && selectedUsers.length === filteredUsers.length}
                         />
                       </TableHead>
@@ -479,7 +492,7 @@ const AdminUsers = () => {
                     id="select-all"
                     checked={selectedUsers.length > 0 && selectedUsers.length === mockUsers.length}
                     onCheckedChange={(checked) => {
-                      if (checked) {
+                      if (checked === true) {
                         setSelectedUsers(mockUsers.map(user => user.id));
                       } else {
                         setSelectedUsers([]);
