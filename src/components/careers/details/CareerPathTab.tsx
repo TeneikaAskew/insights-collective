@@ -18,13 +18,9 @@ export const CareerPathTab: React.FC<CareerPathTabProps> = ({ role }) => {
         <h3 className="font-semibold text-lg">Career Progression</h3>
       </div>
       
-      {role.careerPath?.description ? (
-        <p className="text-muted-foreground">{role.careerPath.description}</p>
-      ) : (
-        <p className="text-muted-foreground">No career path information available for this role.</p>
-      )}
+      <p className="text-muted-foreground">{role.careerPath?.description || ''}</p>
       
-      {role.careerPath?.progressionSteps && role.careerPath.progressionSteps.length > 0 && (
+      {role.careerPath?.progressionSteps && (
         <div className="space-y-4 mt-6">
           <h4 className="font-medium">Typical Career Path</h4>
           <div className="space-y-2">

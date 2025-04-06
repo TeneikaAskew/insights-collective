@@ -1,24 +1,16 @@
-
+// Define the type for career roles data structure
 export interface DataCareerRole {
   id: string;
   title: string;
+  category: string;
   shortDescription: string;
   longDescription?: string;
-  category: string;
-  skills: string[];
-  tools: string[];
   responsibilities?: string[];
+  tools?: string[];
+  skills?: string[];
   collaborators?: string[];
   dayInLife?: string;
   monthInLife?: string;
-  careerPath?: {
-    description?: string;
-    progressionSteps?: {
-      title: string;
-      description: string;
-      timePeriod?: string;
-    }[];
-  };
   schedule?: {
     time: string;
     activity: string;
@@ -29,6 +21,14 @@ export interface DataCareerRole {
     description: string;
     activities?: string[];
   }[];
+  careerPath?: {
+    description: string;
+    progressionSteps: {
+      title: string;
+      description: string;
+      timePeriod?: string;
+    }[];
+  };
   courses?: {
     id: string;
     title: string;
@@ -36,1642 +36,1053 @@ export interface DataCareerRole {
   }[];
 }
 
+// Career roles data
 export const dataCareerRoles: DataCareerRole[] = [
   {
-    id: "ai-consultant",
-    title: "AI Consultant",
-    shortDescription: "Advise organizations on AI strategy and implementation",
-    category: "AI/ML",
-    skills: ["Strategic Thinking", "Problem Solving", "Communication", "Project Management", "Business Acumen"],
-    tools: ["PowerPoint", "Jupyter", "Azure ML", "Figma", "Miro"],
+    id: "data-analyst",
+    title: "Data Analyst",
+    category: "Analytics",
+    shortDescription: "Transform raw data into actionable insights to drive business decisions.",
+    longDescription: "Data Analysts collect, process, and analyze data to help organizations make better decisions. They identify trends, create visualizations, and communicate findings to stakeholders across the business. Their work bridges the gap between data and decision-making, making complex information accessible and useful.",
     responsibilities: [
-      "Develop AI strategy and roadmap for clients",
-      "Lead workshops and discovery sessions",
-      "Design solution architecture for AI implementations",
-      "Build business cases and ROI models",
-      "Present recommendations to executive stakeholders"
+      "Collect and clean data from various sources",
+      "Perform statistical analysis to identify patterns and trends",
+      "Create dashboards and visualizations for stakeholders",
+      "Collaborate with teams to understand business questions",
+      "Develop and maintain regular reporting processes",
+      "Present findings and recommendations to decision-makers"
     ],
-    collaborators: ["Data Scientists", "Business Stakeholders", "IT Teams", "Executive Leadership"],
-    dayInLife: "Begin with a stand‑up call to review client AI road‑map progress; spend late morning white‑boarding a solution architecture; afternoon on‑site or remote workshops to scope pilots; close the day refining ROI estimates and drafting an executive summary.",
-    monthInLife: "Typical month cycles through discovery workshops (wk 1), solution design + POC build (wk 2‑3), and pilot review / roadmap updates (wk 4). Travel or virtual sessions with multiple clients are common.",
+    tools: ["SQL", "Excel", "Tableau/Power BI", "Python/R", "Google Analytics", "Looker"],
+    skills: ["Data Visualization", "Statistical Analysis", "Problem Solving", "Communication", "Critical Thinking"],
+    collaborators: ["Product Managers", "Marketing Teams", "Business Stakeholders", "Data Engineers", "BI Developers"],
+    dayInLife: "A typical day for a Data Analyst involves querying databases, analyzing datasets, building or updating dashboards, and communicating with stakeholders about their data needs. You might start the day checking automated reports, then dive into a specific analysis requested by the marketing team. After lunch, you could update a key dashboard that executives use, then attend a meeting to present your findings on recent customer behavior trends.",
+    schedule: [
+      { time: "9:00 AM", activity: "Check automated reports and respond to urgent data requests" },
+      { time: "10:00 AM", activity: "Query databases and analyze data for a marketing campaign effectiveness report" },
+      { time: "12:00 PM", activity: "Lunch break and catch up on industry news" },
+      { time: "1:00 PM", activity: "Update executive dashboard with latest KPIs and metrics" },
+      { time: "2:30 PM", activity: "Meet with product team to understand their data needs for upcoming features" },
+      { time: "3:30 PM", activity: "Clean and prepare data for tomorrow's analysis" },
+      { time: "4:30 PM", activity: "Document findings and plan tomorrow's priorities" }
+    ],
+    monthInLife: "Over the course of a month, a Data Analyst typically works on multiple projects with different stakeholders. You might spend one week analyzing customer segmentation, another week building a new dashboard for the sales team, and the remaining time supporting various ad-hoc requests while maintaining regular reporting. Each month usually includes a mix of recurring tasks like updating dashboards and special projects that dive deeper into specific business questions.",
+    projectTimeline: [
+      {
+        title: "Requirements Gathering",
+        duration: "Week 1",
+        description: "Work with stakeholders to understand their data needs and define success metrics.",
+        activities: [
+          "Interview business stakeholders to understand their goals",
+          "Document specific metrics and KPIs needed",
+          "Identify available data sources and potential gaps",
+          "Create project plan with deliverables and timelines"
+        ]
+      },
+      {
+        title: "Data Collection & Processing",
+        duration: "Week 2",
+        description: "Gather all necessary data from various sources and prepare it for analysis.",
+        activities: [
+          "Write SQL queries to extract relevant data",
+          "Clean and transform data to ensure quality",
+          "Merge datasets from multiple sources",
+          "Document data dictionary and processing methodology"
+        ]
+      },
+      {
+        title: "Analysis & Insights",
+        duration: "Week 3",
+        description: "Perform statistical analysis and extract meaningful insights from the data.",
+        activities: [
+          "Conduct exploratory data analysis to identify patterns",
+          "Apply statistical methods to test hypotheses",
+          "Create visualizations to illustrate key findings",
+          "Document insights and actionable recommendations"
+        ]
+      },
+      {
+        title: "Reporting & Implementation",
+        duration: "Week 4",
+        description: "Deliver findings to stakeholders and implement ongoing reporting solutions.",
+        activities: [
+          "Build dashboard for ongoing monitoring",
+          "Present findings to stakeholders",
+          "Document methodology for future reference",
+          "Set up automated reporting if needed"
+        ]
+      }
+    ],
     careerPath: {
-      description: "AI Consultants typically progress from delivering projects to leading teams and ultimately owning client relationships and practice development.",
+      description: "A career as a Data Analyst offers multiple paths for growth, whether advancing to senior analytical roles, specializing in a specific domain, or moving toward data science and machine learning.",
       progressionSteps: [
         {
-          title: "Associate AI Consultant",
-          description: "Support senior consultants on client engagements, develop technical skills, and contribute to deliverables.",
+          title: "Junior Data Analyst",
+          description: "Focus on learning data tools, writing basic queries, and supporting experienced analysts with data preparation and visualization.",
           timePeriod: "1-2 years"
         },
         {
-          title: "Senior AI Consultant",
-          description: "Lead workstreams, manage client relationships, and develop solutions independently.",
+          title: "Data Analyst",
+          description: "Take ownership of analyses, build dashboards independently, and communicate directly with stakeholders to solve business problems.",
           timePeriod: "2-4 years"
         },
         {
-          title: "Principal / Engagement Lead",
-          description: "Oversee multiple client engagements, lead teams, and contribute to practice development.",
-          timePeriod: "4-7 years"
+          title: "Senior Data Analyst",
+          description: "Lead complex analytical projects, mentor junior analysts, and work closely with leadership to drive data strategy and decision-making.",
+          timePeriod: "4-6 years"
         },
         {
-          title: "AI Practice Director / VP of AI Strategy",
-          description: "Shape practice direction, build client relationships, and grow the business.",
-          timePeriod: "7+ years"
+          title: "Analytics Manager / Data Scientist",
+          description: "Either manage a team of analysts or pivot toward more advanced statistical modeling and machine learning implementations.",
+          timePeriod: "6+ years"
         }
       ]
-    }
-  },
-  {
-    id: "ai-test-engineer",
-    title: "AI Test Engineer",
-    shortDescription: "Design and implement tests for AI systems and models",
-    category: "AI/ML",
-    skills: ["Test Automation", "Critical Thinking", "Statistics", "Python", "Bug Reporting"],
-    tools: ["pytest", "TensorFlow", "GitHub Actions", "Jenkins", "Datadog"],
-    responsibilities: [
-      "Design test cases for machine learning models",
-      "Develop automated testing frameworks for AI applications",
-      "Identify and report model errors and edge cases",
-      "Validate model performance across diverse datasets",
-      "Document test results and quality metrics"
-    ],
-    collaborators: ["Data Scientists", "MLOps Engineers", "Software Developers", "Product Managers"],
-    dayInLife: "Start by pulling last night's model build to run regression tests; mid‑morning triage failed cases with DS & MLOps; afternoon writing new pytest suites and bias tests; finish by updating CI dashboards.",
-    monthInLife: "First week designs the test plan; next two weeks automate and integrate tests into the pipeline; final week compiles a quality report and leads a go/no‑go meeting before model release.",
-    careerPath: {
-      description: "AI Test Engineers typically progress from building test cases to designing comprehensive testing frameworks and leading quality initiatives for AI systems.",
-      progressionSteps: [
-        {
-          title: "AI QA Analyst",
-          description: "Execute test cases, identify issues, and assist with test automation for AI systems.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "AI Test Engineer",
-          description: "Design test strategies, build automated frameworks, and ensure quality of AI models.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "QA Lead (AI)",
-          description: "Lead testing teams, establish best practices, and collaborate with cross-functional stakeholders.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "AI Quality Engineering Manager / Director of AI Validation",
-          description: "Set quality strategy, build testing centers of excellence, and drive organizational standards.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
-  },
-  {
-    id: "applied-scientist",
-    title: "Applied Scientist",
-    shortDescription: "Develop and implement machine learning models for specific applications",
-    longDescription: "Applied Scientists focus on the practical application of machine learning techniques to solve real-world problems. They work on developing, testing, and deploying models that can be used in various industries, such as healthcare, finance, and transportation.",
-    category: "AI/ML",
-    skills: ["Machine Learning", "Python", "Experiment Design", "Data Analysis", "Model Deployment"],
-    tools: ["TensorFlow", "PyTorch", "Scikit-learn", "AWS SageMaker", "Jupyter"],
-    responsibilities: [
-      "Develop and implement machine learning models for specific applications",
-      "Design and conduct experiments to evaluate model performance",
-      "Collaborate with engineers to deploy models in production",
-      "Analyze data to identify opportunities for improvement",
-      "Stay up-to-date with the latest advancements in machine learning"
-    ],
-    collaborators: ["Data Scientists", "Software Engineers", "Product Managers", "Domain Experts"],
-    dayInLife: "Morning: Review model performance metrics and identify areas for improvement. Afternoon: Experiment with new algorithms and techniques to enhance model accuracy. Evening: Collaborate with engineers to deploy models in production.",
-    monthInLife: "Week 1: Data collection and preprocessing. Week 2: Model development and training. Week 3: Experimentation and evaluation. Week 4: Deployment and monitoring.",
-    careerPath: {
-      description: "Applied Scientists typically progress from developing models to leading teams and projects, and eventually becoming research leaders or technical directors.",
-      progressionSteps: [
-        {
-          title: "Junior Applied Scientist",
-          description: "Assist with model development, data analysis, and experiment design.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Applied Scientist",
-          description: "Develop and implement machine learning models for specific applications.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Applied Scientist",
-          description: "Lead projects, mentor junior scientists, and develop new algorithms and techniques.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Principal Applied Scientist / Research Director",
-          description: "Set research direction, lead teams, and drive innovation in machine learning.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    },
+    courses: [
+      {
+        id: "da101",
+        title: "Introduction to Data Analysis",
+        description: "Learn the fundamentals of analyzing data to extract insights."
+      },
+      {
+        id: "sql101",
+        title: "SQL for Data Analysis",
+        description: "Master SQL queries for retrieving and manipulating data."
+      }
+    ]
   },
   {
     id: "machine-learning-engineer",
     title: "Machine Learning Engineer",
-    shortDescription: "Build and deploy machine learning models in production systems",
-    longDescription: "Machine Learning Engineers focus on the practical aspects of building and deploying machine learning models. They work on developing scalable and reliable systems that can handle large amounts of data and traffic.",
-    category: "AI/ML, Data Engineering",
-    skills: ["Machine Learning", "Python", "Cloud Computing", "DevOps", "Software Engineering"],
-    tools: ["TensorFlow", "PyTorch", "Kubernetes", "Docker", "AWS"],
+    category: "AI/ML",
+    shortDescription: "Build and deploy machine learning models that power intelligent applications.",
+    longDescription: "Machine Learning Engineers develop, optimize, and deploy ML models that solve complex problems and enable AI functionality in applications. They bridge the gap between data science and software engineering, taking models from research to production while ensuring they perform well at scale. They work at the intersection of data science, statistics, and software development.",
     responsibilities: [
-      "Build and deploy machine learning models in production systems",
-      "Develop scalable and reliable systems for handling large amounts of data",
-      "Automate the training and deployment of machine learning models",
-      "Monitor model performance and identify areas for improvement",
-      "Collaborate with data scientists and software engineers to build end-to-end solutions"
+      "Design and implement machine learning algorithms",
+      "Process and transform large datasets for model training",
+      "Optimize models for performance and accuracy",
+      "Deploy and monitor models in production environments",
+      "Collaborate with data scientists and product teams",
+      "Stay current with the latest ML research and techniques"
     ],
-    collaborators: ["Data Scientists", "Software Engineers", "DevOps Engineers", "Product Managers"],
-    dayInLife: "Morning: Monitor model performance and identify areas for improvement. Afternoon: Automate the training and deployment of machine learning models. Evening: Collaborate with data scientists and software engineers to build end-to-end solutions.",
-    monthInLife: "Week 1: Infrastructure setup and configuration. Week 2: Model deployment and monitoring. Week 3: Automation and scaling. Week 4: Performance optimization and troubleshooting.",
+    tools: ["Python", "TensorFlow/PyTorch", "Scikit-learn", "Docker", "Kubernetes", "Git", "MLflow"],
+    skills: ["Algorithm Design", "Software Engineering", "Statistical Analysis", "Model Deployment", "Performance Optimization"],
+    collaborators: ["Data Scientists", "Software Engineers", "DevOps Teams", "Product Managers", "Data Engineers"],
+    dayInLife: "As a Machine Learning Engineer, your day revolves around developing, testing, and deploying ML models. You might start by checking model performance metrics from production systems, then work on optimizing a recommendation algorithm, and finally collaborate with software engineers on implementing a new model deployment. You'll regularly code in Python, experiment with different model architectures, and debug issues in your ML pipeline. Communication with data scientists and software teams is key to ensuring models are both accurate and production-ready.",
+    schedule: [
+      { time: "9:00 AM", activity: "Review model performance metrics and alerts from production systems" },
+      { time: "10:00 AM", activity: "Engineering stand-up meeting to coordinate with software team" },
+      { time: "10:30 AM", activity: "Work on optimizing hyperparameters for a recommendation algorithm" },
+      { time: "12:30 PM", activity: "Lunch break while reading ML research papers" },
+      { time: "1:30 PM", activity: "Collaborate with data scientists to implement a new feature extraction pipeline" },
+      { time: "3:00 PM", activity: "Debug deployment issues with DevOps team" },
+      { time: "4:30 PM", activity: "Document model architecture and implementation details" }
+    ],
+    monthInLife: "Over a month, you'll typically be involved in the full ML lifecycle for one or more projects. You might spend the first week researching and experimenting with different approaches, the second week implementing the chosen solution, the third week testing and optimizing the model, and the final week deploying it to production and monitoring its initial performance. Throughout this cycle, you'll collaborate with data scientists on model design, software engineers on integration, and DevOps on deployment strategies.",
+    projectTimeline: [
+      {
+        title: "Research & Design",
+        duration: "Week 1-2",
+        description: "Research potential ML approaches and design the solution architecture.",
+        activities: [
+          "Review scientific literature for state-of-the-art approaches",
+          "Analyze data requirements and availability",
+          "Design model architecture and feature engineering pipeline",
+          "Create proof-of-concept implementation to validate approach"
+        ]
+      },
+      {
+        title: "Implementation & Training",
+        duration: "Week 3-4",
+        description: "Implement the selected approach and train models with available data.",
+        activities: [
+          "Develop data preprocessing pipeline",
+          "Implement model architecture in TensorFlow/PyTorch",
+          "Train models on cloud infrastructure",
+          "Conduct initial evaluations and iterative improvements"
+        ]
+      },
+      {
+        title: "Optimization & Testing",
+        duration: "Week 5-6",
+        description: "Optimize model performance and thoroughly test against requirements.",
+        activities: [
+          "Tune hyperparameters using systematic approaches",
+          "Optimize model for inference speed and resource efficiency",
+          "Conduct comprehensive testing across various scenarios",
+          "Address edge cases and performance issues"
+        ]
+      },
+      {
+        title: "Deployment & Monitoring",
+        duration: "Week 7-8",
+        description: "Deploy model to production and establish monitoring systems.",
+        activities: [
+          "Package model for deployment (containerization)",
+          "Work with DevOps to deploy to production infrastructure",
+          "Implement monitoring dashboards and alerting",
+          "Document model behavior, limitations, and maintenance procedures"
+        ]
+      }
+    ],
     careerPath: {
-      description: "Machine Learning Engineers typically progress from building and deploying models to leading teams and projects, and eventually becoming engineering managers or technical directors.",
+      description: "Machine Learning Engineers can advance their careers by deepening their technical expertise, specializing in specific domains, or moving into more strategic roles that bridge ML and business objectives.",
       progressionSteps: [
         {
-          title: "Junior Machine Learning Engineer",
-          description: "Assist with model deployment, infrastructure setup, and automation.",
+          title: "Junior ML Engineer",
+          description: "Focus on implementing and testing ML models under guidance, learning the tools and practices of the field.",
           timePeriod: "1-2 years"
         },
         {
           title: "Machine Learning Engineer",
-          description: "Build and deploy machine learning models in production systems.",
+          description: "Take ownership of complete ML systems, from design through deployment, and contribute to architectural decisions.",
           timePeriod: "2-4 years"
         },
         {
-          title: "Senior Machine Learning Engineer",
-          description: "Lead projects, mentor junior engineers, and develop new systems and tools.",
-          timePeriod: "4-7 years"
+          title: "Senior ML Engineer",
+          description: "Lead ML initiatives, design complex systems, mentor junior engineers, and influence ML strategy and infrastructure decisions.",
+          timePeriod: "4-6 years"
         },
         {
-          title: "Principal Machine Learning Engineer / Engineering Manager",
-          description: "Set engineering direction, lead teams, and drive innovation in machine learning infrastructure.",
-          timePeriod: "7+ years"
+          title: "ML Architect / Head of ML Engineering",
+          description: "Define technical vision for ML systems, make strategic decisions about ML platforms, and manage teams of ML engineers.",
+          timePeriod: "6+ years"
         }
       ]
-    }
-  },
-  {
-    id: "data-scientist",
-    title: "Data Scientist",
-    shortDescription: "Analyze data to identify trends, patterns, and insights",
-    longDescription: "Data Scientists use statistical and machine learning techniques to analyze data and extract insights. They work on a variety of problems, such as predicting customer behavior, identifying fraud, and optimizing business processes.",
-    category: "AI/ML, Analytics",
-    skills: ["Statistics", "Machine Learning", "Python", "Data Visualization", "Communication"],
-    tools: ["Python", "R", "Tableau", "SQL", "Jupyter"],
-    responsibilities: [
-      "Analyze data to identify trends, patterns, and insights",
-      "Develop and implement machine learning models",
-      "Communicate findings to stakeholders",
-      "Collaborate with engineers to deploy models in production",
-      "Stay up-to-date with the latest advancements in data science"
-    ],
-    collaborators: ["Software Engineers", "Product Managers", "Business Analysts", "Domain Experts"],
-    dayInLife: "Morning: Analyze data to identify trends and patterns. Afternoon: Develop and implement machine learning models. Evening: Communicate findings to stakeholders.",
-    monthInLife: "Week 1: Data collection and preprocessing. Week 2: Model development and training. Week 3: Experimentation and evaluation. Week 4: Communication and deployment.",
-    careerPath: {
-      description: "Data Scientists typically progress from analyzing data to leading teams and projects, and eventually becoming research leaders or technical directors.",
-      progressionSteps: [
-        {
-          title: "Junior Data Scientist",
-          description: "Assist with data analysis, model development, and communication.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Data Scientist",
-          description: "Analyze data to identify trends, patterns, and insights.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Data Scientist",
-          description: "Lead projects, mentor junior scientists, and develop new algorithms and techniques.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Principal Data Scientist / Research Director",
-          description: "Set research direction, lead teams, and drive innovation in data science.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
-  },
-  {
-    id: "business-intelligence-analyst",
-    title: "Business Intelligence Analyst",
-    shortDescription: "Analyze business data to identify trends and insights",
-    category: "Business Intelligence, Analytics",
-    skills: ["Data Analysis", "SQL", "Data Visualization", "Communication", "Business Acumen"],
-    tools: ["Tableau", "Power BI", "Excel", "SQL", "Python"],
-    responsibilities: [
-      "Collect and analyze business data to identify trends and insights",
-      "Develop and maintain dashboards and reports",
-      "Communicate findings to stakeholders",
-      "Collaborate with business users to understand their needs",
-      "Stay up-to-date with the latest advancements in business intelligence"
-    ],
-    collaborators: ["Business Users", "Data Scientists", "Software Engineers", "Product Managers"],
-    dayInLife: "Morning: Collect and analyze business data. Afternoon: Develop and maintain dashboards and reports. Evening: Communicate findings to stakeholders.",
-    monthInLife: "Week 1: Data collection and preprocessing. Week 2: Dashboard development and maintenance. Week 3: Analysis and communication. Week 4: Planning and strategy.",
-    careerPath: {
-      description: "Business Intelligence Analysts typically progress from analyzing data to leading teams and projects, and eventually becoming business intelligence managers or directors.",
-      progressionSteps: [
-        {
-          title: "Junior Business Intelligence Analyst",
-          description: "Assist with data collection, dashboard development, and analysis.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Business Intelligence Analyst",
-          description: "Collect and analyze business data to identify trends and insights.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Business Intelligence Analyst",
-          description: "Lead projects, mentor junior analysts, and develop new dashboards and reports.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Business Intelligence Manager / Director",
-          description: "Set business intelligence strategy, lead teams, and drive innovation in business intelligence.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    },
+    courses: [
+      {
+        id: "ml201",
+        title: "Deep Learning Fundamentals",
+        description: "Explore neural networks and deep learning architectures."
+      },
+      {
+        id: "mlops301",
+        title: "MLOps and Model Deployment",
+        description: "Learn to deploy and maintain machine learning models in production."
+      }
+    ]
   },
   {
     id: "data-engineer",
     title: "Data Engineer",
-    shortDescription: "Build and maintain data pipelines and infrastructure",
     category: "Data Engineering",
-    skills: ["SQL", "Python", "Cloud Computing", "ETL", "Data Warehousing"],
-    tools: ["AWS", "Azure", "GCP", "Spark", "Kafka"],
+    shortDescription: "Design and build the infrastructure that powers data-driven organizations.",
+    longDescription: "Data Engineers develop and maintain the architecture that enables data generation, storage, access, and analysis. They create robust pipelines that transform raw data into formats data scientists and analysts can use. Their work forms the foundation of data-driven decision making by ensuring that high-quality data is available, accessible, and ready for analysis.",
     responsibilities: [
-      "Build and maintain data pipelines and infrastructure",
-      "Develop and implement ETL processes",
-      "Design and implement data warehouses",
-      "Monitor data quality and performance",
-      "Collaborate with data scientists and business analysts to understand their needs"
+      "Design and implement data pipelines and ETL processes",
+      "Build and optimize databases and data warehouses",
+      "Ensure data quality, reliability, and accessibility",
+      "Create data models and schemas",
+      "Implement data security and governance measures",
+      "Collaborate with data scientists and analysts on data needs"
     ],
-    collaborators: ["Data Scientists", "Business Analysts", "Software Engineers", "DevOps Engineers"],
-    dayInLife: "Morning: Monitor data pipelines and troubleshoot issues. Afternoon: Develop and implement ETL processes. Evening: Design and implement data warehouses.",
-    monthInLife: "Week 1: Infrastructure setup and configuration. Week 2: ETL development and implementation. Week 3: Data warehouse design and implementation. Week 4: Monitoring and maintenance.",
+    tools: ["SQL", "Python", "Apache Spark", "Airflow", "Kafka", "AWS/Azure/GCP", "Docker"],
+    skills: ["Database Design", "ETL Development", "Data Modeling", "Cloud Infrastructure", "Performance Tuning"],
+    collaborators: ["Data Scientists", "Data Analysts", "Software Engineers", "DevOps Teams", "Business Stakeholders"],
+    dayInLife: "A typical day as a Data Engineer involves monitoring data pipelines, troubleshooting issues, and developing new data infrastructure. You might begin by checking the status of overnight batch processes, then move on to designing a new data model for an upcoming project. You'll write code to extract data from various sources, transform it to meet business needs, and load it into data warehouses where it can be analyzed. Regular collaboration with data scientists and analysts helps you understand their needs, while working with DevOps ensures your solutions are scalable and reliable.",
+    schedule: [
+      { time: "9:00 AM", activity: "Check pipeline monitoring dashboards and fix any failed jobs" },
+      { time: "10:00 AM", activity: "Engineering team standup meeting" },
+      { time: "10:30 AM", activity: "Develop new ETL process for marketing data integration" },
+      { time: "12:30 PM", activity: "Lunch break" },
+      { time: "1:30 PM", activity: "Meet with data science team to discuss data requirements for new ML model" },
+      { time: "2:30 PM", activity: "Optimize query performance in data warehouse" },
+      { time: "4:00 PM", activity: "Document new data schemas and update data dictionary" },
+      { time: "5:00 PM", activity: "Plan and schedule tomorrow's pipeline deployments" }
+    ],
+    monthInLife: "During a typical month, you'll likely juggle several projects at different stages. You might spend one week designing a new data integration solution, another implementing and testing it, and the rest of the month supporting existing systems while planning future improvements. You'll attend architecture review meetings, collaborate with cross-functional teams, and continuously improve data infrastructure. Each month usually brings a mix of planned development work and unexpected troubleshooting that keeps the role dynamic and challenging.",
+    projectTimeline: [
+      {
+        title: "Requirements & Architecture",
+        duration: "Week 1",
+        description: "Gather requirements and design the data architecture solution.",
+        activities: [
+          "Meet with stakeholders to understand data needs",
+          "Analyze existing data sources and quality",
+          "Design data models and pipeline architecture",
+          "Create technical specifications document"
+        ]
+      },
+      {
+        title: "Infrastructure Setup",
+        duration: "Week 2",
+        description: "Provision and configure necessary infrastructure components.",
+        activities: [
+          "Set up cloud resources (compute, storage, networking)",
+          "Configure database and data warehouse environments",
+          "Implement security and access controls",
+          "Establish monitoring and logging systems"
+        ]
+      },
+      {
+        title: "Pipeline Development",
+        duration: "Week 3-4",
+        description: "Develop, test, and deploy data processing pipelines.",
+        activities: [
+          "Write extraction code for source systems",
+          "Implement transformation logic",
+          "Develop loading processes for target systems",
+          "Create scheduling and orchestration workflows"
+        ]
+      },
+      {
+        title: "Testing & Optimization",
+        duration: "Week 5",
+        description: "Test the solution end-to-end and optimize for performance.",
+        activities: [
+          "Perform functionality testing with sample data",
+          "Conduct performance testing under load",
+          "Optimize queries and processing efficiency",
+          "Address bottlenecks and failure points"
+        ]
+      },
+      {
+        title: "Documentation & Handover",
+        duration: "Week 6",
+        description: "Document the solution and transition to operational support.",
+        activities: [
+          "Update data dictionaries and catalogs",
+          "Create operational runbooks",
+          "Train support teams on monitoring and maintenance",
+          "Conduct knowledge transfer sessions"
+        ]
+      }
+    ],
     careerPath: {
-      description: "Data Engineers typically progress from building and maintaining data pipelines to leading teams and projects, and eventually becoming data engineering managers or directors.",
+      description: "A career in Data Engineering offers growth paths toward specialized technical expertise, architectural leadership, or management of data infrastructure teams.",
       progressionSteps: [
         {
           title: "Junior Data Engineer",
-          description: "Assist with data pipeline development, infrastructure setup, and ETL processes.",
+          description: "Learn the fundamentals of databases, ETL processes, and data infrastructure while contributing to established projects under guidance.",
           timePeriod: "1-2 years"
         },
         {
           title: "Data Engineer",
-          description: "Build and maintain data pipelines and infrastructure.",
+          description: "Design and implement data pipelines independently, make architectural decisions for specific systems, and collaborate across teams.",
           timePeriod: "2-4 years"
         },
         {
           title: "Senior Data Engineer",
-          description: "Lead projects, mentor junior engineers, and develop new data pipelines and infrastructure.",
-          timePeriod: "4-7 years"
+          description: "Lead the design of complex data infrastructure, mentor other engineers, and contribute to data strategy and best practices.",
+          timePeriod: "4-6 years"
         },
         {
-          title: "Data Engineering Manager / Director",
-          description: "Set data engineering strategy, lead teams, and drive innovation in data engineering.",
-          timePeriod: "7+ years"
+          title: "Lead Data Engineer / Data Architect",
+          description: "Define the overall data architecture for the organization, establish standards and patterns, and guide technical decision-making.",
+          timePeriod: "6+ years"
+        },
+        {
+          title: "Director of Data Engineering",
+          description: "Manage teams of data engineers, align data infrastructure with business strategy, and oversee budgeting and resource allocation.",
+          timePeriod: "8+ years"
         }
       ]
-    }
+    },
+    courses: [
+      {
+        id: "de101",
+        title: "Introduction to Data Engineering",
+        description: "Learn the fundamentals of data pipelines and data architecture."
+      },
+      {
+        id: "de201",
+        title: "ETL Processes and Tools",
+        description: "Build efficient data pipelines using modern ETL tools."
+      }
+    ]
   },
   {
-    id: "data-architect",
-    title: "Data Architect",
-    shortDescription: "Design and implement data management systems",
-    category: "Data Engineering",
-    skills: ["Data Modeling", "Data Governance", "Cloud Computing", "SQL", "ETL"],
-    tools: ["AWS", "Azure", "GCP", "Informatica", "Talend"],
+    id: "bi-analyst",
+    title: "Business Intelligence Analyst",
+    category: "Business Intelligence",
+    shortDescription: "Create visualizations and reports that transform data into actionable business insights.",
+    longDescription: "Business Intelligence Analysts specialize in turning complex data into clear, actionable reports and dashboards for business stakeholders. They combine technical skills with business acumen to design intuitive visualizations that help organizations monitor performance, identify trends, and make data-driven decisions. Their work focuses on making data accessible and meaningful to non-technical users.",
     responsibilities: [
-      "Design and implement data management systems",
-      "Develop and maintain data models",
-      "Establish and enforce data governance policies",
-      "Collaborate with data engineers and business analysts to understand their needs",
-      "Stay up-to-date with the latest advancements in data management"
+      "Design and build interactive dashboards and reports",
+      "Translate business requirements into analytical solutions",
+      "Identify KPIs and metrics that align with business objectives",
+      "Create and maintain data models for reporting",
+      "Analyze trends and patterns in business data",
+      "Train and support business users on BI tools"
     ],
-    collaborators: ["Data Engineers", "Business Analysts", "Software Engineers", "Data Scientists"],
-    dayInLife: "Morning: Design and implement data models. Afternoon: Establish and enforce data governance policies. Evening: Collaborate with data engineers and business analysts.",
-    monthInLife: "Week 1: Data modeling and design. Week 2: Data governance and policy development. Week 3: Implementation and testing. Week 4: Monitoring and maintenance.",
+    tools: ["Tableau", "Power BI", "SQL", "Excel", "Looker", "Data Modeling Tools"],
+    skills: ["Data Visualization", "Dashboard Design", "SQL", "Business Acumen", "Stakeholder Management"],
+    collaborators: ["Business Executives", "Department Managers", "Data Engineers", "Data Analysts", "IT Teams"],
+    dayInLife: "A day in the life of a BI Analyst typically involves a mix of dashboard development, data analysis, and stakeholder engagement. You might start your day updating key reports with fresh data, then meet with the sales team to understand their reporting needs. You'll spend time designing intuitive visualizations, writing SQL queries to retrieve the right data, and ensuring your dashboards perform well. You'll also respond to questions from business users, helping them interpret data and find the insights they need to make decisions.",
+    schedule: [
+      { time: "9:00 AM", activity: "Check and refresh daily operational dashboards" },
+      { time: "9:30 AM", activity: "Address urgent reporting requests from executives" },
+      { time: "10:30 AM", activity: "Meet with marketing team to gather requirements for new campaign dashboard" },
+      { time: "12:00 PM", activity: "Lunch break" },
+      { time: "1:00 PM", activity: "Design and develop visualizations for the new marketing dashboard" },
+      { time: "3:00 PM", activity: "Train finance team on how to use their new interactive reports" },
+      { time: "4:00 PM", activity: "Troubleshoot data discrepancies in quarterly sales report" },
+      { time: "5:00 PM", activity: "Document dashboard updates and plan tomorrow's work" }
+    ],
+    monthInLife: "Over the course of a month, a BI Analyst typically balances maintaining existing reports with developing new dashboards. You might spend the first week of the month updating standard reports for monthly business reviews, then dedicate two weeks to building a new dashboard for an upcoming product launch. The final week could involve training users on new reports, gathering feedback for improvements, and planning future development. Throughout the month, you'll collaborate with various business units to ensure their reporting needs are met.",
+    projectTimeline: [
+      {
+        title: "Requirements Gathering",
+        duration: "Week 1",
+        description: "Work with stakeholders to define reporting needs and success criteria.",
+        activities: [
+          "Interview business users about their decision-making needs",
+          "Identify key metrics and KPIs to include",
+          "Document dashboard specifications and user stories",
+          "Create wireframes or mockups for stakeholder approval"
+        ]
+      },
+      {
+        title: "Data Preparation",
+        duration: "Week 2",
+        description: "Access and prepare the necessary data sources for reporting.",
+        activities: [
+          "Identify required data sources and assess data quality",
+          "Write SQL queries to retrieve relevant data",
+          "Create data models or views optimized for reporting",
+          "Test data accuracy and completeness"
+        ]
+      },
+      {
+        title: "Dashboard Development",
+        duration: "Week 3",
+        description: "Build interactive visualizations and dashboard components.",
+        activities: [
+          "Develop core visualizations based on approved designs",
+          "Implement filters and interactive elements",
+          "Create calculated fields and custom metrics",
+          "Optimize dashboard performance"
+        ]
+      },
+      {
+        title: "Testing & Deployment",
+        duration: "Week 4",
+        description: "Test, refine, and deploy the dashboard to end users.",
+        activities: [
+          "Conduct user acceptance testing with stakeholders",
+          "Refine visuals based on feedback",
+          "Create documentation and user guides",
+          "Deploy to production environment and train users"
+        ]
+      }
+    ],
     careerPath: {
-      description: "Data Architects typically progress from designing and implementing data management systems to leading teams and projects, and eventually becoming data architecture managers or directors.",
+      description: "A career in Business Intelligence offers paths toward specialization in advanced analytics, dashboard design, or management of BI functions.",
       progressionSteps: [
         {
-          title: "Junior Data Architect",
-          description: "Assist with data modeling, data governance, and implementation.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Data Architect",
-          description: "Design and implement data management systems.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Data Architect",
-          description: "Lead projects, mentor junior architects, and develop new data management systems.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Data Architecture Manager / Director",
-          description: "Set data architecture strategy, lead teams, and drive innovation in data architecture.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
-  },
-  {
-    id: "database-administrator",
-    title: "Database Administrator",
-    shortDescription: "Manage and maintain databases",
-    category: "Data Engineering",
-    skills: ["SQL", "Database Management", "Performance Tuning", "Backup and Recovery", "Security"],
-    tools: ["MySQL", "PostgreSQL", "Oracle", "SQL Server", "MongoDB"],
-    responsibilities: [
-      "Manage and maintain databases",
-      "Ensure database performance and availability",
-      "Implement backup and recovery procedures",
-      "Enforce database security policies",
-      "Collaborate with developers and system administrators to understand their needs"
-    ],
-    collaborators: ["Developers", "System Administrators", "Data Engineers", "Security Engineers"],
-    dayInLife: "Morning: Monitor database performance and troubleshoot issues. Afternoon: Implement backup and recovery procedures. Evening: Enforce database security policies.",
-    monthInLife: "Week 1: Database monitoring and maintenance. Week 2: Backup and recovery testing. Week 3: Security audits and policy enforcement. Week 4: Planning and strategy.",
-    careerPath: {
-      description: "Database Administrators typically progress from managing and maintaining databases to leading teams and projects, and eventually becoming database administration managers or directors.",
-      progressionSteps: [
-        {
-          title: "Junior Database Administrator",
-          description: "Assist with database monitoring, maintenance, and backup and recovery.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Database Administrator",
-          description: "Manage and maintain databases.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Database Administrator",
-          description: "Lead projects, mentor junior administrators, and develop new database management systems.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Database Administration Manager / Director",
-          description: "Set database administration strategy, lead teams, and drive innovation in database administration.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
-  },
-  {
-    id: "analytics-engineer",
-    title: "Analytics Engineer",
-    shortDescription: "Transform raw data into usable datasets for analysis",
-    category: "Analytics, Data Engineering",
-    skills: ["SQL", "Data Modeling", "ETL", "Data Warehousing", "Cloud Computing"],
-    tools: ["dbt", "Snowflake", "BigQuery", "Redshift", "Airflow"],
-    responsibilities: [
-      "Transform raw data into usable datasets for analysis",
-      "Develop and maintain data models",
-      "Build and maintain ETL pipelines",
-      "Ensure data quality and consistency",
-      "Collaborate with data scientists and business analysts to understand their needs"
-    ],
-    collaborators: ["Data Scientists", "Business Analysts", "Data Engineers", "Software Engineers"],
-    dayInLife: "Morning: Develop and maintain data models. Afternoon: Build and maintain ETL pipelines. Evening: Ensure data quality and consistency.",
-    monthInLife: "Week 1: Data modeling and design. Week 2: ETL development and implementation. Week 3: Data quality and testing. Week 4: Monitoring and maintenance.",
-    careerPath: {
-      description: "Analytics Engineers typically progress from transforming data to leading teams and projects, and eventually becoming analytics engineering managers or directors.",
-      progressionSteps: [
-        {
-          title: "Junior Analytics Engineer",
-          description: "Assist with data modeling, ETL development, and data quality.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Analytics Engineer",
-          description: "Transform raw data into usable datasets for analysis.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Analytics Engineer",
-          description: "Lead projects, mentor junior engineers, and develop new data models and ETL pipelines.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Analytics Engineering Manager / Director",
-          description: "Set analytics engineering strategy, lead teams, and drive innovation in analytics engineering.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
-  },
-  {
-    id: "marketing-analyst",
-    title: "Marketing Analyst",
-    shortDescription: "Analyze marketing data to optimize campaigns and strategies",
-    category: "Analytics",
-    skills: ["Data Analysis", "SQL", "Data Visualization", "Marketing Automation", "A/B Testing"],
-    tools: ["Google Analytics", "Adobe Analytics", "Tableau", "Excel", "HubSpot"],
-    responsibilities: [
-      "Analyze marketing data to optimize campaigns and strategies",
-      "Develop and maintain dashboards and reports",
-      "Conduct A/B tests to improve marketing performance",
-      "Collaborate with marketing managers to understand their needs",
-      "Stay up-to-date with the latest advancements in marketing analytics"
-    ],
-    collaborators: ["Marketing Managers", "Data Scientists", "Business Analysts", "Product Managers"],
-    dayInLife: "Morning: Analyze marketing data and identify trends. Afternoon: Develop and maintain dashboards and reports. Evening: Conduct A/B tests to improve marketing performance.",
-    monthInLife: "Week 1: Data collection and preprocessing. Week 2: Dashboard development and maintenance. Week 3: Analysis and communication. Week 4: Planning and strategy.",
-    careerPath: {
-      description: "Marketing Analysts typically progress from analyzing data to leading teams and projects, and eventually becoming marketing analytics managers or directors.",
-      progressionSteps: [
-        {
-          title: "Junior Marketing Analyst",
-          description: "Assist with data collection, dashboard development, and analysis.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Marketing Analyst",
-          description: "Analyze marketing data to optimize campaigns and strategies.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Marketing Analyst",
-          description: "Lead projects, mentor junior analysts, and develop new dashboards and reports.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Marketing Analytics Manager / Director",
-          description: "Set marketing analytics strategy, lead teams, and drive innovation in marketing analytics.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
-  },
-  {
-    id: "financial-analyst",
-    title: "Financial Analyst",
-    shortDescription: "Analyze financial data to provide insights and recommendations",
-    category: "Analytics",
-    skills: ["Data Analysis", "Financial Modeling", "SQL", "Data Visualization", "Communication"],
-    tools: ["Excel", "Tableau", "Bloomberg Terminal", "FactSet", "Python"],
-    responsibilities: [
-      "Analyze financial data to provide insights and recommendations",
-      "Develop and maintain financial models",
-      "Prepare reports and presentations for management",
-      "Collaborate with finance managers to understand their needs",
-      "Stay up-to-date with the latest advancements in financial analysis"
-    ],
-    collaborators: ["Finance Managers", "Data Scientists", "Business Analysts", "Investment Bankers"],
-    dayInLife: "Morning: Analyze financial data and identify trends. Afternoon: Develop and maintain financial models. Evening: Prepare reports and presentations for management.",
-    monthInLife: "Week 1: Data collection and preprocessing. Week 2: Financial model development and maintenance. Week 3: Analysis and communication. Week 4: Planning and strategy.",
-    careerPath: {
-      description: "Financial Analysts typically progress from analyzing data to leading teams and projects, and eventually becoming finance managers or directors.",
-      progressionSteps: [
-        {
-          title: "Junior Financial Analyst",
-          description: "Assist with data collection, financial model development, and analysis.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Financial Analyst",
-          description: "Analyze financial data to provide insights and recommendations.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Financial Analyst",
-          description: "Lead projects, mentor junior analysts, and develop new financial models and reports.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Finance Manager / Director",
-          description: "Set finance strategy, lead teams, and drive innovation in financial analysis.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
-  },
-  {
-    id: "operations-analyst",
-    title: "Operations Analyst",
-    shortDescription: "Analyze operational data to improve efficiency and productivity",
-    category: "Analytics",
-    skills: ["Data Analysis", "SQL", "Data Visualization", "Process Improvement", "Communication"],
-    tools: ["Excel", "Tableau", "SQL", "Python", "Six Sigma"],
-    responsibilities: [
-      "Analyze operational data to improve efficiency and productivity",
-      "Develop and maintain dashboards and reports",
-      "Identify and implement process improvements",
-      "Collaborate with operations managers to understand their needs",
-      "Stay up-to-date with the latest advancements in operations analysis"
-    ],
-    collaborators: ["Operations Managers", "Data Scientists", "Business Analysts", "Process Engineers"],
-    dayInLife: "Morning: Analyze operational data and identify trends. Afternoon: Develop and maintain dashboards and reports. Evening: Identify and implement process improvements.",
-    monthInLife: "Week 1: Data collection and preprocessing. Week 2: Dashboard development and maintenance. Week 3: Analysis and communication. Week 4: Planning and strategy.",
-    careerPath: {
-      description: "Operations Analysts typically progress from analyzing data to leading teams and projects, and eventually becoming operations managers or directors.",
-      progressionSteps: [
-        {
-          title: "Junior Operations Analyst",
-          description: "Assist with data collection, dashboard development, and analysis.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Operations Analyst",
-          description: "Analyze operational data to improve efficiency and productivity.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Operations Analyst",
-          description: "Lead projects, mentor junior analysts, and develop new dashboards and reports.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Operations Manager / Director",
-          description: "Set operations strategy, lead teams, and drive innovation in operations analysis.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
-  },
-  {
-    id: "computer-information-research-scientist",
-    title: "Computer & Information Research Scientist",
-    shortDescription: "Research and develop new computing approaches and technologies",
-    category: "AI/ML, Data Engineering",
-    skills: ["Research", "Algorithms", "Data Structures", "Programming", "Mathematics"],
-    tools: ["Python", "C++", "Java", "MATLAB", "TensorFlow"],
-    responsibilities: [
-      "Conduct research in computer and information science",
-      "Develop new algorithms and data structures",
-      "Publish research papers and present findings at conferences",
-      "Collaborate with other researchers and engineers",
-      "Stay up-to-date with the latest advancements in computer science"
-    ],
-    collaborators: ["Researchers", "Engineers", "Data Scientists", "Professors"],
-    dayInLife: "Morning literature review & code experiments; midday simulation runs on HPC cluster; afternoon seminar or cross‑team brainstorm; evening documenting results for a paper draft.",
-    monthInLife: "Quarter is split into ideation & proposal (mo 1), experimentation (mo 2), and publication / patent filing (mo 3). Teaching or mentoring often layered throughout.",
-    careerPath: {
-      description: "Research Scientists progress through increasingly independent research roles, culminating in leading research teams or programs.",
-      progressionSteps: [
-        {
-          title: "Post‑doc / Junior Scientist",
-          description: "Conduct research under supervision, publish papers, and develop specialized expertise.",
+          title: "BI Analyst",
+          description: "Focus on building reports and dashboards, writing SQL queries, and interpreting data for business stakeholders.",
           timePeriod: "1-3 years"
         },
         {
-          title: "Research Scientist",
-          description: "Lead research projects, publish as primary author, and develop novel approaches.",
-          timePeriod: "3-6 years"
+          title: "Senior BI Analyst",
+          description: "Lead complex dashboard projects, mentor junior analysts, and work closely with leadership on strategic reporting initiatives.",
+          timePeriod: "3-5 years"
         },
         {
-          title: "Senior / Staff Scientist",
-          description: "Define research directions, secure funding, and mentor junior researchers.",
-          timePeriod: "6-10 years"
+          title: "BI Developer/Architect",
+          description: "Design enterprise BI solutions, establish standards and best practices, and create reusable reporting frameworks.",
+          timePeriod: "5-7 years"
         },
         {
-          title: "Principal Scientist / Distinguished Fellow / Lab Director",
-          description: "Shape organizational research strategy and establish new fields of inquiry.",
-          timePeriod: "10+ years"
+          title: "BI Manager",
+          description: "Lead a team of BI professionals, align reporting strategy with business objectives, and manage BI platforms and tools.",
+          timePeriod: "7+ years"
+        }
+      ]
+    },
+    courses: [
+      {
+        id: "bi101",
+        title: "Introduction to Business Intelligence",
+        description: "Learn the fundamentals of BI tools and reporting techniques."
+      },
+      {
+        id: "viz101",
+        title: "Dashboard Design Fundamentals",
+        description: "Create effective dashboards that communicate insights clearly."
+      }
+    ]
+  },
+  {
+    id: "data-scientist",
+    title: "Data Scientist",
+    category: "AI/ML",
+    shortDescription: "Apply advanced analytics and machine learning to solve complex business problems.",
+    longDescription: "Data Scientists combine statistics, machine learning, and domain expertise to extract insights and build predictive models from data. They work on complex problems that require sophisticated analytical approaches, turning data into actionable knowledge that drives innovation and strategic decision-making. Their work spans from exploratory analysis to deploying algorithmic solutions that transform business operations.",
+    responsibilities: [
+      "Design and implement machine learning models",
+      "Conduct statistical analysis to test hypotheses",
+      "Extract insights from large, complex datasets",
+      "Collaborate with stakeholders to define problems",
+      "Communicate findings to technical and non-technical audiences",
+      "Research and implement new analytical techniques"
+    ],
+    tools: ["Python", "R", "SQL", "Jupyter", "Scikit-learn", "TensorFlow/PyTorch", "Spark"],
+    skills: ["Machine Learning", "Statistical Analysis", "Data Visualization", "Problem Formulation", "Communication"],
+    collaborators: ["Business Stakeholders", "Product Managers", "ML Engineers", "Data Engineers", "Analysts"],
+    dayInLife: "A typical day for a Data Scientist involves a mix of coding, analysis, and communication. You might start by exploring a new dataset, applying statistical methods to identify patterns, then move on to building and evaluating machine learning models. You'll spend time documenting your approach, visualizing results, and meeting with stakeholders to present findings or refine problem statements. The role requires both deep technical work and the ability to translate complex concepts into business value.",
+    schedule: [
+      { time: "9:00 AM", activity: "Review project priorities and plan analytical approach" },
+      { time: "10:00 AM", activity: "Data exploration and feature engineering in Jupyter notebook" },
+      { time: "12:00 PM", activity: "Lunch break while reading recent ML research papers" },
+      { time: "1:00 PM", activity: "Develop and test machine learning models" },
+      { time: "3:00 PM", activity: "Meet with product team to discuss model results and implications" },
+      { time: "4:00 PM", activity: "Document methodology and prepare visualizations for stakeholders" },
+      { time: "5:00 PM", activity: "Collaborate with ML engineers on model implementation" }
+    ],
+    monthInLife: "Over a month, a Data Scientist typically moves through different phases of the data science lifecycle across one or more projects. You might spend one week defining a problem and collecting data, another exploring and preparing that data, and subsequent weeks developing models, evaluating results, and presenting findings. Each project brings unique challenges that require creative problem-solving and close collaboration with different teams. Throughout the month, you'll balance long-term strategic projects with shorter analytical requests.",
+    projectTimeline: [
+      {
+        title: "Problem Definition",
+        duration: "Week 1",
+        description: "Work with stakeholders to define the problem and success metrics.",
+        activities: [
+          "Meet with business teams to understand the problem domain",
+          "Translate business questions into data science problems",
+          "Identify success metrics and evaluation criteria",
+          "Create project plan and timeline"
+        ]
+      },
+      {
+        title: "Data Collection & Exploration",
+        duration: "Week 2",
+        description: "Gather relevant data and perform exploratory analysis.",
+        activities: [
+          "Identify and access required data sources",
+          "Perform data quality assessment",
+          "Conduct exploratory data analysis",
+          "Identify patterns, outliers, and potential features"
+        ]
+      },
+      {
+        title: "Feature Engineering & Modeling",
+        duration: "Week 3-4",
+        description: "Prepare features and develop predictive models.",
+        activities: [
+          "Create derived features from raw data",
+          "Select appropriate algorithms for the problem",
+          "Train multiple model candidates",
+          "Conduct cross-validation and hyperparameter tuning"
+        ]
+      },
+      {
+        title: "Evaluation & Deployment",
+        duration: "Week 5-6",
+        description: "Evaluate model performance and prepare for deployment.",
+        activities: [
+          "Assess models against success metrics",
+          "Conduct sensitivity analysis and interpretability studies",
+          "Document model methodology and limitations",
+          "Work with engineering teams on implementation"
+        ]
+      },
+      {
+        title: "Communication & Iteration",
+        duration: "Week 7-8",
+        description: "Present findings and refine the approach based on feedback.",
+        activities: [
+          "Create visualizations of key insights",
+          "Present results to stakeholders",
+          "Gather feedback for model improvements",
+          "Plan next iteration or project phases"
+        ]
+      }
+    ],
+    careerPath: {
+      description: "A career in Data Science offers diverse paths for advancement, from specialized technical roles to leadership positions that shape organizational strategy.",
+      progressionSteps: [
+        {
+          title: "Junior Data Scientist",
+          description: "Focus on learning core techniques and tools while working on well-defined problems under guidance from senior team members.",
+          timePeriod: "1-2 years"
+        },
+        {
+          title: "Data Scientist",
+          description: "Work independently on complete data science projects, from problem formulation to solution implementation.",
+          timePeriod: "2-4 years"
+        },
+        {
+          title: "Senior Data Scientist",
+          description: "Lead complex, high-impact projects, mentor junior scientists, and influence data strategy and best practices.",
+          timePeriod: "4-6 years"
+        },
+        {
+          title: "Principal Data Scientist / AI Research Scientist",
+          description: "Drive innovation through novel applications of advanced techniques, publish research, and guide organizational data science strategy.",
+          timePeriod: "6+ years"
+        },
+        {
+          title: "Director of Data Science / Chief Data Scientist",
+          description: "Lead data science teams, align data initiatives with business strategy, and advocate for data-driven approaches at the executive level.",
+          timePeriod: "8+ years"
+        }
+      ]
+    },
+    courses: [
+      {
+        id: "ml101",
+        title: "Introduction to Machine Learning",
+        description: "Learn the fundamentals of machine learning algorithms and techniques."
+      },
+      {
+        id: "stat101",
+        title: "Statistics for Machine Learning",
+        description: "Understand the statistical concepts behind machine learning models."
+      }
+    ]
+  },
+  {
+    id: "ai-engineer",
+    title: "AI Engineer",
+    category: "AI/ML",
+    shortDescription: "Develop and deploy AI solutions for real-world applications.",
+    longDescription: "AI Engineers design, build, and implement AI solutions that address specific business needs. They work at the intersection of software engineering and artificial intelligence, using their expertise in machine learning frameworks, cloud platforms, and software development best practices to create robust AI systems that can be deployed at scale. Their role is crucial in bridging the gap between theoretical AI research and practical applications.",
+    responsibilities: [
+      "Design and develop AI applications and solutions",
+      "Implement and optimize machine learning models for production",
+      "Create APIs and services to make AI capabilities accessible",
+      "Ensure AI systems are scalable, reliable, and efficient",
+      "Collaborate with data scientists to implement their models",
+      "Address ethical considerations in AI implementation"
+    ],
+    tools: ["Python", "TensorFlow/PyTorch", "Docker", "Kubernetes", "Cloud APIs", "Git", "CI/CD pipelines"],
+    skills: ["Software Engineering", "Machine Learning", "API Design", "Cloud Computing", "Scalability Planning"],
+    collaborators: ["Data Scientists", "Product Managers", "Software Engineers", "DevOps Teams", "Business Stakeholders"],
+    dayInLife: "An AI Engineer typically begins their day by checking the performance metrics of deployed AI systems and addressing any immediate issues. They might spend the morning coding new features for an AI application, implementing a recently developed machine learning model, or optimizing existing systems for better performance. After lunch, they could collaborate with data scientists to understand a new model's requirements or meet with product managers to gather specifications for upcoming AI features. The afternoon might involve debugging integration issues, documenting API endpoints, or reviewing code from team members. Throughout the day, they balance technical development with ensuring AI systems are reliable, ethical, and aligned with business objectives.",
+    monthInLife: "Over the course of a month, an AI Engineer typically works on multiple phases of AI system development. They might spend a week designing the architecture for a new AI service, followed by two weeks of implementation and integration with existing systems. The final week could involve testing, deployment, and monitoring the solution in production. Throughout the month, they collaborate closely with data scientists to understand model requirements, product teams to align with business needs, and operations teams to ensure smooth deployments. They continuously improve their systems based on performance metrics and user feedback while staying current with the latest AI technologies and best practices.",
+    careerPath: {
+      description: "AI Engineering offers a dynamic career path with opportunities to grow in technical depth, leadership roles, or specialized domains within artificial intelligence.",
+      progressionSteps: [
+        {
+          title: "Junior AI Engineer",
+          description: "Focus on implementing AI components and features under guidance, learning the practical aspects of deploying AI systems.",
+          timePeriod: "1-2 years"
+        },
+        {
+          title: "AI Engineer",
+          description: "Design and build complete AI systems independently, making architectural decisions and optimizing for performance and reliability.",
+          timePeriod: "2-4 years"
+        },
+        {
+          title: "Senior AI Engineer",
+          description: "Lead the development of complex AI solutions, mentor junior engineers, and contribute to strategic technical decisions.",
+          timePeriod: "4-6 years"
+        },
+        {
+          title: "AI Architect / Lead AI Engineer",
+          description: "Define the technical vision for AI systems across the organization, establish best practices, and guide teams in implementation.",
+          timePeriod: "6+ years"
         }
       ]
     }
   },
   {
-    id: "customer-engineer-data-ai",
-    title: "Customer Engineer (Data & AI)",
-    shortDescription: "Help customers implement and optimize data & AI solutions",
-    category: "AI/ML, Data Engineering",
-    skills: ["Communication", "Problem Solving", "Cloud Computing", "Data Analysis", "AI/ML"],
-    tools: ["AWS", "Azure", "GCP", "Python", "SQL"],
+    id: "ai-consultant",
+    title: "AI Consultant",
+    category: "AI/ML",
+    shortDescription: "Advise organizations on AI strategy, implementation, and optimization.",
+    longDescription: "AI Consultants help organizations understand, adopt, and benefit from artificial intelligence technologies. They assess business needs, recommend appropriate AI solutions, and guide implementation efforts. By bridging technical expertise with business acumen, they ensure AI initiatives align with organizational goals and deliver measurable value.",
     responsibilities: [
-      "Assist customers with the implementation of data and AI solutions",
-      "Provide technical support and guidance",
-      "Develop and deliver training programs",
-      "Collaborate with sales and marketing teams",
-      "Stay up-to-date with the latest advancements in data and AI"
+      "Assess organizational readiness for AI adoption",
+      "Develop AI strategy aligned with business objectives",
+      "Recommend appropriate AI solutions for specific business challenges",
+      "Guide implementation and integration of AI technologies",
+      "Advise on ethical considerations and governance of AI systems",
+      "Measure and communicate the business impact of AI initiatives"
     ],
-    collaborators: ["Customers", "Sales Teams", "Marketing Teams", "Data Scientists"],
-    dayInLife: "Kick off with a customer architecture review; build a demo in a sandbox; troubleshoot data pipeline issues; present a quick win to execs; log feedback for product.",
-    monthInLife: "Month alternates between onboarding new customers, deep‑dive solutioning for existing ones, and internal enablement sessions. End‑of‑month: compile success metrics and case studies.",
-    careerPath: {
-      description: "Customer Engineers typically progress toward more strategic roles with larger accounts or leadership positions.",
-      progressionSteps: [
-        {
-          title: "Support Engineer",
-          description: "Resolve technical issues, implement solutions, and build technical expertise.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Customer Engineer",
-          description: "Lead customer implementations, develop solutions, and drive adoption.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior / Lead Customer Engineer",
-          description: "Handle strategic accounts, mentor team members, and influence product roadmap.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Solutions Architect / Field CTO / Customer Engineering Manager",
-          description: "Set technology direction, lead teams, and shape customer strategy.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["Machine Learning Platforms", "Cloud AI Services", "Data Analysis Tools", "Project Management Software", "ROI Assessment Frameworks"],
+    skills: ["AI/ML Technical Knowledge", "Business Strategy", "Solution Architecture", "Change Management", "Stakeholder Communication"],
+    collaborators: ["C-Suite Executives", "IT Leaders", "Data Teams", "Business Unit Heads", "External Technology Partners"]
+  },
+  {
+    id: "ai-test-engineer",
+    title: "AI Test Engineer",
+    category: "AI/ML",
+    shortDescription: "Ensures the quality and reliability of AI models by developing and conducting tests, requiring knowledge of AI algorithms, performance metrics, and debugging tools.",
+    responsibilities: [
+      "Design and implement testing frameworks for AI systems",
+      "Develop automated tests for model validation",
+      "Evaluate model performance against benchmarks",
+      "Identify and troubleshoot issues in AI systems",
+      "Document testing procedures and results"
+    ],
+    tools: ["Python", "Testing Frameworks", "CI/CD Tools", "Monitoring Systems", "Debugging Tools"],
+    skills: ["Test Automation", "AI Algorithm Knowledge", "Performance Analysis", "Quality Assurance", "Problem Solving"]
+  },
+  {
+    id: "computer-information-research-scientist",
+    title: "Computer and Information Research Scientist",
+    category: "AI/ML",
+    shortDescription: "Innovates new computing technologies, often focusing on AI and machine learning applications, requiring expertise in algorithms, programming, and a doctoral degree in computer science or related fields.",
+    responsibilities: [
+      "Conduct research on computing problems and solutions",
+      "Develop innovative approaches to computing challenges",
+      "Design experiments to test theories and systems",
+      "Publish research findings in academic journals",
+      "Collaborate with interdisciplinary teams"
+    ],
+    tools: ["Programming Languages", "Scientific Computing Libraries", "Research Tools", "High-Performance Computing"],
+    skills: ["Algorithm Design", "Theoretical Computer Science", "Research Methodology", "Academic Writing", "Mathematical Modeling"]
+  },
+  {
+    id: "customer-engineer-data-ai",
+    title: "Customer Engineer, Data & AI",
+    category: "AI/ML",
+    shortDescription: "Combines technical expertise with customer-facing roles, helping clients adopt data and AI solutions, requiring strong communication, cloud platform knowledge, and data engineering skills.",
+    responsibilities: [
+      "Provide technical guidance to customers implementing AI solutions",
+      "Develop proof-of-concepts and demonstrations",
+      "Troubleshoot customer implementation issues",
+      "Collaborate with product teams on customer feedback",
+      "Present technical solutions to diverse audiences"
+    ],
+    tools: ["Cloud Platforms", "AI Services", "Data Tools", "Demo Environments", "Documentation Systems"],
+    skills: ["Technical Communication", "Customer Service", "Solution Architecture", "Problem Solving", "Project Management"]
   },
   {
     id: "decision-scientist",
     title: "Decision Scientist",
-    shortDescription: "Use data science to improve business decision-making",
-    category: "Analytics, AI/ML",
-    skills: ["Data Science", "Statistics", "Machine Learning", "Communication", "Business Acumen"],
-    tools: ["Python", "R", "SQL", "Tableau", "Excel"],
+    category: "AI/ML",
+    shortDescription: "Specializes in integrating data insights into strategic decision-making processes, requiring skills in statistical modeling, predictive analytics, and tools like Python or R, alongside strong business acumen.",
     responsibilities: [
-      "Develop and implement data-driven solutions to improve business decision-making",
-      "Analyze data to identify trends and insights",
-      "Communicate findings to stakeholders",
-      "Collaborate with business users to understand their needs",
-      "Stay up-to-date with the latest advancements in data science"
+      "Develop decision-making frameworks based on data",
+      "Apply statistical methods to evaluate alternatives",
+      "Create models that predict outcomes of decisions",
+      "Work with leadership on strategic initiatives",
+      "Translate complex analyses into actionable recommendations"
     ],
-    collaborators: ["Business Users", "Data Scientists", "Business Analysts", "Product Managers"],
-    dayInLife: "Morning KPI check; scenario modeling in Python; strategy meeting with execs; build decision trees & Monte‑Carlo sims; deliver recommendations deck by EOD.",
-    monthInLife: "Monthly cadence: week 1 metric review & hypothesis framing; weeks 2‑3 modeling & sensitivity analysis; week 4 executive read‑out and playbook updates.",
-    careerPath: {
-      description: "Decision Scientists progress from analytical roles to strategic leadership positions that influence company direction.",
-      progressionSteps: [
-        {
-          title: "Decision Analyst",
-          description: "Build models, analyze scenarios, and support decision-making processes.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "Decision Scientist",
-          description: "Lead analytical projects, design frameworks, and influence key decisions.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Senior Decision Scientist",
-          description: "Drive strategic initiatives, develop methodologies, and mentor analysts.",
-          timePeriod: "5-8 years"
-        },
-        {
-          title: "Head of Decision Science / Chief Data or Strategy Officer",
-          description: "Shape organizational strategy, build decision-making culture, and lead teams.",
-          timePeriod: "8+ years"
-        }
-      ]
-    }
+    tools: ["R/Python", "Statistical Software", "Decision Trees", "Monte Carlo Simulation", "Optimization Tools"],
+    skills: ["Decision Analysis", "Statistical Modeling", "Business Strategy", "Executive Communication", "Critical Thinking"]
   },
   {
     id: "generative-ai-scientist",
     title: "Generative AI Scientist",
-    shortDescription: "Develop AI systems that can create new content",
     category: "AI/ML",
-    skills: ["Deep Learning", "NLP", "Computer Vision", "Research", "Python"],
-    tools: ["PyTorch", "TensorFlow", "HuggingFace", "CUDA", "JAX"],
+    shortDescription: "Pioneers in AI who develop models capable of creating new content, such as text or images, requiring expertise in deep learning frameworks, natural language processing, and advanced mathematical modeling techniques like transformers.",
     responsibilities: [
-      "Design and implement generative AI models",
-      "Conduct research to improve model performance",
-      "Evaluate model outputs for quality and bias",
-      "Collaborate with product teams to integrate models",
-      "Stay current with the latest research in generative AI"
+      "Research and develop generative AI models",
+      "Train large language and image generation models",
+      "Optimize models for performance and quality",
+      "Address ethical considerations in generative AI",
+      "Stay current with rapid developments in the field"
     ],
-    collaborators: ["ML Engineers", "Product Managers", "UX Researchers", "Ethics Teams"],
-    dayInLife: "Spin up GPU jobs at 8 AM; tune transformer hyper‑params; midday peer review of new diffusion‑model paper; afternoon bias evaluation & prompt testing; wrap with model checkpoint push.",
-    monthInLife: "Months revolve around research sprint (mo 1), large‑scale training & evaluation (mo 2), and deployment / conference submission (mo 3).",
-    careerPath: {
-      description: "Generative AI Scientists typically progress from implementing models to leading research programs and shaping AI strategy.",
-      progressionSteps: [
-        {
-          title: "Research Engineer",
-          description: "Implement and train models, conduct experiments, and support research projects.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "Generative AI Scientist",
-          description: "Lead research projects, develop novel approaches, and publish findings.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Senior Scientist",
-          description: "Drive research direction, mentor junior scientists, and collaborate across disciplines.",
-          timePeriod: "5-8 years"
-        },
-        {
-          title: "Staff / Principal Scientist / Director of Generative AI Research",
-          description: "Shape research strategy, lead teams, and represent organization in academic and industry forums.",
-          timePeriod: "8+ years"
-        }
-      ]
-    }
+    tools: ["PyTorch/TensorFlow", "Transformers", "GANs", "NLP Libraries", "GPU Computing"],
+    skills: ["Deep Learning", "Natural Language Processing", "Computer Vision", "Research", "Model Architecture Design"]
   },
   {
     id: "insights-analyst",
     title: "Insights Analyst",
-    shortDescription: "Transform data into actionable business insights",
-    category: "Analytics",
-    skills: ["Data Analysis", "SQL", "Data Visualization", "Communication", "Business Acumen"],
-    tools: ["Tableau", "Power BI", "Excel", "SQL", "Python"],
+    category: "AI/ML, Analytics",
+    shortDescription: "Professionals who distill raw data into actionable insights, often creating reports and visualizations for decision-making, requiring strong analytical skills, SQL proficiency, and experience with BI tools.",
     responsibilities: [
-      "Analyze data to identify trends and insights",
-      "Create dashboards and reports",
-      "Present findings to stakeholders",
-      "Collaborate with business teams to understand their needs",
-      "Make recommendations based on data analysis"
+      "Extract meaningful patterns from complex datasets",
+      "Create reports and visualizations for stakeholders",
+      "Develop and track KPIs for business performance",
+      "Provide recommendations based on data analysis",
+      "Communicate insights to non-technical audiences"
     ],
-    collaborators: ["Business Teams", "Data Engineers", "Product Managers", "Executives"],
-    dayInLife: "Pull fresh data, run SQL, create ad‑hoc visual in BI tool; meet marketing to interpret campaign KPIs; craft insight memo; close with dashboard tweak requests.",
-    monthInLife: "Week 1: standard KPI refresh; week 2: deep‑dive analysis; week 3: stakeholder workshops; week 4: iterate dashboards & document learnings.",
-    careerPath: {
-      description: "Insights Analysts typically progress from analyzing data to leading insights teams and shaping business strategy.",
-      progressionSteps: [
-        {
-          title: "Data / Reporting Analyst",
-          description: "Create reports, monitor metrics, and support basic analysis needs.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Insights Analyst",
-          description: "Conduct complex analyses, develop insights, and make recommendations.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Insights Analyst",
-          description: "Lead projects, mentor junior analysts, and drive strategic initiatives.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "Insights Manager / Director of Business Insights",
-          description: "Set analytics strategy, lead teams, and partner with executives on key decisions.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["SQL", "Excel", "BI Tools", "Statistical Software", "Visualization Tools"],
+    skills: ["Data Analysis", "Business Acumen", "Communication", "Critical Thinking", "Problem Solving"]
   },
   {
     id: "mlops-engineer",
     title: "MLOps Engineer",
-    shortDescription: "Build and maintain ML model production infrastructure",
-    category: "AI/ML, Data Engineering",
-    skills: ["DevOps", "Cloud Computing", "Python", "Container Orchestration", "CI/CD"],
-    tools: ["Kubernetes", "Docker", "GitHub Actions", "TensorFlow Serving", "Prometheus"],
+    category: "AI/ML",
+    shortDescription: "Professionals ensuring the seamless deployment and monitoring of machine learning models in production, requiring expertise in CI/CD pipelines, containerization (Docker), orchestration (Kubernetes), and tools like MLflow.",
     responsibilities: [
-      "Deploy ML models to production",
-      "Build and maintain CI/CD pipelines for ML",
-      "Monitor model performance and infrastructure",
-      "Automate ML workflows",
-      "Ensure reliability and scalability of ML systems"
+      "Design and implement ML deployment pipelines",
+      "Set up monitoring for model performance",
+      "Automate testing and validation of ML models",
+      "Manage infrastructure for ML workloads",
+      "Collaborate with data scientists and engineers"
     ],
-    collaborators: ["Data Scientists", "ML Engineers", "DevOps Teams", "Software Engineers"],
-    dayInLife: "Daily stand‑up; update CI/CD YAML; containerize new model; deploy via Kubernetes; add Prometheus alert; afternoon root‑cause a latency spike.",
-    monthInLife: "Sprint 1 sets up infra; Sprint 2 automates training pipeline; Sprint 3 adds monitoring & rollback; Sprint 4 does cost‑optimization and knowledge‑sharing.",
-    careerPath: {
-      description: "MLOps Engineers typically progress from building infrastructure to leading platform teams and shaping ML strategy.",
-      progressionSteps: [
-        {
-          title: "DevOps / Data Engineer",
-          description: "Support deployment, build pipelines, and maintain infrastructure.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "MLOps Engineer",
-          description: "Design and implement ML deployment, monitoring, and automation solutions.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior MLOps",
-          description: "Lead projects, mentor junior engineers, and establish best practices.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "MLOps Lead / Platform Engineering Manager",
-          description: "Set platform strategy, lead teams, and drive innovation in ML infrastructure.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["Docker", "Kubernetes", "MLflow", "CI/CD Tools", "Cloud Platforms", "Monitoring Systems"],
+    skills: ["DevOps", "Machine Learning", "Infrastructure as Code", "Automation", "System Design"]
   },
   {
     id: "private-equity-analyst",
     title: "Private Equity Analyst",
-    shortDescription: "Evaluate investment opportunities and support portfolio management",
-    category: "Analytics, Business Intelligence",
-    skills: ["Financial Modeling", "Due Diligence", "Valuation", "Excel", "Financial Analysis"],
-    tools: ["Excel", "FactSet", "Capital IQ", "PowerPoint", "Bloomberg Terminal"],
+    category: "AI/ML, Analytics",
+    shortDescription: "Evaluates investment opportunities by analyzing financial data and market trends, requiring expertise in financial modeling, valuation, and business analytics tools.",
     responsibilities: [
-      "Build financial models to evaluate investment opportunities",
-      "Conduct due diligence on potential investments",
-      "Monitor portfolio company performance",
-      "Prepare investment committee materials",
-      "Support deal execution and portfolio management"
+      "Analyze potential investment targets",
+      "Build financial models to evaluate deals",
+      "Conduct market and industry research",
+      "Support due diligence processes",
+      "Present investment recommendations"
     ],
-    collaborators: ["Investment Professionals", "Portfolio Companies", "Investment Banking", "Consultants"],
-    dayInLife: "Early news scan; Excel/LBO model tweaks; management call with target company; prepare IC memo; attend investment committee review.",
-    monthInLife: "Deal cycle: sourcing & screening (wks 1‑2), deep diligence & modeling (wks 3‑4), committee presentation & term‑sheet (wk 5), closing logistics (wk 6+).",
-    careerPath: {
-      description: "Private Equity Analysts typically progress from analytical roles to investment professionals leading deals and managing portfolios.",
-      progressionSteps: [
-        {
-          title: "Analyst",
-          description: "Support deal evaluation, build models, and conduct research.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Senior Analyst",
-          description: "Lead analytical work, manage due diligence, and support deal execution.",
-          timePeriod: "2-3 years"
-        },
-        {
-          title: "Associate",
-          description: "Source deals, lead financial analysis, and manage relationships with portfolio companies.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "VP / Deal Lead / Principal / Partner",
-          description: "Lead investment decisions, manage portfolios, and drive firm strategy.",
-          timePeriod: "5+ years"
-        }
-      ]
-    }
+    tools: ["Excel", "Financial Modeling Software", "Data Analytics Tools", "CRM Systems", "Research Databases"],
+    skills: ["Financial Analysis", "Valuation", "Due Diligence", "Market Research", "Presentation"]
   },
   {
     id: "product-insights-analyst",
-    title: "Product Insights Analyst",
-    shortDescription: "Analyze product data to inform product development decisions",
-    category: "Analytics",
-    skills: ["Product Analytics", "A/B Testing", "SQL", "Data Visualization", "User Behavior Analysis"],
-    tools: ["Amplitude", "Mixpanel", "SQL", "Tableau", "Python"],
+    title: "Product or Product Insights Analyst",
+    category: "AI/ML, Analytics",
+    shortDescription: "Focuses on analyzing product performance and user behavior to inform product development, requiring skills in A/B testing, data analysis, and tools like Google Analytics and SQL.",
     responsibilities: [
-      "Analyze product usage data",
+      "Track and analyze product usage metrics",
       "Design and analyze A/B tests",
-      "Create dashboards to track product metrics",
-      "Collaborate with product managers to define success metrics",
-      "Make recommendations to improve product performance"
+      "Identify opportunities for product improvement",
+      "Work with product teams to implement data-driven changes",
+      "Create dashboards for monitoring product health"
     ],
-    collaborators: ["Product Managers", "Engineers", "UX Designers", "Marketing Teams"],
-    dayInLife: "Check product dashboards; design A/B test; sync with PM; analyze experiment results; share insight Slack post; iterate tracking plan.",
-    monthInLife: "Month: roadmap metrics review, test design & launch, mid‑month readouts, end‑month retrospective and instrumentation grooming.",
-    careerPath: {
-      description: "Product Insights Analysts typically progress from analyzing data to leading product analytics and influencing product strategy.",
-      progressionSteps: [
-        {
-          title: "Data Analyst",
-          description: "Support basic reporting, implement tracking, and analyze user behavior.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Product Insights Analyst",
-          description: "Lead analysis projects, develop metrics, and design experiments.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior / Lead Insights Analyst",
-          description: "Define measurement strategy, mentor junior analysts, and drive data-informed decisions.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "Analytics PM or Product Analytics Manager",
-          description: "Set product analytics strategy, lead teams, and influence product roadmap.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["SQL", "Google Analytics", "A/B Testing Platforms", "BI Tools", "Product Analytics Software"],
+    skills: ["Data Analysis", "User Behavior Analysis", "Product Thinking", "Hypothesis Testing", "Communication"]
   },
   {
     id: "qa-engineer-ai",
-    title: "QA Engineer (AI)",
-    shortDescription: "Test and validate AI systems for quality and reliability",
+    title: "Quality Assurance Engineer, AI",
     category: "AI/ML",
-    skills: ["Software Testing", "Automation", "Python", "Evaluation Metrics", "Bug Reporting"],
-    tools: ["pytest", "TensorFlow", "Selenium", "Jira", "Jenkins"],
+    shortDescription: "Focuses on validating AI models and systems for accuracy, fairness, and robustness, requiring expertise in testing frameworks, programming, and data ethics.",
     responsibilities: [
-      "Design test plans for AI systems",
-      "Implement automated tests for model validation",
-      "Identify and report issues in AI systems",
-      "Test for bias and fairness in AI outputs",
-      "Ensure models meet quality standards"
+      "Develop testing strategies for AI systems",
+      "Test for bias, fairness, and ethical concerns",
+      "Validate model performance and accuracy",
+      "Design test cases for edge scenarios",
+      "Document and track quality metrics"
     ],
-    collaborators: ["Data Scientists", "ML Engineers", "Product Managers", "DevOps Teams"],
-    dayInLife: "Review nightly model‑test report; write new edge‑case scripts; pair with DS to reproduce a drift bug; update quality gates; document findings.",
-    monthInLife: "Monthly: author test plan (wk 1), automate & run tests (wk 2‑3), finalize QA sign‑off and post‑mortem (wk 4).",
-    careerPath: {
-      description: "QA Engineers focused on AI typically progress from testing to leading quality assurance strategies for AI systems.",
-      progressionSteps: [
-        {
-          title: "QA Analyst",
-          description: "Execute tests, report bugs, and assist with test automation.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "AI QA Engineer",
-          description: "Design test plans, implement automated testing, and ensure model quality.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "QA Lead",
-          description: "Lead testing teams, establish quality standards, and drive test strategy.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "AI Quality Manager / Director of AI QA & Compliance",
-          description: "Set quality strategy, lead teams, and ensure compliance with AI standards.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["Testing Frameworks", "Bias Detection Tools", "Automated Testing", "Performance Monitoring", "Documentation Systems"],
+    skills: ["Quality Assurance", "AI Ethics", "Testing Methodology", "Programming", "Analytical Thinking"]
   },
   {
     id: "research-scientist",
-    title: "Research Scientist",
-    shortDescription: "Conduct original research to advance knowledge and technology",
+    title: "Research Scientist/Applied Research Scientist",
     category: "AI/ML",
-    skills: ["Research", "Machine Learning", "Deep Learning", "Mathematics", "Scientific Writing"],
-    tools: ["PyTorch", "TensorFlow", "Python", "LaTeX", "Cloud Computing"],
+    shortDescription: "Applies advanced research to solve real-world problems, often focusing on machine learning and AI applications, requiring expertise in mathematics, algorithms, and data science.",
     responsibilities: [
-      "Design and conduct experiments",
-      "Develop new algorithms and models",
-      "Publish research papers",
-      "Present at conferences",
-      "Collaborate with other researchers and engineers"
+      "Conduct research on cutting-edge AI techniques",
+      "Develop novel algorithms and approaches",
+      "Publish findings in academic conferences and journals",
+      "Apply research to solve business problems",
+      "Collaborate with engineering teams on implementation"
     ],
-    collaborators: ["Academic Researchers", "Engineers", "Product Teams", "PhD Students"],
-    dayInLife: "Morning experiment results review; refine algorithm; meet engineers to productize research; draft paper section; mentor intern.",
-    monthInLife: "Quarterly: literature survey, hypothesis & experiment design, execution & analysis, publication & tech‑transfer to product.",
-    careerPath: {
-      description: "Research Scientists typically progress from conducting research to leading research teams and shaping research strategy.",
-      progressionSteps: [
-        {
-          title: "Junior Researcher",
-          description: "Assist with experiments, implement models, and support research projects.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "Research Scientist",
-          description: "Lead research projects, publish papers, and develop novel approaches.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Senior / Staff Researcher",
-          description: "Define research directions, secure funding, and mentor junior researchers.",
-          timePeriod: "5-8 years"
-        },
-        {
-          title: "Principal Researcher / Head of Research",
-          description: "Set research strategy, lead teams, and drive innovation.",
-          timePeriod: "8+ years"
-        }
-      ]
-    }
+    tools: ["Python/R", "Machine Learning Libraries", "Research Tools", "Academic Databases", "Computational Resources"],
+    skills: ["Research Methods", "Machine Learning", "Mathematics", "Scientific Writing", "Critical Thinking"]
   },
   {
     id: "solution-engineer-data-ai",
-    title: "Solution Engineer (Data & AI)",
-    shortDescription: "Design and implement data and AI solutions for clients",
-    category: "AI/ML, Data Engineering",
-    skills: ["Solution Architecture", "Pre-sales", "Cloud Computing", "Data Engineering", "Communication"],
-    tools: ["AWS", "Azure", "GCP", "PowerPoint", "Python"],
+    title: "Solution Engineer, Data & AI",
+    category: "AI/ML, Analytics",
+    shortDescription: "Designs tailored data and AI solutions to address specific client needs, requiring expertise in cloud platforms, data integration, and AI frameworks.",
     responsibilities: [
-      "Design data and AI solutions for clients",
-      "Build prototypes and proof-of-concepts",
+      "Design technical solutions to business problems",
+      "Create proof-of-concepts and demos",
       "Present technical solutions to clients",
-      "Support sales teams in technical discussions",
-      "Stay up-to-date with the latest technologies"
+      "Work with implementation teams on solution delivery",
+      "Stay current with emerging technologies"
     ],
-    collaborators: ["Sales Teams", "Customers", "Product Teams", "Implementation Teams"],
-    dayInLife: "Demo analytics solution; scope requirements; design reference architecture; build POC; present ROI; hand off to delivery team.",
-    monthInLife: "Sales cycle: discovery & scoping (wk 1), POC build (wk 2‑3), technical validation (wk 4), hand‑over & lessons learned (wk 5).",
-    careerPath: {
-      description: "Solution Engineers typically progress from technical roles to strategic and leadership positions.",
-      progressionSteps: [
-        {
-          title: "Pre‑sales Engineer",
-          description: "Support demos, answer technical questions, and assist with POCs.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "Solution Engineer",
-          description: "Design solutions, build POCs, and lead technical discussions.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Senior Solution Engineer",
-          description: "Handle complex opportunities, mentor junior SEs, and influence product roadmap.",
-          timePeriod: "5-7 years"
-        },
-        {
-          title: "Solutions Architect / Director of Solutions Engineering",
-          description: "Set technical strategy, lead teams, and drive business growth.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["Cloud Platforms", "AI Services", "Integration Tools", "Presentation Software", "CRM Systems"],
+    skills: ["Solution Architecture", "Technical Sales", "Communication", "Project Planning", "AI/ML Knowledge"]
   },
   {
     id: "cloud-data-engineer",
     title: "Cloud Data Engineer",
-    shortDescription: "Build and maintain cloud-based data infrastructure",
     category: "Data Engineering",
-    skills: ["Cloud Computing", "ETL", "SQL", "IaC", "Data Modeling"],
-    tools: ["AWS", "Azure", "GCP", "Terraform", "Spark"],
+    shortDescription: "Specializes in designing scalable data pipelines on cloud platforms to enable analytics and AI, requiring expertise in cloud data services (e.g., BigQuery, AWS Redshift), ETL processes, and distributed computing tools like Apache Spark.",
     responsibilities: [
-      "Design and implement cloud-based data solutions",
-      "Build and maintain ETL pipelines",
-      "Optimize data storage and processing",
-      "Implement data security and governance",
-      "Automate data workflows"
+      "Design and implement cloud-based data architectures",
+      "Build scalable ETL pipelines on cloud platforms",
+      "Optimize data storage and processing for cost and performance",
+      "Implement data security and compliance measures",
+      "Migrate data workloads to cloud environments"
     ],
-    collaborators: ["Data Scientists", "Business Analysts", "DevOps Teams", "Security Teams"],
-    dayInLife: "Stand‑up; write Terraform; build Spark ETL; optimize BigQuery costs; add IAM policies; evening code review.",
-    monthInLife: "Month: design architecture (wk 1), pipeline build (wk 2‑3), performance tuning & documentation (wk 4).",
-    careerPath: {
-      description: "Cloud Data Engineers typically progress from building infrastructure to leading data platform teams and shaping data strategy.",
-      progressionSteps: [
-        {
-          title: "Data Engineer",
-          description: "Build pipelines, implement data storage, and support basic analytics.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Cloud Data Engineer",
-          description: "Design and implement cloud-based data solutions with security and scalability.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior / Lead Cloud DE",
-          description: "Lead projects, mentor junior engineers, and establish best practices.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "Cloud Data Architect / Principal Engineer",
-          description: "Set data architecture strategy, lead teams, and drive innovation in data platforms.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["AWS/Azure/GCP", "Cloud Data Warehouses", "Serverless Computing", "Spark", "Terraform/CloudFormation"],
+    skills: ["Cloud Architecture", "Data Engineering", "ETL Design", "Cost Optimization", "Security"]
   },
   {
     id: "data-governance-analyst",
     title: "Data Governance Analyst",
-    shortDescription: "Ensure data quality, security, and compliance",
-    category: "Data Engineering",
-    skills: ["Data Governance", "Compliance", "Data Quality", "Policy Development", "Documentation"],
-    tools: ["Collibra", "Alation", "SQL", "Excel", "Informatica"],
+    category: "Analytics",
+    shortDescription: "Focuses on implementing policies and practices to ensure data quality, compliance, and security, requiring knowledge of data management frameworks, compliance standards, and risk mitigation strategies.",
     responsibilities: [
       "Develop and implement data governance policies",
-      "Monitor and improve data quality",
-      "Ensure compliance with regulations",
-      "Maintain data catalogs and metadata",
-      "Train and support data stewards"
+      "Monitor compliance with data regulations",
+      "Establish data quality standards and metrics",
+      "Create data catalogs and dictionaries",
+      "Train staff on data governance practices"
     ],
-    collaborators: ["Data Stewards", "IT Teams", "Legal & Compliance", "Business Users"],
-    dayInLife: "Morning data‑quality dashboard check; draft policy; meet compliance; update data catalog; run stewardship workshop.",
-    monthInLife: "Quarter: policy rollout (mo 1), metric tracking & remediation (mo 2), audit prep & training (mo 3).",
-    careerPath: {
-      description: "Data Governance Analysts typically progress from policy implementation to leadership roles shaping governance strategy.",
-      progressionSteps: [
-        {
-          title: "Data Steward",
-          description: "Support data quality, assist with metadata management, and enforce policies.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Data Governance Analyst",
-          description: "Develop policies, implement governance tools, and drive quality initiatives.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior DG Analyst",
-          description: "Lead governance projects, mentor junior analysts, and establish best practices.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "DG Manager / Director of Data Governance",
-          description: "Set governance strategy, lead teams, and ensure enterprise data compliance.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["Data Catalogs", "Metadata Management Tools", "Compliance Software", "Documentation Systems", "Training Platforms"],
+    skills: ["Data Management", "Regulatory Knowledge", "Policy Development", "Communication", "Risk Assessment"]
   },
   {
     id: "data-visualization-specialist",
     title: "Data Visualization Specialist",
-    shortDescription: "Create effective visual representations of data",
     category: "Analytics, Business Intelligence",
-    skills: ["Data Visualization", "UX Design", "Storytelling", "SQL", "Design Thinking"],
-    tools: ["Tableau", "Power BI", "D3.js", "Adobe Illustrator", "Figma"],
+    shortDescription: "Professionals who craft compelling visual representations of data, making complex information accessible and actionable, requiring skills in visualization tools like Tableau or Power BI, and a strong foundation in data storytelling, design principles, and analytics.",
     responsibilities: [
-      "Design and create data visualizations",
-      "Develop interactive dashboards",
-      "Transform complex data into understandable visuals",
-      "Collaborate with stakeholders to understand requirements",
-      "Train users on visualization tools"
+      "Design effective data visualizations and dashboards",
+      "Translate complex data into intuitive visual stories",
+      "Apply design principles to enhance data comprehension",
+      "Work with stakeholders to understand visualization needs",
+      "Stay current with visualization best practices"
     ],
-    collaborators: ["Analysts", "Business Users", "UX Designers", "Data Engineers"],
-    dayInLife: "Sketch viz mockups; develop Tableau dashboards; color‑test with UX; stakeholder feedback session; iterate.",
-    monthInLife: "Month: requirement gathering, prototyping, production build, training & style‑guide update.",
-    careerPath: {
-      description: "Data Visualization Specialists typically progress from creating visualizations to leading data experience teams.",
-      progressionSteps: [
-        {
-          title: "BI Developer",
-          description: "Create reports, build basic dashboards, and support data needs.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Data Viz Specialist",
-          description: "Design advanced visualizations, develop interactive dashboards, and establish best practices.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Viz / Storytelling Lead",
-          description: "Lead visualization strategy, mentor junior specialists, and drive innovation in data presentation.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "Visualization Manager / Director of Data Storytelling",
-          description: "Set visualization strategy, lead teams, and shape how organizations communicate with data.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["Tableau", "Power BI", "D3.js", "Design Software", "Color Theory Tools"],
+    skills: ["Visual Design", "Data Storytelling", "UX Principles", "Data Analysis", "Communication"]
   },
   {
     id: "data-metrics-analyst",
-    title: "Data Metrics Analyst",
-    shortDescription: "Define, track, and analyze key business metrics",
-    category: "Analytics, Business Intelligence",
-    skills: ["Metrics Definition", "Data Analysis", "SQL", "Data Visualization", "Business Acumen"],
-    tools: ["SQL", "Looker", "Tableau", "Excel", "Jira"],
+    title: "Data and Metrics Analyst",
+    category: "Analytics",
+    shortDescription: "Professionals who design and track metrics to measure business performance, requiring expertise in analytics tools, KPI design, and data visualization.",
     responsibilities: [
-      "Define and document key metrics",
+      "Define and implement key business metrics",
       "Build dashboards to track performance",
-      "Ensure consistency in metric definitions",
-      "Collaborate with stakeholders to understand business needs",
-      "Identify opportunities for improvement based on metrics"
+      "Analyze metric trends and patterns",
+      "Report on business performance to stakeholders",
+      "Recommend improvements based on metric analysis"
     ],
-    collaborators: ["Business Leaders", "Product Teams", "Data Engineers", "Analysts"],
-    dayInLife: "Define KPI; update metric definitions; build Looker dashboard; meet finance on OKRs; write insights brief.",
-    monthInLife: "Month cycles: metric discovery (wk 1), dashboard dev (wk 2), validation & rollout (wk 3), impact review (wk 4).",
-    careerPath: {
-      description: "Data Metrics Analysts typically progress from defining and tracking metrics to shaping measurement strategy.",
-      progressionSteps: [
-        {
-          title: "Reporting Analyst",
-          description: "Support reporting needs, build basic dashboards, and track existing metrics.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Metrics Analyst",
-          description: "Define key metrics, develop tracking systems, and ensure data quality.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Metrics Analyst",
-          description: "Lead metrics frameworks, mentor junior analysts, and drive measurement strategy.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "Metrics Lead / Analytics Strategy Manager",
-          description: "Set measurement strategy, lead teams, and align metrics with business goals.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["BI Tools", "SQL", "Excel", "Statistical Software", "Data Visualization Tools"],
+    skills: ["Metric Design", "Data Analysis", "Business Acumen", "Reporting", "Critical Thinking"]
   },
   {
     id: "information-architect",
     title: "Information Architect",
-    shortDescription: "Design information structures and taxonomies",
-    category: "Data Engineering",
-    skills: ["Information Design", "Taxonomy", "Data Modeling", "Content Strategy", "UX Design"],
-    tools: ["Enterprise Architect", "Visio", "Draw.io", "SQL", "Axure"],
+    category: "Business Intelligence",
+    shortDescription: "Designs data and information systems for optimal usability and scalability, requiring expertise in data modeling, database design, and information management standards.",
     responsibilities: [
       "Design information structures and taxonomies",
-      "Develop data models and schemas",
-      "Create metadata frameworks",
-      "Collaborate with stakeholders to understand information needs",
-      "Ensure information is organized logically and accessibly"
+      "Create data models and schemas",
+      "Develop metadata frameworks",
+      "Ensure information accessibility and usability",
+      "Collaborate on enterprise architecture"
     ],
-    collaborators: ["UX Designers", "Data Engineers", "Content Strategists", "Business Analysts"],
-    dayInLife: "Create data model; map taxonomy; workshop with UX; document metadata; review with enterprise architects.",
-    monthInLife: "Month: discovery & audit, modeling & taxonomy design, implementation guidance, governance hand‑off.",
-    careerPath: {
-      description: "Information Architects typically progress from designing structures to leading information strategy.",
-      progressionSteps: [
-        {
-          title: "Data Modeler",
-          description: "Create data models, support taxonomy efforts, and document structures.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "Information Architect",
-          description: "Design comprehensive information structures, develop taxonomies, and implement metadata frameworks.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Senior IA",
-          description: "Lead information initiatives, mentor junior architects, and establish best practices.",
-          timePeriod: "5-7 years"
-        },
-        {
-          title: "Enterprise Information Architect / Chief Data Architect",
-          description: "Set information strategy, lead teams, and shape how organizations structure data.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["Modeling Tools", "Database Design Software", "Taxonomy Systems", "Documentation Platforms", "UX Tools"],
+    skills: ["Information Design", "Data Modeling", "Systems Thinking", "User Experience", "Communication"]
   },
   {
     id: "intelligence-analyst",
     title: "Intelligence Analyst",
-    shortDescription: "Collect and analyze data to produce intelligence insights",
-    category: "Analytics",
-    skills: ["Intelligence Analysis", "Research", "Critical Thinking", "Report Writing", "Risk Assessment"],
-    tools: ["OSINT Tools", "Excel", "Python", "GIS", "Visualization Software"],
+    category: "Business Intelligence",
+    shortDescription: "Gathers and interprets data to provide actionable intelligence, often in a security or strategic context, requiring analytical skills, programming, and domain expertise in specific industries like defense or business.",
     responsibilities: [
-      "Collect and analyze data from various sources",
-      "Identify patterns, trends, and insights",
-      "Produce intelligence reports and briefings",
-      "Assess risks and threats",
+      "Collect and analyze data from diverse sources",
+      "Identify patterns and trends in complex information",
+      "Produce intelligence reports for decision-makers",
+      "Assess risks and opportunities",
       "Present findings to stakeholders"
     ],
-    collaborators: ["Security Teams", "Executives", "External Agencies", "Operations Teams"],
-    dayInLife: "Gather OSINT feeds; run pattern analysis; produce threat brief; present to stakeholders; archive findings.",
-    monthInLife: "Monthly: collection plan setup, deep‑dive analysis, intelligence report cycle, post‑action review.",
-    careerPath: {
-      description: "Intelligence Analysts typically progress from analytical roles to leadership positions in intelligence and security.",
-      progressionSteps: [
-        {
-          title: "Junior Intel Analyst",
-          description: "Support data collection, conduct basic analysis, and assist with reports.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Intelligence Analyst",
-          description: "Lead analysis projects, produce comprehensive reports, and make actionable recommendations.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Intel Analyst",
-          description: "Oversee complex analyses, mentor junior analysts, and shape intelligence strategy.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Intelligence Manager / Director of Intelligence",
-          description: "Lead intelligence functions, set strategy, and advise executive leadership.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["Data Analysis Software", "Visualization Tools", "Intelligence Platforms", "Research Databases", "Reporting Systems"],
+    skills: ["Analytical Thinking", "Research", "Domain Knowledge", "Communication", "Critical Evaluation"]
   },
   {
     id: "mdm-analyst",
-    title: "MDM Analyst",
-    shortDescription: "Manage and maintain master data",
-    category: "Data Engineering",
-    skills: ["Master Data Management", "Data Governance", "Data Quality", "ETL", "Business Process"],
-    tools: ["Informatica MDM", "SAP MDG", "SQL", "Excel", "Talend"],
+    title: "Master Data Management (MDM) Analyst",
+    category: "Analytics",
+    shortDescription: "Manages master data to ensure consistency across systems, requiring expertise in data integration, governance, and tools like Informatica MDM or Tibco.",
     responsibilities: [
-      "Implement and maintain master data management systems",
-      "Ensure data quality and consistency",
-      "Develop and enforce data standards",
-      "Resolve data issues and conflicts",
-      "Train users on MDM processes"
+      "Develop and maintain master data standards",
+      "Ensure data consistency across systems",
+      "Implement data quality processes",
+      "Resolve data discrepancies",
+      "Support data integration initiatives"
     ],
-    collaborators: ["Data Stewards", "IT Teams", "Business Users", "Data Governance Teams"],
-    dayInLife: "Morning duplicate‑record report; resolve data conflicts; update MDM rules; sync with ETL team; document quality metrics.",
-    monthInLife: "Quarter: data profiling, golden‑record design, rule implementation, monitoring & stewardship training.",
-    careerPath: {
-      description: "MDM Analysts typically progress from data management roles to leadership positions in master data strategy.",
-      progressionSteps: [
-        {
-          title: "Data Steward",
-          description: "Support data quality efforts, resolve basic issues, and enforce standards.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "MDM Analyst",
-          description: "Implement MDM solutions, ensure data quality, and develop processes.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior MDM Analyst",
-          description: "Lead MDM projects, mentor junior analysts, and establish best practices.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "MDM Lead / Master Data Manager",
-          description: "Set MDM strategy, lead teams, and align master data with business goals.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["MDM Platforms", "Data Quality Tools", "ETL Software", "Data Profiling Tools", "Metadata Repositories"],
+    skills: ["Data Management", "Data Modeling", "Data Quality", "Process Design", "Problem Solving"]
   },
   {
     id: "sql-developer",
     title: "SQL Developer",
-    shortDescription: "Design and optimize database queries and structures",
     category: "Data Engineering",
-    skills: ["SQL", "Database Design", "Query Optimization", "Stored Procedures", "Performance Tuning"],
-    tools: ["SQL Server", "Oracle", "PostgreSQL", "MySQL", "PL/SQL"],
+    shortDescription: "Focused on managing and querying data in relational databases, SQL developers design, optimize, and maintain database systems, requiring expertise in SQL, data modeling, and performance tuning, often in collaboration with data analysts and engineers.",
     responsibilities: [
       "Design and implement database schemas",
       "Write and optimize SQL queries",
       "Develop stored procedures and functions",
-      "Troubleshoot database performance issues",
-      "Collaborate with applications teams on data access"
+      "Troubleshoot performance issues",
+      "Support data analysis and reporting needs"
     ],
-    collaborators: ["Database Administrators", "Applications Developers", "BI Teams", "Data Engineers"],
-    dayInLife: "Write new stored proc; tune slow query; collaborate with BI; deploy schema migration; backup verification.",
-    monthInLife: "Sprint cycle: requirement intake, query/dev, QA & performance testing, release & monitoring.",
-    careerPath: {
-      description: "SQL Developers typically progress from writing queries to architecting database solutions.",
-      progressionSteps: [
-        {
-          title: "SQL Dev",
-          description: "Write basic queries, develop reports, and support applications.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Senior SQL Dev",
-          description: "Design schemas, optimize complex queries, and implement best practices.",
-          timePeriod: "2-5 years"
-        },
-        {
-          title: "Database Engineer",
-          description: "Lead database projects, performance tune, and develop database architecture.",
-          timePeriod: "5-8 years"
-        },
-        {
-          title: "Data Platform Lead / Database Architect",
-          description: "Set database strategy, lead teams, and drive innovation in data platforms.",
-          timePeriod: "8+ years"
-        }
-      ]
-    }
+    tools: ["SQL", "Database Management Systems", "Query Optimization Tools", "Version Control", "Data Modeling Tools"],
+    skills: ["SQL Programming", "Database Design", "Performance Tuning", "Troubleshooting", "Data Modeling"]
   },
   {
     id: "ai-governance-officer",
     title: "AI Governance Officer",
-    shortDescription: "Ensure responsible AI development and compliance",
-    category: "AI/ML",
-    skills: ["Policy Development", "Risk Assessment", "Compliance", "Ethics", "Communication"],
-    tools: ["Documentation Tools", "Monitoring Platforms", "Compliance Frameworks", "Jira", "PowerPoint"],
+    category: "Business Intelligence",
+    shortDescription: "Ensures AI systems align with organizational goals and ethical guidelines, requiring skills in risk management, compliance, and a deep understanding of AI lifecycle management.",
     responsibilities: [
-      "Develop and implement AI governance policies",
-      "Assess AI systems for risks and compliance issues",
-      "Monitor AI performance and impacts",
-      "Train teams on responsible AI practices",
-      "Stay current with AI regulations and standards"
+      "Develop AI governance frameworks and policies",
+      "Ensure compliance with AI regulations and standards",
+      "Assess AI systems for ethical considerations",
+      "Create risk mitigation strategies for AI deployments",
+      "Educate stakeholders on responsible AI practices"
     ],
-    collaborators: ["AI Teams", "Legal & Compliance", "Executives", "Ethics Committee"],
-    dayInLife: "Review new AI project; risk assessment; update governance policy; brief execs; conduct compliance training.",
-    monthInLife: "Quarter: policy development, tool rollout, audit & reporting, stakeholder training.",
-    careerPath: {
-      description: "AI Governance Officers typically progress from policy roles to leadership positions in AI ethics and governance.",
-      progressionSteps: [
-        {
-          title: "Policy Analyst",
-          description: "Support policy development, assist with assessments, and monitor compliance.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "AI Governance Officer",
-          description: "Develop governance frameworks, conduct risk assessments, and implement compliance processes.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Senior Governance Lead",
-          description: "Lead governance initiatives, shape policy, and advise on ethical considerations.",
-          timePeriod: "5-7 years"
-        },
-        {
-          title: "Head of Responsible AI / VP, AI Risk & Compliance",
-          description: "Set AI governance strategy, lead teams, and ensure responsible AI practices.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["Risk Assessment Frameworks", "Policy Management Systems", "Compliance Software", "Documentation Platforms", "Training Tools"],
+    skills: ["AI Ethics", "Risk Management", "Policy Development", "Compliance", "Stakeholder Management"]
   },
   {
     id: "cloud-engineer",
     title: "Cloud Engineer",
-    shortDescription: "Design and manage cloud infrastructure",
     category: "Data Engineering",
-    skills: ["Cloud Computing", "IaC", "DevOps", "Security", "Networking"],
-    tools: ["AWS", "Azure", "GCP", "Terraform", "Kubernetes"],
+    shortDescription: "Experts in deploying, managing, and optimizing cloud-based infrastructure, Cloud Engineers require proficiency in platforms like AWS, Azure, or Google Cloud, alongside skills in automation, networking, and cloud security.",
     responsibilities: [
       "Design and implement cloud infrastructure",
-      "Automate deployment and management",
-      "Monitor and optimize cloud resources",
-      "Implement security best practices",
-      "Collaborate with development teams"
+      "Automate deployment and scaling processes",
+      "Optimize cloud resources for cost and performance",
+      "Implement cloud security best practices",
+      "Troubleshoot infrastructure issues"
     ],
-    collaborators: ["DevOps Teams", "Developers", "Security Teams", "Data Teams"],
-    dayInLife: "Deploy infra via IaC; optimize autoscaling; patch security groups; cost review; incident post‑mortem.",
-    monthInLife: "Month: architecture design, deployment, monitoring/tuning, DR testing.",
-    careerPath: {
-      description: "Cloud Engineers typically progress from implementation roles to architecture and leadership positions.",
-      progressionSteps: [
-        {
-          title: "Cloud Engineer",
-          description: "Implement cloud services, automate deployments, and support infrastructure.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "Senior Cloud Engineer",
-          description: "Design complex solutions, optimize performance/cost, and establish best practices.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Cloud Architect",
-          description: "Lead cloud strategy, design enterprise architecture, and drive innovation.",
-          timePeriod: "5-7 years"
-        },
-        {
-          title: "Cloud Practice Lead / Principal Cloud Engineer",
-          description: "Set cloud direction, lead teams, and define organizational cloud strategy.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["AWS/Azure/GCP", "IaC Tools", "CI/CD Pipelines", "Monitoring Systems", "Security Tools"],
+    skills: ["Cloud Architecture", "Automation", "Networking", "Security", "Cost Optimization"]
   },
   {
     id: "cloud-security-engineer",
     title: "Cloud Security Engineer",
-    shortDescription: "Secure cloud environments and data",
     category: "Data Engineering",
-    skills: ["Cloud Security", "Security Architecture", "Compliance", "DevSecOps", "Incident Response"],
-    tools: ["AWS Security", "Azure Security Center", "GCP Security", "HashiCorp Vault", "SIEM Tools"],
+    shortDescription: "Focuses on securing cloud environments and ensuring compliance with industry standards, requiring expertise in IAM, network security, encryption, and tools like Cloud Armor or AWS Shield.",
     responsibilities: [
       "Design and implement cloud security controls",
-      "Conduct security assessments",
-      "Monitor for security threats",
-      "Implement compliance controls",
+      "Monitor for security threats and vulnerabilities",
+      "Ensure compliance with security standards",
+      "Conduct security assessments and audits",
       "Respond to security incidents"
     ],
-    collaborators: ["Cloud Engineers", "Security Teams", "Compliance Officers", "DevOps Teams"],
-    dayInLife: "Run vulnerability scan; triage alerts; implement IAM hardening; pen‑test review; write incident report.",
-    monthInLife: "Quarter: security assessment, remediation sprint, compliance audit, tabletop exercise.",
-    careerPath: {
-      description: "Cloud Security Engineers typically progress from implementation roles to leadership positions in security.",
-      progressionSteps: [
-        {
-          title: "Security Analyst",
-          description: "Monitor alerts, implement controls, and support security operations.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "Cloud Security Engineer",
-          description: "Design security solutions, conduct assessments, and implement best practices.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Senior CSE",
-          description: "Lead security initiatives, architect solutions, and mentor junior engineers.",
-          timePeriod: "5-7 years"
-        },
-        {
-          title: "Security Architect / Director of Cloud Security",
-          description: "Set security strategy, lead teams, and ensure enterprise cloud security.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["Cloud Security Services", "IAM Systems", "Encryption Tools", "SIEM Solutions", "Vulnerability Scanners"],
+    skills: ["Cloud Security", "Threat Detection", "Compliance", "Risk Assessment", "Incident Response"]
   },
   {
     id: "full-stack-developer",
-    title: "Full Stack Developer",
-    shortDescription: "Build and maintain web applications end-to-end",
+    title: "Full-Stack Developer",
     category: "Data Engineering",
-    skills: ["Frontend Development", "Backend Development", "Databases", "API Design", "DevOps"],
-    tools: ["JavaScript", "React", "Node.js", "Python", "SQL"],
+    shortDescription: "Develops and maintains both front-end and back-end systems, often in AI/ML-powered applications, requiring proficiency in programming languages, databases, and frameworks like React, Node.js, and Flask.",
     responsibilities: [
-      "Develop frontend and backend components",
-      "Design and implement databases",
-      "Build and consume APIs",
-      "Deploy and maintain applications",
-      "Collaborate with product and design teams"
+      "Design and develop web applications",
+      "Implement front-end user interfaces",
+      "Build back-end services and APIs",
+      "Integrate with databases and external systems",
+      "Deploy and maintain applications"
     ],
-    collaborators: ["Product Managers", "Designers", "QA Teams", "DevOps Engineers"],
-    dayInLife: "Daily stand‑up; build React feature; connect to Flask API; write unit tests; deploy via CI; code review.",
-    monthInLife: "Two‑week sprints: feature dev, integration, testing, release, retro.",
-    careerPath: {
-      description: "Full Stack Developers typically progress from implementation to architecture and leadership roles.",
-      progressionSteps: [
-        {
-          title: "Software Dev",
-          description: "Implement features, fix bugs, and support applications.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Full‑Stack Dev",
-          description: "Design and implement end-to-end solutions with performance and scalability in mind.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Full‑Stack",
-          description: "Lead development efforts, architect solutions, and mentor junior developers.",
-          timePeriod: "4-7 years"
-        },
-        {
-          title: "Tech Lead / Engineering Manager",
-          description: "Set technical direction, lead teams, and drive innovation in software development.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["JavaScript/TypeScript", "React/Angular/Vue", "Node.js/Python/Java", "Databases", "Git", "CI/CD Tools"],
+    skills: ["Front-end Development", "Back-end Development", "API Design", "Database Management", "Problem Solving"]
   },
   {
     id: "metadata-specialist",
     title: "Metadata Specialist",
-    shortDescription: "Manage and organize data about data",
     category: "Data Engineering",
-    skills: ["Metadata Management", "Data Cataloging", "Taxonomy", "Data Governance", "Documentation"],
-    tools: ["Alation", "Collibra", "Apache Atlas", "SQL", "Excel"],
+    shortDescription: "Professionals who manage metadata to improve data discoverability and governance, requiring skills in data cataloging, standards like DCAT, and tools like Data Catalog or Alation.",
     responsibilities: [
-      "Develop and maintain metadata repositories",
-      "Create and apply metadata standards",
-      "Document data lineage and relationships",
-      "Support data discovery and understanding",
-      "Collaborate with data governance teams"
+      "Design and implement metadata frameworks",
+      "Create and maintain data catalogs",
+      "Develop metadata standards and policies",
+      "Ensure data discoverability and understanding",
+      "Support data governance initiatives"
     ],
-    collaborators: ["Data Stewards", "Data Engineers", "Business Analysts", "Data Scientists"],
-    dayInLife: "Update data catalog; curate metadata tags; meet DG team; audit lineage; create glossary entry.",
-    monthInLife: "Month: catalog rollout, metadata enrichment, stewardship training, governance alignment.",
-    careerPath: {
-      description: "Metadata Specialists typically progress from documentation roles to leadership positions in data management.",
-      progressionSteps: [
-        {
-          title: "Data Librarian",
-          description: "Document metadata, maintain basic catalogs, and support data organization.",
-          timePeriod: "1-2 years"
-        },
-        {
-          title: "Metadata Specialist",
-          description: "Implement metadata systems, establish standards, and support data governance.",
-          timePeriod: "2-4 years"
-        },
-        {
-          title: "Senior Metadata Specialist",
-          description: "Lead metadata initiatives, architect solutions, and establish best practices.",
-          timePeriod: "4-6 years"
-        },
-        {
-          title: "Metadata Lead / Director of Data Cataloging",
-          description: "Set metadata strategy, lead teams, and drive data understanding across the organization.",
-          timePeriod: "6+ years"
-        }
-      ]
-    }
+    tools: ["Data Catalog Platforms", "Metadata Management Tools", "Taxonomy Systems", "Documentation Tools", "ETL Tools"],
+    skills: ["Metadata Management", "Data Cataloging", "Information Architecture", "Data Standards", "Communication"]
   },
   {
     id: "software-engineer-ai-ml",
     title: "Software Engineer (AI/ML)",
-    shortDescription: "Develop software that integrates AI/ML capabilities",
-    category: "AI/ML, Data Engineering",
-    skills: ["Software Engineering", "ML Integration", "API Development", "Performance Optimization", "DevOps"],
-    tools: ["Python", "TensorFlow", "Docker", "Kubernetes", "Git"],
+    category: "Data Engineering, AI/ML",
+    shortDescription: "Engineers who build AI-driven applications, integrating machine learning models into software systems, requiring expertise in programming, AI frameworks, and system design.",
     responsibilities: [
-      "Develop software that incorporates AI/ML models",
-      "Build APIs for model serving",
-      "Optimize model performance in production",
-      "Implement testing frameworks for AI applications",
+      "Develop software that incorporates AI/ML capabilities",
+      "Integrate machine learning models into applications",
+      "Build APIs and services for AI functionality",
+      "Optimize AI model performance in production",
       "Collaborate with data scientists and product teams"
     ],
-    collaborators: ["Data Scientists", "Product Managers", "DevOps Engineers", "UX Designers"],
-    dayInLife: "Implement feature flag; integrate TensorFlow model; write API; benchmark latency; deploy via Docker.",
-    monthInLife: "Sprint: model integration, API build, performance tuning, release & monitoring.",
-    careerPath: {
-      description: "Software Engineers specializing in AI/ML typically progress from implementation to architecture and leadership roles.",
-      progressionSteps: [
-        {
-          title: "Software Engineer",
-          description: "Implement integrations, develop features, and support AI applications.",
-          timePeriod: "1-3 years"
-        },
-        {
-          title: "ML Software Engineer",
-          description: "Design AI systems, optimize performance, and develop production-ready solutions.",
-          timePeriod: "3-5 years"
-        },
-        {
-          title: "Senior ML Engineer",
-          description: "Lead development efforts, architect complex systems, and mentor junior engineers.",
-          timePeriod: "5-7 years"
-        },
-        {
-          title: "Tech Lead (ML Apps) / Principal Engineer, AI Platforms",
-          description: "Set technical direction, lead teams, and drive innovation in AI applications.",
-          timePeriod: "7+ years"
-        }
-      ]
-    }
+    tools: ["Programming Languages", "AI/ML Frameworks", "Version Control", "CI/CD Systems", "Containerization"],
+    skills: ["Software Development", "AI/ML Integration", "System Design", "API Development", "Performance Optimization"]
   }
 ];

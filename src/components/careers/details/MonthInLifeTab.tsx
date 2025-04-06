@@ -16,14 +16,9 @@ export const MonthInLifeTab: React.FC<MonthInLifeTabProps> = ({ role }) => {
         <Calendar className="h-5 w-5 text-primary" />
         <h3 className="font-semibold text-lg">A Month in the Life</h3>
       </div>
+      <p className="text-muted-foreground">{role.monthInLife}</p>
       
-      {role.monthInLife ? (
-        <p className="text-muted-foreground">{role.monthInLife}</p>
-      ) : (
-        <p className="text-muted-foreground">No month-in-the-life information available for this role.</p>
-      )}
-      
-      {role.projectTimeline && role.projectTimeline.length > 0 && (
+      {role.projectTimeline && (
         <div className="space-y-4 mt-6">
           <h4 className="font-medium">Sample Project Timeline</h4>
           <div className="space-y-4">
@@ -44,7 +39,7 @@ export const MonthInLifeTab: React.FC<MonthInLifeTabProps> = ({ role }) => {
                 </div>
                 <CollapsibleContent className="pl-12 pr-4 pb-3">
                   <p className="text-muted-foreground">{phase.description}</p>
-                  {phase.activities && phase.activities.length > 0 && (
+                  {phase.activities && (
                     <ul className="list-disc pl-5 mt-2 text-sm text-muted-foreground">
                       {phase.activities.map((activity, idx) => (
                         <li key={idx}>{activity}</li>
