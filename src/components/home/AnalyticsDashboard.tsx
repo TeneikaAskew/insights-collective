@@ -2,7 +2,6 @@
 import { BarChart, Clock, Award, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Link } from 'react-router-dom';
 
 const AnalyticsDashboard = () => {
   return (
@@ -60,9 +59,12 @@ const AnalyticsDashboard = () => {
               </div>
             </div>
             
-            <div className="mt-8">
-              <Button className="bg-primary hover:bg-primary/90" asChild>
-                <Link to="/login">Log in to view Dashboard</Link>
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Button className="bg-primary hover:bg-primary/90">
+                Try Dashboard
+              </Button>
+              <Button variant="outline">
+                Schedule Demo
               </Button>
             </div>
           </div>
