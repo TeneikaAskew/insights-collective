@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ToastProvider } from "@/hooks/use-toast";
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
@@ -28,37 +29,39 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/courses" element={<CourseList />} />
-            <Route path="/courses/:courseId" element={<CourseDetail />} />
-            <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
-            <Route path="/resources" element={<Resources />} />
-            <Route path="/resources/data-blueprint" element={<DataBlueprintSeries />} />
-            <Route path="/events" element={<Events />} />
-            <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/calendar" element={<Calendar />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/courses" element={<AdminDashboard />} />
-            <Route path="/admin/users" element={<AdminDashboard />} />
-            <Route path="/admin/resources" element={<AdminResources />} />
-            <Route path="/admin/events" element={<AdminEvents />} />
-            <Route path="/admin/settings" element={<AdminDashboard />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <ChatBot />
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ToastProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/courses" element={<CourseList />} />
+              <Route path="/courses/:courseId" element={<CourseDetail />} />
+              <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
+              <Route path="/resources" element={<Resources />} />
+              <Route path="/resources/data-blueprint" element={<DataBlueprintSeries />} />
+              <Route path="/events" element={<Events />} />
+              <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/courses" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<AdminDashboard />} />
+              <Route path="/admin/resources" element={<AdminResources />} />
+              <Route path="/admin/events" element={<AdminEvents />} />
+              <Route path="/admin/settings" element={<AdminDashboard />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <ChatBot />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ToastProvider>
   </QueryClientProvider>
 );
 
