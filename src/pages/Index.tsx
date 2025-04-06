@@ -21,6 +21,7 @@ const Index = () => {
       <HeroSection />
       <BlueprintBanner />
       <QuizSection />
+      <FeaturesSection />
       <LearningJourney />
       <ExploreTools />
       <FeaturedCourses courses={featuredCourses} />
