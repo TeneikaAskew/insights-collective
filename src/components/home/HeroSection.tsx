@@ -53,7 +53,7 @@ const HeroSection = () => {
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Button size="lg" className="bg-primary hover:bg-primary/90" asChild>
-              <Link to="/resources">Explore Resources</Link>
+              <Link to="/register">Get Started</Link>
             </Button>
             <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white" asChild>
               <Link to="/resources">
