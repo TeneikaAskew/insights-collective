@@ -1,4 +1,3 @@
-
 // Define the type for career roles data structure
 export interface DataCareerRole {
   id: string;
@@ -42,7 +41,7 @@ export const dataCareerRoles: DataCareerRole[] = [
   {
     id: "data-analyst",
     title: "Data Analyst",
-    category: "Analytics & BI",
+    category: "Analytics",
     shortDescription: "Transform raw data into actionable insights to drive business decisions.",
     longDescription: "Data Analysts collect, process, and analyze data to help organizations make better decisions. They identify trends, create visualizations, and communicate findings to stakeholders across the business. Their work bridges the gap between data and decision-making, making complex information accessible and useful.",
     responsibilities: [
@@ -154,7 +153,7 @@ export const dataCareerRoles: DataCareerRole[] = [
   {
     id: "machine-learning-engineer",
     title: "Machine Learning Engineer",
-    category: "Technical & Engineering",
+    category: "AI/ML",
     shortDescription: "Build and deploy machine learning models that power intelligent applications.",
     longDescription: "Machine Learning Engineers develop, optimize, and deploy ML models that solve complex problems and enable AI functionality in applications. They bridge the gap between data science and software engineering, taking models from research to production while ensuring they perform well at scale. They work at the intersection of data science, statistics, and software development.",
     responsibilities: [
@@ -266,7 +265,7 @@ export const dataCareerRoles: DataCareerRole[] = [
   {
     id: "data-engineer",
     title: "Data Engineer",
-    category: "Technical & Engineering",
+    category: "Data Engineering",
     shortDescription: "Design and build the infrastructure that powers data-driven organizations.",
     longDescription: "Data Engineers develop and maintain the architecture that enables data generation, storage, access, and analysis. They create robust pipelines that transform raw data into formats data scientists and analysts can use. Their work forms the foundation of data-driven decision making by ensuring that high-quality data is available, accessible, and ready for analysis.",
     responsibilities: [
@@ -395,7 +394,7 @@ export const dataCareerRoles: DataCareerRole[] = [
   {
     id: "bi-analyst",
     title: "Business Intelligence Analyst",
-    category: "Analytics & BI",
+    category: "Business Intelligence",
     shortDescription: "Create visualizations and reports that transform data into actionable business insights.",
     longDescription: "Business Intelligence Analysts specialize in turning complex data into clear, actionable reports and dashboards for business stakeholders. They combine technical skills with business acumen to design intuitive visualizations that help organizations monitor performance, identify trends, and make data-driven decisions. Their work focuses on making data accessible and meaningful to non-technical users.",
     responsibilities: [
@@ -508,7 +507,7 @@ export const dataCareerRoles: DataCareerRole[] = [
   {
     id: "data-scientist",
     title: "Data Scientist",
-    category: "Technical & Engineering",
+    category: "AI/ML",
     shortDescription: "Apply advanced analytics and machine learning to solve complex business problems.",
     longDescription: "Data Scientists combine statistics, machine learning, and domain expertise to extract insights and build predictive models from data. They work on complex problems that require sophisticated analytical approaches, turning data into actionable knowledge that drives innovation and strategic decision-making. Their work spans from exploratory analysis to deploying algorithmic solutions that transform business operations.",
     responsibilities: [
@@ -632,5 +631,230 @@ export const dataCareerRoles: DataCareerRole[] = [
         description: "Understand the statistical concepts behind machine learning models."
       }
     ]
+  },
+  {
+    id: "ai-engineer",
+    title: "AI Engineer",
+    category: "AI/ML",
+    shortDescription: "Develop and deploy AI solutions for real-world applications.",
+    longDescription: "AI Engineers design, build, and implement AI solutions that address specific business needs. They work at the intersection of software engineering and artificial intelligence, using their expertise in machine learning frameworks, cloud platforms, and software development best practices to create robust AI systems that can be deployed at scale. Their role is crucial in bridging the gap between theoretical AI research and practical applications.",
+    responsibilities: [
+      "Design and develop AI applications and solutions",
+      "Implement and optimize machine learning models for production",
+      "Create APIs and services to make AI capabilities accessible",
+      "Ensure AI systems are scalable, reliable, and efficient",
+      "Collaborate with data scientists to implement their models",
+      "Address ethical considerations in AI implementation"
+    ],
+    tools: ["Python", "TensorFlow/PyTorch", "Docker", "Kubernetes", "Cloud APIs", "Git", "CI/CD pipelines"],
+    skills: ["Software Engineering", "Machine Learning", "API Design", "Cloud Computing", "Scalability Planning"],
+    collaborators: ["Data Scientists", "Product Managers", "Software Engineers", "DevOps Teams", "Business Stakeholders"],
+    dayInLife: "An AI Engineer typically begins their day by checking the performance metrics of deployed AI systems and addressing any immediate issues. They might spend the morning coding new features for an AI application, implementing a recently developed machine learning model, or optimizing existing systems for better performance. After lunch, they could collaborate with data scientists to understand a new model's requirements or meet with product managers to gather specifications for upcoming AI features. The afternoon might involve debugging integration issues, documenting API endpoints, or reviewing code from team members. Throughout the day, they balance technical development with ensuring AI systems are reliable, ethical, and aligned with business objectives.",
+    monthInLife: "Over the course of a month, an AI Engineer typically works on multiple phases of AI system development. They might spend a week designing the architecture for a new AI service, followed by two weeks of implementation and integration with existing systems. The final week could involve testing, deployment, and monitoring the solution in production. Throughout the month, they collaborate closely with data scientists to understand model requirements, product teams to align with business needs, and operations teams to ensure smooth deployments. They continuously improve their systems based on performance metrics and user feedback while staying current with the latest AI technologies and best practices.",
+    careerPath: {
+      description: "AI Engineering offers a dynamic career path with opportunities to grow in technical depth, leadership roles, or specialized domains within artificial intelligence.",
+      progressionSteps: [
+        {
+          title: "Junior AI Engineer",
+          description: "Focus on implementing AI components and features under guidance, learning the practical aspects of deploying AI systems.",
+          timePeriod: "1-2 years"
+        },
+        {
+          title: "AI Engineer",
+          description: "Design and build complete AI systems independently, making architectural decisions and optimizing for performance and reliability.",
+          timePeriod: "2-4 years"
+        },
+        {
+          title: "Senior AI Engineer",
+          description: "Lead the development of complex AI solutions, mentor junior engineers, and contribute to strategic technical decisions.",
+          timePeriod: "4-6 years"
+        },
+        {
+          title: "AI Architect / Lead AI Engineer",
+          description: "Define the technical vision for AI systems across the organization, establish best practices, and guide teams in implementation.",
+          timePeriod: "6+ years"
+        }
+      ]
+    }
+  },
+  {
+    id: "ai-consultant",
+    title: "AI Consultant",
+    category: "AI/ML",
+    shortDescription: "Advise organizations on AI strategy and implementation to solve business challenges.",
+    longDescription: "AI Consultants help organizations identify opportunities for AI adoption, evaluate existing systems, and develop strategic roadmaps for implementation. They combine technical expertise with business acumen to ensure AI solutions deliver real value. Their role involves assessing model performance, addressing fairness concerns, and guiding organizations through the complexities of AI implementation with a focus on ethical considerations and practical outcomes.",
+    responsibilities: [
+      "Assess business needs and identify AI opportunities",
+      "Evaluate AI model performance and fairness",
+      "Develop AI strategy and implementation roadmaps",
+      "Guide organizations on ethical AI deployment",
+      "Translate technical concepts for business stakeholders",
+      "Recommend appropriate AI technologies and approaches"
+    ],
+    tools: ["Python", "Model evaluation frameworks", "Fairness toolkits", "Visualization tools", "Project management software"],
+    skills: ["AI Assessment", "Strategic Planning", "Ethics Evaluation", "Business Analysis", "Communication", "Technical Advisory"],
+    collaborators: ["C-Suite Executives", "IT Leaders", "Data Science Teams", "Product Managers", "Industry Domain Experts"],
+    dayInLife: "An AI Consultant's day is diverse and client-focused. They might start with a discovery workshop at a healthcare company, helping stakeholders identify where AI could improve patient outcomes. Mid-day could involve analyzing a financial service firm's existing machine learning models for bias and performance issues. The afternoon might be spent drafting a strategic AI roadmap for a retail client, outlining implementation phases, required resources, and expected ROI. Between client meetings, they stay current on the latest AI research and technologies, document their findings, and prepare presentations that translate complex technical concepts into business language that resonates with decision-makers.",
+    monthInLife: "Over a month, an AI Consultant typically manages multiple client engagements at different stages. They might spend the first week conducting assessments of a new client's AI readiness, the second week developing detailed recommendations for an ongoing project, and the remaining time divided between implementing solutions, monitoring outcomes, and business development activities. Each month brings a mix of technical analysis, strategic planning, and relationship building. They continuously balance addressing immediate client needs with developing long-term AI strategies that align with business objectives. Monthly retrospectives help them refine their approaches and ensure client success.",
+    careerPath: {
+      description: "AI Consulting offers a path that can lead to specialized expertise, leadership roles, or entrepreneurial opportunities in the AI advisory space.",
+      progressionSteps: [
+        {
+          title: "Associate AI Consultant",
+          description: "Support senior consultants on client engagements, learn assessment methodologies, and develop foundational knowledge in AI applications across industries.",
+          timePeriod: "1-2 years"
+        },
+        {
+          title: "AI Consultant",
+          description: "Lead assessments and strategy development independently, manage client relationships, and deliver actionable recommendations.",
+          timePeriod: "2-4 years"
+        },
+        {
+          title: "Senior AI Consultant",
+          description: "Handle complex, high-value client engagements, develop innovative consulting approaches, and mentor junior consultants.",
+          timePeriod: "4-6 years"
+        },
+        {
+          title: "AI Practice Leader / Partner",
+          description: "Direct the AI consulting practice, develop service offerings, build client relationships at executive levels, and shape industry thought leadership.",
+          timePeriod: "6+ years"
+        }
+      ]
+    }
+  },
+  {
+    id: "ai-policy-specialist",
+    title: "AI Policy Specialist",
+    category: "AI/ML",
+    shortDescription: "Shape policies and regulations to ensure responsible AI development and deployment.",
+    longDescription: "AI Policy Specialists work at the intersection of technology, ethics, and governance to develop frameworks that guide responsible AI use. They analyze emerging AI technologies, assess their societal implications, and create policies that balance innovation with risk mitigation. Their work involves collaborating with diverse stakeholders including technologists, legal experts, and policymakers to shape regulations that ensure AI systems are fair, transparent, and beneficial.",
+    responsibilities: [
+      "Develop organizational AI governance frameworks",
+      "Monitor regulatory developments in AI across jurisdictions",
+      "Assess AI systems for compliance with policies and regulations",
+      "Create guidelines for responsible AI development",
+      "Advocate for ethical AI practices with stakeholders",
+      "Collaborate on industry standards and best practices"
+    ],
+    tools: ["Policy analysis frameworks", "Risk assessment tools", "Regulatory tracking systems", "Documentation platforms", "Collaboration software"],
+    skills: ["Policy Analysis", "Ethical Assessment", "Regulatory Knowledge", "Stakeholder Management", "Technical Translation", "Strategic Communication"],
+    collaborators: ["Legal Teams", "Government Affairs", "AI Development Teams", "Ethics Committees", "Executive Leadership", "Industry Consortia"],
+    dayInLife: "An AI Policy Specialist typically starts their day by reviewing recent regulatory developments or academic publications relevant to AI governance. They might spend the morning drafting a new section of their organization's AI ethics guidelines or analyzing a proposed AI system for compliance with existing policies. Midday could involve a meeting with the legal team to discuss implications of emerging regulations, followed by a workshop with AI developers to help them understand how to implement ethical considerations in their work. The afternoon might be dedicated to preparing a presentation for executive leadership on AI risk mitigation strategies or participating in an industry working group focused on developing standards for AI transparency.",
+    monthInLife: "Over the course of a month, an AI Policy Specialist balances multiple workstreams across policy development, compliance monitoring, and stakeholder engagement. They might spend a week researching comparative approaches to regulating facial recognition technology, another week conducting an impact assessment of a new AI system being developed internally, and the remaining time contributing to industry position papers and engaging with policymakers. Throughout the month, they serve as a bridge between technical teams and governance structures, ensuring AI development aligns with ethical principles and regulatory requirements while still enabling innovation.",
+    careerPath: {
+      description: "A career in AI policy offers paths toward specialized expertise in specific domains, leadership in organizational governance, or influential roles in shaping public policy.",
+      progressionSteps: [
+        {
+          title: "AI Policy Analyst",
+          description: "Research AI policy issues, support the development of internal guidelines, and monitor regulatory developments under guidance.",
+          timePeriod: "1-3 years"
+        },
+        {
+          title: "AI Policy Specialist",
+          description: "Lead policy development for specific AI applications, conduct thorough impact assessments, and engage with cross-functional stakeholders.",
+          timePeriod: "3-5 years"
+        },
+        {
+          title: "Senior AI Policy Manager",
+          description: "Develop comprehensive governance frameworks, represent the organization in industry forums, and influence strategic approaches to AI ethics.",
+          timePeriod: "5-8 years"
+        },
+        {
+          title: "Director of AI Ethics & Policy / Chief Ethics Officer",
+          description: "Shape organizational strategy for responsible AI, engage with regulators and policymakers, and lead teams responsible for comprehensive governance.",
+          timePeriod: "8+ years"
+        }
+      ]
+    }
+  },
+  {
+    id: "ai-research-scientist",
+    title: "AI Research Scientist",
+    category: "AI/ML",
+    shortDescription: "Advance the field of AI through innovative research and experimentation.",
+    longDescription: "AI Research Scientists push the boundaries of what's possible in artificial intelligence by developing novel algorithms, models, and approaches. They conduct original research that addresses fundamental challenges in machine learning, deep learning, and related fields. Their work often begins with theoretical exploration, proceeds through experimental validation, and culminates in publications that contribute to the broader scientific community and inspire new applications of AI technology.",
+    responsibilities: [
+      "Conduct original research in machine learning and AI",
+      "Design and implement novel algorithms and models",
+      "Write research papers for conferences and journals",
+      "Collaborate with peers on complex research problems",
+      "Stay current with the latest developments in AI research",
+      "Bridge research findings to practical applications"
+    ],
+    tools: ["Python", "TensorFlow/PyTorch", "Research libraries", "Cloud computing resources", "Scientific computing software", "Version control"],
+    skills: ["Advanced Mathematics", "Algorithm Design", "Experimental Design", "Academic Writing", "Critical Thinking", "Computational Analysis"],
+    collaborators: ["Academic Researchers", "AI Engineers", "Product Teams", "Domain Experts", "Data Scientists", "Research Leaders"],
+    dayInLife: "An AI Research Scientist typically divides their day between theoretical exploration and experimental work. Morning might be devoted to reading recent papers in their specialty area and refining mathematical formulations for a new approach they're developing. Late morning to early afternoon could involve implementing and testing algorithms, analyzing results, and adjusting hypotheses based on findings. After lunch, they might meet with research colleagues to discuss challenging problems or collaborate on multi-author papers. The late afternoon might be spent preparing for an upcoming conference presentation or meeting with engineering teams to discuss how research findings could be applied to products. Throughout the day, they balance deep concentration on complex problems with collaborative discussions that push thinking forward.",
+    monthInLife: "Over the course of a month, an AI Research Scientist typically works through multiple phases of the research process. They might spend the first week exploring a new concept or problem area, the second week developing mathematical formulations and theoretical approaches, and the next two weeks implementing and testing these ideas through carefully designed experiments. Research milestones include completing experiment cycles, submitting papers to conferences or journals, presenting findings to colleagues, and identifying promising new research directions. The research process is iterative, with regular cycles of hypothesis formation, testing, analysis, and refinement that build toward significant contributions to the field.",
+    careerPath: {
+      description: "A career in AI research offers pathways to become a leading expert in specialized domains, influence the direction of AI advancement, or bridge research with practical applications.",
+      progressionSteps: [
+        {
+          title: "Junior Research Scientist",
+          description: "Work under the guidance of senior researchers, contribute to established research projects, and develop specialized knowledge.",
+          timePeriod: "1-3 years"
+        },
+        {
+          title: "AI Research Scientist",
+          description: "Lead components of research projects, publish as first author, and develop independent research directions.",
+          timePeriod: "3-6 years"
+        },
+        {
+          title: "Senior Research Scientist",
+          description: "Drive research agendas, mentor junior researchers, and establish recognition as an expert in specific AI domains.",
+          timePeriod: "6-10 years"
+        },
+        {
+          title: "Principal Scientist / Research Director",
+          description: "Shape overall research strategy, secure funding for large initiatives, and influence the broader field through significant publications and leadership.",
+          timePeriod: "10+ years"
+        }
+      ]
+    }
+  },
+  {
+    id: "ai-specialist",
+    title: "AI Specialist",
+    category: "AI/ML",
+    shortDescription: "Apply AI solutions to specific business challenges across industries.",
+    longDescription: "AI Specialists translate business problems into technical solutions by developing and implementing AI models tailored to specific needs. They combine expertise in machine learning with industry knowledge to create AI applications that deliver measurable business value. Their work spans from understanding business requirements to model development, implementation, and ongoing improvement, ensuring AI solutions effectively address the problems they're designed to solve.",
+    responsibilities: [
+      "Identify business problems solvable with AI",
+      "Develop customized AI solutions for specific use cases",
+      "Implement and fine-tune machine learning models",
+      "Evaluate model performance and ethical implications",
+      "Translate complex AI concepts for non-technical stakeholders",
+      "Monitor and improve deployed AI solutions"
+    ],
+    tools: ["Python", "Machine learning frameworks", "Data preprocessing tools", "Model evaluation libraries", "Visualization tools", "Cloud platforms"],
+    skills: ["Machine Learning", "Problem Formulation", "Domain Adaptation", "Bias Identification", "Business Acumen", "Model Implementation"],
+    collaborators: ["Business Stakeholders", "Domain Experts", "Data Engineers", "Product Managers", "IT Teams", "Compliance Officers"],
+    dayInLife: "An AI Specialist typically begins their day reviewing the performance metrics of deployed models and addressing any issues that arise. Morning might involve meetings with business stakeholders to understand a new problem that could benefit from AI, followed by exploratory data analysis to assess solution feasibility. Mid-day could be spent refining algorithms for an ongoing project, testing different approaches to improve accuracy or reduce bias. Afternoon activities might include collaborating with data engineers on data pipeline improvements, documenting model architecture and decisions, or presenting findings to business teams. The day often balances technical development with stakeholder communication, ensuring AI solutions remain aligned with business objectives.",
+    monthInLife: "Over a month, an AI Specialist typically manages multiple projects at different stages of development. The first week might focus on scoping new opportunities and conducting feasibility studies, the second on developing and testing models for priority projects, and the remaining time on refining, documenting, and deploying solutions while monitoring existing systems. Monthly activities include regular check-ins with business partners to ensure AI solutions continue to meet needs, knowledge sharing sessions with peers to discuss new techniques, and professional development to stay current with rapidly evolving AI capabilities. Each month builds expertise in applying AI to specific domain challenges.",
+    careerPath: {
+      description: "A career as an AI Specialist can evolve toward deeper technical expertise in specialized domains, leadership roles guiding AI strategy, or entrepreneurial paths developing innovative AI products.",
+      progressionSteps: [
+        {
+          title: "Junior AI Specialist",
+          description: "Work on well-defined AI problems under guidance, implement established approaches, and learn to adapt models to specific business contexts.",
+          timePeriod: "1-2 years"
+        },
+        {
+          title: "AI Specialist",
+          description: "Lead the development of AI solutions for business problems, collaborate across teams, and make independent technical decisions.",
+          timePeriod: "2-5 years"
+        },
+        {
+          title: "Senior AI Specialist",
+          description: "Handle complex AI implementations, mentor junior specialists, and contribute to strategic decisions about AI applications.",
+          timePeriod: "5-8 years"
+        },
+        {
+          title: "Lead AI Specialist / AI Solutions Architect",
+          description: "Define AI solution strategies for major business initiatives, guide teams implementing multiple AI projects, and establish best practices.",
+          timePeriod: "8+ years"
+        }
+      ]
+    }
   }
 ];

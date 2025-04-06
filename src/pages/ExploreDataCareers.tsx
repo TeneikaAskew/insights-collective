@@ -3,13 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
-import { Search, Filter } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CareerRoleDetails } from '@/components/careers/CareerRoleDetails';
 import { RoleCard } from '@/components/careers/RoleCard';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
 
@@ -17,26 +14,31 @@ const ExploreDataCareers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedRole, setSelectedRole] = useState<string | null>(null);
   
   // Get role from URL parameters
   useEffect(() => {
     const roleId = searchParams.get('role');
     if (roleId) {
-      setSelectedRole(roleId);
-      
-      // Scroll to the role card if it exists
-      setTimeout(() => {
-        const element = document.getElementById(`role-${roleId}`);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 300);
+      // Find the role in the data
+      const role = dataCareerRoles.find(r => r.id === roleId);
+      if (role) {
+        // Set the category filter to match the role's category if found
+        const category = role.category.split(',')[0].trim();
+        setSelectedCategory(category || 'all');
+        
+        // Scroll to the role card if it exists
+        setTimeout(() => {
+          const element = document.getElementById(`role-${roleId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 300);
+      }
     }
   }, [searchParams]);
 
-  // Get unique categories
-  const categories = ['all', ...new Set(dataCareerRoles.map(role => role.category))];
+  // Get standardized categories (AI/ML, Analytics, Data Engineering, Business Intelligence)
+  const categories = ['all', 'AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
   
   // Filter roles based on search and category
   const filteredRoles = dataCareerRoles.filter(role => {
@@ -44,7 +46,9 @@ const ExploreDataCareers = () => {
       role.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       role.shortDescription.toLowerCase().includes(searchQuery.toLowerCase());
     
-    const matchesCategory = selectedCategory === 'all' || role.category === selectedCategory;
+    const matchesCategory = 
+      selectedCategory === 'all' || 
+      role.category.includes(selectedCategory);
     
     return matchesSearch && matchesCategory;
   });
@@ -52,22 +56,10 @@ const ExploreDataCareers = () => {
   // Group roles by category for tab view
   const rolesByCategory = categories.reduce((acc, category) => {
     if (category !== 'all') {
-      acc[category] = dataCareerRoles.filter(role => role.category === category);
+      acc[category] = dataCareerRoles.filter(role => role.category.includes(category));
     }
     return acc;
   }, {} as Record<string, typeof dataCareerRoles>);
-
-  const handleRoleClick = (roleId: string) => {
-    setSelectedRole(roleId === selectedRole ? null : roleId);
-    
-    // Update URL with the selected role
-    if (roleId !== selectedRole) {
-      searchParams.set('role', roleId);
-    } else {
-      searchParams.delete('role');
-    }
-    setSearchParams(searchParams);
-  };
 
   return (
     <AppLayout>
@@ -118,8 +110,6 @@ const ExploreDataCareers = () => {
                   <RoleCard
                     key={role.id}
                     role={role}
-                    isSelected={role.id === selectedRole}
-                    onClick={() => handleRoleClick(role.id)}
                   />
                 ))}
               </div>
@@ -143,8 +133,6 @@ const ExploreDataCareers = () => {
                     <RoleCard
                       key={role.id}
                       role={role}
-                      isSelected={role.id === selectedRole}
-                      onClick={() => handleRoleClick(role.id)}
                     />
                   ))}
                 </div>
@@ -152,15 +140,6 @@ const ExploreDataCareers = () => {
             ))}
           </TabsContent>
         </Tabs>
-        
-        {selectedRole && (
-          <div className="mt-8">
-            <CareerRoleDetails 
-              role={dataCareerRoles.find(r => r.id === selectedRole)!} 
-              onClose={() => handleRoleClick(selectedRole)}
-            />
-          </div>
-        )}
       </div>
     </AppLayout>
   );
