@@ -15,8 +15,8 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
+  const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
-  const { toggleSidebar } = useSidebar();
   
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
