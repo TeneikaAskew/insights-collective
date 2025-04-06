@@ -19,13 +19,12 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <HeroSection />
-      <BlueprintBanner />
-      <QuizSection />
-      <FeaturesSection />
       <LearningJourney />
       <ExploreTools />
       <FeaturedCourses courses={featuredCourses} />
       <AnalyticsDashboard />
+      <BlueprintBanner />
+      <QuizSection />
       <UpcomingEvents events={upcomingEvents} />
       <CTASection />
       <Footer />
