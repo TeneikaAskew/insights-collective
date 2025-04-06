@@ -23,13 +23,13 @@ import {
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { format as formatDate } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 interface AddEventModalProps {
   onAddEvent: (event: any) => void;
-  children?: React.ReactNode; // Add children prop
+  children?: React.ReactNode;
 }
 
 const eventTypes = [
@@ -51,7 +51,7 @@ export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('');
-  const [format, setFormat] = useState('');
+  const [eventFormat, setEventFormat] = useState('');
   const [location, setLocation] = useState('');
   const [link, setLink] = useState('');
   const [date, setDate] = useState<Date | undefined>(undefined);
@@ -64,7 +64,7 @@ export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
   const { toast } = useToast();
 
   const handleSubmit = () => {
-    if (!title || !description || !type || !format || !date) {
+    if (!title || !description || !type || !eventFormat || !date) {
       toast({
         title: 'Missing fields',
         description: 'Please fill in all required fields.',
@@ -78,9 +78,9 @@ export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
       title,
       description,
       type,
-      format,
-      location: format !== 'virtual' ? location : null,
-      link: format !== 'in-person' ? link : null,
+      format: eventFormat,
+      location: eventFormat !== 'virtual' ? location : null,
+      link: eventFormat !== 'in-person' ? link : null,
       date: date ? date.toISOString().split('T')[0] : '',
       startTime,
       endTime,
@@ -100,7 +100,7 @@ export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
     setTitle('');
     setDescription('');
     setType('');
-    setFormat('');
+    setEventFormat('');
     setLocation('');
     setLink('');
     setDate(undefined);
@@ -169,7 +169,7 @@ export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
             <Label htmlFor="format" className="text-right">
               Format
             </Label>
-            <Select value={format} onValueChange={setFormat}>
+            <Select value={eventFormat} onValueChange={setEventFormat}>
               <SelectTrigger id="format" className="col-span-3">
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
@@ -183,7 +183,7 @@ export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
             </Select>
           </div>
           
-          {(format === 'in-person' || format === 'hybrid') && (
+          {(eventFormat === 'in-person' || eventFormat === 'hybrid') && (
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="location" className="text-right">
                 Location
@@ -198,7 +198,7 @@ export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
             </div>
           )}
           
-          {(format === 'virtual' || format === 'hybrid') && (
+          {(eventFormat === 'virtual' || eventFormat === 'hybrid') && (
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="link" className="text-right">
                 Virtual Link
@@ -226,15 +226,15 @@ export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : <span>Select date</span>}
+                    {date ? formatDate(date, "PPP") : <span>Select date</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={(date) => {
-                      setDate(date);
+                    onSelect={(newDate) => {
+                      setDate(newDate);
                       setCalendarOpen(false);
                     }}
                     initialFocus
