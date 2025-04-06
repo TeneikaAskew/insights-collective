@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 interface EventCardProps {
   event: {
@@ -26,6 +27,7 @@ interface EventCardProps {
     image?: string;
     capacity?: number | null;
     registrations: number;
+    calendlyLink?: string;
   };
   onRegister?: (eventId: string, userData?: any) => void;
 }
@@ -36,6 +38,7 @@ export function EventCard({ event, onRegister }: EventCardProps) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const { toast } = useToast();
+  const navigate = useNavigate();
   
   const formatDate = (dateString: string) => {
     try {
@@ -47,6 +50,16 @@ export function EventCard({ event, onRegister }: EventCardProps) {
   };
   
   const handleRegister = () => {
+    if (!isAuthenticated) {
+      // Redirect to login page if not authenticated
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to register for this event.",
+      });
+      navigate('/login');
+      return;
+    }
+    
     if (isAuthenticated) {
       // If user is logged in, use their account info
       onRegister?.(event.id, { name: user?.name, email: user?.email });
@@ -54,6 +67,12 @@ export function EventCard({ event, onRegister }: EventCardProps) {
         title: 'Registration Successful',
         description: 'You have been registered for this event.',
       });
+      
+      // Redirect to Calendly if available
+      if (event.calendlyLink) {
+        window.open(event.calendlyLink, '_blank');
+      }
+      
       setOpenDialog(false);
     } else if (name && email) {
       // For non-logged in users, collect their info
@@ -62,6 +81,12 @@ export function EventCard({ event, onRegister }: EventCardProps) {
         title: 'Registration Successful',
         description: 'You have been registered for this event.',
       });
+      
+      // Redirect to Calendly if available
+      if (event.calendlyLink) {
+        window.open(event.calendlyLink, '_blank');
+      }
+      
       setName('');
       setEmail('');
       setOpenDialog(false);
@@ -123,55 +148,11 @@ export function EventCard({ event, onRegister }: EventCardProps) {
         <p className="text-muted-foreground line-clamp-3">{event.description}</p>
       </CardContent>
       <CardFooter>
-        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-          {isAtCapacity ? (
-            <Button disabled className="w-full">Event Full</Button>
-          ) : (
-            <>
-              <DialogTrigger asChild>
-                <Button className="w-full">Register</Button>
-              </DialogTrigger>
-              {!isAuthenticated && (
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Register for Event</DialogTitle>
-                    <DialogDescription>
-                      Please provide your information to register for this event.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="name" className="text-right">
-                        Name
-                      </Label>
-                      <Input
-                        id="name"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="email" className="text-right">
-                        Email
-                      </Label>
-                      <Input
-                        id="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="col-span-3"
-                        type="email"
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button type="submit" onClick={handleRegister}>Register</Button>
-                  </DialogFooter>
-                </DialogContent>
-              )}
-            </>
-          )}
-        </Dialog>
+        {isAtCapacity ? (
+          <Button disabled className="w-full">Event Full</Button>
+        ) : (
+          <Button className="w-full bg-primary text-white" onClick={handleRegister}>Register</Button>
+        )}
       </CardFooter>
     </Card>
   );

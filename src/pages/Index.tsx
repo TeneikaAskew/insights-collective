@@ -3,7 +3,6 @@ import { mockService } from '@/lib/mock';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
 import QuizSection from '@/components/quiz/QuizSection';
-import FeaturesSection from '@/components/home/FeaturesSection';
 import FeaturedCourses from '@/components/home/FeaturedCourses';
 import UpcomingEvents from '@/components/home/UpcomingEvents';
 import CTASection from '@/components/home/CTASection';
@@ -21,7 +20,7 @@ const Index = () => {
       <HeroSection />
       <BlueprintBanner />
       <QuizSection />
-      <FeaturesSection />
+      {/* FeaturesSection removed intentionally */}
       <LearningJourney />
       <ExploreTools />
       <FeaturedCourses courses={featuredCourses} />

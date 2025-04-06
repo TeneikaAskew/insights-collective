@@ -132,8 +132,10 @@ const AppSidebar = () => {
     <Sidebar>
       <SidebarHeader>
         <div className="flex items-center space-x-2 px-4 py-3">
-          <GraduationCap className="h-6 w-6 text-sidebar-primary" />
-          <span className="font-bold text-lg">Insights Collective</span>
+          <Link to="/" className="flex items-center space-x-2">
+            <GraduationCap className="h-6 w-6 text-sidebar-primary" />
+            <span className="font-bold text-lg">Insights Collective</span>
+          </Link>
         </div>
         <SidebarTrigger />
       </SidebarHeader>

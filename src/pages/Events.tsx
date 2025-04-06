@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { EventCard } from '@/components/events/EventCard';
@@ -8,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Search, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
-// Mock events data
+// Mock events data with added calendlyLink property
 const mockEvents = [
   {
     id: '1',
@@ -24,6 +23,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODY2OA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: 50,
     registrations: 32,
+    calendlyLink: 'https://calendly.com/insightscollective/data-science-workshop',
   },
   {
     id: '2',
@@ -39,6 +39,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODc2OQ&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: 300,
     registrations: 178,
+    calendlyLink: 'https://calendly.com/insightscollective/ml-conference',
   },
   {
     id: '3',
@@ -54,6 +55,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODcwNw&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: null,
     registrations: 215,
+    calendlyLink: 'https://calendly.com/insightscollective/python-webinar',
   },
   {
     id: '4',
@@ -69,6 +71,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODg3Ng&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: 30,
     registrations: 24,
+    calendlyLink: 'https://calendly.com/insightscollective/ai-ethics-meetup',
   },
   {
     id: '5',
@@ -84,6 +87,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODc2OQ&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: 100,
     registrations: 72,
+    calendlyLink: 'https://calendly.com/insightscollective/data-visualization-hackathon',
   },
 ];
 
