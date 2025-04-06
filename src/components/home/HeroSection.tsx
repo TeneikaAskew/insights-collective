@@ -41,9 +41,9 @@ const HeroSection = () => {
               <Link to="/register">Start Learning Now</Link>
             </Button>
             <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white" asChild>
-              <Link to="/courses">
+              <Link to="/resources">
                 <Search className="mr-2 h-4 w-4" />
-                Explore Courses
+                Explore Resources
               </Link>
             </Button>
           </div>
