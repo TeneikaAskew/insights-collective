@@ -8,9 +8,6 @@ import FeaturedCourses from '@/components/home/FeaturedCourses';
 import UpcomingEvents from '@/components/home/UpcomingEvents';
 import CTASection from '@/components/home/CTASection';
 import Footer from '@/components/layout/Footer';
-import LearningJourney from '@/components/home/LearningJourney';
-import ExploreTools from '@/components/home/ExploreTools';
-import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 
 const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
@@ -19,12 +16,10 @@ const Index = () => {
   return (
     <div className="min-h-screen flex flex-col">
       <HeroSection />
-      <LearningJourney />
-      <ExploreTools />
-      <FeaturedCourses courses={featuredCourses} />
-      <AnalyticsDashboard />
       <BlueprintBanner />
       <QuizSection />
+      <FeaturesSection />
+      <FeaturedCourses courses={featuredCourses} />
       <UpcomingEvents events={upcomingEvents} />
       <CTASection />
       <Footer />
