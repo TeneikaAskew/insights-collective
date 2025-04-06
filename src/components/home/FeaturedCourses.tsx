@@ -9,8 +9,9 @@ type FeaturedCoursesProps = {
 };
 
 const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
-  // Helper function to display the correct category label
+  // Helper function to ensure the category matches one of the standardized labels
   const getCategoryLabel = (category: string): string => {
+    // Map old category names to standardized ones
     switch (category) {
       case 'Machine Learning & Artificial Intelligence':
         return 'AI/ML';
@@ -20,7 +21,9 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
         return 'Data Engineering';
       case 'Business Intelligence':
         return 'Business Intelligence';
-      case 'Web Development': // Remove this mapping as it's not an offering
+      case 'Data Science':
+        return 'Data Engineering';
+      case 'Web Development':
         return 'Data Engineering';
       default:
         // If it's already one of our standard categories, return it as is

@@ -16,7 +16,7 @@ const CourseList = () => {
   const [levelFilter, setLevelFilter] = useState('all');
   
   // Extract unique categories and levels
-  const categories = Array.from(new Set(allCourses.map(course => course.category)));
+  const categories = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
   const levels = ['Beginner', 'Intermediate', 'Advanced'];
   
   // Filter courses based on search query and filters
@@ -89,8 +89,8 @@ const CourseList = () => {
             <TabsTrigger value="all">All Courses</TabsTrigger>
             <TabsTrigger value="popular">Popular</TabsTrigger>
             <TabsTrigger value="new">New</TabsTrigger>
-            <TabsTrigger value="web">Web Development</TabsTrigger>
-            <TabsTrigger value="data">Data Science</TabsTrigger>
+            <TabsTrigger value="ai-ml">AI/ML</TabsTrigger>
+            <TabsTrigger value="data-engineering">Data Engineering</TabsTrigger>
           </TabsList>
           
           <TabsContent value="all" className="mt-6">
@@ -137,20 +137,20 @@ const CourseList = () => {
             </div>
           </TabsContent>
           
-          <TabsContent value="web" className="mt-6">
+          <TabsContent value="ai-ml" className="mt-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {allCourses
-                .filter(course => course.category === "Web Development")
+                .filter(course => course.category === "AI/ML")
                 .map((course) => (
                   <CourseCard key={course.id} course={course} />
                 ))}
             </div>
           </TabsContent>
           
-          <TabsContent value="data" className="mt-6">
+          <TabsContent value="data-engineering" className="mt-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {allCourses
-                .filter(course => course.category === "Data Science")
+                .filter(course => course.category === "Data Engineering")
                 .map((course) => (
                   <CourseCard key={course.id} course={course} />
                 ))}
