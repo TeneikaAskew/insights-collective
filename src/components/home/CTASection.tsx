@@ -10,9 +10,14 @@ const CTASection = () => {
         <p className="text-xl max-w-2xl mx-auto mb-8">
           Join thousands of students already learning on Insights Collective. Sign up today and take the first step towards your educational goals.
         </p>
-        <Button size="lg" variant="secondary" asChild>
-          <Link to="/register">Create Free Account</Link>
-        </Button>
+        <div className="flex flex-wrap justify-center gap-4">
+          <Button size="lg" variant="secondary" asChild>
+            <Link to="/register">Create Free Account</Link>
+          </Button>
+          <Button size="lg" variant="outline" className="border-white/40 hover:bg-white/10" asChild>
+            <Link to="/login">Log in to view Dashboard</Link>
+          </Button>
+        </div>
       </div>
     </section>
   );
