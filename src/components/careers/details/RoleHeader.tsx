@@ -12,7 +12,7 @@ interface RoleHeaderProps {
 }
 
 export const RoleHeader: React.FC<RoleHeaderProps> = ({ role, onClose }) => {
-  const categories = role.category.split(',').map(cat => cat.trim());
+  const categories = role.category ? role.category.split(',').map(cat => cat.trim()) : [];
   
   return (
     <CardHeader className="relative pb-0">

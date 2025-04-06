@@ -14,9 +14,14 @@ export const DayInLifeTab: React.FC<DayInLifeTabProps> = ({ role }) => {
         <Clock className="h-5 w-5 text-primary" />
         <h3 className="font-semibold text-lg">A Day in the Life</h3>
       </div>
-      <p className="text-muted-foreground mb-4">{role.dayInLife}</p>
       
-      {role.schedule && (
+      {role.dayInLife ? (
+        <p className="text-muted-foreground mb-4">{role.dayInLife}</p>
+      ) : (
+        <p className="text-muted-foreground mb-4">No day-in-the-life information available for this role.</p>
+      )}
+      
+      {role.schedule && role.schedule.length > 0 && (
         <div className="space-y-3 mt-6">
           <h4 className="font-medium">Typical Day Schedule</h4>
           {role.schedule.map((item, index) => (
