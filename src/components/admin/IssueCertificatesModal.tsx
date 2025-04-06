@@ -41,9 +41,10 @@ const completedUsers = [
 
 interface IssueCertificatesModalProps {
   onIssueCertificates: (courseId: string, userIds: string[]) => void;
+  children?: React.ReactNode; // Add children prop
 }
 
-export function IssueCertificatesModal({ onIssueCertificates }: IssueCertificatesModalProps) {
+export function IssueCertificatesModal({ onIssueCertificates, children }: IssueCertificatesModalProps) {
   const [open, setOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -110,7 +111,7 @@ export function IssueCertificatesModal({ onIssueCertificates }: IssueCertificate
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">Issue Certificates</Button>
+        {children || <Button variant="outline">Issue Certificates</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[550px]">
         <DialogHeader>

@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface AddEventModalProps {
   onAddEvent: (event: any) => void;
+  children?: React.ReactNode; // Add children prop
 }
 
 const eventTypes = [
@@ -45,7 +46,7 @@ const eventFormats = [
   { value: 'hybrid', label: 'Hybrid' },
 ];
 
-export function AddEventModal({ onAddEvent }: AddEventModalProps) {
+export function AddEventModal({ onAddEvent, children }: AddEventModalProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -113,7 +114,7 @@ export function AddEventModal({ onAddEvent }: AddEventModalProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Add Event</Button>
+        {children || <Button>Add Event</Button>}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
