@@ -39,12 +39,19 @@ const AppSidebar = () => {
       url: "/resources",
       icon: FileText,
       active: location.pathname.startsWith('/resources') && !location.pathname.includes('/admin/resources'),
+      subItems: [
+        {
+          title: "Data Blueprint Series",
+          url: "/resources/data-blueprint",
+          active: location.pathname === '/resources/data-blueprint',
+        }
+      ]
     },
     {
       title: "Explore Data Careers",
       url: "/explore-data-careers",
       icon: Briefcase,
-      active: location.pathname.startsWith('/explore-data-careers'),
+      active: location.pathname === '/explore-data-careers',
     },
     {
       title: "Calendar",
@@ -120,10 +127,21 @@ const AppSidebar = () => {
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={item.active}>
                     <Link to={item.url}>
-                      <item.icon className="h-5 w-5" />
+                      {item.icon && <item.icon className="h-5 w-5" />}
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
+                  {item.subItems && item.subItems.length > 0 && (
+                    <div className="pl-8 mt-1 space-y-1">
+                      {item.subItems.map((subItem) => (
+                        <SidebarMenuButton key={subItem.title} asChild isActive={subItem.active}>
+                          <Link to={subItem.url} className="text-sm">
+                            <span>{subItem.title}</span>
+                          </Link>
+                        </SidebarMenuButton>
+                      ))}
+                    </div>
+                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

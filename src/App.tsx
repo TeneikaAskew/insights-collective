@@ -19,6 +19,9 @@ import Resources from "./pages/Resources";
 import Events from "./pages/Events";
 import AdminResources from "./pages/AdminResources";
 import AdminEvents from "./pages/AdminEvents";
+import AdminUsers from "./pages/AdminUsers";
+import AdminEnrollments from "./pages/AdminEnrollments";
+import AdminCertificates from "./pages/AdminCertificates";
 import NotFound from "./pages/NotFound";
 import Calendar from "./pages/Calendar";
 import DataBlueprintSeries from "./pages/DataBlueprintSeries";
@@ -51,7 +54,9 @@ const App = () => (
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/courses" element={<AdminDashboard />} />
-              <Route path="/admin/users" element={<AdminDashboard />} />
+              <Route path="/admin/users" element={<AdminUsers />} />
+              <Route path="/admin/enrollments" element={<AdminEnrollments />} />
+              <Route path="/admin/certificates" element={<AdminCertificates />} />
               <Route path="/admin/resources" element={<AdminResources />} />
               <Route path="/admin/events" element={<AdminEvents />} />
               <Route path="/admin/settings" element={<AdminDashboard />} />

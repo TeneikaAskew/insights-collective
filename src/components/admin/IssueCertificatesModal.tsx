@@ -41,7 +41,7 @@ const completedUsers = [
 
 interface IssueCertificatesModalProps {
   onIssueCertificates: (courseId: string, userIds: string[]) => void;
-  children?: React.ReactNode; // Add children prop
+  children?: React.ReactNode;
 }
 
 export function IssueCertificatesModal({ onIssueCertificates, children }: IssueCertificatesModalProps) {
@@ -49,11 +49,20 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [eligibleUsers, setEligibleUsers] = useState<typeof completedUsers>([]);
   
   const { toast } = useToast();
   
-  // Filter users who have completed the selected course (in a real app, this would be dynamic)
-  const eligibleUsers = completedUsers.filter(user => user.progress >= 90);
+  // Update eligible users when course is selected
+  const handleCourseSelect = (courseId: string) => {
+    setSelectedCourse(courseId);
+    // Filter users who have completed the selected course (in a real app, this would be dynamic)
+    const filtered = completedUsers.filter(user => user.progress >= 90);
+    setEligibleUsers(filtered);
+    // Reset selected users
+    setSelectedUsers(new Set());
+    setSelectAll(false);
+  };
   
   const handleSelectAll = (checked: boolean) => {
     setSelectAll(checked);
@@ -101,10 +110,15 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
       description: `Successfully issued ${selectedUsers.size} certificates for the selected course.`,
     });
     
-    // Reset form
+    // Reset form and close modal
     setSelectedCourse('');
     setSelectedUsers(new Set());
     setSelectAll(false);
+    setEligibleUsers([]);
+    setOpen(false);
+  };
+
+  const handleCancel = () => {
     setOpen(false);
   };
 
@@ -125,7 +139,7 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
             <Label htmlFor="course" className="text-right">
               Course
             </Label>
-            <Select value={selectedCourse} onValueChange={setSelectedCourse}>
+            <Select value={selectedCourse} onValueChange={handleCourseSelect}>
               <SelectTrigger id="course" className="col-span-3">
                 <SelectValue placeholder="Select course" />
               </SelectTrigger>
@@ -158,27 +172,33 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
               <div className="border rounded-md">
                 <ScrollArea className="h-72 p-2">
                   <div className="space-y-2">
-                    {eligibleUsers.map((user) => (
-                      <div key={user.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded">
-                        <Checkbox
-                          id={`user-${user.id}`}
-                          checked={selectedUsers.has(user.id)}
-                          onCheckedChange={(checked) => handleUserSelection(user.id, !!checked)}
-                        />
-                        <div className="grid gap-0.5">
-                          <label
-                            htmlFor={`user-${user.id}`}
-                            className="text-sm font-medium leading-none"
-                          >
-                            {user.name}
-                          </label>
-                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                    {eligibleUsers.length > 0 ? (
+                      eligibleUsers.map((user) => (
+                        <div key={user.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded">
+                          <Checkbox
+                            id={`user-${user.id}`}
+                            checked={selectedUsers.has(user.id)}
+                            onCheckedChange={(checked) => handleUserSelection(user.id, !!checked)}
+                          />
+                          <div className="grid gap-0.5">
+                            <label
+                              htmlFor={`user-${user.id}`}
+                              className="text-sm font-medium leading-none"
+                            >
+                              {user.name}
+                            </label>
+                            <p className="text-xs text-muted-foreground">{user.email}</p>
+                          </div>
+                          <div className="ml-auto text-xs text-muted-foreground">
+                            {user.progress}% Complete
+                          </div>
                         </div>
-                        <div className="ml-auto text-xs text-muted-foreground">
-                          {user.progress}% Complete
-                        </div>
+                      ))
+                    ) : (
+                      <div className="p-4 text-center text-muted-foreground">
+                        No eligible users found for this course.
                       </div>
-                    ))}
+                    )}
                   </div>
                 </ScrollArea>
               </div>
@@ -186,7 +206,7 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
+          <Button variant="outline" onClick={handleCancel}>
             Cancel
           </Button>
           <Button onClick={handleSubmit}>Issue Certificates</Button>

@@ -127,9 +127,9 @@ export const reducer = (state: State, action: Action): State => {
 
 // Create a separate context to avoid React Hook violations
 const ToastContext = React.createContext<{
-  toasts: ToasterToast[];
-  toast: (props: Omit<ToasterToast, "id">) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void };
-  dismiss: (toastId?: string) => void;
+  toasts: ToasterToast[]
+  toast: (props: Omit<ToasterToast, "id">) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
+  dismiss: (toastId?: string) => void
 }>({
   toasts: [],
   toast: () => ({ id: "", dismiss: () => {}, update: () => {} }),
