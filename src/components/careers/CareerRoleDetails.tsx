@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +16,7 @@ interface CareerRoleDetailsProps {
 
 export const CareerRoleDetails: React.FC<CareerRoleDetailsProps> = ({ role, onClose }) => {
   return (
-    <Card className="shadow-lg animate-fade-in border-t-4 border-t-primary">
+    <Card className="shadow-lg animate-fade-in border-t-4 border-t-primary w-full max-h-[90vh] overflow-y-auto">
       <CardHeader className="relative pb-0">
         <div className="flex justify-between items-start">
           <div>
@@ -33,7 +32,7 @@ export const CareerRoleDetails: React.FC<CareerRoleDetailsProps> = ({ role, onCl
       </CardHeader>
       <CardContent className="pt-4">
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid grid-cols-4">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="day-life">Day in the Life</TabsTrigger>
             <TabsTrigger value="month-life">Month in the Life</TabsTrigger>
