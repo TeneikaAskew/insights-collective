@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -50,8 +50,14 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [eligibleUsers, setEligibleUsers] = useState<typeof completedUsers>([]);
+  const [isFormValid, setIsFormValid] = useState(false);
   
   const { toast } = useToast();
+  
+  // Validate form whenever selections change
+  useEffect(() => {
+    setIsFormValid(selectedCourse !== '' && selectedUsers.size > 0);
+  }, [selectedCourse, selectedUsers]);
   
   // Update eligible users when course is selected
   const handleCourseSelect = (courseId: string) => {
@@ -111,14 +117,14 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
     });
     
     // Reset form and close modal
+    resetForm();
+  };
+
+  const resetForm = () => {
     setSelectedCourse('');
     setSelectedUsers(new Set());
     setSelectAll(false);
     setEligibleUsers([]);
-    setOpen(false);
-  };
-
-  const handleCancel = () => {
     setOpen(false);
   };
 
@@ -206,10 +212,12 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>
+          <Button variant="outline" onClick={resetForm}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit}>Issue Certificates</Button>
+          <Button onClick={handleSubmit} disabled={!isFormValid}>
+            Issue Certificates
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

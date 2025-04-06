@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -65,13 +65,17 @@ const AppSidebar = () => {
       icon: Bell,
       active: location.pathname === '/notifications',
     },
-    {
+  ];
+
+  // Add profile only if user is authenticated
+  if (isAuthenticated) {
+    studentMenuItems.push({
       title: "Profile",
       url: "/profile",
       icon: UserCircle,
       active: location.pathname === '/profile',
-    },
-  ];
+    });
+  }
 
   const adminMenuItems = [
     {
@@ -91,6 +95,12 @@ const AppSidebar = () => {
       url: "/admin/users",
       icon: Users,
       active: location.pathname === '/admin/users',
+    },
+    {
+      title: "Manage Certificates",
+      url: "/admin/certificates",
+      icon: Award,
+      active: location.pathname === '/admin/certificates',
     },
     {
       title: "Resources",
@@ -177,7 +187,6 @@ const AppSidebar = () => {
         </div>
       </SidebarFooter>
       
-      {/* Add SidebarRail to allow reopening the sidebar after it's closed */}
       <SidebarRail />
     </Sidebar>
   );
