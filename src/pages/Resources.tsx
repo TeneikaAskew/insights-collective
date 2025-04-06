@@ -1,549 +1,316 @@
 
 import React, { useState } from 'react';
-import { SearchIcon, FileIcon, FolderIcon, BookIcon, VideoIcon, LinkIcon, CalendarIcon } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { 
-  Card, 
-  CardContent, 
-  CardDescription, 
-  CardFooter, 
-  CardHeader, 
-  CardTitle 
-} from '@/components/ui/card';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { AddResourceModal } from '@/components/resources/AddResourceModal';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Check, FileText, Link, Calendar, ExternalLink } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import AddResourceModal from '@/components/resources/AddResourceModal';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link } from 'react-router-dom';
 
-// Mock data
-const mockResources = [
+const resources = [
   {
-    id: '1',
-    title: 'Introduction to Data Science',
-    description: 'A comprehensive guide to getting started with data science.',
-    type: 'document',
-    format: 'PDF',
-    category: 'Fundamentals',
-    url: '#',
-    publishDate: '2025-02-15',
-    deadline: '2025-05-15',
-    author: 'Data Science Team',
-  },
-  {
-    id: '2',
-    title: 'Python for Data Analysis',
-    description: 'Learn how to use Python for effective data analysis.',
-    type: 'video',
-    format: 'MP4',
-    category: 'Programming',
-    url: '#',
-    publishDate: '2025-03-01',
-    deadline: null,
-    author: 'John Smith',
-  },
-  {
-    id: '3',
-    title: 'SQL Fundamentals Cheat Sheet',
-    description: 'A quick reference guide for SQL syntax and commands.',
-    type: 'document',
-    format: 'PDF',
-    category: 'Databases',
-    url: '#',
-    publishDate: '2025-03-10',
-    deadline: '2025-04-20',
-    author: 'Database Team',
-  },
-  {
-    id: '4',
-    title: 'Data Visualization Best Practices',
-    description: 'Learn how to create effective and engaging data visualizations.',
+    id: 1,
+    title: 'Introduction to Data Visualization',
+    description: 'Learn the basics of data visualization techniques using various tools.',
     type: 'article',
-    format: 'Web',
-    category: 'Visualization',
     url: '#',
-    publishDate: '2025-03-15',
-    deadline: null,
-    author: 'Jane Doe',
+    deadline: new Date('2023-05-15'),
+    hasDeadline: true,
+    tags: ['visualization', 'beginner'],
   },
   {
-    id: '5',
-    title: 'Machine Learning Model Deployment',
-    description: 'A step-by-step guide to deploying ML models in production.',
-    type: 'video',
-    format: 'MP4',
-    category: 'Machine Learning',
-    url: '#',
-    publishDate: '2025-03-20',
-    deadline: '2025-05-01',
-    author: 'ML Engineering Team',
-  },
-  {
-    id: '6',
-    title: 'Data Ethics and Privacy',
-    description: 'Understanding the ethical implications of data collection and use.',
-    type: 'course',
-    format: 'Interactive',
-    category: 'Ethics',
-    url: '#',
-    publishDate: '2025-04-01',
-    deadline: null,
-    author: 'Ethics Committee',
-  },
-  {
-    id: '7',
-    title: 'Big Data Technologies Overview',
-    description: 'An introduction to Hadoop, Spark, and other big data tools.',
+    id: 2,
+    title: 'Advanced SQL for Data Analysis',
+    description: 'Master complex SQL queries and optimize database performance for data analysis.',
     type: 'document',
-    format: 'PDF',
-    category: 'Big Data',
     url: '#',
-    publishDate: '2025-04-05',
-    deadline: '2025-06-01',
-    author: 'Data Engineering Team',
+    deadline: null,
+    hasDeadline: false,
+    tags: ['sql', 'database', 'advanced'],
   },
   {
-    id: '8',
-    title: 'Natural Language Processing Workshop',
-    description: 'Hands-on workshop for NLP techniques and applications.',
-    type: 'workshop',
-    format: 'Interactive',
-    category: 'NLP',
+    id: 3,
+    title: 'Machine Learning Project Guidelines',
+    description: 'A comprehensive guide to structuring and implementing machine learning projects.',
+    type: 'document',
     url: '#',
-    publishDate: '2025-04-10',
-    deadline: '2025-05-10',
-    author: 'AI Research Team',
+    deadline: new Date('2023-06-01'),
+    hasDeadline: true,
+    tags: ['machine learning', 'project management'],
+  },
+  {
+    id: 4,
+    title: 'Python Data Processing Libraries Comparison',
+    description: 'A comparative analysis of popular Python libraries for data processing.',
+    type: 'article',
+    url: '#',
+    deadline: null,
+    hasDeadline: false,
+    tags: ['python', 'data processing'],
+  },
+  {
+    id: 5,
+    title: 'Data Ethics in AI Development',
+    description: 'Ethical considerations and best practices for responsible AI development.',
+    type: 'link',
+    url: 'https://example.com/data-ethics',
+    deadline: null,
+    hasDeadline: false,
+    tags: ['ethics', 'AI'],
   },
 ];
 
-// Resource type to icon mapping
-const resourceTypeIcons = {
-  document: <FileIcon className="h-4 w-4" />,
-  folder: <FolderIcon className="h-4 w-4" />,
-  article: <BookIcon className="h-4 w-4" />,
-  video: <VideoIcon className="h-4 w-4" />,
-  course: <BookIcon className="h-4 w-4" />,
-  link: <LinkIcon className="h-4 w-4" />,
-  workshop: <CalendarIcon className="h-4 w-4" />,
+const blueprintResources = [
+  {
+    id: 101,
+    title: 'Data Blueprint Series: Introduction',
+    description: 'An overview of the Data Blueprint methodology for data-driven organizations.',
+    type: 'document',
+    url: '#',
+    deadline: null,
+    hasDeadline: false,
+    tags: ['blueprint', 'methodology'],
+  },
+  {
+    id: 102,
+    title: 'Data Blueprint Series: Assessment Framework',
+    description: 'Tools and templates for assessing current data capabilities.',
+    type: 'document',
+    url: '#',
+    deadline: null,
+    hasDeadline: false,
+    tags: ['blueprint', 'assessment'],
+  },
+  {
+    id: 103,
+    title: 'Data Blueprint Series: Implementation Guide',
+    description: 'Step-by-step guide for implementing data-driven transformation.',
+    type: 'document',
+    url: '#',
+    deadline: null,
+    hasDeadline: false,
+    tags: ['blueprint', 'implementation'],
+  },
+];
+
+type ResourceCardProps = {
+  resource: {
+    id: number;
+    title: string;
+    description: string;
+    type: string;
+    url: string;
+    deadline: Date | null;
+    hasDeadline: boolean;
+    tags: string[];
+  };
 };
 
-// Resource type colors
-const resourceTypeColors = {
-  document: 'bg-blue-100 text-blue-800',
-  folder: 'bg-gray-100 text-gray-800',
-  article: 'bg-green-100 text-green-800',
-  video: 'bg-red-100 text-red-800',
-  course: 'bg-purple-100 text-purple-800',
-  link: 'bg-yellow-100 text-yellow-800',
-  workshop: 'bg-indigo-100 text-indigo-800',
+const ResourceCard = ({ resource }: ResourceCardProps) => {
+  const getIcon = () => {
+    switch (resource.type) {
+      case 'document':
+        return <FileText className="h-4 w-4" />;
+      case 'link':
+        return <ExternalLink className="h-4 w-4" />;
+      default:
+        return <Link className="h-4 w-4" />;
+    }
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-start">
+          <CardTitle className="text-lg font-bold">{resource.title}</CardTitle>
+          <Badge variant="outline" className="ml-2">
+            <div className="flex items-center gap-1">
+              {getIcon()}
+              <span className="capitalize">{resource.type}</span>
+            </div>
+          </Badge>
+        </div>
+        <CardDescription className="text-sm line-clamp-2 mt-1">
+          {resource.description}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="pb-3">
+        <div className="flex flex-wrap gap-1 mt-2">
+          {resource.tags.map((tag) => (
+            <Badge key={tag} variant="secondary" className="text-xs">
+              {tag}
+            </Badge>
+          ))}
+        </div>
+      </CardContent>
+      <CardFooter className="flex justify-between pt-0">
+        {resource.hasDeadline && resource.deadline && (
+          <div className="flex items-center text-sm text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 mr-1" />
+            <span>
+              Due: {resource.deadline.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+            </span>
+          </div>
+        )}
+        <Button variant="outline" size="sm" className="ml-auto" asChild>
+          <a href={resource.url} target="_blank" rel="noopener noreferrer">
+            View Resource
+          </a>
+        </Button>
+      </CardFooter>
+    </Card>
+  );
 };
 
-const ResourcesPage = () => {
+type ResourceFilterProps = {
+  searchTerm: string;
+  setSearchTerm: React.Dispatch<React.SetStateAction<string>>;
+  showDeadlineOnly: boolean;
+  setShowDeadlineOnly: React.Dispatch<React.SetStateAction<boolean>>;
+};
+
+const ResourceFilter = ({ searchTerm, setSearchTerm, showDeadlineOnly, setShowDeadlineOnly }: ResourceFilterProps) => {
+  return (
+    <div className="flex flex-col sm:flex-row gap-4">
+      <Input
+        placeholder="Search resources..."
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        className="sm:max-w-xs"
+      />
+      <div className="flex items-center space-x-2">
+        <Checkbox 
+          id="with-deadline" 
+          checked={showDeadlineOnly} 
+          onCheckedChange={setShowDeadlineOnly}
+        />
+        <label
+          htmlFor="with-deadline"
+          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+        >
+          Show resources with deadline only
+        </label>
+      </div>
+    </div>
+  );
+};
+
+const Resources = () => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showDeadlineOnly, setShowDeadlineOnly] = useState(false);
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
-  
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [hasDeadlineFilter, setHasDeadlineFilter] = useState(false);
-  
-  // Extract unique categories
-  const categories = ['all', ...new Set(mockResources.map(r => r.category))];
-  
-  // Extract unique types
-  const types = ['all', ...new Set(mockResources.map(r => r.type))];
-  
-  // Filter resources based on search and filters
-  const filteredResources = mockResources.filter(resource => {
-    const matchesSearch = 
-      resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      resource.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesCategory = categoryFilter === 'all' || resource.category === categoryFilter;
-    const matchesType = typeFilter === 'all' || resource.type === typeFilter;
-    const matchesDeadline = hasDeadlineFilter ? resource.deadline !== null : true;
-    
-    return matchesSearch && matchesCategory && matchesType && matchesDeadline;
-  });
-  
-  // Sort resources by publish date (newest first)
-  const sortedResources = [...filteredResources].sort((a, b) => {
-    return new Date(b.publishDate).getTime() - new Date(a.publishDate).getTime();
-  });
-  
-  const handleAddResource = (resourceData) => {
-    console.log('Resource added:', resourceData);
-    // In a real app, this would add the resource to the database
+
+  const handleAddResource = (resourceData: any) => {
+    // In a real application, this would make an API call to add the resource
+    console.log('Adding resource:', resourceData);
+    // Would then update the resources state with the new resource
   };
-  
+
+  const filteredResources = resources.filter((resource) => {
+    const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         resource.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         resource.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    if (showDeadlineOnly) {
+      return matchesSearch && resource.hasDeadline;
+    }
+    
+    return matchesSearch;
+  });
+
+  const filteredBlueprintResources = blueprintResources.filter((resource) => {
+    const matchesSearch = resource.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         resource.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         resource.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    if (showDeadlineOnly) {
+      return matchesSearch && resource.hasDeadline;
+    }
+    
+    return matchesSearch;
+  });
+
   return (
     <AppLayout>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
-            <p className="text-muted-foreground mt-2">
-              Access learning materials, templates, and guides to support your data journey.
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Resources</h1>
+          <p className="text-muted-foreground">
+            Explore our curated collection of data science resources
+          </p>
+        </div>
+        {isAdmin && (
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button>Add Resource</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <AddResourceModal onAddResource={handleAddResource} />
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+
+      <Tabs defaultValue="all" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="all">All Resources</TabsTrigger>
+          <TabsTrigger value="blueprint">Data Blueprint Series</TabsTrigger>
+        </TabsList>
+
+        <div className="mb-6">
+          <ResourceFilter
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            showDeadlineOnly={showDeadlineOnly}
+            setShowDeadlineOnly={setShowDeadlineOnly}
+          />
+        </div>
+
+        <TabsContent value="all" className="space-y-4">
+          {filteredResources.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredResources.map((resource) => (
+                <ResourceCard key={resource.id} resource={resource} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-lg text-muted-foreground">No resources found matching your criteria.</p>
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="blueprint" className="space-y-4">
+          <div className="bg-muted/50 p-6 rounded-lg mb-6">
+            <h2 className="text-xl font-semibold mb-2">About the Data Blueprint Series</h2>
+            <p>
+              The Data Blueprint Series provides a comprehensive framework for organizations to assess, 
+              plan, and implement data-driven transformation. These resources offer practical tools 
+              and guidance for establishing robust data practices.
             </p>
           </div>
-          
-          {isAdmin && (
-            <AddResourceModal onAddResource={handleAddResource}>
-              <Button>Add Resource</Button>
-            </AddResourceModal>
-          )}
-        </div>
-        
-        <div>
-          <Card className="mb-6">
-            <CardHeader className="pb-3">
-              <CardTitle>Featured Series</CardTitle>
-              <CardDescription>
-                Curated learning pathways for comprehensive skill development
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Data Blueprint Series</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Foundational knowledge for aspiring data professionals.
-                    </p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button variant="outline" className="w-full" asChild>
-                      <Link to="/resources/data-blueprint">Explore Series</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">ML Engineering Path</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Advanced resources for machine learning deployment.
-                    </p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button variant="outline" className="w-full" asChild>
-                      <Link to="#">Explore Series</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-                
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-lg">Data Visualization Mastery</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-muted-foreground">
-                      Techniques for creating impactful data stories.
-                    </p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button variant="outline" className="w-full" asChild>
-                      <Link to="#">Explore Series</Link>
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Tabs defaultValue="all" className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <TabsList className="md:flex-shrink-0">
-                <TabsTrigger value="all">All Resources</TabsTrigger>
-                <TabsTrigger value="documents">Documents</TabsTrigger>
-                <TabsTrigger value="videos">Videos</TabsTrigger>
-                <TabsTrigger value="interactive">Interactive</TabsTrigger>
-              </TabsList>
-              
-              <div className="flex flex-1 flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                  <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search resources..." 
-                    className="pl-10"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category === 'all' ? 'All Categories' : category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {types.map((type) => (
-                      <SelectItem key={type} value={type}>
-                        {type === 'all' ? 'All Types' : type.charAt(0).toUpperCase() + type.slice(1)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="hasDeadline" 
-                    checked={hasDeadlineFilter}
-                    onCheckedChange={setHasDeadlineFilter}
-                  />
-                  <label
-                    htmlFor="hasDeadline"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                  >
-                    Has Deadline
-                  </label>
-                </div>
-              </div>
+
+          {filteredBlueprintResources.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredBlueprintResources.map((resource) => (
+                <ResourceCard key={resource.id} resource={resource} />
+              ))}
             </div>
-            
-            <TabsContent value="all" className="mt-0">
-              {sortedResources.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {sortedResources.map((resource) => (
-                    <Card key={resource.id}>
-                      <CardHeader className="pb-2">
-                        <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg">{resource.title}</CardTitle>
-                          <Badge variant="outline" className={resourceTypeColors[resource.type]}>
-                            <span className="flex items-center gap-1">
-                              {resourceTypeIcons[resource.type]}
-                              {resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}
-                            </span>
-                          </Badge>
-                        </div>
-                        <CardDescription>{resource.description}</CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-sm space-y-2">
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Format:</span>
-                            <span>{resource.format}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Category:</span>
-                            <span>{resource.category}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Published:</span>
-                            <span>{new Date(resource.publishDate).toLocaleDateString()}</span>
-                          </div>
-                          {resource.deadline && (
-                            <div className="flex justify-between">
-                              <span className="text-muted-foreground">Deadline:</span>
-                              <span className="text-rose-600 font-medium">{new Date(resource.deadline).toLocaleDateString()}</span>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                      <CardFooter>
-                        <Button variant="outline" className="w-full" asChild>
-                          <a href={resource.url} target="_blank" rel="noopener noreferrer">
-                            Access Resource
-                          </a>
-                        </Button>
-                      </CardFooter>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <FileIcon className="mx-auto h-12 w-12 text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-medium">No resources found</h3>
-                  <p className="mt-2 text-muted-foreground">
-                    Try adjusting your search or filters to find what you're looking for.
-                  </p>
-                </div>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="documents" className="mt-0">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {sortedResources.filter(r => r.type === 'document' || r.type === 'article').map((resource) => (
-                  <Card key={resource.id}>
-                    {/* Same card content as above */}
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{resource.title}</CardTitle>
-                        <Badge variant="outline" className={resourceTypeColors[resource.type]}>
-                          <span className="flex items-center gap-1">
-                            {resourceTypeIcons[resource.type]}
-                            {resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}
-                          </span>
-                        </Badge>
-                      </div>
-                      <CardDescription>{resource.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-sm space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Format:</span>
-                          <span>{resource.format}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Category:</span>
-                          <span>{resource.category}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Published:</span>
-                          <span>{new Date(resource.publishDate).toLocaleDateString()}</span>
-                        </div>
-                        {resource.deadline && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Deadline:</span>
-                            <span className="text-rose-600 font-medium">{new Date(resource.deadline).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button variant="outline" className="w-full" asChild>
-                        <a href={resource.url} target="_blank" rel="noopener noreferrer">
-                          Access Resource
-                        </a>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="videos" className="mt-0">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {sortedResources.filter(r => r.type === 'video').map((resource) => (
-                  <Card key={resource.id}>
-                    {/* Same card content as above */}
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{resource.title}</CardTitle>
-                        <Badge variant="outline" className={resourceTypeColors[resource.type]}>
-                          <span className="flex items-center gap-1">
-                            {resourceTypeIcons[resource.type]}
-                            {resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}
-                          </span>
-                        </Badge>
-                      </div>
-                      <CardDescription>{resource.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-sm space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Format:</span>
-                          <span>{resource.format}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Category:</span>
-                          <span>{resource.category}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Published:</span>
-                          <span>{new Date(resource.publishDate).toLocaleDateString()}</span>
-                        </div>
-                        {resource.deadline && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Deadline:</span>
-                            <span className="text-rose-600 font-medium">{new Date(resource.deadline).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button variant="outline" className="w-full" asChild>
-                        <a href={resource.url} target="_blank" rel="noopener noreferrer">
-                          Access Resource
-                        </a>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-            
-            <TabsContent value="interactive" className="mt-0">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {sortedResources.filter(r => r.type === 'course' || r.type === 'workshop').map((resource) => (
-                  <Card key={resource.id}>
-                    {/* Same card content as above */}
-                    <CardHeader className="pb-2">
-                      <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg">{resource.title}</CardTitle>
-                        <Badge variant="outline" className={resourceTypeColors[resource.type]}>
-                          <span className="flex items-center gap-1">
-                            {resourceTypeIcons[resource.type]}
-                            {resource.type.charAt(0).toUpperCase() + resource.type.slice(1)}
-                          </span>
-                        </Badge>
-                      </div>
-                      <CardDescription>{resource.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-sm space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Format:</span>
-                          <span>{resource.format}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Category:</span>
-                          <span>{resource.category}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Published:</span>
-                          <span>{new Date(resource.publishDate).toLocaleDateString()}</span>
-                        </div>
-                        {resource.deadline && (
-                          <div className="flex justify-between">
-                            <span className="text-muted-foreground">Deadline:</span>
-                            <span className="text-rose-600 font-medium">{new Date(resource.deadline).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button variant="outline" className="w-full" asChild>
-                        <a href={resource.url} target="_blank" rel="noopener noreferrer">
-                          Access Resource
-                        </a>
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-lg text-muted-foreground">No blueprint resources found matching your criteria.</p>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </AppLayout>
   );
 };
 
-export default ResourcesPage;
+export default Resources;

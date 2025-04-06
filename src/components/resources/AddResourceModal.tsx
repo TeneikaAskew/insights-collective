@@ -1,218 +1,160 @@
 
-import { useState } from 'react';
-import { CalendarIcon } from 'lucide-react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { DialogClose, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { toast } from '@/components/ui/sonner';
 
-interface AddResourceModalProps {
-  onAddResource: (resource: any) => void;
+export interface AddResourceModalProps {
+  onAddResource: (resourceData: any) => void;
 }
 
-const resourceCategories = [
-  { value: 'training', label: 'Training' },
-  { value: 'event', label: 'Event' },
-  { value: 'opportunity', label: 'Opportunity' },
-  { value: 'program', label: 'Program' },
-];
-
-export function AddResourceModal({ onAddResource }: AddResourceModalProps) {
-  const [open, setOpen] = useState(false);
-  const [name, setName] = useState('');
+const AddResourceModal = ({ onAddResource }: AddResourceModalProps) => {
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [category, setCategory] = useState('');
-  const [link, setLink] = useState('');
+  const [type, setType] = useState('');
+  const [url, setUrl] = useState('');
+  const [tags, setTags] = useState('');
   const [hasDeadline, setHasDeadline] = useState(false);
-  const [deadline, setDeadline] = useState<Date | undefined>(undefined);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  
-  const { toast } = useToast();
+  const [deadline, setDeadline] = useState('');
 
-  const handleSubmit = () => {
-    if (!name || !description || !category || !link) {
-      toast({
-        title: 'Missing fields',
-        description: 'Please fill in all required fields.',
-        variant: 'destructive',
-      });
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!title || !description || !type || !url) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
-    const newResource = {
-      id: Date.now().toString(),
-      name,
+    const resourceData = {
+      title,
       description,
-      category,
-      link,
-      deadline: hasDeadline && deadline ? deadline.toISOString().split('T')[0] : null,
+      type,
+      url,
+      tags: tags.split(',').map(tag => tag.trim()),
+      hasDeadline,
+      deadline: hasDeadline ? new Date(deadline) : null,
     };
 
-    onAddResource(newResource);
-    
-    toast({
-      title: 'Resource Added',
-      description: 'The resource has been successfully added.',
-    });
+    onAddResource(resourceData);
+    toast.success('Resource added successfully');
     
     // Reset form
-    setName('');
+    setTitle('');
     setDescription('');
-    setCategory('');
-    setLink('');
+    setType('');
+    setUrl('');
+    setTags('');
     setHasDeadline(false);
-    setDeadline(undefined);
-    setOpen(false);
+    setDeadline('');
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button className="ml-auto">Add Resource</Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[550px]">
-        <DialogHeader>
-          <DialogTitle>Add New Resource</DialogTitle>
-          <DialogDescription>
-            Create a new resource to share with users. Fill in the details below.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Name
-            </Label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="col-span-3"
-              placeholder="Resource name"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="col-span-3"
-              placeholder="Resource description"
-            />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="category" className="text-right">
-              Category
-            </Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger id="category" className="col-span-3">
-                <SelectValue placeholder="Select category" />
+    <>
+      <DialogHeader>
+        <DialogTitle>Add New Resource</DialogTitle>
+      </DialogHeader>
+      
+      <form onSubmit={handleSubmit} className="space-y-4 py-4">
+        <div className="space-y-2">
+          <Label htmlFor="title">Title</Label>
+          <Input
+            id="title"
+            placeholder="Enter resource title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="description">Description</Label>
+          <Textarea
+            id="description"
+            placeholder="Enter resource description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            required
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="type">Resource Type</Label>
+            <Select value={type} onValueChange={setType} required>
+              <SelectTrigger id="type">
+                <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                {resourceCategories.map((category) => (
-                  <SelectItem key={category.value} value={category.value}>
-                    {category.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="article">Article</SelectItem>
+                <SelectItem value="document">Document</SelectItem>
+                <SelectItem value="link">External Link</SelectItem>
+                <SelectItem value="video">Video</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="link" className="text-right">
-              Link
-            </Label>
+          
+          <div className="space-y-2">
+            <Label htmlFor="url">URL</Label>
             <Input
-              id="link"
-              value={link}
-              onChange={(e) => setLink(e.target.value)}
-              className="col-span-3"
-              placeholder="https://example.com/resource"
+              id="url"
+              placeholder="Enter resource URL"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              required
             />
           </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <div className="text-right">
-              <Label htmlFor="hasDeadline">Deadline</Label>
-            </div>
-            <div className="flex items-center space-x-2 col-span-3">
-              <Checkbox
-                id="hasDeadline"
-                checked={hasDeadline}
-                onCheckedChange={(checked) => setHasDeadline(!!checked)}
-              />
-              <label
-                htmlFor="hasDeadline"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                This resource has a deadline
-              </label>
-            </div>
-          </div>
-          {hasDeadline && (
-            <div className="grid grid-cols-4 items-center gap-4">
-              <div className="text-right">
-                <Label>Date</Label>
-              </div>
-              <div className="col-span-3">
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !deadline && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {deadline ? format(deadline, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
-                    <Calendar
-                      mode="single"
-                      selected={deadline}
-                      onSelect={(date) => {
-                        setDeadline(date);
-                        setCalendarOpen(false);
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          )}
         </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="tags">Tags (comma separated)</Label>
+          <Input
+            id="tags"
+            placeholder="E.g. python, data science, beginner"
+            value={tags}
+            onChange={(e) => setTags(e.target.value)}
+          />
+        </div>
+        
+        <div className="flex items-center space-x-2">
+          <Checkbox 
+            id="has-deadline" 
+            checked={hasDeadline} 
+            onCheckedChange={(checked) => {
+              if (typeof checked === 'boolean') {
+                setHasDeadline(checked);
+              }
+            }}
+          />
+          <Label htmlFor="has-deadline">Resource has deadline</Label>
+        </div>
+        
+        {hasDeadline && (
+          <div className="space-y-2">
+            <Label htmlFor="deadline">Deadline Date</Label>
+            <Input
+              id="deadline"
+              type="date"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              required={hasDeadline}
+            />
+          </div>
+        )}
+        
         <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit}>Save Resource</Button>
+          <DialogClose asChild>
+            <Button type="button" variant="outline">Cancel</Button>
+          </DialogClose>
+          <Button type="submit">Add Resource</Button>
         </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </form>
+    </>
   );
-}
+};
+
+export default AddResourceModal;
