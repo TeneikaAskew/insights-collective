@@ -681,3 +681,408 @@ export const dataCareerRoles: DataCareerRole[] = [
     id: "ai-consultant",
     title: "AI Consultant",
     category: "AI/ML",
+    shortDescription: "Advise organizations on AI strategy, implementation, and optimization.",
+    longDescription: "AI Consultants help organizations understand, adopt, and benefit from artificial intelligence technologies. They assess business needs, recommend appropriate AI solutions, and guide implementation efforts. By bridging technical expertise with business acumen, they ensure AI initiatives align with organizational goals and deliver measurable value.",
+    responsibilities: [
+      "Assess organizational readiness for AI adoption",
+      "Develop AI strategy aligned with business objectives",
+      "Recommend appropriate AI solutions for specific business challenges",
+      "Guide implementation and integration of AI technologies",
+      "Advise on ethical considerations and governance of AI systems",
+      "Measure and communicate the business impact of AI initiatives"
+    ],
+    tools: ["Machine Learning Platforms", "Cloud AI Services", "Data Analysis Tools", "Project Management Software", "ROI Assessment Frameworks"],
+    skills: ["AI/ML Technical Knowledge", "Business Strategy", "Solution Architecture", "Change Management", "Stakeholder Communication"],
+    collaborators: ["C-Suite Executives", "IT Leaders", "Data Teams", "Business Unit Heads", "External Technology Partners"]
+  },
+  {
+    id: "ai-test-engineer",
+    title: "AI Test Engineer",
+    category: "AI/ML",
+    shortDescription: "Ensures the quality and reliability of AI models by developing and conducting tests, requiring knowledge of AI algorithms, performance metrics, and debugging tools.",
+    responsibilities: [
+      "Design and implement testing frameworks for AI systems",
+      "Develop automated tests for model validation",
+      "Evaluate model performance against benchmarks",
+      "Identify and troubleshoot issues in AI systems",
+      "Document testing procedures and results"
+    ],
+    tools: ["Python", "Testing Frameworks", "CI/CD Tools", "Monitoring Systems", "Debugging Tools"],
+    skills: ["Test Automation", "AI Algorithm Knowledge", "Performance Analysis", "Quality Assurance", "Problem Solving"]
+  },
+  {
+    id: "computer-information-research-scientist",
+    title: "Computer and Information Research Scientist",
+    category: "AI/ML",
+    shortDescription: "Innovates new computing technologies, often focusing on AI and machine learning applications, requiring expertise in algorithms, programming, and a doctoral degree in computer science or related fields.",
+    responsibilities: [
+      "Conduct research on computing problems and solutions",
+      "Develop innovative approaches to computing challenges",
+      "Design experiments to test theories and systems",
+      "Publish research findings in academic journals",
+      "Collaborate with interdisciplinary teams"
+    ],
+    tools: ["Programming Languages", "Scientific Computing Libraries", "Research Tools", "High-Performance Computing"],
+    skills: ["Algorithm Design", "Theoretical Computer Science", "Research Methodology", "Academic Writing", "Mathematical Modeling"]
+  },
+  {
+    id: "customer-engineer-data-ai",
+    title: "Customer Engineer, Data & AI",
+    category: "AI/ML",
+    shortDescription: "Combines technical expertise with customer-facing roles, helping clients adopt data and AI solutions, requiring strong communication, cloud platform knowledge, and data engineering skills.",
+    responsibilities: [
+      "Provide technical guidance to customers implementing AI solutions",
+      "Develop proof-of-concepts and demonstrations",
+      "Troubleshoot customer implementation issues",
+      "Collaborate with product teams on customer feedback",
+      "Present technical solutions to diverse audiences"
+    ],
+    tools: ["Cloud Platforms", "AI Services", "Data Tools", "Demo Environments", "Documentation Systems"],
+    skills: ["Technical Communication", "Customer Service", "Solution Architecture", "Problem Solving", "Project Management"]
+  },
+  {
+    id: "decision-scientist",
+    title: "Decision Scientist",
+    category: "AI/ML",
+    shortDescription: "Specializes in integrating data insights into strategic decision-making processes, requiring skills in statistical modeling, predictive analytics, and tools like Python or R, alongside strong business acumen.",
+    responsibilities: [
+      "Develop decision-making frameworks based on data",
+      "Apply statistical methods to evaluate alternatives",
+      "Create models that predict outcomes of decisions",
+      "Work with leadership on strategic initiatives",
+      "Translate complex analyses into actionable recommendations"
+    ],
+    tools: ["R/Python", "Statistical Software", "Decision Trees", "Monte Carlo Simulation", "Optimization Tools"],
+    skills: ["Decision Analysis", "Statistical Modeling", "Business Strategy", "Executive Communication", "Critical Thinking"]
+  },
+  {
+    id: "generative-ai-scientist",
+    title: "Generative AI Scientist",
+    category: "AI/ML",
+    shortDescription: "Pioneers in AI who develop models capable of creating new content, such as text or images, requiring expertise in deep learning frameworks, natural language processing, and advanced mathematical modeling techniques like transformers.",
+    responsibilities: [
+      "Research and develop generative AI models",
+      "Train large language and image generation models",
+      "Optimize models for performance and quality",
+      "Address ethical considerations in generative AI",
+      "Stay current with rapid developments in the field"
+    ],
+    tools: ["PyTorch/TensorFlow", "Transformers", "GANs", "NLP Libraries", "GPU Computing"],
+    skills: ["Deep Learning", "Natural Language Processing", "Computer Vision", "Research", "Model Architecture Design"]
+  },
+  {
+    id: "insights-analyst",
+    title: "Insights Analyst",
+    category: "AI/ML, Analytics",
+    shortDescription: "Professionals who distill raw data into actionable insights, often creating reports and visualizations for decision-making, requiring strong analytical skills, SQL proficiency, and experience with BI tools.",
+    responsibilities: [
+      "Extract meaningful patterns from complex datasets",
+      "Create reports and visualizations for stakeholders",
+      "Develop and track KPIs for business performance",
+      "Provide recommendations based on data analysis",
+      "Communicate insights to non-technical audiences"
+    ],
+    tools: ["SQL", "Excel", "BI Tools", "Statistical Software", "Visualization Tools"],
+    skills: ["Data Analysis", "Business Acumen", "Communication", "Critical Thinking", "Problem Solving"]
+  },
+  {
+    id: "mlops-engineer",
+    title: "MLOps Engineer",
+    category: "AI/ML",
+    shortDescription: "Professionals ensuring the seamless deployment and monitoring of machine learning models in production, requiring expertise in CI/CD pipelines, containerization (Docker), orchestration (Kubernetes), and tools like MLflow.",
+    responsibilities: [
+      "Design and implement ML deployment pipelines",
+      "Set up monitoring for model performance",
+      "Automate testing and validation of ML models",
+      "Manage infrastructure for ML workloads",
+      "Collaborate with data scientists and engineers"
+    ],
+    tools: ["Docker", "Kubernetes", "MLflow", "CI/CD Tools", "Cloud Platforms", "Monitoring Systems"],
+    skills: ["DevOps", "Machine Learning", "Infrastructure as Code", "Automation", "System Design"]
+  },
+  {
+    id: "private-equity-analyst",
+    title: "Private Equity Analyst",
+    category: "AI/ML, Analytics",
+    shortDescription: "Evaluates investment opportunities by analyzing financial data and market trends, requiring expertise in financial modeling, valuation, and business analytics tools.",
+    responsibilities: [
+      "Analyze potential investment targets",
+      "Build financial models to evaluate deals",
+      "Conduct market and industry research",
+      "Support due diligence processes",
+      "Present investment recommendations"
+    ],
+    tools: ["Excel", "Financial Modeling Software", "Data Analytics Tools", "CRM Systems", "Research Databases"],
+    skills: ["Financial Analysis", "Valuation", "Due Diligence", "Market Research", "Presentation"]
+  },
+  {
+    id: "product-insights-analyst",
+    title: "Product or Product Insights Analyst",
+    category: "AI/ML, Analytics",
+    shortDescription: "Focuses on analyzing product performance and user behavior to inform product development, requiring skills in A/B testing, data analysis, and tools like Google Analytics and SQL.",
+    responsibilities: [
+      "Track and analyze product usage metrics",
+      "Design and analyze A/B tests",
+      "Identify opportunities for product improvement",
+      "Work with product teams to implement data-driven changes",
+      "Create dashboards for monitoring product health"
+    ],
+    tools: ["SQL", "Google Analytics", "A/B Testing Platforms", "BI Tools", "Product Analytics Software"],
+    skills: ["Data Analysis", "User Behavior Analysis", "Product Thinking", "Hypothesis Testing", "Communication"]
+  },
+  {
+    id: "qa-engineer-ai",
+    title: "Quality Assurance Engineer, AI",
+    category: "AI/ML",
+    shortDescription: "Focuses on validating AI models and systems for accuracy, fairness, and robustness, requiring expertise in testing frameworks, programming, and data ethics.",
+    responsibilities: [
+      "Develop testing strategies for AI systems",
+      "Test for bias, fairness, and ethical concerns",
+      "Validate model performance and accuracy",
+      "Design test cases for edge scenarios",
+      "Document and track quality metrics"
+    ],
+    tools: ["Testing Frameworks", "Bias Detection Tools", "Automated Testing", "Performance Monitoring", "Documentation Systems"],
+    skills: ["Quality Assurance", "AI Ethics", "Testing Methodology", "Programming", "Analytical Thinking"]
+  },
+  {
+    id: "research-scientist",
+    title: "Research Scientist/Applied Research Scientist",
+    category: "AI/ML",
+    shortDescription: "Applies advanced research to solve real-world problems, often focusing on machine learning and AI applications, requiring expertise in mathematics, algorithms, and data science.",
+    responsibilities: [
+      "Conduct research on cutting-edge AI techniques",
+      "Develop novel algorithms and approaches",
+      "Publish findings in academic conferences and journals",
+      "Apply research to solve business problems",
+      "Collaborate with engineering teams on implementation"
+    ],
+    tools: ["Python/R", "Machine Learning Libraries", "Research Tools", "Academic Databases", "Computational Resources"],
+    skills: ["Research Methods", "Machine Learning", "Mathematics", "Scientific Writing", "Critical Thinking"]
+  },
+  {
+    id: "solution-engineer-data-ai",
+    title: "Solution Engineer, Data & AI",
+    category: "AI/ML, Analytics",
+    shortDescription: "Designs tailored data and AI solutions to address specific client needs, requiring expertise in cloud platforms, data integration, and AI frameworks.",
+    responsibilities: [
+      "Design technical solutions to business problems",
+      "Create proof-of-concepts and demos",
+      "Present technical solutions to clients",
+      "Work with implementation teams on solution delivery",
+      "Stay current with emerging technologies"
+    ],
+    tools: ["Cloud Platforms", "AI Services", "Integration Tools", "Presentation Software", "CRM Systems"],
+    skills: ["Solution Architecture", "Technical Sales", "Communication", "Project Planning", "AI/ML Knowledge"]
+  },
+  {
+    id: "cloud-data-engineer",
+    title: "Cloud Data Engineer",
+    category: "Data Engineering",
+    shortDescription: "Specializes in designing scalable data pipelines on cloud platforms to enable analytics and AI, requiring expertise in cloud data services (e.g., BigQuery, AWS Redshift), ETL processes, and distributed computing tools like Apache Spark.",
+    responsibilities: [
+      "Design and implement cloud-based data architectures",
+      "Build scalable ETL pipelines on cloud platforms",
+      "Optimize data storage and processing for cost and performance",
+      "Implement data security and compliance measures",
+      "Migrate data workloads to cloud environments"
+    ],
+    tools: ["AWS/Azure/GCP", "Cloud Data Warehouses", "Serverless Computing", "Spark", "Terraform/CloudFormation"],
+    skills: ["Cloud Architecture", "Data Engineering", "ETL Design", "Cost Optimization", "Security"]
+  },
+  {
+    id: "data-governance-analyst",
+    title: "Data Governance Analyst",
+    category: "Analytics",
+    shortDescription: "Focuses on implementing policies and practices to ensure data quality, compliance, and security, requiring knowledge of data management frameworks, compliance standards, and risk mitigation strategies.",
+    responsibilities: [
+      "Develop and implement data governance policies",
+      "Monitor compliance with data regulations",
+      "Establish data quality standards and metrics",
+      "Create data catalogs and dictionaries",
+      "Train staff on data governance practices"
+    ],
+    tools: ["Data Catalogs", "Metadata Management Tools", "Compliance Software", "Documentation Systems", "Training Platforms"],
+    skills: ["Data Management", "Regulatory Knowledge", "Policy Development", "Communication", "Risk Assessment"]
+  },
+  {
+    id: "data-visualization-specialist",
+    title: "Data Visualization Specialist",
+    category: "Analytics, Business Intelligence",
+    shortDescription: "Professionals who craft compelling visual representations of data, making complex information accessible and actionable, requiring skills in visualization tools like Tableau or Power BI, and a strong foundation in data storytelling, design principles, and analytics.",
+    responsibilities: [
+      "Design effective data visualizations and dashboards",
+      "Translate complex data into intuitive visual stories",
+      "Apply design principles to enhance data comprehension",
+      "Work with stakeholders to understand visualization needs",
+      "Stay current with visualization best practices"
+    ],
+    tools: ["Tableau", "Power BI", "D3.js", "Design Software", "Color Theory Tools"],
+    skills: ["Visual Design", "Data Storytelling", "UX Principles", "Data Analysis", "Communication"]
+  },
+  {
+    id: "data-metrics-analyst",
+    title: "Data and Metrics Analyst",
+    category: "Analytics",
+    shortDescription: "Professionals who design and track metrics to measure business performance, requiring expertise in analytics tools, KPI design, and data visualization.",
+    responsibilities: [
+      "Define and implement key business metrics",
+      "Build dashboards to track performance",
+      "Analyze metric trends and patterns",
+      "Report on business performance to stakeholders",
+      "Recommend improvements based on metric analysis"
+    ],
+    tools: ["BI Tools", "SQL", "Excel", "Statistical Software", "Data Visualization Tools"],
+    skills: ["Metric Design", "Data Analysis", "Business Acumen", "Reporting", "Critical Thinking"]
+  },
+  {
+    id: "information-architect",
+    title: "Information Architect",
+    category: "Business Intelligence",
+    shortDescription: "Designs data and information systems for optimal usability and scalability, requiring expertise in data modeling, database design, and information management standards.",
+    responsibilities: [
+      "Design information structures and taxonomies",
+      "Create data models and schemas",
+      "Develop metadata frameworks",
+      "Ensure information accessibility and usability",
+      "Collaborate on enterprise architecture"
+    ],
+    tools: ["Modeling Tools", "Database Design Software", "Taxonomy Systems", "Documentation Platforms", "UX Tools"],
+    skills: ["Information Design", "Data Modeling", "Systems Thinking", "User Experience", "Communication"]
+  },
+  {
+    id: "intelligence-analyst",
+    title: "Intelligence Analyst",
+    category: "Business Intelligence",
+    shortDescription: "Gathers and interprets data to provide actionable intelligence, often in a security or strategic context, requiring analytical skills, programming, and domain expertise in specific industries like defense or business.",
+    responsibilities: [
+      "Collect and analyze data from diverse sources",
+      "Identify patterns and trends in complex information",
+      "Produce intelligence reports for decision-makers",
+      "Assess risks and opportunities",
+      "Present findings to stakeholders"
+    ],
+    tools: ["Data Analysis Software", "Visualization Tools", "Intelligence Platforms", "Research Databases", "Reporting Systems"],
+    skills: ["Analytical Thinking", "Research", "Domain Knowledge", "Communication", "Critical Evaluation"]
+  },
+  {
+    id: "mdm-analyst",
+    title: "Master Data Management (MDM) Analyst",
+    category: "Analytics",
+    shortDescription: "Manages master data to ensure consistency across systems, requiring expertise in data integration, governance, and tools like Informatica MDM or Tibco.",
+    responsibilities: [
+      "Develop and maintain master data standards",
+      "Ensure data consistency across systems",
+      "Implement data quality processes",
+      "Resolve data discrepancies",
+      "Support data integration initiatives"
+    ],
+    tools: ["MDM Platforms", "Data Quality Tools", "ETL Software", "Data Profiling Tools", "Metadata Repositories"],
+    skills: ["Data Management", "Data Modeling", "Data Quality", "Process Design", "Problem Solving"]
+  },
+  {
+    id: "sql-developer",
+    title: "SQL Developer",
+    category: "Data Engineering",
+    shortDescription: "Focused on managing and querying data in relational databases, SQL developers design, optimize, and maintain database systems, requiring expertise in SQL, data modeling, and performance tuning, often in collaboration with data analysts and engineers.",
+    responsibilities: [
+      "Design and implement database schemas",
+      "Write and optimize SQL queries",
+      "Develop stored procedures and functions",
+      "Troubleshoot performance issues",
+      "Support data analysis and reporting needs"
+    ],
+    tools: ["SQL", "Database Management Systems", "Query Optimization Tools", "Version Control", "Data Modeling Tools"],
+    skills: ["SQL Programming", "Database Design", "Performance Tuning", "Troubleshooting", "Data Modeling"]
+  },
+  {
+    id: "ai-governance-officer",
+    title: "AI Governance Officer",
+    category: "Business Intelligence",
+    shortDescription: "Ensures AI systems align with organizational goals and ethical guidelines, requiring skills in risk management, compliance, and a deep understanding of AI lifecycle management.",
+    responsibilities: [
+      "Develop AI governance frameworks and policies",
+      "Ensure compliance with AI regulations and standards",
+      "Assess AI systems for ethical considerations",
+      "Create risk mitigation strategies for AI deployments",
+      "Educate stakeholders on responsible AI practices"
+    ],
+    tools: ["Risk Assessment Frameworks", "Policy Management Systems", "Compliance Software", "Documentation Platforms", "Training Tools"],
+    skills: ["AI Ethics", "Risk Management", "Policy Development", "Compliance", "Stakeholder Management"]
+  },
+  {
+    id: "cloud-engineer",
+    title: "Cloud Engineer",
+    category: "Data Engineering",
+    shortDescription: "Experts in deploying, managing, and optimizing cloud-based infrastructure, Cloud Engineers require proficiency in platforms like AWS, Azure, or Google Cloud, alongside skills in automation, networking, and cloud security.",
+    responsibilities: [
+      "Design and implement cloud infrastructure",
+      "Automate deployment and scaling processes",
+      "Optimize cloud resources for cost and performance",
+      "Implement cloud security best practices",
+      "Troubleshoot infrastructure issues"
+    ],
+    tools: ["AWS/Azure/GCP", "IaC Tools", "CI/CD Pipelines", "Monitoring Systems", "Security Tools"],
+    skills: ["Cloud Architecture", "Automation", "Networking", "Security", "Cost Optimization"]
+  },
+  {
+    id: "cloud-security-engineer",
+    title: "Cloud Security Engineer",
+    category: "Data Engineering",
+    shortDescription: "Focuses on securing cloud environments and ensuring compliance with industry standards, requiring expertise in IAM, network security, encryption, and tools like Cloud Armor or AWS Shield.",
+    responsibilities: [
+      "Design and implement cloud security controls",
+      "Monitor for security threats and vulnerabilities",
+      "Ensure compliance with security standards",
+      "Conduct security assessments and audits",
+      "Respond to security incidents"
+    ],
+    tools: ["Cloud Security Services", "IAM Systems", "Encryption Tools", "SIEM Solutions", "Vulnerability Scanners"],
+    skills: ["Cloud Security", "Threat Detection", "Compliance", "Risk Assessment", "Incident Response"]
+  },
+  {
+    id: "full-stack-developer",
+    title: "Full-Stack Developer",
+    category: "Data Engineering",
+    shortDescription: "Develops and maintains both front-end and back-end systems, often in AI/ML-powered applications, requiring proficiency in programming languages, databases, and frameworks like React, Node.js, and Flask.",
+    responsibilities: [
+      "Design and develop web applications",
+      "Implement front-end user interfaces",
+      "Build back-end services and APIs",
+      "Integrate with databases and external systems",
+      "Deploy and maintain applications"
+    ],
+    tools: ["JavaScript/TypeScript", "React/Angular/Vue", "Node.js/Python/Java", "Databases", "Git", "CI/CD Tools"],
+    skills: ["Front-end Development", "Back-end Development", "API Design", "Database Management", "Problem Solving"]
+  },
+  {
+    id: "metadata-specialist",
+    title: "Metadata Specialist",
+    category: "Data Engineering",
+    shortDescription: "Professionals who manage metadata to improve data discoverability and governance, requiring skills in data cataloging, standards like DCAT, and tools like Data Catalog or Alation.",
+    responsibilities: [
+      "Design and implement metadata frameworks",
+      "Create and maintain data catalogs",
+      "Develop metadata standards and policies",
+      "Ensure data discoverability and understanding",
+      "Support data governance initiatives"
+    ],
+    tools: ["Data Catalog Platforms", "Metadata Management Tools", "Taxonomy Systems", "Documentation Tools", "ETL Tools"],
+    skills: ["Metadata Management", "Data Cataloging", "Information Architecture", "Data Standards", "Communication"]
+  },
+  {
+    id: "software-engineer-ai-ml",
+    title: "Software Engineer (AI/ML)",
+    category: "Data Engineering, AI/ML",
+    shortDescription: "Engineers who build AI-driven applications, integrating machine learning models into software systems, requiring expertise in programming, AI frameworks, and system design.",
+    responsibilities: [
+      "Develop software that incorporates AI/ML capabilities",
+      "Integrate machine learning models into applications",
+      "Build APIs and services for AI functionality",
+      "Optimize AI model performance in production",
+      "Collaborate with data scientists and product teams"
+    ],
+    tools: ["Programming Languages", "AI/ML Frameworks", "Version Control", "CI/CD Systems", "Containerization"],
+    skills: ["Software Development", "AI/ML Integration", "System Design", "API Development", "Performance Optimization"]
+  }
+];
