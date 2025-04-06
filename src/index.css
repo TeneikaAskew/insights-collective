@@ -43,6 +43,12 @@
     --sidebar-accent-foreground: 222.2 47.4% 11.2%;
     --sidebar-border: 214.3 31.8% 91.4%;
     --sidebar-ring: 201 96% 32%;
+    
+    /* New color variables */
+    --orange-primary: 24 95% 53%;
+    --orange-secondary: 30 100% 81%;
+    --purple-primary: 270 91% 65%;
+    --purple-secondary: 273 65% 54%;
   }
 
   .dark {
@@ -82,6 +88,12 @@
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217.2 32.6% 17.5%;
     --sidebar-ring: 201 96% 32%;
+    
+    /* New color variables for dark mode */
+    --orange-primary: 24 95% 53%;
+    --orange-secondary: 30 100% 81%;
+    --purple-primary: 270 91% 65%;
+    --purple-secondary: 273 65% 54%;
   }
 }
 
@@ -136,6 +148,23 @@
   
   .glass-card {
     @apply bg-white/80 backdrop-blur-sm border border-white/50 shadow-sm;
+  }
+  
+  /* New color gradient utilities */
+  .bg-gradient-orange-purple {
+    @apply bg-gradient-to-r from-orange-500 to-purple-500;
+  }
+  
+  .bg-gradient-blue-purple {
+    @apply bg-gradient-to-r from-learnflow-500 to-purple-500;
+  }
+  
+  .bg-gradient-orange-blue {
+    @apply bg-gradient-to-r from-orange-500 to-learnflow-500;
+  }
+  
+  .text-gradient-orange-purple {
+    @apply bg-gradient-to-r from-orange-500 to-purple-500 bg-clip-text text-transparent;
   }
 }
 

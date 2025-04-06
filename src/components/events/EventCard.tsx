@@ -6,9 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -34,9 +31,6 @@ interface EventCardProps {
 
 export function EventCard({ event, onRegister }: EventCardProps) {
   const { isAuthenticated, user } = useAuth();
-  const [openDialog, setOpenDialog] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const { toast } = useToast();
   const navigate = useNavigate();
   
@@ -55,47 +49,24 @@ export function EventCard({ event, onRegister }: EventCardProps) {
       toast({
         title: "Authentication Required",
         description: "Please log in to register for this event.",
+        variant: "default",
       });
       navigate('/login');
       return;
     }
     
-    if (isAuthenticated) {
-      // If user is logged in, use their account info
-      onRegister?.(event.id, { name: user?.name, email: user?.email });
-      toast({
-        title: 'Registration Successful',
-        description: 'You have been registered for this event.',
-      });
-      
-      // Redirect to Calendly if available
-      if (event.calendlyLink) {
-        window.open(event.calendlyLink, '_blank');
-      }
-      
-      setOpenDialog(false);
-    } else if (name && email) {
-      // For non-logged in users, collect their info
-      onRegister?.(event.id, { name, email });
-      toast({
-        title: 'Registration Successful',
-        description: 'You have been registered for this event.',
-      });
-      
-      // Redirect to Calendly if available
-      if (event.calendlyLink) {
-        window.open(event.calendlyLink, '_blank');
-      }
-      
-      setName('');
-      setEmail('');
-      setOpenDialog(false);
-    } else {
-      toast({
-        title: 'Missing Information',
-        description: 'Please provide your name and email to register.',
-        variant: 'destructive',
-      });
+    // If user is logged in, register them for the event
+    onRegister?.(event.id, { name: user?.name, email: user?.email });
+    
+    toast({
+      title: 'Registration Successful',
+      description: 'You have been registered for this event.',
+      variant: "default",
+    });
+    
+    // Redirect to Calendly if available
+    if (event.calendlyLink) {
+      window.open(event.calendlyLink, '_blank');
     }
   };
   
@@ -151,7 +122,12 @@ export function EventCard({ event, onRegister }: EventCardProps) {
         {isAtCapacity ? (
           <Button disabled className="w-full">Event Full</Button>
         ) : (
-          <Button className="w-full bg-primary text-white" onClick={handleRegister}>Register</Button>
+          <Button 
+            className="w-full bg-primary text-white" 
+            onClick={handleRegister}
+          >
+            Register
+          </Button>
         )}
       </CardFooter>
     </Card>

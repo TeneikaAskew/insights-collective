@@ -8,7 +8,6 @@ import UpcomingEvents from '@/components/home/UpcomingEvents';
 import CTASection from '@/components/home/CTASection';
 import Footer from '@/components/layout/Footer';
 import LearningJourney from '@/components/home/LearningJourney';
-import ExploreTools from '@/components/home/ExploreTools';
 import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 
 const Index = () => {
@@ -20,9 +19,7 @@ const Index = () => {
       <HeroSection />
       <BlueprintBanner />
       <QuizSection />
-      {/* FeaturesSection removed intentionally */}
       <LearningJourney />
-      <ExploreTools />
       <FeaturedCourses courses={featuredCourses} />
       <AnalyticsDashboard />
       <UpcomingEvents events={upcomingEvents} />
