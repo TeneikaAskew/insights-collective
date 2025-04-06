@@ -7,7 +7,7 @@ import QuizSection from '@/components/quiz/QuizSection';
 
 const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
-  const upcomingEvents = mockService.getAllEvents().slice(0, 3);
+  const upcomingEvents = mockService.getEvents().slice(0, 3);
   
   return (
     <div className="min-h-screen flex flex-col">
