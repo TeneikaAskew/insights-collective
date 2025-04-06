@@ -1,5 +1,5 @@
 
-import { mockService } from '@/lib/mockData';
+import { mockService } from '@/lib/mock';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
 import QuizSection from '@/components/quiz/QuizSection';
