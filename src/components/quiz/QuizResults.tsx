@@ -39,6 +39,22 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, onReset }) => {
     }
   };
 
+  // Helper function to map tracks to career roles
+  const getCareerRoleId = (track: CareerTrack): string => {
+    switch (track) {
+      case 'AI/ML':
+        return 'machine-learning-engineer';
+      case 'Analytics':
+        return 'data-analyst';
+      case 'Data Engineering':
+        return 'data-engineer';
+      case 'Business Intelligence':
+        return 'bi-analyst';
+      default:
+        return 'data-scientist';
+    }
+  };
+
   const downloadResults = () => {
     // Simple implementation to create a text summary for download
     const content = `
@@ -143,9 +159,13 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, onReset }) => {
                         <h5 className="text-sm font-medium">Sample Roles</h5>
                         <div className="flex flex-wrap gap-1 mt-1">
                           {result.persona?.sampleRoles.map(role => (
-                            <span key={role} className="inline-flex text-xs bg-secondary px-2 py-1 rounded-full">
+                            <Link 
+                              key={role} 
+                              to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`}
+                              className="inline-flex text-xs bg-secondary hover:bg-secondary/80 transition-colors px-2 py-1 rounded-full"
+                            >
                               {role}
-                            </span>
+                            </Link>
                           ))}
                         </div>
                       </div>
@@ -165,10 +185,15 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, onReset }) => {
                   </div>
                 </div>
               </CardContent>
-              <CardFooter>
-                <Button asChild className="w-full">
+              <CardFooter className="flex flex-col md:flex-row gap-3">
+                <Button asChild className="w-full md:w-auto">
                   <Link to={`/courses?category=${result.track.toLowerCase().replace(/\s+/g, '-')}`}>
                     Browse {result.track} Courses <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button asChild variant="outline" className="w-full md:w-auto">
+                  <Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`}>
+                    Explore {result.track} Careers <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
                 </Button>
               </CardFooter>
@@ -177,13 +202,13 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, onReset }) => {
         </div>
         
         <div className="mt-10 text-center">
-          <h3 className="text-xl font-semibold mb-2">Want Personalized Learning Guidance?</h3>
+          <h3 className="text-xl font-semibold mb-2">Want to Explore More Career Options?</h3>
           <p className="text-muted-foreground mb-4">
-            Create a free account to track your progress and get custom course recommendations.
+            Discover all data-related roles and find detailed information about day-to-day responsibilities, skills, and career paths.
           </p>
           <div className="flex justify-center gap-3">
             <Button asChild>
-              <Link to="/register">Create Free Account</Link>
+              <Link to="/explore-data-careers">Explore All Data Careers</Link>
             </Button>
             <Button variant="outline" asChild>
               <Link to="/courses">Browse All Courses</Link>
