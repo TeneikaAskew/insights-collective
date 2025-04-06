@@ -1,6 +1,6 @@
 
 import { Bell, Menu, Search, UserCircle } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,9 +15,8 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
-  const location = useLocation();
-  const { toggleSidebar } = useSidebar();
   const { user, isAuthenticated, logout } = useAuth();
+  const { toggleSidebar } = useSidebar();
   
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
