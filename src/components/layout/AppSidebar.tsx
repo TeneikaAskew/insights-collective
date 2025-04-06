@@ -1,4 +1,3 @@
-
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
@@ -54,10 +53,10 @@ const AppSidebar = () => {
       active: location.pathname === '/explore-data-careers',
     },
     {
-      title: "Calendar",
-      url: "/calendar",
+      title: "Events",
+      url: "/events",
       icon: Calendar,
-      active: location.pathname === '/calendar',
+      active: location.pathname === '/events' && !location.pathname.includes('/admin/events'),
     },
     {
       title: "Notifications",
@@ -67,7 +66,6 @@ const AppSidebar = () => {
     },
   ];
 
-  // Add profile only if user is authenticated
   if (isAuthenticated) {
     publicMenuItems.push({
       title: "Profile",
@@ -145,7 +143,6 @@ const AppSidebar = () => {
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {/* Always show public menu items to all users */}
               {publicMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={item.active}>

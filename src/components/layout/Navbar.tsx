@@ -11,14 +11,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useState } from 'react';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
-  const { toggleSidebar, state } = useSidebar();
+  const { toggleSidebar } = useSidebar();
   
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -40,24 +38,14 @@ const Navbar = () => {
           </Link>
         </div>
         
-        <div className="hidden lg:flex space-x-4 flex-1">
-          {!isAuthenticated || (isAuthenticated && user?.role !== 'admin') ? (
-            <>
-              <Link to="/dashboard" className="px-3 py-2 text-sm font-medium hover:text-primary">Dashboard</Link>
-              <Link to="/courses" className="px-3 py-2 text-sm font-medium hover:text-primary">Courses</Link>
-              <Link to="/resources" className="px-3 py-2 text-sm font-medium hover:text-primary">Resources</Link>
-              <Link to="/resources/data-blueprint" className="px-3 py-2 text-sm font-medium hover:text-primary">Data Blueprint</Link>
-              <Link to="/explore-data-careers" className="px-3 py-2 text-sm font-medium hover:text-primary">Explore Careers</Link>
-            </>
-          ) : (
-            <>
-              <Link to="/admin" className="px-3 py-2 text-sm font-medium hover:text-primary">Admin Dashboard</Link>
-              <Link to="/admin/courses" className="px-3 py-2 text-sm font-medium hover:text-primary">Manage Courses</Link>
-              <Link to="/admin/users" className="px-3 py-2 text-sm font-medium hover:text-primary">Manage Users</Link>
-              <Link to="/admin/certificates" className="px-3 py-2 text-sm font-medium hover:text-primary">Manage Certificates</Link>
-              <Link to="/admin/resources" className="px-3 py-2 text-sm font-medium hover:text-primary">Manage Resources</Link>
-            </>
-          )}
+        <div className="hidden lg:flex space-x-6 flex-1">
+          {/* Public navigation links only - admin-specific links are hidden */}
+          <Link to="/dashboard" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Dashboard</Link>
+          <Link to="/courses" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Courses</Link>
+          <Link to="/resources" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Resources</Link>
+          <Link to="/resources/data-blueprint" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Data Blueprint</Link>
+          <Link to="/explore-data-careers" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Explore Careers</Link>
+          <Link to="/events" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Events</Link>
         </div>
         
         <div className="hidden lg:flex lg:flex-1 relative lg:max-w-sm">
@@ -101,11 +89,9 @@ const Navbar = () => {
                     <DropdownMenuItem asChild>
                       <Link to="/profile">Profile</Link>
                     </DropdownMenuItem>
-                    {user?.role !== 'admin' && (
-                      <DropdownMenuItem asChild>
-                        <Link to="/dashboard">Dashboard</Link>
-                      </DropdownMenuItem>
-                    )}
+                    <DropdownMenuItem asChild>
+                      <Link to="/dashboard">Dashboard</Link>
+                    </DropdownMenuItem>
                     {user?.role === 'admin' && (
                       <DropdownMenuItem asChild>
                         <Link to="/admin">Admin Dashboard</Link>
