@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import AddResourceModal from '@/components/resources/AddResourceModal';
+import { AddResourceModal } from '@/components/resources/AddResourceModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -29,9 +30,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
-import { toast } from 'sonner';
-import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
+// Mock combined resources data
 const mockResources = [
   {
     id: '1',
@@ -120,23 +121,28 @@ export default function AdminResources() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [deadlineFilter, setDeadlineFilter] = useState<boolean | null>(null);
+  const { toast } = useToast();
 
   const handleAddResource = (newResource: any) => {
     setResources([...resources, newResource]);
-    toast("Resource Added", {
+    toast({
+      title: 'Resource Added',
       description: 'The resource has been successfully added to the directory.',
     });
   };
 
   const handleEditResource = (resource: any) => {
-    toast("Edit Resource", {
+    // In a real app, this would open an edit modal
+    toast({
+      title: 'Edit Resource',
       description: `Editing ${resource.name}`,
     });
   };
 
   const handleDeleteResource = (id: string) => {
     setResources(resources.filter(resource => resource.id !== id));
-    toast("Resource Deleted", {
+    toast({
+      title: 'Resource Deleted',
       description: 'The resource has been successfully removed from the directory.',
     });
   };

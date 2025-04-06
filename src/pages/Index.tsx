@@ -1,239 +1,254 @@
-
-import React from 'react';
 import { Link } from 'react-router-dom';
-import Navbar from '@/components/layout/Navbar';
 import { Button } from '@/components/ui/button';
-import CourseCard from '@/components/common/CourseCard';
-import EventsSection from '@/components/homepage/EventsSection';
-import { Course } from '@/types';
-
-// Mock data for courses
-const featuredCourses: Course[] = [
-  {
-    id: '1',
-    title: 'Introduction to Data Science',
-    description: 'Learn the fundamentals of data science, from data preprocessing to model deployment.',
-    category: 'AI/ML',
-    instructor: {
-      id: '1',
-      name: 'Dr. John Smith',
-      role: 'instructor',
-      email: 'john.smith@example.com',
-      bio: 'Expert in data science with 10+ years of experience'
-    },
-    duration: '8 weeks',
-    level: 'Beginner',
-    enrollmentCount: 523,
-    rating: 4.8,
-    thumbnail: 'https://images.unsplash.com/photo-1557853197-aefb550b6fdc?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
-    tags: ['python', 'data science', 'machine learning'],
-    modules: [],
-    enrollmentStatus: 'Open',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    prerequisites: [],
-    objectives: []
-  },
-  {
-    id: '2',
-    title: 'Advanced Python for Data Analysis',
-    description: 'Master Python libraries like Pandas, NumPy, and Matplotlib for effective data analysis.',
-    category: 'Analytics',
-    instructor: {
-      id: '2',
-      name: 'Jane Johnson, PhD',
-      role: 'instructor',
-      email: 'jane.johnson@example.com',
-      bio: 'Specializes in Python data analysis techniques'
-    },
-    duration: '6 weeks',
-    level: 'Intermediate',
-    enrollmentCount: 412,
-    rating: 4.7,
-    thumbnail: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
-    tags: ['python', 'pandas', 'data analysis'],
-    modules: [],
-    enrollmentStatus: 'Open',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    prerequisites: [],
-    objectives: []
-  },
-  {
-    id: '3',
-    title: 'Data Engineering Fundamentals',
-    description: 'Build data pipelines, design data lakes, and implement ETL processes for big data.',
-    category: 'Data Engineering',
-    instructor: {
-      id: '3',
-      name: 'David Williams',
-      role: 'instructor',
-      email: 'david.williams@example.com',
-      bio: 'Data engineering expert with experience in big data systems'
-    },
-    duration: '10 weeks',
-    level: 'Intermediate',
-    enrollmentCount: 287,
-    rating: 4.9,
-    thumbnail: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
-    tags: ['data engineering', 'ETL', 'big data'],
-    modules: [],
-    enrollmentStatus: 'Open',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    prerequisites: [],
-    objectives: []
-  },
-];
+import { ArrowRight, BookOpen, GraduationCap, Award, Layers, Bookmark } from 'lucide-react';
+import { mockService } from '@/lib/mockData';
+import QuizSection from '@/components/quiz/QuizSection';
 
 const Index = () => {
+  const featuredCourses = mockService.getAllCourses().slice(0, 3);
+  
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
-      
-      {/* Hero section */}
-      <section className="bg-gradient-to-b from-primary/10 to-background px-4 py-20 text-center">
-        <div className="container mx-auto max-w-4xl">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">Unlock Your Data Potential</h1>
-          <p className="text-lg md:text-xl text-muted-foreground mb-8">
-            Join our community of data professionals and master the skills that drive innovation in today's data-driven world.
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button size="lg" asChild>
-              <Link to="/courses">Explore Courses</Link>
-            </Button>
-            <Button size="lg" variant="outline" asChild>
-              <Link to="/register">Join Now</Link>
-            </Button>
+    <div className="min-h-screen flex flex-col">
+      {/* Hero Section with updated background */}
+      <section className="relative py-20 overflow-hidden">
+        {/* Modern data-themed background */}
+        <div className="absolute inset-0 bg-gradient-to-r from-learnflow-900 to-learnflow-700 opacity-90">
+          {/* Abstract data visualization elements */}
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Network nodes */}
+            <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full border border-white/10 opacity-20"></div>
+            <div className="absolute top-1/3 left-1/3 w-96 h-96 rounded-full border border-white/10 opacity-15"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full border border-white/10 opacity-20"></div>
+            
+            {/* Data flow lines */}
+            <div className="absolute top-0 left-1/2 w-px h-full bg-gradient-to-b from-transparent via-white/20 to-transparent opacity-20"></div>
+            <div className="absolute top-1/2 left-0 w-full h-px bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-20"></div>
+            
+            {/* Floating data points */}
+            <div className="absolute top-1/4 left-1/4 w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+            <div className="absolute top-1/2 left-3/4 w-3 h-3 rounded-full bg-secondary animate-pulse" style={{ animationDelay: '1s' }}></div>
+            <div className="absolute bottom-1/4 right-1/3 w-2 h-2 rounded-full bg-primary/80 animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+            <div className="absolute top-2/3 right-1/4 w-4 h-4 rounded-full bg-primary/40 animate-pulse" style={{ animationDelay: '0.7s' }}></div>
+          </div>
+        </div>
+        
+        {/* Content */}
+        <div className="container relative z-10 mx-auto px-4">
+          <div className="max-w-3xl mx-auto text-center text-white">
+            <h1 className="text-4xl md:text-5xl font-bold mb-6">
+              Welcome to Insights Collective
+            </h1>
+            <p className="text-xl mb-8">
+              A modern e-learning platform designed to help you achieve your educational goals
+            </p>
+            <div className="flex flex-wrap justify-center gap-4">
+              <Button size="lg" asChild>
+                <Link to="/register">Get Started</Link>
+              </Button>
+              <Button size="lg" variant="outline" className="bg-transparent hover:bg-white/10" asChild>
+                <Link to="/login">Sign In</Link>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
       
-      {/* Featured courses section */}
-      <section className="py-12 px-4">
-        <div className="container mx-auto">
-          <div className="flex items-center justify-between mb-8">
+      {/* Data Blueprint Series Banner */}
+      <section className="py-12 bg-primary/5">
+        <div className="container mx-auto px-4">
+          <div className="bg-gradient-to-r from-primary/10 to-secondary/10 rounded-lg p-6 md:p-8 flex flex-col md:flex-row items-center gap-6">
+            <div className="flex-1">
+              <h2 className="text-2xl md:text-3xl font-bold mb-2">The Data Blueprint Series</h2>
+              <p className="text-lg mb-4">
+                A 10-part guide to breaking in, leveling up, and leading in data careers
+              </p>
+              <p className="text-muted-foreground">
+                Whether you're just starting or plotting your next move, this series distills key insights
+                and advice to help you navigate modern data careers.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Button variant="default" asChild className="gap-2">
+                  <Link to="/resources/data-blueprint">
+                    Explore the series <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+                <Button variant="outline" asChild className="gap-2">
+                  <Link to="/resources/data-blueprint">
+                    <Bookmark className="h-4 w-4" /> Bookmark
+                  </Link>
+                </Button>
+              </div>
+            </div>
+            <div className="w-full md:w-1/3 flex justify-center">
+              <div className="aspect-square max-w-[250px] bg-primary/20 rounded-lg flex flex-col items-center justify-center p-6 text-center">
+                <BookOpen className="h-16 w-16 text-primary mb-4" />
+                <span className="text-xl font-semibold">10-Part Series</span>
+                <span className="text-sm mt-2">Updated Weekly</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      {/* Career Quiz Section */}
+      <QuizSection />
+      
+      {/* Features Section */}
+      <section className="py-16 bg-background">
+        <div className="container mx-auto px-4">
+          <h2 className="text-3xl font-bold text-center mb-12">Why Choose Insights Collective?</h2>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card shadow-sm">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <BookOpen className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Structured Learning</h3>
+              <p className="text-muted-foreground">Courses organized into weekly modules for effective learning progression</p>
+            </div>
+            
+            <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card shadow-sm">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Layers className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Comprehensive Content</h3>
+              <p className="text-muted-foreground">Access lessons, assignments, quizzes, and interactive materials</p>
+            </div>
+            
+            <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card shadow-sm">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <GraduationCap className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Expert Instructors</h3>
+              <p className="text-muted-foreground">Learn from industry professionals with real-world experience</p>
+            </div>
+            
+            <div className="flex flex-col items-center text-center p-6 rounded-lg bg-card shadow-sm">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                <Award className="h-7 w-7 text-primary" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Certification</h3>
+              <p className="text-muted-foreground">Earn certificates upon successful completion of courses</p>
+            </div>
+          </div>
+        </div>
+      </section>
+      
+      {/* Featured Courses */}
+      <section className="py-16 bg-secondary/50">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center mb-8">
             <h2 className="text-3xl font-bold">Featured Courses</h2>
-            <Button variant="outline" asChild>
-              <Link to="/courses">View All Courses</Link>
+            <Button variant="ghost" asChild>
+              <Link to="/courses" className="flex items-center">
+                View All <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
             </Button>
           </div>
           
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {featuredCourses.map((course) => (
-              <CourseCard key={course.id} course={course} />
+              <Link to={`/courses/${course.id}`} key={course.id} className="block">
+                <div className="course-card group">
+                  <div className="aspect-video overflow-hidden">
+                    <img 
+                      src={course.thumbnail} 
+                      alt={course.title} 
+                      className="w-full h-full object-cover transition-transform group-hover:scale-105" 
+                    />
+                  </div>
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
+                        {course.category}
+                      </span>
+                      <div className="flex items-center text-amber-500">
+                        <span className="text-sm font-medium">{course.rating.toFixed(1)}</span>
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-semibold mb-2 line-clamp-1">{course.title}</h3>
+                    <p className="text-muted-foreground mb-4 line-clamp-2">{course.description}</p>
+                    <div className="flex justify-between items-center text-sm">
+                      <span>{course.level}</span>
+                      <span>{course.duration}</span>
+                    </div>
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
         </div>
       </section>
       
-      {/* Events section */}
-      <EventsSection />
-      
-      {/* Why choose us section */}
-      <section className="bg-muted/50 py-16 px-4">
-        <div className="container mx-auto max-w-5xl">
-          <h2 className="text-3xl font-bold text-center mb-12">Why Choose Insights Collective</h2>
-          
-          <div className="grid gap-8 md:grid-cols-3">
-            <div className="bg-card p-6 rounded-lg shadow-sm">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Industry-Relevant Curriculum</h3>
-              <p className="text-muted-foreground">Courses designed in collaboration with leading data companies to ensure you learn skills that matter.</p>
-            </div>
-            
-            <div className="bg-card p-6 rounded-lg shadow-sm">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Community-Driven Learning</h3>
-              <p className="text-muted-foreground">Join a vibrant community of data enthusiasts to collaborate, learn, and grow together.</p>
-            </div>
-            
-            <div className="bg-card p-6 rounded-lg shadow-sm">
-              <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">Practical Projects & Certifications</h3>
-              <p className="text-muted-foreground">Build a portfolio of real-world projects and earn industry-recognized certifications.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-      
-      {/* CTA section */}
-      <section className="py-16 px-4">
-        <div className="container mx-auto text-center max-w-3xl">
-          <h2 className="text-3xl font-bold mb-6">Ready to Start Your Data Journey?</h2>
-          <p className="text-lg text-muted-foreground mb-8">
-            Join thousands of students who have transformed their careers with our data skills platform.
+      {/* CTA Section */}
+      <section className="py-16 bg-gradient-to-r from-learnflow-600 to-learnflow-800 text-white">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-4">Ready to Start Learning?</h2>
+          <p className="text-xl max-w-2xl mx-auto mb-8">
+            Join thousands of students already learning on Insights Collective. Sign up today and take the first step towards your educational goals.
           </p>
-          <Button size="lg" asChild>
-            <Link to="/register">Get Started Today</Link>
+          <Button size="lg" variant="secondary" asChild>
+            <Link to="/register">Create Free Account</Link>
           </Button>
         </div>
       </section>
       
       {/* Footer */}
-      <footer className="bg-muted py-12 px-4">
-        <div className="container mx-auto">
-          <div className="grid gap-8 md:grid-cols-4">
+      <footer className="bg-gray-900 text-white py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <h3 className="text-lg font-semibold mb-4">Insights Collective</h3>
-              <p className="text-muted-foreground">
-                Empowering data professionals with the skills, community, and opportunities they need to thrive.
+              <h3 className="text-xl font-bold mb-4 flex items-center">
+                <GraduationCap className="mr-2 h-6 w-6" />
+                Insights Collective
+              </h3>
+              <p className="text-gray-400">
+                A modern e-learning platform designed to help you achieve your educational goals
               </p>
+              <address className="text-gray-400 not-italic mt-4">
+                <p>Email: info@ic.tech</p>
+                <p>Phone: (123) 456-7890</p>
+              </address>
             </div>
             
             <div>
-              <h3 className="text-lg font-semibold mb-4">Explore</h3>
+              <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2">
-                <li><Link to="/courses" className="text-muted-foreground hover:text-foreground">Courses</Link></li>
-                <li><Link to="/resources" className="text-muted-foreground hover:text-foreground">Resources</Link></li>
-                <li><Link to="/events" className="text-muted-foreground hover:text-foreground">Events</Link></li>
-                <li><Link to="/explore-data-careers" className="text-muted-foreground hover:text-foreground">Data Careers</Link></li>
+                <li><Link to="/courses" className="text-gray-400 hover:text-white">Courses</Link></li>
+                <li><Link to="/resources" className="text-gray-400 hover:text-white">Resources</Link></li>
+                <li><Link to="/register" className="text-gray-400 hover:text-white">Sign Up</Link></li>
+                <li><Link to="/login" className="text-gray-400 hover:text-white">Sign In</Link></li>
               </ul>
             </div>
             
             <div>
-              <h3 className="text-lg font-semibold mb-4">Company</h3>
+              <h4 className="text-lg font-semibold mb-4">Course Categories</h4>
               <ul className="space-y-2">
-                <li><a href="#" className="text-muted-foreground hover:text-foreground">About Us</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground">Our Team</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground">Careers</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground">Contact</a></li>
+                <li><Link to="/courses?category=data-science" className="text-gray-400 hover:text-white">Data Science</Link></li>
+                <li><Link to="/courses?category=analytics" className="text-gray-400 hover:text-white">Analytics</Link></li>
+                <li><Link to="/courses?category=data-engineering" className="text-gray-400 hover:text-white">Data Engineering</Link></li>
+                <li><Link to="/courses?category=machine-learning" className="text-gray-400 hover:text-white">Machine Learning & AI</Link></li>
               </ul>
             </div>
             
             <div>
-              <h3 className="text-lg font-semibold mb-4">Connect</h3>
-              <ul className="space-y-2">
-                <li><a href="#" className="text-muted-foreground hover:text-foreground">Twitter</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground">LinkedIn</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground">GitHub</a></li>
-                <li><a href="#" className="text-muted-foreground hover:text-foreground">YouTube</a></li>
-              </ul>
+              <h4 className="text-lg font-semibold mb-4">Follow Us</h4>
+              <div className="flex space-x-4">
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-twitter"><path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path></svg>
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-linkedin"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path><rect width="4" height="12" x="2" y="9"></rect><circle cx="4" cy="4" r="2"></circle></svg>
+                </a>
+                <a href="#" className="text-gray-400 hover:text-white">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-instagram"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"></rect><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"></line></svg>
+                </a>
+              </div>
             </div>
           </div>
           
-          <div className="mt-12 pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center">
-            <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Insights Collective. All rights reserved.
-            </p>
-            <div className="flex mt-4 md:mt-0 space-x-6">
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground">Privacy Policy</a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground">Terms of Service</a>
-              <a href="#" className="text-sm text-muted-foreground hover:text-foreground">Cookie Policy</a>
-            </div>
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400 text-sm">
+            <p>© {new Date().getFullYear()} Insights Collective. All rights reserved.</p>
           </div>
         </div>
       </footer>

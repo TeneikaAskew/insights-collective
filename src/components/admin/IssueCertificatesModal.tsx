@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -41,7 +41,7 @@ const completedUsers = [
 
 interface IssueCertificatesModalProps {
   onIssueCertificates: (courseId: string, userIds: string[]) => void;
-  children?: React.ReactNode;
+  children?: React.ReactNode; // Add children prop
 }
 
 export function IssueCertificatesModal({ onIssueCertificates, children }: IssueCertificatesModalProps) {
@@ -49,7 +49,6 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
   const [selectedCourse, setSelectedCourse] = useState<string>('');
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
-  const [issueToAll, setIssueToAll] = useState(false);
   
   const { toast } = useToast();
   
@@ -86,7 +85,7 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
       return;
     }
     
-    if (selectedUsers.size === 0 && !issueToAll) {
+    if (selectedUsers.size === 0) {
       toast({
         title: 'No users selected',
         description: 'Please select at least one user to issue certificates to.',
@@ -95,23 +94,17 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
       return;
     }
     
-    // If issueToAll is true, select all eligible users
-    const userIds = issueToAll 
-      ? eligibleUsers.map(user => user.id) 
-      : Array.from(selectedUsers);
-    
-    onIssueCertificates(selectedCourse, userIds);
+    onIssueCertificates(selectedCourse, Array.from(selectedUsers));
     
     toast({
       title: 'Certificates Issued',
-      description: `Successfully issued ${userIds.length} certificates for the selected course.`,
+      description: `Successfully issued ${selectedUsers.size} certificates for the selected course.`,
     });
     
     // Reset form
     setSelectedCourse('');
     setSelectedUsers(new Set());
     setSelectAll(false);
-    setIssueToAll(false);
     setOpen(false);
   };
 
@@ -150,69 +143,45 @@ export function IssueCertificatesModal({ onIssueCertificates, children }: IssueC
             <>
               <div className="flex items-center space-x-2">
                 <Checkbox
-                  id="issueToAll"
-                  checked={issueToAll}
-                  onCheckedChange={(checked) => {
-                    setIssueToAll(!!checked);
-                    if (checked) {
-                      setSelectAll(false);
-                      setSelectedUsers(new Set());
-                    }
-                  }}
+                  id="selectAll"
+                  checked={selectAll}
+                  onCheckedChange={handleSelectAll}
                 />
                 <label
-                  htmlFor="issueToAll"
+                  htmlFor="selectAll"
                   className="text-sm font-medium leading-none"
                 >
-                  Issue to all eligible users who completed this course
+                  Select All Eligible Users
                 </label>
               </div>
               
-              {!issueToAll && (
-                <>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="selectAll"
-                      checked={selectAll}
-                      onCheckedChange={handleSelectAll}
-                    />
-                    <label
-                      htmlFor="selectAll"
-                      className="text-sm font-medium leading-none"
-                    >
-                      Select All Eligible Users
-                    </label>
-                  </div>
-                  
-                  <div className="border rounded-md">
-                    <ScrollArea className="h-72 p-2">
-                      <div className="space-y-2">
-                        {eligibleUsers.map((user) => (
-                          <div key={user.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded">
-                            <Checkbox
-                              id={`user-${user.id}`}
-                              checked={selectedUsers.has(user.id)}
-                              onCheckedChange={(checked) => handleUserSelection(user.id, !!checked)}
-                            />
-                            <div className="grid gap-0.5">
-                              <label
-                                htmlFor={`user-${user.id}`}
-                                className="text-sm font-medium leading-none"
-                              >
-                                {user.name}
-                              </label>
-                              <p className="text-xs text-muted-foreground">{user.email}</p>
-                            </div>
-                            <div className="ml-auto text-xs text-muted-foreground">
-                              {user.progress}% Complete
-                            </div>
-                          </div>
-                        ))}
+              <div className="border rounded-md">
+                <ScrollArea className="h-72 p-2">
+                  <div className="space-y-2">
+                    {eligibleUsers.map((user) => (
+                      <div key={user.id} className="flex items-center space-x-2 p-2 hover:bg-muted/50 rounded">
+                        <Checkbox
+                          id={`user-${user.id}`}
+                          checked={selectedUsers.has(user.id)}
+                          onCheckedChange={(checked) => handleUserSelection(user.id, !!checked)}
+                        />
+                        <div className="grid gap-0.5">
+                          <label
+                            htmlFor={`user-${user.id}`}
+                            className="text-sm font-medium leading-none"
+                          >
+                            {user.name}
+                          </label>
+                          <p className="text-xs text-muted-foreground">{user.email}</p>
+                        </div>
+                        <div className="ml-auto text-xs text-muted-foreground">
+                          {user.progress}% Complete
+                        </div>
                       </div>
-                    </ScrollArea>
+                    ))}
                   </div>
-                </>
-              )}
+                </ScrollArea>
+              </div>
             </>
           )}
         </div>
