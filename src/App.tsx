@@ -23,7 +23,8 @@ import AdminUsers from "./pages/AdminUsers";
 import AdminEnrollments from "./pages/AdminEnrollments";
 import AdminCertificates from "./pages/AdminCertificates";
 import AdminActivity from "./pages/AdminActivity";
-import AdminCourses from "./pages/AdminCourses"; // Add this import for AdminCourses
+import AdminCourses from "./pages/AdminCourses";
+import Assistants from "./pages/Assistants";
 import NotFound from "./pages/NotFound";
 import Calendar from "./pages/Calendar";
 import DataBlueprintSeries from "./pages/DataBlueprintSeries";
@@ -54,9 +55,10 @@ const App = () => (
               <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/calendar" element={<Calendar />} />
+              <Route path="/assistants" element={<Assistants />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/activity" element={<AdminActivity />} />
-              <Route path="/admin/courses" element={<AdminCourses />} /> {/* Update this route to use AdminCourses */}
+              <Route path="/admin/courses" element={<AdminCourses />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/enrollments" element={<AdminEnrollments />} />
               <Route path="/admin/certificates" element={<AdminCertificates />} />
