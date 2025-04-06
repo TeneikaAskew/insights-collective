@@ -18,14 +18,19 @@ const ExploreDataCareers = () => {
   // Get role from URL parameters
   useEffect(() => {
     const roleId = searchParams.get('role');
+    const category = searchParams.get('category');
+    
+    // Set category from URL if present, otherwise default to 'all'
+    if (category && ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'].includes(category)) {
+      setSelectedCategory(category);
+    } else {
+      setSelectedCategory('all');
+    }
+    
     if (roleId) {
       // Find the role in the data
       const role = dataCareerRoles.find(r => r.id === roleId);
       if (role) {
-        // Set the category filter to match the role's category if found
-        const category = role.category.split(',')[0].trim();
-        setSelectedCategory(category || 'all');
-        
         // Scroll to the role card if it exists
         setTimeout(() => {
           const element = document.getElementById(`role-${roleId}`);
@@ -48,7 +53,7 @@ const ExploreDataCareers = () => {
     
     const matchesCategory = 
       selectedCategory === 'all' || 
-      role.category.includes(selectedCategory);
+      role.category.split(',').some(cat => cat.trim() === selectedCategory);
     
     return matchesSearch && matchesCategory;
   });
@@ -56,7 +61,9 @@ const ExploreDataCareers = () => {
   // Group roles by category for tab view
   const rolesByCategory = categories.reduce((acc, category) => {
     if (category !== 'all') {
-      acc[category] = dataCareerRoles.filter(role => role.category.includes(category));
+      acc[category] = dataCareerRoles.filter(role => 
+        role.category.split(',').some(cat => cat.trim() === category)
+      );
     }
     return acc;
   }, {} as Record<string, typeof dataCareerRoles>);

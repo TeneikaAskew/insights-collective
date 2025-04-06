@@ -23,7 +23,7 @@ export const RoleCard: React.FC<RoleCardProps> = ({ role }) => {
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start gap-2">
           <CardTitle className="text-xl">{role.title}</CardTitle>
-          <Badge variant="outline">{role.category}</Badge>
+          <Badge variant="outline">{role.category.split(',')[0].trim()}</Badge>
         </div>
         <CardDescription>{role.shortDescription}</CardDescription>
       </CardHeader>

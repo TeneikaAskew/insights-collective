@@ -15,13 +15,18 @@ interface CareerRoleDetailsProps {
 }
 
 export const CareerRoleDetails: React.FC<CareerRoleDetailsProps> = ({ role, onClose }) => {
+  // Extract categories for display
+  const categories = role.category.split(',').map(cat => cat.trim());
+  
   return (
     <Card className="shadow-lg animate-fade-in border-t-4 border-t-primary w-full max-h-[90vh] overflow-y-auto">
       <CardHeader className="relative pb-0">
         <div className="flex justify-between items-start">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <Badge variant="outline">{role.category}</Badge>
+              {categories.map((category, index) => (
+                <Badge key={index} variant="outline">{category}</Badge>
+              ))}
             </div>
             <CardTitle className="text-2xl font-bold mb-1">{role.title}</CardTitle>
           </div>
