@@ -21,7 +21,7 @@ const AppSidebar = () => {
   const location = useLocation();
   const { user, isAuthenticated } = useAuth();
   
-  const studentMenuItems = [
+  const publicMenuItems = [
     {
       title: "Dashboard",
       url: "/dashboard",
@@ -69,7 +69,7 @@ const AppSidebar = () => {
 
   // Add profile only if user is authenticated
   if (isAuthenticated) {
-    studentMenuItems.push({
+    publicMenuItems.push({
       title: "Profile",
       url: "/profile",
       icon: UserCircle,
@@ -97,6 +97,12 @@ const AppSidebar = () => {
       active: location.pathname === '/admin/users',
     },
     {
+      title: "Manage Enrollments",
+      url: "/admin/enrollments",
+      icon: FileText,
+      active: location.pathname === '/admin/enrollments',
+    },
+    {
       title: "Manage Certificates",
       url: "/admin/certificates",
       icon: Award,
@@ -107,6 +113,12 @@ const AppSidebar = () => {
       url: "/admin/resources",
       icon: FileText,
       active: location.pathname === '/admin/resources',
+    },
+    {
+      title: "Manage Events",
+      url: "/admin/events",
+      icon: Calendar,
+      active: location.pathname === '/admin/events',
     },
     {
       title: "Settings",
@@ -133,7 +145,8 @@ const AppSidebar = () => {
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {!isAdmin && studentMenuItems.map((item) => (
+              {/* Always show public menu items to all users */}
+              {publicMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={item.active}>
                     <Link to={item.url}>

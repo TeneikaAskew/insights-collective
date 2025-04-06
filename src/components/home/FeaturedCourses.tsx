@@ -20,10 +20,15 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
         return 'Data Engineering';
       case 'Business Intelligence':
         return 'Business Intelligence';
-      case 'Web Development': // Map legacy category
+      case 'Web Development': // Remove this mapping as it's not an offering
         return 'Data Engineering';
       default:
-        return category;
+        // If it's already one of our standard categories, return it as is
+        if (['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'].includes(category)) {
+          return category;
+        }
+        // Default fallback
+        return 'Data Engineering';
     }
   };
 
