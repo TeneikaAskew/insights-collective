@@ -535,12 +535,12 @@ export default function AdminEvents() {
                       View and manage attendee registrations.
                     </CardDescription>
                   </div>
-                  <Select value={selectedEvent || ''} onValueChange={setSelectedEvent}>
+                  <Select value={selectedEvent || 'all'} onValueChange={setSelectedEvent}>
                     <SelectTrigger className="w-[220px]">
                       <SelectValue placeholder="Filter by event" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Events</SelectItem>
+                      <SelectItem value="all">All Events</SelectItem>
                       {events.map((event) => (
                         <SelectItem key={event.id} value={event.id}>
                           {event.title}
