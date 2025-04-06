@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -255,7 +254,7 @@ const Resources = () => {
   const [resources, setResources] = useState<ResourceProps[]>(allResources);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [deadlineFilter, setDeadlineFilter] = useState<boolean | null>(null);
+  const [withDeadline, setWithDeadline] = useState(false);
   const { isAuthenticated } = useAuth();
   
   const filteredResources = resources.filter((resource) => {
@@ -264,23 +263,18 @@ const Resources = () => {
     
     const matchesCategory = categoryFilter === 'all' || resource.category === categoryFilter;
     
-    // Added deadline filter
-    const matchesDeadline = 
-      deadlineFilter === null ? true : 
-      deadlineFilter === true ? resource.deadline !== null : 
-      resource.deadline === null;
+    const matchesDeadline = withDeadline ? resource.deadline !== null : true;
     
     return matchesSearch && matchesCategory && matchesDeadline;
   });
   
-  // Define which resources and tweets should be visible based on authentication
   const visibleResources = isAuthenticated ? filteredResources : filteredResources.slice(0, VISIBLE_RESOURCES);
   const visibleTweets = isAuthenticated ? allTweets : allTweets.slice(0, VISIBLE_TWEETS);
 
   const clearFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
-    setDeadlineFilter(null);
+    setWithDeadline(false);
   };
   
   return (
@@ -327,39 +321,20 @@ const Resources = () => {
               
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="withDeadline" 
-                      checked={deadlineFilter === true}
-                      onCheckedChange={(checked) => {
-                        setDeadlineFilter(checked ? true : (deadlineFilter === false ? null : false));
-                      }}
-                    />
-                    <label
-                      htmlFor="withDeadline"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      With deadline
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2 ml-4">
-                    <Checkbox 
-                      id="withoutDeadline" 
-                      checked={deadlineFilter === false}
-                      onCheckedChange={(checked) => {
-                        setDeadlineFilter(checked ? false : (deadlineFilter === true ? null : true));
-                      }}
-                    />
-                    <label
-                      htmlFor="withoutDeadline"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Without deadline
-                    </label>
-                  </div>
+                  <Checkbox 
+                    id="withDeadline" 
+                    checked={withDeadline}
+                    onCheckedChange={(checked) => setWithDeadline(!!checked)}
+                  />
+                  <label
+                    htmlFor="withDeadline"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    With deadline
+                  </label>
                 </div>
                 
-                {(searchQuery || categoryFilter !== 'all' || deadlineFilter !== null) && (
+                {(searchQuery || categoryFilter !== 'all' || withDeadline) && (
                   <Button 
                     variant="ghost" 
                     className="h-8 px-2 lg:px-3" 
@@ -370,30 +345,30 @@ const Resources = () => {
                   </Button>
                 )}
               </div>
-            </div>
-            
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {visibleResources.map((resource) => (
-                <ResourceCard key={resource.id} resource={resource} />
-              ))}
+
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {visibleResources.map((resource) => (
+                  <ResourceCard key={resource.id} resource={resource} />
+                ))}
+                
+                {!isAuthenticated && filteredResources.length > VISIBLE_RESOURCES && (
+                  <div className="md:col-span-2 lg:col-span-3">
+                    <LoginWall 
+                      message="Unlock all 40+ curated resources — log in or create an account to continue exploring." 
+                      visibleItems={VISIBLE_RESOURCES}
+                      totalItems={filteredResources.length}
+                    />
+                  </div>
+                )}
+              </div>
               
-              {!isAuthenticated && filteredResources.length > VISIBLE_RESOURCES && (
-                <div className="md:col-span-2 lg:col-span-3">
-                  <LoginWall 
-                    message="Unlock all 40+ curated resources — log in or create an account to continue exploring." 
-                    visibleItems={VISIBLE_RESOURCES}
-                    totalItems={filteredResources.length}
-                  />
+              {visibleResources.length === 0 && (
+                <div className="text-center py-12">
+                  <h3 className="text-xl font-medium mb-2">No resources found</h3>
+                  <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
                 </div>
               )}
             </div>
-            
-            {visibleResources.length === 0 && (
-              <div className="text-center py-12">
-                <h3 className="text-xl font-medium mb-2">No resources found</h3>
-                <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-              </div>
-            )}
           </TabsContent>
           
           <TabsContent value="tweets" className="space-y-6">

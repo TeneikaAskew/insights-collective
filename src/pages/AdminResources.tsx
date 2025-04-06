@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { AddResourceModal } from '@/components/resources/AddResourceModal';
@@ -32,7 +31,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
-// Mock combined resources data
 const mockResources = [
   {
     id: '1',
@@ -120,7 +118,7 @@ export default function AdminResources() {
   const [resources, setResources] = useState(mockResources);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [deadlineFilter, setDeadlineFilter] = useState<boolean | null>(null);
+  const [withDeadline, setWithDeadline] = useState(false);
   const { toast } = useToast();
 
   const handleAddResource = (newResource: any) => {
@@ -132,7 +130,6 @@ export default function AdminResources() {
   };
 
   const handleEditResource = (resource: any) => {
-    // In a real app, this would open an edit modal
     toast({
       title: 'Edit Resource',
       description: `Editing ${resource.name}`,
@@ -154,10 +151,7 @@ export default function AdminResources() {
     
     const matchesCategory = categoryFilter === 'all' || resource.category === categoryFilter;
     
-    const matchesDeadline = 
-      deadlineFilter === null ? true : 
-      deadlineFilter === true ? resource.deadline !== null : 
-      resource.deadline === null;
+    const matchesDeadline = withDeadline ? resource.deadline !== null : true;
     
     return matchesSearch && matchesCategory && matchesDeadline;
   });
@@ -174,7 +168,7 @@ export default function AdminResources() {
   const clearFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
-    setDeadlineFilter(null);
+    setWithDeadline(false);
   };
 
   return (
@@ -225,39 +219,20 @@ export default function AdminResources() {
               
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox 
-                      id="withDeadline" 
-                      checked={deadlineFilter === true}
-                      onCheckedChange={(checked) => {
-                        setDeadlineFilter(checked ? true : (deadlineFilter === false ? null : false));
-                      }}
-                    />
-                    <label
-                      htmlFor="withDeadline"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      With deadline
-                    </label>
-                  </div>
-                  <div className="flex items-center space-x-2 ml-4">
-                    <Checkbox 
-                      id="withoutDeadline" 
-                      checked={deadlineFilter === false}
-                      onCheckedChange={(checked) => {
-                        setDeadlineFilter(checked ? false : (deadlineFilter === true ? null : true));
-                      }}
-                    />
-                    <label
-                      htmlFor="withoutDeadline"
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      Without deadline
-                    </label>
-                  </div>
+                  <Checkbox 
+                    id="withDeadline" 
+                    checked={withDeadline}
+                    onCheckedChange={(checked) => setWithDeadline(!!checked)}
+                  />
+                  <label
+                    htmlFor="withDeadline"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                  >
+                    With deadline
+                  </label>
                 </div>
                 
-                {(searchQuery || categoryFilter !== 'all' || deadlineFilter !== null) && (
+                {(searchQuery || categoryFilter !== 'all' || withDeadline) && (
                   <Button 
                     variant="ghost" 
                     className="h-8 px-2 lg:px-3" 

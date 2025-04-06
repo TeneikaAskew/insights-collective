@@ -9,6 +9,24 @@ type FeaturedCoursesProps = {
 };
 
 const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
+  // Helper function to display the correct category label
+  const getCategoryLabel = (category: string): string => {
+    switch (category) {
+      case 'Machine Learning & Artificial Intelligence':
+        return 'AI/ML';
+      case 'Analytics & Business Intelligence':
+        return 'Analytics';
+      case 'Data Engineering':
+        return 'Data Engineering';
+      case 'Business Intelligence':
+        return 'Business Intelligence';
+      case 'Web Development': // Map legacy category
+        return 'Data Engineering';
+      default:
+        return category;
+    }
+  };
+
   return (
     <section className="py-16 bg-secondary/50">
       <div className="container mx-auto px-4">
@@ -35,10 +53,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                 <div className="p-5">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium px-2 py-1 rounded-full bg-primary/10 text-primary">
-                      {course.category === 'Machine Learning & Artificial Intelligence' ? 'AI/ML' : 
-                       course.category === 'Analytics & Business Intelligence' ? 'Analytics' :
-                       course.category === 'Web Development' ? 'Data Engineering' : 
-                       course.category}
+                      {getCategoryLabel(course.category)}
                     </span>
                     <div className="flex items-center text-amber-500">
                       <span className="text-sm font-medium">{course.rating.toFixed(1)}</span>
