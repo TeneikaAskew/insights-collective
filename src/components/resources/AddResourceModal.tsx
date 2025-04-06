@@ -9,8 +9,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { DialogClose, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
+export interface ResourceData {
+  title: string;
+  description: string;
+  type: string;
+  url: string;
+  tags: string[];
+  hasDeadline: boolean;
+  deadline: Date | null;
+}
+
 export interface AddResourceModalProps {
-  onAddResource: (resourceData: any) => void;
+  onAddResource: (resourceData: ResourceData) => void;
 }
 
 const AddResourceModal = ({ onAddResource }: AddResourceModalProps) => {
@@ -26,11 +36,13 @@ const AddResourceModal = ({ onAddResource }: AddResourceModalProps) => {
     e.preventDefault();
 
     if (!title || !description || !type || !url) {
-      toast.error('Please fill in all required fields');
+      toast("Error", {
+        description: 'Please fill in all required fields'
+      });
       return;
     }
 
-    const resourceData = {
+    const resourceData: ResourceData = {
       title,
       description,
       type,
@@ -41,7 +53,9 @@ const AddResourceModal = ({ onAddResource }: AddResourceModalProps) => {
     };
 
     onAddResource(resourceData);
-    toast.success('Resource added successfully');
+    toast("Success", {
+      description: 'Resource added successfully'
+    });
     
     // Reset form
     setTitle('');

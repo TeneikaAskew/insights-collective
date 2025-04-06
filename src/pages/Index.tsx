@@ -17,7 +17,8 @@ const featuredCourses: Course[] = [
     instructor: {
       id: '1',
       name: 'Dr. John Smith',
-      title: 'Data Science Lead',
+      role: 'instructor',
+      email: 'john.smith@example.com',
       bio: 'Expert in data science with 10+ years of experience'
     },
     duration: '8 weeks',
@@ -27,9 +28,11 @@ const featuredCourses: Course[] = [
     thumbnail: 'https://images.unsplash.com/photo-1557853197-aefb550b6fdc?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
     tags: ['python', 'data science', 'machine learning'],
     modules: [],
+    enrollmentStatus: 'Open',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     prerequisites: [],
     objectives: [],
-    price: 0
   },
   {
     id: '2',
@@ -39,7 +42,8 @@ const featuredCourses: Course[] = [
     instructor: {
       id: '2',
       name: 'Jane Johnson, PhD',
-      title: 'Senior Data Analyst',
+      role: 'instructor',
+      email: 'jane.johnson@example.com',
       bio: 'Specializes in Python data analysis techniques'
     },
     duration: '6 weeks',
@@ -49,9 +53,11 @@ const featuredCourses: Course[] = [
     thumbnail: 'https://images.unsplash.com/photo-1515879218367-8466d910aaa4?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
     tags: ['python', 'pandas', 'data analysis'],
     modules: [],
+    enrollmentStatus: 'Open',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     prerequisites: [],
     objectives: [],
-    price: 0
   },
   {
     id: '3',
@@ -61,7 +67,8 @@ const featuredCourses: Course[] = [
     instructor: {
       id: '3',
       name: 'David Williams',
-      title: 'Data Engineering Director',
+      role: 'instructor',
+      email: 'david.williams@example.com',
       bio: 'Data engineering expert with experience in big data systems'
     },
     duration: '10 weeks',
@@ -71,9 +78,11 @@ const featuredCourses: Course[] = [
     thumbnail: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?ixlib=rb-1.2.1&auto=format&fit=crop&w=700&q=80',
     tags: ['data engineering', 'ETL', 'big data'],
     modules: [],
+    enrollmentStatus: 'Open',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     prerequisites: [],
     objectives: [],
-    price: 0
   },
 ];
 

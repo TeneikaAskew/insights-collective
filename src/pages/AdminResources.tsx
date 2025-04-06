@@ -123,23 +123,20 @@ export default function AdminResources() {
 
   const handleAddResource = (newResource: any) => {
     setResources([...resources, newResource]);
-    toast({
-      title: 'Resource Added',
+    toast("Resource Added", {
       description: 'The resource has been successfully added to the directory.',
     });
   };
 
   const handleEditResource = (resource: any) => {
-    toast({
-      title: 'Edit Resource',
+    toast("Edit Resource", {
       description: `Editing ${resource.name}`,
     });
   };
 
   const handleDeleteResource = (id: string) => {
     setResources(resources.filter(resource => resource.id !== id));
-    toast({
-      title: 'Resource Deleted',
+    toast("Resource Deleted", {
       description: 'The resource has been successfully removed from the directory.',
     });
   };
