@@ -1,11 +1,12 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarPlus, Award, Upload, FileSpreadsheet } from 'lucide-react';
+import { CalendarPlus, Award, Upload, FileSpreadsheet, Activity } from 'lucide-react';
 import { AddEventModal } from '@/components/events/AddEventModal';
 import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
 
 export const AdminDashboardActions = () => {
   const navigate = useNavigate();
@@ -60,6 +61,13 @@ export const AdminDashboardActions = () => {
           <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/users')}>
             <FileSpreadsheet className="mr-2 h-4 w-4" />
             <span>Export User Data</span>
+          </Button>
+          
+          <Button variant="outline" className="w-full justify-start" asChild>
+            <Link to="/admin/activity">
+              <Activity className="mr-2 h-4 w-4" />
+              <span>View Activity</span>
+            </Link>
           </Button>
         </CardContent>
       </Card>

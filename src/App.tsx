@@ -22,6 +22,7 @@ import AdminEvents from "./pages/AdminEvents";
 import AdminUsers from "./pages/AdminUsers";
 import AdminEnrollments from "./pages/AdminEnrollments";
 import AdminCertificates from "./pages/AdminCertificates";
+import AdminActivity from "./pages/AdminActivity";
 import NotFound from "./pages/NotFound";
 import Calendar from "./pages/Calendar";
 import DataBlueprintSeries from "./pages/DataBlueprintSeries";
@@ -53,6 +54,7 @@ const App = () => (
               <Route path="/profile" element={<Profile />} />
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/admin/activity" element={<AdminActivity />} />
               <Route path="/admin/courses" element={<AdminDashboard />} />
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/enrollments" element={<AdminEnrollments />} />

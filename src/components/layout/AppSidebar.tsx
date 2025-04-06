@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -82,7 +82,7 @@ const AppSidebar = () => {
       title: "Admin Dashboard",
       url: "/admin",
       icon: BarChart2,
-      active: location.pathname === '/admin',
+      active: location.pathname === '/admin' || location.pathname === '/admin/activity',
     },
     {
       title: "Manage Courses",
@@ -103,7 +103,7 @@ const AppSidebar = () => {
       active: location.pathname === '/admin/certificates',
     },
     {
-      title: "Resources",
+      title: "Manage Resources",
       url: "/admin/resources",
       icon: FileText,
       active: location.pathname === '/admin/resources',
@@ -133,7 +133,7 @@ const AppSidebar = () => {
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {studentMenuItems.map((item) => (
+              {!isAdmin && studentMenuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={item.active}>
                     <Link to={item.url}>
@@ -146,6 +146,7 @@ const AppSidebar = () => {
                       {item.subItems.map((subItem) => (
                         <SidebarMenuButton key={subItem.title} asChild isActive={subItem.active}>
                           <Link to={subItem.url} className="text-sm">
+                            <ChevronRight className="h-3 w-3 mr-1" />
                             <span>{subItem.title}</span>
                           </Link>
                         </SidebarMenuButton>
