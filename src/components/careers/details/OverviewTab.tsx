@@ -17,7 +17,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ role }) => {
       
       <div className="grid md:grid-cols-2 gap-6 mt-4">
         <div className="space-y-4">
-          {role.responsibilities && (
+          {role.responsibilities && role.responsibilities.length > 0 && (
             <div>
               <h3 className="font-semibold text-lg mb-2">Key Responsibilities</h3>
               <ul className="list-disc pl-5 space-y-1 text-muted-foreground">
@@ -28,7 +28,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ role }) => {
             </div>
           )}
           
-          {role.collaborators && (
+          {role.collaborators && role.collaborators.length > 0 && (
             <div>
               <h3 className="font-semibold text-lg mb-2">Who You Work With</h3>
               <div className="flex flex-wrap gap-2">
@@ -41,7 +41,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ role }) => {
         </div>
         
         <div className="space-y-4">
-          {role.tools && (
+          {role.tools && role.tools.length > 0 && (
             <div>
               <h3 className="font-semibold text-lg mb-2">Tools & Skills</h3>
               <div className="flex flex-wrap gap-2">
@@ -52,7 +52,7 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({ role }) => {
             </div>
           )}
           
-          {role.skills && (
+          {role.skills && role.skills.length > 0 && (
             <div>
               <h3 className="font-semibold text-lg mb-2">Key Skills</h3>
               <div className="flex flex-wrap gap-2">
