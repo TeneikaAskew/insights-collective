@@ -10,6 +10,7 @@ interface AuthContextType {
   error: string | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  googleSignIn: () => Promise<void>;
   logout: () => void;
   isAuthenticated: boolean;
 }
@@ -152,6 +153,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const googleSignIn = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      // Mock Google sign-in for demo purposes
+      // In a real app, this would integrate with Google OAuth
+      const mockGoogleUser = mockService.getUserById('user1'); // Using user1 as a demo
+      
+      if (mockGoogleUser) {
+        setUser(mockGoogleUser);
+        localStorage.setItem('user', JSON.stringify(mockGoogleUser));
+        toast({
+          title: 'Success',
+          description: 'Signed in with Google successfully',
+          variant: 'default',
+        });
+        navigate('/dashboard');
+      } else {
+        throw new Error('Failed to sign in with Google');
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        setError(error.message);
+        toast({
+          title: 'Error',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else {
+        setError('An unknown error occurred');
+        toast({
+          title: 'Error',
+          description: 'An unknown error occurred',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
@@ -160,7 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       description: 'Logged out successfully',
       variant: 'default',
     });
-    navigate('/login');
+    navigate('/');
   };
 
   return (
@@ -170,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       error, 
       login, 
       register, 
+      googleSignIn,
       logout,
       isAuthenticated: !!user
     }}>
