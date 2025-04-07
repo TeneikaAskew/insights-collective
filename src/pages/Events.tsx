@@ -1,14 +1,15 @@
 
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { EventCard } from '@/components/events/EventCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, Calendar } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { EventsHeader } from '@/components/events/EventsHeader';
+import { EventsFilter } from '@/components/events/EventsFilter';
+import { EventsList } from '@/components/events/EventsList';
+import { NoEventsMessage } from '@/components/events/NoEventsMessage';
 
-// Mock events data with added calendlyLink property
+// Mock events data
 const mockEvents = [
   {
     id: '1',
@@ -141,48 +142,16 @@ export default function Events() {
   return (
     <AppLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Events</h1>
-          <p className="text-muted-foreground mt-2">
-            Join our community events, workshops, and conferences.
-          </p>
-        </div>
+        <EventsHeader />
         
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search events..." 
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Event Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="workshop">Workshops</SelectItem>
-              <SelectItem value="webinar">Webinars</SelectItem>
-              <SelectItem value="conference">Conferences</SelectItem>
-              <SelectItem value="meetup">Meetups</SelectItem>
-              <SelectItem value="hackathon">Hackathons</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={formatFilter} onValueChange={setFormatFilter}>
-            <SelectTrigger className="w-full md:w-[180px]">
-              <SelectValue placeholder="Format" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Formats</SelectItem>
-              <SelectItem value="in-person">In-Person</SelectItem>
-              <SelectItem value="virtual">Virtual</SelectItem>
-              <SelectItem value="hybrid">Hybrid</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+        <EventsFilter 
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          typeFilter={typeFilter}
+          setTypeFilter={setTypeFilter}
+          formatFilter={formatFilter}
+          setFormatFilter={setFormatFilter}
+        />
         
         <Tabs defaultValue="upcoming" className="space-y-8">
           <TabsList className="bg-purple-100">
@@ -195,39 +164,14 @@ export default function Events() {
           
           <TabsContent value="upcoming" className="space-y-6">
             {upcomingEvents.length > 0 ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {upcomingEvents.map((event) => (
-                  <EventCard key={event.id} event={event} onRegister={handleRegister} />
-                ))}
-              </div>
+              <EventsList events={upcomingEvents} onRegister={handleRegister} />
             ) : (
-              <div className="text-center py-12">
-                <Calendar className="mx-auto h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium">No upcoming events</h3>
-                <p className="mt-2 text-muted-foreground">
-                  Check back later for new events or adjust your search criteria.
-                </p>
-              </div>
+              <NoEventsMessage isSearching={searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all'} />
             )}
           </TabsContent>
           
           <TabsContent value="past" className="space-y-6">
-            {pastEvents.length > 0 ? (
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {pastEvents.map((event) => (
-                  <div key={event.id} className="opacity-70">
-                    <EventCard event={event} />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <h3 className="text-lg font-medium">No past events</h3>
-                <p className="text-muted-foreground">
-                  There are no past events matching your criteria.
-                </p>
-              </div>
-            )}
+            <EventsList events={pastEvents} isPast={true} />
           </TabsContent>
         </Tabs>
       </div>
