@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { ViewRegistrationsModal } from '@/components/events/ViewRegistrationsModal';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,17 +14,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger
-} from '@/components/ui/alert-dialog';
 
 interface Event {
   id: string;
@@ -164,31 +154,24 @@ export function EventsTable({
                           </div>
                         </ViewRegistrationsModal>
                       </DropdownMenuItem>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete the event "{event.title}" and all its registrations. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction 
-                              onClick={() => onDeleteEvent(event.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            >
+                      <DropdownMenuItem 
+                        onSelect={(e) => e.preventDefault()} 
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <ConfirmationDialog
+                          trigger={
+                            <div className="flex items-center w-full">
+                              <Trash2 className="mr-2 h-4 w-4" />
                               Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                            </div>
+                          }
+                          title="Are you sure?"
+                          description={`This will permanently delete the event "${event.title}" and all its registrations. This action cannot be undone.`}
+                          confirmLabel="Delete"
+                          onConfirm={() => onDeleteEvent(event.id)}
+                          destructive={true}
+                        />
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
