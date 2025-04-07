@@ -40,6 +40,9 @@ export function EventTableActions({
   onEditEvent,
   onDeleteEvent
 }: EventTableActionsProps) {
+  // Get attendees for this specific event only
+  const eventAttendees = attendees.filter(attendee => attendee.eventId === event.id);
+  
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -76,11 +79,11 @@ export function EventTableActions({
           <ViewRegistrationsModal
             eventId={event.id}
             eventTitle={event.title}
-            attendees={attendees}
+            attendees={eventAttendees}
           >
             <div className="flex items-center w-full">
               <Users className="mr-2 h-4 w-4" />
-              View Registrations
+              View Registrations ({eventAttendees.length})
             </div>
           </ViewRegistrationsModal>
         </DropdownMenuItem>
