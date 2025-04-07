@@ -1,10 +1,11 @@
 
 import { ReactNode } from "react";
+import { LucideIcon } from "lucide-react";
 
 export type Assistant = {
   id: string;
   name: string;
-  icon: ReactNode | { component: any; props: any };
+  icon: { component: LucideIcon; props: any };
   description: string;
   category: "analytics" | "coding" | "content" | "career";
   popular?: boolean;

@@ -1,10 +1,10 @@
 
 import { Brain, BookOpen, Code, Compass, Cpu, PieChart, Text, Video } from "lucide-react";
 import { Assistant } from "@/types/assistants";
-import { ReactNode } from "react";
+import { LucideIcon } from "lucide-react";
 
 // Helper function to create icon components
-const createIcon = (IconComponent: any): ReactNode => {
+const createIcon = (IconComponent: LucideIcon) => {
   return {
     component: IconComponent,
     props: { className: "h-5 w-5" }

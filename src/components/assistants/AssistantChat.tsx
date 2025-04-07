@@ -30,22 +30,16 @@ export function AssistantChat({ assistant, onClose }: AssistantChatProps) {
   const renderIcon = () => {
     if (!assistant || !assistant.icon) return null;
     
-    // Check if icon is in the format created by createIcon function
-    if (typeof assistant.icon === 'object' && 'component' in assistant.icon && 'props' in assistant.icon) {
-      const { component, props } = assistant.icon as any;
-      return createElement(component, props);
-    }
-    
-    // Fallback for any other icon format
-    return assistant.icon;
+    const { component, props } = assistant.icon;
+    return createElement(component, props);
   };
 
   const handleSendMessage = () => {
     if (!userInput.trim()) return;
     
-    const newMessages = [
+    const newMessages: Message[] = [
       ...chatMessages,
-      { role: 'user', content: userInput }
+      { role: 'user' as const, content: userInput }
     ];
     
     setChatMessages(newMessages);
@@ -56,7 +50,7 @@ export function AssistantChat({ assistant, onClose }: AssistantChatProps) {
       setChatMessages([
         ...newMessages,
         { 
-          role: 'assistant', 
+          role: 'assistant' as const, 
           content: assistant?.category === 'career'
             ? "Based on what I understand about your skills and interests, I'd recommend exploring roles that align with your analytical strengths. Would you like to know more about specific data careers that might be a good fit?"
             : "Thank you for your message. I'm here to help you with any questions related to " + assistant?.name + ". What specific assistance do you need today?"
