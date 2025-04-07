@@ -63,6 +63,14 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
+				// Brand colors
+				insightBlue: '#1F75FE',
+				viraDeepBlue: '#1C2D5A',
+				aquaTeal: '#5ED3B5',
+				energeticAmber: '#F9A826',
+				slateGray: '#2C2C2C',
+				softWhite: '#F9FAFB',
+				dustyGray: '#8A8F9E',
 				learnflow: {
 					50: '#f0f9ff',
 					100: '#e0f2fe',

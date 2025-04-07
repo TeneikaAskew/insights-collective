@@ -5,50 +5,53 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 98%; /* Soft White */
+    --foreground: 0 0% 17%; /* Slate Gray */
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 0 0% 17%; /* Slate Gray */
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 0 0% 17%; /* Slate Gray */
 
-    --primary: 24 95% 53%;
+    --primary: 217 88% 56%; /* Insight Blue */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 273 65% 54%;
+    --secondary: 222 54% 23%; /* Vira Deep Blue */
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 0 0% 98%; /* Soft White */
+    --muted-foreground: 220 6% 58%; /* Dusty Gray */
 
-    --accent: 30 100% 81%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 164 61% 60%; /* Aqua Teal */
+    --accent-foreground: 222 47.4% 11.2%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 270 91% 65%;
+    --ring: 37 91% 56%; /* Energetic Amber */
 
     --radius: 0.5rem;
 
-    --sidebar-background: 270 91% 65%;
+    --sidebar-background: 222 54% 23%; /* Vira Deep Blue */
     --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary: 37 91% 56%; /* Energetic Amber */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 270 91% 20%;
+    --sidebar-accent: 164 61% 60%; /* Aqua Teal */
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 270 50% 70%;
-    --sidebar-ring: 24 95% 53%;
+    --sidebar-border: 222 34% 33%;
+    --sidebar-ring: 37 91% 56%; /* Energetic Amber */
     
-    /* New color variables */
-    --orange-primary: 24 95% 53%;
-    --orange-secondary: 30 100% 81%;
-    --purple-primary: 270 91% 65%;
-    --purple-secondary: 273 65% 54%;
+    /* Brand color variables */
+    --insight-blue: 217 88% 56%; /* #1F75FE */
+    --vira-deep-blue: 222 54% 23%; /* #1C2D5A */
+    --aqua-teal: 164 61% 60%; /* #5ED3B5 */
+    --energetic-amber: 37 91% 56%; /* #F9A826 */
+    --slate-gray: 0 0% 17%; /* #2C2C2C */
+    --soft-white: 0 0% 98%; /* #F9FAFB */
+    --dusty-gray: 220 6% 58%; /* #8A8F9E */
   }
 
   .dark {
@@ -61,16 +64,16 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 24 95% 53%;
+    --primary: 217 88% 56%; /* Insight Blue */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 273 65% 54%;
+    --secondary: 222 54% 23%; /* Vira Deep Blue */
     --secondary-foreground: 0 0% 100%;
 
     --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted-foreground: 220 6% 58%; /* Dusty Gray */
 
-    --accent: 30 100% 81%;
+    --accent: 164 61% 60%; /* Aqua Teal */
     --accent-foreground: 222.2 47.4% 11.2%;
 
     --destructive: 0 62.8% 30.6%;
@@ -78,22 +81,16 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 270 91% 65%;
+    --ring: 37 91% 56%; /* Energetic Amber */
     
-    --sidebar-background: 270 50% 25%;
+    --sidebar-background: 222 24% 15%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 24 95% 53%;
+    --sidebar-primary: 37 91% 56%; /* Energetic Amber */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 270 70% 40%;
+    --sidebar-accent: 164 51% 40%; /* Darker Aqua Teal */
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 270 30% 40%;
-    --sidebar-ring: 24 95% 53%;
-    
-    /* New color variables for dark mode */
-    --orange-primary: 24 95% 53%;
-    --orange-secondary: 30 100% 81%;
-    --purple-primary: 270 91% 65%;
-    --purple-secondary: 273 65% 54%;
+    --sidebar-border: 222 10% 20%;
+    --sidebar-ring: 37 91% 56%; /* Energetic Amber */
   }
 }
 
@@ -150,21 +147,21 @@
     @apply bg-white/80 backdrop-blur-sm border border-white/50 shadow-sm;
   }
   
-  /* New color gradient utilities */
-  .bg-gradient-orange-purple {
-    @apply bg-gradient-to-r from-orange-500 to-purple-500;
+  /* Brand color gradient utilities */
+  .bg-gradient-insight-vira {
+    @apply bg-gradient-to-r from-insightBlue to-viraDeepBlue;
   }
   
-  .bg-gradient-blue-purple {
-    @apply bg-gradient-to-r from-learnflow-500 to-purple-500;
+  .bg-gradient-teal-amber {
+    @apply bg-gradient-to-r from-aquaTeal to-energeticAmber;
   }
   
-  .bg-gradient-orange-blue {
-    @apply bg-gradient-to-r from-orange-500 to-learnflow-500;
+  .bg-gradient-insight-teal {
+    @apply bg-gradient-to-r from-insightBlue to-aquaTeal;
   }
   
-  .text-gradient-orange-purple {
-    @apply bg-gradient-to-r from-orange-500 to-purple-500 bg-clip-text text-transparent;
+  .text-gradient-insight-vira {
+    @apply bg-gradient-to-r from-insightBlue to-viraDeepBlue bg-clip-text text-transparent;
   }
 }
 

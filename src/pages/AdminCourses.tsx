@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
@@ -28,8 +27,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import CourseEditModal from '@/components/course/CourseEditModal';
 
-// Sample data for courses
 const mockCourses = [
   {
     id: '1',
@@ -108,13 +107,13 @@ export default function AdminCourses() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [publishedFilter, setPublishedFilter] = useState('all');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [courseToEdit, setCourseToEdit] = useState<any>(null);
   const { toast } = useToast();
 
   const handleEditCourse = (course: any) => {
-    toast({
-      title: 'Edit Course',
-      description: `Editing ${course.title}`,
-    });
+    setCourseToEdit(course);
+    setIsModalOpen(true);
   };
 
   const handleDeleteCourse = (id: string) => {
@@ -126,10 +125,32 @@ export default function AdminCourses() {
   };
 
   const handleAddCourse = () => {
-    toast({
-      title: 'Add Course',
-      description: 'Opening course editor.',
-    });
+    setCourseToEdit(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveCourse = (course: any) => {
+    if (course.id) {
+      setCourses(courses.map(c => c.id === course.id ? { ...c, ...course } : c));
+      toast({
+        title: 'Course Updated',
+        description: 'The course has been successfully updated.',
+      });
+    } else {
+      const newCourse = {
+        ...course,
+        id: Date.now().toString(),
+        students: 0,
+        rating: 0,
+        published: false
+      };
+      setCourses([...courses, newCourse]);
+      toast({
+        title: 'Course Added',
+        description: 'The course has been successfully added.',
+      });
+    }
+    setIsModalOpen(false);
   };
 
   const filteredCourses = courses.filter((course) => {
@@ -163,10 +184,17 @@ export default function AdminCourses() {
               Create, edit, and manage your educational courses.
             </p>
           </div>
-          <Button onClick={handleAddCourse}>
+          <Button onClick={handleAddCourse} className="bg-insightBlue hover:bg-insightBlue/90">
             <Plus className="mr-2 h-4 w-4" /> Add Course
           </Button>
         </div>
+
+        <CourseEditModal 
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSave={handleSaveCourse}
+          course={courseToEdit}
+        />
 
         <Card>
           <CardHeader>

@@ -4,7 +4,6 @@ import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bot, Sparkles, Cpu, Code, PieChart, Text, Video, RefreshCw, BookOpen, Brain } from "lucide-react";
-import { ContentLock } from "@/components/common/ContentLock";
 
 export default function Assistants() {
   return (
@@ -21,25 +20,25 @@ export default function Assistants() {
           <TabsList className="bg-purple-100">
             <TabsTrigger 
               value="all" 
-              className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+              className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
             >
               All Assistants
             </TabsTrigger>
             <TabsTrigger 
               value="analytics" 
-              className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+              className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
             >
               Analytics
             </TabsTrigger>
             <TabsTrigger 
               value="coding" 
-              className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+              className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
             >
               Coding
             </TabsTrigger>
             <TabsTrigger 
               value="content" 
-              className="data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+              className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
             >
               Content
             </TabsTrigger>
@@ -48,9 +47,7 @@ export default function Assistants() {
           <TabsContent value="all" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {allAssistants.map((assistant) => (
-                <ContentLock key={assistant.id}>
-                  <AssistantCard assistant={assistant} />
-                </ContentLock>
+                <AssistantCard key={assistant.id} assistant={assistant} />
               ))}
             </div>
           </TabsContent>
@@ -60,9 +57,7 @@ export default function Assistants() {
               {allAssistants
                 .filter(a => a.category === "analytics")
                 .map((assistant) => (
-                  <ContentLock key={assistant.id}>
-                    <AssistantCard assistant={assistant} />
-                  </ContentLock>
+                  <AssistantCard key={assistant.id} assistant={assistant} />
                 ))}
             </div>
           </TabsContent>
@@ -72,9 +67,7 @@ export default function Assistants() {
               {allAssistants
                 .filter(a => a.category === "coding")
                 .map((assistant) => (
-                  <ContentLock key={assistant.id}>
-                    <AssistantCard assistant={assistant} />
-                  </ContentLock>
+                  <AssistantCard key={assistant.id} assistant={assistant} />
                 ))}
             </div>
           </TabsContent>
@@ -84,9 +77,7 @@ export default function Assistants() {
               {allAssistants
                 .filter(a => a.category === "content")
                 .map((assistant) => (
-                  <ContentLock key={assistant.id}>
-                    <AssistantCard assistant={assistant} />
-                  </ContentLock>
+                  <AssistantCard key={assistant.id} assistant={assistant} />
                 ))}
             </div>
           </TabsContent>
@@ -110,11 +101,11 @@ const AssistantCard = ({ assistant }: { assistant: Assistant }) => {
     <Card className="h-full flex flex-col card-hover">
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between mb-2">
-          <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+          <div className="h-10 w-10 rounded-full bg-aquaTeal/20 flex items-center justify-center text-insightBlue">
             {assistant.icon}
           </div>
           {assistant.popular && (
-            <div className="px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+            <div className="px-2 py-1 bg-aquaTeal/20 text-viraDeepBlue text-xs font-medium rounded-full">
               Popular
             </div>
           )}
@@ -127,21 +118,21 @@ const AssistantCard = ({ assistant }: { assistant: Assistant }) => {
       <CardContent className="flex-grow">
         <ul className="space-y-2 text-sm">
           <li className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-orange-500" />
+            <Sparkles className="h-4 w-4 text-energeticAmber" />
             <span>Smart recommendations</span>
           </li>
           <li className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-orange-500" />
+            <RefreshCw className="h-4 w-4 text-energeticAmber" />
             <span>Unlimited queries</span>
           </li>
           <li className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-orange-500" />
+            <BookOpen className="h-4 w-4 text-energeticAmber" />
             <span>Learning-centered design</span>
           </li>
         </ul>
       </CardContent>
       <CardFooter>
-        <Button className="w-full bg-gradient-to-r from-orange-500 to-purple-500 hover:from-orange-600 hover:to-purple-600 text-white">
+        <Button className="w-full bg-gradient-to-r from-insightBlue to-aquaTeal hover:from-insightBlue/90 hover:to-aquaTeal/90 text-white">
           Launch Assistant
         </Button>
       </CardFooter>
@@ -153,7 +144,7 @@ const allAssistants: Assistant[] = [
   {
     id: "1",
     name: "Data Analyst",
-    icon: <PieChart className="h-5 w-5 text-orange-600" />,
+    icon: <PieChart className="h-5 w-5" />,
     description: "Get help with data analysis, visualization, and interpretation.",
     category: "analytics",
     popular: true,
@@ -161,7 +152,7 @@ const allAssistants: Assistant[] = [
   {
     id: "2",
     name: "Code Companion",
-    icon: <Code className="h-5 w-5 text-orange-600" />,
+    icon: <Code className="h-5 w-5" />,
     description: "Assistance with coding problems, debugging and optimization.",
     category: "coding",
     popular: true,
@@ -169,49 +160,49 @@ const allAssistants: Assistant[] = [
   {
     id: "3",
     name: "Study Guide Creator",
-    icon: <BookOpen className="h-5 w-5 text-orange-600" />,
+    icon: <BookOpen className="h-5 w-5" />,
     description: "Generate personalized study guides based on your learning goals.",
     category: "content",
   },
   {
     id: "4",
     name: "Algorithm Tutor",
-    icon: <Brain className="h-5 w-5 text-orange-600" />,
+    icon: <Brain className="h-5 w-5" />,
     description: "Learn algorithms and data structures with step-by-step explanations.",
     category: "coding",
   },
   {
     id: "5",
     name: "Data Visualization Expert",
-    icon: <PieChart className="h-5 w-5 text-orange-600" />,
+    icon: <PieChart className="h-5 w-5" />,
     description: "Turn your data into compelling visualizations with expert guidance.",
     category: "analytics",
   },
   {
     id: "6",
     name: "Content Summarizer",
-    icon: <Text className="h-5 w-5 text-orange-600" />,
+    icon: <Text className="h-5 w-5" />,
     description: "Summarize articles, papers, and learning materials for quick review.",
     category: "content",
   },
   {
     id: "7",
     name: "Machine Learning Guide",
-    icon: <Cpu className="h-5 w-5 text-orange-600" />,
+    icon: <Cpu className="h-5 w-5" />,
     description: "Guidance on building and optimizing machine learning models.",
     category: "analytics",
   },
   {
     id: "8",
     name: "Video Tutorial Finder",
-    icon: <Video className="h-5 w-5 text-orange-600" />,
+    icon: <Video className="h-5 w-5" />,
     description: "Discover the best video tutorials for any data science topic.",
     category: "content",
   },
   {
     id: "9",
     name: "Python Helper",
-    icon: <Code className="h-5 w-5 text-orange-600" />,
+    icon: <Code className="h-5 w-5" />,
     description: "Get help with Python programming for data science applications.",
     category: "coding",
   },

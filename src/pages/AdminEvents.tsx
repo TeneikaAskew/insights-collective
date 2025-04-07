@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { EventsTable } from '@/components/events/admin/EventsTable';
 import { EventsFilterBar } from '@/components/events/admin/EventsFilterBar';
 import { EventsRegistrationsTable } from '@/components/events/admin/EventsRegistrationsTable';
+import { Plus } from 'lucide-react';
 
 const mockEvents = [
   {
@@ -112,6 +113,7 @@ export default function AdminEvents() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [attendees, setAttendees] = useState(mockAttendees);
   const [eventToEdit, setEventToEdit] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
   const { toast } = useToast();
 
@@ -134,10 +136,12 @@ export default function AdminEvents() {
       });
     }
     setEventToEdit(null);
+    setIsEditModalOpen(false);
   };
 
   const handleEditEvent = (event: any) => {
     setEventToEdit(event);
+    setIsEditModalOpen(true);
   };
 
   const handleDeleteEvent = (id: string) => {
@@ -184,14 +188,16 @@ export default function AdminEvents() {
               Create, update, and track events and registrations.
             </p>
           </div>
-          <AddEventModal onAddEvent={handleAddEvent} />
+          <Button onClick={() => { setEventToEdit(null); setIsEditModalOpen(true); }} className="bg-insightBlue hover:bg-insightBlue/90">
+            <Plus className="mr-2 h-4 w-4" /> Add Event
+          </Button>
         </div>
 
-        {eventToEdit && (
+        {isEditModalOpen && (
           <AddEventModal 
             onAddEvent={handleAddEvent} 
             editEvent={eventToEdit} 
-            children={<Button onClick={() => handleEditEvent(eventToEdit)}>Edit Event</Button>}
+            children={<div style={{ display: 'none' }}></div>}
           />
         )}
 
