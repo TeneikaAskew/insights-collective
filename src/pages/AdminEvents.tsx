@@ -1,36 +1,14 @@
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { AddEventModal } from '@/components/events/AddEventModal';
-import { ViewRegistrationsModal } from '@/components/events/ViewRegistrationsModal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Search, Edit, Trash2, Calendar, Users, FilterX } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogTrigger 
-} from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { format } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { EventsTable } from '@/components/events/admin/EventsTable';
+import { EventsFilterBar } from '@/components/events/admin/EventsFilterBar';
+import { EventsRegistrationsTable } from '@/components/events/admin/EventsRegistrationsTable';
 
 const mockEvents = [
   {
@@ -182,19 +160,11 @@ export default function AdminEvents() {
     return matchesSearch && matchesType && matchesFormat;
   });
 
-  const formatDate = (dateString: string) => {
-    try {
-      return format(new Date(dateString), 'MMM d, yyyy');
-    } catch (error) {
-      return dateString;
-    }
-  };
-
   const today = new Date().toISOString().split('T')[0];
   const upcomingEvents = filteredEvents.filter(event => event.date >= today);
   const pastEvents = filteredEvents.filter(event => event.date < today);
 
-  const eventAttendees = attendees.filter(attendee => 
+  const filteredAttendees = attendees.filter(attendee => 
     selectedEvent ? attendee.eventId === selectedEvent : true
   );
 
@@ -241,54 +211,15 @@ export default function AdminEvents() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <div className="flex-1 relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="Search events..." 
-                        className="pl-10"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                    <Select value={typeFilter} onValueChange={setTypeFilter}>
-                      <SelectTrigger className="w-full md:w-[180px]">
-                        <SelectValue placeholder="Event Type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="workshop">Workshops</SelectItem>
-                        <SelectItem value="webinar">Webinars</SelectItem>
-                        <SelectItem value="conference">Conferences</SelectItem>
-                        <SelectItem value="meetup">Meetups</SelectItem>
-                        <SelectItem value="hackathon">Hackathons</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select value={formatFilter} onValueChange={setFormatFilter}>
-                      <SelectTrigger className="w-full md:w-[180px]">
-                        <SelectValue placeholder="Format" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Formats</SelectItem>
-                        <SelectItem value="in-person">In-Person</SelectItem>
-                        <SelectItem value="virtual">Virtual</SelectItem>
-                        <SelectItem value="hybrid">Hybrid</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  {(searchQuery || typeFilter !== 'all' || formatFilter !== 'all') && (
-                    <div className="flex justify-end">
-                      <Button 
-                        variant="ghost" 
-                        className="h-8 px-2 lg:px-3" 
-                        onClick={clearFilters}
-                      >
-                        <FilterX className="mr-2 h-4 w-4" />
-                        Clear filters
-                      </Button>
-                    </div>
-                  )}
+                  <EventsFilterBar 
+                    searchQuery={searchQuery}
+                    typeFilter={typeFilter}
+                    formatFilter={formatFilter}
+                    onSearchChange={setSearchQuery}
+                    onTypeFilterChange={setTypeFilter}
+                    onFormatFilterChange={setFormatFilter}
+                    onClearFilters={clearFilters}
+                  />
 
                   <Tabs defaultValue="upcoming" className="space-y-4">
                     <TabsList className="bg-purple-100">
@@ -307,259 +238,22 @@ export default function AdminEvents() {
                     </TabsList>
 
                     <TabsContent value="upcoming">
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Event</TableHead>
-                              <TableHead>Type</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Registrations</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {upcomingEvents.length > 0 ? (
-                              upcomingEvents.map((event) => (
-                                <TableRow key={event.id}>
-                                  <TableCell className="font-medium">
-                                    <div className="flex flex-col">
-                                      {event.title}
-                                      <span className="text-sm text-muted-foreground truncate max-w-[300px]">
-                                        {event.description}
-                                      </span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-col gap-1">
-                                      <Badge variant="outline" className="capitalize bg-orange-100 text-orange-800">
-                                        {event.type}
-                                      </Badge>
-                                      <Badge variant="secondary" className="capitalize bg-purple-100 text-purple-800">
-                                        {event.format}
-                                      </Badge>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center">
-                                      <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                                      {formatDate(event.date)}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center">
-                                      <Users className="h-4 w-4 mr-1 text-muted-foreground" />
-                                      {event.registrations} {event.capacity ? `/ ${event.capacity}` : ''}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                          <span className="sr-only">Open menu</span>
-                                          <svg 
-                                            xmlns="http://www.w3.org/2000/svg" 
-                                            width="24" 
-                                            height="24" 
-                                            viewBox="0 0 24 24" 
-                                            fill="none" 
-                                            stroke="currentColor" 
-                                            strokeWidth="2" 
-                                            strokeLinecap="round" 
-                                            strokeLinejoin="round" 
-                                            className="h-4 w-4"
-                                          >
-                                            <circle cx="12" cy="12" r="1" />
-                                            <circle cx="12" cy="5" r="1" />
-                                            <circle cx="12" cy="19" r="1" />
-                                          </svg>
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => handleEditEvent(event)}>
-                                          <Edit className="mr-2 h-4 w-4" />
-                                          Edit
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                          <ViewRegistrationsModal
-                                            eventId={event.id}
-                                            eventTitle={event.title}
-                                            attendees={attendees}
-                                          >
-                                            <div className="flex items-center w-full">
-                                              <Users className="mr-2 h-4 w-4" />
-                                              View Registrations
-                                            </div>
-                                          </ViewRegistrationsModal>
-                                        </DropdownMenuItem>
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-                                              <Trash2 className="mr-2 h-4 w-4" />
-                                              Delete
-                                            </DropdownMenuItem>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                This will permanently delete the event "{event.title}" and all its registrations. This action cannot be undone.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                              <AlertDialogAction 
-                                                onClick={() => handleDeleteEvent(event.id)}
-                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                              >
-                                                Delete
-                                              </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            ) : (
-                              <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                  No upcoming events found.
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
+                      <EventsTable 
+                        events={upcomingEvents} 
+                        attendees={attendees}
+                        onEditEvent={handleEditEvent}
+                        onDeleteEvent={handleDeleteEvent}
+                      />
                     </TabsContent>
 
                     <TabsContent value="past">
-                      <div className="rounded-md border">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Event</TableHead>
-                              <TableHead>Type</TableHead>
-                              <TableHead>Date</TableHead>
-                              <TableHead>Registrations</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {pastEvents.length > 0 ? (
-                              pastEvents.map((event) => (
-                                <TableRow key={event.id}>
-                                  <TableCell className="font-medium">
-                                    <div className="flex flex-col">
-                                      {event.title}
-                                      <span className="text-sm text-muted-foreground truncate max-w-[300px]">
-                                        {event.description}
-                                      </span>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex flex-col gap-1">
-                                      <Badge variant="outline" className="capitalize bg-orange-100 text-orange-800">
-                                        {event.type}
-                                      </Badge>
-                                      <Badge variant="secondary" className="capitalize bg-purple-100 text-purple-800">
-                                        {event.format}
-                                      </Badge>
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center">
-                                      <Calendar className="h-4 w-4 mr-1 text-muted-foreground" />
-                                      {formatDate(event.date)}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell>
-                                    <div className="flex items-center">
-                                      <Users className="h-4 w-4 mr-1 text-muted-foreground" />
-                                      {event.registrations} {event.capacity ? `/ ${event.capacity}` : ''}
-                                    </div>
-                                  </TableCell>
-                                  <TableCell className="text-right">
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" className="h-8 w-8 p-0">
-                                          <span className="sr-only">Open menu</span>
-                                          <svg 
-                                            xmlns="http://www3.org/2000/svg" 
-                                            width="24" 
-                                            height="24" 
-                                            viewBox="0 0 24 24" 
-                                            fill="none" 
-                                            stroke="currentColor" 
-                                            strokeWidth="2" 
-                                            strokeLinecap="round" 
-                                            strokeLinejoin="round" 
-                                            className="h-4 w-4"
-                                          >
-                                            <circle cx="12" cy="12" r="1" />
-                                            <circle cx="12" cy="5" r="1" />
-                                            <circle cx="12" cy="19" r="1" />
-                                          </svg>
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                          <ViewRegistrationsModal
-                                            eventId={event.id}
-                                            eventTitle={event.title}
-                                            attendees={attendees}
-                                          >
-                                            <div className="flex items-center w-full">
-                                              <Users className="mr-2 h-4 w-4" />
-                                              View Registrations
-                                            </div>
-                                          </ViewRegistrationsModal>
-                                        </DropdownMenuItem>
-                                        <AlertDialog>
-                                          <AlertDialogTrigger asChild>
-                                            <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
-                                              <Trash2 className="mr-2 h-4 w-4" />
-                                              Delete
-                                            </DropdownMenuItem>
-                                          </AlertDialogTrigger>
-                                          <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                              <AlertDialogDescription>
-                                                This will permanently delete the event "{event.title}" and all its registrations. This action cannot be undone.
-                                              </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                              <AlertDialogAction 
-                                                onClick={() => handleDeleteEvent(event.id)}
-                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                              >
-                                                Delete
-                                              </AlertDialogAction>
-                                            </AlertDialogFooter>
-                                          </AlertDialogContent>
-                                        </AlertDialog>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
-                                  </TableCell>
-                                </TableRow>
-                              ))
-                            ) : (
-                              <TableRow>
-                                <TableCell colSpan={5} className="h-24 text-center">
-                                  No past events found.
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </div>
+                      <EventsTable 
+                        events={pastEvents} 
+                        attendees={attendees}
+                        isPast={true}
+                        onEditEvent={handleEditEvent}
+                        onDeleteEvent={handleDeleteEvent}
+                      />
                     </TabsContent>
                   </Tabs>
                 </div>
@@ -593,47 +287,10 @@ export default function AdminEvents() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
-                        <TableHead>Event</TableHead>
-                        <TableHead>Registration Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {eventAttendees.length > 0 ? (
-                        eventAttendees.map((attendee) => {
-                          const event = events.find(e => e.id === attendee.eventId);
-                          return (
-                            <TableRow key={attendee.id}>
-                              <TableCell className="font-medium">{attendee.name}</TableCell>
-                              <TableCell>{attendee.email}</TableCell>
-                              <TableCell>
-                                {event ? (
-                                  <div className="flex items-center">
-                                    <span>{event.title}</span>
-                                  </div>
-                                ) : (
-                                  <span className="text-muted-foreground">Unknown Event</span>
-                                )}
-                              </TableCell>
-                              <TableCell>{formatDate(attendee.registrationDate)}</TableCell>
-                            </TableRow>
-                          );
-                        })
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center">
-                            No registrations found.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
+                <EventsRegistrationsTable 
+                  attendees={filteredAttendees} 
+                  events={events} 
+                />
               </CardContent>
             </Card>
           </TabsContent>
