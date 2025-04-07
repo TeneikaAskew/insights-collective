@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Bot, Sparkles, Cpu, Code, PieChart, Text, Video, RefreshCw, BookOpen, Brain, Compass, Lightbulb, Send } from "lucide-react";
+import { ThemeText } from "@/components/ui/theme-text";
 
 export default function Assistants() {
   const [openAssistant, setOpenAssistant] = useState<Assistant | null>(null);
@@ -17,7 +18,7 @@ export default function Assistants() {
     setOpenAssistant(assistant);
     setChatMessages([
       { 
-        role: 'assistant', 
+        role: 'assistant' as const, 
         content: `Hello! I'm ${assistant.name}. How can I help you with ${assistant.category === 'career' ? 'finding your ideal career path' : assistant.category === 'analytics' ? 'data analysis' : assistant.category === 'coding' ? 'coding problems' : 'content creation'} today?`
       }
     ]);
@@ -28,7 +29,7 @@ export default function Assistants() {
     
     const newMessages = [
       ...chatMessages,
-      { role: 'user', content: userInput }
+      { role: 'user' as const, content: userInput }
     ];
     
     setChatMessages(newMessages);
@@ -39,7 +40,7 @@ export default function Assistants() {
       setChatMessages([
         ...newMessages,
         { 
-          role: 'assistant', 
+          role: 'assistant' as const, 
           content: openAssistant?.category === 'career'
             ? "Based on what I understand about your skills and interests, I'd recommend exploring roles that align with your analytical strengths. Would you like to know more about specific data careers that might be a good fit?"
             : "Thank you for your message. I'm here to help you with any questions related to " + openAssistant?.name + ". What specific assistance do you need today?"
