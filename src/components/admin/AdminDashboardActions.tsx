@@ -2,21 +2,24 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { CalendarPlus, Award, Upload, FileSpreadsheet, Activity } from 'lucide-react';
-import { AddEventModal } from '@/components/events/AddEventModal';
+import { AddEventModal } from '@/components/events/modals/AddEventModal';
 import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 
 export const AdminDashboardActions = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   
   const handleAddEvent = (eventData: any) => {
     toast({
       title: 'Event Added',
       description: 'The event has been successfully added.',
     });
+    setIsEventModalOpen(false);
     navigate('/admin/events');
   };
   
@@ -35,14 +38,17 @@ export const AdminDashboardActions = () => {
           <CardDescription>Common administrative tasks</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-2">
-          <AddEventModal onAddEvent={handleAddEvent}>
-            <Button variant="outline" className="w-full justify-start" asChild>
-              <div>
-                <CalendarPlus className="mr-2 h-4 w-4" />
-                <span>Add Event</span>
-              </div>
-            </Button>
-          </AddEventModal>
+          <Button variant="outline" className="w-full justify-start" onClick={() => setIsEventModalOpen(true)}>
+            <CalendarPlus className="mr-2 h-4 w-4" />
+            <span>Add Event</span>
+          </Button>
+          
+          {isEventModalOpen && (
+            <AddEventModal 
+              onAddEvent={handleAddEvent} 
+              onClose={() => setIsEventModalOpen(false)}
+            />
+          )}
           
           <IssueCertificatesModal onIssueCertificates={handleIssueCertificates}>
             <Button variant="outline" className="w-full justify-start" asChild>
