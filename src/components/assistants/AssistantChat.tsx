@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { Assistant } from "@/types/assistants";
+import { createElement } from "react";
 
 interface Message {
   role: 'user' | 'assistant';
@@ -25,6 +26,20 @@ export function AssistantChat({ assistant, onClose }: AssistantChatProps) {
   ]);
   const [userInput, setUserInput] = useState('');
   
+  // Render the icon from the assistant object
+  const renderIcon = () => {
+    if (!assistant || !assistant.icon) return null;
+    
+    // Check if icon is in the format created by createIcon function
+    if (typeof assistant.icon === 'object' && 'component' in assistant.icon && 'props' in assistant.icon) {
+      const { component, props } = assistant.icon as any;
+      return createElement(component, props);
+    }
+    
+    // Fallback for any other icon format
+    return assistant.icon;
+  };
+
   const handleSendMessage = () => {
     if (!userInput.trim()) return;
     
@@ -58,7 +73,7 @@ export function AssistantChat({ assistant, onClose }: AssistantChatProps) {
             {assistant && (
               <>
                 <div className={`h-8 w-8 rounded-full ${assistant.category === 'career' ? 'bg-insightBlue/20 text-insightBlue' : 'bg-aquaTeal/20 text-insightBlue'} flex items-center justify-center`}>
-                  {assistant.icon}
+                  {renderIcon()}
                 </div>
                 {assistant.name}
               </>

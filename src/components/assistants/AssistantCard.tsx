@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Brain, Compass, Lightbulb, RefreshCw, Sparkles } from "lucide-react";
 import { Assistant } from "@/types/assistants";
+import { createElement } from "react";
 
 interface AssistantCardProps {
   assistant: Assistant;
@@ -15,12 +16,26 @@ export function AssistantCard({
   featured = false, 
   onLaunch 
 }: AssistantCardProps) {
+  // Render the icon from the assistant object
+  const renderIcon = () => {
+    if (!assistant.icon) return null;
+    
+    // Check if icon is in the format created by createIcon function
+    if (typeof assistant.icon === 'object' && 'component' in assistant.icon && 'props' in assistant.icon) {
+      const { component, props } = assistant.icon as any;
+      return createElement(component, props);
+    }
+    
+    // Fallback for any other icon format
+    return assistant.icon;
+  };
+
   return (
     <Card className={`h-full flex flex-col card-hover ${featured ? 'border-2 border-insightBlue' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between mb-2">
           <div className={`h-10 w-10 rounded-full ${featured ? 'bg-insightBlue/20 text-insightBlue' : 'bg-aquaTeal/20 text-insightBlue'} flex items-center justify-center`}>
-            {assistant.icon}
+            {renderIcon()}
           </div>
           {(assistant.popular || featured) && (
             <div className={`px-2 py-1 ${featured ? 'bg-insightBlue/20 text-viraDeepBlue' : 'bg-aquaTeal/20 text-viraDeepBlue'} text-xs font-medium rounded-full`}>
