@@ -1,7 +1,7 @@
-
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { AddEventModal } from '@/components/events/AddEventModal';
+import { ViewRegistrationsModal } from '@/components/events/ViewRegistrationsModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -32,7 +32,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 
-// Mock events data
 const mockEvents = [
   {
     id: '1',
@@ -48,6 +47,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODY2OA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: 50,
     registrations: 32,
+    calendlyLink: 'https://calendly.com/insightscollective/data-science-workshop',
   },
   {
     id: '2',
@@ -63,6 +63,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODc2OQ&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: 300,
     registrations: 178,
+    calendlyLink: 'https://calendly.com/insightscollective/ml-conference',
   },
   {
     id: '3',
@@ -78,6 +79,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODcwNw&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: null,
     registrations: 215,
+    calendlyLink: 'https://calendly.com/insightscollective/python-webinar',
   },
   {
     id: '4',
@@ -93,6 +95,7 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODg3Ng&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: 30,
     registrations: 24,
+    calendlyLink: 'https://calendly.com/insightscollective/ai-ethics-meetup',
   },
   {
     id: '5',
@@ -108,10 +111,10 @@ const mockEvents = [
     image: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODc2OQ&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080',
     capacity: 100,
     registrations: 72,
+    calendlyLink: 'https://calendly.com/insightscollective/data-visualization-hackathon',
   },
 ];
 
-// Mock registered attendees
 const mockAttendees = [
   { id: '1', eventId: '1', name: 'John Doe', email: 'john.doe@example.com', registrationDate: '2025-04-01' },
   { id: '2', eventId: '1', name: 'Jane Smith', email: 'jane.smith@example.com', registrationDate: '2025-04-02' },
@@ -130,28 +133,37 @@ export default function AdminEvents() {
   const [formatFilter, setFormatFilter] = useState('all');
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [attendees, setAttendees] = useState(mockAttendees);
+  const [eventToEdit, setEventToEdit] = useState<any>(null);
   
   const { toast } = useToast();
 
   const handleAddEvent = (newEvent: any) => {
-    setEvents([...events, newEvent]);
-    toast({
-      title: 'Event Added',
-      description: 'The event has been successfully added to the calendar.',
-    });
+    const isEditing = events.some(e => e.id === newEvent.id);
+    
+    if (isEditing) {
+      setEvents(events.map(event => 
+        event.id === newEvent.id ? newEvent : event
+      ));
+      toast({
+        title: 'Event Updated',
+        description: 'The event has been successfully updated.',
+      });
+    } else {
+      setEvents([...events, newEvent]);
+      toast({
+        title: 'Event Added',
+        description: 'The event has been successfully added to the calendar.',
+      });
+    }
+    setEventToEdit(null);
   };
 
   const handleEditEvent = (event: any) => {
-    // In a real app, this would open an edit modal
-    toast({
-      title: 'Edit Event',
-      description: `Editing ${event.title}`,
-    });
+    setEventToEdit(event);
   };
 
   const handleDeleteEvent = (id: string) => {
     setEvents(events.filter(event => event.id !== id));
-    // Also remove associated attendees
     setAttendees(attendees.filter(attendee => attendee.eventId !== id));
     toast({
       title: 'Event Deleted',
@@ -205,10 +217,18 @@ export default function AdminEvents() {
           <AddEventModal onAddEvent={handleAddEvent} />
         </div>
 
+        {eventToEdit && (
+          <AddEventModal 
+            onAddEvent={handleAddEvent} 
+            editEvent={eventToEdit} 
+            children={<Button onClick={() => handleEditEvent(eventToEdit)}>Edit Event</Button>}
+          />
+        )}
+
         <Tabs defaultValue="events" className="space-y-8">
-          <TabsList>
-            <TabsTrigger value="events">Events</TabsTrigger>
-            <TabsTrigger value="registrations">Registrations</TabsTrigger>
+          <TabsList className="bg-orange-100">
+            <TabsTrigger value="events" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">Events</TabsTrigger>
+            <TabsTrigger value="registrations" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">Registrations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="events" className="space-y-6">
@@ -271,11 +291,17 @@ export default function AdminEvents() {
                   )}
 
                   <Tabs defaultValue="upcoming" className="space-y-4">
-                    <TabsList>
-                      <TabsTrigger value="upcoming">
+                    <TabsList className="bg-purple-100">
+                      <TabsTrigger 
+                        value="upcoming"
+                        className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                      >
                         Upcoming Events ({upcomingEvents.length})
                       </TabsTrigger>
-                      <TabsTrigger value="past">
+                      <TabsTrigger 
+                        value="past"
+                        className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                      >
                         Past Events ({pastEvents.length})
                       </TabsTrigger>
                     </TabsList>
@@ -306,10 +332,10 @@ export default function AdminEvents() {
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex flex-col gap-1">
-                                      <Badge variant="outline" className="capitalize">
+                                      <Badge variant="outline" className="capitalize bg-orange-100 text-orange-800">
                                         {event.type}
                                       </Badge>
-                                      <Badge variant="secondary" className="capitalize">
+                                      <Badge variant="secondary" className="capitalize bg-purple-100 text-purple-800">
                                         {event.format}
                                       </Badge>
                                     </div>
@@ -356,9 +382,17 @@ export default function AdminEvents() {
                                           <Edit className="mr-2 h-4 w-4" />
                                           Edit
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem onClick={() => setSelectedEvent(event.id)}>
-                                          <Users className="mr-2 h-4 w-4" />
-                                          View Registrations
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                          <ViewRegistrationsModal
+                                            eventId={event.id}
+                                            eventTitle={event.title}
+                                            attendees={attendees}
+                                          >
+                                            <div className="flex items-center w-full">
+                                              <Users className="mr-2 h-4 w-4" />
+                                              View Registrations
+                                            </div>
+                                          </ViewRegistrationsModal>
                                         </DropdownMenuItem>
                                         <AlertDialog>
                                           <AlertDialogTrigger asChild>
@@ -428,10 +462,10 @@ export default function AdminEvents() {
                                   </TableCell>
                                   <TableCell>
                                     <div className="flex flex-col gap-1">
-                                      <Badge variant="outline" className="capitalize">
+                                      <Badge variant="outline" className="capitalize bg-orange-100 text-orange-800">
                                         {event.type}
                                       </Badge>
-                                      <Badge variant="secondary" className="capitalize">
+                                      <Badge variant="secondary" className="capitalize bg-purple-100 text-purple-800">
                                         {event.format}
                                       </Badge>
                                     </div>
@@ -454,7 +488,7 @@ export default function AdminEvents() {
                                         <Button variant="ghost" className="h-8 w-8 p-0">
                                           <span className="sr-only">Open menu</span>
                                           <svg 
-                                            xmlns="http://www.w3.org/2000/svg" 
+                                            xmlns="http://www3.org/2000/svg" 
                                             width="24" 
                                             height="24" 
                                             viewBox="0 0 24 24" 
@@ -474,9 +508,17 @@ export default function AdminEvents() {
                                       <DropdownMenuContent align="end">
                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                         <DropdownMenuSeparator />
-                                        <DropdownMenuItem onClick={() => setSelectedEvent(event.id)}>
-                                          <Users className="mr-2 h-4 w-4" />
-                                          View Registrations
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                          <ViewRegistrationsModal
+                                            eventId={event.id}
+                                            eventTitle={event.title}
+                                            attendees={attendees}
+                                          >
+                                            <div className="flex items-center w-full">
+                                              <Users className="mr-2 h-4 w-4" />
+                                              View Registrations
+                                            </div>
+                                          </ViewRegistrationsModal>
                                         </DropdownMenuItem>
                                         <AlertDialog>
                                           <AlertDialogTrigger asChild>

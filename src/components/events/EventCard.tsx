@@ -1,4 +1,3 @@
-
 import { Calendar, Clock, MapPin, Link, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -51,7 +50,7 @@ export function EventCard({ event, onRegister }: EventCardProps) {
         description: "Please log in to register for this event.",
         variant: "default",
       });
-      navigate('/login');
+      navigate('/login', { state: { redirectTo: `/events/${event.id}` } });
       return;
     }
     
@@ -80,7 +79,7 @@ export function EventCard({ event, onRegister }: EventCardProps) {
           alt={event.title} 
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <Badge className="absolute top-2 right-2 bg-primary/90">{event.type}</Badge>
+        <Badge className="absolute top-2 right-2 bg-orange-500 text-white">{event.type}</Badge>
       </div>
       <CardHeader>
         <CardTitle className="line-clamp-2">{event.title}</CardTitle>
@@ -123,7 +122,7 @@ export function EventCard({ event, onRegister }: EventCardProps) {
           <Button disabled className="w-full">Event Full</Button>
         ) : (
           <Button 
-            className="w-full bg-primary text-white" 
+            className="w-full bg-orange-600 hover:bg-orange-700 text-white" 
             onClick={handleRegister}
           >
             Register
