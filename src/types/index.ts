@@ -32,6 +32,7 @@ export interface User {
   enrolledCourses?: string[];
   avatar?: string;
   bio?: string;
+  createdCourses?: string[];
   // Add any other properties needed
 }
 
@@ -70,6 +71,11 @@ export interface Assignment {
   dueDate: string;
   points: number;
   status?: string;
+  submission?: {
+    content?: string;
+    grade?: number;
+    feedback?: string;
+  };
   // Add any other properties needed
 }
 
@@ -82,6 +88,9 @@ export interface Quiz {
   questions: QuizQuestion[];
   timeLimit?: number;
   passingScore?: number;
+  dueDate?: string;
+  status?: string;
+  score?: number;
   // Add any other properties needed
 }
 
@@ -91,6 +100,7 @@ export interface QuizQuestion {
   text: string;
   options: string[];
   correctOption: number;
+  points?: number;
   // Add any other properties needed
 }
 
@@ -100,7 +110,7 @@ export interface Notification {
   userId: string;
   title: string;
   message: string;
-  type: string;
+  type: 'assignment' | 'quiz' | 'announcement' | 'feedback' | string;
   isRead: boolean;
   createdAt: string;
   link?: string;

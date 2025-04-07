@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -20,7 +19,6 @@ const ModuleDetail = () => {
   const [assignmentSubmission, setAssignmentSubmission] = useState('');
   const [submitting, setSubmitting] = useState(false);
   
-  // Get course and module details
   const course = mockService.getCourseById(courseId || '');
   const module = mockService.getModuleById(moduleId || '');
   
@@ -38,13 +36,11 @@ const ModuleDetail = () => {
     );
   }
   
-  // Set active lesson to first lesson if none is selected
   if (!activeLesson && module.lessons.length > 0) {
     setActiveLesson(module.lessons[0].id);
   }
   
   const handleMarkComplete = (lessonId: string) => {
-    // Would update the lesson status in the database in a real app
     toast({
       title: "Lesson marked as complete",
       description: "Your progress has been updated",
@@ -63,7 +59,6 @@ const ModuleDetail = () => {
     
     setSubmitting(true);
     
-    // Simulate API call
     setTimeout(() => {
       setSubmitting(false);
       setAssignmentSubmission('');
@@ -165,7 +160,7 @@ const ModuleDetail = () => {
                         )}
                       </div>
                       <div className="space-x-2">
-                        {!getActiveLesson()?.isCompleted && (
+                        {!getActiveLesson()?.completed && (
                           <Button onClick={() => handleMarkComplete(getActiveLesson()!.id)}>
                             <CheckCircle className="h-4 w-4 mr-2" />
                             Mark as Complete
@@ -174,7 +169,7 @@ const ModuleDetail = () => {
                         
                         {module.lessons.indexOf(getActiveLesson()!) < module.lessons.length - 1 && (
                           <Button 
-                            variant={getActiveLesson()?.isCompleted ? "default" : "secondary"}
+                            variant={getActiveLesson()?.completed ? "default" : "secondary"}
                             onClick={() => setActiveLesson(module.lessons[module.lessons.indexOf(getActiveLesson()!) + 1].id)}
                           >
                             Next Lesson
@@ -214,7 +209,7 @@ const ModuleDetail = () => {
                             </div>
                           </div>
                           
-                          {lesson.isCompleted ? (
+                          {lesson.completed ? (
                             <Badge className="bg-green-500 text-white hover:bg-green-600">
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Completed
@@ -258,7 +253,7 @@ const ModuleDetail = () => {
                             <div className="flex items-center justify-between text-sm">
                               <div className="flex items-center">
                                 <Clock className="h-4 w-4 mr-1" />
-                                <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+                                <span>Due: {new Date(assignment.dueDate || '').toLocaleDateString()}</span>
                               </div>
                               <div>
                                 <span>Points: {assignment.points}</span>
@@ -351,11 +346,11 @@ const ModuleDetail = () => {
                               </div>
                               <div className="flex items-center">
                                 <Clock className="h-4 w-4 mr-1" />
-                                <span>Due: {new Date(quiz.dueDate).toLocaleDateString()}</span>
+                                <span>Due: {new Date(quiz.dueDate || '').toLocaleDateString()}</span>
                               </div>
                               <div className="flex items-center">
                                 <FileText className="h-4 w-4 mr-1" />
-                                <span>Total Points: {quiz.questions.reduce((sum, q) => sum + q.points, 0)}</span>
+                                <span>Total Points: {quiz.questions.reduce((sum, q) => sum + (q.points || 0), 0)}</span>
                               </div>
                             </div>
                             
@@ -363,7 +358,7 @@ const ModuleDetail = () => {
                               <div className="bg-secondary p-4 rounded-lg">
                                 <div className="flex justify-between mb-2">
                                   <h4 className="font-medium">Your Score</h4>
-                                  <span className="font-medium">{quiz.score} / {quiz.questions.reduce((sum, q) => sum + q.points, 0)}</span>
+                                  <span className="font-medium">{quiz.score} / {quiz.questions.reduce((sum, q) => sum + (q.points || 0), 0)}</span>
                                 </div>
                                 <p className="text-sm">You've completed this quiz. You can review your answers by clicking the button below.</p>
                                 <Button variant="outline" className="mt-4 w-full">
@@ -476,7 +471,7 @@ const ModuleDetail = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between items-center text-sm">
                     <span>Lessons</span>
-                    <span>{module.lessons.filter(l => l.isCompleted).length} / {module.lessons.length}</span>
+                    <span>{module.lessons.filter(l => l.completed).length} / {module.lessons.length}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm">
                     <span>Assignments</span>

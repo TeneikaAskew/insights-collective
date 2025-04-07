@@ -8,6 +8,7 @@ import { Bell, Book, CheckCircle, Clock, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { mockService } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
+import { Notification } from '@/types';
 
 type NotificationItem = {
   id: string;
@@ -39,7 +40,7 @@ const NotificationCard = ({
   notification, 
   onMarkAsRead 
 }: { 
-  notification: NotificationItem; 
+  notification: Notification; 
   onMarkAsRead: (id: string) => void;
 }) => {
   const formatDate = (dateString: string) => {
