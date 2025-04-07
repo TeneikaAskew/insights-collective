@@ -189,7 +189,7 @@ export default function AdminEvents() {
               Create, update, and track events and registrations.
             </p>
           </div>
-          <Button onClick={() => { setEventToEdit(null); setIsModalOpen(true); }} className="bg-insightBlue hover:bg-insightBlue/90">
+          <Button onClick={() => { setEventToEdit(null); setIsModalOpen(true); }} className="bg-insightBlue hover:bg-insightBlue/90 text-white">
             <Plus className="mr-2 h-4 w-4" /> Add Event
           </Button>
         </div>
@@ -203,9 +203,9 @@ export default function AdminEvents() {
         )}
 
         <Tabs defaultValue="events" className="space-y-8">
-          <TabsList className="bg-orange-100">
-            <TabsTrigger value="events" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">Events</TabsTrigger>
-            <TabsTrigger value="registrations" className="data-[state=active]:bg-orange-500 data-[state=active]:text-white">Registrations</TabsTrigger>
+          <TabsList className="bg-aquaTeal/10">
+            <TabsTrigger value="events" className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white">Events</TabsTrigger>
+            <TabsTrigger value="registrations" className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white">Registrations</TabsTrigger>
           </TabsList>
 
           <TabsContent value="events" className="space-y-6">
@@ -229,16 +229,16 @@ export default function AdminEvents() {
                   />
 
                   <Tabs defaultValue="upcoming" className="space-y-4">
-                    <TabsList className="bg-purple-100">
+                    <TabsList className="bg-aquaTeal/10">
                       <TabsTrigger 
                         value="upcoming"
-                        className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                        className="data-[state=active]:bg-insightBlue data-[state=active]:text-white"
                       >
                         Upcoming Events ({upcomingEvents.length})
                       </TabsTrigger>
                       <TabsTrigger 
                         value="past"
-                        className="data-[state=active]:bg-purple-600 data-[state=active]:text-white"
+                        className="data-[state=active]:bg-insightBlue data-[state=active]:text-white"
                       >
                         Past Events ({pastEvents.length})
                       </TabsTrigger>

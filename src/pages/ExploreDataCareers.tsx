@@ -72,7 +72,7 @@ const ExploreDataCareers = () => {
     <AppLayout>
       <div className="container mx-auto py-8 space-y-6">
         <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">Explore Data Careers</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-energeticAmber">Explore Data Careers</h1>
           <p className="text-lg text-muted-foreground">
             Browse real-world roles across data science, analytics, engineering, and AI to see which one fits your strengths and interests.
           </p>
@@ -104,9 +104,9 @@ const ExploreDataCareers = () => {
         
         <Tabs defaultValue="grid" className="space-y-4">
           <div className="flex justify-between items-center">
-            <TabsList>
-              <TabsTrigger value="grid">Grid View</TabsTrigger>
-              <TabsTrigger value="categories">By Category</TabsTrigger>
+            <TabsList className="bg-aquaTeal/10">
+              <TabsTrigger value="grid" className="data-[state=active]:bg-insightBlue data-[state=active]:text-white">Grid View</TabsTrigger>
+              <TabsTrigger value="categories" className="data-[state=active]:bg-insightBlue data-[state=active]:text-white">By Category</TabsTrigger>
             </TabsList>
           </div>
           

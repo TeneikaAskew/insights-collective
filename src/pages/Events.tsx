@@ -154,12 +154,12 @@ export default function Events() {
         />
         
         <Tabs defaultValue="upcoming" className="space-y-8">
-          <TabsList className="bg-purple-100">
-            <TabsTrigger value="upcoming" className="flex items-center gap-1 data-[state=active]:bg-purple-600 data-[state=active]:text-white">
+          <TabsList className="bg-aquaTeal/10">
+            <TabsTrigger value="upcoming" className="flex items-center gap-1 data-[state=active]:bg-insightBlue data-[state=active]:text-white">
               <Calendar className="h-4 w-4" />
               <span>Upcoming Events ({upcomingEvents.length})</span>
             </TabsTrigger>
-            <TabsTrigger value="past" className="data-[state=active]:bg-purple-600 data-[state=active]:text-white">Past Events ({pastEvents.length})</TabsTrigger>
+            <TabsTrigger value="past" className="data-[state=active]:bg-insightBlue data-[state=active]:text-white">Past Events ({pastEvents.length})</TabsTrigger>
           </TabsList>
           
           <TabsContent value="upcoming" className="space-y-6">
