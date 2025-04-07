@@ -3,7 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AppLayout from "@/components/layout/AppLayout";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bot, Sparkles, Cpu, Code, PieChart, Text, Video, RefreshCw, BookOpen, Brain } from "lucide-react";
+import { Bot, Sparkles, Cpu, Code, PieChart, Text, Video, RefreshCw, BookOpen, Brain, Compass, Lightbulb } from "lucide-react";
 
 export default function Assistants() {
   return (
@@ -14,6 +14,12 @@ export default function Assistants() {
           <p className="text-muted-foreground mt-2">
             Use our specialized AI assistants to enhance your learning experience.
           </p>
+        </div>
+        
+        {/* Featured Assistant */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4">Featured Assistant</h2>
+          <AssistantCard assistant={careerExplorerAssistant} featured={true} />
         </div>
         
         <Tabs defaultValue="all" className="space-y-6">
@@ -92,52 +98,85 @@ type Assistant = {
   name: string;
   icon: React.ReactNode;
   description: string;
-  category: "analytics" | "coding" | "content";
+  category: "analytics" | "coding" | "content" | "career";
   popular?: boolean;
 };
 
-const AssistantCard = ({ assistant }: { assistant: Assistant }) => {
+const AssistantCard = ({ assistant, featured = false }: { assistant: Assistant, featured?: boolean }) => {
   return (
-    <Card className="h-full flex flex-col card-hover">
+    <Card className={`h-full flex flex-col card-hover ${featured ? 'border-2 border-insightBlue' : ''}`}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between mb-2">
-          <div className="h-10 w-10 rounded-full bg-aquaTeal/20 flex items-center justify-center text-insightBlue">
+          <div className={`h-10 w-10 rounded-full ${featured ? 'bg-insightBlue/20 text-insightBlue' : 'bg-aquaTeal/20 text-insightBlue'} flex items-center justify-center`}>
             {assistant.icon}
           </div>
-          {assistant.popular && (
-            <div className="px-2 py-1 bg-aquaTeal/20 text-viraDeepBlue text-xs font-medium rounded-full">
-              Popular
+          {(assistant.popular || featured) && (
+            <div className={`px-2 py-1 ${featured ? 'bg-insightBlue/20 text-viraDeepBlue' : 'bg-aquaTeal/20 text-viraDeepBlue'} text-xs font-medium rounded-full`}>
+              {featured ? 'Featured' : 'Popular'}
             </div>
           )}
         </div>
         <CardTitle className="text-xl">{assistant.name}</CardTitle>
-        <CardDescription className="line-clamp-2">
+        <CardDescription className={`${featured ? 'line-clamp-none' : 'line-clamp-2'}`}>
           {assistant.description}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
         <ul className="space-y-2 text-sm">
-          <li className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-energeticAmber" />
-            <span>Smart recommendations</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <RefreshCw className="h-4 w-4 text-energeticAmber" />
-            <span>Unlimited queries</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <BookOpen className="h-4 w-4 text-energeticAmber" />
-            <span>Learning-centered design</span>
-          </li>
+          {featured ? (
+            <>
+              <li className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-energeticAmber" />
+                <span>Personalized career recommendations</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-energeticAmber" />
+                <span>Considers quiz results & chat input</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Compass className="h-4 w-4 text-energeticAmber" />
+                <span>Acts as your personal career coach</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-energeticAmber" />
+                <span>Pre-loaded with skills/interest data</span>
+              </li>
+            </>
+          ) : (
+            <>
+              <li className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-energeticAmber" />
+                <span>Smart recommendations</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-energeticAmber" />
+                <span>Unlimited queries</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4 text-energeticAmber" />
+                <span>Learning-centered design</span>
+              </li>
+            </>
+          )}
         </ul>
       </CardContent>
       <CardFooter>
-        <Button className="w-full bg-gradient-to-r from-insightBlue to-aquaTeal hover:from-insightBlue/90 hover:to-aquaTeal/90 text-white">
+        <Button className={`w-full ${featured ? 'bg-gradient-to-r from-energeticAmber to-insightBlue hover:from-energeticAmber/90 hover:to-insightBlue/90' : 'bg-gradient-to-r from-insightBlue to-aquaTeal hover:from-insightBlue/90 hover:to-aquaTeal/90'} text-white`}>
           Launch Assistant
         </Button>
       </CardFooter>
     </Card>
   );
+};
+
+// Career Explorer Assistant definition (featured)
+const careerExplorerAssistant: Assistant = {
+  id: "0",
+  name: "Career Discovery GPT",
+  icon: <Compass className="h-5 w-5" />,
+  description: "Your personalized career guide in data science and analytics. This assistant analyzes your quiz results, skills, interests, and values to recommend ideal career paths. It acts as your career coach, providing insights into aligned roles and learning paths.",
+  category: "career",
+  popular: true,
 };
 
 const allAssistants: Assistant[] = [

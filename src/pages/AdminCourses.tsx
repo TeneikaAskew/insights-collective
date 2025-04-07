@@ -142,7 +142,8 @@ export default function AdminCourses() {
         id: Date.now().toString(),
         students: 0,
         rating: 0,
-        published: false
+        published: false,
+        imageUrl: course.imageUrl || 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODY2OA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080'
       };
       setCourses([...courses, newCourse]);
       toast({

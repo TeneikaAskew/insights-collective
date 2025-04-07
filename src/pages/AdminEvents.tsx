@@ -1,6 +1,7 @@
+
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { AddEventModal } from '@/components/events/AddEventModal';
+import { AddEventModal } from '@/components/events/modals/AddEventModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -113,7 +114,7 @@ export default function AdminEvents() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null);
   const [attendees, setAttendees] = useState(mockAttendees);
   const [eventToEdit, setEventToEdit] = useState<any>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { toast } = useToast();
 
@@ -136,12 +137,12 @@ export default function AdminEvents() {
       });
     }
     setEventToEdit(null);
-    setIsEditModalOpen(false);
+    setIsModalOpen(false);
   };
 
   const handleEditEvent = (event: any) => {
     setEventToEdit(event);
-    setIsEditModalOpen(true);
+    setIsModalOpen(true);
   };
 
   const handleDeleteEvent = (id: string) => {
@@ -188,16 +189,16 @@ export default function AdminEvents() {
               Create, update, and track events and registrations.
             </p>
           </div>
-          <Button onClick={() => { setEventToEdit(null); setIsEditModalOpen(true); }} className="bg-insightBlue hover:bg-insightBlue/90">
+          <Button onClick={() => { setEventToEdit(null); setIsModalOpen(true); }} className="bg-insightBlue hover:bg-insightBlue/90">
             <Plus className="mr-2 h-4 w-4" /> Add Event
           </Button>
         </div>
 
-        {isEditModalOpen && (
+        {isModalOpen && (
           <AddEventModal 
             onAddEvent={handleAddEvent} 
             editEvent={eventToEdit} 
-            children={<div style={{ display: 'none' }}></div>}
+            onClose={() => setIsModalOpen(false)}
           />
         )}
 
