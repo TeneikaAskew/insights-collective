@@ -1,5 +1,4 @@
 
-import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import { AssistantCard } from "@/components/assistants/AssistantCard";
@@ -13,10 +12,9 @@ export default function Assistants() {
   const { toast } = useToast();
   
   const handleLaunchAssistant = (assistant: Assistant) => {
-    // Navigate to the dedicated assistant interface with the assistant data
-    navigate(`/assistant/${assistant.id}`, { 
-      state: { assistant } 
-    });
+    // Navigate to the dedicated assistant interface with just the assistant ID
+    // This avoids the serialization error when trying to pass the entire assistant object
+    navigate(`/assistant/${assistant.id}`);
     
     // Optional: Show toast for feedback
     toast({

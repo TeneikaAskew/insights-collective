@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useLocation, Navigate } from 'react-router-dom';
+import { useParams, Navigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginWall from '@/components/common/LoginWall';
@@ -10,17 +10,12 @@ import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 
 const AssistantInterface = () => {
   const { assistantId } = useParams();
-  const location = useLocation();
   const { isAuthenticated } = useAuth();
   const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null);
   
-  // Get assistant from URL params or state passed from assistants page
+  // Get assistant from URL params
   useEffect(() => {
-    const assistantFromState = location.state?.assistant;
-    
-    if (assistantFromState) {
-      setSelectedAssistant(assistantFromState);
-    } else if (assistantId) {
+    if (assistantId) {
       // Find assistant by ID
       const assistant = [...allAssistants, careerExplorerAssistant].find(
         a => a.id === assistantId
@@ -35,7 +30,7 @@ const AssistantInterface = () => {
       // Default to career explorer if no assistant specified
       setSelectedAssistant(careerExplorerAssistant);
     }
-  }, [assistantId, location.state]);
+  }, [assistantId]);
 
   // If not authenticated, show login wall
   if (!isAuthenticated) {

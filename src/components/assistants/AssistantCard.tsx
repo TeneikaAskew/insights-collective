@@ -1,6 +1,5 @@
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Assistant } from '@/types/assistants';
 import { Badge } from '@/components/ui/badge';
 
@@ -11,15 +10,11 @@ interface AssistantCardProps {
 }
 
 export const AssistantCard = ({ assistant, featured = false, onLaunch }: AssistantCardProps) => {
-  const navigate = useNavigate();
   const IconComponent = assistant.icon.component;
   
   const handleLaunch = () => {
     if (onLaunch) {
       onLaunch(assistant);
-    } else {
-      // Direct navigation fallback if onLaunch is not provided
-      navigate(`/assistant/${assistant.id}`, { state: { assistant } });
     }
   };
   
