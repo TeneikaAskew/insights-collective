@@ -39,7 +39,13 @@ const AssistantInterface = () => {
 
   // If not authenticated, show login wall
   if (!isAuthenticated) {
-    return <LoginWall message="Please log in to use our AI assistants" />;
+    return (
+      <LoginWall 
+        message="Please log in to use our AI assistants" 
+        visibleItems={0} 
+        totalItems={allAssistants.length + 1} // +1 for career explorer assistant
+      />
+    );
   }
   
   // If no assistant is selected yet, show loading
