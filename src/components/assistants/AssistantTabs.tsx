@@ -11,7 +11,7 @@ interface AssistantTabsProps {
 export function AssistantTabs({ assistants, onLaunch }: AssistantTabsProps) {
   return (
     <Tabs defaultValue="all" className="space-y-6">
-      <TabsList className="bg-aquaTeal/10">
+      <TabsList className="bg-slate-100 p-1 rounded-md">
         <TabsTrigger 
           value="all" 
           className="data-[state=active]:bg-energeticAmber data-[state=active]:text-white"
