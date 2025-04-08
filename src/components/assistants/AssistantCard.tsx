@@ -15,11 +15,13 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
   const IconComponent = assistant.icon.component;
   
   const handleLaunch = () => {
+    // Call the onLaunch function if provided
     if (onLaunch) {
       onLaunch(assistant);
+    } else {
+      // Direct navigation fallback if onLaunch is not provided
+      navigate(`/assistant/${assistant.id}`, { state: { assistant } });
     }
-    // Navigate to the dedicated assistant interface with the assistant data
-    navigate(`/assistant/${assistant.id}`, { state: { assistant } });
   };
   
   return (
