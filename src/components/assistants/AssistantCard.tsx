@@ -15,7 +15,6 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
   const IconComponent = assistant.icon.component;
   
   const handleLaunch = () => {
-    // Call the onLaunch function if provided
     if (onLaunch) {
       onLaunch(assistant);
     } else {

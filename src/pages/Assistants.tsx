@@ -6,14 +6,23 @@ import { AssistantCard } from "@/components/assistants/AssistantCard";
 import { AssistantTabs } from "@/components/assistants/AssistantTabs";
 import { careerExplorerAssistant, allAssistants } from "@/data/assistantData";
 import { Assistant } from "@/types/assistants";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Assistants() {
-  const [openAssistant, setOpenAssistant] = useState<Assistant | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const handleLaunchAssistant = (assistant: Assistant) => {
     // Navigate to the dedicated assistant interface with the assistant data
-    navigate(`/assistant/${assistant.id}`, { state: { assistant } });
+    navigate(`/assistant/${assistant.id}`, { 
+      state: { assistant } 
+    });
+    
+    // Optional: Show toast for feedback
+    toast({
+      title: "Launching Assistant",
+      description: `Starting chat with ${assistant.name}`,
+    });
   };
   
   return (
