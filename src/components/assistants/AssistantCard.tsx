@@ -15,6 +15,9 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
   const IconComponent = assistant.icon.component;
   
   const handleLaunch = () => {
+    if (onLaunch) {
+      onLaunch(assistant);
+    }
     // Navigate to the dedicated assistant interface with the assistant data
     navigate(`/assistant/${assistant.id}`, { state: { assistant } });
   };

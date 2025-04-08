@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
 import { AssistantCard } from "@/components/assistants/AssistantCard";
 import { AssistantTabs } from "@/components/assistants/AssistantTabs";
@@ -8,6 +9,12 @@ import { Assistant } from "@/types/assistants";
 
 export default function Assistants() {
   const [openAssistant, setOpenAssistant] = useState<Assistant | null>(null);
+  const navigate = useNavigate();
+  
+  const handleLaunchAssistant = (assistant: Assistant) => {
+    // Navigate to the dedicated assistant interface with the assistant data
+    navigate(`/assistant/${assistant.id}`, { state: { assistant } });
+  };
   
   return (
     <AppLayout>
@@ -25,12 +32,13 @@ export default function Assistants() {
           <AssistantCard 
             assistant={careerExplorerAssistant} 
             featured={true} 
+            onLaunch={handleLaunchAssistant}
           />
         </div>
         
         <AssistantTabs 
           assistants={allAssistants} 
-          onLaunch={() => {}}
+          onLaunch={handleLaunchAssistant}
         />
       </div>
     </AppLayout>
