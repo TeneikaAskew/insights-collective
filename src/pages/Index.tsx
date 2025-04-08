@@ -9,6 +9,7 @@ import CTASection from '@/components/home/CTASection';
 import Footer from '@/components/layout/Footer';
 import LearningJourney from '@/components/home/LearningJourney';
 import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
+import LearningProgressChart from '@/components/home/LearningProgressChart';
 
 const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
@@ -21,6 +22,10 @@ const Index = () => {
       <QuizSection />
       <LearningJourney />
       <FeaturedCourses courses={featuredCourses} />
+      <div className="container mx-auto py-12">
+        <h2 className="text-2xl font-bold mb-6">Learning Performance Overview</h2>
+        <LearningProgressChart />
+      </div>
       <AnalyticsDashboard />
       <UpcomingEvents events={upcomingEvents} />
       <CTASection />
