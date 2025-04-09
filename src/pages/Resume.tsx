@@ -9,12 +9,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import LoginWall from '@/components/common/LoginWall';
 import { useResume } from '@/hooks/useResume';
+import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
+import ResumeAnalysisDisplay from '@/components/resume/ResumeAnalysisDisplay';
+import ResumeChat from '@/components/resume/ResumeChat';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const { resume, loading, uploading, uploadResume, deleteResume } = useResume();
+  const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
+  const [showCareerChat, setShowCareerChat] = useState(false);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -35,9 +40,12 @@ const Resume = () => {
   const handleUpload = async () => {
     if (!resumeFile) return;
     
+    // First upload the resume
     const success = await uploadResume(resumeFile);
     
     if (success) {
+      // Then analyze it
+      await analyzeResume(resumeFile);
       setResumeFile(null);
     }
   };
@@ -53,6 +61,10 @@ const Resume = () => {
     if (resume?.file_url) {
       window.open(resume.file_url, '_blank');
     }
+  };
+  
+  const handleStartCareerChat = () => {
+    setShowCareerChat(true);
   };
 
   if (!isAuthenticated) {
@@ -164,10 +176,12 @@ const Resume = () => {
                 {resumeFile && (
                   <Button 
                     onClick={handleUpload} 
-                    disabled={!resumeFile || uploading} 
+                    disabled={!resumeFile || uploading || isAnalyzing} 
                     className="w-full"
                   >
-                    {uploading ? 'Uploading...' : 'Upload Resume'}
+                    {uploading || isAnalyzing ? 
+                      (isAnalyzing ? 'Analyzing...' : 'Uploading...') : 
+                      'Upload & Analyze Resume'}
                   </Button>
                 )}
                 
@@ -191,7 +205,7 @@ const Resume = () => {
               </CardFooter>
             </Card>
             
-            {/* Right Column - Career GPT Integration */}
+            {/* Right Column - Resume Analysis */}
             <Card>
               <CardHeader>
                 <CardTitle>Resume Analysis</CardTitle>
@@ -200,7 +214,7 @@ const Resume = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {loading ? (
+                {loading || isAnalyzing ? (
                   <div className="space-y-4 animate-pulse">
                     <div className="h-4 bg-muted rounded w-3/4 mb-6"></div>
                     <div className="h-3 bg-muted rounded w-full mb-1"></div>
@@ -216,6 +230,11 @@ const Resume = () => {
                     <div className="h-3 bg-muted rounded w-full mb-1"></div>
                     <div className="h-3 bg-muted rounded w-3/4"></div>
                   </div>
+                ) : analysis ? (
+                  <ResumeAnalysisDisplay 
+                    analysis={analysis} 
+                    onStartCareerChat={handleStartCareerChat}
+                  />
                 ) : resume?.analysis ? (
                   <div className="space-y-4">
                     <div>
@@ -246,6 +265,19 @@ const Resume = () => {
                         {resume.analysis.careerAlignment}
                       </p>
                     </div>
+                    
+                    <CardFooter className="flex-col items-start space-y-2 p-0 pt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Your resume has been analyzed. You can chat with our AI assistant for more personalized advice.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={handleStartCareerChat}
+                      >
+                        Start Career Chat
+                      </Button>
+                    </CardFooter>
                   </div>
                 ) : (
                   <div className="text-center p-6">
@@ -266,23 +298,13 @@ const Resume = () => {
                   </div>
                 )}
               </CardContent>
-              <CardFooter className="flex-col items-start space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  {resume?.analysis 
-                    ? "Your resume has been analyzed. You can chat with our AI assistant for more personalized advice."
-                    : "Upload your resume to receive personalized career advice from our AI assistant."
-                  }
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  disabled={!resume?.analysis}
-                >
-                  Start Career Chat
-                </Button>
-              </CardFooter>
             </Card>
           </div>
+          
+          {/* Career Chat Section */}
+          {showCareerChat && (
+            <ResumeChat resumeAnalysis={analysis} />
+          )}
         </div>
       </div>
     </AppLayout>
