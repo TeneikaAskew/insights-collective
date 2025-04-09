@@ -35,7 +35,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
       const welcomeMessage: Message = {
         id: `welcome-${Date.now()}`,
         role: 'assistant',
-        content: `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.\n\nLet's start by discussing your achievements in your first role. Could you tell me more about the challenges you faced, actions you took, and measurable results you achieved?`,
+        content: `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.\n\nLet's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`,
         timestamp: new Date(),
       };
       
@@ -136,6 +136,9 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
     // Replace numbered lists
     formatted = formatted.replace(/^\d+\. (.*?)$/gm, '<li class="ml-4 list-decimal">$1</li>');
     
+    // Replace * list items with <li> (asterisk list items)
+    formatted = formatted.replace(/^\* (.*?)$/gm, '<li class="ml-4">• $1</li>');
+    
     // Replace newlines with <br>
     formatted = formatted.replace(/\n/g, '<br>');
     
@@ -192,7 +195,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask about improving your resume..."
+            placeholder="Describe the challenges, actions, and results from your first role..."
             className="flex-1 resize-none"
             rows={2}
           />

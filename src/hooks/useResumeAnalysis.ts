@@ -1,16 +1,32 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useResumeAnalysis() {
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Load saved analysis from localStorage on component mount
+  useEffect(() => {
+    if (user) {
+      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+      if (savedAnalysis) {
+        try {
+          setAnalysis(JSON.parse(savedAnalysis));
+        } catch (error) {
+          console.error('Error parsing saved analysis:', error);
+        }
+      }
+    }
+  }, [user]);
 
   const analyzeResume = async (file: File): Promise<boolean> => {
-    if (!file) return false;
+    if (!file || !user) return false;
     
     setIsAnalyzing(true);
     
@@ -37,6 +53,11 @@ export function useResumeAnalysis() {
       
       if (error) throw error;
       
+      // Save the analysis to localStorage for persistence
+      if (data && user) {
+        localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data));
+      }
+      
       setAnalysis(data as ResumeAnalysis);
       
       toast({
@@ -62,6 +83,7 @@ export function useResumeAnalysis() {
 
   return {
     analysis,
+    setAnalysis,
     isAnalyzing,
     analyzeResume
   };
