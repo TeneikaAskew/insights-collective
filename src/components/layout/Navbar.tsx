@@ -20,7 +20,7 @@ const Navbar = () => {
   const { user, isAuthenticated, logout } = useAuth();
   
   return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
       <div className="flex h-14 items-center px-4 gap-4">
         <div>
           <Button 
