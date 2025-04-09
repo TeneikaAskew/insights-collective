@@ -196,7 +196,7 @@ serve(async (req) => {
     
     // Replace "* " with "\n- " for better formatted bullet points
     // Applying formatting function here:
-    aiResponse = formatResponse(aiResponse); //.replace(/\* /g, "\n- ");
+    aiResponse = formatResponse(aiResponse).replace(/\* /g, "\n- ");
     
     console.log('AI response generated successfully.');
     
