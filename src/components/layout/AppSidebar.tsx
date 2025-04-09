@@ -1,4 +1,4 @@
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -37,14 +37,13 @@ const AppSidebar = () => {
       title: "Resources",
       url: "/resources",
       icon: FileText,
-      active: location.pathname.startsWith('/resources') && !location.pathname.includes('/admin/resources'),
-      subItems: [
-        {
-          title: "Data Blueprint Series",
-          url: "/resources/data-blueprint",
-          active: location.pathname === '/resources/data-blueprint',
-        }
-      ]
+      active: location.pathname === '/resources' && !location.pathname.includes('/admin/resources'),
+    },
+    {
+      title: "Data Blueprint",
+      url: "/resources/data-blueprint",
+      icon: FileText,
+      active: location.pathname === '/resources/data-blueprint',
     },
     {
       title: "Explore Data Careers",
@@ -57,6 +56,12 @@ const AppSidebar = () => {
       url: "/events",
       icon: Calendar,
       active: location.pathname === '/events' && !location.pathname.includes('/admin/events'),
+    },
+    {
+      title: "Assistants",
+      url: "/assistants",
+      icon: Bot,
+      active: location.pathname === '/assistants' || location.pathname.startsWith('/assistant/'),
     },
     {
       title: "Notifications",
@@ -153,18 +158,6 @@ const AppSidebar = () => {
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                  {item.subItems && item.subItems.length > 0 && (
-                    <div className="pl-8 mt-1 space-y-1">
-                      {item.subItems.map((subItem) => (
-                        <SidebarMenuButton key={subItem.title} asChild isActive={subItem.active}>
-                          <Link to={subItem.url} className="text-sm">
-                            <ChevronRight className="h-3 w-3 mr-1" />
-                            <span>{subItem.title}</span>
-                          </Link>
-                        </SidebarMenuButton>
-                      ))}
-                    </div>
-                  )}
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>

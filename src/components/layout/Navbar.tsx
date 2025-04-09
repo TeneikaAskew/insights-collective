@@ -39,17 +39,7 @@ const Navbar = () => {
           </Link>
         </div>
         
-        <div className="hidden lg:flex space-x-6 flex-1">
-          {/* Public navigation links only - admin-specific links are hidden */}
-          <Link to="/dashboard" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Dashboard</Link>
-          <Link to="/courses" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Courses</Link>
-          <Link to="/resources" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Resources</Link>
-          <Link to="/resources/data-blueprint" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Data Blueprint</Link>
-          <Link to="/explore-data-careers" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Explore Careers</Link>
-          <Link to="/events" className="px-3 py-2 text-sm font-medium hover:text-primary whitespace-nowrap">Events</Link>
-        </div>
-        
-        <div className="hidden lg:flex lg:flex-1 relative lg:max-w-sm">
+        <div className="flex flex-1 relative">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
@@ -58,7 +48,7 @@ const Navbar = () => {
           />
         </div>
         
-        <div className="flex flex-1 items-center justify-end space-x-4">
+        <div className="flex items-center justify-end space-x-4">
           <nav className="flex items-center space-x-2">
             <Button variant="ghost" size="icon" asChild>
               <Link to="/notifications">
