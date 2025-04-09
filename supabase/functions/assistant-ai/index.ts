@@ -143,50 +143,48 @@ const corsHeaders = {
 // `;
 
 
+// Follow these formatting rules:
+
+// - **Bold Text**  
+//   • Surround important terms or key points with double asterisks: **example**  
+//   • Never split bold spans across lines. If you see partial bold text on one line and the rest on another, merge them into a single line.
+
+// - _Italic Text_  
+//   • Wrap phrases in underscores for emphasis: _example phrase_  
+//   • Do not break italic spans across lines; keep the entire italicized phrase together.
+
+// - \`Code Blocks\`  
+//   • Use single backticks (\`) around short code or technical terms: \`example\`  
+//   • Use triple backticks for multi-line code blocks  
+//   • Keep code snippets intact on one or more consecutive lines; don’t split them mid‑snippet.
+
+// - Bullet Points Only  
+//   • Use hyphens (-) or asterisks (*) for **all** lists—never use numbered lists.  
+//   • Example:  
+//     - Data Engineer: Design and maintain large-scale data pipelines.  
+//     - Senior Data Engineer: Lead teams and architect complex data systems.  
+//   • Ensure each bullet’s text remains on one line. If a bullet is split unnaturally, merge it.
+
+// - Sections and Subsections  
+//   • Use “##” for major sections, followed by a blank line:  
+//     ## Education  
+//   • Use “###” for subsections, followed by a blank line:  
+//     ### Certifications
+
+// - Whitespace and Line Breaks  
+//   • Add blank lines between sections, paragraphs, and lists for readability.  
+//   • Keep one concept or complete sentence per line; avoid mid‑sentence line breaks.  
+//   • Merge any lines that split emphasis or code snippets.
+
+// - Merging Split Lines  
+//   • Detect and fix disruptive splits, such as:  
+//     **Bachelor’s or  
+//     Master’s degree**  
+//     → **Bachelor’s or Master’s degree**
 
 const FORMAT_INSTRUCTIONS = `
-When returning responses, please ensure the content is clearly structured and visually formatted for easy display on a web page.
-
-Follow these formatting rules:
-
-- **Bold Text**  
-  • Surround important terms or key points with double asterisks: **example**  
-  • Never split bold spans across lines. If you see partial bold text on one line and the rest on another, merge them into a single line.
-
-- _Italic Text_  
-  • Wrap phrases in underscores for emphasis: _example phrase_  
-  • Do not break italic spans across lines; keep the entire italicized phrase together.
-
-- \`Code Blocks\`  
-  • Use single backticks (\`) around short code or technical terms: \`example\`  
-  • Use triple backticks for multi-line code blocks  
-  • Keep code snippets intact on one or more consecutive lines; don’t split them mid‑snippet.
-
-- Bullet Points Only  
-  • Use hyphens (-) or asterisks (*) for **all** lists—never use numbered lists.  
-  • Example:  
-    - Data Engineer: Design and maintain large-scale data pipelines.  
-    - Senior Data Engineer: Lead teams and architect complex data systems.  
-  • Ensure each bullet’s text remains on one line. If a bullet is split unnaturally, merge it.
-
-- Sections and Subsections  
-  • Use “##” for major sections, followed by a blank line:  
-    ## Education  
-  • Use “###” for subsections, followed by a blank line:  
-    ### Certifications
-
-- Whitespace and Line Breaks  
-  • Add blank lines between sections, paragraphs, and lists for readability.  
-  • Keep one concept or complete sentence per line; avoid mid‑sentence line breaks.  
-  • Merge any lines that split emphasis or code snippets.
-
-- Merging Split Lines  
-  • Detect and fix disruptive splits, such as:  
-    **Bachelor’s or  
-    Master’s degree**  
-    → **Bachelor’s or Master’s degree**
-
-These rules ensure your output uses consistent Markdown conventions, preserves emphasis spans, and presents content clearly for web display—using only bullet points for lists.  
+When returning responses, please ensure the content is clearly structured and visually formatted for easy display on a web page. 
+These rules ensure your output uses consistent Markdown conventions, preserves emphasis spans, and presents content clearly for web display—using only bullet points for lists. 
 `;
 
 // Knowledge base content as context
