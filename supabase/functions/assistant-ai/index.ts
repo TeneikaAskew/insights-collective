@@ -96,31 +96,7 @@ interface AIRequest {
  * formatResponse
  * Cleans up the raw LLM output into your bullet‑only, balanced‑bold Markdown.
  */
-// function formatResponse(raw: string): string {
-//   let text = raw;
 
-//   // 1) Balanced bold: **…**
-//   text = text.replace(/\*\*(.+?)\*/g, '**$1**');
-//   text = text.replace(/\*(.+?)\*\*/g, '**$1**');
-
-//   // 2) Numbers → bullets
-//   text = text.replace(/^\s*\d+\.\s+/gm, '- ');
-
-//   // 3) Headings: standalone bold lines → ## or ### 
-//   text = text.replace(/^\*\*(.+?)\*\*\s*$/gm, (m, title) => {
-//     const level = title.match(/^(Data Jobs|Data Engineering|Salary Range|Career Progression|Education|Industry Demand|Emerging Trends|Portfolio Development|Job Search Strategies)/)
-//       ? '##' : '###';
-//     return `\n${level} ${title}\n`;
-//   });
-
-//   // 4) Ensure bullets stay on one line (no mid‑sentence splits)
-//   text = text.replace(/(^|\n)(- .+)/g, '\n$1$2');
-
-//   // 5) Collapse 3+ blank lines into 2
-//   text = text.replace(/\n{3,}/g, '\n\n');
-
-//   return text.trim();
-// }
 function formatResponse(raw: string): string {
   let text = raw;
 
