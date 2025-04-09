@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -38,6 +39,7 @@ export const useAuthProvider = () => {
           }
         } else if (event === 'SIGNED_OUT') {
           setSession(null);
+          localStorage.removeItem('redirectAfterLogin');
         }
       }
     );
@@ -70,8 +72,10 @@ export const useAuthProvider = () => {
         description: 'Logged in successfully',
       });
       
-      // Redirect to the specified path or dashboard
-      navigate(redirectTo || '/dashboard');
+      // Redirect will be handled by the auth state change listener
+      if (redirectTo) {
+        localStorage.setItem('redirectAfterLogin', redirectTo);
+      }
     } catch (error: any) {
       setError(error.message);
       toast({
@@ -84,12 +88,18 @@ export const useAuthProvider = () => {
     }
   }, [navigate, toast]);
 
-  const googleSignIn = useCallback(async () => {
+  const googleSignIn = useCallback(async (redirectTo?: string) => {
     try {
       setLoading(true);
       setError(null);
       
-      // For Google OAuth, we'll store the redirect URL and use it when the auth state changes
+      // Store redirect URL for after auth
+      if (redirectTo) {
+        localStorage.setItem('redirectAfterLogin', redirectTo);
+      } else if (location.pathname !== '/login') {
+        localStorage.setItem('redirectAfterLogin', location.pathname);
+      }
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -109,7 +119,7 @@ export const useAuthProvider = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, location]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     try {
@@ -150,6 +160,7 @@ export const useAuthProvider = () => {
   const logout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
+      localStorage.removeItem('redirectAfterLogin');
       toast({
         title: 'Success',
         description: 'Logged out successfully',

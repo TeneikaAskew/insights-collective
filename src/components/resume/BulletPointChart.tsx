@@ -1,8 +1,7 @@
 
 import React from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Label } from 'recharts';
-import { CircleCheck, Activity, TrendingUp, CircleDot } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface BulletPointChartProps {
   bullet: BulletAnalysis;
@@ -13,10 +12,10 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({ bullet }) => {
   
   // Format data for the chart with colors matching the design
   const data = [
-    { name: 'Hard & Soft Skills', value: bullet.xyz_scores.hard_soft, fill: '#3b82f6', target: 35, Icon: CircleCheck }, // Blue
-    { name: 'Action Words', value: bullet.xyz_scores.action_words, fill: '#ef4444', target: 15, Icon: Activity }, // Red
-    { name: 'Measurable Results', value: bullet.xyz_scores.measurable_results, fill: '#22c55e', target: 15, Icon: TrendingUp }, // Green
-    { name: 'Common Words', value: bullet.xyz_scores.clarity_focus, fill: '#d1d5db', target: 35, Icon: CircleDot }  // Gray
+    { name: 'Hard & Soft Skills', value: bullet.xyz_scores.hard_soft, fill: '#3b82f6', target: 35, percent: 0 }, // Blue
+    { name: 'Action Words', value: bullet.xyz_scores.action_words, fill: '#ef4444', target: 15, percent: 0 }, // Red
+    { name: 'Measurable Results', value: bullet.xyz_scores.measurable_results, fill: '#22c55e', target: 15, percent: 0 }, // Green
+    { name: 'Common Words', value: bullet.xyz_scores.clarity_focus, fill: '#d1d5db', target: 35, percent: 0 }  // Gray
   ];
   
   // Calculate actual percentages
@@ -26,22 +25,70 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({ bullet }) => {
     percent: Math.round((item.value / (totalScore || 1)) * 100)
   }));
   
-  // Original bullet text with highlights matching the example
-  const originalText = bullet.original;
+  // Extract the bullet text and highlight components based on the type
+  const getBulletText = () => {
+    if (!bullet.original) return [];
+    
+    // Simple parsing to identify potential parts (this would be enhanced in a real app)
+    const parts = [];
+    const text = bullet.original;
+    
+    // Check for action words (usually at the beginning)
+    const actionWords = ['Spearheaded', 'Implemented', 'Developed', 'Created', 'Led', 'Managed'];
+    let remaining = text;
+    
+    // Look for action words
+    for (const word of actionWords) {
+      if (text.startsWith(word)) {
+        parts.push({ text: word, type: 'action' });
+        remaining = text.substring(word.length);
+        break;
+      }
+    }
+    
+    // Look for numbers (measurable results)
+    const numberMatch = remaining.match(/\d+%|\d+ percent|\$\d+|\d+x/);
+    if (numberMatch) {
+      const index = remaining.indexOf(numberMatch[0]);
+      parts.push({ text: remaining.substring(0, index), type: 'normal' });
+      parts.push({ text: numberMatch[0], type: 'measurable' });
+      parts.push({ text: remaining.substring(index + numberMatch[0].length), type: 'normal' });
+    } else {
+      parts.push({ text: remaining, type: 'normal' });
+    }
+    
+    return parts;
+  };
   
   // Function to determine if target is met
   const isTargetMet = (actual: number, target: number) => {
     return actual >= target - 5 && actual <= target + 5;
   };
   
+  // Sample bullet text parts - in production this would be dynamically generated
+  const sampleBulletParts = [
+    { text: 'Spearheaded', type: 'action' },
+    { text: ' new training protocols to reduce ', type: 'normal' },
+    { text: 'new hire onboarding', type: 'skill' },
+    { text: ' by ', type: 'normal' },
+    { text: '15%', type: 'measurable' },
+  ];
+  
   return (
     <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
-      <div className="text-center mb-4">
-        <h3 className="text-xl font-bold text-gray-900">Resume Bullet Analysis</h3>
-        <p className="text-lg mt-2 mb-4">
-          <span className="text-blue-600 font-semibold">Spearheaded new training protocols</span> to reduce 
-          <span className="text-red-500 font-semibold"> new hire onboarding</span> by 
-          <span className="text-green-600 font-semibold"> 15%</span>
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-900">Resume Bullet Analysis</h2>
+        <p className="text-lg mt-4 mb-4">
+          {sampleBulletParts.map((part, index) => (
+            <span key={index} className={
+              part.type === 'action' ? 'text-blue-600 font-semibold' :
+              part.type === 'skill' ? 'text-red-500 font-semibold' :
+              part.type === 'measurable' ? 'text-green-600 font-semibold' :
+              ''
+            }>
+              {part.text}
+            </span>
+          ))}
         </p>
       </div>
       
@@ -65,16 +112,6 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({ bullet }) => {
                   {dataWithPercent.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.fill} />
                   ))}
-                  <Label
-                    value={bullet_total}
-                    position="center"
-                    fill="#374151"
-                    style={{
-                      fontSize: '32px',
-                      fontWeight: 'bold',
-                      fontFamily: 'Arial',
-                    }}
-                  />
                 </Pie>
               </PieChart>
             </ResponsiveContainer>

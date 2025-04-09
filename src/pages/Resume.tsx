@@ -1,17 +1,17 @@
+
 import React, { useState, useEffect } from 'react';
 import { FileUp, File, DownloadCloud, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
-import LoginWall from '@/components/common/LoginWall';
 import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeAnalysisDisplay from '@/components/resume/ResumeAnalysisDisplay';
 import ResumeChat from '@/components/resume/ResumeChat';
 import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
+import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -68,11 +68,7 @@ const Resume = () => {
   };
 
   if (!isAuthenticated) {
-    return <LoginWall 
-      message="Sign in to upload your resume and get personalized career insights and recommendations."
-      visibleItems={0} 
-      totalItems={1}
-    />;
+    return <ResumeLoginWall />;
   }
 
   return (
@@ -246,8 +242,6 @@ const Resume = () => {
                       </ul>
                     </div>
                     
-                    <Separator />
-                    
                     <div>
                       <h3 className="font-medium mb-2">Areas for Improvement</h3>
                       <ul className="list-disc pl-5 space-y-1 text-sm">
@@ -256,8 +250,6 @@ const Resume = () => {
                         ))}
                       </ul>
                     </div>
-                    
-                    <Separator />
                     
                     <div>
                       <h3 className="font-medium mb-2">Career Alignment</h3>
@@ -302,7 +294,7 @@ const Resume = () => {
           </div>
           
           {/* Bullet Point Analysis Section */}
-          {(analysis || (resume?.analysis && resume.analysis.bullets)) && (
+          {(analysis?.bullets?.length > 0 || (resume?.analysis?.bullets && resume.analysis.bullets.length > 0)) && (
             <Card className="w-full">
               <CardHeader>
                 <CardTitle>Detailed Resume Bullet Analysis</CardTitle>
