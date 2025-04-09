@@ -170,7 +170,11 @@ serve(async (req) => {
                      
                      Focus on providing accurate, actionable advice based on the knowledge base above.
                      If you're unsure about something or if the information isn't in the knowledge base,
-                     acknowledge the limitations of your knowledge rather than making up information.`
+                     acknowledge the limitations of your knowledge rather than making up information.
+                     
+                     Important: When outputting bullet points that start with "* ", replace this with a newline 
+                     followed by "- " for better formatting. Make sure to add a newline between each bullet point
+                     as well.`
           },
           {
             role: 'user',
@@ -189,7 +193,10 @@ serve(async (req) => {
     }
     
     const data = await response.json();
-    const aiResponse = data.choices[0].message.content;
+    let aiResponse = data.choices[0].message.content;
+    
+    // Replace "* " with "\n- " for better formatted bullet points
+    aiResponse = aiResponse.replace(/\* /g, "\n- ");
     
     console.log('AI response generated successfully.');
     

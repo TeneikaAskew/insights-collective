@@ -77,12 +77,13 @@ const ChatBot = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Add menu buttons on first load
+  // Always show menu buttons on first load (fix for menu not showing)
   useEffect(() => {
-    if (isOpen && showMenuButtons) {
-      setShowMenuButtons(false);
+    if (isOpen) {
+      // Don't hide menu buttons automatically
+      // We'll leave them visible until user interacts
     }
-  }, [isOpen, showMenuButtons]);
+  }, [isOpen]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -104,6 +105,7 @@ const ChatBot = () => {
     setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsProcessing(true);
+    setShowMenuButtons(false); // Hide menu buttons when user starts chatting
     
     try {
       // In a real implementation, this would be an API call to a backend service
@@ -185,6 +187,9 @@ const ChatBot = () => {
     setIsOpen(false);
     // Reset for next opening
     setShowMenuButtons(true);
+    
+    // Reset messages to initial state when closing
+    setMessages(INITIAL_MESSAGES);
   };
 
   // Renders menu navigation buttons
@@ -300,7 +305,8 @@ const ChatBot = () => {
                     </div>
                   </div>
                 ))}
-                {/* Show menu buttons after initial message */}
+                
+                {/* Always show menu buttons after initial message, unless user has started chatting */}
                 {showMenuButtons && (
                   <div className="flex justify-start w-full">
                     <div className="max-w-[95%] w-full">
@@ -308,6 +314,7 @@ const ChatBot = () => {
                     </div>
                   </div>
                 )}
+                
                 {isProcessing && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-lg p-3 bg-secondary text-secondary-foreground">

@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Assistant } from '@/types/assistants';
 import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 import AssistantChatSidebar from './AssistantChatSidebar';
 import AssistantControlPanel from './AssistantControlPanel';
-import { ChevronLeft, ChevronRight, Send, PanelLeft, PanelRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Send, PanelLeft, PanelRight, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar } from '@/components/ui/avatar';
@@ -16,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 export type Message = {
   id: string;
-  role: 'assistant' | 'user';
+  role: 'assistant' | 'user' | 'system';
   content: string;
   timestamp: Date;
 };
@@ -55,7 +54,7 @@ const AssistantChatInterface = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Initialize with welcome message
+  // Initialize with welcome message and personalization reminder
   useEffect(() => {
     const welcomeMessage: Message = {
       id: `welcome-${Date.now()}`,
@@ -64,13 +63,21 @@ const AssistantChatInterface = ({
       timestamp: new Date(),
     };
     
-    setMessages([welcomeMessage]);
+    // Add personalization settings reminder
+    const personalizationReminder: Message = {
+      id: `reminder-${Date.now()}`,
+      role: 'system',
+      content: `**Personalization Settings Reminder**\n\nYour current settings:\n- Career Focus: **${careerFocus}**\n- Career Path: **${careerPath}**\n- Target Salary: **$${salaryCap.toLocaleString()}**\n\nAdjust these settings in the sidebar to get more tailored responses.`,
+      timestamp: new Date(),
+    };
+    
+    setMessages([welcomeMessage, personalizationReminder]);
     
     // Create new chat
     const newChat: Chat = {
       id: `chat-${Date.now()}`,
       title: `New ${assistant.name} Chat`,
-      messages: [welcomeMessage],
+      messages: [welcomeMessage, personalizationReminder],
       assistantId: assistant.id,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -82,7 +89,7 @@ const AssistantChatInterface = ({
     const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
     savedChats.push(newChat);
     localStorage.setItem('assistantChats', JSON.stringify(savedChats));
-  }, [assistant]);
+  }, [assistant, careerFocus, careerPath, salaryCap]);
 
   const handleAssistantChange = (assistantId: string) => {
     const newAssistant = [...allAssistants, careerExplorerAssistant].find(
@@ -371,20 +378,41 @@ const AssistantChatInterface = ({
           {messages.map((message) => (
             <div 
               key={message.id}
-              className={`flex ${message.role === 'assistant' ? 'justify-start' : 'justify-end'}`}
+              className={`flex ${
+                message.role === 'assistant' 
+                  ? 'justify-start' 
+                  : message.role === 'user' 
+                    ? 'justify-end' 
+                    : 'justify-center'
+              }`}
             >
               <div className={`max-w-3xl p-3 rounded-lg ${
                 message.role === 'assistant' 
                   ? 'bg-slate-100 text-slate-800' 
-                  : 'bg-blue-600 text-white'
+                  : message.role === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-amber-50 border border-amber-200 text-amber-800 w-full'
               }`}>
+                {message.role === 'system' && (
+                  <div className="flex items-center mb-2">
+                    <Settings className="h-4 w-4 mr-2" />
+                    <span className="text-sm font-medium">System Message</span>
+                  </div>
+                )}
                 {message.role === 'assistant' ? (
                   <div 
                     className="prose prose-slate max-w-none"
                     dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
                   />
                 ) : (
-                  message.content
+                  <div 
+                    className={message.role === 'system' 
+                      ? "prose prose-amber max-w-none text-sm" 
+                      : ""}
+                    dangerouslySetInnerHTML={{ __html: message.role === 'system' 
+                      ? formatMessage(message.content) 
+                      : message.content }}
+                  />
                 )}
               </div>
             </div>
