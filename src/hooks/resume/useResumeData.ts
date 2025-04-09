@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage } from './useResumeStorage';
+import { Json } from '@/integrations/supabase/types';
 
 interface Resume {
   id: string;
@@ -15,6 +16,24 @@ interface Resume {
   uploaded_at: string;
   updated_at: string;
   file_url?: string;
+}
+
+// Interface for creating a new resume record
+interface CreateResumeData {
+  user_id: string;
+  file_path: string;
+  analysis?: any;
+  career_alignment_score?: number;
+  target_role?: string;
+}
+
+// Interface for updating an existing resume record
+interface UpdateResumeData {
+  file_path?: string;
+  analysis?: any;
+  career_alignment_score?: number;
+  target_role?: string;
+  updated_at?: string;
 }
 
 export function useResumeData() {
@@ -61,7 +80,7 @@ export function useResumeData() {
     }
   };
   
-  const updateResumeRecord = async (userId: string, data: Partial<Resume>) => {
+  const updateResumeRecord = async (userId: string, data: UpdateResumeData) => {
     try {
       const { error } = await supabase
         .from('resumes')
@@ -76,7 +95,7 @@ export function useResumeData() {
     }
   };
   
-  const createResumeRecord = async (data: Partial<Resume>) => {
+  const createResumeRecord = async (data: CreateResumeData) => {
     try {
       const { error } = await supabase
         .from('resumes')

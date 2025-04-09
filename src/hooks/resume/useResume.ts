@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage } from './useResumeStorage';
 import { useResumeData } from './useResumeData';
+import { supabase } from '@/integrations/supabase/client';
 
 export function useResume() {
   const [uploading, setUploading] = useState(false);
@@ -30,9 +31,9 @@ export function useResume() {
     setUploading(true);
     try {
       // Upload file to storage
-      const { fileName, success } = await uploadResumeFile(file, user.id);
+      const { fileName, success: uploadSuccess } = await uploadResumeFile(file, user.id);
       
-      if (!success) {
+      if (!uploadSuccess) {
         return false;
       }
       
@@ -58,17 +59,17 @@ export function useResume() {
         .eq('user_id', user.id)
         .maybeSingle();
       
-      let success;
+      let operationSuccess = false;
       if (existingResume) {
         // Update existing resume
-        success = await updateResumeRecord(user.id, {
+        operationSuccess = await updateResumeRecord(user.id, {
           file_path: fileName,
           analysis: mockAnalysis,
           updated_at: new Date().toISOString()
         });
       } else {
         // Insert new resume
-        success = await createResumeRecord({
+        operationSuccess = await createResumeRecord({
           user_id: user.id,
           file_path: fileName,
           analysis: mockAnalysis,
@@ -77,7 +78,7 @@ export function useResume() {
         });
       }
       
-      if (!success) {
+      if (!operationSuccess) {
         throw new Error('Failed to update database record');
       }
       
@@ -119,8 +120,6 @@ export function useResume() {
       if (!recordDeleted) {
         throw new Error('Failed to delete database record');
       }
-      
-      setResume(null);
       
       toast({
         title: "Resume deleted",
