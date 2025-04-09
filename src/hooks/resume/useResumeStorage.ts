@@ -12,7 +12,9 @@ export function useResumeStorage() {
   const uploadResumeFile = async (file: File, userId: string) => {
     setUploading(true);
     try {
-      const fileName = `resume_${Date.now()}.pdf`;
+      // Use consistent naming format with timestamp
+      const timestamp = Date.now();
+      const fileName = `resume_${timestamp}.pdf`;
       const filePath = `${userId}/${fileName}`;
       
       // Upload file to Storage
@@ -23,7 +25,7 @@ export function useResumeStorage() {
         
       if (uploadError) throw uploadError;
       
-      return { fileName, success: true };
+      return { fileName, filePath, timestamp, success: true };
     } catch (error) {
       console.error('Error uploading resume file:', error);
       toast({

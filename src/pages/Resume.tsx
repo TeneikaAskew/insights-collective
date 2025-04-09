@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { FileUp, File, DownloadCloud, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import ResumeAnalysisDisplay from '@/components/resume/ResumeAnalysisDisplay';
 import ResumeChat from '@/components/resume/ResumeChat';
 import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -20,6 +20,19 @@ const Resume = () => {
   const { resume, loading, uploading, uploadResume, deleteResume } = useResume();
   const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
+  const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (resumeFile) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPdfDataUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(resumeFile);
+    } else {
+      setPdfDataUrl(null);
+    }
+  }, [resumeFile]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -40,13 +53,10 @@ const Resume = () => {
   const handleUpload = async () => {
     if (!resumeFile) return;
     
-    // First upload the resume
     const success = await uploadResume(resumeFile);
     
     if (success) {
-      // Then analyze it
       await analyzeResume(resumeFile);
-      setResumeFile(null);
     }
   };
 
@@ -55,6 +65,7 @@ const Resume = () => {
       await deleteResume();
     }
     setResumeFile(null);
+    setPdfDataUrl(null);
   };
 
   const handleDownload = () => {
@@ -142,29 +153,30 @@ const Resume = () => {
                       </div>
                     </div>
                     
-                    {resume?.file_url && !resumeFile && (
-                      <div className="mt-4 pt-4 border-t">
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Resume preview
-                        </p>
+                    <div className="mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Resume preview
+                      </p>
+                      {resume?.file_url && (
                         <iframe 
                           src={`${resume.file_url}#toolbar=0&navpanes=0`}
                           className="w-full aspect-[8.5/11] border rounded-md"
                           title="Resume preview"
                         />
-                      </div>
-                    )}
-                    
-                    {resumeFile && (
-                      <div className="mt-4 pt-4 border-t">
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Resume preview will appear after upload
-                        </p>
+                      )}
+                      {pdfDataUrl && !resume?.file_url && (
+                        <iframe 
+                          src={pdfDataUrl}
+                          className="w-full aspect-[8.5/11] border rounded-md"
+                          title="Resume preview"
+                        />
+                      )}
+                      {!pdfDataUrl && !resume?.file_url && (
                         <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
                           <p className="text-muted-foreground">PDF Preview</p>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </CardContent>

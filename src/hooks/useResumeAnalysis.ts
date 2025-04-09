@@ -5,6 +5,10 @@ import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { useAuth } from '@/contexts/AuthContext';
 
+// PDF.js library to extract text from PDFs
+import * as pdfjs from 'pdfjs-dist';
+pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+
 export function useResumeAnalysis() {
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -25,32 +29,98 @@ export function useResumeAnalysis() {
     }
   }, [user]);
 
+  // Extract text from PDF file
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Load the PDF document
+      const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
+      
+      let fullText = '';
+      
+      // Extract text from each page
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        
+        fullText += pageText + '\n';
+      }
+      
+      return fullText;
+    } catch (error) {
+      console.error('Error extracting text from PDF:', error);
+      throw new Error('Failed to extract text from PDF');
+    }
+  };
+  
+  // Store resume text in Supabase
+  const storeResumeText = async (userId: string, resumeText: string): Promise<boolean> => {
+    try {
+      // Check if user already has a resume record
+      const { data: existingResume, error: fetchError } = await supabase
+        .from('resumes')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (fetchError) throw fetchError;
+      
+      if (existingResume) {
+        // Update existing record
+        const { error } = await supabase
+          .from('resumes')
+          .update({ 
+            file_path: 'resume_text',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingResume.id);
+          
+        if (error) throw error;
+      } else {
+        // Create new record
+        const { error } = await supabase
+          .from('resumes')
+          .insert({
+            user_id: userId,
+            file_path: 'resume_text'
+          });
+          
+        if (error) throw error;
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Error storing resume text:', error);
+      return false;
+    }
+  };
+
   const analyzeResume = async (file: File): Promise<boolean> => {
-    if (!file) return false;
+    if (!file || !user) return false;
     
     setIsAnalyzing(true);
     
     try {
-      // Read the file content
-      const fileReader = new FileReader();
-      const textPromise = new Promise<string>((resolve, reject) => {
-        fileReader.onload = (e) => {
-          const text = e.target?.result as string;
-          resolve(text);
-        };
-        fileReader.onerror = () => {
-          reject(new Error('Failed to read the file'));
-        };
-      });
+      // Step 1: Extract text from PDF
+      const resumeText = await extractTextFromPDF(file);
       
-      fileReader.readAsText(file);
-      const resumeText = await textPromise;
+      // Step 2: Store the text in Supabase
+      const storedSuccessfully = await storeResumeText(user.id, resumeText);
       
-      // Call the Edge Function with user ID if authenticated
+      if (!storedSuccessfully) {
+        throw new Error('Failed to store resume text in database');
+      }
+      
+      // Step 3: Call the Edge Function with user ID and resume text
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
           resumeText,
-          userId: user?.id // Include user ID if available
+          userId: user.id
         }
       });
       
