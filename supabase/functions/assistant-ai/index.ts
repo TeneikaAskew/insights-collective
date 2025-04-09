@@ -8,32 +8,92 @@ const corsHeaders = {
 }
 
 // System prompt for controlling response format
+// const FORMAT_INSTRUCTIONS = `
+// When returning responses, please ensure the content is clearly structured and visually formatted for easy display on a web page.
+
+// Follow these formatting rules:
+// - Bold: Surround important terms or key points with ** (e.g., **Data Engineer**)
+// - Italics: Use _ for emphasis around phrases (e.g., _important concept_)
+// - Code blocks: Use backticks (like \`code\`) to indicate code or technical terms
+// - Numbered lists: Group steps or sequences into numbered lists (1., 2., 3.)
+// - Bullet points: Group items into unordered lists using -
+// - Sections: Use ## for major sections and ### for sub-sections
+// - Whitespace: Add line breaks between sections, paragraphs, and lists
+
+// Example formatted response:
+// ## Career Path Analysis
+
+// Based on your interest in **Data Engineering** within the _technology sector_, here are three recommended roles:
+
+// 1. **Junior Data Engineer** - Entry level position focusing on ETL processes
+// 2. **Data Pipeline Specialist** - Mid-level role with emphasis on automation
+// 3. **Lead Data Architect** - Senior position requiring 5+ years experience
+
+// ### Technical Skills Required:
+// - \`SQL\` and database management
+// - \`Python\` or \`Java\` programming
+// - Cloud platforms (AWS/Azure/GCP)
+// `
+
 const FORMAT_INSTRUCTIONS = `
 When returning responses, please ensure the content is clearly structured and visually formatted for easy display on a web page.
 
 Follow these formatting rules:
-- Bold: Surround important terms or key points with ** (e.g., **Data Engineer**)
-- Italics: Use _ for emphasis around phrases (e.g., _important concept_)
-- Code blocks: Use backticks (like \`code\`) to indicate code or technical terms
-- Numbered lists: Group steps or sequences into numbered lists (1., 2., 3.)
-- Bullet points: Group items into unordered lists using -
-- Sections: Use ## for major sections and ### for sub-sections
-- Whitespace: Add line breaks between sections, paragraphs, and lists
 
-Example formatted response:
-## Career Path Analysis
+1. **Bold Text**
+   - Surround important terms or key points with double asterisks: **example**
+   - If you encounter *partially split* bold text (e.g., "**Bachelor's or**" on one line and "**Master's degree**" on the next), combine them into a single line. Essentially, do not allow the bold text to be split across multiple lines.
 
-Based on your interest in **Data Engineering** within the _technology sector_, here are three recommended roles:
+2. _Italic Text_
+   - For emphasis, wrap phrases in underscores: _example phrase_
+   - As with bold text, if italic text is split across lines, unify it into a single line.
 
-1. **Junior Data Engineer** - Entry level position focusing on ETL processes
-2. **Data Pipeline Specialist** - Mid-level role with emphasis on automation
-3. **Lead Data Architect** - Senior position requiring 5+ years experience
+3. \`Code Blocks\`
+   - Use single backticks \` \` around short code or technical terms: \`example\`
+   - Use triple backticks for multi-line code blocks
+   - Avoid splitting code blocks across lines. Keep the entire code snippet together.
 
-### Technical Skills Required:
-- \`SQL\` and database management
-- \`Python\` or \`Java\` programming
-- Cloud platforms (AWS/Azure/GCP)
-`
+4. Numbered Lists
+   - Use a proper ascending sequence for lists. For example:
+       1. First item
+       2. Second item
+       3. Third item
+   - If multiple items are all labeled “1.”, re-label them 1., 2., 3., etc. to reflect correct ordering.
+   - Avoid restarting numbering from 1 unless a new, separate list truly begins.
+
+5. Bullet Points
+   - Use a hyphen (-) or asterisk (*) for unordered lists. Example:
+       - First bullet
+       - Second bullet
+   - Keep each bullet on a single line. If a bullet’s text is split across lines (other than normal wrapping), unify it.
+
+6. Sections and Subsections
+   - Use “##” for major sections, then add a blank line, e.g.:
+       ## Education
+   - Use “###” for subsections, e.g.:
+       ### Certifications
+   - Place a blank line after each section or subsection heading.
+
+7. Whitespace and Line Breaks
+   - Add a line break between paragraphs, sections, and lists.
+   - Do not break up partial emphasis (bold or italics) or code snippets across multiple lines.
+   - Keep one concept per line or paragraph to promote clarity.
+
+8. Merging Split Lines
+   - If you encounter text that was split mid-sentence in a disruptive way (e.g., half of the sentence with bold text on one line and the rest on another), unify it into a single line.
+   - Example: 
+        **Bachelor's or
+        Master's degree** 
+     should become:
+        **Bachelor's or Master's degree**
+
+9. General Emphasis and Flow
+   - Aim for readability and consistency in spacing, line breaks, and headings.
+   - If it’s unclear whether a new line is intended to be a bullet or a heading, default to normal paragraph text and unify it with the preceding line if appropriate.
+
+These instructions ensure your returned text is cleanly formatted, easy to read, and uses proper Markdown conventions without splitting important markup or enumerations across lines.
+`;
+
 
 // Knowledge base content as context
 const KNOWLEDGE_BASE = `
