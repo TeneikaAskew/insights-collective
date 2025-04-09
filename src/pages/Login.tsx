@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -121,8 +120,8 @@ const Login = () => {
               <div className="text-sm text-muted-foreground">
                 <p>Demo Accounts:</p>
                 <ul className="list-disc list-inside mt-1">
-                  <li>Student: john.doe@ic.tech / password</li>
-                  <li>Instructor: jane.smith@ic.tech / password</li>
+                  <li>Student: john.doe@example.com / password</li>
+                  <li>Instructor: jame.smith@example.com / password</li>
                   <li>Admin: admin@ic.tech / password</li>
                 </ul>
               </div>
