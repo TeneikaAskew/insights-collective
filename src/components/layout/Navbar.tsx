@@ -1,8 +1,7 @@
 
-import { Bell, Menu, Search, UserCircle } from 'lucide-react';
+import { Bell, Menu, UserCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import SiteSearch from '@/components/search/SiteSearch';
 
 const Navbar = () => {
   const location = useLocation();
@@ -39,14 +39,7 @@ const Navbar = () => {
           </Link>
         </div>
         
-        <div className="flex flex-1 relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Search courses..."
-            className="w-full pl-8 bg-background"
-          />
-        </div>
+        <SiteSearch />
         
         <div className="flex items-center justify-end space-x-4">
           <nav className="flex items-center space-x-2">
