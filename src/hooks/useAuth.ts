@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
@@ -15,6 +15,7 @@ export const useAuthProvider = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   
   // Get enriched user data
@@ -44,7 +45,7 @@ export const useAuthProvider = () => {
     };
   }, []);
   
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string, redirectTo?: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -61,7 +62,8 @@ export const useAuthProvider = () => {
         description: 'Logged in successfully',
       });
       
-      navigate('/dashboard');
+      // Redirect to the specified path or dashboard
+      navigate(redirectTo || '/dashboard');
     } catch (error: any) {
       setError(error.message);
       toast({

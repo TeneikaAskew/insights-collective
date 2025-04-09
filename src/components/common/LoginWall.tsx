@@ -1,41 +1,53 @@
 
 import React from 'react';
+import { Navigate, useLocation } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LockIcon } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Lock } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface LoginWallProps {
   message: string;
-  visibleItems: number;
-  totalItems: number;
+  visibleItems?: number;
+  totalItems?: number;
+  children?: React.ReactNode;
 }
 
-const LoginWall = ({ message, visibleItems, totalItems }: LoginWallProps) => {
-  const navigate = useNavigate();
+const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: LoginWallProps) => {
+  const location = useLocation();
   
   return (
-    <div className="relative">
-      {/* Overlay with blurred background */}
-      <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-6 z-10 rounded-lg border border-primary/20">
-        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-          <LockIcon className="h-8 w-8 text-primary" />
-        </div>
-        <h3 className="text-2xl font-bold mb-2">Content Locked</h3>
-        <p className="text-lg mb-2">
-          You're viewing {visibleItems} of {totalItems} items
-        </p>
-        <p className="text-muted-foreground mb-6 max-w-md">
-          {message}
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Button size="lg" onClick={() => navigate('/login')}>
-            Sign In
-          </Button>
-          <Button size="lg" variant="outline" onClick={() => navigate('/register')}>
-            Create Account
-          </Button>
-        </div>
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
+      <Card className="max-w-md w-full">
+        <CardContent className="pt-6 flex flex-col items-center text-center space-y-4">
+          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mb-2">
+            <Lock className="h-8 w-8 text-primary" />
+          </div>
+          
+          <h2 className="text-2xl font-bold">Sign in Required</h2>
+          <p className="text-muted-foreground">{message}</p>
+          
+          {visibleItems > 0 && totalItems > 0 && (
+            <div className="w-full bg-muted h-2 rounded-full overflow-hidden mt-4">
+              <div 
+                className="bg-primary h-full"
+                style={{ width: `${(visibleItems / totalItems) * 100}%` }}
+              ></div>
+            </div>
+          )}
+          
+          <div className="flex flex-col w-full gap-2 mt-4">
+            <Link to="/login" state={{ from: location }}>
+              <Button className="w-full">Sign In</Button>
+            </Link>
+            <Link to="/register" state={{ from: location }}>
+              <Button variant="outline" className="w-full">Create Account</Button>
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {children}
     </div>
   );
 };

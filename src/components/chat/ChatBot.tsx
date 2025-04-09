@@ -16,10 +16,22 @@ type Message = {
   timestamp: Date;
 };
 
+const MENU_DESCRIPTIONS = {
+  dashboard: "View your learning progress and recommended content",
+  courses: "Browse and enroll in our data science curriculum",
+  events: "Upcoming workshops, webinars, and networking opportunities",
+  resources: "Articles, guides, and learning materials",
+  assistants: "AI-powered career and learning assistants",
+  profile: "Manage your account and track achievements",
+  resume: "Build and customize your data professional resume",
+  messages: "Connect with instructors and fellow learners",
+  calendar: "Schedule and track learning events and deadlines"
+};
+
 const INITIAL_MESSAGES: Message[] = [
   {
     id: '1',
-    content: "Hi there! I'm the IC Assistant. I can help with questions about our courses, resources, events, or data career advice. What would you like to know?",
+    content: "Hi there! I'm the IC Assistant. I can help you navigate our platform and answer questions about data careers.\n\nHere's a quick overview of what you can find in our menu:\n\n• Dashboard: View your learning progress and recommended content\n• Courses: Browse our data science curriculum\n• Events: Upcoming workshops and webinars\n• Resources: Access articles and learning materials\n• Assistants: Get career guidance from AI assistants\n• Profile: Manage your account settings\n\nWhat would you like to explore today?",
     role: 'assistant',
     timestamp: new Date(),
   },
@@ -109,8 +121,15 @@ const ChatBot = () => {
 
   const generateResponse = (query: string, isAuthenticated: boolean): string => {
     // Simple keyword matching for demo purposes
-    // In a real implementation, this would use a proper NLP/LLM service
     const normalizedQuery = query.toLowerCase();
+    
+    if (normalizedQuery.includes('menu') || normalizedQuery.includes('navigation') || normalizedQuery.includes('find')) {
+      const menuItems = Object.entries(MENU_DESCRIPTIONS)
+        .map(([key, desc]) => `• ${key.charAt(0).toUpperCase() + key.slice(1)}: ${desc}`)
+        .join('\n');
+      
+      return `Here's what you can find in our main menu:\n\n${menuItems}\n\nIs there a specific section you'd like to know more about?`;
+    }
     
     if (normalizedQuery.includes('course') || normalizedQuery.includes('class')) {
       return "We offer courses in Data Science, Analytics, Data Engineering, and Machine Learning. Each course is designed with a practical, hands-on approach to help you build real-world skills.";
