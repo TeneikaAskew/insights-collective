@@ -35,65 +35,112 @@ const corsHeaders = {
 // - Cloud platforms (AWS/Azure/GCP)
 // `
 
+// const FORMAT_INSTRUCTIONS = `
+// When returning responses, please ensure the content is clearly structured and visually formatted for easy display on a web page.
+
+// Follow these formatting rules:
+
+// 1. **Bold Text**
+//    - Surround important terms or key points with double asterisks: **example**
+//    - If you encounter *partially split* bold text (e.g., "**Bachelor's or**" on one line and "**Master's degree**" on the next), combine them into a single line. Essentially, do not allow the bold text to be split across multiple lines.
+
+// 2. _Italic Text_
+//    - For emphasis, wrap phrases in underscores: _example phrase_
+//    - As with bold text, if italic text is split across lines, unify it into a single line.
+
+// 3. \`Code Blocks\`
+//    - Use single backticks \` \` around short code or technical terms: \`example\`
+//    - Use triple backticks for multi-line code blocks
+//    - Avoid splitting code blocks across lines. Keep the entire code snippet together.
+
+// 4. Numbered Lists
+//    - Use a proper ascending sequence for lists. For example:
+//        1. First item
+//        2. Second item
+//        3. Third item
+//    - If multiple items are all labeled “1.”, re-label them 1., 2., 3., etc. to reflect correct ordering.
+//    - Avoid restarting numbering from 1 unless a new, separate list truly begins.
+
+// 5. Bullet Points
+//    - Use a hyphen (-) or asterisk (*) for unordered lists. Example:
+//        - First bullet
+//        - Second bullet
+//    - Keep each bullet on a single line. If a bullet’s text is split across lines (other than normal wrapping), unify it.
+
+// 6. Sections and Subsections
+//    - Use “##” for major sections, then add a blank line, e.g.:
+//        ## Education
+//    - Use “###” for subsections, e.g.:
+//        ### Certifications
+//    - Place a blank line after each section or subsection heading.
+
+// 7. Whitespace and Line Breaks
+//    - Add a line break between paragraphs, sections, and lists.
+//    - Do not break up partial emphasis (bold or italics) or code snippets across multiple lines.
+//    - Keep one concept per line or paragraph to promote clarity.
+
+// 8. Merging Split Lines
+//    - If you encounter text that was split mid-sentence in a disruptive way (e.g., half of the sentence with bold text on one line and the rest on another), unify it into a single line.
+//    - Example: 
+//         **Bachelor's or
+//         Master's degree** 
+//      should become:
+//         **Bachelor's or Master's degree**
+
+// 9. General Emphasis and Flow
+//    - Aim for readability and consistency in spacing, line breaks, and headings.
+//    - If it’s unclear whether a new line is intended to be a bullet or a heading, default to normal paragraph text and unify it with the preceding line if appropriate.
+
+// These instructions ensure your returned text is cleanly formatted, easy to read, and uses proper Markdown conventions without splitting important markup or enumerations across lines.
+// `;
+
 const FORMAT_INSTRUCTIONS = `
 When returning responses, please ensure the content is clearly structured and visually formatted for easy display on a web page.
 
 Follow these formatting rules:
 
-1. **Bold Text**
-   - Surround important terms or key points with double asterisks: **example**
-   - If you encounter *partially split* bold text (e.g., "**Bachelor's or**" on one line and "**Master's degree**" on the next), combine them into a single line. Essentially, do not allow the bold text to be split across multiple lines.
+- **Bold Text**  
+  • Surround important terms or key points with double asterisks: **example**  
+  • Never split bold spans across lines. If you see partial bold text on one line and the rest on another, merge them into a single line.
 
-2. _Italic Text_
-   - For emphasis, wrap phrases in underscores: _example phrase_
-   - As with bold text, if italic text is split across lines, unify it into a single line.
+- _Italic Text_  
+  • Wrap phrases in underscores for emphasis: _example phrase_  
+  • Do not break italic spans across lines; keep the entire italicized phrase together.
 
-3. \`Code Blocks\`
-   - Use single backticks \` \` around short code or technical terms: \`example\`
-   - Use triple backticks for multi-line code blocks
-   - Avoid splitting code blocks across lines. Keep the entire code snippet together.
+- \`Code Blocks\`  
+  • Use single backticks (\`) around short code or technical terms: \`example\`  
+  • Use triple backticks for multi-line code blocks  
+  • Keep code snippets intact on one or more consecutive lines; don’t split them mid‑snippet.
 
-4. Numbered Lists
-   - Use a proper ascending sequence for lists. For example:
-       1. First item
-       2. Second item
-       3. Third item
-   - If multiple items are all labeled “1.”, re-label them 1., 2., 3., etc. to reflect correct ordering.
-   - Avoid restarting numbering from 1 unless a new, separate list truly begins.
+- Bullet Points  
+  • Use hyphens (-) or asterisks (*) for unordered lists:  
+    - First bullet  
+    - Second bullet  
+  • Ensure each bullet’s text remains on one line. If a bullet is split unnaturally, merge it.
 
-5. Bullet Points
-   - Use a hyphen (-) or asterisk (*) for unordered lists. Example:
-       - First bullet
-       - Second bullet
-   - Keep each bullet on a single line. If a bullet’s text is split across lines (other than normal wrapping), unify it.
+- Sections and Subsections  
+  • Use “##” for major sections, followed by a blank line:  
+    ## Education  
+  • Use “###” for subsections, followed by a blank line:  
+    ### Certifications
 
-6. Sections and Subsections
-   - Use “##” for major sections, then add a blank line, e.g.:
-       ## Education
-   - Use “###” for subsections, e.g.:
-       ### Certifications
-   - Place a blank line after each section or subsection heading.
+- Whitespace and Line Breaks  
+  • Add blank lines between sections, paragraphs, and lists for readability.  
+  • Keep one concept or complete sentence per line; avoid mid‑sentence line breaks.  
+  • Merge any lines that split emphasis or code snippets.
 
-7. Whitespace and Line Breaks
-   - Add a line break between paragraphs, sections, and lists.
-   - Do not break up partial emphasis (bold or italics) or code snippets across multiple lines.
-   - Keep one concept per line or paragraph to promote clarity.
+- List Integrity  
+  • If you encounter multiple list items all labeled “1.” or similar, convert them into a proper bullet list instead of numbering.  
+  • Don’t restart list symbols mid‑list; maintain the same bullet style throughout.
 
-8. Merging Split Lines
-   - If you encounter text that was split mid-sentence in a disruptive way (e.g., half of the sentence with bold text on one line and the rest on another), unify it into a single line.
-   - Example: 
-        **Bachelor's or
-        Master's degree** 
-     should become:
-        **Bachelor's or Master's degree**
+- Merging Split Lines  
+  • Detect and fix disruptive splits, such as:  
+    **Bachelor’s or  
+    Master’s degree**  
+    → **Bachelor’s or Master’s degree**
 
-9. General Emphasis and Flow
-   - Aim for readability and consistency in spacing, line breaks, and headings.
-   - If it’s unclear whether a new line is intended to be a bullet or a heading, default to normal paragraph text and unify it with the preceding line if appropriate.
-
-These instructions ensure your returned text is cleanly formatted, easy to read, and uses proper Markdown conventions without splitting important markup or enumerations across lines.
+These rules ensure your output uses consistent Markdown conventions, preserves emphasis spans, and presents content clearly for web display.
 `;
-
 
 // Knowledge base content as context
 const KNOWLEDGE_BASE = `
