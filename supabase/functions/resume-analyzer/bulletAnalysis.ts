@@ -10,20 +10,89 @@ export function analyzeWordBalance(bullet: string): {
   const words = bullet.split(/\s+/);
   
   // Action words list (simplified version)
+  // const actionWords = [
+  //   "achieved", "delivered", "improved", "increased", "reduced", "developed", "created", 
+  //   "managed", "led", "built", "designed", "implemented", "transformed", "spearheaded", 
+  //   "drove", "executed", "launched", "initiated", "generated", "optimized", "streamlined"
+  // ];
   const actionWords = [
-    "achieved", "delivered", "improved", "increased", "reduced", "developed", "created", 
-    "managed", "led", "built", "designed", "implemented", "transformed", "spearheaded", 
-    "drove", "executed", "launched", "initiated", "generated", "optimized", "streamlined"
+    "Achieved", "Accelerated", "Accomplished", "Activated", "Adapted", "Addressed",
+    "Administered", "Advanced", "Advised", "Advocated", "Aligned", "Analyzed",
+    "Appraised", "Applied", "Assembled", "Assessed", "Assigned", "Assisted",
+    "Attained", "Automated", "Boosted", "Budgeted", "Built", "Calculated",
+    "Centralized", "Championed", "Clarified", "Coached", "Collaborated", "Collected",
+    "Communicated", "Compiled", "Completed", "Conceived", "Conceptualized",
+    "Conducted", "Consolidated", "Constructed", "Consulted", "Contributed",
+    "Controlled", "Converted", "Coordinated", "Corrected", "Created", "Cultivated",
+    "Customized", "Decreased", "Defined", "Delivered", "Demonstrated", "Designed",
+    "Developed", "Devised", "Diagnosed", "Directed", "Discovered", "Dispatched",
+    "Documented", "Doubled", "Drove", "Enabled", "Encouraged", "Engineered",
+    "Enhanced", "Enforced", "Engaged", "Enlarged", "Ensured", "Established",
+    "Evaluated", "Executed", "Expanded", "Expedited", "Explained", "Explored",
+    "Facilitated", "Forecasted", "Formed", "Formulated", "Fostered", "Founded",
+    "Generated", "Guided", "Headed", "Identified", "Implemented", "Improved",
+    "Increased", "Influenced", "Informed", "Initiated", "Innovated", "Inspected",
+    "Inspired", "Installed", "Instituted", "Instructed", "Integrated", "Intensified",
+    "Introduced", "Invented", "Investigated", "Launched", "Led", "Leveraged",
+    "Maintained", "Managed", "Maximized", "Merged", "Minimized", "Modernized",
+    "Monitored", "Motivated", "Negotiated", "Optimized", "Orchestrated", "Organized",
+    "Outperformed", "Overhauled", "Oversaw", "Partnered", "Performed", "Piloted",
+    "Pioneered", "Planned", "Prepared", "Presented", "Prioritized", "Produced",
+    "Programmed", "Projected", "Promoted", "Proposed", "Protected", "Provided",
+    "Quantified", "Realigned", "Realized", "Rebuilt", "Received", "Reconciled",
+    "Recruited", "Reduced", "Redesigned", "Refined", "Reformed", "Reinforced",
+    "Reorganized", "Replaced", "Reported", "Resolved", "Restructured", "Revamped",
+    "Reviewed", "Revised", "Saved", "Scheduled", "Secured", "Selected", "Simplified",
+    "Solved", "Spearheaded", "Standardized", "Started", "Streamlined", "Strengthened",
+    "Structured", "Supervised", "Supported", "Surpassed", "Surveyed", "Synthesized",
+    "Targeted", "Tested", "Trained", "Transformed", "Translated", "Updated",
+    "Upgraded", "Validated", "Won", "Yielded"
   ];
   
   // Industry words (simplified - would be more comprehensive in production)
+  // const industryWords = [
+  //   "data", "analysis", "analytics", "python", "sql", "tableau", "powerbi", "excel",
+  //   "database", "algorithms", "machine", "learning", "ai", "visualization", "dashboard",
+  //   "kpi", "metrics", "statistics", "engineering", "etl", "cloud", "aws", "azure", 
+  //   "pipeline", "hadoop", "spark", "agile", "scrum", "software", "development", "api"
+  // ];
+  // Extensive industry‑word list for data, analytics, strategy, consulting & product domains
   const industryWords = [
-    "data", "analysis", "analytics", "python", "sql", "tableau", "powerbi", "excel",
-    "database", "algorithms", "machine", "learning", "ai", "visualization", "dashboard",
-    "kpi", "metrics", "statistics", "engineering", "etl", "cloud", "aws", "azure", 
-    "pipeline", "hadoop", "spark", "agile", "scrum", "software", "development", "api"
-  ];
+    /* Core data & analytics */
+    "data","analytics","analysis","bi","intelligence","insights","sql","nosql","python","r","scala","java","julia","sas","matlab","stata",
+    "tableau","powerbi","looker","qlik","superset","mode","redash","excel","sheets",
+    "bigquery","snowflake","redshift","athena","presto","trino","hive","hadoop","spark","pyspark","flink","beam","storm",
+    "kafka","kinesis","pubsub","rabbitmq","databricks","airflow","dbt","glue","datafactory","informatica","talend","pentaho","ssis","nifi","luigi",
+    "etl","elt","ingestion","pipeline","pipelines","orchestration","lake","lakehouse","warehouse","parquet","avro","orc","delta",
+    "ml","mlops","ai","model","models","training","inference","deployment","monitoring","drift","featurestore","feast",
+    "tensorflow","keras","pytorch","scikit","sklearn","xgboost","lightgbm","catboost","sagemaker","vertex","azureml","mlflow",
+    "classification","regression","clustering","forecasting","timeseries","optimization","statistics","statistical",
+    "dashboard","dashboards","visualization","dataviz","kpi","kpis","okr","metric","metrics",
+    "cloud","aws","azure","gcp","googlecloud","s3","gcs","adls","ec2","lambda","iam","vpc",
+    "api","rest","graphql","json","yaml","xml",
   
+    /* Strategy & consulting jargon */
+    "strategy","strategic","roadmap","roadmaps","gtm","market","competitive","benchmark","benchmarks","swot","roi","npv","irr",
+    "tom","operating","governance","compliance","regulatory","stakeholder","alignment","transformation","maturity","assessment","capability",
+    "value","realization","businesscase","costbenefit","risk","mitigation","dependency","deliverable","deliverables","milestone","milestones",
+    "program","portfolio","pmo","pm","agile","scrum","kanban","safe","waterfall","lean","sixsigma","kaizen","reengineering",
+    "process","processes","improvement","change","adkar","prosci","communication","workshop","workshops","facilitation","training","adoption","readiness",
+    "consulting","consultant","client","clients","engagement","engagements","workstream","proposal","rfp","sow","deck","presentation","presentations",
+    "storytelling","findings","recommendations","operatingmodel","digital","transformation",
+  
+    /* Product & growth */
+    "product","productmanagement","productmanager","productowner","backlog","user","story","stories","epic","feature","features","mvp",
+    "prototype","wireframe","mockup","figma","ux","ui","design","designthinking","ideation","persona","personas","journey","segmentation",
+    "pricing","monetization","growth","acquisition","retention","churn","ltv","nps","csat","activation","engagement",
+    "launch","release","releases","beta","alpha","ga","telemetry","instrumentation","tracking","mixpanel","amplitude","segment","snowplow","heap",
+    "ga4","adobe","experimentation","abtest","multivariate","hypothesis",
+  
+    /* General tech & engineering */
+    "software","development","engineering","devops","ci","cd","jenkins","github","gitlab","bitbucket","terraform","ansible","docker","kubernetes","helm","serverless",
+    "security","encryption","gdpr","hipaa","pci","sox","access","lineage","catalog","datacatalog","collibra","alation",
+    "jira","confluence","api","microservice","microservices","serverless","event","events","logging","observability"
+  ];
+
   let industryCount = 0;
   let commonCount = 0;
   let actionCount = 0;
