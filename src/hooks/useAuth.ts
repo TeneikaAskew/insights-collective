@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -28,6 +27,15 @@ export const useAuthProvider = () => {
       async (event, session) => {
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           setSession(session);
+          
+          // Check for redirect after sign-in
+          const redirectPath = localStorage.getItem('redirectAfterLogin');
+          if (redirectPath) {
+            setTimeout(() => {
+              navigate(redirectPath);
+              localStorage.removeItem('redirectAfterLogin');
+            }, 0);
+          }
         } else if (event === 'SIGNED_OUT') {
           setSession(null);
         }
@@ -43,7 +51,7 @@ export const useAuthProvider = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [navigate]);
   
   const login = useCallback(async (email: string, password: string, redirectTo?: string) => {
     try {
@@ -75,6 +83,33 @@ export const useAuthProvider = () => {
       setLoading(false);
     }
   }, [navigate, toast]);
+
+  const googleSignIn = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // For Google OAuth, we'll store the redirect URL and use it when the auth state changes
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        }
+      });
+      
+      if (error) throw error;
+      
+    } catch (error: any) {
+      setError(error.message);
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     try {
@@ -111,32 +146,6 @@ export const useAuthProvider = () => {
       setLoading(false);
     }
   }, [navigate, toast]);
-
-  const googleSignIn = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-        }
-      });
-      
-      if (error) throw error;
-      
-    } catch (error: any) {
-      setError(error.message);
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
 
   const logout = useCallback(async () => {
     try {

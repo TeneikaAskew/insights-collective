@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { FileUp, File, DownloadCloud, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -12,6 +11,7 @@ import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeAnalysisDisplay from '@/components/resume/ResumeAnalysisDisplay';
 import ResumeChat from '@/components/resume/ResumeChat';
+import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -300,6 +300,23 @@ const Resume = () => {
               </CardContent>
             </Card>
           </div>
+          
+          {/* Bullet Point Analysis Section */}
+          {(analysis || (resume?.analysis && resume.analysis.bullets)) && (
+            <Card className="w-full">
+              <CardHeader>
+                <CardTitle>Detailed Resume Bullet Analysis</CardTitle>
+                <CardDescription>
+                  Comprehensive breakdown of your resume bullet points with improvement suggestions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <BulletPointsAnalysisCard 
+                  bullets={analysis?.bullets || (resume?.analysis?.bullets || [])} 
+                />
+              </CardContent>
+            </Card>
+          )}
           
           {/* Career Chat Section */}
           {showCareerChat && (
