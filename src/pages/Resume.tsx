@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { FileUp, File, DownloadCloud, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import LoginWall from '@/components/common/LoginWall';
-import { useResume } from '@/hooks/useResume';
+import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeAnalysisDisplay from '@/components/resume/ResumeAnalysisDisplay';
 import ResumeChat from '@/components/resume/ResumeChat';

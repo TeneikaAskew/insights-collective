@@ -1,0 +1,149 @@
+
+import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { useResumeStorage } from './useResumeStorage';
+import { useResumeData } from './useResumeData';
+
+export function useResume() {
+  const [uploading, setUploading] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { 
+    uploading: fileUploading, 
+    uploadResumeFile, 
+    deleteResumeFile 
+  } = useResumeStorage();
+  
+  const {
+    resume,
+    loading,
+    fetchResume,
+    updateResumeRecord,
+    createResumeRecord,
+    deleteResumeRecord
+  } = useResumeData();
+
+  const uploadResume = async (file: File) => {
+    if (!user) return null;
+    
+    setUploading(true);
+    try {
+      // Upload file to storage
+      const { fileName, success } = await uploadResumeFile(file, user.id);
+      
+      if (!success) {
+        return false;
+      }
+      
+      // Mock analysis - in a real app this would be done by an AI service
+      const mockAnalysis = {
+        strengths: [
+          'Strong technical skill presentation',
+          'Relevant project experience',
+          'Clear educational background'
+        ],
+        improvements: [
+          'Add more quantifiable achievements',
+          'Highlight data analysis tools more prominently',
+          'Consider adding a skills section'
+        ],
+        careerAlignment: 'Your resume is well-aligned with the Data Analyst role, but could be improved by highlighting SQL skills and data visualization experience more prominently.'
+      };
+      
+      // Check if user already has a resume
+      const { data: existingResume } = await supabase
+        .from('resumes')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      let success;
+      if (existingResume) {
+        // Update existing resume
+        success = await updateResumeRecord(user.id, {
+          file_path: fileName,
+          analysis: mockAnalysis,
+          updated_at: new Date().toISOString()
+        });
+      } else {
+        // Insert new resume
+        success = await createResumeRecord({
+          user_id: user.id,
+          file_path: fileName,
+          analysis: mockAnalysis,
+          career_alignment_score: 72,
+          target_role: 'Data Analyst'
+        });
+      }
+      
+      if (!success) {
+        throw new Error('Failed to update database record');
+      }
+      
+      toast({
+        title: "Upload successful",
+        description: "Your resume has been uploaded and analyzed.",
+      });
+      
+      // Refresh resume data
+      await fetchResume();
+      return true;
+    } catch (error) {
+      console.error('Error uploading resume:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to upload resume. Please try again.',
+        variant: 'destructive',
+      });
+      return false;
+    } finally {
+      setUploading(false);
+    }
+  };
+  
+  const deleteResume = async () => {
+    if (!user || !resume) return false;
+    
+    try {
+      // Delete file from storage
+      const success = await deleteResumeFile(user.id, resume.file_path);
+      
+      if (!success) {
+        throw new Error('Failed to delete file from storage');
+      }
+      
+      // Delete record from database
+      const recordDeleted = await deleteResumeRecord(resume.id);
+      
+      if (!recordDeleted) {
+        throw new Error('Failed to delete database record');
+      }
+      
+      setResume(null);
+      
+      toast({
+        title: "Resume deleted",
+        description: "Your resume has been removed.",
+      });
+      
+      return true;
+    } catch (error) {
+      console.error('Error deleting resume:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete resume. Please try again.',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
+  return {
+    resume,
+    loading,
+    uploading: uploading || fileUploading,
+    uploadResume,
+    deleteResume
+  };
+}
