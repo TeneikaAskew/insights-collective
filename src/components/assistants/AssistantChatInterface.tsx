@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Assistant } from '@/types/assistants';
@@ -12,6 +11,7 @@ import { Avatar } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 export type Message = {
   id: string;
@@ -44,6 +44,7 @@ const AssistantChatInterface = ({
   const [showRightSidebar, setShowRightSidebar] = useState(true);
   const [currentChat, setCurrentChat] = useState<Chat | null>(null);
   const [careerFocus, setCareerFocus] = useState<string>('Technology');
+  const [careerPath, setCareerPath] = useState<string>('Data Engineering');
   const [salaryCap, setSalaryCap] = useState<number>(100000);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -107,8 +108,6 @@ const AssistantChatInterface = ({
     setInputValue('');
     setIsLoading(true);
     
-    // In a real application, this would be an API call to OpenAI
-    // For now, we'll simulate a response after a short delay
     try {
       // Update the current chat
       if (currentChat) {
@@ -127,41 +126,44 @@ const AssistantChatInterface = ({
         localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
       }
       
-      // Simulate AI response delay
-      setTimeout(() => {
-        // Create context-aware response based on assistant type and user settings
-        let contextResponse = `Based on your interest in ${careerFocus} careers`;
-        if (salaryCap) {
-          contextResponse += ` with a target salary range up to $${(salaryCap/1000).toFixed(0)}K`;
+      // Call the OpenAI edge function with the user's message and context
+      const { data, error } = await supabase.functions.invoke('assistant-ai', {
+        body: {
+          query: userMessage.content,
+          careerFocus,
+          careerPath,
+          salaryCap,
+          assistantType: assistant.name
         }
-        
-        const assistantMessage: Message = {
-          id: `assistant-${Date.now()}`,
-          role: 'assistant',
-          content: `${contextResponse}, I recommend exploring roles like Senior Data Analyst or ML Engineer. These positions align with your technical interests and offer competitive compensation. Would you like more specific information about either of these paths?`,
-          timestamp: new Date(),
+      });
+      
+      if (error) throw error;
+      
+      const assistantMessage: Message = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: data?.response || "I'm sorry, I couldn't process your request at this time.",
+        timestamp: new Date(),
+      };
+      
+      setMessages(prevMessages => [...prevMessages, assistantMessage]);
+      
+      // Update chat with AI response
+      if (currentChat) {
+        const updatedChat = {
+          ...currentChat,
+          messages: [...currentChat.messages, userMessage, assistantMessage],
+          updatedAt: new Date()
         };
+        setCurrentChat(updatedChat);
         
-        setMessages(prevMessages => [...prevMessages, assistantMessage]);
-        setIsLoading(false);
-        
-        // Update chat with AI response
-        if (currentChat) {
-          const updatedChat = {
-            ...currentChat,
-            messages: [...currentChat.messages, userMessage, assistantMessage],
-            updatedAt: new Date()
-          };
-          setCurrentChat(updatedChat);
-          
-          // Update localStorage
-          const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
-          const updatedChats = savedChats.map((chat: Chat) => 
-            chat.id === updatedChat.id ? updatedChat : chat
-          );
-          localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
-        }
-      }, 1500);
+        // Update localStorage
+        const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
+        const updatedChats = savedChats.map((chat: Chat) => 
+          chat.id === updatedChat.id ? updatedChat : chat
+        );
+        localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       toast({
@@ -169,6 +171,34 @@ const AssistantChatInterface = ({
         description: "Failed to get a response. Please try again.",
         variant: "destructive",
       });
+      
+      // Add fallback response if the API call fails
+      const fallbackMessage: Message = {
+        id: `assistant-fallback-${Date.now()}`,
+        role: 'assistant',
+        content: `Based on your interest in ${careerFocus} with a focus on ${careerPath} careers and a target salary up to $${(salaryCap/1000).toFixed(0)}K, I'd recommend exploring roles like Senior Data Analyst or ML Engineer. Would you like more specific information about either of these paths?`,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prevMessages => [...prevMessages, fallbackMessage]);
+      
+      // Update chat with fallback response
+      if (currentChat) {
+        const updatedChat = {
+          ...currentChat,
+          messages: [...currentChat.messages, userMessage, fallbackMessage],
+          updatedAt: new Date()
+        };
+        setCurrentChat(updatedChat);
+        
+        // Update localStorage
+        const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
+        const updatedChats = savedChats.map((chat: Chat) => 
+          chat.id === updatedChat.id ? updatedChat : chat
+        );
+        localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
+      }
+    } finally {
       setIsLoading(false);
     }
   };
@@ -349,6 +379,8 @@ const AssistantChatInterface = ({
         <AssistantControlPanel 
           careerFocus={careerFocus}
           onCareerFocusChange={setCareerFocus}
+          careerPath={careerPath}
+          onCareerPathChange={setCareerPath}
           salaryCap={salaryCap}
           onSalaryCapChange={setSalaryCap}
         />

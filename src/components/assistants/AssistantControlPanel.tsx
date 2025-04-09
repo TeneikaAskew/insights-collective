@@ -8,6 +8,8 @@ import { Settings } from 'lucide-react';
 interface AssistantControlPanelProps {
   careerFocus: string;
   onCareerFocusChange: (value: string) => void;
+  careerPath: string;
+  onCareerPathChange: (value: string) => void;
   salaryCap: number;
   onSalaryCapChange: (value: number) => void;
 }
@@ -25,9 +27,18 @@ const careerAreas = [
   'Engineering'
 ];
 
+const careerPaths = [
+  'AI/ML',
+  'Analytics',
+  'Data Engineering',
+  'Business Intelligence'
+];
+
 const AssistantControlPanel = ({
   careerFocus,
   onCareerFocusChange,
+  careerPath,
+  onCareerPathChange,
   salaryCap,
   onSalaryCapChange
 }: AssistantControlPanelProps) => {
@@ -65,6 +76,29 @@ const AssistantControlPanel = ({
           </Select>
           <p className="text-xs text-muted-foreground">
             Select the industry or sector you're most interested in exploring
+          </p>
+        </div>
+        
+        {/* Career Path */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Career Path</label>
+          <Select 
+            value={careerPath} 
+            onValueChange={onCareerPathChange}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select path" />
+            </SelectTrigger>
+            <SelectContent>
+              {careerPaths.map(path => (
+                <SelectItem key={path} value={path}>
+                  {path}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Choose your preferred career path within data science
           </p>
         </div>
         
