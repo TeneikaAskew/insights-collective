@@ -14,6 +14,7 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
       resumeText.substring(0, maxResumeLength) + "..." : 
       resumeText;
     
+    
     // For bullet analysis, just send a summary of the scores and most critical bullets
     // Select only high and low scoring bullets to give AI a sample of the range
     const sortedBullets = [...analysis.bullets].sort((a, b) => b.bullet_total - a.bullet_total);
