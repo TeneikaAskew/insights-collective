@@ -32,10 +32,10 @@ serve(async (req) => {
       throw new Error('Query is required');
     }
 
-    // Initialize OpenAI client
-    const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openaiApiKey) {
-      throw new Error('OpenAI API key is missing');
+    // Initialize GROQ client with API key
+    const groqApiKey = Deno.env.get('GROQ');
+    if (!groqApiKey) {
+      throw new Error('GROQ API key is missing');
     }
 
     // Gather context from the website knowledge
@@ -50,15 +50,15 @@ serve(async (req) => {
       When answering questions, prioritize information from your knowledge base first, then supplement with your general knowledge.
       Keep responses helpful, informative, and relevant to career guidance.`;
 
-    // Call OpenAI API
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Call GROQ API
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${openaiApiKey}`,
+        'Authorization': `Bearer ${groqApiKey}`,
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'llama3-8b-8192', // Using Llama 3 8B model
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: query },
@@ -70,7 +70,7 @@ serve(async (req) => {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.error?.message || 'Failed to get response from OpenAI');
+      throw new Error(error.error?.message || 'Failed to get response from GROQ');
     }
 
     const data = await response.json();
