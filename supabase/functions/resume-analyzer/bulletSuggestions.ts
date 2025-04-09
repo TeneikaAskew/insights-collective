@@ -81,11 +81,46 @@ export function generateThemes(bullets: any[]): string[] {
   }
   
   // If we don't have enough themes, add some general ones
-  const generalThemes = [
-    "Include more industry-specific keywords relevant to your target role",
-    "Focus on achievements rather than responsibilities",
-    "Ensure a balanced mix of technical skills and soft skills"
+  // const generalThemes = [
+  //   "Include more industry-specific keywords relevant to your target role",
+  //   "Focus on achievements rather than responsibilities",
+  //   "Ensure a balanced mix of technical skills and soft skills"
+  // ];
+    const generalThemes = [
+    // Branding & Positioning
+    "Open with a sharp professional summary that clearly states your unique value proposition",
+    "Tailor every section to the specific job description instead of using a one‑size‑fits‑all resume",
+    "Highlight a consistent personal brand across your resume, LinkedIn profile, and portfolio",
+  
+    // Impact & Metrics
+    "Quantify results wherever possible—use numbers, percentages, or dollar figures to prove impact",
+    "Translate technical accomplishments into business outcomes that executives will understand",
+    "Show progression: illustrate how each role built on the last in scope, scale, or complexity",
+  
+    // Storytelling & Structure
+    "Group bullets by theme (e.g., Growth, Efficiency, Leadership) to create a clear narrative arc",
+    "Lead every bullet with a powerful action verb and follow the ‘challenge‑action‑result’ structure",
+    "Remove redundant or outdated experience that doesn’t serve your current career goals",
+  
+    // ATS & Keyword Optimization
+    "Mirror critical keywords from the job posting to pass Applicant Tracking Systems (ATS)",
+    "Spell out acronyms on first use so both humans and ATS parsers recognize them",
+    "Use consistent formatting (dates, headings, bullet style) to prevent ATS parsing errors",
+  
+    // Design & Readability
+    "Keep the resume to one or two pages—recruiters spend <10 seconds on the first pass",
+    "Use whitespace, bolding, and section headers strategically to guide the reader’s eye",
+    "Avoid dense blocks of text; aim for 2–3 lines per bullet and plenty of white space",
+  
+    // Leadership & Soft Skills
+    "Demonstrate leadership and cross‑functional collaboration, not just individual contribution",
+    "Incorporate soft‑skill wins (mentoring, stakeholder management) alongside technical feats",
+  
+    // Modern Extras
+    "Link to relevant work samples, GitHub repos, or a personal website to showcase proof of skill",
+    "Add a concise ‘Key Technologies’ or ‘Core Competencies’ section for quick scanning"
   ];
+
   
   while (themes.length < 3) {
     const newTheme = generalThemes.shift();
