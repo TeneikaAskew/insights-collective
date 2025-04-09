@@ -1,4 +1,5 @@
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot } from 'lucide-react';
+
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -71,14 +72,27 @@ const AppSidebar = () => {
     },
   ];
 
-  if (isAuthenticated) {
-    publicMenuItems.push({
+  // Add authenticated-only menu items
+  const authenticatedMenuItems = [
+    {
+      title: "Messages",
+      url: "/messages",
+      icon: MessageSquare,
+      active: location.pathname.startsWith('/messages'),
+    },
+    {
+      title: "Resume",
+      url: "/resume",
+      icon: FileUp,
+      active: location.pathname.startsWith('/resume'),
+    },
+    {
       title: "Profile",
       url: "/profile",
       icon: UserCircle,
       active: location.pathname === '/profile',
-    });
-  }
+    },
+  ];
 
   const adminMenuItems = [
     {
@@ -132,6 +146,14 @@ const AppSidebar = () => {
   ];
 
   const isAdmin = user?.role === 'admin';
+  
+  // Determine which menu items to show based on authentication status
+  const menuItems = [...publicMenuItems];
+  
+  if (isAuthenticated) {
+    // Add authenticated-only items
+    menuItems.push(...authenticatedMenuItems);
+  }
 
   return (
     <Sidebar>
@@ -150,7 +172,7 @@ const AppSidebar = () => {
           <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {publicMenuItems.map((item) => (
+              {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={item.active}>
                     <Link to={item.url}>

@@ -32,6 +32,8 @@ import Calendar from "./pages/Calendar";
 import DataBlueprintSeries from "./pages/DataBlueprintSeries";
 import ExploreDataCareers from "./pages/ExploreDataCareers";
 import ChatBot from "./components/chat/ChatBot";
+import Messages from "./pages/Messages";
+import Resume from "./pages/Resume";
 
 const queryClient = new QueryClient();
 
@@ -60,6 +62,9 @@ const App = () => (
               <Route path="/calendar" element={<Calendar />} />
               <Route path="/assistants" element={<Assistants />} />
               <Route path="/assistant/:assistantId?" element={<AssistantInterface />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/messages/:conversationId?" element={<Messages />} />
+              <Route path="/resume" element={<Resume />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/activity" element={<AdminActivity />} />
               <Route path="/admin/courses" element={<AdminCourses />} />
