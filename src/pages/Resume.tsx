@@ -59,7 +59,11 @@ const Resume = () => {
   };
 
   if (!isAuthenticated) {
-    return <LoginWall />;
+    return <LoginWall 
+      message="Sign in to upload your resume and get personalized career insights and recommendations."
+      visibleItems={0} 
+      totalItems={1}
+    />;
   }
 
   return (

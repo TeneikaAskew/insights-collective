@@ -54,7 +54,11 @@ const Messages = () => {
   };
 
   if (!isAuthenticated) {
-    return <LoginWall />;
+    return <LoginWall 
+      message="Sign in to access your messages and connect with instructors and classmates."
+      visibleItems={0}
+      totalItems={conversations.length}
+    />;
   }
 
   return (
