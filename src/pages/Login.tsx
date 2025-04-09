@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,11 +7,12 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { Label } from '@/components/ui/label';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { signIn } = useAuth();
+  const { login } = useAuth(); // Changed from signIn to login to match the available method
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -19,7 +21,7 @@ const Login = () => {
     e.preventDefault();
     setLoading(true);
     try {
-      await signIn(email, password);
+      await login(email, password); // Changed from signIn to login
       navigate('/profile');
     } catch (error: any) {
       console.error('Login failed:', error.message);
