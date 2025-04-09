@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { MessageCircle, Send, X, PlusCircle, Upload } from 'lucide-react';
+import { MessageCircle, Send, X, PlusCircle, Upload, Home, BookOpen, Calendar, FileText, Cpu, User } from 'lucide-react';
 import { Avatar } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { Link } from 'react-router-dom';
 
 type Message = {
   id: string;
@@ -28,10 +29,19 @@ const MENU_DESCRIPTIONS = {
   calendar: "Schedule and track learning events and deadlines"
 };
 
+const MENU_ICONS = {
+  dashboard: Home,
+  courses: BookOpen,
+  events: Calendar,
+  resources: FileText,
+  assistants: Cpu,
+  profile: User,
+};
+
 const INITIAL_MESSAGES: Message[] = [
   {
     id: '1',
-    content: "Hi there! I'm the IC Assistant. I can help you navigate our platform and answer questions about data careers.\n\nHere's a quick overview of what you can find in our menu:\n\n• Dashboard: View your learning progress and recommended content\n• Courses: Browse our data science curriculum\n• Events: Upcoming workshops and webinars\n• Resources: Access articles and learning materials\n• Assistants: Get career guidance from AI assistants\n• Profile: Manage your account settings\n\nWhat would you like to explore today?",
+    content: "Hi there! I'm the IC Assistant. I can help you navigate our platform and answer questions about data careers.\n\nHere's a quick overview of what you can find in our menu:",
     role: 'assistant',
     timestamp: new Date(),
   },
@@ -51,6 +61,7 @@ const ChatBot = () => {
   const [input, setInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [showMenuButtons, setShowMenuButtons] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { isAuthenticated } = useAuth();
@@ -65,6 +76,13 @@ const ChatBot = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Add menu buttons on first load
+  useEffect(() => {
+    if (isOpen && showMenuButtons) {
+      setShowMenuButtons(false);
+    }
+  }, [isOpen, showMenuButtons]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -126,7 +144,7 @@ const ChatBot = () => {
     if (normalizedQuery.includes('menu') || normalizedQuery.includes('navigation') || normalizedQuery.includes('find')) {
       const menuItems = Object.entries(MENU_DESCRIPTIONS)
         .map(([key, desc]) => `• ${key.charAt(0).toUpperCase() + key.slice(1)}: ${desc}`)
-        .join('\n');
+        .join('\n\n');
       
       return `Here's what you can find in our main menu:\n\n${menuItems}\n\nIs there a specific section you'd like to know more about?`;
     }
@@ -163,6 +181,46 @@ const ChatBot = () => {
     setUploadModalOpen(false);
   };
 
+  const handleCloseChat = () => {
+    setIsOpen(false);
+    // Reset for next opening
+    setShowMenuButtons(true);
+  };
+
+  // Renders menu navigation buttons
+  const renderMenuButtons = () => {
+    return (
+      <div className="flex flex-col space-y-2 mt-4">
+        {Object.entries(MENU_ICONS).map(([key, Icon]) => (
+          <Link 
+            to={`/${key === 'dashboard' ? '' : key}`} 
+            key={key} 
+            onClick={() => setIsOpen(false)}
+          >
+            <Button 
+              variant="outline" 
+              className="w-full justify-start text-left"
+            >
+              <Icon className="mr-2 h-4 w-4" />
+              {key.charAt(0).toUpperCase() + key.slice(1)}: {MENU_DESCRIPTIONS[key as keyof typeof MENU_DESCRIPTIONS]}
+            </Button>
+          </Link>
+        ))}
+      </div>
+    );
+  };
+
+  // Process message content for rendering
+  const formatMessageContent = (content: string) => {
+    // Split by newlines to handle them properly in JSX
+    return content.split('\n').map((line, i) => (
+      <React.Fragment key={i}>
+        {line}
+        {i < content.split('\n').length - 1 && <br />}
+      </React.Fragment>
+    ));
+  };
+
   return (
     <>
       {/* Chat trigger button */}
@@ -196,7 +254,7 @@ const ChatBot = () => {
                   <Button 
                     variant="ghost" 
                     size="icon"
-                    onClick={() => setIsOpen(false)}
+                    onClick={handleCloseChat}
                   >
                     <X className="h-5 w-5" />
                   </Button>
@@ -230,7 +288,9 @@ const ChatBot = () => {
                           <span className="text-xs font-medium">IC Assistant</span>
                         </div>
                       )}
-                      <p className="text-sm">{message.content}</p>
+                      <p className="text-sm">
+                        {formatMessageContent(message.content)}
+                      </p>
                       <div className="text-xs opacity-70 mt-1 text-right">
                         {message.timestamp.toLocaleTimeString([], { 
                           hour: '2-digit', 
@@ -240,6 +300,14 @@ const ChatBot = () => {
                     </div>
                   </div>
                 ))}
+                {/* Show menu buttons after initial message */}
+                {showMenuButtons && (
+                  <div className="flex justify-start w-full">
+                    <div className="max-w-[95%] w-full">
+                      {renderMenuButtons()}
+                    </div>
+                  </div>
+                )}
                 {isProcessing && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-lg p-3 bg-secondary text-secondary-foreground">
