@@ -8,17 +8,14 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import LoginWall from '@/components/common/LoginWall';
+import { useResume } from '@/hooks/useResume';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const { resume, loading, uploading, uploadResume, deleteResume } = useResume();
   
-  // This would come from user's quiz results in a real implementation
-  const careerAlignmentScore = 72;
-  const targetRole = "Data Analyst";
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
@@ -38,24 +35,24 @@ const Resume = () => {
   const handleUpload = async () => {
     if (!resumeFile) return;
     
-    setUploading(true);
+    const success = await uploadResume(resumeFile);
     
-    // Simulating upload
-    setTimeout(() => {
-      setUploading(false);
-      toast({
-        title: "Upload successful",
-        description: "Your resume has been uploaded and analyzed.",
-      });
-    }, 2000);
+    if (success) {
+      setResumeFile(null);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (resume) {
+      await deleteResume();
+    }
     setResumeFile(null);
-    toast({
-      title: "Resume deleted",
-      description: "Your resume has been removed.",
-    });
+  };
+
+  const handleDownload = () => {
+    if (resume?.file_url) {
+      window.open(resume.file_url, '_blank');
+    }
   };
 
   if (!isAuthenticated) {
@@ -72,10 +69,10 @@ const Resume = () => {
         <div className="flex flex-col space-y-6">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
-          {careerAlignmentScore && targetRole && (
+          {resume?.career_alignment_score && resume?.target_role && (
             <div className="bg-accent/20 border border-accent rounded-md p-4">
               <p className="font-medium">
-                Your resume is {careerAlignmentScore}% aligned with your career path: {targetRole}
+                Your resume is {resume.career_alignment_score}% aligned with your career path: {resume.target_role}
               </p>
             </div>
           )}
@@ -90,7 +87,12 @@ const Resume = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!resumeFile ? (
+                {loading ? (
+                  <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-10 text-center">
+                    <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading your resume...</p>
+                  </div>
+                ) : !resume && !resumeFile ? (
                   <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-10 text-center">
                     <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground mb-4">Drag and drop your resume here, or click to browse</p>
@@ -110,35 +112,82 @@ const Resume = () => {
                     <div className="flex items-center space-x-3">
                       <File className="h-8 w-8 text-primary" />
                       <div className="flex-1">
-                        <p className="font-medium">{resumeFile.name}</p>
+                        <p className="font-medium">
+                          {resumeFile ? resumeFile.name : resume?.file_path.split('/').pop()}
+                        </p>
                         <p className="text-sm text-muted-foreground">
-                          {(resumeFile.size / 1024 / 1024).toFixed(2)} MB
+                          {resumeFile 
+                            ? `${(resumeFile.size / 1024 / 1024).toFixed(2)} MB`
+                            : `Uploaded on ${new Date(resume?.uploaded_at || '').toLocaleDateString()}`
+                          }
                         </p>
                       </div>
-                      <Button variant="outline" size="icon" onClick={handleDelete}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t">
-                      <p className="text-sm text-muted-foreground mb-2">
-                        Resume preview will appear here after upload
-                      </p>
-                      <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
-                        <p className="text-muted-foreground">PDF Preview</p>
+                      <div className="flex gap-2">
+                        {resume && (
+                          <Button variant="outline" size="icon" onClick={handleDownload}>
+                            <DownloadCloud className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="outline" size="icon" onClick={handleDelete}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
+                    
+                    {resume?.file_url && !resumeFile && (
+                      <div className="mt-4 pt-4 border-t">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Resume preview
+                        </p>
+                        <iframe 
+                          src={`${resume.file_url}#toolbar=0&navpanes=0`}
+                          className="w-full aspect-[8.5/11] border rounded-md"
+                          title="Resume preview"
+                        />
+                      </div>
+                    )}
+                    
+                    {resumeFile && (
+                      <div className="mt-4 pt-4 border-t">
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Resume preview will appear after upload
+                        </p>
+                        <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
+                          <p className="text-muted-foreground">PDF Preview</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
               <CardFooter>
-                <Button 
-                  onClick={handleUpload} 
-                  disabled={!resumeFile || uploading} 
-                  className="w-full"
-                >
-                  {uploading ? 'Uploading...' : 'Upload Resume'}
-                </Button>
+                {resumeFile && (
+                  <Button 
+                    onClick={handleUpload} 
+                    disabled={!resumeFile || uploading} 
+                    className="w-full"
+                  >
+                    {uploading ? 'Uploading...' : 'Upload Resume'}
+                  </Button>
+                )}
+                
+                {!resumeFile && resume && (
+                  <div className="w-full flex justify-between">
+                    <Button variant="outline" onClick={handleDelete}>
+                      Delete Resume
+                    </Button>
+                    <input 
+                      type="file" 
+                      accept=".pdf" 
+                      id="resume-replace" 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                    />
+                    <Button asChild>
+                      <label htmlFor="resume-replace">Replace Resume</label>
+                    </Button>
+                  </div>
+                )}
               </CardFooter>
             </Card>
             
@@ -151,43 +200,84 @@ const Resume = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-medium mb-2">Strengths</h3>
-                    <ul className="list-disc pl-5 space-y-1 text-sm">
-                      <li>Strong technical skill presentation</li>
-                      <li>Relevant project experience</li>
-                      <li>Clear educational background</li>
-                    </ul>
+                {loading ? (
+                  <div className="space-y-4 animate-pulse">
+                    <div className="h-4 bg-muted rounded w-3/4 mb-6"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-5/6 mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-4/6 mb-6"></div>
+                    
+                    <div className="h-4 bg-muted rounded w-3/4 mb-6"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-5/6 mb-6"></div>
+                    
+                    <div className="h-4 bg-muted rounded w-3/4 mb-6"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-3/4"></div>
                   </div>
-                  
-                  <Separator />
-                  
-                  <div>
-                    <h3 className="font-medium mb-2">Areas for Improvement</h3>
-                    <ul className="list-disc pl-5 space-y-1 text-sm">
-                      <li>Add more quantifiable achievements</li>
-                      <li>Highlight data analysis tools more prominently</li>
-                      <li>Consider adding a skills section</li>
-                    </ul>
+                ) : resume?.analysis ? (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-medium mb-2">Strengths</h3>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        {resume.analysis.strengths.map((strength: string, i: number) => (
+                          <li key={i}>{strength}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div>
+                      <h3 className="font-medium mb-2">Areas for Improvement</h3>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        {resume.analysis.improvements.map((improvement: string, i: number) => (
+                          <li key={i}>{improvement}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div>
+                      <h3 className="font-medium mb-2">Career Alignment</h3>
+                      <p className="text-sm">
+                        {resume.analysis.careerAlignment}
+                      </p>
+                    </div>
                   </div>
-                  
-                  <Separator />
-                  
-                  <div>
-                    <h3 className="font-medium mb-2">Career Alignment</h3>
-                    <p className="text-sm">
-                      Your resume is well-aligned with the Data Analyst role, but could be improved 
-                      by highlighting SQL skills and data visualization experience more prominently.
+                ) : (
+                  <div className="text-center p-6">
+                    <p className="text-muted-foreground mb-4">
+                      Upload your resume to receive personalized career advice and analysis.
                     </p>
+                    
+                    <input 
+                      type="file" 
+                      accept=".pdf" 
+                      id="resume-upload-alt" 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                    />
+                    <Button asChild>
+                      <label htmlFor="resume-upload-alt">Upload Resume</label>
+                    </Button>
                   </div>
-                </div>
+                )}
               </CardContent>
               <CardFooter className="flex-col items-start space-y-2">
                 <p className="text-sm text-muted-foreground">
-                  Upload or update your resume to receive personalized career advice from our AI assistant.
+                  {resume?.analysis 
+                    ? "Your resume has been analyzed. You can chat with our AI assistant for more personalized advice."
+                    : "Upload your resume to receive personalized career advice from our AI assistant."
+                  }
                 </p>
-                <Button variant="outline" className="w-full" disabled>
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  disabled={!resume?.analysis}
+                >
                   Start Career Chat
                 </Button>
               </CardFooter>

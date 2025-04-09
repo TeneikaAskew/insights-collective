@@ -1,48 +1,40 @@
 
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
-import { MessageSquare, Send, Paperclip, User, Users } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { MessageSquare, Send, Paperclip, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import LoginWall from '@/components/common/LoginWall';
+import ConversationList from '@/components/messages/ConversationList';
+import MessageThread from '@/components/messages/MessageThread';
+import NewConversationDialog from '@/components/messages/NewConversationDialog';
+import { useConversations } from '@/hooks/useConversations';
+import { useConversationMessages } from '@/hooks/useConversationMessages';
 
 const Messages = () => {
   const { conversationId } = useParams();
   const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('inbox');
   const [messageContent, setMessageContent] = useState('');
-  const [recipients, setRecipients] = useState('');
-  const [subject, setSubject] = useState('');
+  const [newConversationOpen, setNewConversationOpen] = useState(false);
   
-  // Placeholder data - in a real app, this would come from an API/Supabase
-  const conversations = [
-    { id: '1', with: 'John Doe', lastMessage: 'Hello, how are you?', date: '2h ago', unread: true },
-    { id: '2', with: 'Jane Smith', lastMessage: 'Can you help me with the assignment?', date: '1d ago', unread: false },
-    { id: '3', with: 'Admin', lastMessage: 'Welcome to the platform!', date: '3d ago', unread: false },
-  ];
+  const { conversations, loading: loadingConversations, createConversation, sendMessage } = useConversations();
+  const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
 
-  const handleSendMessage = () => {
-    // In a real app, this would send the message to the API/Supabase
-    toast({
-      title: "Message sent",
-      description: "Your message has been sent successfully.",
-    });
-    setMessageContent('');
-    setRecipients('');
-    setSubject('');
+  const handleSendMessage = async () => {
+    if (!messageContent.trim() || !conversationId) return;
+    
+    const success = await sendMessage(conversationId, messageContent);
+    
+    if (success) {
+      setMessageContent('');
+    }
   };
 
   const handleAttachFile = () => {
@@ -65,13 +57,18 @@ const Messages = () => {
     <AppLayout>
       <div className="container mx-auto">
         <div className="flex flex-col space-y-4">
-          <h1 className="text-2xl font-bold">Messages</h1>
+          <div className="flex justify-between items-center">
+            <h1 className="text-2xl font-bold">Messages</h1>
+            <Button onClick={() => setNewConversationOpen(true)} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              New Conversation
+            </Button>
+          </div>
           
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList>
               <TabsTrigger value="inbox">Inbox</TabsTrigger>
               <TabsTrigger value="sent">Sent</TabsTrigger>
-              <TabsTrigger value="compose">Compose</TabsTrigger>
             </TabsList>
             
             <TabsContent value="inbox" className="space-y-4">
@@ -83,22 +80,64 @@ const Messages = () => {
                 <MessageSquare className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
               </div>
               
-              <div className="border rounded-md divide-y">
-                {conversations.map(conv => (
-                  <div 
-                    key={conv.id} 
-                    className={`p-4 flex justify-between items-center hover:bg-accent cursor-pointer ${conv.unread ? 'bg-accent/10 font-medium' : ''}`}
-                  >
-                    <div className="flex items-center space-x-3">
-                      <User className="h-8 w-8 text-muted-foreground" />
-                      <div>
-                        <div className="font-medium">{conv.with}</div>
-                        <div className="text-sm text-muted-foreground truncate max-w-md">{conv.lastMessage}</div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1 h-full">
+                  <ConversationList conversations={conversations} loading={loadingConversations} />
+                </div>
+                
+                {conversationId ? (
+                  <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
+                    <div className="flex-1 overflow-y-auto">
+                      <MessageThread messages={messages} loading={loadingMessages} />
+                    </div>
+                    
+                    <div className="p-4 border-t">
+                      <div className="flex space-x-2">
+                        <Button 
+                          variant="outline"
+                          size="icon"
+                          onClick={handleAttachFile}
+                        >
+                          <Paperclip className="h-4 w-4" />
+                        </Button>
+                        
+                        <Input
+                          value={messageContent}
+                          onChange={(e) => setMessageContent(e.target.value)}
+                          placeholder="Type your message..."
+                          className="flex-1"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                        />
+                        
+                        <Button
+                          onClick={handleSendMessage}
+                          disabled={!messageContent.trim()}
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Send
+                        </Button>
                       </div>
                     </div>
-                    <div className="text-sm text-muted-foreground">{conv.date}</div>
                   </div>
-                ))}
+                ) : (
+                  <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
+                    <div className="text-center p-6">
+                      <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2">No conversation selected</h3>
+                      <p className="text-muted-foreground mb-4">
+                        Select a conversation from the list or start a new one
+                      </p>
+                      <Button onClick={() => setNewConversationOpen(true)}>
+                        Start a new conversation
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </TabsContent>
             
@@ -117,60 +156,13 @@ const Messages = () => {
                 </div>
               </div>
             </TabsContent>
-            
-            <TabsContent value="compose" className="space-y-4">
-              <div className="border rounded-md p-4 space-y-4">
-                <div className="space-y-2">
-                  <label htmlFor="recipients" className="text-sm font-medium">To:</label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select recipient" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="user1">John Doe</SelectItem>
-                      <SelectItem value="user2">Jane Smith</SelectItem>
-                      <SelectItem value="all">All Users (Admin Only)</SelectItem>
-                      <SelectItem value="instructors">All Instructors (Admin Only)</SelectItem>
-                      <SelectItem value="students">All Students (Admin Only)</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <label htmlFor="subject" className="text-sm font-medium">Subject:</label>
-                  <Input 
-                    id="subject"
-                    value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    placeholder="Enter message subject..."
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <label htmlFor="message" className="text-sm font-medium">Message:</label>
-                  <Textarea 
-                    id="message"
-                    value={messageContent}
-                    onChange={(e) => setMessageContent(e.target.value)}
-                    placeholder="Type your message here..."
-                    rows={6}
-                  />
-                </div>
-                
-                <div className="flex justify-between items-center">
-                  <Button variant="outline" onClick={handleAttachFile}>
-                    <Paperclip className="h-4 w-4 mr-2" />
-                    Attach File
-                  </Button>
-                  
-                  <Button onClick={handleSendMessage}>
-                    <Send className="h-4 w-4 mr-2" />
-                    Send Message
-                  </Button>
-                </div>
-              </div>
-            </TabsContent>
           </Tabs>
+          
+          <NewConversationDialog
+            open={newConversationOpen}
+            onOpenChange={setNewConversationOpen}
+            onCreateConversation={createConversation}
+          />
         </div>
       </div>
     </AppLayout>
