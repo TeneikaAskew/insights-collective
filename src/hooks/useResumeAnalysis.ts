@@ -26,7 +26,7 @@ export function useResumeAnalysis() {
   }, [user]);
 
   const analyzeResume = async (file: File): Promise<boolean> => {
-    if (!file || !user) return false;
+    if (!file) return false;
     
     setIsAnalyzing(true);
     
@@ -46,9 +46,12 @@ export function useResumeAnalysis() {
       fileReader.readAsText(file);
       const resumeText = await textPromise;
       
-      // Call the Edge Function
+      // Call the Edge Function with user ID if authenticated
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
-        body: { resumeText }
+        body: { 
+          resumeText,
+          userId: user?.id // Include user ID if available
+        }
       });
       
       if (error) throw error;
