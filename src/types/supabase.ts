@@ -35,7 +35,7 @@ export interface Message {
   attachment_url: string | null;
   read: boolean;
   created_at: string;
-  sender?: Profile;
+  sender?: Profile | null;
 }
 
 // This extends the native User type from Supabase auth

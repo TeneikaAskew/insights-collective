@@ -35,6 +35,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initialize enriched user with auth user data
     const enrichedUser: UserWithProfile = {
       ...authUser,
+      email: authUser.email || '', // Ensure email is always set
       name: authUser.user_metadata?.name,
       avatar: authUser.user_metadata?.avatar_url,
     };

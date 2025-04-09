@@ -21,7 +21,8 @@ export function useConversationMessages(conversationId?: string) {
     const fetchMessages = async () => {
       setLoading(true);
       try {
-        const { data, error } = await supabase
+        // First fetch messages
+        const { data: messagesData, error: messagesError } = await supabase
           .from('messages')
           .select(`
             id,
@@ -30,25 +31,30 @@ export function useConversationMessages(conversationId?: string) {
             content,
             attachment_url,
             read,
-            created_at,
-            sender:profiles!sender_id(
-              id,
-              first_name,
-              last_name,
-              avatar_url
-            )
+            created_at
           `)
           .eq('conversation_id', conversationId)
           .order('created_at', { ascending: true });
 
-        if (error) throw error;
+        if (messagesError) throw messagesError;
 
-        const messagesWithSender = data.map(message => ({
-          ...message,
-          sender: message.sender
-        }));
+        // For each message, fetch the sender profile separately
+        const messagesWithSenders: Message[] = [];
 
-        setMessages(messagesWithSender);
+        for (const message of messagesData) {
+          const { data: senderData, error: senderError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', message.sender_id)
+            .single();
+
+          messagesWithSenders.push({
+            ...message,
+            sender: senderError ? null : senderData
+          });
+        }
+
+        setMessages(messagesWithSenders);
 
         // Mark messages as read
         await supabase
@@ -83,42 +89,26 @@ export function useConversationMessages(conversationId?: string) {
           filter: `conversation_id=eq.${conversationId}`
         }, 
         async (payload) => {
-          // Fetch the complete message with sender info
-          const { data, error } = await supabase
-            .from('messages')
-            .select(`
-              id,
-              sender_id,
-              conversation_id,
-              content,
-              attachment_url,
-              read,
-              created_at,
-              sender:profiles!sender_id(
-                id,
-                first_name,
-                last_name,
-                avatar_url
-              )
-            `)
-            .eq('id', payload.new.id)
+          // Fetch the sender profile for the new message
+          const { data: senderData, error: senderError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', payload.new.sender_id)
             .single();
-            
-          if (!error && data) {
-            const newMessage = {
-              ...data,
-              sender: data.sender
-            };
-            
-            setMessages(prevMessages => [...prevMessages, newMessage]);
-            
-            // Mark message as read if it's not from the current user
-            if (data.sender_id !== user.id) {
-              await supabase
-                .from('messages')
-                .update({ read: true })
-                .eq('id', data.id);
-            }
+          
+          const newMessage: Message = {
+            ...payload.new as any,
+            sender: senderError ? null : senderData
+          };
+          
+          setMessages(prevMessages => [...prevMessages, newMessage]);
+          
+          // Mark message as read if it's not from the current user
+          if (newMessage.sender_id !== user.id) {
+            await supabase
+              .from('messages')
+              .update({ read: true })
+              .eq('id', newMessage.id);
           }
         }
       )

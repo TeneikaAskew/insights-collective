@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Conversation, Message, Profile } from '@/types/supabase';
+import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 import { useToast } from './use-toast';
 
 export function useConversations() {
@@ -35,7 +35,7 @@ export function useConversations() {
         const conversationIds = participantData.map(p => p.conversation_id);
         
         // Get conversation details
-        const { data, error } = await supabase
+        const { data: conversationsData, error: conversationsError } = await supabase
           .from('conversations')
           .select(`
             id, 
@@ -48,60 +48,69 @@ export function useConversations() {
           .in('id', conversationIds)
           .order('updated_at', { ascending: false });
           
-        if (error) throw error;
+        if (conversationsError) throw conversationsError;
         
-        // Get all participants for these conversations
-        const { data: allParticipants, error: participantsError } = await supabase
-          .from('conversation_participants')
-          .select(`
-            id,
-            conversation_id,
-            user_id,
-            added_at,
-            profile:profiles!user_id(
+        // Process each conversation individually to avoid relation errors
+        const enrichedConversations: Conversation[] = [];
+        
+        for (const conversation of conversationsData) {
+          // Get participants for this conversation
+          const { data: participantsData, error: participantsError } = await supabase
+            .from('conversation_participants')
+            .select(`
               id,
-              first_name,
-              last_name,
-              avatar_url
-            )
-          `)
-          .in('conversation_id', conversationIds);
-          
-        if (participantsError) throw participantsError;
-        
-        // Get latest message for each conversation
-        const { data: latestMessages, error: messagesError } = await supabase
-          .from('messages')
-          .select(`
-            id,
-            sender_id,
-            conversation_id,
-            content,
-            read,
-            created_at
-          `)
-          .in('conversation_id', conversationIds)
-          .order('created_at', { ascending: false });
-          
-        if (messagesError) throw messagesError;
-        
-        // Enrich conversations with participants and last message
-        const enrichedConversations = data.map(conversation => {
-          const participants = allParticipants
-            .filter(p => p.conversation_id === conversation.id)
-            .map(p => ({
-              ...p,
-              profile: p.profile
-            }));
+              conversation_id,
+              user_id,
+              added_at
+            `)
+            .eq('conversation_id', conversation.id);
             
-          const lastMessage = latestMessages.find(m => m.conversation_id === conversation.id);
+          if (participantsError) throw participantsError;
           
-          return {
+          // Get profiles for each participant
+          const participantsWithProfiles: ConversationParticipant[] = [];
+          
+          for (const participant of participantsData) {
+            const { data: profileData, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', participant.user_id)
+              .single();
+              
+            participantsWithProfiles.push({
+              ...participant,
+              profile: profileError ? undefined : profileData
+            });
+          }
+          
+          // Get latest message for this conversation
+          const { data: messageData, error: messageError } = await supabase
+            .from('messages')
+            .select(`
+              id,
+              sender_id,
+              conversation_id,
+              content,
+              read,
+              created_at
+            `)
+            .eq('conversation_id', conversation.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+            
+          let lastMessage: Message | undefined = undefined;
+          
+          if (!messageError && messageData) {
+            lastMessage = messageData as Message;
+          }
+          
+          enrichedConversations.push({
             ...conversation,
-            participants,
+            participants: participantsWithProfiles,
             last_message: lastMessage
-          };
-        });
+          });
+        }
         
         setConversations(enrichedConversations);
       } catch (error) {
