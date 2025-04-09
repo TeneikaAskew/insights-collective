@@ -1,10 +1,13 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Message } from '@/types/supabase';
+import { Message, Profile } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 
+/**
+ * Fetches messages for a specific conversation and sets up real-time updates
+ */
 export function useConversationMessages(conversationId?: string) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,15 +45,17 @@ export function useConversationMessages(conversationId?: string) {
         const messagesWithSenders: Message[] = [];
 
         for (const message of messagesData) {
+          // Fetch sender profile
           const { data: senderData, error: senderError } = await supabase
             .from('profiles')
             .select('*')
             .eq('id', message.sender_id)
             .single();
 
+          // Add message with sender profile
           messagesWithSenders.push({
             ...message,
-            sender: senderError ? null : senderData
+            sender: senderError ? null : (senderData as Profile)
           });
         }
 
@@ -89,26 +94,32 @@ export function useConversationMessages(conversationId?: string) {
           filter: `conversation_id=eq.${conversationId}`
         }, 
         async (payload) => {
-          // Fetch the sender profile for the new message
-          const { data: senderData, error: senderError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', payload.new.sender_id)
-            .single();
-          
-          const newMessage: Message = {
-            ...payload.new as any,
-            sender: senderError ? null : senderData
-          };
-          
-          setMessages(prevMessages => [...prevMessages, newMessage]);
-          
-          // Mark message as read if it's not from the current user
-          if (newMessage.sender_id !== user.id) {
-            await supabase
-              .from('messages')
-              .update({ read: true })
-              .eq('id', newMessage.id);
+          try {
+            // Fetch the sender profile for the new message
+            const { data: senderData, error: senderError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', payload.new.sender_id)
+              .single();
+            
+            // Create new message with sender profile  
+            const newMessage: Message = {
+              ...payload.new as any,
+              sender: senderError ? null : (senderData as Profile)
+            };
+            
+            // Update messages state
+            setMessages(prevMessages => [...prevMessages, newMessage]);
+            
+            // Mark message as read if it's not from the current user
+            if (newMessage.sender_id !== user.id) {
+              await supabase
+                .from('messages')
+                .update({ read: true })
+                .eq('id', newMessage.id);
+            }
+          } catch (error) {
+            console.error('Error processing real-time message:', error);
           }
         }
       )

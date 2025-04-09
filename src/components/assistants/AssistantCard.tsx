@@ -2,6 +2,9 @@
 import React from 'react';
 import { Assistant } from '@/types/assistants';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 interface AssistantCardProps {
   assistant: Assistant;
@@ -11,8 +14,22 @@ interface AssistantCardProps {
 
 export const AssistantCard = ({ assistant, featured = false, onLaunch }: AssistantCardProps) => {
   const IconComponent = assistant.icon.component;
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
   
   const handleLaunch = () => {
+    if (!isAuthenticated) {
+      // Redirect to login if not authenticated
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to use our AI assistants",
+        variant: "default",
+      });
+      navigate('/login');
+      return;
+    }
+    
     if (onLaunch) {
       onLaunch(assistant);
     }
