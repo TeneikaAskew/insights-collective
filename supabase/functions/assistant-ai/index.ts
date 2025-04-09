@@ -167,8 +167,7 @@ serve(async (req) => {
             content: `You are a helpful data career assistant with expertise in the data industry. 
                      Use the following knowledge base to inform your responses: 
                      ${KNOWLEDGE_BASE}
-                     
-                     ${FORMAT_INSTRUCTIONS}
+                    
                      
                      ${userContext}
                      
