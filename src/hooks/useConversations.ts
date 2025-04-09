@@ -58,7 +58,7 @@ export function useConversations() {
             conversation_id,
             user_id,
             added_at,
-            profiles:user_id(
+            profile:profiles!user_id(
               id,
               first_name,
               last_name,
@@ -87,7 +87,13 @@ export function useConversations() {
         
         // Enrich conversations with participants and last message
         const enrichedConversations = data.map(conversation => {
-          const participants = allParticipants.filter(p => p.conversation_id === conversation.id);
+          const participants = allParticipants
+            .filter(p => p.conversation_id === conversation.id)
+            .map(p => ({
+              ...p,
+              profile: p.profile
+            }));
+            
           const lastMessage = latestMessages.find(m => m.conversation_id === conversation.id);
           
           return {
@@ -121,7 +127,7 @@ export function useConversations() {
           schema: 'public', 
           table: 'conversations',
         }, 
-        (payload) => {
+        () => {
           // Refresh conversations when a new one is created
           fetchConversations();
         }
@@ -132,7 +138,7 @@ export function useConversations() {
           schema: 'public', 
           table: 'messages',
         }, 
-        (payload) => {
+        () => {
           // Refresh conversations when a new message is received
           fetchConversations();
         }
@@ -160,6 +166,10 @@ export function useConversations() {
         .single();
       
       if (conversationError) throw conversationError;
+      
+      if (!conversationData) {
+        throw new Error('Failed to create conversation');
+      }
       
       // Add current user as participant
       await supabase

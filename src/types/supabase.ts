@@ -37,3 +37,77 @@ export interface Message {
   created_at: string;
   sender?: Profile;
 }
+
+// This extends the native User type from Supabase auth
+export interface UserWithProfile {
+  id: string;
+  email: string;
+  name?: string; // Computed from profile first_name + last_name
+  avatar?: string; // Alias for profile avatar_url
+  bio?: string; // From profile
+  role?: string; // From profile
+  enrolledCourses?: string[]; // From enrollments
+  user_metadata?: {
+    avatar_url?: string;
+    name?: string;
+  };
+}
+
+// Export Database types to be used with TypeScript
+export type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: Profile;
+      };
+      conversations: {
+        Row: Omit<Conversation, 'participants' | 'last_message'>;
+      };
+      conversation_participants: {
+        Row: Omit<ConversationParticipant, 'profile'>;
+      };
+      messages: {
+        Row: Omit<Message, 'sender'>;
+      };
+      courses: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          category: string;
+          level: string;
+          image_url: string | null;
+          thumbnail: string | null;
+          instructor_id: string | null;
+          published: boolean;
+          enrollment_status: string | null;
+          duration: string | null;
+          tags: string[] | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      enrollments: {
+        Row: {
+          id: string;
+          user_id: string;
+          course_id: string;
+          enrolled_at: string;
+          completion_status: number;
+        };
+      };
+      resumes: {
+        Row: {
+          id: string;
+          user_id: string;
+          file_path: string;
+          analysis: any;
+          career_alignment_score: number | null;
+          target_role: string | null;
+          uploaded_at: string;
+          updated_at: string;
+        };
+      };
+    };
+  };
+};

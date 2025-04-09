@@ -31,7 +31,7 @@ export function useConversationMessages(conversationId?: string) {
             attachment_url,
             read,
             created_at,
-            profiles:sender_id(
+            sender:profiles!sender_id(
               id,
               first_name,
               last_name,
@@ -45,7 +45,7 @@ export function useConversationMessages(conversationId?: string) {
 
         const messagesWithSender = data.map(message => ({
           ...message,
-          sender: message.profiles
+          sender: message.sender
         }));
 
         setMessages(messagesWithSender);
@@ -94,7 +94,7 @@ export function useConversationMessages(conversationId?: string) {
               attachment_url,
               read,
               created_at,
-              profiles:sender_id(
+              sender:profiles!sender_id(
                 id,
                 first_name,
                 last_name,
@@ -107,7 +107,7 @@ export function useConversationMessages(conversationId?: string) {
           if (!error && data) {
             const newMessage = {
               ...data,
-              sender: data.profiles
+              sender: data.sender
             };
             
             setMessages(prevMessages => [...prevMessages, newMessage]);
