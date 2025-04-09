@@ -183,8 +183,16 @@ const corsHeaders = {
 //     → **Bachelor’s or Master’s degree**
 
 const FORMAT_INSTRUCTIONS = `
-When returning responses, please ensure the content is clearly structured and visually formatted for easy display on a web page. 
-These rules ensure your output uses consistent Markdown conventions, preserves emphasis spans, and presents content clearly for web display—using only bullet points for lists. 
+When returning responses, ensure content is clearly structured and visually formatted for web display.
+
+- Use **bold** (double asterisks) for key terms; never split a bold span across lines.  
+- Use _italics_ (underscores) for emphasis; never break an italic span across lines.  
+- Wrap inline code or technical terms in \`backticks\`.  
+- Use only bullet points (hyphens “-” or asterisks “*”) for lists; do not use numbers.  
+- Keep each bullet on one line. If a bullet’s text is split unnaturally, merge it.  
+- Use “##” for main section headings and “###” for subsections, each followed by a blank line.  
+- Add a blank line between paragraphs, lists, and headings for readability.  
+- If you encounter text split mid‑sentence (especially around **bold** or _italic_), unify it onto one line.  
 `;
 
 // Knowledge base content as context
