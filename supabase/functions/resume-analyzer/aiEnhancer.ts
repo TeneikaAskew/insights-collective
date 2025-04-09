@@ -30,6 +30,34 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
       bullet_count: analysis.bullets.length,
       bullet_samples: bulletSummary
     };
+
+    // formatting the response
+    function formatResponse(raw: string): string {
+      let text = raw;
+    
+      // Balanced bold
+      text = text.replace(/\*\*(.+?)\*/g, '**$1**');
+      text = text.replace(/\*(.+?)\*\*/g, '**$1**');
+    
+      // Leading * or + → bullets
+      text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
+    
+      // Numbered → bullets
+      text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
+    
+      // Bold‑only lines → headings
+      text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
+    
+      // Collapse 3+ blank lines to 2
+      text = text.replace(/\n{3,}/g, '\n\n');
+    
+      // Trim line ends and overall
+      return text
+        .split('\n')
+        .map(l => l.trimEnd())
+        .join('\n')
+        .trim();
+    }
     
     // Call the GROQ API
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -69,7 +97,7 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
     const aiResponse = data.choices[0].message.content;
     
     // Parse AI response - simple approach, in production would use more robust parsing
-    const sections = aiResponse.split(/\d+\.\s+/);
+    const sections = formatResponse(aiResponse).split(/\d+\.\s+/);
     
     if (sections.length >= 4) {
       // Extract elevator pitch from section 1 (after the split)
