@@ -3,6 +3,7 @@ import { BarChart, Clock, Award, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
+import LearningProgressChart from './LearningProgressChart';
 
 const AnalyticsDashboard = () => {
   return (
@@ -109,10 +110,9 @@ const AnalyticsDashboard = () => {
                   </div>
                 </div>
                 
-                <div className="relative h-48 rounded-lg overflow-hidden mb-6">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-100 to-indigo-100 flex items-center justify-center">
-                    <span className="text-muted-foreground">Learning Progress Chart</span>
-                  </div>
+                {/* Learning Progress Chart */}
+                <div className="mb-6">
+                  <LearningProgressChart />
                 </div>
                 
                 <div className="flex justify-between">
