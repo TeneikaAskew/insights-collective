@@ -182,18 +182,49 @@ const corsHeaders = {
 //     Master’s degree**  
 //     → **Bachelor’s or Master’s degree**
 
+// const FORMAT_INSTRUCTIONS = `
+// When returning responses, ensure content is clearly structured and visually formatted for web display.
+
+// - Use **bold** (double asterisks) for key terms; never split a bold span across lines.  
+// - Use _italics_ (underscores) for emphasis; never break an italic span across lines.  
+// - Wrap inline code or technical terms in \`backticks\`.  
+// - Use only bullet points (hyphens “-” or asterisks “*”) for lists; do not use numbers.  
+// - Keep each bullet on one line. If a bullet’s text is split unnaturally, merge it.  
+// - Use “##” for main section headings and “###” for subsections, each followed by a blank line.  
+// - Add a blank line between paragraphs, lists, and headings for readability.  
+// - If you encounter text split mid‑sentence (especially around **bold** or _italic_), unify it onto one line.  
+// `;
+
 const FORMAT_INSTRUCTIONS = `
 When returning responses, ensure content is clearly structured and visually formatted for web display.
 
-- Use **bold** (double asterisks) for key terms; never split a bold span across lines.  
-- Use _italics_ (underscores) for emphasis; never break an italic span across lines.  
+- Use **bold** (double asterisks) for headings and key terms. Never split a bold span across lines.  
+- Use _italics_ (underscores) for emphasis. Never break an italic span across lines.  
 - Wrap inline code or technical terms in \`backticks\`.  
-- Use only bullet points (hyphens “-” or asterisks “*”) for lists; do not use numbers.  
-- Keep each bullet on one line. If a bullet’s text is split unnaturally, merge it.  
-- Use “##” for main section headings and “###” for subsections, each followed by a blank line.  
-- Add a blank line between paragraphs, lists, and headings for readability.  
-- If you encounter text split mid‑sentence (especially around **bold** or _italic_), unify it onto one line.  
+- Use only bullet points (hyphens “-” or asterisks “*”) for lists; do not use numbers. Keep each bullet on one line—merge any that split unnaturally.  
+- Use “##” for main section headings, and “###” for subsections, each followed by one blank line.  
+- Add a blank line between paragraphs, lists, and headings.  
+- If any line splits mid‑sentence or splits **bold**/_italic_ spans, merge it back together.
+
+Example:
+
+## Data Engineering
+
+As a Data Engineer in the Technology sector, you’ll design and maintain large-scale data pipelines and infrastructure. This role ensures smooth data flow, accessibility, and scalability.
+
+**Salary Range:** With a target salary of up to $100,000, you can expect a competitive compensation as a Data Engineer.
+
+**Technical Skills:**
+- \`SQL\`: Proficiency in querying and manipulating large datasets  
+- \`Python\`/Java: Programming languages for data processing and pipelines  
+- ETL tools: Experience with Apache NiFi, AWS Glue, or Google Cloud Data Fusion  
+- Cloud platforms: Familiarity with AWS, Azure, or GCP  
+
+**Career Progression:**
+- Senior Data Engineer: 5–8 years of experience, leading teams and designing complex data systems  
+- Lead Data Engineer: 8+ years of experience, focusing on architecture and technical leadership  
 `;
+
 
 // Knowledge base content as context
 const KNOWLEDGE_BASE = `
