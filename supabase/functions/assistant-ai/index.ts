@@ -172,9 +172,7 @@ serve(async (req) => {
                      If you're unsure about something or if the information isn't in the knowledge base,
                      acknowledge the limitations of your knowledge rather than making up information.
                      
-                     Important: When outputting bullet points that start with "* ", replace this with a newline 
-                     followed by "- " for better formatting. Make sure to add a newline between each bullet point
-                     as well.`
+                     Important: Make sure to add a newline between each bullet point as well.`
           },
           {
             role: 'user',
