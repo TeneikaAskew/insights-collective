@@ -170,9 +170,7 @@ serve(async (req) => {
                      
                      Focus on providing accurate, actionable advice based on the knowledge base above.
                      If you're unsure about something or if the information isn't in the knowledge base,
-                     acknowledge the limitations of your knowledge rather than making up information.
-                     
-                     Important: Make sure to add a newline between each bullet point as well.`
+                     acknowledge the limitations of your knowledge rather than making up information.`
           },
           {
             role: 'user',
