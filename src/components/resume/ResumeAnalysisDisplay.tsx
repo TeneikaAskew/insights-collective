@@ -2,7 +2,6 @@
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import OverallScoreCard from './OverallScoreCard';
-import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 
 interface ResumeAnalysisDisplayProps {
   analysis: ResumeAnalysis | null;
@@ -16,7 +15,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   if (!analysis) return null;
   
   const {
-    bullets,
     resume_percent,
     letter_grade,
     themes,
@@ -26,7 +24,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   
   return (
     <div className="space-y-6">
-      {/* Overall Resume Score */}
+      {/* Overall Resume Score - without the bullet points analysis */}
       <OverallScoreCard 
         letterGrade={letter_grade}
         resumePercent={resume_percent}
@@ -35,9 +33,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         explanation={explanation}
         onStartCareerChat={onStartCareerChat}
       />
-      
-      {/* Bullet Point Analysis */}
-      <BulletPointsAnalysisCard bullets={bullets} />
     </div>
   );
 };

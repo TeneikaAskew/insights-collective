@@ -244,7 +244,7 @@ const Resume = () => {
               </CardFooter>
             </Card>
             
-            {/* Right Column - Resume Analysis */}
+            {/* Right Column - Resume Analysis - Now only shows overall score */}
             <Card>
               <CardHeader>
                 <CardTitle>Resume Analysis</CardTitle>
@@ -336,11 +336,11 @@ const Resume = () => {
             </Card>
           </div>
           
-          {/* Bullet Point Analysis Section */}
+          {/* Bullet Point Analysis Section - Now as its own separate section */}
           {(analysis?.bullets?.length > 0 || (resume?.analysis?.bullets && resume.analysis.bullets.length > 0)) && (
             <Card className="w-full">
               <CardHeader>
-                <CardTitle>Detailed Resume Bullet Analysis</CardTitle>
+                <CardTitle>Resume Bullet Analysis</CardTitle>
                 <CardDescription>
                   Comprehensive breakdown of your resume bullet points with improvement suggestions
                 </CardDescription>
