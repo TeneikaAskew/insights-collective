@@ -1,51 +1,3 @@
-// Analyze word balance
-export function analyzeWordBalance(bullet: string): {
-  industry_pct: number;
-  common_pct: number;
-  action_pct: number;
-  metric_pct: number;
-  word_balance_score: number;
-} {
-  // Simple word classification - in production would use NLP or a more sophisticated approach
-  const words = bullet.split(/\s+/);
-  
-  // Action words list (simplified version)
-  // const actionWords = [
-  //   "achieved", "delivered", "improved", "increased", "reduced", "developed", "created", 
-  //   "managed", "led", "built", "designed", "implemented", "transformed", "spearheaded", 
-  //   "drove", "executed", "launched", "initiated", "generated", "optimized", "streamlined"
-  // ];
-  const actionWords = [
-    "accelerated", "accomplished", "achieved", "acquired", "activated", "adapted", "addressed", "administered", "advanced", "advised",
-    "advocated", "aligned", "allocated", "analyzed", "applied", "appraised", "assembled", "assessed", "assigned", "assisted",
-    "attained", "automated", "boosted", "budgeted", "built", "calculated", "centralized", "championed", "changed", "clarified",
-    "coached", "collaborated", "collected", "communicated", "compared", "compiled", "completed", "conceived", "conceptualized", "concluded",
-    "conducted", "consolidated", "constructed", "consulted", "contributed", "controlled", "converted", "coordinated", "corrected", "created",
-    "cultivated", "customized", "decreased", "defined", "delivered", "demonstrated", "designed", "developed", "devised", "diagnosed",
-    "directed", "discovered", "dispatched", "documented", "doubled", "drove", "enabled", "encouraged", "engaged", "engineered",
-    "enforced", "enhanced", "enlarged", "ensured", "established", "evaluated", "executed", "expanded", "expedited", "explained",
-    "explored", "facilitated", "forecasted", "formed", "formulated", "fostered", "founded", "generated", "governed", "guided",
-    "headed", "identified", "implemented", "improved", "increased", "influenced", "informed", "initiated", "innovated", "inspected",
-    "inspired", "installed", "instituted", "instructed", "integrated", "intensified", "introduced", "invented", "investigated", "launched",
-    "led", "leveraged", "maintained", "managed", "maximized", "merged", "minimized", "modernized", "monitored", "motivated",
-    "negotiated", "optimized", "orchestrated", "organized", "outperformed", "overhauled", "oversaw", "partnered", "performed", "piloted",
-    "pioneered", "planned", "prepared", "presented", "prioritized", "produced", "programmed", "projected", "promoted", "proposed",
-    "protected", "provided", "qualified", "quantified", "realigned", "realized", "rebuilt", "received", "reconciled", "recruited",
-    "reduced", "redesigned", "refined", "reformed", "reengineered", "reinforced", "reorganized", "replaced", "reported", "resolved",
-    "restructured", "revamped", "reviewed", "revised", "saved", "scheduled", "secured", "selected", "simplified", "solved",
-    "spearheaded", "specified", "stabilized", "standardized", "started", "streamlined", "strengthened", "structured", "supervised", "supported",
-    "surpassed", "surveyed", "synthesized", "targeted", "tested", "trained", "transformed", "translated", "updated", "upgraded",
-    "validated", "won", "yielded"
-  ];
-  
-  // Industry words (simplified - would be more comprehensive in production)
-  // const industryWords = [
-  //   "data", "analysis", "analytics", "python", "sql", "tableau", "powerbi", "excel",
-  //   "database", "algorithms", "machine", "learning", "ai", "visualization", "dashboard",
-  //   "kpi", "metrics", "statistics", "engineering", "etl", "cloud", "aws", "azure", 
-  //   "pipeline", "hadoop", "spark", "agile", "scrum", "software", "development", "api"
-  // ];
-  // Extensive industry‑word list for data, analytics, strategy, consulting & product domains
   const industryWords = [
     /* Core data & analytics */
     "data","analytics","analysis","bi","intelligence","insights","sql","nosql","python","r","scala","java","julia","sas","matlab","stata",
@@ -81,6 +33,69 @@ export function analyzeWordBalance(bullet: string): {
     "security","encryption","gdpr","hipaa","pci","sox","access","lineage","catalog","datacatalog","collibra","alation",
     "jira","confluence","api","microservice","microservices","serverless","event","events","logging","observability"
   ];
+
+  const actionWords = [
+    "accelerated", "accomplished", "achieved", "acquired", "activated", "adapted", "addressed", "administered", "advanced", "advised",
+    "advocated", "aligned", "allocated", "analyzed", "applied", "appraised", "assembled", "assessed", "assigned", "assisted",
+    "attained", "automated", "boosted", "budgeted", "built", "calculated", "centralized", "championed", "changed", "clarified",
+    "coached", "collaborated", "collected", "communicated", "compared", "compiled", "completed", "conceived", "conceptualized", "concluded",
+    "conducted", "consolidated", "constructed", "consulted", "contributed", "controlled", "converted", "coordinated", "corrected", "created",
+    "cultivated", "customized", "decreased", "defined", "delivered", "demonstrated", "designed", "developed", "devised", "diagnosed",
+    "directed", "discovered", "dispatched", "documented", "doubled", "drove", "enabled", "encouraged", "engaged", "engineered",
+    "enforced", "enhanced", "enlarged", "ensured", "established", "evaluated", "executed", "expanded", "expedited", "explained",
+    "explored", "facilitated", "forecasted", "formed", "formulated", "fostered", "founded", "generated", "governed", "guided",
+    "headed", "identified", "implemented", "improved", "increased", "influenced", "informed", "initiated", "innovated", "inspected",
+    "inspired", "installed", "instituted", "instructed", "integrated", "intensified", "introduced", "invented", "investigated", "launched",
+    "led", "leveraged", "maintained", "managed", "maximized", "merged", "minimized", "modernized", "monitored", "motivated",
+    "negotiated", "optimized", "orchestrated", "organized", "outperformed", "overhauled", "oversaw", "partnered", "performed", "piloted",
+    "pioneered", "planned", "prepared", "presented", "prioritized", "produced", "programmed", "projected", "promoted", "proposed",
+    "protected", "provided", "qualified", "quantified", "realigned", "realized", "rebuilt", "received", "reconciled", "recruited",
+    "reduced", "redesigned", "refined", "reformed", "reengineered", "reinforced", "reorganized", "replaced", "reported", "resolved",
+    "restructured", "revamped", "reviewed", "revised", "saved", "scheduled", "secured", "selected", "simplified", "solved",
+    "spearheaded", "specified", "stabilized", "standardized", "started", "streamlined", "strengthened", "structured", "supervised", "supported",
+    "surpassed", "surveyed", "synthesized", "targeted", "tested", "trained", "transformed", "translated", "updated", "upgraded",
+    "validated", "won", "yielded"
+  ];
+
+  const softSkills = [
+    "leadership", "management", "mentoring", "coaching", "teamwork", "presentation",
+    "stakeholder", "negotiation", "influence", "persuasion", "problem-solving",
+    "critical-thinking", "adaptability", "creativity", "innovation", "strategic-thinking",
+    "time-management", "organization", "prioritization", "attention-to-detail", "empathy",
+    "resilience", "conflict-resolution", "decision-making", "networking",
+    "relationship-building", "customer-service", "analytical-thinking", "business-acumen",
+    "initiative", "ownership", "accountability", "flexibility"
+  ];
+
+const skillsKeywords = [...industryWords, ...actionWords, ...softSkills];
+
+// Analyze word balance
+export function analyzeWordBalance(bullet: string): {
+  industry_pct: number;
+  common_pct: number;
+  action_pct: number;
+  metric_pct: number;
+  word_balance_score: number;
+} {
+  // Simple word classification - in production would use NLP or a more sophisticated approach
+  const words = bullet.split(/\s+/);
+  
+  // Action words list (simplified version)
+  // const actionWords = [
+  //   "achieved", "delivered", "improved", "increased", "reduced", "developed", "created", 
+  //   "managed", "led", "built", "designed", "implemented", "transformed", "spearheaded", 
+  //   "drove", "executed", "launched", "initiated", "generated", "optimized", "streamlined"
+  // ];
+
+  // Industry words (simplified - would be more comprehensive in production)
+  // const industryWords = [
+  //   "data", "analysis", "analytics", "python", "sql", "tableau", "powerbi", "excel",
+  //   "database", "algorithms", "machine", "learning", "ai", "visualization", "dashboard",
+  //   "kpi", "metrics", "statistics", "engineering", "etl", "cloud", "aws", "azure", 
+  //   "pipeline", "hadoop", "spark", "agile", "scrum", "software", "development", "api"
+  // ];
+  // Extensive industry‑word list for data, analytics, strategy, consulting & product domains
+
 
   let industryCount = 0;
   let commonCount = 0;
@@ -146,8 +161,11 @@ export function xyzCheck(bullet: string): {
   clarity_focus: number;
   xyz_total: number;
 } {
+
+
+
   // 1. Hard & Soft Skills check
-  const skillsKeywords = ["managed", "led", "developed", "created", "analyzed", "designed", "implemented"];
+  // const skillsKeywords = ["managed", "led", "developed", "created", "analyzed", "designed", "implemented"];
   const hasSkills = skillsKeywords.some(keyword => bullet.toLowerCase().includes(keyword));
   const hard_soft = hasSkills ? 5 : 0;
   
