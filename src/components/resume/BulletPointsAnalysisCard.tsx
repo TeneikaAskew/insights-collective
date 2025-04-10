@@ -48,7 +48,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         
         {/* Accordion for detailed analysis */}
         <div>
-          <h3 className="font-semibold mb-2">All Bullet Points Analysis</h3>
+          
           <Accordion type="single" collapsible className="space-y-2">
             {bullets.map((bullet, index) => <BulletPointItem key={index} bullet={bullet} index={index} />)}
           </Accordion>
