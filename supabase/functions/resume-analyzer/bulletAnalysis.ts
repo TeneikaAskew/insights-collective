@@ -69,6 +69,17 @@
 
 const skillsKeywords = [...industryWords, ...actionWords, ...softSkills];
 
+const weakPhrases = [
+  "responsible for", "duties include", "helped with", "assisted with", "involved in", "participated in", "worked on", "tasked with",
+  "supporting", "responsible to", "a part of", "contributed to", "played a role in", "worked alongside", "was part of",
+  "was responsible for", "was involved in", "provided support", "helped manage", "helped develop", "helped implement",
+  "helped design", "helped create", "provided assistance", "collaborated with", "cooperated with", "supported the team",
+  "team member", "worked under", "assisted in", "assisted on", "assisted the", "helped to", "helped", "contributed",
+  "coordinated with", "participated", "participated on", "participated at", "in conjunction with", "along with",
+  "under the supervision of", "under supervision", "shadowed", "observed", "attended", "saw to", "helped out",
+  "did some", "did work", "completed tasks", "carried out", "carried out tasks", "responsible", "involved", "worked", "assisted"
+];
+
 // Analyze word balance
 export function analyzeWordBalance(bullet: string): {
   industry_pct: number;
@@ -170,8 +181,10 @@ export function xyzCheck(bullet: string): {
   const hard_soft = hasSkills ? 5 : 0;
   
   // 2. Action Words check
-  const startsWithAction = /^(Achieved|Improved|Increased|Reduced|Developed|Created|Managed|Led|Built|Designed|Implemented)/i.test(bullet);
-  const noWeakPhrasing = !/(responsible for|duties include|helped with)/i.test(bullet);
+  const actionRegex = new RegExp(`^(${actionWords.map(w => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`,'i');
+  const startsWithAction = actionRegex.test(bullet);///^(Achieved|Improved|Increased|Reduced|Developed|Created|Managed|Led|Built|Designed|Implemented)/i.test(bullet);
+  const weakRegex = new RegExp(`\\b(${weakPhrases.map(phrase => phrase.replace(/[-/\\^$*+?.()|[\\]{}]/g, '\\$&')).join('|')})\\b`,'i');
+  const noWeakPhrasing = !weakRegex.test(bullet);//!/(responsible for|duties include|helped with)/i.test(bullet);
   const action_words = (startsWithAction && noWeakPhrasing) ? 5 : (startsWithAction || noWeakPhrasing ? 3 : 0);
   
   // 3. Measurable Results check
