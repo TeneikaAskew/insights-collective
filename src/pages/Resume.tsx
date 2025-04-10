@@ -7,7 +7,6 @@ import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeUploadSection from '@/components/resume/ResumeUploadSection';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
-import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 
@@ -30,6 +29,12 @@ const Resume = () => {
       reader.readAsDataURL(resumeFile);
     }
   }, [resumeFile]);
+  
+  // Debug logs to track state changes
+  useEffect(() => {
+    console.log("Resume object updated:", resume);
+    console.log("Analysis object updated:", analysis);
+  }, [resume, analysis]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -81,9 +86,6 @@ const Resume = () => {
     return <ResumeLoginWall />;
   }
 
-  // Ensure bulletPoints array always exists to prevent map errors
-  const bulletPoints = analysis?.bullets || [];
-
   return (
     <AppLayout>
       <div className="container mx-auto">
@@ -124,13 +126,6 @@ const Resume = () => {
               handleFileChange={handleFileChange}
             />
           </div>
-          
-          {/* Bullet Point Analysis Section - Now as its own separate section */}
-          {bulletPoints && bulletPoints.length > 0 && (
-            <BulletPointsAnalysisCard 
-              bullets={bulletPoints} 
-            />
-          )}
           
           {/* Career Chat Section */}
           {showCareerChat && (

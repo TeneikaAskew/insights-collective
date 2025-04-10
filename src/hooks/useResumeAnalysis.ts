@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { useAuth } from '@/contexts/AuthContext';
+import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 
 export function useResumeAnalysis() {
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
@@ -15,6 +16,7 @@ export function useResumeAnalysis() {
   useEffect(() => {
     if (user) {
       const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+      console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
       if (savedAnalysis) {
         try {
           setAnalysis(JSON.parse(savedAnalysis));
@@ -29,6 +31,7 @@ export function useResumeAnalysis() {
     if (!file || !user) return false;
     
     setIsAnalyzing(true);
+    console.log("Starting resume analysis for file:", file.name);
     
     try {
       // Extract text from the uploaded file first
@@ -37,6 +40,8 @@ export function useResumeAnalysis() {
       if (!fileText) {
         throw new Error('Failed to extract text from the file');
       }
+      
+      console.log("Successfully extracted text from resume, length:", fileText.length);
       
       // Step 2: Try to first get the text from the database if it exists
       const { data: resumeData, error: resumeError } = await supabase
@@ -49,6 +54,7 @@ export function useResumeAnalysis() {
       const textToAnalyze = resumeData?.text || fileText;
       
       // Step 3: Call the Edge Function with user ID and text
+      console.log("Calling resume-analyzer edge function");
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
           resumeText: textToAnalyze,
@@ -57,6 +63,8 @@ export function useResumeAnalysis() {
       });
       
       if (error) throw error;
+      
+      console.log("Resume analysis complete:", data ? "Success" : "No data returned");
       
       // Save the analysis to localStorage for persistence
       if (data && user) {
@@ -83,51 +91,6 @@ export function useResumeAnalysis() {
       return false;
     } finally {
       setIsAnalyzing(false);
-    }
-  };
-
-  // Helper function to extract text from PDF
-  const extractTextFromFile = async (file: File): Promise<string> => {
-    try {
-      // Check file type and use appropriate extraction method
-      if (file.type === 'application/pdf') {
-        const pdfjs = await import('pdfjs-dist');
-        // Configure PDF.js worker
-        pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
-        
-        const arrayBuffer = await file.arrayBuffer();
-        const pdfData = new Uint8Array(arrayBuffer);
-        
-        // Load the PDF document
-        const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
-        
-        let fullText = '';
-        
-        // Extract text from each page
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const pageText = textContent.items
-            .map((item: any) => item.str)
-            .join(' ');
-          
-          fullText += pageText + '\n';
-        }
-        
-        return fullText;
-      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        // For DOCX files
-        const mammoth = await import('mammoth');
-        
-        const arrayBuffer = await file.arrayBuffer();
-        const result = await mammoth.extractRawText({ arrayBuffer });
-        return result.value;
-      } else {
-        throw new Error("Unsupported file type. Only PDF and DOCX are supported.");
-      }
-    } catch (error) {
-      console.error('Error extracting text from file:', error);
-      throw new Error(`Failed to extract text from file: ${error.message}`);
     }
   };
 

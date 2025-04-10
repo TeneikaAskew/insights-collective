@@ -11,6 +11,9 @@ interface BulletPointChartProps {
 const BulletPointChart: React.FC<BulletPointChartProps> = ({
   bullet
 }) => {
+  // Safety check - if bullet is null or undefined, render nothing
+  if (!bullet) return null;
+  
   // Get formatted chart data
   const { dataWithPercent, bullet_total } = prepareBulletChartData(bullet);
 

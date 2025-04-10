@@ -3,6 +3,18 @@ import { BulletAnalysis } from '@/components/assistants/types';
 
 // Helper function to prepare chart data
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
+  if (!bullet) {
+    console.error("Received null or undefined bullet data");
+    // Return default safe values to prevent crashes
+    return {
+      dataWithPercent: [],
+      bullet_total: 0,
+      xyz_scores: { hard_soft: 0, action_words: 0, measurable_results: 0, clarity_focus: 0 },
+      word_balance: { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
+      totalScore: 0
+    };
+  }
+  
   // Add fallback for when bullet properties are undefined
   const {
     word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
