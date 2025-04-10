@@ -11,6 +11,7 @@ import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCa
 import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ResumeAnalysis } from '@/components/assistants/types';
 
 const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
   const [hasError, setHasError] = useState(false);
@@ -45,6 +46,23 @@ const ErrorBoundary = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Define proper interfaces to match the hook implementations
+interface ResumeHookData {
+  resume: any;
+  loading: boolean;
+  uploading: boolean;
+  uploadResume: (file: File) => Promise<boolean>;
+  deleteResume: () => Promise<boolean>;
+  refreshResume: () => Promise<void>;
+}
+
+interface AnalysisHookData {
+  analysis: ResumeAnalysis | null;
+  isAnalyzing: boolean;
+  analyzeResume: (file: File) => Promise<boolean>;
+  setAnalysis: React.Dispatch<React.SetStateAction<ResumeAnalysis | null>>;
+}
+
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -66,12 +84,25 @@ const Resume = () => {
   }, []);
   
   // Carefully initialize hooks with error handling
-  let resumeHookData = { resume: null, loading: true, uploading: false, uploadResume: async () => false, deleteResume: async () => false, refreshResume: async () => {} };
-  let analysisHookData = { analysis: null, isAnalyzing: false, analyzeResume: async () => false };
+  let resumeHookData: ResumeHookData = { 
+    resume: null, 
+    loading: true, 
+    uploading: false, 
+    uploadResume: async (file: File) => false, 
+    deleteResume: async () => false, 
+    refreshResume: async () => {} 
+  };
+  
+  let analysisHookData: AnalysisHookData = { 
+    analysis: null, 
+    isAnalyzing: false, 
+    analyzeResume: async (file: File) => false,
+    setAnalysis: () => {} 
+  };
   
   try {
-    resumeHookData = useResume();
-    analysisHookData = useResumeAnalysis();
+    resumeHookData = useResume() as ResumeHookData;
+    analysisHookData = useResumeAnalysis() as AnalysisHookData;
   } catch (error) {
     console.error("Error initializing hooks:", error);
     toast({
@@ -82,7 +113,7 @@ const Resume = () => {
   }
   
   const { resume, loading, uploading, uploadResume, deleteResume, refreshResume } = resumeHookData;
-  const { analysis, isAnalyzing, analyzeResume } = analysisHookData;
+  const { analysis, isAnalyzing, analyzeResume, setAnalysis } = analysisHookData;
   const [showCareerChat, setShowCareerChat] = useState(false);
   
   // Load preview when resumeFile changes
@@ -106,7 +137,7 @@ const Resume = () => {
     } else if (!isAuthenticated) {
       setIsLoading(false);
     }
-  }, [isAuthenticated, mounted]);
+  }, [isAuthenticated, mounted, refreshResume]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;

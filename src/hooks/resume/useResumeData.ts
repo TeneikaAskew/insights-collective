@@ -63,8 +63,7 @@ export function useResumeData() {
         .from('resumes')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle()
-        .abortSignal(AbortSignal.timeout(10000)); // 10-second timeout
+        .maybeSingle();
         
       if (error) {
         console.error('Error fetching resume:', error);
