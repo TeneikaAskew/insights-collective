@@ -20,7 +20,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     letter_grade = 'C',
     themes = [],
     elevator_pitch = '',
-    explanation = ''
+    explanation = '',
+    bullets = []
   } = analysis || {};
   
   return (

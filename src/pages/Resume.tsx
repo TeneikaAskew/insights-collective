@@ -130,8 +130,8 @@ const Resume = () => {
     return <ResumeLoginWall />;
   }
 
-  // Ensure bullets array always exists to prevent map errors
-  const bulletPoints = analysis?.bullets || (resume?.analysis?.bullets || []);
+  // Ensure bulletPoints array always exists to prevent map errors
+  const bulletPoints = analysis?.bullets || [];
 
   return (
     <AppLayout>
@@ -282,7 +282,7 @@ const Resume = () => {
                     <div>
                       <h3 className="font-medium mb-2">Strengths</h3>
                       <ul className="list-disc pl-5 space-y-1 text-sm">
-                        {resume.analysis.strengths.map((strength: string, i: number) => (
+                        {resume.analysis.strengths && resume.analysis.strengths.map((strength: string, i: number) => (
                           <li key={i}>{strength}</li>
                         ))}
                       </ul>
@@ -291,7 +291,7 @@ const Resume = () => {
                     <div>
                       <h3 className="font-medium mb-2">Areas for Improvement</h3>
                       <ul className="list-disc pl-5 space-y-1 text-sm">
-                        {resume.analysis.improvements.map((improvement: string, i: number) => (
+                        {resume.analysis.improvements && resume.analysis.improvements.map((improvement: string, i: number) => (
                           <li key={i}>{improvement}</li>
                         ))}
                       </ul>

@@ -43,7 +43,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
     return "bg-red-100 text-red-800 border-red-200";
   };
 
-  // Parse the bullet text to identify different component types (same function as in BulletPointChart)
+  // Parse the bullet text to identify different component types
   const parseTextComponents = (text: string) => {
     if (!text) return [];
     
@@ -221,31 +221,31 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
             <div className="space-y-2">
               <h4 className="text-sm font-medium mb-2">Word Balance ({word_balance_score}/25)</h4>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Industry: <span className={getScoreColor(word_balance.industry_pct, 45)}>{word_balance.industry_pct}%</span></div>
-                <div>Common: <span className={getScoreColor(word_balance.common_pct, 25)}>{word_balance.common_pct}%</span></div>
-                <div>Action: <span className={getScoreColor(word_balance.action_pct, 15)}>{word_balance.action_pct}%</span></div>
-                <div>Metric: <span className={getScoreColor(word_balance.metric_pct, 15)}>{word_balance.metric_pct}%</span></div>
+                <div>Industry: <span className={getScoreColor(word_balance.industry_pct || 0, 45)}>{word_balance.industry_pct || 0}%</span></div>
+                <div>Common: <span className={getScoreColor(word_balance.common_pct || 0, 25)}>{word_balance.common_pct || 0}%</span></div>
+                <div>Action: <span className={getScoreColor(word_balance.action_pct || 0, 15)}>{word_balance.action_pct || 0}%</span></div>
+                <div>Metric: <span className={getScoreColor(word_balance.metric_pct || 0, 15)}>{word_balance.metric_pct || 0}%</span></div>
               </div>
             </div>
             
             <div className="space-y-2">
-              <h4 className="text-sm font-medium mb-2">XYZ Quality ({xyz_scores.hard_soft + xyz_scores.action_words + xyz_scores.measurable_results + xyz_scores.clarity_focus}/20)</h4>
+              <h4 className="text-sm font-medium mb-2">XYZ Quality ({(xyz_scores.hard_soft || 0) + (xyz_scores.action_words || 0) + (xyz_scores.measurable_results || 0) + (xyz_scores.clarity_focus || 0)}/20)</h4>
               <div className="space-y-1 text-sm">
                 <div className="flex items-center">
-                  {xyz_scores.hard_soft >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
-                  <span>Hard/Soft Skills: {xyz_scores.hard_soft}/5</span>
+                  {(xyz_scores.hard_soft || 0) >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
+                  <span>Hard/Soft Skills: {xyz_scores.hard_soft || 0}/5</span>
                 </div>
                 <div className="flex items-center">
-                  {xyz_scores.action_words >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
-                  <span>Action Words: {xyz_scores.action_words}/5</span>
+                  {(xyz_scores.action_words || 0) >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
+                  <span>Action Words: {xyz_scores.action_words || 0}/5</span>
                 </div>
                 <div className="flex items-center">
-                  {xyz_scores.measurable_results >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
-                  <span>Measurable Results: {xyz_scores.measurable_results}/5</span>
+                  {(xyz_scores.measurable_results || 0) >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
+                  <span>Measurable Results: {xyz_scores.measurable_results || 0}/5</span>
                 </div>
                 <div className="flex items-center">
-                  {xyz_scores.clarity_focus >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
-                  <span>Clarity & Focus: {xyz_scores.clarity_focus}/5</span>
+                  {(xyz_scores.clarity_focus || 0) >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
+                  <span>Clarity & Focus: {xyz_scores.clarity_focus || 0}/5</span>
                 </div>
               </div>
             </div>

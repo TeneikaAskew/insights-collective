@@ -33,8 +33,8 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
     );
   }
 
-  // Select the first bullet or the currently selected one
-  const selectedBullet = bullets[selectedBulletIndex] || bullets[0];
+  // Safely select the bullet (handle case where selectedBulletIndex is out of range)
+  const selectedBullet = bullets[selectedBulletIndex < bullets.length ? selectedBulletIndex : 0] || bullets[0];
 
   // Function to parse bullet text components
   const parseTextComponents = (text: string) => {
@@ -143,7 +143,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
     return components;
   };
 
-  // Parse the selected bullet text
+  // Parse the selected bullet text (with extra safety check)
   const selectedBulletComponents = parseTextComponents(selectedBullet?.original || '');
 
   return (
