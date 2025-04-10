@@ -2,7 +2,6 @@
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import OverallScoreCard from './OverallScoreCard';
-import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 
 interface ResumeAnalysisDisplayProps {
   analysis: ResumeAnalysis | null;
@@ -21,8 +20,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     letter_grade = 'C',
     themes = [],
     elevator_pitch = '',
-    explanation = '',
-    bullets = []
+    explanation = ''
   } = analysis || {};
   
   return (
@@ -36,11 +34,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         explanation={explanation}
         onStartCareerChat={onStartCareerChat}
       />
-      
-      {/* Bullet Points Analysis Card - if we have bullet points */}
-      {bullets && bullets.length > 0 && (
-        <BulletPointsAnalysisCard bullets={bullets} />
-      )}
     </div>
   );
 };

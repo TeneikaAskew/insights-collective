@@ -3,9 +3,11 @@ import React, { useState } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
+import { Edit2 } from 'lucide-react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import BulletPointChart from './BulletPointChart';
+import { HighlightedBulletText } from './text/BulletTextParser';
+import { WordBalanceScore, XYZQualityScore, getBadgeColor } from './score/BulletScoreDisplay';
 
 interface BulletPointItemProps {
   bullet: BulletAnalysis;
@@ -29,130 +31,6 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
     tips = ""
   } = bullet || {};
 
-  const getScoreColor = (score: number, max: number) => {
-    const percentage = score / max * 100;
-    if (percentage >= 80) return "text-green-600";
-    if (percentage >= 60) return "text-yellow-600";
-    return "text-red-600";
-  };
-
-  const getBadgeColor = (score: number, max: number) => {
-    const percentage = score / max * 100;
-    if (percentage >= 80) return "bg-green-100 text-green-800 border-green-200";
-    if (percentage >= 60) return "bg-yellow-100 text-yellow-800 border-yellow-200";
-    return "bg-red-100 text-red-800 border-red-200";
-  };
-
-  // Parse the bullet text to identify different component types
-  const parseTextComponents = (text: string) => {
-    if (!text) return [];
-    
-    const components = [];
-    
-    // Simple rule-based parsing to identify key components
-    // Action words (usually at start)
-    const actionWords = ['Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built'];
-    const measurableResults = /\d+%|\$\d+|\d+x|\d+ percent/g;
-    
-    let remainingText = text;
-    
-    // Find action words
-    for (const word of actionWords) {
-      if (text.startsWith(word)) {
-        components.push({
-          text: word,
-          type: 'action'
-        });
-        remainingText = text.substring(word.length);
-        break;
-      }
-    }
-    
-    // Split the remaining text by measurable results
-    const matches = [...remainingText.matchAll(measurableResults)];
-    if (matches.length > 0) {
-      let lastIndex = 0;
-      
-      for (const match of matches) {
-        const index = match.index!;
-        
-        // Add the text before the measurable result
-        if (index > lastIndex) {
-          // Check for skill words in this segment
-          const segment = remainingText.substring(lastIndex, index);
-          const skillTerms = ['new hire onboarding', 'training', 'technical', 'leadership', 'management'];
-          
-          let foundSkill = false;
-          for (const skill of skillTerms) {
-            if (segment.includes(skill)) {
-              const skillIndex = segment.indexOf(skill);
-              
-              // Text before skill
-              if (skillIndex > 0) {
-                components.push({
-                  text: segment.substring(0, skillIndex),
-                  type: 'normal'
-                });
-              }
-              
-              // Skill text
-              components.push({
-                text: skill,
-                type: 'skill'
-              });
-              
-              // Text after skill
-              if (skillIndex + skill.length < segment.length) {
-                components.push({
-                  text: segment.substring(skillIndex + skill.length),
-                  type: 'normal'
-                });
-              }
-              
-              foundSkill = true;
-              break;
-            }
-          }
-          
-          // If no skill found, add as normal text
-          if (!foundSkill) {
-            components.push({
-              text: segment,
-              type: 'normal'
-            });
-          }
-        }
-        
-        // Add the measurable result
-        components.push({
-          text: match[0],
-          type: 'measurable'
-        });
-        
-        lastIndex = index! + match[0].length;
-      }
-      
-      // Add any remaining text
-      if (lastIndex < remainingText.length) {
-        components.push({
-          text: remainingText.substring(lastIndex),
-          type: 'normal'
-        });
-      }
-    } else {
-      // No measurable results found
-      components.push({
-        text: remainingText,
-        type: 'normal'
-      });
-    }
-    
-    return components;
-  };
-
-  const originalComponents = parseTextComponents(original || '');
-  const rewrittenComponents = parseTextComponents(rewritten || '');
-
   return (
     <AccordionItem value={`bullet-${index}`} className="border rounded-lg p-1">
       <AccordionTrigger className="px-4 py-3 hover:no-underline">
@@ -172,19 +50,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Original:</h4>
             <div className="text-sm bg-slate-50 p-3 rounded">
-              {originalComponents.length > 0 ? 
-                originalComponents.map((part, idx) => (
-                  <span key={idx} className={
-                    part.type === 'action' ? 'text-primary font-semibold' : 
-                    part.type === 'skill' ? 'text-destructive font-semibold' : 
-                    part.type === 'measurable' ? 'text-accent font-semibold' : 
-                    ''
-                  }>
-                    {part.text}
-                  </span>
-                )) : 
-                "No original bullet text available"
-              }
+              <HighlightedBulletText text={original} />
             </div>
             
             <h4 className="text-sm font-medium flex items-center">
@@ -194,19 +60,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
               </Button>
             </h4>
             <div className="text-sm bg-green-50 p-3 rounded">
-              {rewrittenComponents.length > 0 ? 
-                rewrittenComponents.map((part, idx) => (
-                  <span key={idx} className={
-                    part.type === 'action' ? 'text-primary font-semibold' : 
-                    part.type === 'skill' ? 'text-destructive font-semibold' : 
-                    part.type === 'measurable' ? 'text-accent font-semibold' : 
-                    ''
-                  }>
-                    {part.text}
-                  </span>
-                )) : 
-                "No suggested improvement available"
-              }
+              <HighlightedBulletText text={rewritten} />
             </div>
           </div>
           
@@ -218,37 +72,12 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           
           {/* Score Breakdown */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium mb-2">Word Balance ({word_balance_score}/25)</h4>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Industry: <span className={getScoreColor(word_balance.industry_pct || 0, 45)}>{word_balance.industry_pct || 0}%</span></div>
-                <div>Common: <span className={getScoreColor(word_balance.common_pct || 0, 25)}>{word_balance.common_pct || 0}%</span></div>
-                <div>Action: <span className={getScoreColor(word_balance.action_pct || 0, 15)}>{word_balance.action_pct || 0}%</span></div>
-                <div>Metric: <span className={getScoreColor(word_balance.metric_pct || 0, 15)}>{word_balance.metric_pct || 0}%</span></div>
-              </div>
-            </div>
+            <WordBalanceScore 
+              wordBalance={word_balance}
+              wordBalanceScore={word_balance_score}
+            />
             
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium mb-2">XYZ Quality ({(xyz_scores.hard_soft || 0) + (xyz_scores.action_words || 0) + (xyz_scores.measurable_results || 0) + (xyz_scores.clarity_focus || 0)}/20)</h4>
-              <div className="space-y-1 text-sm">
-                <div className="flex items-center">
-                  {(xyz_scores.hard_soft || 0) >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
-                  <span>Hard/Soft Skills: {xyz_scores.hard_soft || 0}/5</span>
-                </div>
-                <div className="flex items-center">
-                  {(xyz_scores.action_words || 0) >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
-                  <span>Action Words: {xyz_scores.action_words || 0}/5</span>
-                </div>
-                <div className="flex items-center">
-                  {(xyz_scores.measurable_results || 0) >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
-                  <span>Measurable Results: {xyz_scores.measurable_results || 0}/5</span>
-                </div>
-                <div className="flex items-center">
-                  {(xyz_scores.clarity_focus || 0) >= 3 ? <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : <AlertTriangle className="h-3 w-3 text-red-500 mr-1" />}
-                  <span>Clarity & Focus: {xyz_scores.clarity_focus || 0}/5</span>
-                </div>
-              </div>
-            </div>
+            <XYZQualityScore xyzScores={xyz_scores} />
           </div>
           
           {/* Improvement Tips */}
