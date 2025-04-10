@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -19,14 +18,14 @@ const bulletCache = new Map();
 // Main function to analyze resume
 async function analyzeResume(resumeText: string, userId?: string) {
   try {
-    // Step 1: Persist resume text if userId is provided
+    // Step 1: Check if userId is provided and get resume text from the database if needed
     let resumeId = null;
     if (userId) {
       try {
         // Check if user already has a resume
         const { data: existingResume, error: fetchError } = await supabase
           .from('resumes')
-          .select('id')
+          .select('id, text')
           .eq('user_id', userId)
           .maybeSingle();
         
@@ -34,40 +33,32 @@ async function analyzeResume(resumeText: string, userId?: string) {
           console.error("Error fetching existing resume:", fetchError);
         }
         
-        // Update or insert resume
+        // If we have a resume record but no resumeText was provided, use the stored text
         if (existingResume?.id) {
-          const { data, error } = await supabase
-            .from('resumes')
-            .update({ 
-              file_path: 'uploaded_text', // Since this is direct text, not a file
-              analysis: null, // Will be updated later
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', existingResume.id)
-            .select('id');
-          
-          if (error) throw new Error(`Failed to update resume: ${error.message}`);
           resumeId = existingResume.id;
-        } else {
-          const { data, error } = await supabase
-            .from('resumes')
-            .insert({
-              user_id: userId,
-              file_path: 'uploaded_text', // Since this is direct text, not a file
-            })
-            .select('id');
           
-          if (error) throw new Error(`Failed to save resume: ${error.message}`);
-          if (data && data.length > 0) {
-            resumeId = data[0].id;
+          // If no resumeText was provided but we have stored text, use it
+          if (!resumeText && existingResume.text) {
+            console.log("Using stored resume text from database");
+            resumeText = existingResume.text;
           }
         }
-        
-        console.log("Resume persisted successfully, ID:", resumeId);
-      } catch (persistError) {
-        console.error("Error persisting resume:", persistError);
-        throw new Error(`Failed to save resume: ${persistError.message}`);
+      } catch (fetchError) {
+        console.error("Error fetching resume data:", fetchError);
       }
+    }
+    
+    if (!resumeText) {
+      console.error("No resume text provided and none found in database");
+      return {
+        bullets: [],
+        resume_average: 25,
+        resume_percent: 50,
+        letter_grade: "C",
+        themes: ["Please upload a resume with text content"],
+        elevator_pitch: "We couldn't find any text to analyze. Please upload a valid resume document.",
+        explanation: "We couldn't find any text to analyze. Make sure your document contains readable text content."
+      };
     }
     
     // Step 2: Extract bullets with fallback
@@ -269,10 +260,6 @@ serve(async (req) => {
     // Parse the request body
     const requestData = await req.json();
     const { resumeText, userId } = requestData;
-    
-    if (!resumeText) {
-      throw new Error('Resume text is required');
-    }
     
     // Analyze the resume
     const analysis = await analyzeResume(resumeText, userId);

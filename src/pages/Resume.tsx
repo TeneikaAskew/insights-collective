@@ -11,7 +11,6 @@ import ResumeAnalysisDisplay from '@/components/resume/ResumeAnalysisDisplay';
 import ResumeChat from '@/components/resume/ResumeChat';
 import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -29,8 +28,6 @@ const Resume = () => {
         setPdfDataUrl(e.target?.result as string);
       };
       reader.readAsDataURL(resumeFile);
-    } else {
-      setPdfDataUrl(null);
     }
   }, [resumeFile]);
   

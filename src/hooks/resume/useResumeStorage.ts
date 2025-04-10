@@ -3,11 +3,44 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import * as pdfjs from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
 
 export function useResumeStorage() {
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Extract text from PDF file
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Load the PDF document
+      const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
+      
+      let fullText = '';
+      
+      // Extract text from each page
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        
+        fullText += pageText + '\n';
+      }
+      
+      return fullText;
+    } catch (error) {
+      console.error('Error extracting text from PDF:', error);
+      throw new Error('Failed to extract text from PDF');
+    }
+  };
 
   const uploadResumeFile = async (file: File, userId: string) => {
     setUploading(true);
@@ -17,6 +50,9 @@ export function useResumeStorage() {
       const fileName = `resume_${timestamp}.pdf`;
       const filePath = `${userId}/${fileName}`;
       
+      // Extract text from PDF
+      const extractedText = await extractTextFromPDF(file);
+      
       // Upload file to Storage
       const { error: uploadError } = await supabase
         .storage
@@ -24,6 +60,40 @@ export function useResumeStorage() {
         .upload(filePath, file);
         
       if (uploadError) throw uploadError;
+      
+      // Check if user already has a resume record
+      const { data: existingResume, error: fetchError } = await supabase
+        .from('resumes')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      
+      if (fetchError) throw fetchError;
+      
+      if (existingResume) {
+        // Update existing record
+        const { error } = await supabase
+          .from('resumes')
+          .update({ 
+            file_path: fileName,
+            text: extractedText,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingResume.id);
+          
+        if (error) throw error;
+      } else {
+        // Create new record
+        const { error } = await supabase
+          .from('resumes')
+          .insert({
+            user_id: userId,
+            file_path: fileName,
+            text: extractedText
+          });
+          
+        if (error) throw error;
+      }
       
       return { fileName, filePath, timestamp, success: true };
     } catch (error) {
@@ -73,6 +143,7 @@ export function useResumeStorage() {
     uploading,
     uploadResumeFile,
     getResumeFileUrl,
-    deleteResumeFile
+    deleteResumeFile,
+    extractTextFromPDF
   };
 }
