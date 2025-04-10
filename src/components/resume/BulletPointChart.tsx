@@ -12,9 +12,16 @@ interface BulletPointChartProps {
 const BulletPointChart: React.FC<BulletPointChartProps> = ({
   bullet
 }) => {
-  // Create a unique component key based on bullet data to force re-renders
+  // Create a stable unique component key based on bullet content
   const chartKey = useMemo(() => {
-    return `chart-${bullet?.bullet_total || 0}-${JSON.stringify(bullet?.word_balance || {})}-${Date.now()}`;
+    if (!bullet) return 'chart-empty';
+    
+    // Use stable properties for key generation - no timestamps
+    const totalScore = bullet?.bullet_total || 0;
+    const bulletTextStart = bullet?.original?.slice(0, 15) || '';
+    const wordBalanceScore = bullet?.word_balance_score || 0;
+    
+    return `chart-${totalScore}-${wordBalanceScore}-${bulletTextStart}`;
   }, [bullet]);
   
   // Log bullet data for debugging

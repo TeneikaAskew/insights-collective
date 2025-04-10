@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BulletAnalysis } from '@/components/assistants/types';
@@ -14,8 +15,15 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   bullets = [] // Provide default empty array
 }) => {
   const [selectedBulletIndex, setSelectedBulletIndex] = useState(0);
+  
+  // Create a stable component key based on bullet data
   const componentKey = useMemo(() => {
-    return `bullets-${bullets.length}-${JSON.stringify(bullets[0]?.bullet_total || 0)}-${Date.now()}`;
+    // Create a hash based on bullet count and first bullet's score
+    const bulletCount = bullets.length;
+    const firstBulletScore = bullets[0]?.bullet_total || 0;
+    const firstBulletText = bullets[0]?.original?.slice(0, 10) || '';
+    
+    return `bullets-${bulletCount}-${firstBulletScore}-${firstBulletText}`;
   }, [bullets]);
 
   console.log("BulletPointsAnalysisCard - Received bullets:", bullets);
@@ -58,11 +66,15 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
             value={selectedBulletIndex} 
             onChange={e => setSelectedBulletIndex(parseInt(e.target.value))}
           >
-            {bullets.map((bullet, idx) => (
-              <option key={`bullet-option-${idx}-${Date.now()}`} value={idx}>
-                {bullet?.original?.substring(0, 60) || `Bullet point ${idx + 1}`}...
-              </option>
-            ))}
+            {bullets.map((bullet, idx) => {
+              // Create stable option keys based on content
+              const bulletStart = bullet?.original?.substring(0, 60) || `Bullet point ${idx + 1}`;
+              return (
+                <option key={`bullet-option-${idx}-${bulletStart}`} value={idx}>
+                  {bulletStart}...
+                </option>
+              );
+            })}
           </select>
         </div>
         
@@ -73,7 +85,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </div>
         
         {selectedBullet && (
-          <div key={`chart-${selectedBulletIndex}-${Date.now()}`}>
+          <div key={`chart-${selectedBulletIndex}-${selectedBullet?.original?.slice(0, 10) || ''}`}>
             <BulletPointChart bullet={selectedBullet} />
           </div>
         )}

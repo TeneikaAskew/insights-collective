@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,14 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   
+  // Create a stable, unique identifier for this bullet
+  const bulletId = useMemo(() => {
+    // Create a more unique identifier using bullet text and score
+    const textPart = bullet?.original?.slice(0, 30).replace(/\W+/g, '-') || '';
+    const scorePart = bullet?.bullet_total || 0;
+    return `bullet-${index}-${scorePart}-${textPart}`;
+  }, [bullet, index]);
+  
   // Add default values to prevent undefined errors
   const {
     original = "",
@@ -32,7 +40,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   } = bullet || {};
 
   return (
-    <AccordionItem value={`bullet-${index}`} className="border rounded-lg p-1">
+    <AccordionItem value={bulletId} className="border rounded-lg p-1">
       <AccordionTrigger className="px-4 py-3 hover:no-underline">
         <div className="flex flex-1 items-center justify-between">
           <div className="flex-1 text-left mr-4 line-clamp-1">

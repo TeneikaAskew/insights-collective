@@ -20,9 +20,10 @@ const Resume = () => {
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   
-  // Generate a unique component key to force re-renders
+  // Generate a stable unique component key using relevant data properties but NOT timestamps
   const pageKey = useMemo(() => {
-    return `resume-page-${Date.now()}-${analysis?.resume_percent || 0}-${analysis?.bullets?.length || 0}`;
+    // Use hash of analysis data without timestamp for stability
+    return `resume-page-${analysis?.resume_percent || 0}-${analysis?.bullets?.length || 0}-${analysis?.letter_grade || ''}`;
   }, [analysis]);
   
   // Log analysis data for debugging
@@ -123,6 +124,7 @@ const Resume = () => {
               handleFileChange={handleFileChange}
               handleDownload={handleDownload}
               pdfDataUrl={pdfDataUrl}
+              key={`upload-section-${pageKey}`}
             />
             
             {/* Right Column - Resume Analysis */}
@@ -133,6 +135,7 @@ const Resume = () => {
               resume={resume}
               handleStartCareerChat={handleStartCareerChat}
               handleFileChange={handleFileChange}
+              key={`analysis-section-${pageKey}`}
             />
           </div>
           
@@ -141,6 +144,7 @@ const Resume = () => {
             <div className="mt-8">
               <BulletPointsAnalysisCard 
                 bullets={bulletPoints} 
+                key={`bullet-analysis-${pageKey}`}
               />
             </div>
           )}
@@ -148,7 +152,10 @@ const Resume = () => {
           {/* Career Chat Section */}
           {showCareerChat && (
             <div className="mt-8">
-              <ResumeChat resumeAnalysis={analysis} />
+              <ResumeChat 
+                resumeAnalysis={analysis} 
+                key={`resume-chat-${pageKey}`}
+              />
             </div>
           )}
         </div>

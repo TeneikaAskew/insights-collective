@@ -11,9 +11,18 @@ interface WordBalanceProps {
 }
 
 export const WordBalanceDistribution: React.FC<WordBalanceProps> = ({ wordBalance }) => {
-  if (!wordBalance) {
+  // Guard clause to prevent rendering with invalid data
+  if (!wordBalance || Object.keys(wordBalance).length === 0) {
     return <div>No word balance data available</div>;
   }
+  
+  // Make sure all required properties exist, using defaults if not
+  const safeWordBalance = {
+    industry_pct: wordBalance.industry_pct || 0,
+    common_pct: wordBalance.common_pct || 0,
+    action_pct: wordBalance.action_pct || 0,
+    metric_pct: wordBalance.metric_pct || 0
+  };
   
   // Define the ideal target values
   const targets = {
@@ -46,14 +55,17 @@ export const WordBalanceDistribution: React.FC<WordBalanceProps> = ({ wordBalanc
   
   return (
     <div className="space-y-3">
-      {Object.entries(wordBalance).map(([key, value]) => {
-        const typedKey = key as keyof typeof wordBalance;
+      {Object.entries(safeWordBalance).map(([key, value]) => {
+        const typedKey = key as keyof typeof safeWordBalance;
         const targetValue = targets[typedKey];
         const color = colors[typedKey];
         const label = labels[typedKey];
         
+        // Create a stable key for the bar
+        const stableKey = `word-balance-${label}-${targetValue}`;
+        
         return (
-          <div key={key} className="space-y-1">
+          <div key={stableKey} className="space-y-1">
             <div className="flex justify-between text-sm mb-1">
               <span>{label}</span>
               <div className="flex space-x-4">

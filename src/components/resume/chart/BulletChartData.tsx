@@ -5,9 +5,6 @@ import { BulletAnalysis } from '@/components/assistants/types';
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   console.log("prepareBulletChartData - Processing bullet:", bullet);
   
-  // Add unique timestamp to prevent caching issues
-  const timestamp = Date.now();
-  
   if (!bullet) {
     console.error("prepareBulletChartData - Received undefined bullet");
     return { 
@@ -40,7 +37,10 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     wordBalance: "#D946EF"   // Magenta Pink
   };
   
-  // Prepare data for chart with percentages
+  // Create stable identifier for this bullet to use in keys
+  const bulletId = bullet.original?.slice(0, 10).replace(/[^a-zA-Z0-9]/g, '') || 'unknown';
+  
+  // Prepare data for chart with percentages - using stable keys
   const dataWithPercent = [
     {
       name: "Hard & Soft Skills",
@@ -48,7 +48,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: themeColors.hardSoft,
       target: 25,
       percent: Math.round(((safeXYZScores.hard_soft || 0) / 5) * 100),
-      key: `hard-soft-${timestamp}`
+      key: `hard-soft-${bulletId}`
     },
     {
       name: "Action Words",
@@ -56,7 +56,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: themeColors.actionWords,
       target: 25,
       percent: Math.round(((safeXYZScores.action_words || 0) / 5) * 100),
-      key: `action-words-${timestamp}`
+      key: `action-words-${bulletId}`
     },
     {
       name: "Measurable Results",
@@ -64,7 +64,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: themeColors.measurableResults,
       target: 25,
       percent: Math.round(((safeXYZScores.measurable_results || 0) / 5) * 100),
-      key: `measurable-results-${timestamp}`
+      key: `measurable-results-${bulletId}`
     },
     {
       name: "Word Balance",
@@ -72,7 +72,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: themeColors.wordBalance,
       target: 25,
       percent: Math.round(((word_balance_score || 0) / 25) * 100),
-      key: `word-balance-${timestamp}`
+      key: `word-balance-${bulletId}`
     }
   ];
   
