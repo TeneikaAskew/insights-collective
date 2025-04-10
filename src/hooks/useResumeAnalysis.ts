@@ -11,10 +11,17 @@ export function useResumeAnalysis() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Clear analysis when user changes
+  // Load saved analysis from localStorage on component mount
   useEffect(() => {
-    if (!user) {
-      setAnalysis(null);
+    if (user) {
+      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+      if (savedAnalysis) {
+        try {
+          setAnalysis(JSON.parse(savedAnalysis));
+        } catch (error) {
+          console.error('Error parsing saved analysis:', error);
+        }
+      }
     }
   }, [user]);
 
@@ -22,7 +29,6 @@ export function useResumeAnalysis() {
     if (!file || !user) return false;
     
     setIsAnalyzing(true);
-    console.log("Starting resume analysis process");
     
     try {
       // Extract text from the uploaded file first
@@ -32,8 +38,6 @@ export function useResumeAnalysis() {
         throw new Error('Failed to extract text from the file');
       }
       
-      console.log("Extracted text from file, length:", fileText.length);
-      
       // Step 2: Try to first get the text from the database if it exists
       const { data: resumeData, error: resumeError } = await supabase
         .from('resumes')
@@ -41,38 +45,25 @@ export function useResumeAnalysis() {
         .eq('user_id', user.id)
         .maybeSingle();
       
-      if (resumeError) {
-        console.warn("Error fetching resume text:", resumeError);
-      }
-      
       // Use text from DB if available, otherwise use the extracted text
       const textToAnalyze = resumeData?.text || fileText;
       
-      console.log("Calling resume-analyzer function with text length:", textToAnalyze.length);
-      
       // Step 3: Call the Edge Function with user ID and text
-      // Add a timestamp to prevent caching
-      const timestamp = new Date().getTime();
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
           resumeText: textToAnalyze,
-          userId: user.id,
-          timestamp: timestamp // Add timestamp to ensure fresh request
+          userId: user.id
         }
       });
       
-      if (error) {
-        console.error("Error from resume-analyzer function:", error);
-        throw error;
+      if (error) throw error;
+      
+      // Save the analysis to localStorage for persistence
+      if (data && user) {
+        localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data));
       }
       
-      console.log("Analysis received:", data);
-      
-      // Force a state update with the fresh data
-      setAnalysis(null); // Clear first to force re-render
-      setTimeout(() => {
-        setAnalysis(data as ResumeAnalysis);
-      }, 50);
+      setAnalysis(data as ResumeAnalysis);
       
       toast({
         title: "Resume Analysis Complete",
@@ -98,8 +89,6 @@ export function useResumeAnalysis() {
   // Helper function to extract text from PDF
   const extractTextFromFile = async (file: File): Promise<string> => {
     try {
-      console.log("Extracting text from file type:", file.type);
-      
       // Check file type and use appropriate extraction method
       if (file.type === 'application/pdf') {
         const pdfjs = await import('pdfjs-dist');

@@ -31,23 +31,19 @@ export function useResume() {
     
     setUploading(true);
     try {
-      console.log("Starting resume upload process");
-      
       // 1. First extract text from file (PDF or DOCX)
       const resumeText = await extractTextFromFile(file);
-      console.log("Text extracted from resume, length:", resumeText?.length || 0);
       
       // 2. Upload file to storage
       const { fileName, filePath, success: uploadSuccess } = await uploadResumeFile(file, user.id);
       
       if (!uploadSuccess) {
-        console.error("File upload failed");
-        throw new Error("Failed to upload file");
+        return false;
       }
       
-      console.log("File uploaded successfully:", fileName);
-      
       // 3. Store additional information in the database
+      let resumeId = null;
+      
       // Check if user already has a resume
       const { data: existingResume } = await supabase
         .from('resumes')
@@ -57,21 +53,36 @@ export function useResume() {
       
       let operationSuccess = false;
       
+      // Mock analysis - in a real app this would be done by an AI service
+      const mockAnalysis = {
+        strengths: [
+          'Strong technical skill presentation',
+          'Relevant project experience',
+          'Clear educational background'
+        ],
+        improvements: [
+          'Add more quantifiable achievements',
+          'Highlight data analysis tools more prominently',
+          'Consider adding a skills section'
+        ],
+        careerAlignment: 'Your resume is well-aligned with the Data Analyst role, but could be improved by highlighting SQL skills and data visualization experience more prominently.'
+      };
+      
       if (existingResume) {
-        console.log("Updating existing resume:", existingResume.id);
         // Update existing resume with extracted text
         operationSuccess = await updateResumeRecord(user.id, {
           file_path: fileName,
-          text: resumeText,
+          text: resumeText, // Using the text field from interface
+          analysis: mockAnalysis,
           updated_at: new Date().toISOString()
         });
       } else {
-        console.log("Creating new resume record");
         // Insert new resume with text field
         operationSuccess = await createResumeRecord({
           user_id: user.id,
           file_path: fileName,
-          text: resumeText,
+          text: resumeText, // Using the text field from interface
+          analysis: mockAnalysis,
           career_alignment_score: 72,
           target_role: 'Data Analyst'
         });
@@ -106,8 +117,6 @@ export function useResume() {
     if (!user || !resume) return false;
     
     try {
-      console.log("Starting resume deletion process");
-      
       // Delete file from storage
       const success = await deleteResumeFile(user.id, resume.file_path);
       
@@ -146,7 +155,6 @@ export function useResume() {
     loading,
     uploading: uploading || fileUploading,
     uploadResume,
-    deleteResume,
-    refreshResume: fetchResume
+    deleteResume
   };
 }
