@@ -43,6 +43,28 @@ export function extractBulletPoints(text: string): string[] {
       .filter(s => s.length > 15 && !dateRangeRegex.test(s));
   }
 
+  // 2) Sentence splitting + date‑range filtering
+  if (results.length === 0) {
+    const dateRangeRegex = /\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\w+\s+\d{4})\s*[-–]\s*(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\w+\s+\d{4})\b/;
+    results = text
+      // Split on period or newline only
+      .split(/(?<=[.\n])\s+/)
+      .flatMap(chunk => {
+        // Only split further if no slashes/& and at least 2 words
+        // if (!/[\/&]/.test(chunk) && chunk.trim().split(/\s+/).length > 1) {
+        //   return chunk.split(/(?<=[a-z])\s+(?=[A-Z])/);
+        // }
+      // Only split further if no slashes/& and at least 3 words
+      if (!/[\/&]/.test(chunk) && chunk.trim().split(/\s+/).length > 2) {
+        return chunk.split(/(?<=[a-z])\s+(?=[A-Z])/);
+      }
+    return [chunk];
+      })
+      .map(s => s.replace(/\r?\n/g, ' ').trim())
+      .filter(s => s.length > 15 && !dateRangeRegex.test(s));
+  }
+
+
   // 3) Action‑verb fallback
   if (results.length === 0) {
     const actionRegex = new RegExp(
