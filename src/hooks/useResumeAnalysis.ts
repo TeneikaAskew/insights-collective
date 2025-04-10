@@ -51,10 +51,13 @@ export function useResumeAnalysis() {
       console.log("Calling resume-analyzer function with text length:", textToAnalyze.length);
       
       // Step 3: Call the Edge Function with user ID and text
+      // Add a timestamp to prevent caching
+      const timestamp = new Date().getTime();
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
           resumeText: textToAnalyze,
-          userId: user.id
+          userId: user.id,
+          timestamp: timestamp // Add timestamp to ensure fresh request
         }
       });
       
@@ -65,8 +68,11 @@ export function useResumeAnalysis() {
       
       console.log("Analysis received:", data);
       
-      // Don't persist analysis to localStorage to avoid stale data issues
-      setAnalysis(data as ResumeAnalysis);
+      // Force a state update with the fresh data
+      setAnalysis(null); // Clear first to force re-render
+      setTimeout(() => {
+        setAnalysis(data as ResumeAnalysis);
+      }, 50);
       
       toast({
         title: "Resume Analysis Complete",

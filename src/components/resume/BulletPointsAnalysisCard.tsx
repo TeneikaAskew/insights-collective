@@ -1,11 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BulletAnalysis } from '@/components/assistants/types';
-import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Edit2, RefreshCw } from 'lucide-react';
 import { HighlightedBulletText } from './text/BulletTextParser';
 import BulletPointChart from './BulletPointChart';
 import { WordBalanceDistribution } from './chart/WordBalanceDistribution';
+import { Button } from '@/components/ui/button';
 
 interface BulletPointsAnalysisCardProps {
   bullets: BulletAnalysis[];
@@ -15,6 +16,22 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   bullets = [] // Provide default empty array
 }) => {
   const [selectedBulletIndex, setSelectedBulletIndex] = useState(0);
+  const [lastUpdateTime, setLastUpdateTime] = useState(new Date());
+  
+  // When bullets prop changes, reset the component state
+  useEffect(() => {
+    if (bullets && bullets.length > 0) {
+      setSelectedBulletIndex(0);
+      setLastUpdateTime(new Date());
+      console.log("Bullet points loaded:", bullets.length);
+    }
+  }, [bullets]);
+
+  // Force a refresh of the component
+  const handleForceRefresh = () => {
+    setLastUpdateTime(new Date());
+    // Just forcing a re-render
+  };
 
   // If no bullets are available, show a placeholder
   if (!bullets || bullets.length === 0) {
@@ -36,11 +53,16 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-center">Resume Bullet Analysis</CardTitle>
-        <CardDescription className="text-center">
-          Comprehensive breakdown of your resume bullet points with improvement suggestions
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle className="text-center">Resume Bullet Analysis</CardTitle>
+          <CardDescription className="text-center">
+            Comprehensive breakdown of your resume bullet points with improvement suggestions
+          </CardDescription>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleForceRefresh} title="Refresh data">
+          <RefreshCw className="h-4 w-4" />
+        </Button>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Bullet selection */}
@@ -52,7 +74,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
             onChange={e => setSelectedBulletIndex(parseInt(e.target.value))}
           >
             {bullets.map((bullet, idx) => (
-              <option key={idx} value={idx}>
+              <option key={`${idx}-${lastUpdateTime.getTime()}`} value={idx}>
                 {bullet?.original?.substring(0, 60) || `Bullet point ${idx + 1}`}...
               </option>
             ))}
@@ -67,7 +89,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </div>
         
         {/* Main visualization for the selected bullet */}
-        {selectedBullet && <BulletPointChart bullet={selectedBullet} />}
+        {selectedBullet && <BulletPointChart bullet={selectedBullet} key={`chart-${selectedBulletIndex}-${lastUpdateTime.getTime()}`} />}
         
         {/* Original vs Rewritten section */}
         <div className="space-y-4 mt-6 border-t pt-4">
@@ -124,6 +146,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                   metric_pct: Math.min(15, selectedBullet.word_balance.metric_pct + 2)
                 }
               }} 
+              key={`improved-chart-${selectedBulletIndex}-${lastUpdateTime.getTime()}`}
             />
           </div>
         )}
