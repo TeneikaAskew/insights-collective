@@ -19,6 +19,7 @@ const Resume = () => {
   const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
+  const [extractedText, setExtractedText] = useState<string | null>(null);
   
   // Load preview when resumeFile changes
   useEffect(() => {
@@ -28,8 +29,26 @@ const Resume = () => {
         setPdfDataUrl(e.target?.result as string);
       };
       reader.readAsDataURL(resumeFile);
+      
+      // Extract text when file changes
+      const extractText = async () => {
+        try {
+          const text = await extractTextFromFile(resumeFile);
+          setExtractedText(text);
+          console.log("Successfully extracted text of length:", text.length);
+        } catch (error) {
+          console.error("Error extracting text:", error);
+          toast({
+            title: "Text Extraction Failed",
+            description: "Could not extract text from the resume file.",
+            variant: "destructive"
+          });
+        }
+      };
+      
+      extractText();
     }
-  }, [resumeFile]);
+  }, [resumeFile, toast]);
   
   // Debug logs to track state changes
   useEffect(() => {
@@ -56,18 +75,27 @@ const Resume = () => {
   };
 
   const handleUpload = async () => {
-    if (!resumeFile) return;
+    if (!resumeFile || !extractedText) {
+      toast({
+        title: "Missing Data",
+        description: "Please wait for text extraction to complete before uploading.",
+        variant: "destructive"
+      });
+      return;
+    }
     
     try {
-      // First extract the text to use for analysis
-      const resumeText = await extractTextFromFile(resumeFile);
+      console.log("Starting upload process with extracted text of length:", extractedText.length);
       
-      // Then upload the resume file
+      // First upload the resume file to storage
       const success = await uploadResume(resumeFile);
       
-      if (success && resumeText) {
-        // Use the extracted text for analysis, not the file
-        await analyzeResume(resumeText);
+      if (success) {
+        console.log("Upload successful, now analyzing resume text");
+        // Then analyze the already extracted text
+        await analyzeResume(extractedText);
+      } else {
+        throw new Error("Resume upload failed");
       }
     } catch (error) {
       console.error("Error during upload/analysis process:", error);
@@ -85,6 +113,7 @@ const Resume = () => {
     }
     setResumeFile(null);
     setPdfDataUrl(null);
+    setExtractedText(null);
   };
 
   const handleDownload = () => {
