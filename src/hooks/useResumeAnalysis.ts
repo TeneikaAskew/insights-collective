@@ -11,17 +11,28 @@ export function useResumeAnalysis() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Load saved analysis from localStorage on component mount
+  // Load saved analysis from localStorage on component mount with cache busting
   useEffect(() => {
     if (user) {
-      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-      if (savedAnalysis) {
-        try {
-          setAnalysis(JSON.parse(savedAnalysis));
-        } catch (error) {
-          console.error('Error parsing saved analysis:', error);
+      const fetchAnalysis = () => {
+        console.log("Fetching analysis for user:", user.id);
+        const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+        if (savedAnalysis) {
+          try {
+            const parsedAnalysis = JSON.parse(savedAnalysis);
+            console.log("Retrieved analysis from localStorage:", parsedAnalysis);
+            // Force a fresh state update
+            setAnalysis(null);
+            setTimeout(() => setAnalysis(parsedAnalysis), 0);
+          } catch (error) {
+            console.error('Error parsing saved analysis:', error);
+          }
+        } else {
+          console.log("No saved analysis found for user");
         }
-      }
+      };
+      
+      fetchAnalysis();
     }
   }, [user]);
 
@@ -29,6 +40,7 @@ export function useResumeAnalysis() {
     if (!file || !user) return false;
     
     setIsAnalyzing(true);
+    console.log("Starting resume analysis for file:", file.name);
     
     try {
       // Extract text from the uploaded file first
@@ -52,18 +64,28 @@ export function useResumeAnalysis() {
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
           resumeText: textToAnalyze,
-          userId: user.id
+          userId: user.id,
+          timestamp: new Date().getTime() // Add timestamp to bust cache
         }
       });
       
       if (error) throw error;
       
+      console.log("Analysis response received:", data);
+      
+      // Clear any previous analysis before setting new one
+      localStorage.removeItem(`resume_analysis_${user.id}`);
+      
       // Save the analysis to localStorage for persistence
       if (data && user) {
-        localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data));
+        const analysisJson = JSON.stringify(data);
+        localStorage.setItem(`resume_analysis_${user.id}`, analysisJson);
+        console.log("Saved analysis to localStorage");
       }
       
-      setAnalysis(data as ResumeAnalysis);
+      // Force fresh state update
+      setAnalysis(null);
+      setTimeout(() => setAnalysis(data as ResumeAnalysis), 0);
       
       toast({
         title: "Resume Analysis Complete",

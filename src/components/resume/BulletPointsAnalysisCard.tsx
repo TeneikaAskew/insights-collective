@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
@@ -15,10 +14,22 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   bullets = [] // Provide default empty array
 }) => {
   const [selectedBulletIndex, setSelectedBulletIndex] = useState(0);
+  const [key, setKey] = useState(Date.now()); // Add key for forcing re-render
+
+  // Log bullets data for debugging
+  console.log("BulletPointsAnalysisCard - Received bullets:", bullets);
+
+  // Force re-render when bullets change
+  useEffect(() => {
+    console.log("BulletPointsAnalysisCard - Bullets changed, forcing re-render");
+    setKey(Date.now());
+  }, [bullets]);
 
   // If no bullets are available, show a placeholder
   if (!bullets || bullets.length === 0) {
-    return <Card>
+    console.log("BulletPointsAnalysisCard - No bullets available");
+    return (
+      <Card>
         <CardHeader>
           <CardTitle>Resume Bullet Analysis</CardTitle>
           <CardDescription>
@@ -28,14 +39,17 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         <CardContent className="h-64 flex items-center justify-center text-gray-400">
           <p>No bullet points to analyze</p>
         </CardContent>
-      </Card>;
+      </Card>
+    );
   }
 
+  console.log("BulletPointsAnalysisCard - Rendering with bullets:", bullets);
+  
   // Safely select the bullet (handle case where selectedBulletIndex is out of range)
   const selectedBullet = bullets[selectedBulletIndex < bullets.length ? selectedBulletIndex : 0] || bullets[0];
   
   return (
-    <Card className="w-full">
+    <Card className="w-full" key={key}>
       <CardHeader>
         <CardTitle className="text-center">Resume Bullet Analysis</CardTitle>
         <CardDescription className="text-center">

@@ -19,6 +19,17 @@ const Resume = () => {
   const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
+  const [forceUpdateKey, setForceUpdateKey] = useState(Date.now()); // Add key for forcing re-render
+  
+  // Log analysis data for debugging
+  console.log("Resume page - Current analysis:", analysis);
+  console.log("Resume page - Bullets:", analysis?.bullets);
+  
+  // Force re-render when analysis changes
+  useEffect(() => {
+    console.log("Resume page - Analysis changed, forcing re-render");
+    setForceUpdateKey(Date.now());
+  }, [analysis]);
   
   // Load preview when resumeFile changes
   useEffect(() => {
@@ -56,6 +67,8 @@ const Resume = () => {
     
     if (success) {
       await analyzeResume(resumeFile);
+      // Force re-render after analysis
+      setForceUpdateKey(Date.now());
     }
   };
 
@@ -83,10 +96,11 @@ const Resume = () => {
 
   // Ensure bulletPoints array always exists to prevent map errors
   const bulletPoints = analysis?.bullets || [];
+  console.log("Resume page - Bullet points to render:", bulletPoints);
 
   return (
     <AppLayout>
-      <div className="container mx-auto">
+      <div className="container mx-auto" key={forceUpdateKey}>
         <div className="flex flex-col space-y-8">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           

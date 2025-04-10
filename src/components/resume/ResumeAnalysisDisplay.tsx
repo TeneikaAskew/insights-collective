@@ -12,7 +12,13 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   analysis,
   onStartCareerChat
 }) => {
-  if (!analysis) return null;
+  // Add console log to debug analysis data
+  console.log("ResumeAnalysisDisplay - Current analysis data:", analysis);
+  
+  if (!analysis) {
+    console.log("ResumeAnalysisDisplay - No analysis data available");
+    return null;
+  }
   
   // Add default values to prevent undefined errors
   const {
@@ -20,7 +26,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     letter_grade = 'C',
     themes = [],
     elevator_pitch = '',
-    explanation = ''
+    explanation = '',
+    bullets = []
   } = analysis || {};
   
   return (
