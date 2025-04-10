@@ -5,6 +5,9 @@ import { BulletAnalysis } from '@/components/assistants/types';
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   console.log("prepareBulletChartData - Processing bullet:", bullet);
   
+  // Add unique timestamp to prevent caching issues
+  const timestamp = Date.now();
+  
   if (!bullet) {
     console.error("prepareBulletChartData - Received undefined bullet");
     return { 
@@ -44,28 +47,32 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       value: safeXYZScores.hard_soft || 0,
       fill: themeColors.hardSoft,
       target: 25,
-      percent: Math.round(((safeXYZScores.hard_soft || 0) / 5) * 100)
+      percent: Math.round(((safeXYZScores.hard_soft || 0) / 5) * 100),
+      key: `hard-soft-${timestamp}`
     },
     {
       name: "Action Words",
       value: safeXYZScores.action_words || 0,
       fill: themeColors.actionWords,
       target: 25,
-      percent: Math.round(((safeXYZScores.action_words || 0) / 5) * 100)
+      percent: Math.round(((safeXYZScores.action_words || 0) / 5) * 100),
+      key: `action-words-${timestamp}`
     },
     {
       name: "Measurable Results",
       value: safeXYZScores.measurable_results || 0,
       fill: themeColors.measurableResults,
       target: 25,
-      percent: Math.round(((safeXYZScores.measurable_results || 0) / 5) * 100)
+      percent: Math.round(((safeXYZScores.measurable_results || 0) / 5) * 100),
+      key: `measurable-results-${timestamp}`
     },
     {
       name: "Word Balance",
       value: word_balance_score || 0,
       fill: themeColors.wordBalance,
       target: 25,
-      percent: Math.round(((word_balance_score || 0) / 25) * 100)
+      percent: Math.round(((word_balance_score || 0) / 25) * 100),
+      key: `word-balance-${timestamp}`
     }
   ];
   

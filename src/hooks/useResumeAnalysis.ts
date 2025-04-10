@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
@@ -11,30 +11,34 @@ export function useResumeAnalysis() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Load saved analysis from localStorage on component mount with cache busting
-  useEffect(() => {
+  // Force refresh the analysis data
+  const refreshAnalysis = useCallback(() => {
     if (user) {
-      const fetchAnalysis = () => {
-        console.log("Fetching analysis for user:", user.id);
-        const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-        if (savedAnalysis) {
-          try {
-            const parsedAnalysis = JSON.parse(savedAnalysis);
-            console.log("Retrieved analysis from localStorage:", parsedAnalysis);
-            // Force a fresh state update
-            setAnalysis(null);
-            setTimeout(() => setAnalysis(parsedAnalysis), 0);
-          } catch (error) {
-            console.error('Error parsing saved analysis:', error);
-          }
-        } else {
-          console.log("No saved analysis found for user");
+      console.log("Forcing analysis refresh for user:", user.id);
+      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+      if (savedAnalysis) {
+        try {
+          const parsedAnalysis = JSON.parse(savedAnalysis);
+          console.log("Retrieved analysis from localStorage:", parsedAnalysis);
+          // Force a fresh state update
+          setAnalysis(null);
+          setTimeout(() => {
+            console.log("Setting refreshed analysis");
+            setAnalysis(parsedAnalysis);
+          }, 0);
+        } catch (error) {
+          console.error('Error parsing saved analysis:', error);
         }
-      };
-      
-      fetchAnalysis();
+      } else {
+        console.log("No saved analysis found for user");
+      }
     }
   }, [user]);
+
+  // Load saved analysis from localStorage on component mount with cache busting
+  useEffect(() => {
+    refreshAnalysis();
+  }, [refreshAnalysis]);
 
   const analyzeResume = async (file: File): Promise<boolean> => {
     if (!file || !user) return false;
@@ -60,21 +64,22 @@ export function useResumeAnalysis() {
       // Use text from DB if available, otherwise use the extracted text
       const textToAnalyze = resumeData?.text || fileText;
       
+      // Clear any previous analysis before starting new one
+      localStorage.removeItem(`resume_analysis_${user.id}`);
+      setAnalysis(null);
+      
       // Step 3: Call the Edge Function with user ID and text
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
           resumeText: textToAnalyze,
           userId: user.id,
-          timestamp: new Date().getTime() // Add timestamp to bust cache
+          timestamp: Date.now() // Add timestamp to bust cache
         }
       });
       
       if (error) throw error;
       
       console.log("Analysis response received:", data);
-      
-      // Clear any previous analysis before setting new one
-      localStorage.removeItem(`resume_analysis_${user.id}`);
       
       // Save the analysis to localStorage for persistence
       if (data && user) {
@@ -83,9 +88,11 @@ export function useResumeAnalysis() {
         console.log("Saved analysis to localStorage");
       }
       
-      // Force fresh state update
-      setAnalysis(null);
-      setTimeout(() => setAnalysis(data as ResumeAnalysis), 0);
+      // Force new state update with timeout to ensure React recognizes it as a new value
+      setTimeout(() => {
+        console.log("Setting analysis after processing");
+        setAnalysis(data as ResumeAnalysis);
+      }, 0);
       
       toast({
         title: "Resume Analysis Complete",
@@ -157,6 +164,7 @@ export function useResumeAnalysis() {
     analysis,
     setAnalysis,
     isAnalyzing,
-    analyzeResume
+    analyzeResume,
+    refreshAnalysis
   };
 }

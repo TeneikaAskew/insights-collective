@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,17 +19,16 @@ const Resume = () => {
   const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
-  const [forceUpdateKey, setForceUpdateKey] = useState(Date.now()); // Add key for forcing re-render
+  
+  // Generate a unique component key to force re-renders
+  const pageKey = useMemo(() => {
+    return `resume-page-${Date.now()}-${analysis?.resume_percent || 0}-${analysis?.bullets?.length || 0}`;
+  }, [analysis]);
   
   // Log analysis data for debugging
   console.log("Resume page - Current analysis:", analysis);
   console.log("Resume page - Bullets:", analysis?.bullets);
-  
-  // Force re-render when analysis changes
-  useEffect(() => {
-    console.log("Resume page - Analysis changed, forcing re-render");
-    setForceUpdateKey(Date.now());
-  }, [analysis]);
+  console.log("Resume page - Page key:", pageKey);
   
   // Load preview when resumeFile changes
   useEffect(() => {
@@ -67,8 +66,6 @@ const Resume = () => {
     
     if (success) {
       await analyzeResume(resumeFile);
-      // Force re-render after analysis
-      setForceUpdateKey(Date.now());
     }
   };
 
@@ -100,7 +97,7 @@ const Resume = () => {
 
   return (
     <AppLayout>
-      <div className="container mx-auto" key={forceUpdateKey}>
+      <div className="container mx-auto" key={pageKey}>
         <div className="flex flex-col space-y-8">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
@@ -139,7 +136,7 @@ const Resume = () => {
             />
           </div>
           
-          {/* Bullet Point Analysis Section - Ensure this is a separate div */}
+          {/* Bullet Point Analysis Section - Direct rendering on this page too */}
           {bulletPoints && bulletPoints.length > 0 && (
             <div className="mt-8">
               <BulletPointsAnalysisCard 

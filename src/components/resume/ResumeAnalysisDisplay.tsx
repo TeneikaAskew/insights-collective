@@ -2,6 +2,7 @@
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import OverallScoreCard from './OverallScoreCard';
+import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 
 interface ResumeAnalysisDisplayProps {
   analysis: ResumeAnalysis | null;
@@ -30,8 +31,11 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     bullets = []
   } = analysis || {};
   
+  // Force component to re-render with a key based on content hash
+  const renderKey = `analysis-${resume_percent}-${letter_grade}-${bullets.length}-${Date.now()}`;
+  
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" key={renderKey}>
       {/* Overall Resume Score Card */}
       <OverallScoreCard 
         letterGrade={letter_grade}
@@ -41,6 +45,11 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         explanation={explanation}
         onStartCareerChat={onStartCareerChat}
       />
+      
+      {/* Bullet Analysis Section - Adding it here to ensure it renders within the analysis display */}
+      {bullets && bullets.length > 0 && (
+        <BulletPointsAnalysisCard bullets={bullets} />
+      )}
     </div>
   );
 };

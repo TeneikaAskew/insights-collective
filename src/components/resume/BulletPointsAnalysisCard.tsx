@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
@@ -14,18 +14,13 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   bullets = [] // Provide default empty array
 }) => {
   const [selectedBulletIndex, setSelectedBulletIndex] = useState(0);
-  const [key, setKey] = useState(Date.now()); // Add key for forcing re-render
-
-  // Log bullets data for debugging
-  console.log("BulletPointsAnalysisCard - Received bullets:", bullets);
-
-  // Force re-render when bullets change
-  useEffect(() => {
-    console.log("BulletPointsAnalysisCard - Bullets changed, forcing re-render");
-    setKey(Date.now());
+  const componentKey = useMemo(() => {
+    return `bullets-${bullets.length}-${JSON.stringify(bullets[0]?.bullet_total || 0)}-${Date.now()}`;
   }, [bullets]);
 
-  // If no bullets are available, show a placeholder
+  console.log("BulletPointsAnalysisCard - Received bullets:", bullets);
+  console.log("BulletPointsAnalysisCard - Component key:", componentKey);
+
   if (!bullets || bullets.length === 0) {
     console.log("BulletPointsAnalysisCard - No bullets available");
     return (
@@ -45,11 +40,10 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
 
   console.log("BulletPointsAnalysisCard - Rendering with bullets:", bullets);
   
-  // Safely select the bullet (handle case where selectedBulletIndex is out of range)
   const selectedBullet = bullets[selectedBulletIndex < bullets.length ? selectedBulletIndex : 0] || bullets[0];
   
   return (
-    <Card className="w-full" key={key}>
+    <Card className="w-full" key={componentKey}>
       <CardHeader>
         <CardTitle className="text-center">Resume Bullet Analysis</CardTitle>
         <CardDescription className="text-center">
@@ -57,7 +51,6 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Bullet selection */}
         <div>
           <label className="block text-sm font-medium mb-2">Select bullet point to analyze:</label>
           <select 
@@ -66,24 +59,25 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
             onChange={e => setSelectedBulletIndex(parseInt(e.target.value))}
           >
             {bullets.map((bullet, idx) => (
-              <option key={idx} value={idx}>
+              <option key={`bullet-option-${idx}-${Date.now()}`} value={idx}>
                 {bullet?.original?.substring(0, 60) || `Bullet point ${idx + 1}`}...
               </option>
             ))}
           </select>
         </div>
         
-        {/* Highlighted bullet text above the charts */}
         <div className="text-center py-2">
           <div className="mt-2 text-lg">
             <HighlightedBulletText text={selectedBullet?.original || ''} />
           </div>
         </div>
         
-        {/* Main visualization for the selected bullet */}
-        {selectedBullet && <BulletPointChart bullet={selectedBullet} />}
+        {selectedBullet && (
+          <div key={`chart-${selectedBulletIndex}-${Date.now()}`}>
+            <BulletPointChart bullet={selectedBullet} />
+          </div>
+        )}
         
-        {/* Original vs Rewritten section */}
         <div className="space-y-4 mt-6 border-t pt-4">
           <div>
             <h4 className="text-md font-semibold mb-2">Original:</h4>
@@ -105,24 +99,20 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           </div>
         </div>
         
-        {/* Suggested Improved Bullet Analysis Visualization */}
         {selectedBullet?.rewritten && (
           <div className="mt-6 border-t pt-4">
             <h4 className="text-md font-semibold mb-4">Suggested Improved Bullet Analysis Visualization:</h4>
             
-            {/* Improved bullet text display */}
             <div className="text-center mb-4">
               <div className="text-lg">
                 <HighlightedBulletText text={selectedBullet?.rewritten || ''} />
               </div>
             </div>
             
-            {/* We're reusing the BulletPointChart component for the improved version */}
             <BulletPointChart 
               bullet={{
                 ...selectedBullet,
                 original: selectedBullet.rewritten,
-                // For this example, we're creating an improved version with better scores
                 bullet_total: Math.min(45, selectedBullet.bullet_total + 10),
                 xyz_scores: {
                   hard_soft: Math.min(5, selectedBullet.xyz_scores.hard_soft + 1),
@@ -142,12 +132,10 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           </div>
         )}
         
-        {/* Score Breakdown section */}
         <div className="mt-6 border-t pt-4">
           <h4 className="text-lg font-semibold mb-4">Score Breakdown:</h4>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Word Balance horizontal bars */}
             <div>
               <h5 className="font-medium text-sm mb-2">Word Balance ({selectedBullet?.word_balance_score || 0}/25)</h5>
               <WordBalanceDistribution wordBalance={selectedBullet?.word_balance} />
@@ -185,7 +173,6 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           </div>
         </div>
         
-        {/* Improvement Tips */}
         <div className="mt-6 border-t pt-4">
           <h4 className="text-md font-semibold mb-2">Improvement Tips:</h4>
           <p className="text-lg font-bold text-slate-950">

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { BulletDonutChart } from './chart/ChartComponents';
 import { prepareBulletChartData } from './chart/BulletChartData';
@@ -12,16 +12,14 @@ interface BulletPointChartProps {
 const BulletPointChart: React.FC<BulletPointChartProps> = ({
   bullet
 }) => {
-  const [chartKey, setChartKey] = useState(Date.now()); // Add key for forcing re-render
+  // Create a unique component key based on bullet data to force re-renders
+  const chartKey = useMemo(() => {
+    return `chart-${bullet?.bullet_total || 0}-${JSON.stringify(bullet?.word_balance || {})}-${Date.now()}`;
+  }, [bullet]);
   
   // Log bullet data for debugging
   console.log("BulletPointChart - Received bullet:", bullet);
-  
-  // Force re-render when bullet changes
-  useEffect(() => {
-    console.log("BulletPointChart - Bullet changed, forcing re-render");
-    setChartKey(Date.now());
-  }, [bullet]);
+  console.log("BulletPointChart - Chart key:", chartKey);
 
   // Get formatted chart data
   const { dataWithPercent, bullet_total } = prepareBulletChartData(bullet);
