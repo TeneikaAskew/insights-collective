@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { Badge } from '@/components/ui/badge';
@@ -6,12 +5,10 @@ import { Button } from '@/components/ui/button';
 import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import BulletPointChart from './BulletPointChart';
-
 interface BulletPointItemProps {
   bullet: BulletAnalysis;
   index: number;
 }
-
 const BulletPointItem: React.FC<BulletPointItemProps> = ({
   bullet,
   index
@@ -26,33 +23,20 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
     rewritten,
     tips
   } = bullet;
-  
   const getScoreColor = (score: number, max: number) => {
     const percentage = score / max * 100;
     if (percentage >= 80) return "text-green-600";
     if (percentage >= 60) return "text-yellow-600";
     return "text-red-600";
   };
-  
   const getBadgeColor = (score: number, max: number) => {
     const percentage = score / max * 100;
     if (percentage >= 80) return "bg-green-100 text-green-800 border-green-200";
     if (percentage >= 60) return "bg-yellow-100 text-yellow-800 border-yellow-200";
     return "bg-red-100 text-red-800 border-red-200";
   };
-  
-  return (
-    <AccordionItem value={`bullet-${index}`} className="border rounded-lg p-1">
-      <AccordionTrigger className="px-4 py-2 hover:no-underline">
-        <div className="flex items-center justify-between w-full pr-4">
-          <div className="text-left font-medium truncate max-w-[80%]">
-            {original.substring(0, 60)}{original.length > 60 ? '...' : ''}
-          </div>
-          <Badge className={getBadgeColor(bullet_total, 45)}>
-            Score: {bullet_total}/45
-          </Badge>
-        </div>
-      </AccordionTrigger>
+  return <AccordionItem value={`bullet-${index}`} className="border rounded-lg p-1">
+      
       <AccordionContent className="px-4 pb-4 pt-2">
         <div className="space-y-4">
           {/* Original vs Rewritten */}
@@ -71,7 +55,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           
           {/* Bullet Point Visualization */}
           <div className="mt-4">
-            <h4 className="text-sm font-medium mb-2">Bullet Analysis Visualization:</h4>
+            <h4 className="text-sm font-medium mb-2">Suggessted Improved Bullet Analysis Visualization:</h4>
             <BulletPointChart bullet={bullet} />
           </div>
           
@@ -120,8 +104,6 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           </div>
         </div>
       </AccordionContent>
-    </AccordionItem>
-  );
+    </AccordionItem>;
 };
-
 export default BulletPointItem;
