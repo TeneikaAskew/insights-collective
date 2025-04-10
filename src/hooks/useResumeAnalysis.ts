@@ -31,23 +31,19 @@ export function useResumeAnalysis() {
     setIsAnalyzing(true);
     
     try {
-      // Step 1: Get the stored resume text from the database
-      const { data: resumeData, error: resumeError } = await supabase
-        .from('resumes')
-        .select('text')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      // Step 1: Extract text from the PDF file
+      // We'll use the text directly from the file rather than fetching from the database
+      const fileBuffer = await file.arrayBuffer();
+      const fileText = await extractTextFromPDF(new Uint8Array(fileBuffer));
       
-      if (resumeError) throw resumeError;
-      
-      if (!resumeData?.text) {
-        throw new Error('No resume text found in database');
+      if (!fileText) {
+        throw new Error('Failed to extract text from the PDF file');
       }
       
-      // Step 2: Call the Edge Function with user ID and resume text
+      // Step 2: Call the Edge Function with user ID and extracted text
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
-          resumeText: resumeData.text,
+          resumeText: fileText,
           userId: user.id
         }
       });
@@ -79,6 +75,36 @@ export function useResumeAnalysis() {
       return false;
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  // Helper function to extract text from PDF
+  const extractTextFromPDF = async (pdfData: Uint8Array): Promise<string> => {
+    try {
+      const pdfjs = await import('pdfjs-dist');
+      // Configure PDF.js worker
+      pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+      
+      // Load the PDF document
+      const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+      
+      let fullText = '';
+      
+      // Extract text from each page
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        
+        fullText += pageText + '\n';
+      }
+      
+      return fullText;
+    } catch (error) {
+      console.error('Error extracting text from PDF:', error);
+      throw new Error('Failed to extract text from PDF');
     }
   };
 
