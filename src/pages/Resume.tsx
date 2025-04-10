@@ -87,7 +87,7 @@ const Resume = () => {
   return (
     <AppLayout>
       <div className="container mx-auto">
-        <div className="flex flex-col space-y-6">
+        <div className="flex flex-col space-y-8">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
           {resume?.career_alignment_score && resume?.target_role && (
@@ -125,16 +125,20 @@ const Resume = () => {
             />
           </div>
           
-          {/* Bullet Point Analysis Section - Now as its own separate section */}
+          {/* Bullet Point Analysis Section - Ensure this is a separate div */}
           {bulletPoints && bulletPoints.length > 0 && (
-            <BulletPointsAnalysisCard 
-              bullets={bulletPoints} 
-            />
+            <div className="mt-8">
+              <BulletPointsAnalysisCard 
+                bullets={bulletPoints} 
+              />
+            </div>
           )}
           
           {/* Career Chat Section */}
           {showCareerChat && (
-            <ResumeChat resumeAnalysis={analysis} />
+            <div className="mt-8">
+              <ResumeChat resumeAnalysis={analysis} />
+            </div>
           )}
         </div>
       </div>

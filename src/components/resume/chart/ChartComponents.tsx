@@ -51,39 +51,6 @@ export const BulletDonutChart: React.FC<{
   );
 };
 
-// Distribution bar component
-export const DistributionBar: React.FC<{
-  item: ChartDataItem;
-}> = ({ item }) => {
-  return (
-    <div className="relative">
-      <div className="flex justify-between text-sm mb-1">
-        <div className="flex items-center">
-          <div className="w-4 h-4 mr-2 rounded-full" style={{ backgroundColor: item.fill }}></div>
-          <span>{item.name}</span>
-        </div>
-        <div className="flex items-center space-x-10">
-          <span className={isTargetMet(item.percent, item.target) ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
-            {item.percent}%
-          </span>
-          <span className="text-gray-500">
-            {item.target}% (±5%)
-          </span>
-        </div>
-      </div>
-      <div className="h-2 w-full bg-gray-200 rounded">
-        <div 
-          className="h-full rounded" 
-          style={{
-            width: `${Math.min(100, item.percent)}%`,
-            backgroundColor: item.fill
-          }}
-        ></div>
-      </div>
-    </div>
-  );
-};
-
 // Score display with icon component
 export const ScoreWithIcon: React.FC<{
   score: number;
