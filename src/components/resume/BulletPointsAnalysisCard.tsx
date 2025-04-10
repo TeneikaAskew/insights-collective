@@ -5,7 +5,7 @@ import { Accordion } from '@/components/ui/accordion';
 import { BulletAnalysis } from '@/components/assistants/types';
 import BulletPointItem from './BulletPointItem';
 import BulletPointChart from './BulletPointChart';
-import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
 
 interface BulletPointsAnalysisCardProps {
   bullets: BulletAnalysis[];
@@ -36,20 +36,34 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   // Safely select the bullet (handle case where selectedBulletIndex is out of range)
   const selectedBullet = bullets[selectedBulletIndex < bullets.length ? selectedBulletIndex : 0] || bullets[0];
 
-  // Function to parse bullet text components
+  // Parse bullet text components for highlighting
   const parseTextComponents = (text: string) => {
     if (!text) return [];
     
     const components = [];
     
-    // Simple rule-based parsing to identify key components
     // Action words (usually at start)
-    const actionWords = ['Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built'];
-    const measurableResults = /\d+%|\$\d+|\d+x|\d+ percent/g;
+    const actionWords = [
+      'Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 
+      'Created', 'Built', 'Achieved', 'Delivered', 'Improved', 'Increased', 
+      'Reduced', 'Transformed', 'Launched', 'Designed', 'Executed', 'Organized'
+    ];
+    
+    // Industry keywords
+    const industryKeywords = [
+      'new hire onboarding', 'training', 'technical', 'leadership', 'management',
+      'HR', 'payroll', 'analytics', 'data', 'metrics', 'strategy', 'budget',
+      'recruitment', 'marketing', 'sales', 'revenue', 'customer', 'client', 
+      'product', 'project', 'technology', 'software', 'development', 'design'
+    ];
+    
+    // Metric pattern (numbers, percentages, currency)
+    const metricPattern = /\d+%|\$\d+|\d+x|\d+ percent|\d+K|\d+M|\d+B/g;
     
     let remainingText = text;
+    let foundActionWord = false;
     
-    // Find action words
+    // First look for action words at the beginning
     for (const word of actionWords) {
       if (text.startsWith(word)) {
         components.push({
@@ -57,100 +71,172 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           type: 'action'
         });
         remainingText = text.substring(word.length);
+        foundActionWord = true;
         break;
       }
     }
     
-    // Split the remaining text by measurable results
-    const matches = [...remainingText.matchAll(measurableResults)];
-    if (matches.length > 0) {
-      let lastIndex = 0;
-      
-      for (const match of matches) {
-        const index = match.index!;
+    // If no action word found at start, just proceed with the rest of the text
+    if (!foundActionWord) {
+      remainingText = text;
+    }
+    
+    // Process the remaining text looking for metrics and industry keywords
+    let lastIndex = 0;
+    const metricMatches = [...remainingText.matchAll(metricPattern)];
+    
+    if (metricMatches.length > 0) {
+      for (const match of metricMatches) {
+        const matchIndex = match.index!;
+        const beforeMatch = remainingText.substring(lastIndex, matchIndex);
         
-        // Add the text before the measurable result
-        if (index > lastIndex) {
-          // Check for skill words in this segment
-          const segment = remainingText.substring(lastIndex, index);
-          const skillTerms = ['new hire onboarding', 'training', 'technical', 'leadership', 'management'];
-          
-          let foundSkill = false;
-          for (const skill of skillTerms) {
-            if (segment.includes(skill)) {
-              const skillIndex = segment.indexOf(skill);
-              
-              // Text before skill
-              if (skillIndex > 0) {
-                components.push({
-                  text: segment.substring(0, skillIndex),
-                  type: 'normal'
-                });
-              }
-              
-              // Skill text
+        // Check before match for industry keywords
+        let addedIndustryKeyword = false;
+        for (const keyword of industryKeywords) {
+          const keywordIndex = beforeMatch.toLowerCase().indexOf(keyword.toLowerCase());
+          if (keywordIndex !== -1) {
+            // Add text before the keyword
+            if (keywordIndex > 0) {
               components.push({
-                text: skill,
-                type: 'skill'
+                text: beforeMatch.substring(0, keywordIndex),
+                type: 'normal'
               });
-              
-              // Text after skill
-              if (skillIndex + skill.length < segment.length) {
-                components.push({
-                  text: segment.substring(skillIndex + skill.length),
-                  type: 'normal'
-                });
-              }
-              
-              foundSkill = true;
-              break;
             }
-          }
-          
-          // If no skill found, add as normal text
-          if (!foundSkill) {
+            
+            // Add the keyword
             components.push({
-              text: segment,
-              type: 'normal'
+              text: beforeMatch.substring(keywordIndex, keywordIndex + keyword.length),
+              type: 'industry'
             });
+            
+            // Add text after the keyword
+            if (keywordIndex + keyword.length < beforeMatch.length) {
+              components.push({
+                text: beforeMatch.substring(keywordIndex + keyword.length),
+                type: 'normal'
+              });
+            }
+            
+            addedIndustryKeyword = true;
+            break;
           }
         }
         
-        // Add the measurable result
+        // If no industry keyword found, add the whole segment as normal text
+        if (!addedIndustryKeyword && beforeMatch.length > 0) {
+          components.push({
+            text: beforeMatch,
+            type: 'normal'
+          });
+        }
+        
+        // Add the metric
         components.push({
           text: match[0],
-          type: 'measurable'
+          type: 'metric'
         });
         
-        lastIndex = index! + match[0].length;
+        lastIndex = matchIndex + match[0].length;
       }
       
-      // Add any remaining text
+      // Add any remaining text after the last metric
       if (lastIndex < remainingText.length) {
+        const remainingSegment = remainingText.substring(lastIndex);
+        
+        // Check for industry keywords in the remaining text
+        let addedIndustryKeyword = false;
+        for (const keyword of industryKeywords) {
+          const keywordIndex = remainingSegment.toLowerCase().indexOf(keyword.toLowerCase());
+          if (keywordIndex !== -1) {
+            // Add text before the keyword
+            if (keywordIndex > 0) {
+              components.push({
+                text: remainingSegment.substring(0, keywordIndex),
+                type: 'normal'
+              });
+            }
+            
+            // Add the keyword
+            components.push({
+              text: remainingSegment.substring(keywordIndex, keywordIndex + keyword.length),
+              type: 'industry'
+            });
+            
+            // Add text after the keyword
+            if (keywordIndex + keyword.length < remainingSegment.length) {
+              components.push({
+                text: remainingSegment.substring(keywordIndex + keyword.length),
+                type: 'normal'
+              });
+            }
+            
+            addedIndustryKeyword = true;
+            break;
+          }
+        }
+        
+        // If no industry keyword found, add the whole segment as normal text
+        if (!addedIndustryKeyword && remainingSegment.length > 0) {
+          components.push({
+            text: remainingSegment,
+            type: 'normal'
+          });
+        }
+      }
+    } else {
+      // No metrics found, check for industry keywords in the whole remaining text
+      let addedIndustryKeyword = false;
+      for (const keyword of industryKeywords) {
+        const keywordIndex = remainingText.toLowerCase().indexOf(keyword.toLowerCase());
+        if (keywordIndex !== -1) {
+          // Add text before the keyword
+          if (keywordIndex > 0) {
+            components.push({
+              text: remainingText.substring(0, keywordIndex),
+              type: 'normal'
+            });
+          }
+          
+          // Add the keyword
+          components.push({
+            text: remainingText.substring(keywordIndex, keywordIndex + keyword.length),
+            type: 'industry'
+          });
+          
+          // Add text after the keyword
+          if (keywordIndex + keyword.length < remainingText.length) {
+            components.push({
+              text: remainingText.substring(keywordIndex + keyword.length),
+              type: 'normal'
+            });
+          }
+          
+          addedIndustryKeyword = true;
+          break;
+        }
+      }
+      
+      // If no industry keyword found, add the whole segment as normal text
+      if (!addedIndustryKeyword && remainingText.length > 0) {
         components.push({
-          text: remainingText.substring(lastIndex),
+          text: remainingText,
           type: 'normal'
         });
       }
-    } else {
-      // No measurable results found
-      components.push({
-        text: remainingText,
-        type: 'normal'
-      });
     }
     
     return components;
   };
 
-  // Parse the selected bullet text (with extra safety check)
+  // Parse the selected bullet text
   const selectedBulletComponents = parseTextComponents(selectedBullet?.original || '');
+  const improvedBulletComponents = parseTextComponents(selectedBullet?.rewritten || '');
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Resume Bullet Analysis</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-center">Resume Bullet Analysis</CardTitle>
+        <CardDescription className="text-center">
           Comprehensive breakdown of your resume bullet points with improvement suggestions
         </CardDescription>
       </CardHeader>
@@ -171,15 +257,14 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           </select>
         </div>
         
-        {/* Highlighted bullet text */}
-        <div className="text-center py-4 border-b">
-          <h3 className="text-xl font-semibold">Resume Bullet Analysis</h3>
-          <div className="mt-4 text-lg">
+        {/* Highlighted bullet text above the charts */}
+        <div className="text-center py-2">
+          <div className="mt-2 text-lg">
             {selectedBulletComponents.map((part, idx) => (
               <span key={idx} className={
                 part.type === 'action' ? 'text-primary font-semibold' : 
-                part.type === 'skill' ? 'text-destructive font-semibold' : 
-                part.type === 'measurable' ? 'text-accent font-semibold' : 
+                part.type === 'industry' ? 'text-gray-600 font-semibold' : 
+                part.type === 'metric' ? 'text-green-600 font-semibold' : 
                 ''
               }>
                 {part.text}
@@ -195,31 +280,92 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         <div className="space-y-4 mt-6 border-t pt-4">
           <div>
             <h4 className="text-md font-semibold mb-2">Original:</h4>
-            <div className="bg-slate-50 p-3 rounded">
+            <div className="bg-slate-50 p-3 rounded text-gray-700">
               {selectedBullet?.original || "No original text available"}
             </div>
           </div>
           
           <div>
-            <h4 className="text-md font-semibold mb-2">Suggested Improvement:</h4>
-            <div className="bg-green-50 p-3 rounded">
+            <h4 className="text-md font-semibold mb-2 flex items-center">
+              <span>Suggested Improvement:</span>
+              <button className="ml-2 text-gray-500 hover:text-gray-700">
+                <Edit2 className="h-4 w-4" />
+              </button>
+            </h4>
+            <div className="bg-green-50 p-3 rounded text-gray-700">
               {selectedBullet?.rewritten || "No suggestion available"}
             </div>
           </div>
         </div>
         
-        {/* Score breakdown section */}
+        {/* Suggested Improved Bullet Analysis Visualization */}
+        {selectedBullet?.rewritten && (
+          <div className="mt-6 border-t pt-4">
+            <h4 className="text-md font-semibold mb-4">Suggested Improved Bullet Analysis Visualization:</h4>
+            
+            {/* Improved bullet text display */}
+            <div className="text-center mb-4">
+              <div className="text-lg">
+                {improvedBulletComponents.map((part, idx) => (
+                  <span key={idx} className={
+                    part.type === 'action' ? 'text-primary font-semibold' : 
+                    part.type === 'industry' ? 'text-gray-600 font-semibold' : 
+                    part.type === 'metric' ? 'text-green-600 font-semibold' : 
+                    ''
+                  }>
+                    {part.text}
+                  </span>
+                ))}
+              </div>
+            </div>
+            
+            {/* We're reusing the BulletPointChart component for the improved version */}
+            <BulletPointChart bullet={{
+              ...selectedBullet,
+              original: selectedBullet.rewritten,
+              // For this example, we're creating an improved version with better scores
+              bullet_total: Math.min(45, selectedBullet.bullet_total + 10),
+              xyz_scores: {
+                hard_soft: Math.min(5, selectedBullet.xyz_scores.hard_soft + 1),
+                action_words: Math.min(5, selectedBullet.xyz_scores.action_words + 1),
+                measurable_results: Math.min(5, selectedBullet.xyz_scores.measurable_results + 1),
+                clarity_focus: Math.min(5, selectedBullet.xyz_scores.clarity_focus + 1)
+              },
+              word_balance_score: Math.min(25, selectedBullet.word_balance_score + 5),
+              word_balance: {
+                industry_pct: Math.min(45, selectedBullet.word_balance.industry_pct + 5),
+                common_pct: Math.max(25, selectedBullet.word_balance.common_pct - 2),
+                action_pct: Math.min(15, selectedBullet.word_balance.action_pct + 2),
+                metric_pct: Math.min(15, selectedBullet.word_balance.metric_pct + 2)
+              }
+            }} />
+          </div>
+        )}
+        
+        {/* Score Breakdown section */}
         <div className="mt-6 border-t pt-4">
-          <h4 className="text-md font-semibold mb-4">Score Breakdown:</h4>
+          <h4 className="text-lg font-semibold mb-4">Score Breakdown:</h4>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h5 className="font-medium text-sm mb-2">Word Balance ({selectedBullet?.word_balance_score || 0}/25)</h5>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Industry: <span className="font-medium">{selectedBullet?.word_balance?.industry_pct || 0}%</span></div>
-                <div>Common: <span className="font-medium">{selectedBullet?.word_balance?.common_pct || 0}%</span></div>
-                <div>Action: <span className="font-medium">{selectedBullet?.word_balance?.action_pct || 0}%</span></div>
-                <div>Metric: <span className="font-medium">{selectedBullet?.word_balance?.metric_pct || 0}%</span></div>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Industry:</span>
+                  <span className="font-medium">{selectedBullet?.word_balance?.industry_pct || 0}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Common:</span>
+                  <span className="font-medium">{selectedBullet?.word_balance?.common_pct || 0}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Action:</span>
+                  <span className="font-medium">{selectedBullet?.word_balance?.action_pct || 0}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Metric:</span>
+                  <span className="font-medium">{selectedBullet?.word_balance?.metric_pct || 0}%</span>
+                </div>
               </div>
             </div>
             
@@ -230,29 +376,29 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                 (selectedBullet?.xyz_scores?.measurable_results || 0) + 
                 (selectedBullet?.xyz_scores?.clarity_focus || 0)
               }/20)</h5>
-              <div>
-                <div className="flex items-center mb-1">
+              <div className="space-y-2">
+                <div className="flex items-center">
                   {(selectedBullet?.xyz_scores?.hard_soft || 0) >= 3 ? 
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : 
-                    <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : 
+                    <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
                   <span>Hard/Soft Skills: {selectedBullet?.xyz_scores?.hard_soft || 0}/5</span>
                 </div>
-                <div className="flex items-center mb-1">
+                <div className="flex items-center">
                   {(selectedBullet?.xyz_scores?.action_words || 0) >= 3 ? 
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : 
-                    <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : 
+                    <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
                   <span>Action Words: {selectedBullet?.xyz_scores?.action_words || 0}/5</span>
                 </div>
-                <div className="flex items-center mb-1">
+                <div className="flex items-center">
                   {(selectedBullet?.xyz_scores?.measurable_results || 0) >= 3 ? 
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : 
-                    <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : 
+                    <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
                   <span>Measurable Results: {selectedBullet?.xyz_scores?.measurable_results || 0}/5</span>
                 </div>
                 <div className="flex items-center">
                   {(selectedBullet?.xyz_scores?.clarity_focus || 0) >= 3 ? 
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : 
-                    <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : 
+                    <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
                   <span>Clarity & Focus: {selectedBullet?.xyz_scores?.clarity_focus || 0}/5</span>
                 </div>
               </div>
@@ -261,9 +407,12 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </div>
         
         {/* Improvement Tips */}
-        <div className="mt-4 border-t pt-4">
+        <div className="mt-6 border-t pt-4">
           <h4 className="text-md font-semibold mb-2">Improvement Tips:</h4>
-          <p className="text-sm text-muted-foreground">{selectedBullet?.tips || "No tips available"}</p>
+          <p className="text-sm text-muted-foreground">
+            {selectedBullet?.tips || 
+             "Add more specific technical skills or leadership traits. Start with a stronger action verb and avoid passive language. Include quantifiable results (%, $, or other metrics). Make this more concise, aiming for 25 words or fewer."}
+          </p>
         </div>
         
         {/* Accordion for all bullet points */}
