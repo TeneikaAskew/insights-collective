@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage } from './useResumeStorage';
-import { Json } from '@/integrations/supabase/types';
 
 interface Resume {
   id: string;

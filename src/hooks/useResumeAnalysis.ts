@@ -4,7 +4,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { useAuth } from '@/contexts/AuthContext';
-import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 
 export function useResumeAnalysis() {
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);

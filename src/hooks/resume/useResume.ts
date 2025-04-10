@@ -71,7 +71,7 @@ export function useResume() {
       if (existingResume) {
         // Update existing resume with extracted text
         operationSuccess = await updateResumeRecord(user.id, {
-          file_path: uploadResult.fileName,
+          file_path: uploadResult.filePath,
           text: resumeText, // Using the text field from interface
           analysis: mockAnalysis,
           updated_at: new Date().toISOString()
@@ -80,7 +80,7 @@ export function useResume() {
         // Insert new resume with text field
         operationSuccess = await createResumeRecord({
           user_id: user.id,
-          file_path: uploadResult.fileName,
+          file_path: uploadResult.filePath,
           text: resumeText, // Using the text field from interface
           analysis: mockAnalysis,
           career_alignment_score: 72,
