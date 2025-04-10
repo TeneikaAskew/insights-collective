@@ -12,7 +12,7 @@ interface BulletPointsAnalysisCardProps {
 }
 
 const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
-  bullets
+  bullets = [] // Provide default empty array
 }) => {
   const [selectedBulletIndex, setSelectedBulletIndex] = useState(0);
 
@@ -34,7 +34,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   }
 
   // Select the first bullet or the currently selected one
-  const selectedBullet = bullets[selectedBulletIndex];
+  const selectedBullet = bullets[selectedBulletIndex] || bullets[0];
 
   // Function to parse bullet text components
   const parseTextComponents = (text: string) => {
@@ -144,7 +144,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   };
 
   // Parse the selected bullet text
-  const selectedBulletComponents = parseTextComponents(selectedBullet.original || '');
+  const selectedBulletComponents = parseTextComponents(selectedBullet?.original || '');
 
   return (
     <Card>
@@ -165,7 +165,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           >
             {bullets.map((bullet, idx) => (
               <option key={idx} value={idx}>
-                {bullet.original?.substring(0, 60)}...
+                {bullet?.original?.substring(0, 60) || `Bullet point ${idx + 1}`}...
               </option>
             ))}
           </select>
@@ -189,21 +189,21 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </div>
         
         {/* Main visualization for the selected bullet */}
-        <BulletPointChart bullet={selectedBullet} />
+        {selectedBullet && <BulletPointChart bullet={selectedBullet} />}
         
         {/* Original vs Rewritten section */}
         <div className="space-y-4 mt-6 border-t pt-4">
           <div>
             <h4 className="text-md font-semibold mb-2">Original:</h4>
             <div className="bg-slate-50 p-3 rounded">
-              {selectedBullet.original}
+              {selectedBullet?.original || "No original text available"}
             </div>
           </div>
           
           <div>
             <h4 className="text-md font-semibold mb-2">Suggested Improvement:</h4>
             <div className="bg-green-50 p-3 rounded">
-              {selectedBullet.rewritten}
+              {selectedBullet?.rewritten || "No suggestion available"}
             </div>
           </div>
         </div>
@@ -214,33 +214,46 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <h5 className="font-medium text-sm mb-2">Word Balance ({selectedBullet.word_balance_score}/25)</h5>
+              <h5 className="font-medium text-sm mb-2">Word Balance ({selectedBullet?.word_balance_score || 0}/25)</h5>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div>Industry: <span className="font-medium">{selectedBullet.word_balance.industry_pct}%</span></div>
-                <div>Common: <span className="font-medium">{selectedBullet.word_balance.common_pct}%</span></div>
-                <div>Action: <span className="font-medium">{selectedBullet.word_balance.action_pct}%</span></div>
-                <div>Metric: <span className="font-medium">{selectedBullet.word_balance.metric_pct}%</span></div>
+                <div>Industry: <span className="font-medium">{selectedBullet?.word_balance?.industry_pct || 0}%</span></div>
+                <div>Common: <span className="font-medium">{selectedBullet?.word_balance?.common_pct || 0}%</span></div>
+                <div>Action: <span className="font-medium">{selectedBullet?.word_balance?.action_pct || 0}%</span></div>
+                <div>Metric: <span className="font-medium">{selectedBullet?.word_balance?.metric_pct || 0}%</span></div>
               </div>
             </div>
             
             <div>
-              <h5 className="font-medium text-sm mb-2">XYZ Quality ({selectedBullet.xyz_scores.hard_soft + selectedBullet.xyz_scores.action_words + selectedBullet.xyz_scores.measurable_results + selectedBullet.xyz_scores.clarity_focus}/20)</h5>
+              <h5 className="font-medium text-sm mb-2">XYZ Quality ({
+                (selectedBullet?.xyz_scores?.hard_soft || 0) + 
+                (selectedBullet?.xyz_scores?.action_words || 0) + 
+                (selectedBullet?.xyz_scores?.measurable_results || 0) + 
+                (selectedBullet?.xyz_scores?.clarity_focus || 0)
+              }/20)</h5>
               <div>
                 <div className="flex items-center mb-1">
-                  {selectedBullet.xyz_scores.hard_soft >= 3 ? <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
-                  <span>Hard/Soft Skills: {selectedBullet.xyz_scores.hard_soft}/5</span>
+                  {(selectedBullet?.xyz_scores?.hard_soft || 0) >= 3 ? 
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : 
+                    <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
+                  <span>Hard/Soft Skills: {selectedBullet?.xyz_scores?.hard_soft || 0}/5</span>
                 </div>
                 <div className="flex items-center mb-1">
-                  {selectedBullet.xyz_scores.action_words >= 3 ? <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
-                  <span>Action Words: {selectedBullet.xyz_scores.action_words}/5</span>
+                  {(selectedBullet?.xyz_scores?.action_words || 0) >= 3 ? 
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : 
+                    <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
+                  <span>Action Words: {selectedBullet?.xyz_scores?.action_words || 0}/5</span>
                 </div>
                 <div className="flex items-center mb-1">
-                  {selectedBullet.xyz_scores.measurable_results >= 3 ? <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
-                  <span>Measurable Results: {selectedBullet.xyz_scores.measurable_results}/5</span>
+                  {(selectedBullet?.xyz_scores?.measurable_results || 0) >= 3 ? 
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : 
+                    <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
+                  <span>Measurable Results: {selectedBullet?.xyz_scores?.measurable_results || 0}/5</span>
                 </div>
                 <div className="flex items-center">
-                  {selectedBullet.xyz_scores.clarity_focus >= 3 ? <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
-                  <span>Clarity & Focus: {selectedBullet.xyz_scores.clarity_focus}/5</span>
+                  {(selectedBullet?.xyz_scores?.clarity_focus || 0) >= 3 ? 
+                    <CheckCircle className="h-4 w-4 text-green-500 mr-1" /> : 
+                    <AlertTriangle className="h-4 w-4 text-red-500 mr-1" />}
+                  <span>Clarity & Focus: {selectedBullet?.xyz_scores?.clarity_focus || 0}/5</span>
                 </div>
               </div>
             </div>
@@ -250,7 +263,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         {/* Improvement Tips */}
         <div className="mt-4 border-t pt-4">
           <h4 className="text-md font-semibold mb-2">Improvement Tips:</h4>
-          <p className="text-sm text-muted-foreground">{selectedBullet.tips}</p>
+          <p className="text-sm text-muted-foreground">{selectedBullet?.tips || "No tips available"}</p>
         </div>
         
         {/* Accordion for all bullet points */}

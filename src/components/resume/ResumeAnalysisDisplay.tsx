@@ -14,13 +14,14 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 }) => {
   if (!analysis) return null;
   
+  // Add default values to prevent undefined errors
   const {
-    resume_percent,
-    letter_grade,
-    themes,
-    elevator_pitch,
-    explanation
-  } = analysis;
+    resume_percent = 0,
+    letter_grade = 'C',
+    themes = [],
+    elevator_pitch = '',
+    explanation = ''
+  } = analysis || {};
   
   return (
     <div className="space-y-6">
@@ -29,7 +30,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         letterGrade={letter_grade}
         resumePercent={resume_percent}
         elevatorPitch={elevator_pitch}
-        themes={themes}
+        themes={themes || []}
         explanation={explanation}
         onStartCareerChat={onStartCareerChat}
       />

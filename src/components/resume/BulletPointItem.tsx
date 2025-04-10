@@ -17,15 +17,17 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   index
 }) => {
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Add default values to prevent undefined errors
   const {
-    original,
-    word_balance,
-    word_balance_score,
-    xyz_scores,
-    bullet_total,
-    rewritten,
-    tips
-  } = bullet;
+    original = "",
+    word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
+    word_balance_score = 0,
+    xyz_scores = { hard_soft: 0, action_words: 0, measurable_results: 0, clarity_focus: 0 },
+    bullet_total = 0,
+    rewritten = "",
+    tips = ""
+  } = bullet || {};
 
   const getScoreColor = (score: number, max: number) => {
     const percentage = score / max * 100;
@@ -156,7 +158,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
       <AccordionTrigger className="px-4 py-3 hover:no-underline">
         <div className="flex flex-1 items-center justify-between">
           <div className="flex-1 text-left mr-4 line-clamp-1">
-            {original?.substring(0, 80)}...
+            {original ? original.substring(0, 80) + '...' : `Bullet point ${index + 1}`}
           </div>
           <Badge className={getBadgeColor(bullet_total, 45)}>
             Score: {bullet_total}/45
@@ -170,16 +172,19 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Original:</h4>
             <div className="text-sm bg-slate-50 p-3 rounded">
-              {originalComponents.map((part, idx) => (
-                <span key={idx} className={
-                  part.type === 'action' ? 'text-primary font-semibold' : 
-                  part.type === 'skill' ? 'text-destructive font-semibold' : 
-                  part.type === 'measurable' ? 'text-accent font-semibold' : 
-                  ''
-                }>
-                  {part.text}
-                </span>
-              ))}
+              {originalComponents.length > 0 ? 
+                originalComponents.map((part, idx) => (
+                  <span key={idx} className={
+                    part.type === 'action' ? 'text-primary font-semibold' : 
+                    part.type === 'skill' ? 'text-destructive font-semibold' : 
+                    part.type === 'measurable' ? 'text-accent font-semibold' : 
+                    ''
+                  }>
+                    {part.text}
+                  </span>
+                )) : 
+                "No original bullet text available"
+              }
             </div>
             
             <h4 className="text-sm font-medium flex items-center">
@@ -189,16 +194,19 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
               </Button>
             </h4>
             <div className="text-sm bg-green-50 p-3 rounded">
-              {rewrittenComponents.map((part, idx) => (
-                <span key={idx} className={
-                  part.type === 'action' ? 'text-primary font-semibold' : 
-                  part.type === 'skill' ? 'text-destructive font-semibold' : 
-                  part.type === 'measurable' ? 'text-accent font-semibold' : 
-                  ''
-                }>
-                  {part.text}
-                </span>
-              ))}
+              {rewrittenComponents.length > 0 ? 
+                rewrittenComponents.map((part, idx) => (
+                  <span key={idx} className={
+                    part.type === 'action' ? 'text-primary font-semibold' : 
+                    part.type === 'skill' ? 'text-destructive font-semibold' : 
+                    part.type === 'measurable' ? 'text-accent font-semibold' : 
+                    ''
+                  }>
+                    {part.text}
+                  </span>
+                )) : 
+                "No suggested improvement available"
+              }
             </div>
           </div>
           
@@ -246,7 +254,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           {/* Improvement Tips */}
           <div className="mt-4">
             <h4 className="text-sm font-medium">Improvement Tips:</h4>
-            <p className="text-sm text-muted-foreground mt-1">{tips}</p>
+            <p className="text-sm text-muted-foreground mt-1">{tips || "No improvement tips available"}</p>
           </div>
         </div>
       </AccordionContent>

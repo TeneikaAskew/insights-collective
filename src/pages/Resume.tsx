@@ -130,6 +130,9 @@ const Resume = () => {
     return <ResumeLoginWall />;
   }
 
+  // Ensure bullets array always exists to prevent map errors
+  const bulletPoints = analysis?.bullets || (resume?.analysis?.bullets || []);
+
   return (
     <AppLayout>
       <div className="container mx-auto">
@@ -337,20 +340,10 @@ const Resume = () => {
           </div>
           
           {/* Bullet Point Analysis Section - Now as its own separate section */}
-          {(analysis?.bullets?.length > 0 || (resume?.analysis?.bullets && resume.analysis.bullets.length > 0)) && (
-            <Card className="w-full">
-              <CardHeader>
-                <CardTitle>Resume Bullet Analysis</CardTitle>
-                <CardDescription>
-                  Comprehensive breakdown of your resume bullet points with improvement suggestions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <BulletPointsAnalysisCard 
-                  bullets={analysis?.bullets || (resume?.analysis?.bullets || [])} 
-                />
-              </CardContent>
-            </Card>
+          {bulletPoints && bulletPoints.length > 0 && (
+            <BulletPointsAnalysisCard 
+              bullets={bulletPoints} 
+            />
           )}
           
           {/* Career Chat Section */}

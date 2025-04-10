@@ -10,37 +10,39 @@ interface BulletPointChartProps {
 const BulletPointChart: React.FC<BulletPointChartProps> = ({
   bullet
 }) => {
+  // Add fallback for when bullet properties are undefined
   const {
-    word_balance,
-    bullet_total
-  } = bullet;
+    word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
+    bullet_total = 0,
+    xyz_scores = { hard_soft: 0, action_words: 0, measurable_results: 0, clarity_focus: 0 }
+  } = bullet || {};
 
   // Format data for the chart with colors matching the design
   const data = [
     {
       name: 'Hard & Soft Skills',
-      value: bullet.xyz_scores.hard_soft,
+      value: xyz_scores.hard_soft,
       fill: '#1F75FE', // Insight Blue from theme
       target: 35,
       percent: 0
     },
     {
       name: 'Action Words',
-      value: bullet.xyz_scores.action_words,
+      value: xyz_scores.action_words,
       fill: '#F9A826', // Energetic Amber from theme
       target: 15,
       percent: 0
     },
     {
       name: 'Measurable Results',
-      value: bullet.xyz_scores.measurable_results,
+      value: xyz_scores.measurable_results,
       fill: '#5ED3B5', // Aqua Teal from theme
       target: 15,
       percent: 0
     },
     {
       name: 'Common Words',
-      value: bullet.xyz_scores.clarity_focus,
+      value: xyz_scores.clarity_focus,
       fill: '#8A8F9E', // Dusty Gray from theme
       target: 35,
       percent: 0
@@ -167,7 +169,7 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
   };
 
   // Use the original bullet text or fallback to sample
-  const textComponents = bullet.original 
+  const textComponents = bullet?.original 
     ? parseTextComponents(bullet.original)
     : [
         { text: 'Spearheaded', type: 'action' },
