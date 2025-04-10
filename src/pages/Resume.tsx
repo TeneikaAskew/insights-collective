@@ -15,7 +15,7 @@ const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const { resume, loading, uploading, uploadResume, deleteResume } = useResume();
+  const { resume, loading, uploading, uploadResume, deleteResume, refreshResume } = useResume();
   const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
@@ -30,6 +30,13 @@ const Resume = () => {
       reader.readAsDataURL(resumeFile);
     }
   }, [resumeFile]);
+
+  // Ensure fresh data on mount and when auth changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      refreshResume();
+    }
+  }, [isAuthenticated]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -125,7 +132,7 @@ const Resume = () => {
             />
           </div>
           
-          {/* Bullet Point Analysis Section - Ensure this is a separate div */}
+          {/* Bullet Point Analysis Section - Only show when bullets exist */}
           {bulletPoints && bulletPoints.length > 0 && (
             <div className="mt-8">
               <BulletPointsAnalysisCard 

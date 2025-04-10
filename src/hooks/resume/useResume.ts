@@ -53,27 +53,11 @@ export function useResume() {
       
       let operationSuccess = false;
       
-      // Mock analysis - in a real app this would be done by an AI service
-      const mockAnalysis = {
-        strengths: [
-          'Strong technical skill presentation',
-          'Relevant project experience',
-          'Clear educational background'
-        ],
-        improvements: [
-          'Add more quantifiable achievements',
-          'Highlight data analysis tools more prominently',
-          'Consider adding a skills section'
-        ],
-        careerAlignment: 'Your resume is well-aligned with the Data Analyst role, but could be improved by highlighting SQL skills and data visualization experience more prominently.'
-      };
-      
       if (existingResume) {
         // Update existing resume with extracted text
         operationSuccess = await updateResumeRecord(user.id, {
           file_path: fileName,
-          text: resumeText, // Using the text field from interface
-          analysis: mockAnalysis,
+          text: resumeText,
           updated_at: new Date().toISOString()
         });
       } else {
@@ -81,8 +65,7 @@ export function useResume() {
         operationSuccess = await createResumeRecord({
           user_id: user.id,
           file_path: fileName,
-          text: resumeText, // Using the text field from interface
-          analysis: mockAnalysis,
+          text: resumeText,
           career_alignment_score: 72,
           target_role: 'Data Analyst'
         });
@@ -155,6 +138,8 @@ export function useResume() {
     loading,
     uploading: uploading || fileUploading,
     uploadResume,
-    deleteResume
+    deleteResume,
+    // Add this to allow manual refresh
+    refreshResume: fetchResume
   };
 }

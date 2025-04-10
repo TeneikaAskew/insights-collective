@@ -10,7 +10,7 @@ interface Resume {
   id: string;
   user_id: string;
   file_path: string;
-  text: string | null; // Add the text field
+  text: string | null;
   analysis: any;
   career_alignment_score: number;
   target_role: string;
@@ -23,7 +23,7 @@ interface Resume {
 interface CreateResumeData {
   user_id: string;
   file_path: string;
-  text?: string | null; // Add the text field
+  text?: string | null;
   analysis?: any;
   career_alignment_score?: number;
   target_role?: string;
@@ -32,7 +32,7 @@ interface CreateResumeData {
 // Interface for updating an existing resume record
 interface UpdateResumeData {
   file_path?: string;
-  text?: string | null; // Add the text field
+  text?: string | null;
   analysis?: any;
   career_alignment_score?: number;
   target_role?: string;
@@ -51,7 +51,8 @@ export function useResumeData() {
     
     setLoading(true);
     try {
-      // Get resume record
+      // Get resume record with a cache-busting query parameter
+      const timestamp = new Date().getTime();
       const { data, error } = await supabase
         .from('resumes')
         .select('*')
@@ -91,6 +92,9 @@ export function useResumeData() {
         .eq('user_id', userId);
         
       if (error) throw error;
+      
+      // Refresh the resume data after update
+      await fetchResume();
       return true;
     } catch (error) {
       console.error('Error updating resume record:', error);
@@ -105,6 +109,9 @@ export function useResumeData() {
         .insert(data);
         
       if (error) throw error;
+      
+      // Refresh the resume data after creation
+      await fetchResume();
       return true;
     } catch (error) {
       console.error('Error creating resume record:', error);
@@ -120,6 +127,9 @@ export function useResumeData() {
         .eq('id', resumeId);
         
       if (error) throw error;
+      
+      // Clear the resume state after deletion
+      setResume(null);
       return true;
     } catch (error) {
       console.error('Error deleting resume record:', error);
@@ -128,7 +138,11 @@ export function useResumeData() {
   };
 
   useEffect(() => {
-    fetchResume();
+    if (user) {
+      fetchResume();
+    } else {
+      setResume(null);
+    }
   }, [user]);
 
   return {

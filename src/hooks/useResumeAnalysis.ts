@@ -11,17 +11,10 @@ export function useResumeAnalysis() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Load saved analysis from localStorage on component mount
+  // Clear analysis when user changes
   useEffect(() => {
-    if (user) {
-      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-      if (savedAnalysis) {
-        try {
-          setAnalysis(JSON.parse(savedAnalysis));
-        } catch (error) {
-          console.error('Error parsing saved analysis:', error);
-        }
-      }
+    if (!user) {
+      setAnalysis(null);
     }
   }, [user]);
 
@@ -58,11 +51,7 @@ export function useResumeAnalysis() {
       
       if (error) throw error;
       
-      // Save the analysis to localStorage for persistence
-      if (data && user) {
-        localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data));
-      }
-      
+      // Don't persist analysis to localStorage to avoid stale data issues
       setAnalysis(data as ResumeAnalysis);
       
       toast({
