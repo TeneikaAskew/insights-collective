@@ -40,35 +40,39 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
       weak_bullets: bottomBullets.length > 0 ? bottomBullets.map((b: any) => b.original.substring(0, 100)).join("\n") : "",
     };
 
-    // formatting the response
-    function formatResponse(raw: string): string {
-      if (!raw) return "";
-      
-      let text = raw;
-    
-      // Balanced bold
-      text = text.replace(/\*\*(.+?)\*/g, '**$1**');
-      text = text.replace(/\*(.+?)\*\*/g, '**$1**');
-    
-      // Leading * or + → bullets
-      text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
-    
-      // Numbered → bullets
-      text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
-    
-      // Bold‑only lines → headings
-      text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
-    
-      // Collapse 3+ blank lines to 2
-      text = text.replace(/\n{3,}/g, '\n\n');
-    
-      // Trim line ends and overall
-      return text
-        .split('\n')
-        .map(l => l.trimEnd())
-        .join('\n')
-        .trim();
-    }
+    /**
+   * Cleans up the raw LLM output into properly formatted Markdown
+   */
+  function formatResponse(raw: string): string {
+    if (!raw) return '';
+  
+    let text = raw;
+  
+    // 1) Fix unbalanced bold markers: **…* or *…** → **…**
+    text = text.replace(/\*\*(.+?)\*/g, '**$1**');
+    text = text.replace(/\*(.+?)\*\*/g, '**$1**');
+  
+    // 2) Convert leading "* " or "+ " into "- " bullets
+    text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
+  
+    // 3) Convert numbered lists into bullet points
+    text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
+  
+    // 4) Ensure bold-only lines become headers
+    text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
+  
+    // 5) Remove noisy labels like “Professional Elevator Pitch:***” and others
+    text = text.replace(/Professional Elevator Pitch:\*+\s*/gi, '');
+    text = text.replace(/Brief Explanation of the Resume Grade:\*+\s*/gi, '');
+    text = text.replace(/Three Specific Improvement Themes:\*+\s*/gi, '');
+  
+    // 6) Collapse 3+ blank lines → 2
+    text = text.replace(/\n{3,}/g, '\n\n');
+  
+    // 7) Trim trailing spaces and outer whitespace
+    return text.split('\n').map(line => line.trimEnd()).join('\n').trim(); //.map(l => l.trimEnd())
+  }
+
     
     // Call the GROQ API with timeout
     const controller = new AbortController();
