@@ -28,6 +28,7 @@ export function useResumeAnalysis() {
 
   const setAnalysisFromResume = (resumeObject: any) => {
     if (resumeObject?.analysis && user) {
+      console.log("Setting analysis from resume object", resumeObject.analysis);
       // Save to localStorage for persistence
       localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(resumeObject.analysis));
       setAnalysis(resumeObject.analysis);

@@ -24,12 +24,6 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   const word_balance_score = bullet.word_balance_score || 0;
   const bullet_total = bullet.bullet_total || 0;
   
-  // Calculate XYZ total score
-  const xyzTotal = (xyz_scores.hard_soft || 0) + 
-                  (xyz_scores.action_words || 0) + 
-                  (xyz_scores.measurable_results || 0) + 
-                  (xyz_scores.clarity_focus || 0);
-  
   // Theme colors
   const themeColors = {
     hardSoft: "#8B5CF6",     // Vivid Purple

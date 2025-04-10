@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
 import { ResumeAnalysis } from '@/components/assistants/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ResumeAnalysisSectionProps {
   loading: boolean;
@@ -22,6 +23,12 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   handleStartCareerChat,
   handleFileChange
 }) => {
+  // Use either provided analysis or resume.analysis if available
+  const displayAnalysis = analysis || (resume?.analysis ? resume.analysis : null);
+  
+  // Create a unique key for forcing re-renders
+  const analysisKey = displayAnalysis ? `analysis-${JSON.stringify(displayAnalysis).length}` : 'no-analysis';
+  
   return (
     <Card>
       <CardHeader>
@@ -47,16 +54,13 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             <div className="h-3 bg-muted rounded w-full mb-1"></div>
             <div className="h-3 bg-muted rounded w-3/4"></div>
           </div>
-        ) : analysis ? (
-          <ResumeAnalysisDisplay 
-            analysis={analysis} 
-            onStartCareerChat={handleStartCareerChat}
-          />
-        ) : resume?.analysis ? (
-          <ResumeAnalysisDisplay 
-            analysis={resume.analysis} 
-            onStartCareerChat={handleStartCareerChat}
-          />
+        ) : displayAnalysis ? (
+          <div key={analysisKey}>
+            <ResumeAnalysisDisplay 
+              analysis={displayAnalysis} 
+              onStartCareerChat={handleStartCareerChat}
+            />
+          </div>
         ) : (
           <div className="text-center p-6">
             <p className="text-muted-foreground mb-4">

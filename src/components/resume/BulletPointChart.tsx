@@ -25,11 +25,11 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
   // Get formatted chart data
   const { dataWithPercent, bullet_total } = prepareBulletChartData(bullet);
   
-  // Create a stable key that doesn't force remounts on every render
-  const chartKey = `${bullet.original?.substring(0, 15) || ''}-${bullet_total || 0}`;
+  // Create a stable key based on bullet content instead of timestamps
+  const stableKey = `${bullet.original?.substring(0, 15) || ''}-${bullet_total || 0}`;
 
   return (
-    <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm" key={chartKey}>
+    <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm" key={stableKey}>
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-1">
           <h3 className="text-md font-semibold text-center mb-4">Bullet Anatomy</h3>
@@ -41,7 +41,9 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
             <h3 className="text-md font-semibold">Distribution</h3>
           </div>
           
-          <WordBalanceDistribution wordBalance={bullet.word_balance} />
+          {bullet.word_balance && (
+            <WordBalanceDistribution wordBalance={bullet.word_balance} />
+          )}
         </div>
       </div>
     </div>

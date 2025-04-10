@@ -19,6 +19,9 @@ const Resume = () => {
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   
+  // Create a unique key for the page to force re-renders when data changes
+  const pageKey = `page-${Date.now()}-${analysis?.resume_percent || 0}-${resume?.id || 'no-resume'}`;
+  
   // Load preview when resumeFile changes
   useEffect(() => {
     if (resumeFile) {
@@ -123,7 +126,7 @@ const Resume = () => {
             
             {/* Right Column - Resume Analysis */}
             <ResumeAnalysisSection
-              key={`analysis-section-${analysisKey}`}
+              key={`analysis-section-${pageKey}`}
               loading={loading}
               isAnalyzing={isAnalyzing}
               analysis={analysis}
@@ -134,8 +137,8 @@ const Resume = () => {
           </div>
           
           {/* Career Chat Section */}
-          {showCareerChat && (
-            <div className="mt-8" key={`career-chat-${analysisKey}`}>
+          {showCareerChat && analysis && (
+            <div className="mt-8" key={`career-chat-${pageKey}`}>
               <ResumeChat resumeAnalysis={analysis} />
             </div>
           )}
