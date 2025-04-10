@@ -53,45 +53,10 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             onStartCareerChat={handleStartCareerChat}
           />
         ) : resume?.analysis ? (
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-medium mb-2">Strengths</h3>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                {resume.analysis.strengths && resume.analysis.strengths.map((strength: string, i: number) => (
-                  <li key={i}>{strength}</li>
-                ))}
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-medium mb-2">Areas for Improvement</h3>
-              <ul className="list-disc pl-5 space-y-1 text-sm">
-                {resume.analysis.improvements && resume.analysis.improvements.map((improvement: string, i: number) => (
-                  <li key={i}>{improvement}</li>
-                ))}
-              </ul>
-            </div>
-            
-            <div>
-              <h3 className="font-medium mb-2">Career Alignment</h3>
-              <p className="text-sm">
-                {resume.analysis.careerAlignment}
-              </p>
-            </div>
-            
-            <div className="flex-col items-start space-y-2 p-0 pt-4">
-              <p className="text-sm text-muted-foreground">
-                Your resume has been analyzed. You can chat with our AI assistant for more personalized advice.
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={handleStartCareerChat}
-              >
-                Start Career Chat
-              </Button>
-            </div>
-          </div>
+          <ResumeAnalysisDisplay 
+            analysis={resume.analysis} 
+            onStartCareerChat={handleStartCareerChat}
+          />
         ) : (
           <div className="text-center p-6">
             <p className="text-muted-foreground mb-4">
