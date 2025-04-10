@@ -51,8 +51,7 @@ export function useResumeData() {
     
     setLoading(true);
     try {
-      // Get resume record with a timestamp parameter to avoid caching
-      const timestamp = new Date().getTime();
+      // Get resume record
       const { data, error } = await supabase
         .from('resumes')
         .select('*')
@@ -65,7 +64,6 @@ export function useResumeData() {
         // Get download URL for the resume file
         const fileUrl = await getResumeFileUrl(user.id, data.file_path);
         
-        console.log("Resume data fetched:", data);
         setResume({
           ...data,
           file_url: fileUrl
@@ -89,16 +87,10 @@ export function useResumeData() {
     try {
       const { error } = await supabase
         .from('resumes')
-        .update({
-          ...data,
-          updated_at: new Date().toISOString() // Force update timestamp
-        })
+        .update(data)
         .eq('user_id', userId);
         
       if (error) throw error;
-      
-      // Refresh data after update
-      await fetchResume();
       return true;
     } catch (error) {
       console.error('Error updating resume record:', error);
@@ -113,9 +105,6 @@ export function useResumeData() {
         .insert(data);
         
       if (error) throw error;
-      
-      // Refresh data after create
-      await fetchResume();
       return true;
     } catch (error) {
       console.error('Error creating resume record:', error);
@@ -131,8 +120,6 @@ export function useResumeData() {
         .eq('id', resumeId);
         
       if (error) throw error;
-      
-      setResume(null);
       return true;
     } catch (error) {
       console.error('Error deleting resume record:', error);
@@ -141,9 +128,7 @@ export function useResumeData() {
   };
 
   useEffect(() => {
-    if (user) {
-      fetchResume();
-    }
+    fetchResume();
   }, [user]);
 
   return {

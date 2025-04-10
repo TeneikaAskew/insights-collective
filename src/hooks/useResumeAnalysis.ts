@@ -17,14 +17,10 @@ export function useResumeAnalysis() {
       const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
       if (savedAnalysis) {
         try {
-          const parsedAnalysis = JSON.parse(savedAnalysis);
-          console.log("Loaded saved analysis from localStorage:", parsedAnalysis);
-          setAnalysis(parsedAnalysis);
+          setAnalysis(JSON.parse(savedAnalysis));
         } catch (error) {
           console.error('Error parsing saved analysis:', error);
         }
-      } else {
-        console.log("No saved analysis found in localStorage");
       }
     }
   }, [user]);
@@ -67,7 +63,6 @@ export function useResumeAnalysis() {
         localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data));
       }
       
-      console.log("Analysis data received:", data);
       setAnalysis(data as ResumeAnalysis);
       
       toast({

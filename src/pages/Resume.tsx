@@ -1,14 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import AppLayout from '@/components/layout/AppLayout';
-import { useAuth } from '@/contexts/AuthContext';
+import { FileUp, File, DownloadCloud, Trash2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import AppLayout from '@/components/layout/AppLayout';
 import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
-import ResumeUploadSection from '@/components/resume/ResumeUploadSection';
-import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
-import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
+import ResumeAnalysisDisplay from '@/components/resume/ResumeAnalysisDisplay';
 import ResumeChat from '@/components/resume/ResumeChat';
+import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 
 const Resume = () => {
@@ -30,26 +32,6 @@ const Resume = () => {
       reader.readAsDataURL(resumeFile);
     }
   }, [resumeFile]);
-  
-  useEffect(() => {
-    // Log analysis data to debug
-    console.log("Current analysis state:", analysis);
-    console.log("Resume data:", resume);
-    
-    // If we have a resume but no analysis, try to load from localStorage
-    if (resume && !analysis && user) {
-      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-      if (savedAnalysis) {
-        try {
-          console.log("Attempting to recover analysis from localStorage");
-          const parsedAnalysis = JSON.parse(savedAnalysis);
-          // We don't need to set it here as useResumeAnalysis handles this
-        } catch (error) {
-          console.error('Failed to recover analysis:', error);
-        }
-      }
-    }
-  }, [resume, analysis, user]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -75,7 +57,6 @@ const Resume = () => {
     const success = await uploadResume(resumeFile);
     
     if (success) {
-      console.log("Upload successful, now analyzing resume");
       await analyzeResume(resumeFile);
     }
   };
@@ -98,18 +79,64 @@ const Resume = () => {
     setShowCareerChat(true);
   };
 
+  // Display file preview based on file type
+  const renderFilePreview = () => {
+    // For PDF files
+    if (resume?.file_url) {
+      // If we have a stored resume with a URL
+      return (
+        <iframe 
+          src={`${resume.file_url}#toolbar=0&navpanes=0`}
+          className="w-full aspect-[8.5/11] border rounded-md"
+          title="Resume preview"
+        />
+      );
+    }
+    
+    // For local preview of newly selected files
+    if (pdfDataUrl) {
+      // Check if it's a PDF
+      if (resumeFile?.type === 'application/pdf') {
+        return (
+          <iframe 
+            src={pdfDataUrl}
+            className="w-full aspect-[8.5/11] border rounded-md"
+            title="Resume preview"
+          />
+        );
+      }
+      
+      // For DOCX, we can't preview directly, show a placeholder
+      if (resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        return (
+          <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-accent/10">
+            <File className="h-12 w-12 text-muted-foreground mb-2" />
+            <p className="text-muted-foreground">Word Document Preview</p>
+            <p className="text-xs text-muted-foreground mt-1">(Preview not available for DOCX files)</p>
+          </div>
+        );
+      }
+    }
+    
+    // If no file uploaded yet
+    return (
+      <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
+        <p className="text-muted-foreground">No file uploaded</p>
+      </div>
+    );
+  };
+
   if (!isAuthenticated) {
     return <ResumeLoginWall />;
   }
 
   // Ensure bulletPoints array always exists to prevent map errors
   const bulletPoints = analysis?.bullets || [];
-  console.log("Bullet points to display:", bulletPoints);
 
   return (
     <AppLayout>
       <div className="container mx-auto">
-        <div className="flex flex-col space-y-8">
+        <div className="flex flex-col space-y-6">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
           {resume?.career_alignment_score && resume?.target_role && (
@@ -122,45 +149,206 @@ const Resume = () => {
           
           <div className="grid md:grid-cols-2 gap-6">
             {/* Left Column - Resume Upload and View */}
-            <ResumeUploadSection 
-              resumeFile={resumeFile}
-              setResumeFile={setResumeFile}
-              resume={resume}
-              loading={loading}
-              uploading={uploading}
-              isAnalyzing={isAnalyzing}
-              handleUpload={handleUpload}
-              handleDelete={handleDelete}
-              handleFileChange={handleFileChange}
-              handleDownload={handleDownload}
-              pdfDataUrl={pdfDataUrl}
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle>Upload Your Resume</CardTitle>
+                <CardDescription>
+                  Upload your resume in PDF or Word (DOCX) format to receive personalized feedback and insights.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {loading ? (
+                  <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-10 text-center">
+                    <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+                    <p className="text-muted-foreground">Loading your resume...</p>
+                  </div>
+                ) : !resume && !resumeFile ? (
+                  <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-10 text-center">
+                    <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground mb-4">Drag and drop your resume here, or click to browse</p>
+                    <input 
+                      type="file" 
+                      accept=".pdf,.docx" 
+                      id="resume-upload" 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                    />
+                    <Button asChild>
+                      <label htmlFor="resume-upload">Browse Files</label>
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="border rounded-md p-4">
+                    <div className="flex items-center space-x-3">
+                      <File className="h-8 w-8 text-primary" />
+                      <div className="flex-1">
+                        <p className="font-medium">
+                          {resumeFile ? resumeFile.name : resume?.file_path.split('/').pop()}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {resumeFile 
+                            ? `${(resumeFile.size / 1024 / 1024).toFixed(2)} MB`
+                            : `Uploaded on ${new Date(resume?.uploaded_at || '').toLocaleDateString()}`
+                          }
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        {resume && (
+                          <Button variant="outline" size="icon" onClick={handleDownload}>
+                            <DownloadCloud className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="outline" size="icon" onClick={handleDelete}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Resume preview
+                      </p>
+                      
+                      {renderFilePreview()}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter>
+                {resumeFile && (
+                  <Button 
+                    onClick={handleUpload} 
+                    disabled={!resumeFile || uploading || isAnalyzing} 
+                    className="w-full"
+                  >
+                    {uploading || isAnalyzing ? 
+                      (isAnalyzing ? 'Analyzing...' : 'Uploading...') : 
+                      'Upload & Analyze Resume'}
+                  </Button>
+                )}
+                
+                {!resumeFile && resume && (
+                  <div className="w-full flex justify-between">
+                    <Button variant="outline" onClick={handleDelete}>
+                      Delete Resume
+                    </Button>
+                    <input 
+                      type="file" 
+                      accept=".pdf,.docx" 
+                      id="resume-replace" 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                    />
+                    <Button asChild>
+                      <label htmlFor="resume-replace">Replace Resume</label>
+                    </Button>
+                  </div>
+                )}
+              </CardFooter>
+            </Card>
             
-            {/* Right Column - Resume Analysis */}
-            <ResumeAnalysisSection
-              loading={loading}
-              isAnalyzing={isAnalyzing}
-              analysis={analysis}
-              resume={resume}
-              handleStartCareerChat={handleStartCareerChat}
-              handleFileChange={handleFileChange}
-            />
+            {/* Right Column - Resume Analysis - Now only shows overall score */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Resume Analysis</CardTitle>
+                <CardDescription>
+                  Get personalized insights and recommendations based on your resume and career goals.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {loading || isAnalyzing ? (
+                  <div className="space-y-4 animate-pulse">
+                    <div className="h-4 bg-muted rounded w-3/4 mb-6"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-5/6 mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-4/6 mb-6"></div>
+                    
+                    <div className="h-4 bg-muted rounded w-3/4 mb-6"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-5/6 mb-6"></div>
+                    
+                    <div className="h-4 bg-muted rounded w-3/4 mb-6"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-full mb-1"></div>
+                    <div className="h-3 bg-muted rounded w-3/4"></div>
+                  </div>
+                ) : analysis ? (
+                  <ResumeAnalysisDisplay 
+                    analysis={analysis} 
+                    onStartCareerChat={handleStartCareerChat}
+                  />
+                ) : resume?.analysis ? (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="font-medium mb-2">Strengths</h3>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        {resume.analysis.strengths && resume.analysis.strengths.map((strength: string, i: number) => (
+                          <li key={i}>{strength}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-medium mb-2">Areas for Improvement</h3>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        {resume.analysis.improvements && resume.analysis.improvements.map((improvement: string, i: number) => (
+                          <li key={i}>{improvement}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <h3 className="font-medium mb-2">Career Alignment</h3>
+                      <p className="text-sm">
+                        {resume.analysis.careerAlignment}
+                      </p>
+                    </div>
+                    
+                    <CardFooter className="flex-col items-start space-y-2 p-0 pt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Your resume has been analyzed. You can chat with our AI assistant for more personalized advice.
+                      </p>
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={handleStartCareerChat}
+                      >
+                        Start Career Chat
+                      </Button>
+                    </CardFooter>
+                  </div>
+                ) : (
+                  <div className="text-center p-6">
+                    <p className="text-muted-foreground mb-4">
+                      Upload your resume to receive personalized career advice and analysis.
+                    </p>
+                    
+                    <input 
+                      type="file" 
+                      accept=".pdf,.docx" 
+                      id="resume-upload-alt" 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                    />
+                    <Button asChild>
+                      <label htmlFor="resume-upload-alt">Upload Resume</label>
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </div>
           
-          {/* Bullet Point Analysis Section - Ensure this is a separate div */}
+          {/* Bullet Point Analysis Section - Now as its own separate section */}
           {bulletPoints && bulletPoints.length > 0 && (
-            <div className="mt-8">
-              <BulletPointsAnalysisCard 
-                bullets={bulletPoints} 
-              />
-            </div>
+            <BulletPointsAnalysisCard 
+              bullets={bulletPoints} 
+            />
           )}
           
           {/* Career Chat Section */}
           {showCareerChat && (
-            <div className="mt-8">
-              <ResumeChat resumeAnalysis={analysis} />
-            </div>
+            <ResumeChat resumeAnalysis={analysis} />
           )}
         </div>
       </div>
