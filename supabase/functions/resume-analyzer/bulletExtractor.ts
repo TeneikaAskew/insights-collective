@@ -37,7 +37,7 @@ export function extractBulletPoints(text: string): string[] {
   if (results.length === 0) {
     const dateRangeRegex = /\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\w+\s+\d{4})\s*[-–]\s*(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\w+\s+\d{4})\b/;
     results = text
-      .split(/(?<=[.;\n])\s+/)                             // split on punctuation or newline
+      .split(/(?<=[.;\n])\s+/) //.split(/(?<=[.;\n])\s+/)                             // split on punctuation or newline including semicolon
       .flatMap(chunk => chunk.split(/(?<=[a-z])\s+(?=[A-Z])/)) // also split lowercase→space→Uppercase
       .map(s => s.replace(/\r?\n/g, ' ').trim())
       .filter(s => s.length > 15 && !dateRangeRegex.test(s));
