@@ -79,18 +79,18 @@ export function useResumeStorage() {
     try {
       // Create a unique file path for this user's resume
       const fileName = file.name;
-      const filePath = `resumes/${userId}/${fileName}`;
+      const filePath = `Resumes/${userId}/${fileName}`;
       
       // Upload file to Supabase Storage
       const { data, error } = await supabase.storage
-        .from('resumes')
+        .from('Resumes')
         .upload(filePath, file, { upsert: true });
       
       if (error) throw error;
       
       // Get public URL for the file
       const { data: urlData } = supabase.storage
-        .from('resumes')
+        .from('Resumes')
         .getPublicUrl(filePath);
       
       setDownloadUrl(urlData.publicUrl);
@@ -129,7 +129,7 @@ export function useResumeStorage() {
     
     try {
       const { error } = await supabase.storage
-        .from('resumes')
+        .from('Resumes')
         .remove([filePath]);
       
       if (error) throw error;
@@ -160,7 +160,7 @@ export function useResumeStorage() {
     
     try {
       const { data } = supabase.storage
-        .from('resumes')
+        .from('Resumes')
         .getPublicUrl(filePath);
       
       return data?.publicUrl || '';

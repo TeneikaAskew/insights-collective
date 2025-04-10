@@ -9,6 +9,7 @@ import ResumeUploadSection from '@/components/resume/ResumeUploadSection';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
 import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
+import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -57,10 +58,24 @@ const Resume = () => {
   const handleUpload = async () => {
     if (!resumeFile) return;
     
-    const success = await uploadResume(resumeFile);
-    
-    if (success) {
-      await analyzeResume(resumeFile);
+    try {
+      // First extract the text to use for analysis
+      const resumeText = await extractTextFromFile(resumeFile);
+      
+      // Then upload the resume file
+      const success = await uploadResume(resumeFile);
+      
+      if (success && resumeText) {
+        // Use the extracted text for analysis, not the file
+        await analyzeResume(resumeText);
+      }
+    } catch (error) {
+      console.error("Error during upload/analysis process:", error);
+      toast({
+        title: "Process Failed",
+        description: "There was an error processing your resume.",
+        variant: "destructive"
+      });
     }
   };
 

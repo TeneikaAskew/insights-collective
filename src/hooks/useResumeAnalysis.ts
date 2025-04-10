@@ -27,37 +27,20 @@ export function useResumeAnalysis() {
     }
   }, [user]);
 
-  const analyzeResume = async (file: File): Promise<boolean> => {
-    if (!file || !user) return false;
+  const analyzeResume = async (resumeText: string): Promise<boolean> => {
+    if (!resumeText || !user) return false;
     
+    // Clear previous analysis before starting new one
+    setAnalysis(null);
     setIsAnalyzing(true);
-    console.log("Starting resume analysis for file:", file.name);
+    console.log("Starting resume analysis with text of length:", resumeText.length);
     
     try {
-      // Extract text from the uploaded file first
-      const fileText = await extractTextFromFile(file);
-      
-      if (!fileText) {
-        throw new Error('Failed to extract text from the file');
-      }
-      
-      console.log("Successfully extracted text from resume, length:", fileText.length);
-      
-      // Step 2: Try to first get the text from the database if it exists
-      const { data: resumeData, error: resumeError } = await supabase
-        .from('resumes')
-        .select('text')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      // Use text from DB if available, otherwise use the extracted text
-      const textToAnalyze = resumeData?.text || fileText;
-      
-      // Step 3: Call the Edge Function with user ID and text
+      // Step 1: Call the Edge Function with user ID and text
       console.log("Calling resume-analyzer edge function");
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
-          resumeText: textToAnalyze,
+          resumeText: resumeText,
           userId: user.id
         }
       });
