@@ -87,7 +87,7 @@ export function useResumeStorage() {
       
       // Upload file to Supabase Storage
       const { data, error } = await supabase.storage
-        .from('Resumes')
+        .from('resumes')
         .upload(filePath, file, { upsert: true });
       
       if (error) {
@@ -99,7 +99,7 @@ export function useResumeStorage() {
       
       // Get public URL for the file
       const { data: urlData } = supabase.storage
-        .from('Resumes')
+        .from('resumes')
         .getPublicUrl(filePath);
       
       console.log("Got public URL:", urlData?.publicUrl);
@@ -141,7 +141,7 @@ export function useResumeStorage() {
       console.log("Deleting file from Resumes bucket:", filePath);
       
       const { error } = await supabase.storage
-        .from('Resumes')
+        .from('resumes')
         .remove([filePath]);
       
       if (error) throw error;
@@ -174,7 +174,7 @@ export function useResumeStorage() {
       console.log("Getting file URL from Resumes bucket:", filePath);
       
       const { data } = supabase.storage
-        .from('Resumes')
+        .from('resumes')
         .getPublicUrl(filePath);
       
       console.log("Retrieved URL:", data?.publicUrl);
