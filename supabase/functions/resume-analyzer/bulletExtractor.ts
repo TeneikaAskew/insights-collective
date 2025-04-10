@@ -111,7 +111,7 @@ export function fallbackExtractBullets(text: string): string[] {
       (/[.;]\s+/.test(line) || /(?<=[a-z])\s+(?=[A-Z])/.test(line))
     ) {
       const parts = line
-        .split(/(?<=[.;])\s+|(?<=[a-z])\s+(?=[A-Z])/)   // punctuation or lowercase→space→Uppercase
+        .split(/(?<=[.])\s+|(?<=[a-z])\s+(?=[A-Z])/) //removed semi colon // .split(/(?<=[.;])\s+|(?<=[a-z])\s+(?=[A-Z])/)   // punctuation or lowercase→space→Uppercase
         .map(p => p.replace(/[.;]$/, '').trim())
         .filter(p => p.length > 15 && !dateRangeRegex.test(p));
       bullets.push(...parts);
