@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,17 +19,6 @@ const Resume = () => {
   const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
-  
-  // Generate a stable unique component key using relevant data properties but NOT timestamps
-  const pageKey = useMemo(() => {
-    // Use hash of analysis data without timestamp for stability
-    return `resume-page-${analysis?.resume_percent || 0}-${analysis?.bullets?.length || 0}-${analysis?.letter_grade || ''}`;
-  }, [analysis]);
-  
-  // Log analysis data for debugging
-  console.log("Resume page - Current analysis:", analysis);
-  console.log("Resume page - Bullets:", analysis?.bullets);
-  console.log("Resume page - Page key:", pageKey);
   
   // Load preview when resumeFile changes
   useEffect(() => {
@@ -94,11 +83,10 @@ const Resume = () => {
 
   // Ensure bulletPoints array always exists to prevent map errors
   const bulletPoints = analysis?.bullets || [];
-  console.log("Resume page - Bullet points to render:", bulletPoints);
 
   return (
     <AppLayout>
-      <div className="container mx-auto" key={pageKey}>
+      <div className="container mx-auto">
         <div className="flex flex-col space-y-8">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
@@ -124,7 +112,6 @@ const Resume = () => {
               handleFileChange={handleFileChange}
               handleDownload={handleDownload}
               pdfDataUrl={pdfDataUrl}
-              key={`upload-section-${pageKey}`}
             />
             
             {/* Right Column - Resume Analysis */}
@@ -135,16 +122,14 @@ const Resume = () => {
               resume={resume}
               handleStartCareerChat={handleStartCareerChat}
               handleFileChange={handleFileChange}
-              key={`analysis-section-${pageKey}`}
             />
           </div>
           
-          {/* Bullet Point Analysis Section - Direct rendering on this page too */}
+          {/* Bullet Point Analysis Section - Ensure this is a separate div */}
           {bulletPoints && bulletPoints.length > 0 && (
             <div className="mt-8">
               <BulletPointsAnalysisCard 
                 bullets={bulletPoints} 
-                key={`bullet-analysis-${pageKey}`}
               />
             </div>
           )}
@@ -152,10 +137,7 @@ const Resume = () => {
           {/* Career Chat Section */}
           {showCareerChat && (
             <div className="mt-8">
-              <ResumeChat 
-                resumeAnalysis={analysis} 
-                key={`resume-chat-${pageKey}`}
-              />
+              <ResumeChat resumeAnalysis={analysis} />
             </div>
           )}
         </div>

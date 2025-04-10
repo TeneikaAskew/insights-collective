@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
@@ -11,40 +11,24 @@ export function useResumeAnalysis() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Force refresh the analysis data
-  const refreshAnalysis = useCallback(() => {
+  // Load saved analysis from localStorage on component mount
+  useEffect(() => {
     if (user) {
-      console.log("Forcing analysis refresh for user:", user.id);
       const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
       if (savedAnalysis) {
         try {
-          const parsedAnalysis = JSON.parse(savedAnalysis);
-          console.log("Retrieved analysis from localStorage:", parsedAnalysis);
-          // Force a fresh state update
-          setAnalysis(null);
-          setTimeout(() => {
-            console.log("Setting refreshed analysis");
-            setAnalysis(parsedAnalysis);
-          }, 0);
+          setAnalysis(JSON.parse(savedAnalysis));
         } catch (error) {
           console.error('Error parsing saved analysis:', error);
         }
-      } else {
-        console.log("No saved analysis found for user");
       }
     }
   }, [user]);
-
-  // Load saved analysis from localStorage on component mount with cache busting
-  useEffect(() => {
-    refreshAnalysis();
-  }, [refreshAnalysis]);
 
   const analyzeResume = async (file: File): Promise<boolean> => {
     if (!file || !user) return false;
     
     setIsAnalyzing(true);
-    console.log("Starting resume analysis for file:", file.name);
     
     try {
       // Extract text from the uploaded file first
@@ -64,35 +48,22 @@ export function useResumeAnalysis() {
       // Use text from DB if available, otherwise use the extracted text
       const textToAnalyze = resumeData?.text || fileText;
       
-      // Clear any previous analysis before starting new one
-      localStorage.removeItem(`resume_analysis_${user.id}`);
-      setAnalysis(null);
-      
       // Step 3: Call the Edge Function with user ID and text
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
           resumeText: textToAnalyze,
-          userId: user.id,
-          timestamp: Date.now() // Add timestamp to bust cache
+          userId: user.id
         }
       });
       
       if (error) throw error;
       
-      console.log("Analysis response received:", data);
-      
       // Save the analysis to localStorage for persistence
       if (data && user) {
-        const analysisJson = JSON.stringify(data);
-        localStorage.setItem(`resume_analysis_${user.id}`, analysisJson);
-        console.log("Saved analysis to localStorage");
+        localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data));
       }
       
-      // Force new state update with timeout to ensure React recognizes it as a new value
-      setTimeout(() => {
-        console.log("Setting analysis after processing");
-        setAnalysis(data as ResumeAnalysis);
-      }, 0);
+      setAnalysis(data as ResumeAnalysis);
       
       toast({
         title: "Resume Analysis Complete",
@@ -164,7 +135,6 @@ export function useResumeAnalysis() {
     analysis,
     setAnalysis,
     isAnalyzing,
-    analyzeResume,
-    refreshAnalysis
+    analyzeResume
   };
 }
