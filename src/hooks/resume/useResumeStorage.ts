@@ -79,40 +79,27 @@ export function useResumeStorage() {
     try {
       console.log("Starting file upload process for user:", userId);
       
-      // Create a unique file path for this user's resume
-      const fileName = `resume_${Date.now()}.${file.name.split('.').pop()}`;
-      const filePath = `${fileName}`;
+      // Create a unique file name (no nested paths)
+      const fileExtension = file.name.split('.').pop() || '';
+      const fileName = `resume_${Date.now()}.${fileExtension}`;
       
-      console.log("Uploading to Resumes bucket with file path:", filePath);
+      console.log("Uploading to Resumes bucket with file name:", fileName);
       
-      // Upload file to Supabase Storage
+      // Upload file to Supabase Storage - using simpler path strategy
       const { data, error } = await supabase.storage
-        .from('resumes')
-        .upload(filePath, file, { upsert: true });
+        .from('Resumes') // Note the capital 'R'
+        .upload(fileName, file, { upsert: true });
       
       if (error) {
-        console.error("Upload error details:", error);
+        console.error("Upload error details:", JSON.stringify(error));
         throw error;
       }
       
       console.log("Upload successful, file path:", data?.path);
       
-      // Get public URL for the file
-      const { data: urlData } = supabase.storage
-        .from('resumes')
-        .getPublicUrl(filePath);
-      
-      console.log("Got public URL:", urlData?.publicUrl);
-      setDownloadUrl(urlData.publicUrl);
-      
-      toast({
-        title: "Resume uploaded",
-        description: "Your resume has been successfully uploaded.",
-      });
-      
       return {
         fileName,
-        filePath,
+        filePath: fileName, // Using the simple file name as the path
         success: true
       };
     } catch (error) {
@@ -141,10 +128,13 @@ export function useResumeStorage() {
       console.log("Deleting file from Resumes bucket:", filePath);
       
       const { error } = await supabase.storage
-        .from('resumes')
+        .from('Resumes') // Note the capital 'R'
         .remove([filePath]);
       
-      if (error) throw error;
+      if (error) {
+        console.error("Delete error details:", JSON.stringify(error));
+        throw error;
+      }
       
       setDownloadUrl(null);
       
@@ -171,14 +161,20 @@ export function useResumeStorage() {
     if (!userId || !filePath) return '';
     
     try {
-      console.log("Getting file URL from Resumes bucket:", filePath);
+      console.log("Getting signed URL from Resumes bucket for:", filePath);
       
-      const { data } = supabase.storage
-        .from('resumes')
-        .getPublicUrl(filePath);
+      // Use createSignedUrl instead of getPublicUrl for better security
+      const { data, error } = await supabase.storage
+        .from('Resumes') // Note the capital 'R'
+        .createSignedUrl(filePath, 3600); // URL valid for 1 hour (3600 seconds)
       
-      console.log("Retrieved URL:", data?.publicUrl);
-      return data?.publicUrl || '';
+      if (error) {
+        console.error("Error creating signed URL:", JSON.stringify(error));
+        return '';
+      }
+      
+      console.log("Retrieved signed URL:", data?.signedUrl);
+      return data?.signedUrl || '';
     } catch (error) {
       console.error('Error getting resume URL:', error);
       return '';

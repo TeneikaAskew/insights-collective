@@ -9,7 +9,7 @@ interface Resume {
   id: string;
   user_id: string;
   file_path: string;
-  text: string | null; // Add the text field
+  text: string | null;
   analysis: any;
   career_alignment_score: number;
   target_role: string;
@@ -22,7 +22,7 @@ interface Resume {
 interface CreateResumeData {
   user_id: string;
   file_path: string;
-  text?: string | null; // Add the text field
+  text?: string | null;
   analysis?: any;
   career_alignment_score?: number;
   target_role?: string;
@@ -31,7 +31,7 @@ interface CreateResumeData {
 // Interface for updating an existing resume record
 interface UpdateResumeData {
   file_path?: string;
-  text?: string | null; // Add the text field
+  text?: string | null;
   analysis?: any;
   career_alignment_score?: number;
   target_role?: string;
@@ -50,6 +50,8 @@ export function useResumeData() {
     
     setLoading(true);
     try {
+      console.log("Fetching resume for user:", user.id);
+      
       // Get resume record
       const { data, error } = await supabase
         .from('resumes')
@@ -57,17 +59,29 @@ export function useResumeData() {
         .eq('user_id', user.id)
         .maybeSingle();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching resume:", JSON.stringify(error));
+        throw error;
+      }
       
       if (data) {
-        // Get download URL for the resume file
+        console.log("Found resume record with file path:", data.file_path);
+        
+        // Get download URL for the resume file using signed URL
         const fileUrl = await getResumeFileUrl(user.id, data.file_path);
+        
+        if (fileUrl) {
+          console.log("Successfully generated signed URL for resume");
+        } else {
+          console.warn("Could not generate signed URL for resume");
+        }
         
         setResume({
           ...data,
           file_url: fileUrl
         });
       } else {
+        console.log("No resume found for user");
         setResume(null);
       }
     } catch (error) {

@@ -52,8 +52,12 @@ const Resume = () => {
   
   // Debug logs to track state changes
   useEffect(() => {
-    console.log("Resume object updated:", resume);
-    console.log("Analysis object updated:", analysis);
+    if (resume) {
+      console.log("Resume object updated:", resume);
+    }
+    if (analysis) {
+      console.log("Analysis object updated:", analysis);
+    }
   }, [resume, analysis]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,6 +67,7 @@ const Resume = () => {
       // Accept both PDF and DOCX files
       if (file.type === 'application/pdf' || 
           file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        console.log("File selected:", file.name);
         setResumeFile(file);
       } else {
         toast({
