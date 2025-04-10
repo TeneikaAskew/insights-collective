@@ -3,10 +3,11 @@ import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useResume } from '@/hooks/useResume';
+import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeUploadSection from '@/components/resume/ResumeUploadSection';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
+import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 
@@ -15,12 +16,9 @@ const Resume = () => {
   const { toast } = useToast();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const { resume, loading, uploading, uploadResume, deleteResume } = useResume();
-  const { analysis, isAnalyzing, analyzeResume, setAnalysisFromResume } = useResumeAnalysis();
+  const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
-  
-  // Create a unique key for the page to force re-renders when data changes
-  const pageKey = `page-${Date.now()}-${analysis?.resume_percent || 0}-${resume?.id || 'no-resume'}`;
   
   // Load preview when resumeFile changes
   useEffect(() => {
@@ -32,14 +30,6 @@ const Resume = () => {
       reader.readAsDataURL(resumeFile);
     }
   }, [resumeFile]);
-  
-  // Check if we need to sync analysis from resume
-  useEffect(() => {
-    if (resume?.analysis && !analysis) {
-      console.log("Syncing analysis from resume object");
-      setAnalysisFromResume(resume);
-    }
-  }, [resume, analysis, setAnalysisFromResume]);
   
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
@@ -91,8 +81,8 @@ const Resume = () => {
     return <ResumeLoginWall />;
   }
 
-  // Create a unique key for components that rely on analysis data
-  const analysisKey = analysis ? `analysis-${Date.now()}` : 'no-analysis';
+  // Ensure bulletPoints array always exists to prevent map errors
+  const bulletPoints = analysis?.bullets || [];
 
   return (
     <AppLayout>
@@ -126,7 +116,6 @@ const Resume = () => {
             
             {/* Right Column - Resume Analysis */}
             <ResumeAnalysisSection
-              key={`analysis-section-${pageKey}`}
               loading={loading}
               isAnalyzing={isAnalyzing}
               analysis={analysis}
@@ -136,9 +125,18 @@ const Resume = () => {
             />
           </div>
           
+          {/* Bullet Point Analysis Section - Ensure this is a separate div */}
+          {bulletPoints && bulletPoints.length > 0 && (
+            <div className="mt-8">
+              <BulletPointsAnalysisCard 
+                bullets={bulletPoints} 
+              />
+            </div>
+          )}
+          
           {/* Career Chat Section */}
-          {showCareerChat && analysis && (
-            <div className="mt-8" key={`career-chat-${pageKey}`}>
+          {showCareerChat && (
+            <div className="mt-8">
               <ResumeChat resumeAnalysis={analysis} />
             </div>
           )}

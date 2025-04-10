@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
 import { ResumeAnalysis } from '@/components/assistants/types';
-import { Skeleton } from '@/components/ui/skeleton';
 
 interface ResumeAnalysisSectionProps {
   loading: boolean;
@@ -23,12 +22,6 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   handleStartCareerChat,
   handleFileChange
 }) => {
-  // Use either provided analysis or resume.analysis if available
-  const displayAnalysis = analysis || (resume?.analysis ? resume.analysis : null);
-  
-  // Create a unique key for forcing re-renders
-  const analysisKey = displayAnalysis ? `analysis-${JSON.stringify(displayAnalysis).length}` : 'no-analysis';
-  
   return (
     <Card>
       <CardHeader>
@@ -54,12 +47,50 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             <div className="h-3 bg-muted rounded w-full mb-1"></div>
             <div className="h-3 bg-muted rounded w-3/4"></div>
           </div>
-        ) : displayAnalysis ? (
-          <div key={analysisKey}>
-            <ResumeAnalysisDisplay 
-              analysis={displayAnalysis} 
-              onStartCareerChat={handleStartCareerChat}
-            />
+        ) : analysis ? (
+          <ResumeAnalysisDisplay 
+            analysis={analysis} 
+            onStartCareerChat={handleStartCareerChat}
+          />
+        ) : resume?.analysis ? (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-medium mb-2">Strengths</h3>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                {resume.analysis.strengths && resume.analysis.strengths.map((strength: string, i: number) => (
+                  <li key={i}>{strength}</li>
+                ))}
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-medium mb-2">Areas for Improvement</h3>
+              <ul className="list-disc pl-5 space-y-1 text-sm">
+                {resume.analysis.improvements && resume.analysis.improvements.map((improvement: string, i: number) => (
+                  <li key={i}>{improvement}</li>
+                ))}
+              </ul>
+            </div>
+            
+            <div>
+              <h3 className="font-medium mb-2">Career Alignment</h3>
+              <p className="text-sm">
+                {resume.analysis.careerAlignment}
+              </p>
+            </div>
+            
+            <div className="flex-col items-start space-y-2 p-0 pt-4">
+              <p className="text-sm text-muted-foreground">
+                Your resume has been analyzed. You can chat with our AI assistant for more personalized advice.
+              </p>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handleStartCareerChat}
+              >
+                Start Career Chat
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="text-center p-6">

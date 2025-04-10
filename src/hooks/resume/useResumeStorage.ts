@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,62 +9,62 @@ import mammoth from 'mammoth';
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
 
-// Extract text from PDF file
-const extractTextFromPDF = async (file: File): Promise<string> => {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const uint8Array = new Uint8Array(arrayBuffer);
-    
-    // Load the PDF document
-    const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
-    
-    let fullText = '';
-    
-    // Extract text from each page
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      
-      fullText += pageText + '\n';
-    }
-    
-    return fullText;
-  } catch (error) {
-    console.error('Error extracting text from PDF:', error);
-    throw new Error('Failed to extract text from PDF');
-  }
-};
-
-// Extract text from DOCX file
-const extractTextFromDOCX = async (file: File): Promise<string> => {
-  try {
-    const arrayBuffer = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer });
-    return result.value;
-  } catch (error) {
-    console.error('Error extracting text from DOCX:', error);
-    throw new Error('Failed to extract text from DOCX');
-  }
-};
-
-// Extract text from either PDF or DOCX file
-export const extractTextFromFile = async (file: File): Promise<string> => {
-  if (file.type === 'application/pdf') {
-    return extractTextFromPDF(file);
-  } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-    return extractTextFromDOCX(file);
-  } else {
-    throw new Error('Unsupported file type. Only PDF and DOCX are supported.');
-  }
-};
-
 export function useResumeStorage() {
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+
+  // Extract text from PDF file
+  const extractTextFromPDF = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Load the PDF document
+      const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
+      
+      let fullText = '';
+      
+      // Extract text from each page
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        
+        fullText += pageText + '\n';
+      }
+      
+      return fullText;
+    } catch (error) {
+      console.error('Error extracting text from PDF:', error);
+      throw new Error('Failed to extract text from PDF');
+    }
+  };
+
+  // Extract text from DOCX file
+  const extractTextFromDOCX = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      return result.value;
+    } catch (error) {
+      console.error('Error extracting text from DOCX:', error);
+      throw new Error('Failed to extract text from DOCX');
+    }
+  };
+
+  // Extract text from either PDF or DOCX file
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    if (file.type === 'application/pdf') {
+      return extractTextFromPDF(file);
+    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      return extractTextFromDOCX(file);
+    } else {
+      throw new Error('Unsupported file type. Only PDF and DOCX are supported.');
+    }
+  };
 
   const uploadResumeFile = async (file: File, userId: string) => {
     setUploading(true);

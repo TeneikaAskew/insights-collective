@@ -3,26 +3,13 @@ import { BulletAnalysis } from '@/components/assistants/types';
 
 // Prepare data for the bullet chart visualization
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
-  // Make sure bullet data is not null or undefined
-  if (!bullet) {
-    console.warn("Received null or undefined bullet for chart data preparation");
-    // Return default values to prevent rendering errors
-    return {
-      dataWithPercent: [],
-      bullet_total: 0
-    };
-  }
+  const { xyz_scores, word_balance_score, bullet_total } = bullet;
   
-  // Safely extract scores with fallbacks
-  const xyz_scores = bullet.xyz_scores || { 
-    hard_soft: 0, 
-    action_words: 0, 
-    measurable_results: 0, 
-    clarity_focus: 0 
-  };
-  
-  const word_balance_score = bullet.word_balance_score || 0;
-  const bullet_total = bullet.bullet_total || 0;
+  // Calculate XYZ total score
+  const xyzTotal = (xyz_scores?.hard_soft || 0) + 
+                  (xyz_scores?.action_words || 0) + 
+                  (xyz_scores?.measurable_results || 0) + 
+                  (xyz_scores?.clarity_focus || 0);
   
   // Theme colors
   const themeColors = {
@@ -36,24 +23,24 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   const dataWithPercent = [
     {
       name: "Hard & Soft Skills",
-      value: xyz_scores.hard_soft || 0,
+      value: xyz_scores?.hard_soft || 0,
       fill: themeColors.hardSoft,
       target: 25,
-      percent: Math.round(((xyz_scores.hard_soft || 0) / 5) * 100)
+      percent: Math.round(((xyz_scores?.hard_soft || 0) / 5) * 100)
     },
     {
       name: "Action Words",
-      value: xyz_scores.action_words || 0,
+      value: xyz_scores?.action_words || 0,
       fill: themeColors.actionWords,
       target: 25,
-      percent: Math.round(((xyz_scores.action_words || 0) / 5) * 100)
+      percent: Math.round(((xyz_scores?.action_words || 0) / 5) * 100)
     },
     {
       name: "Measurable Results",
-      value: xyz_scores.measurable_results || 0,
+      value: xyz_scores?.measurable_results || 0,
       fill: themeColors.measurableResults,
       target: 25,
-      percent: Math.round(((xyz_scores.measurable_results || 0) / 5) * 100)
+      percent: Math.round(((xyz_scores?.measurable_results || 0) / 5) * 100)
     },
     {
       name: "Word Balance",

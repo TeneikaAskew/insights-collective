@@ -55,23 +55,24 @@ export function useResume() {
       
       // Mock analysis - in a real app this would be done by an AI service
       const mockAnalysis = {
-        resume_percent: 78,
-        letter_grade: "B",
-        themes: [
+        strengths: [
+          'Strong technical skill presentation',
+          'Relevant project experience',
+          'Clear educational background'
+        ],
+        improvements: [
           'Add more quantifiable achievements',
           'Highlight data analysis tools more prominently',
           'Consider adding a skills section'
         ],
-        elevator_pitch: "Experienced professional with a strong track record in data analysis and visualization, demonstrating expertise in transforming raw data into actionable insights that drive business decisions.",
-        explanation: "Your resume shows strong technical skills but could benefit from more quantifiable achievements to demonstrate your impact. Consider adding specific metrics and results from your past roles.",
-        bullets: []
+        careerAlignment: 'Your resume is well-aligned with the Data Analyst role, but could be improved by highlighting SQL skills and data visualization experience more prominently.'
       };
       
       if (existingResume) {
         // Update existing resume with extracted text
         operationSuccess = await updateResumeRecord(user.id, {
           file_path: fileName,
-          text: resumeText,
+          text: resumeText, // Using the text field from interface
           analysis: mockAnalysis,
           updated_at: new Date().toISOString()
         });
@@ -80,7 +81,7 @@ export function useResume() {
         operationSuccess = await createResumeRecord({
           user_id: user.id,
           file_path: fileName,
-          text: resumeText,
+          text: resumeText, // Using the text field from interface
           analysis: mockAnalysis,
           career_alignment_score: 72,
           target_role: 'Data Analyst'
@@ -154,7 +155,6 @@ export function useResume() {
     loading,
     uploading: uploading || fileUploading,
     uploadResume,
-    deleteResume,
-    extractTextFromFile
+    deleteResume
   };
 }
