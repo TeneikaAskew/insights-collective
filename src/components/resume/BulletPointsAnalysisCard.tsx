@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
@@ -8,11 +7,9 @@ import BulletPointChart from './BulletPointChart';
 import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
 import { HighlightedBulletText } from './text/BulletTextParser';
 import { ScoreWithIcon } from './chart/ChartComponents';
-
 interface BulletPointsAnalysisCardProps {
   bullets: BulletAnalysis[];
 }
-
 const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   bullets = [] // Provide default empty array
 }) => {
@@ -20,8 +17,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
 
   // If no bullets are available, show a placeholder
   if (!bullets || bullets.length === 0) {
-    return (
-      <Card>
+    return <Card>
         <CardHeader>
           <CardTitle>Resume Bullet Analysis</CardTitle>
           <CardDescription>
@@ -31,15 +27,12 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         <CardContent className="h-64 flex items-center justify-center text-gray-400">
           <p>No bullet points to analyze</p>
         </CardContent>
-      </Card>
-    );
+      </Card>;
   }
 
   // Safely select the bullet (handle case where selectedBulletIndex is out of range)
   const selectedBullet = bullets[selectedBulletIndex < bullets.length ? selectedBulletIndex : 0] || bullets[0];
-
-  return (
-    <Card>
+  return <Card>
       <CardHeader>
         <CardTitle className="text-center">Resume Bullet Analysis</CardTitle>
         <CardDescription className="text-center">
@@ -50,16 +43,10 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         {/* Bullet selection */}
         <div>
           <label className="block text-sm font-medium mb-2">Select bullet point to analyze:</label>
-          <select 
-            className="w-full border rounded p-2" 
-            value={selectedBulletIndex} 
-            onChange={e => setSelectedBulletIndex(parseInt(e.target.value))}
-          >
-            {bullets.map((bullet, idx) => (
-              <option key={idx} value={idx}>
+          <select className="w-full border rounded p-2" value={selectedBulletIndex} onChange={e => setSelectedBulletIndex(parseInt(e.target.value))}>
+            {bullets.map((bullet, idx) => <option key={idx} value={idx}>
                 {bullet?.original?.substring(0, 60) || `Bullet point ${idx + 1}`}...
-              </option>
-            ))}
+              </option>)}
           </select>
         </div>
         
@@ -96,8 +83,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </div>
         
         {/* Suggested Improved Bullet Analysis Visualization */}
-        {selectedBullet?.rewritten && (
-          <div className="mt-6 border-t pt-4">
+        {selectedBullet?.rewritten && <div className="mt-6 border-t pt-4">
             <h4 className="text-md font-semibold mb-4">Suggested Improved Bullet Analysis Visualization:</h4>
             
             {/* Improved bullet text display */}
@@ -109,26 +95,25 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
             
             {/* We're reusing the BulletPointChart component for the improved version */}
             <BulletPointChart bullet={{
-              ...selectedBullet,
-              original: selectedBullet.rewritten,
-              // For this example, we're creating an improved version with better scores
-              bullet_total: Math.min(45, selectedBullet.bullet_total + 10),
-              xyz_scores: {
-                hard_soft: Math.min(5, selectedBullet.xyz_scores.hard_soft + 1),
-                action_words: Math.min(5, selectedBullet.xyz_scores.action_words + 1),
-                measurable_results: Math.min(5, selectedBullet.xyz_scores.measurable_results + 1),
-                clarity_focus: Math.min(5, selectedBullet.xyz_scores.clarity_focus + 1)
-              },
-              word_balance_score: Math.min(25, selectedBullet.word_balance_score + 5),
-              word_balance: {
-                industry_pct: Math.min(45, selectedBullet.word_balance.industry_pct + 5),
-                common_pct: Math.max(25, selectedBullet.word_balance.common_pct - 2),
-                action_pct: Math.min(15, selectedBullet.word_balance.action_pct + 2),
-                metric_pct: Math.min(15, selectedBullet.word_balance.metric_pct + 2)
-              }
-            }} />
-          </div>
-        )}
+          ...selectedBullet,
+          original: selectedBullet.rewritten,
+          // For this example, we're creating an improved version with better scores
+          bullet_total: Math.min(45, selectedBullet.bullet_total + 10),
+          xyz_scores: {
+            hard_soft: Math.min(5, selectedBullet.xyz_scores.hard_soft + 1),
+            action_words: Math.min(5, selectedBullet.xyz_scores.action_words + 1),
+            measurable_results: Math.min(5, selectedBullet.xyz_scores.measurable_results + 1),
+            clarity_focus: Math.min(5, selectedBullet.xyz_scores.clarity_focus + 1)
+          },
+          word_balance_score: Math.min(25, selectedBullet.word_balance_score + 5),
+          word_balance: {
+            industry_pct: Math.min(45, selectedBullet.word_balance.industry_pct + 5),
+            common_pct: Math.max(25, selectedBullet.word_balance.common_pct - 2),
+            action_pct: Math.min(15, selectedBullet.word_balance.action_pct + 2),
+            metric_pct: Math.min(15, selectedBullet.word_balance.metric_pct + 2)
+          }
+        }} />
+          </div>}
         
         {/* Score Breakdown section */}
         <div className="mt-6 border-t pt-4">
@@ -158,33 +143,12 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
             </div>
             
             <div>
-              <h5 className="font-medium text-sm mb-2">XYZ Quality ({
-                (selectedBullet?.xyz_scores?.hard_soft || 0) + 
-                (selectedBullet?.xyz_scores?.action_words || 0) + 
-                (selectedBullet?.xyz_scores?.measurable_results || 0) + 
-                (selectedBullet?.xyz_scores?.clarity_focus || 0)
-              }/20)</h5>
+              <h5 className="font-medium text-sm mb-2">XYZ Quality ({(selectedBullet?.xyz_scores?.hard_soft || 0) + (selectedBullet?.xyz_scores?.action_words || 0) + (selectedBullet?.xyz_scores?.measurable_results || 0) + (selectedBullet?.xyz_scores?.clarity_focus || 0)}/20)</h5>
               <div className="space-y-2">
-                <ScoreWithIcon 
-                  score={selectedBullet?.xyz_scores?.hard_soft || 0} 
-                  maxScore={5} 
-                  label="Hard/Soft Skills" 
-                />
-                <ScoreWithIcon 
-                  score={selectedBullet?.xyz_scores?.action_words || 0} 
-                  maxScore={5} 
-                  label="Action Words" 
-                />
-                <ScoreWithIcon 
-                  score={selectedBullet?.xyz_scores?.measurable_results || 0} 
-                  maxScore={5} 
-                  label="Measurable Results" 
-                />
-                <ScoreWithIcon 
-                  score={selectedBullet?.xyz_scores?.clarity_focus || 0} 
-                  maxScore={5} 
-                  label="Clarity & Focus" 
-                />
+                <ScoreWithIcon score={selectedBullet?.xyz_scores?.hard_soft || 0} maxScore={5} label="Hard/Soft Skills" />
+                <ScoreWithIcon score={selectedBullet?.xyz_scores?.action_words || 0} maxScore={5} label="Action Words" />
+                <ScoreWithIcon score={selectedBullet?.xyz_scores?.measurable_results || 0} maxScore={5} label="Measurable Results" />
+                <ScoreWithIcon score={selectedBullet?.xyz_scores?.clarity_focus || 0} maxScore={5} label="Clarity & Focus" />
               </div>
             </div>
           </div>
@@ -193,9 +157,8 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         {/* Improvement Tips */}
         <div className="mt-6 border-t pt-4">
           <h4 className="text-md font-semibold mb-2">Improvement Tips:</h4>
-          <p className="text-sm text-muted-foreground">
-            {selectedBullet?.tips || 
-             "Add more specific technical skills or leadership traits. Start with a stronger action verb and avoid passive language. Include quantifiable results (%, $, or other metrics). Make this more concise, aiming for 25 words or fewer."}
+          <p className="text-lg font-bold text-slate-950">
+            {selectedBullet?.tips || "Add more specific technical skills or leadership traits. Start with a stronger action verb and avoid passive language. Include quantifiable results (%, $, or other metrics). Make this more concise, aiming for 25 words or fewer."}
           </p>
         </div>
         
@@ -203,14 +166,10 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         <div className="mt-6 border-t pt-4">
           <h4 className="text-md font-semibold mb-4">All Bullet Points Analysis:</h4>
           <Accordion type="single" collapsible className="space-y-2">
-            {bullets.map((bullet, index) => (
-              <BulletPointItem key={index} bullet={bullet} index={index} />
-            ))}
+            {bullets.map((bullet, index) => <BulletPointItem key={index} bullet={bullet} index={index} />)}
           </Accordion>
         </div>
       </CardContent>
-    </Card>
-  );
+    </Card>;
 };
-
 export default BulletPointsAnalysisCard;
