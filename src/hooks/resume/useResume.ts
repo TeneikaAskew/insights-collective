@@ -35,9 +35,9 @@ export function useResume() {
       const resumeText = await extractTextFromFile(file);
       
       // 2. Upload file to storage
-      const { fileName, filePath, success: uploadSuccess } = await uploadResumeFile(file, user.id);
+      const uploadResult = await uploadResumeFile(file, user.id);
       
-      if (!uploadSuccess) {
+      if (!uploadResult.success) {
         return false;
       }
       
@@ -71,7 +71,7 @@ export function useResume() {
       if (existingResume) {
         // Update existing resume with extracted text
         operationSuccess = await updateResumeRecord(user.id, {
-          file_path: fileName,
+          file_path: uploadResult.fileName,
           text: resumeText, // Using the text field from interface
           analysis: mockAnalysis,
           updated_at: new Date().toISOString()
@@ -80,7 +80,7 @@ export function useResume() {
         // Insert new resume with text field
         operationSuccess = await createResumeRecord({
           user_id: user.id,
-          file_path: fileName,
+          file_path: uploadResult.fileName,
           text: resumeText, // Using the text field from interface
           analysis: mockAnalysis,
           career_alignment_score: 72,

@@ -51,27 +51,35 @@ export const extractTextFromFile = async (file: File): Promise<string> => {
   }
 };
 
+// Define the return type for uploadResumeFile
+interface UploadResult {
+  fileName: string;
+  filePath: string;
+  success: boolean;
+}
+
 export function useResumeStorage() {
   const [uploading, setUploading] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
 
-  const uploadResumeFile = async (file: File) => {
-    if (!user) {
+  const uploadResumeFile = async (file: File, userId: string): Promise<UploadResult> => {
+    if (!userId) {
       toast({
         title: "Authentication required",
         description: "Please log in to upload a resume",
         variant: "destructive",
       });
-      return null;
+      return { fileName: '', filePath: '', success: false };
     }
 
     setUploading(true);
 
     try {
       // Create a unique file path for this user's resume
-      const filePath = `resumes/${user.id}/${file.name}`;
+      const fileName = file.name;
+      const filePath = `resumes/${userId}/${fileName}`;
       
       // Upload file to Supabase Storage
       const { data, error } = await supabase.storage
@@ -92,7 +100,11 @@ export function useResumeStorage() {
         description: "Your resume has been successfully uploaded.",
       });
       
-      return urlData.publicUrl;
+      return {
+        fileName,
+        filePath,
+        success: true
+      };
     } catch (error) {
       console.error('Error uploading resume:', error);
       
@@ -102,14 +114,18 @@ export function useResumeStorage() {
         variant: "destructive",
       });
       
-      return null;
+      return {
+        fileName: '',
+        filePath: '',
+        success: false
+      };
     } finally {
       setUploading(false);
     }
   };
 
-  const deleteResumeFile = async (filePath: string) => {
-    if (!user) return false;
+  const deleteResumeFile = async (userId: string, filePath: string): Promise<boolean> => {
+    if (!userId) return false;
     
     try {
       const { error } = await supabase.storage
@@ -139,10 +155,27 @@ export function useResumeStorage() {
     }
   };
 
+  const getResumeFileUrl = async (userId: string, filePath: string): Promise<string> => {
+    if (!userId || !filePath) return '';
+    
+    try {
+      const { data } = supabase.storage
+        .from('resumes')
+        .getPublicUrl(filePath);
+      
+      return data?.publicUrl || '';
+    } catch (error) {
+      console.error('Error getting resume URL:', error);
+      return '';
+    }
+  };
+
   return {
     uploading,
     downloadUrl,
     uploadResumeFile,
-    deleteResumeFile
+    deleteResumeFile,
+    getResumeFileUrl,
+    extractTextFromFile
   };
 }

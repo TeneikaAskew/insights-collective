@@ -36,7 +36,7 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
           
           <div className="space-y-4">
             {dataWithPercent.map((item, index) => (
-              <DistributionBar key={index} item={item} />
+              <DistributionBar key={`distribution-${item.name}-${index}`} item={item} />
             ))}
           </div>
         </div>
