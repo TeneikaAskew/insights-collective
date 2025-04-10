@@ -1,9 +1,8 @@
 
 import React from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
-import { BulletDonutChart } from './chart/ChartComponents';
+import { BulletDonutChart, DistributionBar } from './chart/ChartComponents';
 import { prepareBulletChartData } from './chart/BulletChartData';
-import { WordBalanceDistribution } from './chart/WordBalanceDistribution';
 
 interface BulletPointChartProps {
   bullet: BulletAnalysis;
@@ -26,9 +25,17 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
         <div className="flex-1">
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-md font-semibold">Distribution</h3>
+            <div className="flex items-center space-x-8">
+              <span className="text-sm font-medium">Actual</span>
+              <span className="text-sm font-medium">Target</span>
+            </div>
           </div>
           
-          <WordBalanceDistribution wordBalance={bullet.word_balance} />
+          <div className="space-y-4">
+            {dataWithPercent.map((item, index) => (
+              <DistributionBar key={index} item={item} />
+            ))}
+          </div>
         </div>
       </div>
     </div>
