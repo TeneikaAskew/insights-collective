@@ -18,6 +18,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
 
   // If no bullets are available, show a placeholder
   if (!bullets || bullets.length === 0) {
+    console.log("No bullets found to display");
     return <Card>
         <CardHeader>
           <CardTitle>Resume Bullet Analysis</CardTitle>
@@ -31,6 +32,8 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
       </Card>;
   }
 
+  console.log("Displaying bullet points:", bullets.length);
+  
   // Safely select the bullet (handle case where selectedBulletIndex is out of range)
   const selectedBullet = bullets[selectedBulletIndex < bullets.length ? selectedBulletIndex : 0] || bullets[0];
   

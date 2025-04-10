@@ -63,6 +63,7 @@ export function useResumeAnalysis() {
         localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data));
       }
       
+      console.log("Analysis data received:", data);
       setAnalysis(data as ResumeAnalysis);
       
       toast({
