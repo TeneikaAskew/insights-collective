@@ -5,10 +5,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage } from './useResumeStorage';
 import { useResumeData } from './useResumeData';
 import { supabase } from '@/integrations/supabase/client';
-import * as pdfjs from 'pdfjs-dist';
-
-// Configure PDF.js worker
-pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
 
 export function useResume() {
   const [uploading, setUploading] = useState(false);
@@ -17,7 +13,8 @@ export function useResume() {
   const { 
     uploading: fileUploading, 
     uploadResumeFile, 
-    deleteResumeFile 
+    deleteResumeFile,
+    extractTextFromFile
   } = useResumeStorage();
   
   const {
@@ -29,42 +26,13 @@ export function useResume() {
     deleteResumeRecord
   } = useResumeData();
 
-  // Extract text from PDF file
-  const extractTextFromPDF = async (file: File): Promise<string> => {
-    try {
-      const arrayBuffer = await file.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      
-      // Load the PDF document
-      const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
-      
-      let fullText = '';
-      
-      // Extract text from each page
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        
-        fullText += pageText + '\n';
-      }
-      
-      return fullText;
-    } catch (error) {
-      console.error('Error extracting text from PDF:', error);
-      return '';
-    }
-  };
-
   const uploadResume = async (file: File) => {
     if (!user) return false;
     
     setUploading(true);
     try {
-      // 1. First extract text from PDF
-      const resumeText = await extractTextFromPDF(file);
+      // 1. First extract text from file (PDF or DOCX)
+      const resumeText = await extractTextFromFile(file);
       
       // 2. Upload file to storage
       const { fileName, filePath, success: uploadSuccess } = await uploadResumeFile(file, user.id);
@@ -73,7 +41,7 @@ export function useResume() {
         return false;
       }
       
-      // 3. Store the extracted text in the database
+      // 3. Store additional information in the database
       let resumeId = null;
       
       // Check if user already has a resume

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { FileUp, File, DownloadCloud, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,6 +22,7 @@ const Resume = () => {
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   
+  // Load preview when resumeFile changes
   useEffect(() => {
     if (resumeFile) {
       const reader = new FileReader();
@@ -35,12 +37,14 @@ const Resume = () => {
     const files = e.target.files;
     if (files && files.length > 0) {
       const file = files[0];
-      if (file.type === 'application/pdf') {
+      // Accept both PDF and DOCX files
+      if (file.type === 'application/pdf' || 
+          file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         setResumeFile(file);
       } else {
         toast({
           title: "Invalid file type",
-          description: "Please upload a PDF file.",
+          description: "Please upload a PDF or Word (DOCX) file.",
           variant: "destructive",
         });
       }
@@ -75,6 +79,53 @@ const Resume = () => {
     setShowCareerChat(true);
   };
 
+  // Display file preview based on file type
+  const renderFilePreview = () => {
+    // For PDF files
+    if (resume?.file_url) {
+      // If we have a stored resume with a URL
+      return (
+        <iframe 
+          src={`${resume.file_url}#toolbar=0&navpanes=0`}
+          className="w-full aspect-[8.5/11] border rounded-md"
+          title="Resume preview"
+        />
+      );
+    }
+    
+    // For local preview of newly selected files
+    if (pdfDataUrl) {
+      // Check if it's a PDF
+      if (resumeFile?.type === 'application/pdf') {
+        return (
+          <iframe 
+            src={pdfDataUrl}
+            className="w-full aspect-[8.5/11] border rounded-md"
+            title="Resume preview"
+          />
+        );
+      }
+      
+      // For DOCX, we can't preview directly, show a placeholder
+      if (resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        return (
+          <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-accent/10">
+            <File className="h-12 w-12 text-muted-foreground mb-2" />
+            <p className="text-muted-foreground">Word Document Preview</p>
+            <p className="text-xs text-muted-foreground mt-1">(Preview not available for DOCX files)</p>
+          </div>
+        );
+      }
+    }
+    
+    // If no file uploaded yet
+    return (
+      <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
+        <p className="text-muted-foreground">No file uploaded</p>
+      </div>
+    );
+  };
+
   if (!isAuthenticated) {
     return <ResumeLoginWall />;
   }
@@ -99,7 +150,7 @@ const Resume = () => {
               <CardHeader>
                 <CardTitle>Upload Your Resume</CardTitle>
                 <CardDescription>
-                  Upload your resume in PDF format to receive personalized feedback and insights.
+                  Upload your resume in PDF or Word (DOCX) format to receive personalized feedback and insights.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -114,7 +165,7 @@ const Resume = () => {
                     <p className="text-muted-foreground mb-4">Drag and drop your resume here, or click to browse</p>
                     <input 
                       type="file" 
-                      accept=".pdf" 
+                      accept=".pdf,.docx" 
                       id="resume-upload" 
                       className="hidden" 
                       onChange={handleFileChange}
@@ -154,25 +205,8 @@ const Resume = () => {
                       <p className="text-sm text-muted-foreground mb-2">
                         Resume preview
                       </p>
-                      {resume?.file_url && (
-                        <iframe 
-                          src={`${resume.file_url}#toolbar=0&navpanes=0`}
-                          className="w-full aspect-[8.5/11] border rounded-md"
-                          title="Resume preview"
-                        />
-                      )}
-                      {pdfDataUrl && !resume?.file_url && (
-                        <iframe 
-                          src={pdfDataUrl}
-                          className="w-full aspect-[8.5/11] border rounded-md"
-                          title="Resume preview"
-                        />
-                      )}
-                      {!pdfDataUrl && !resume?.file_url && (
-                        <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
-                          <p className="text-muted-foreground">PDF Preview</p>
-                        </div>
-                      )}
+                      
+                      {renderFilePreview()}
                     </div>
                   </div>
                 )}
@@ -197,7 +231,7 @@ const Resume = () => {
                     </Button>
                     <input 
                       type="file" 
-                      accept=".pdf" 
+                      accept=".pdf,.docx" 
                       id="resume-replace" 
                       className="hidden" 
                       onChange={handleFileChange}
@@ -288,7 +322,7 @@ const Resume = () => {
                     
                     <input 
                       type="file" 
-                      accept=".pdf" 
+                      accept=".pdf,.docx" 
                       id="resume-upload-alt" 
                       className="hidden" 
                       onChange={handleFileChange}

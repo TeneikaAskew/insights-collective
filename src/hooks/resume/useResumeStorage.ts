@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjs from 'pdfjs-dist';
+import mammoth from 'mammoth';
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
@@ -42,16 +43,36 @@ export function useResumeStorage() {
     }
   };
 
+  // Extract text from DOCX file
+  const extractTextFromDOCX = async (file: File): Promise<string> => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.extractRawText({ arrayBuffer });
+      return result.value;
+    } catch (error) {
+      console.error('Error extracting text from DOCX:', error);
+      throw new Error('Failed to extract text from DOCX');
+    }
+  };
+
+  // Extract text from either PDF or DOCX file
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    if (file.type === 'application/pdf') {
+      return extractTextFromPDF(file);
+    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      return extractTextFromDOCX(file);
+    } else {
+      throw new Error('Unsupported file type. Only PDF and DOCX are supported.');
+    }
+  };
+
   const uploadResumeFile = async (file: File, userId: string) => {
     setUploading(true);
     try {
       // Use consistent naming format with timestamp
       const timestamp = Date.now();
-      const fileName = `resume_${timestamp}.pdf`;
+      const fileName = `resume_${timestamp}.${file.name.split('.').pop()}`;
       const filePath = `${userId}/${fileName}`;
-      
-      // Extract text from PDF
-      const extractedText = await extractTextFromPDF(file);
       
       // Upload file to Storage
       const { error: uploadError } = await supabase
@@ -76,7 +97,6 @@ export function useResumeStorage() {
           .from('resumes')
           .update({ 
             file_path: fileName,
-            text: extractedText,
             updated_at: new Date().toISOString()
           })
           .eq('id', existingResume.id);
@@ -88,8 +108,7 @@ export function useResumeStorage() {
           .from('resumes')
           .insert({
             user_id: userId,
-            file_path: fileName,
-            text: extractedText
+            file_path: fileName
           });
           
         if (error) throw error;
@@ -144,6 +163,6 @@ export function useResumeStorage() {
     uploadResumeFile,
     getResumeFileUrl,
     deleteResumeFile,
-    extractTextFromPDF
+    extractTextFromFile
   };
 }
