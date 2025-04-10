@@ -22,6 +22,7 @@ export function useResumeAnalysis() {
     if (!file || !user) return false;
     
     setIsAnalyzing(true);
+    console.log("Starting resume analysis process");
     
     try {
       // Extract text from the uploaded file first
@@ -31,6 +32,8 @@ export function useResumeAnalysis() {
         throw new Error('Failed to extract text from the file');
       }
       
+      console.log("Extracted text from file, length:", fileText.length);
+      
       // Step 2: Try to first get the text from the database if it exists
       const { data: resumeData, error: resumeError } = await supabase
         .from('resumes')
@@ -38,8 +41,14 @@ export function useResumeAnalysis() {
         .eq('user_id', user.id)
         .maybeSingle();
       
+      if (resumeError) {
+        console.warn("Error fetching resume text:", resumeError);
+      }
+      
       // Use text from DB if available, otherwise use the extracted text
       const textToAnalyze = resumeData?.text || fileText;
+      
+      console.log("Calling resume-analyzer function with text length:", textToAnalyze.length);
       
       // Step 3: Call the Edge Function with user ID and text
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
@@ -49,7 +58,12 @@ export function useResumeAnalysis() {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error from resume-analyzer function:", error);
+        throw error;
+      }
+      
+      console.log("Analysis received:", data);
       
       // Don't persist analysis to localStorage to avoid stale data issues
       setAnalysis(data as ResumeAnalysis);
@@ -78,6 +92,8 @@ export function useResumeAnalysis() {
   // Helper function to extract text from PDF
   const extractTextFromFile = async (file: File): Promise<string> => {
     try {
+      console.log("Extracting text from file type:", file.type);
+      
       // Check file type and use appropriate extraction method
       if (file.type === 'application/pdf') {
         const pdfjs = await import('pdfjs-dist');

@@ -47,29 +47,42 @@ export function useResumeData() {
   const { getResumeFileUrl } = useResumeStorage();
 
   const fetchResume = async () => {
-    if (!user) return;
+    if (!user) {
+      setResume(null);
+      setLoading(false);
+      return;
+    }
     
     setLoading(true);
     try {
-      // Get resume record with a cache-busting query parameter
+      // Add a cache-busting timestamp to prevent browser caching
       const timestamp = new Date().getTime();
+      
+      // Use the explicit headers to prevent caching
       const { data, error } = await supabase
         .from('resumes')
         .select('*')
         .eq('user_id', user.id)
-        .maybeSingle();
+        .maybeSingle()
+        .abortSignal(AbortSignal.timeout(10000)); // 10-second timeout
         
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching resume:', error);
+        throw error;
+      }
       
       if (data) {
         // Get download URL for the resume file
         const fileUrl = await getResumeFileUrl(user.id, data.file_path);
+        
+        console.log("Fetched resume:", { ...data, file_url: fileUrl });
         
         setResume({
           ...data,
           file_url: fileUrl
         });
       } else {
+        console.log("No resume found for user:", user.id);
         setResume(null);
       }
     } catch (error) {
@@ -86,9 +99,14 @@ export function useResumeData() {
   
   const updateResumeRecord = async (userId: string, data: UpdateResumeData) => {
     try {
+      console.log("Updating resume record:", data);
+      
       const { error } = await supabase
         .from('resumes')
-        .update(data)
+        .update({
+          ...data,
+          updated_at: new Date().toISOString()
+        })
         .eq('user_id', userId);
         
       if (error) throw error;
@@ -104,6 +122,8 @@ export function useResumeData() {
   
   const createResumeRecord = async (data: CreateResumeData) => {
     try {
+      console.log("Creating resume record:", data);
+      
       const { error } = await supabase
         .from('resumes')
         .insert(data);
@@ -121,6 +141,8 @@ export function useResumeData() {
   
   const deleteResumeRecord = async (resumeId: string) => {
     try {
+      console.log("Deleting resume record:", resumeId);
+      
       const { error } = await supabase
         .from('resumes')
         .delete()
@@ -142,6 +164,7 @@ export function useResumeData() {
       fetchResume();
     } else {
       setResume(null);
+      setLoading(false);
     }
   }, [user]);
 

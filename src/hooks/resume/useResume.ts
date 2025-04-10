@@ -31,19 +31,23 @@ export function useResume() {
     
     setUploading(true);
     try {
+      console.log("Starting resume upload process");
+      
       // 1. First extract text from file (PDF or DOCX)
       const resumeText = await extractTextFromFile(file);
+      console.log("Text extracted from resume, length:", resumeText?.length || 0);
       
       // 2. Upload file to storage
       const { fileName, filePath, success: uploadSuccess } = await uploadResumeFile(file, user.id);
       
       if (!uploadSuccess) {
-        return false;
+        console.error("File upload failed");
+        throw new Error("Failed to upload file");
       }
       
-      // 3. Store additional information in the database
-      let resumeId = null;
+      console.log("File uploaded successfully:", fileName);
       
+      // 3. Store additional information in the database
       // Check if user already has a resume
       const { data: existingResume } = await supabase
         .from('resumes')
@@ -54,6 +58,7 @@ export function useResume() {
       let operationSuccess = false;
       
       if (existingResume) {
+        console.log("Updating existing resume:", existingResume.id);
         // Update existing resume with extracted text
         operationSuccess = await updateResumeRecord(user.id, {
           file_path: fileName,
@@ -61,6 +66,7 @@ export function useResume() {
           updated_at: new Date().toISOString()
         });
       } else {
+        console.log("Creating new resume record");
         // Insert new resume with text field
         operationSuccess = await createResumeRecord({
           user_id: user.id,
@@ -100,6 +106,8 @@ export function useResume() {
     if (!user || !resume) return false;
     
     try {
+      console.log("Starting resume deletion process");
+      
       // Delete file from storage
       const success = await deleteResumeFile(user.id, resume.file_path);
       
@@ -139,7 +147,6 @@ export function useResume() {
     uploading: uploading || fileUploading,
     uploadResume,
     deleteResume,
-    // Add this to allow manual refresh
     refreshResume: fetchResume
   };
 }
