@@ -457,6 +457,7 @@ export type Database = {
           file_path: string
           id: string
           target_role: string | null
+          text: string | null
           updated_at: string | null
           uploaded_at: string | null
           user_id: string | null
@@ -467,6 +468,7 @@ export type Database = {
           file_path: string
           id?: string
           target_role?: string | null
+          text?: string | null
           updated_at?: string | null
           uploaded_at?: string | null
           user_id?: string | null
@@ -477,6 +479,7 @@ export type Database = {
           file_path?: string
           id?: string
           target_role?: string | null
+          text?: string | null
           updated_at?: string | null
           uploaded_at?: string | null
           user_id?: string | null

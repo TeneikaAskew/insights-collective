@@ -69,17 +69,19 @@ export function useResume() {
       };
       
       if (existingResume) {
-        // Update existing resume
+        // Update existing resume - importantly, now storing the extracted text
         operationSuccess = await updateResumeRecord(user.id, {
           file_path: fileName,
+          text: resumeText, // Storing the extracted text
           analysis: mockAnalysis,
           updated_at: new Date().toISOString()
         });
       } else {
-        // Insert new resume
+        // Insert new resume - with text field
         operationSuccess = await createResumeRecord({
           user_id: user.id,
           file_path: fileName,
+          text: resumeText, // Storing the extracted text
           analysis: mockAnalysis,
           career_alignment_score: 72,
           target_role: 'Data Analyst'

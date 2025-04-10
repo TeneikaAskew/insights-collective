@@ -31,19 +31,27 @@ export function useResumeAnalysis() {
     setIsAnalyzing(true);
     
     try {
-      // Step 1: Extract text from the PDF file
-      // We'll use the text directly from the file rather than fetching from the database
-      const fileBuffer = await file.arrayBuffer();
-      const fileText = await extractTextFromPDF(new Uint8Array(fileBuffer));
+      // Extract text from the uploaded file first
+      const fileText = await extractTextFromFile(file);
       
       if (!fileText) {
-        throw new Error('Failed to extract text from the PDF file');
+        throw new Error('Failed to extract text from the file');
       }
       
-      // Step 2: Call the Edge Function with user ID and extracted text
+      // Step 2: Try to first get the text from the database if it exists
+      const { data: resumeData, error: resumeError } = await supabase
+        .from('resumes')
+        .select('text')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      
+      // Use text from DB if available, otherwise use the extracted text
+      const textToAnalyze = (resumeData && resumeData.text) ? resumeData.text : fileText;
+      
+      // Step 3: Call the Edge Function with user ID and text
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
-          resumeText: fileText,
+          resumeText: textToAnalyze,
           userId: user.id
         }
       });
@@ -79,32 +87,47 @@ export function useResumeAnalysis() {
   };
 
   // Helper function to extract text from PDF
-  const extractTextFromPDF = async (pdfData: Uint8Array): Promise<string> => {
+  const extractTextFromFile = async (file: File): Promise<string> => {
     try {
-      const pdfjs = await import('pdfjs-dist');
-      // Configure PDF.js worker
-      pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
-      
-      // Load the PDF document
-      const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
-      
-      let fullText = '';
-      
-      // Extract text from each page
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
+      // Check file type and use appropriate extraction method
+      if (file.type === 'application/pdf') {
+        const pdfjs = await import('pdfjs-dist');
+        // Configure PDF.js worker
+        pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
         
-        fullText += pageText + '\n';
+        const arrayBuffer = await file.arrayBuffer();
+        const pdfData = new Uint8Array(arrayBuffer);
+        
+        // Load the PDF document
+        const pdf = await pdfjs.getDocument({ data: pdfData }).promise;
+        
+        let fullText = '';
+        
+        // Extract text from each page
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items
+            .map((item: any) => item.str)
+            .join(' ');
+          
+          fullText += pageText + '\n';
+        }
+        
+        return fullText;
+      } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        // For DOCX files
+        const mammoth = await import('mammoth');
+        
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await mammoth.extractRawText({ arrayBuffer });
+        return result.value;
+      } else {
+        throw new Error("Unsupported file type. Only PDF and DOCX are supported.");
       }
-      
-      return fullText;
     } catch (error) {
-      console.error('Error extracting text from PDF:', error);
-      throw new Error('Failed to extract text from PDF');
+      console.error('Error extracting text from file:', error);
+      throw new Error(`Failed to extract text from file: ${error.message}`);
     }
   };
 

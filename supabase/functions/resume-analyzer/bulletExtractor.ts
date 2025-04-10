@@ -55,6 +55,22 @@ export function fallbackExtractBullets(text: string): string[] {
     return true;
   });
   
+  // Try to further split lines that may contain multiple sentences
+  let finalBullets = [];
+  for (const line of filteredLines) {
+    // Check if line is very long and might contain multiple points
+    if (line.length > 100 && (line.includes('. ') || line.includes('• '))) {
+      // Split on periods followed by space or bullet points
+      const subLines = line.split(/\.\s+|\•\s+/)
+        .map(subline => subline.trim())
+        .filter(subline => subline.length > 15);
+      
+      finalBullets.push(...subLines);
+    } else {
+      finalBullets.push(line);
+    }
+  }
+  
   // Return the filtered lines as bullets
-  return filteredLines;
+  return finalBullets;
 }
