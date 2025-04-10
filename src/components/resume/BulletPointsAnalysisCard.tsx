@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
@@ -15,6 +15,10 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   bullets = [] // Provide default empty array
 }) => {
   const [selectedBulletIndex, setSelectedBulletIndex] = useState(0);
+  
+  useEffect(() => {
+    console.log("BulletPointsAnalysisCard received bullets:", bullets);
+  }, [bullets]);
 
   // If no bullets are available, show a placeholder
   if (!bullets || bullets.length === 0) {

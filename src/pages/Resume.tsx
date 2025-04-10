@@ -31,6 +31,26 @@ const Resume = () => {
     }
   }, [resumeFile]);
   
+  useEffect(() => {
+    // Log analysis data to debug
+    console.log("Current analysis state:", analysis);
+    console.log("Resume data:", resume);
+    
+    // If we have a resume but no analysis, try to load from localStorage
+    if (resume && !analysis && user) {
+      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+      if (savedAnalysis) {
+        try {
+          console.log("Attempting to recover analysis from localStorage");
+          const parsedAnalysis = JSON.parse(savedAnalysis);
+          // We don't need to set it here as useResumeAnalysis handles this
+        } catch (error) {
+          console.error('Failed to recover analysis:', error);
+        }
+      }
+    }
+  }, [resume, analysis, user]);
+  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
@@ -55,6 +75,7 @@ const Resume = () => {
     const success = await uploadResume(resumeFile);
     
     if (success) {
+      console.log("Upload successful, now analyzing resume");
       await analyzeResume(resumeFile);
     }
   };
@@ -83,6 +104,7 @@ const Resume = () => {
 
   // Ensure bulletPoints array always exists to prevent map errors
   const bulletPoints = analysis?.bullets || [];
+  console.log("Bullet points to display:", bulletPoints);
 
   return (
     <AppLayout>
