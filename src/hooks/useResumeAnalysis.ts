@@ -46,7 +46,7 @@ export function useResumeAnalysis() {
         .maybeSingle();
       
       // Use text from DB if available, otherwise use the extracted text
-      const textToAnalyze = (resumeData && resumeData.text) ? resumeData.text : fileText;
+      const textToAnalyze = resumeData?.text || fileText;
       
       // Step 3: Call the Edge Function with user ID and text
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {

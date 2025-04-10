@@ -10,6 +10,7 @@ interface Resume {
   id: string;
   user_id: string;
   file_path: string;
+  text: string | null; // Add the text field
   analysis: any;
   career_alignment_score: number;
   target_role: string;
@@ -22,6 +23,7 @@ interface Resume {
 interface CreateResumeData {
   user_id: string;
   file_path: string;
+  text?: string | null; // Add the text field
   analysis?: any;
   career_alignment_score?: number;
   target_role?: string;
@@ -30,6 +32,7 @@ interface CreateResumeData {
 // Interface for updating an existing resume record
 interface UpdateResumeData {
   file_path?: string;
+  text?: string | null; // Add the text field
   analysis?: any;
   career_alignment_score?: number;
   target_role?: string;
