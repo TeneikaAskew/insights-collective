@@ -38,8 +38,7 @@ export function extractBulletPoints(text: string): string[] {
     const dateRangeRegex = /\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\w+\s+\d{4})\s*[-–]\s*(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|\w+\s+\d{4})\b/;
     results = text
       .split(/(?<=[.\n])\s+/) //.split(/(?<=[.;\n])\s+/)                             // split on punctuation or newline including semicolon
-      // .flatMap(chunk => chunk.split(/(?<=[a-z])\s+(?=[A-Z])/)) // also split lowercase→space→Uppercase
-      .split(/(?<=[.\n])\s+/)        // split only on period or newline
+      .flatMap(chunk => chunk.split(/(?<=[a-z])\s+(?=[A-Z])/)) // also split lowercase→space→Uppercase
       .map(s => s.replace(/\r?\n/g, ' ').trim())
       .filter(s => s.length > 15 && !dateRangeRegex.test(s));
   }
@@ -134,7 +133,7 @@ export function fallbackExtractBullets(text: string): string[] {
       (/[.;]\s+/.test(line) || /(?<=[a-z])\s+(?=[A-Z])/.test(line))
     ) {
       const parts = line
-        .split(/(?<=[.])\s+/)//.split(/(?<=[.])\s+|(?<=[a-z])\s+(?=[A-Z])/) //removed semi colon // .split(/(?<=[.;])\s+|(?<=[a-z])\s+(?=[A-Z])/)   // punctuation or lowercase→space→Uppercase
+        .split(/(?<=[.])\s+|(?<=[a-z])\s+(?=[A-Z])/) //removed semi colon // .split(/(?<=[.;])\s+|(?<=[a-z])\s+(?=[A-Z])/)   // punctuation or lowercase→space→Uppercase
         .map(p => p.replace(/[.]/, '').trim())//.map(p => p.replace(/[.;]$/, '').trim())
         .filter(p => p.length > 15 && !dateRangeRegex.test(p));
       bullets.push(...parts);
