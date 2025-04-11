@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -8,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Search, FileText, Video, BookOpen, Link as LinkIcon, Layout, Plus } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import AddResourceModal from '@/components/resources/AddResourceModal';
+import { AddResourceModal } from '@/components/resources/AddResourceModal';
 
 // Mock resources data
 const mockResources = [
@@ -123,7 +124,7 @@ const Resources = () => {
                 Explore our collection of articles, tutorials, and insights from data experts. Learn best practices, emerging trends, and practical techniques to enhance your data skills.
               </p>
               <Button asChild>
-                <Link to="/resources/blog">View Blog Series</Link>
+                <Link to="/data-blueprint">View Data Blueprint Series</Link>
               </Button>
             </div>
             

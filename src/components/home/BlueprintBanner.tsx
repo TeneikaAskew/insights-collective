@@ -19,12 +19,12 @@ const BlueprintBanner = () => {
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Button variant="default" asChild className="gap-2">
-                <Link to="/resources/data-blueprint">
+                <Link to="/data-blueprint">
                   Explore the series <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
               <Button variant="outline" asChild className="gap-2">
-                <Link to="/resources/data-blueprint">
+                <Link to="/data-blueprint">
                   <Bookmark className="h-4 w-4" /> Bookmark
                 </Link>
               </Button>

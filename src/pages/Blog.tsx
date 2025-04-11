@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -73,11 +73,19 @@ const blogPosts: BlogPost[] = [
 ];
 
 const Blog: React.FC = () => {
+  const location = useLocation();
+  const isDataBlueprint = location.pathname.includes('/data-blueprint');
+  
+  // Determine the base path for links - this helps the component work from either URL
+  const basePath = isDataBlueprint ? '/data-blueprint' : '/resources/blog';
+  
   return (
     <AppLayout>
       <div className="container py-8 max-w-5xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Data Blueprint Series</h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">
+            {isDataBlueprint ? "Data Blueprint Series" : "Blog"}
+          </h1>
           <p className="text-xl text-muted-foreground">
             Insights and best practices for data professionals at all levels
           </p>
@@ -87,7 +95,7 @@ const Blog: React.FC = () => {
           <div className="grid md:grid-cols-2 gap-8">
             {blogPosts.slice(0, 2).map((post) => (
               <Card key={post.id} className="overflow-hidden flex flex-col h-full">
-                <Link to={`/resources/blog/${post.slug}`} className="group">
+                <Link to={`${basePath}/${post.slug}`} className="group">
                   <div className="aspect-video w-full overflow-hidden">
                     <img 
                       src={post.coverImage} 
@@ -104,7 +112,7 @@ const Blog: React.FC = () => {
                     ))}
                   </div>
                   
-                  <Link to={`/resources/blog/${post.slug}`}>
+                  <Link to={`${basePath}/${post.slug}`}>
                     <h2 className="text-xl font-bold mb-2 hover:text-primary transition-colors">
                       {post.title}
                     </h2>
@@ -127,7 +135,7 @@ const Blog: React.FC = () => {
                   </p>
                   
                   <Button variant="link" className="px-0 w-fit" asChild>
-                    <Link to={`/resources/blog/${post.slug}`}>Read more</Link>
+                    <Link to={`${basePath}/${post.slug}`}>Read more</Link>
                   </Button>
                 </CardContent>
               </Card>
@@ -139,7 +147,7 @@ const Blog: React.FC = () => {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {blogPosts.slice(2).map((post) => (
               <Card key={post.id} className="overflow-hidden flex flex-col h-full">
-                <Link to={`/resources/blog/${post.slug}`} className="group">
+                <Link to={`${basePath}/${post.slug}`} className="group">
                   <div className="aspect-video w-full overflow-hidden">
                     <img 
                       src={post.coverImage} 
@@ -156,7 +164,7 @@ const Blog: React.FC = () => {
                     ))}
                   </div>
                   
-                  <Link to={`/resources/blog/${post.slug}`}>
+                  <Link to={`${basePath}/${post.slug}`}>
                     <h3 className="text-lg font-semibold mb-2 hover:text-primary transition-colors line-clamp-2">
                       {post.title}
                     </h3>
@@ -179,7 +187,7 @@ const Blog: React.FC = () => {
                   </p>
                   
                   <Button variant="link" size="sm" className="px-0 w-fit" asChild>
-                    <Link to={`/resources/blog/${post.slug}`}>Read more</Link>
+                    <Link to={`${basePath}/${post.slug}`}>Read more</Link>
                   </Button>
                 </CardContent>
               </Card>

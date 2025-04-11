@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -56,9 +55,15 @@ const App = () => (
               <Route path="/courses/:courseId" element={<CourseDetail />} />
               <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
               <Route path="/resources" element={<Resources />} />
-              {/* Replace the data-blueprint with the blog */}
+              
+              {/* Add dedicated routes for Data Blueprint */}
+              <Route path="/data-blueprint" element={<Blog />} />
+              <Route path="/data-blueprint/:slug" element={<BlogPost />} />
+              
+              {/* Keep blog routes under resources for now */}
               <Route path="/resources/blog" element={<Blog />} />
               <Route path="/resources/blog/:slug" element={<BlogPost />} />
+              
               <Route path="/events" element={<Events />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
@@ -69,9 +74,6 @@ const App = () => (
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId?" element={<Messages />} />
               <Route path="/resume" element={<Resume />} />
-              
-              {/* Redirect data-blueprint to blog */}
-              <Route path="/resources/data-blueprint" element={<Navigate to="/resources/blog" replace />} />
               
               {/* Redirect admin-login to login with admin tab */}
               <Route path="/admin-login" element={<Navigate to="/login?tab=admin" replace />} />

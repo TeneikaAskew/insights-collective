@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -356,7 +356,14 @@ const getBlogPostBySlug = (slug: string) => {
 
 const BlogPost: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
   const post = getBlogPostBySlug(slug || '');
+  
+  // Determine if we're in the data-blueprint section
+  const isDataBlueprint = location.pathname.includes('/data-blueprint');
+  
+  // Get the correct base path for links
+  const basePath = isDataBlueprint ? '/data-blueprint' : '/resources/blog';
   
   if (!post) {
     return (
@@ -378,9 +385,9 @@ const BlogPost: React.FC = () => {
     <AppLayout>
       <div className="container py-8 max-w-4xl mx-auto">
         <Button variant="ghost" size="sm" className="mb-6" asChild>
-          <Link to="/resources/blog">
+          <Link to={basePath}>
             <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Blog
+            Back to {isDataBlueprint ? "Data Blueprint" : "Blog"}
           </Link>
         </Button>
         
@@ -451,7 +458,7 @@ const BlogPost: React.FC = () => {
                     <h4 className="font-semibold line-clamp-2 mb-2">{relatedPost.title}</h4>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{relatedPost.excerpt}</p>
                     <Button size="sm" variant="link" className="px-0" asChild>
-                      <Link to={`/resources/blog/${relatedPost.slug}`}>Read more</Link>
+                      <Link to={`${basePath}/${relatedPost.slug}`}>Read more</Link>
                     </Button>
                   </CardContent>
                 </Card>
