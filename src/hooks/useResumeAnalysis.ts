@@ -269,16 +269,16 @@ export function useResumeAnalysis() {
         // Create a basic fallback analysis
         const fallbackAnalysis = {
           resume_id: user.id,
-          resume_percent: 65,
-          letter_grade: "C+",
+          resume_percent: 00, //50
+          letter_grade: "Z+",//"C+"
           bullets: [],
-          elevator_pitch: "Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
+          elevator_pitch: "",//"Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
           themes: [
-            "Add more metrics and achievements to your bullet points",
-            "Use stronger action verbs at the start of each bullet point",
-            "Make your bullet points more concise and focused on results"
+            "",// "Add more metrics and achievements to your bullet points",
+            "",// "Use stronger action verbs at the start of each bullet point",
+            ""// "Make your bullet points more concise and focused on results"
           ],
-          explanation: "Your resume would benefit from more specific accomplishments with metrics. Focus on what you achieved rather than just responsibilities."
+          explanation: '',//"Your resume would benefit from more specific accomplishments with metrics. Focus on what you achieved rather than just responsibilities."
         };
         
         // Save the fallback analysis
