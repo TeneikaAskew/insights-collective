@@ -7,13 +7,16 @@ import { useToast } from '@/hooks/use-toast';
 export interface Resume {
   id: string;
   user_id: string;
-  file_name: string;
-  file_url: string;
-  text: string; // Added text property
-  created_at: string;
+  file_path: string;  // Database field
+  file_name?: string; // UI field (derived from file_path)
+  file_url?: string;  // UI field (generated)
+  text: string;
+  created_at?: string; // Optional since it's derived
+  uploaded_at?: string; // Database field
   updated_at: string;
   career_alignment_score?: number;
   target_role?: string;
+  analysis?: any;
 }
 
 export const useResume = () => {
@@ -44,7 +47,7 @@ export const useResume = () => {
         .from('resumes')
         .select('*')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
       
       if (error) {
         if (error.code !== 'PGRST116') { // No rows returned is not an error for us
@@ -56,8 +59,23 @@ export const useResume = () => {
           });
         }
         setResume(null);
+      } else if (data) {
+        // Transform database record to match Resume interface
+        const fileName = data.file_path.split('/').pop() || '';
+        
+        // Get public URL for the file
+        const { data: { publicUrl } } = supabase.storage
+          .from('resumes')
+          .getPublicUrl(data.file_path);
+        
+        setResume({
+          ...data,
+          file_name: fileName,
+          file_url: publicUrl,
+          created_at: data.uploaded_at // Use uploaded_at as created_at
+        });
       } else {
-        setResume(data);
+        setResume(null);
       }
     } catch (error) {
       console.error('Error in fetchResume:', error);
@@ -131,8 +149,7 @@ export const useResume = () => {
         saveResult = await supabase
           .from('resumes')
           .update({
-            file_name: file.name,
-            file_url: publicUrl,
+            file_path: filePath,
             text: fileText,
             updated_at: new Date().toISOString()
           })
@@ -143,10 +160,9 @@ export const useResume = () => {
           .from('resumes')
           .insert({
             user_id: user.id,
-            file_name: file.name,
-            file_url: publicUrl,
+            file_path: filePath,
             text: fileText,
-            created_at: new Date().toISOString(),
+            uploaded_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
           });
       }
@@ -186,7 +202,7 @@ export const useResume = () => {
       // Delete file from storage
       const { error: storageError } = await supabase.storage
         .from('resumes')
-        .remove([`${user.id}/${resume.file_name}`]);
+        .remove([resume.file_path]);
       
       if (storageError) {
         console.error('Error deleting file from storage:', storageError);

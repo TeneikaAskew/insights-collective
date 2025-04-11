@@ -1,14 +1,52 @@
 
 import { corsHeaders } from "../resume-analyzer/utils.ts";
 
-const GROQ_API_KEY = Deno.env.get('GROQ');
+// Function to detect sentences using Groq
+export function serveSentenceDetector() {
+  return async (req: Request) => {
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { headers: corsHeaders });
+    }
 
-// Function to detect sentences in a block of text using GROQ
+    try {
+      const { text } = await req.json();
+      
+      if (!text || typeof text !== 'string') {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid text parameter" }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      const sentences = await detectSentences(text);
+      
+      return new Response(
+        JSON.stringify(sentences),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+      
+    } catch (error) {
+      console.error("Error in sentence detection:", error.message);
+      
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to detect sentences" }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+  };
+}
+
+// Implementation of sentence detection using Groq or other API
 export async function detectSentences(text: string): Promise<string[]> {
-  if (!text) return [];
+  const GROQ_API_KEY = Deno.env.get("GROQ");
+  
+  if (!GROQ_API_KEY) {
+    console.warn("GROQ API key not set, falling back to simple sentence detection");
+    return simpleSentenceDetection(text);
+  }
   
   try {
-    // Call GROQ API for advanced sentence detection
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -16,101 +54,61 @@ export async function detectSentences(text: string): Promise<string[]> {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
+        model: "llama-3.1-8b-instant",
         messages: [
           {
             role: "system",
-            content: "You are an expert in natural language processing. Your task is to accurately split a given text into individual sentences. Pay attention to context and maintain the meaning of each sentence."
+            content: "You are a helpful assistant that extracts complete sentences from text content, focusing on professional achievements and experiences. Return only a list of complete sentences, no other text."
           },
           {
             role: "user",
-            content: `Split the following text into individual sentences. Return only a JSON array of strings, with each string being a complete sentence. Do not include any explanations or notes.\n\n${text}`
+            content: `Extract professional achievement sentences from the following resume text. Return ONLY the sentences, one per line, with no explanations, number or JSON:\n\n${text}`
           }
         ],
         temperature: 0.2,
-        max_tokens: 4000
+        max_tokens: 1024
       })
     });
-
+    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`GROQ API error: ${response.status} ${errorText}`);
-      return fallbackSentenceDetection(text);
+      const errorData = await response.json();
+      console.error("GROQ API error:", errorData);
+      throw new Error(`GROQ API error: ${errorData.error?.message || response.statusText}`);
     }
-
+    
     const data = await response.json();
     const content = data.choices[0].message.content;
     
-    try {
-      // Try to parse the JSON response
-      const sentences = JSON.parse(content);
-      if (Array.isArray(sentences)) {
-        return sentences.filter(s => s && typeof s === 'string' && s.trim().length > 0);
-      }
-    } catch (parseError) {
-      console.error("Error parsing GROQ response:", parseError);
-      // If GROQ returned text but not valid JSON, try to extract sentences manually
-      const matches = content.match(/\["([^"]+)"(?:,\s*"([^"]+)")*\]/);
-      if (matches) {
-        const extracted = matches[0].replace(/[\[\]"]/g, '').split(',').map(s => s.trim());
-        if (extracted.length > 0) {
-          return extracted;
-        }
-      }
-    }
+    // Process the content to extract sentences
+    const sentences = content
+      .split('\n')
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0 && !line.startsWith('-') && !line.match(/^\d+\./));
     
-    // Fallback to basic sentence detection if GROQ failed
-    return fallbackSentenceDetection(text);
+    return sentences;
   } catch (error) {
     console.error("Error calling GROQ API:", error);
-    return fallbackSentenceDetection(text);
+    return simpleSentenceDetection(text);
   }
 }
 
-// Fallback function if GROQ API is unavailable
-function fallbackSentenceDetection(text: string): string[] {
+// Fallback simple sentence detection
+function simpleSentenceDetection(text: string): string[] {
   if (!text) return [];
   
-  // Basic regex to split by sentence endings (., !, ?)
-  // This is a simplified approach and won't handle all edge cases
-  const sentences = text
-    .replace(/([.!?])\s*(?=[A-Z])/g, "$1|") // Mark sentence boundaries
-    .split("|")                             // Split on markers
-    .map(s => s.trim())                     // Trim each sentence
-    .filter(s => s.length > 0);             // Remove empty strings
+  // Remove common header/footer content
+  const cleanedText = text
+    .replace(/\b(?:phone|tel|email|address|website|linkedin|github):\s*[^\n]+/gi, '')
+    .replace(/\b(?:education|skills|references|hobbies|interests)(?:\s*:|\s*$)/gi, '')
+    .replace(/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{4}\s+(?:-|to|–)\s+(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{4}\b/gi, '');
   
-  return sentences;
-}
-
-// Serve the function as an API endpoint
-export function serveSentenceDetector() {
-  return async (req: Request) => {
-    // Handle CORS
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
-    }
+  // Split on periods followed by space then capital letter or line break
+  const sentences = cleanedText
+    .split(/(?<=[.!?])\s+(?=[A-Z])|(?<=[.!?])\n+/g)
+    .map(s => s.replace(/\r?\n/g, ' ').trim())
+    .filter(s => s.length > 15)
+    .filter(s => !s.match(/^\s*[•\-–—*]\s+/)) // Filter out bullet points
+    .filter(s => !s.match(/^\s*\d+\.\s+/)); // Filter out numbered lists
     
-    try {
-      const { text } = await req.json();
-      
-      if (!text) {
-        return new Response(
-          JSON.stringify({ error: "No text provided" }),
-          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      
-      const sentences = await detectSentences(text);
-      
-      return new Response(
-        JSON.stringify({ sentences }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    } catch (error) {
-      return new Response(
-        JSON.stringify({ error: error.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-  };
+  return sentences;
 }

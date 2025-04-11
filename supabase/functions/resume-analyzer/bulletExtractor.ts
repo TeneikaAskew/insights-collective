@@ -1,5 +1,5 @@
 
-import { actionWords } from './bulletAnalysis';
+import { actionWords } from './bulletAnalysis.ts';
 import { detectSentences } from '../resume-services/sentenceDetector.ts';
 
 // Function to extract bullet points from resume text

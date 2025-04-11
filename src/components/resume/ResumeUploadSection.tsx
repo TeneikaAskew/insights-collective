@@ -4,11 +4,12 @@ import { FileUp, File, DownloadCloud, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import type { Resume } from '@/hooks/resume/useResume';
 
 interface ResumeUploadSectionProps {
   resumeFile: File | null;
   setResumeFile: (file: File | null) => void;
-  resume: any;
+  resume: Resume | null;
   loading: boolean;
   uploading: boolean;
   isAnalyzing: boolean;
@@ -114,12 +115,12 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
               <File className="h-8 w-8 text-primary" />
               <div className="flex-1">
                 <p className="font-medium">
-                  {resumeFile ? resumeFile.name : resume?.file_path.split('/').pop()}
+                  {resumeFile ? resumeFile.name : (resume?.file_name || resume?.file_path?.split('/').pop())}
                 </p>
                 <p className="text-sm text-muted-foreground">
                   {resumeFile 
                     ? `${(resumeFile.size / 1024 / 1024).toFixed(2)} MB`
-                    : `Uploaded on ${new Date(resume?.uploaded_at || '').toLocaleDateString()}`
+                    : `Uploaded on ${new Date(resume?.uploaded_at || resume?.created_at || '').toLocaleDateString()}`
                   }
                 </p>
               </div>
