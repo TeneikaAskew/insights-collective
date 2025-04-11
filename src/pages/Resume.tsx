@@ -95,6 +95,7 @@ const Resume = () => {
     setResumeFile(null);
     setPdfDataUrl(null);
     setExtractedText(null);
+    setShowCareerChat(false);
   };
 
   const handleDownload = () => {
@@ -155,7 +156,7 @@ const Resume = () => {
         {/* Only show chat when showCareerChat is true */}
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
 
-        {/* Bullet-analysis panel now comes after the chat */}
+        {/* Bullet-analysis panel comes after the chat */}
         <details open className="border rounded-md bg-white shadow-sm">
           <summary className="cursor-pointer px-4 py-2 font-medium">
             Resume Bullet Analysis

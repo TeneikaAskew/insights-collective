@@ -592,6 +592,7 @@ export type Database = {
           career_alignment_score: number | null
           file_path: string
           id: string
+          initial_assessment: string | null
           target_role: string | null
           text: string | null
           updated_at: string | null
@@ -603,6 +604,7 @@ export type Database = {
           career_alignment_score?: number | null
           file_path: string
           id?: string
+          initial_assessment?: string | null
           target_role?: string | null
           text?: string | null
           updated_at?: string | null
@@ -614,6 +616,7 @@ export type Database = {
           career_alignment_score?: number | null
           file_path?: string
           id?: string
+          initial_assessment?: string | null
           target_role?: string | null
           text?: string | null
           updated_at?: string | null

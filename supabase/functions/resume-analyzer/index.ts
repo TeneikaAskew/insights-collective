@@ -128,6 +128,24 @@ async function getResumeRoast(resumeText: string, userId?: string) {
         console.log(`Cached roast for ${cacheKey}`);
       }
       
+      // If userId is provided, store the assessment in the database
+      if (userId) {
+        try {
+          const { error } = await supabase
+            .from('resumes')
+            .update({ initial_assessment: cleanRoast })
+            .eq('user_id', userId);
+            
+          if (error) {
+            console.error('Error storing assessment in database:', error);
+          } else {
+            console.log('Assessment stored in database for user:', userId);
+          }
+        } catch (dbError) {
+          console.error('Error updating database with assessment:', dbError);
+        }
+      }
+      
       return { roast: cleanRoast };
     } catch (groqError) {
       console.error("Error getting resume roast with GROQ:", groqError);
@@ -190,6 +208,16 @@ async function analyzeResume(resumeText: string, userId?: string) {
         elevator_pitch: "We couldn't find any text to analyze. Please upload a valid resume document.",
         explanation: "We couldn't find any text to analyze. Make sure your document contains readable text content."
       };
+    }
+    
+    // Get and store assessment if userId is provided
+    if (userId) {
+      try {
+        const assessment = await getResumeRoast(resumeText, userId);
+        console.log('Generated and stored assessment');
+      } catch (assessmentError) {
+        console.error('Error generating assessment:', assessmentError);
+      }
     }
     
     // Step 2: Extract bullets with fallback

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -91,6 +90,43 @@ export function useResumeAnalysis() {
     setCareerAlignments(alignments);
   };
 
+  // Fetch the resume assessment (roast) and store it in the database
+  const fetchAndStoreAssessment = async (resumeText: string, userId: string) => {
+    try {
+      // Call the Edge Function to get the roast
+      const { data, error } = await supabase.functions.invoke('resume-analyzer', {
+        body: { 
+          action: 'get-roast',
+          resumeText: resumeText,
+          userId: userId
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data && data.roast) {
+        // Update the resume record with the initial assessment
+        const { error: updateError } = await supabase
+          .from('resumes')
+          .update({ initial_assessment: data.roast })
+          .eq('user_id', userId);
+          
+        if (updateError) {
+          console.error('Error storing assessment in database:', updateError);
+        } else {
+          console.log('Initial assessment stored successfully');
+        }
+        
+        return data.roast;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error fetching resume assessment:', error);
+      return null;
+    }
+  };
+
   const analyzeResume = async (resumeText: string): Promise<boolean> => {
     if (!resumeText || !user) return false;
     
@@ -129,6 +165,9 @@ export function useResumeAnalysis() {
       
       setAnalysis(cleanedData as ResumeAnalysis);
       calculateCareerAlignments(cleanedData as ResumeAnalysis);
+      
+      // Fetch and store the assessment in parallel
+      fetchAndStoreAssessment(resumeText, user.id);
       
       toast({
         title: "Resume Analysis Complete",
@@ -205,6 +244,7 @@ export function useResumeAnalysis() {
     setAnalysis,
     isAnalyzing,
     analyzeResume,
-    careerAlignments
+    careerAlignments,
+    fetchAndStoreAssessment
   };
 }

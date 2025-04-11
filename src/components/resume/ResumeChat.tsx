@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
@@ -19,11 +20,10 @@ type Message = {
 };
 
 const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [initialRoast, setInitialRoast] = useState<string | null>(null);
-  const [roastRequested, setRoastRequested] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Scroll to bottom whenever messages change
@@ -33,10 +33,10 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   
   // Fetch initial resume assessment and create welcome message on component mount
   useEffect(() => {
-    if (resumeAnalysis) {
+    if (resumeAnalysis && user) {
       setIsLoading(true);
       
-      // Immediately set up welcome message with basic info
+      // Create basic welcome message with basic info
       const welcomeMessage: Message = {
         id: `welcome-${Date.now()}`,
         role: 'assistant',
@@ -46,51 +46,62 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
       
       setMessages([welcomeMessage]);
       
-      // Try to fetch detailed assessment
+      // Try to fetch stored assessment from the database
       (async () => {
         try {
-          const resumeText = localStorage.getItem(`resume_text_${resumeAnalysis.resume_id}`) || '';
+          const { data, error } = await supabase
+            .from('resumes')
+            .select('initial_assessment')
+            .eq('user_id', user.id)
+            .single();
           
-          if (!resumeText) {
-            throw new Error('No resume text found');
+          if (error) {
+            console.error('Error fetching stored assessment:', error);
+            throw error;
           }
           
-          const { data, error } = await supabase.functions.invoke('resume-analyzer', {
-            body: { 
-              action: 'get-roast',
-              resumeText: resumeText
+          let initialAssessment = data?.initial_assessment;
+          
+          // If no stored assessment, try to fetch it
+          if (!initialAssessment && resumeAnalysis.resume_id) {
+            const resumeText = localStorage.getItem(`resume_text_${resumeAnalysis.resume_id}`) || '';
+            
+            if (resumeText) {
+              const { data: roastData, error: roastError } = await supabase.functions.invoke('resume-analyzer', {
+                body: { 
+                  action: 'get-roast',
+                  resumeText
+                }
+              });
+              
+              if (roastError) throw roastError;
+              
+              if (roastData?.roast) {
+                initialAssessment = roastData.roast;
+                
+                // Store it in the database for future use
+                await supabase
+                  .from('resumes')
+                  .update({ initial_assessment: initialAssessment })
+                  .eq('user_id', user.id);
+              }
             }
-          });
-          
-          if (error) throw error;
-          
-          if (data && data.roast) {
-            // Update welcome message with roast
-            const updatedWelcomeMessage: Message = {
-              ...welcomeMessage,
-              content: `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
-
-**Here's my honest assessment:**
-${data.roast}
-
-Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`
-            };
-            
-            setMessages([updatedWelcomeMessage]);
-            setInitialRoast(data.roast);
-          } else {
-            // If no roast, still add the question to the welcome message
-            const updatedWelcomeMessage: Message = {
-              ...welcomeMessage,
-              content: `${welcomeMessage.content}
-
-Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`
-            };
-            
-            setMessages([updatedWelcomeMessage]);
           }
+          
+          // Update welcome message with assessment
+          const updatedWelcomeMessage: Message = {
+            ...welcomeMessage,
+            content: `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
+
+${initialAssessment ? `**Here's my honest assessment:**
+${initialAssessment}
+
+` : ''}Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`
+          };
+          
+          setMessages([updatedWelcomeMessage]);
         } catch (error) {
-          console.error('Error fetching resume roast:', error);
+          console.error('Error with assessment:', error);
           
           // Fallback message
           const updatedWelcomeMessage: Message = {
@@ -106,49 +117,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
         }
       })();
     }
-  }, [resumeAnalysis]);
-  
-  const handleRequestRoast = async () => {
-    if (!resumeAnalysis || roastRequested) return;
-    
-    setRoastRequested(true);
-    setIsLoading(true);
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('resume-analyzer', {
-        body: { 
-          action: 'get-roast',
-          resumeText: localStorage.getItem(`resume_text_${resumeAnalysis.resume_id}`) || ''
-        }
-      });
-      
-      if (error) throw error;
-      
-      if (data && data.roast) {
-        const roastMessage: Message = {
-          id: `roast-${Date.now()}`,
-          role: 'assistant',
-          content: `**Here's my honest assessment of your resume:**\n\n${data.roast}`,
-          timestamp: new Date(),
-        };
-        
-        setMessages(prev => [...prev, roastMessage]);
-      }
-    } catch (error) {
-      console.error('Error getting resume roast:', error);
-      
-      const fallbackMessage: Message = {
-        id: `roast-fallback-${Date.now()}`,
-        role: 'assistant',
-        content: "I couldn't generate a detailed assessment right now. However, I'd recommend focusing on adding more specific achievements and metrics to your resume to make it stand out.",
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, fallbackMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  }, [resumeAnalysis, user]);
   
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -287,18 +256,6 @@ Let's start by discussing your experience: **What specific challenges did you ta
             <p className="text-muted-foreground mb-4">
               Your resume is ready for review. I can provide personalized advice to help you improve it.
             </p>
-          </div>
-        )}
-        
-        {messages.length > 0 && !roastRequested && !initialRoast && (
-          <div className="flex justify-center my-4">
-            <Button 
-              onClick={handleRequestRoast}
-              variant="outline"
-              className="bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Roast my resume
-            </Button>
           </div>
         )}
         
