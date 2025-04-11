@@ -4,6 +4,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
+const signedUrlCache = useRef<Map<string, string>>(new Map()); //Add a cache and guard at the top:
+const hasFetchedUrlRef = useRef<boolean>(false);
+
 
 export interface Resume {
   id: string;
@@ -107,12 +110,30 @@ export const useResume = () => {
         const fileName = data.file_path.split('/').pop() || '';
         
         // Get signed URL for the file
+        // let fileUrl = null;
+        // try {
+        //   fileUrl = await getResumeFileUrl(user.id, data.file_path);
+        // } catch (urlError) {
+        //   console.error('Error getting file URL:', urlError);
+        //   // We'll continue without the URL
+        // }
+
         let fileUrl = null;
-        try {
-          fileUrl = await getResumeFileUrl(user.id, data.file_path);
-        } catch (urlError) {
-          console.error('Error getting file URL:', urlError);
-          // We'll continue without the URL
+        const fullPath = data.file_path;
+        
+        if (signedUrlCache.current.has(fullPath)) {
+          fileUrl = signedUrlCache.current.get(fullPath)!;
+          console.log("Using cached signed URL:", fileUrl);
+        } else if (!hasFetchedUrlRef.current) {
+          try {
+            hasFetchedUrlRef.current = true;
+            fileUrl = await getResumeFileUrl(user.id, fullPath);
+            if (fileUrl) {
+              signedUrlCache.current.set(fullPath, fileUrl);
+            }
+          } catch (urlError) {
+            console.error('Error getting file URL:', urlError);
+          }
         }
         
         setResume({

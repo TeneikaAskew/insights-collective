@@ -267,16 +267,16 @@ export function useResumeStorage() {
       
       // Try to get a signed URL even if the check failed
       // This will work if the bucket actually exists despite the check failing
-      // try {
-      //   const { data: fileData, error: fileError } = await supabase
-      //     .storage
-      //     .from('resumes')
-      //     .createSignedUrl(fullPath, 3600); // 1 hour expiry
+      try {
+        const { data: fileData, error: fileError } = await supabase
+          .storage
+          .from('resumes')
+          .createSignedUrl(fullPath, 3600); // 1 hour expiry
           
-      //   if (fileError) {
-      //     console.error("Error creating signed URL:", fileError);
-      //     return null;
-      //   }
+        if (fileError) {
+          console.error("Error creating signed URL:", fileError);
+          return null;
+        }
         
         console.log("Successfully created signed URL:", fileData?.signedUrl);
         return fileData?.signedUrl;
