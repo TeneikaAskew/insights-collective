@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -276,6 +277,7 @@ export function useResumeAnalysis() {
       
       return false;
     } finally {
+      setIsLoadingResults: false
       setIsAnalyzing(false);
     }
   };

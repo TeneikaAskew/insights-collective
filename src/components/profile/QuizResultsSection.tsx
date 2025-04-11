@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Brain, BarChart3, Database, Presentation, ArrowRight, Award } from 'lucide-react';
 import { useCareerCoach } from '@/hooks/useCareerCoach';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 interface QuizResult {
   track: CareerTrack;
@@ -17,17 +20,21 @@ interface QuizResult {
 const QuizResultsSection = () => {
   const [quizResults, setQuizResults] = useState<QuizResult[] | null>(null);
   const [hasResults, setHasResults] = useState<boolean>(false);
+  const [isLoadingResults, setIsLoadingResults] = useState<boolean>(true);
   const navigate = useNavigate();
   const { initiateCareerCoachChat } = useCareerCoach();
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     loadQuizResults();
+    
     // Add event listener to refresh results when storage changes
     window.addEventListener('storage', handleStorageChange);
     return () => {
       window.removeEventListener('storage', handleStorageChange);
     };
-  }, []);
+  }, [user]);
 
   const handleStorageChange = (e: StorageEvent) => {
     if (e.key === 'quizScores') {
@@ -35,45 +42,100 @@ const QuizResultsSection = () => {
     }
   };
 
-  const loadQuizResults = () => {
+  const loadQuizResults = async () => {
+    setIsLoadingResults(true);
     try {
+      // First, check localStorage for immediate results
+      let hasValidScores = false;
+      let topTracks: QuizResult[] = [];
+      
       const storedScores = localStorage.getItem('quizScores');
       
       if (storedScores) {
         const scores = JSON.parse(storedScores) as Record<CareerTrack, number>;
         
-        // Verify if we have valid scores
-        const hasValidScores = Object.values(scores).some(score => score > 0);
+        // Verify if we have valid scores in localStorage
+        hasValidScores = Object.values(scores).some(score => score > 0);
         
-        if (!hasValidScores) {
-          console.log("Quiz scores found but all values are zero");
-          setHasResults(false);
-          setQuizResults(null);
-          return;
+        if (hasValidScores) {
+          console.log("Found valid quiz scores in localStorage");
+          topTracks = Object.entries(scores)
+            .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+            .slice(0, 3)
+            .map(([track, score]) => ({
+              track: track as CareerTrack,
+              score: Math.round(score),
+              level: getSkillLevel(Math.round(score)),
+              persona: getTrackPersona(track as CareerTrack)
+            }));
+        }
+      }
+      
+      // If user is authenticated, try to fetch from Supabase
+      if (user && (!hasValidScores || topTracks.length === 0)) {
+        console.log("Checking Supabase for quiz results for user:", user.id);
+        
+        const { data: quizAttempt, error } = await supabase
+          .from('career_quiz_attempts')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (error) {
+          console.error("Error fetching quiz results from Supabase:", error);
         }
         
-        const topTracks = Object.entries(scores)
-          .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-          .slice(0, 3)
-          .map(([track, score]) => ({
-            track: track as CareerTrack,
-            score: Math.round(score),
-            level: getSkillLevel(Math.round(score)),
-            persona: getTrackPersona(track as CareerTrack)
-          }));
-        
-        console.log("Quiz results loaded:", topTracks);
+        if (quizAttempt) {
+          console.log("Found quiz results in Supabase:", quizAttempt);
+          
+          // Create scores object from Supabase data
+          const supabaseScores: Record<CareerTrack, number> = {
+            'AI/ML': quizAttempt.result_ai_ml_score || 0,
+            'Analytics': quizAttempt.result_analytics_score || 0,
+            'Data Engineering': quizAttempt.result_data_engineering_score || 0,
+            'Business Intelligence': quizAttempt.result_business_intelligence_score || 0
+          };
+          
+          // Save to localStorage for future reference
+          localStorage.setItem('quizScores', JSON.stringify(supabaseScores));
+          
+          // Generate top tracks
+          topTracks = Object.entries(supabaseScores)
+            .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+            .slice(0, 3)
+            .map(([track, score]) => ({
+              track: track as CareerTrack,
+              score: Math.round(score),
+              level: getSkillLevel(Math.round(score)),
+              persona: getTrackPersona(track as CareerTrack)
+            }));
+          
+          hasValidScores = true;
+        }
+      }
+      
+      if (hasValidScores && topTracks.length > 0) {
+        console.log("Setting quiz results:", topTracks);
         setQuizResults(topTracks);
         setHasResults(true);
       } else {
-        console.log("No quiz scores found in localStorage");
-        setHasResults(false);
+        console.log("No valid quiz results found");
         setQuizResults(null);
+        setHasResults(false);
       }
     } catch (error) {
       console.error("Error loading quiz results:", error);
-      setHasResults(false);
       setQuizResults(null);
+      setHasResults(false);
+      toast({
+        title: "Error",
+        description: "Could not load your quiz results. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingResults(false);
     }
   };
 
@@ -124,21 +186,15 @@ const QuizResultsSection = () => {
     return {};
   };
 
-  // For debugging - will be removed in production
-  const debugQuizResults = () => {
-    const mockScores: Record<CareerTrack, number> = {
-      'AI/ML': 85,
-      'Analytics': 72,
-      'Data Engineering': 60,
-      'Business Intelligence': 45
-    };
-    localStorage.setItem('quizScores', JSON.stringify(mockScores));
-    loadQuizResults();
-  };
-
   return (
     <div>
-      {hasResults && quizResults ? (
+      {isLoadingResults ? (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-pulse text-center">
+            <p className="text-muted-foreground">Loading your quiz results...</p>
+          </div>
+        </div>
+      ) : hasResults && quizResults ? (
         <div className="space-y-4">
           <div className="grid gap-4 md:grid-cols-3">
             {quizResults.map((result, index) => (
@@ -197,12 +253,6 @@ const QuizResultsSection = () => {
             </div>
             <div className="flex justify-between">
               <Button onClick={handleTakeQuiz}>Take Career Quiz</Button>
-              {/* Debug button only for development - remove in production */}
-              {process.env.NODE_ENV === 'development' && (
-                <Button variant="outline" onClick={debugQuizResults} size="sm">
-                  Debug: Load Results
-                </Button>
-              )}
             </div>
           </AlertDescription>
         </Alert>
