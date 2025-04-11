@@ -9,7 +9,6 @@ import { Course } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { v4 as uuidv4 } from 'uuid';
 
 interface CourseCardProps {
   course: Course;
@@ -28,35 +27,19 @@ const CourseCard: React.FC<CourseCardProps> = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Generate a valid UUID for this course based on its ID
-  const getValidCourseUuid = () => {
-    // For real implementation, courses in DB would already have proper UUIDs
-    // This is just for mock data compatibility
-    const storedId = localStorage.getItem(`course_${course.id}_uuid`);
-    if (storedId) return storedId;
-    
-    const newId = uuidv4();
-    localStorage.setItem(`course_${course.id}_uuid`, newId);
-    return newId;
-  };
-
-  const validCourseUuid = getValidCourseUuid();
-  
   // Check wishlist status on mount if authenticated
   React.useEffect(() => {
     if (isAuthenticated && user) {
       const checkWishlist = async () => {
         try {
-          const { data, error } = await supabase
+          const { data } = await supabase
             .from('course_wishlists')
             .select('id')
             .eq('user_id', user.id)
-            .eq('course_id', validCourseUuid)
+            .eq('course_id', course.id)
             .maybeSingle();
           
-          if (!error) {
-            setWishlisted(!!data);
-          }
+          setWishlisted(!!data);
         } catch (error) {
           console.error('Error checking wishlist:', error);
         }
@@ -64,7 +47,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
       
       checkWishlist();
     }
-  }, [isAuthenticated, user, validCourseUuid, course.id]);
+  }, [isAuthenticated, user, course.id]);
   
   const handleWishlist = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -86,7 +69,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
           .from('course_wishlists')
           .delete()
           .eq('user_id', user.id)
-          .eq('course_id', validCourseUuid);
+          .eq('course_id', course.id);
         
         if (error) throw error;
         
@@ -101,7 +84,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
           .from('course_wishlists')
           .insert({
             user_id: user.id,
-            course_id: validCourseUuid
+            course_id: course.id
           });
         
         if (error) throw error;

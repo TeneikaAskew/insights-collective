@@ -8,9 +8,6 @@ import { EventsHeader } from '@/components/events/EventsHeader';
 import { EventsFilter } from '@/components/events/EventsFilter';
 import { EventsList } from '@/components/events/EventsList';
 import { NoEventsMessage } from '@/components/events/NoEventsMessage';
-import { v4 as uuidv4 } from 'uuid';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 
 // Mock events data
 const mockEvents = [
@@ -101,57 +98,22 @@ export default function Events() {
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [registeredEvents, setRegisteredEvents] = useState<string[]>([]);
   const { toast } = useToast();
-  const { isAuthenticated, user } = useAuth();
   
   useEffect(() => {
     // In a real app, this would fetch events from an API
     setEvents(mockEvents);
-    
-    // Ensure all events have UUID mappings for Supabase
-    mockEvents.forEach(event => {
-      const storedId = localStorage.getItem(`event_${event.id}_uuid`);
-      if (!storedId) {
-        const newId = uuidv4();
-        localStorage.setItem(`event_${event.id}_uuid`, newId);
-      }
-    });
-    
-    // Load registered events from localStorage
-    const savedRegisteredEvents = localStorage.getItem('registeredEvents');
-    if (savedRegisteredEvents) {
-      setRegisteredEvents(JSON.parse(savedRegisteredEvents));
-    }
   }, []);
   
-  const handleRegister = async (eventId: string, userData?: any) => {
-    if (!isAuthenticated) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to register for events",
-        variant: "destructive"
-      });
-      return;
-    }
+  const handleRegister = (eventId: string, userData?: any) => {
+    console.log('Registering for event:', eventId, userData);
     
-    // Update the registration count in UI
+    // Update the registration count
     setEvents(events.map(event => 
       event.id === eventId 
         ? { ...event, registrations: event.registrations + 1 } 
         : event
     ));
-    
-    // Save registration to localStorage
-    const updatedRegisteredEvents = [...registeredEvents, eventId];
-    setRegisteredEvents(updatedRegisteredEvents);
-    localStorage.setItem('registeredEvents', JSON.stringify(updatedRegisteredEvents));
-    
-    // The actual registration is handled in the EventCard component
-    toast({
-      title: "Registration successful",
-      description: "You have been registered for the event",
-    });
   };
   
   const filteredEvents = events.filter(event => {
@@ -176,8 +138,6 @@ export default function Events() {
   
   // Past events
   const pastEvents = sortedEvents.filter(event => event.date < today);
-  
-  const isSearching = searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all';
   
   return (
     <AppLayout>
@@ -204,22 +164,14 @@ export default function Events() {
           
           <TabsContent value="upcoming" className="space-y-6">
             {upcomingEvents.length > 0 ? (
-              <EventsList 
-                events={upcomingEvents} 
-                onRegister={handleRegister} 
-                registeredEvents={registeredEvents}
-              />
+              <EventsList events={upcomingEvents} onRegister={handleRegister} />
             ) : (
-              <NoEventsMessage isSearching={isSearching} />
+              <NoEventsMessage isSearching={searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all'} />
             )}
           </TabsContent>
           
           <TabsContent value="past" className="space-y-6">
-            <EventsList 
-              events={pastEvents} 
-              registeredEvents={registeredEvents}
-              isPast={true}
-            />
+            <EventsList events={pastEvents} isPast={true} />
           </TabsContent>
         </Tabs>
       </div>

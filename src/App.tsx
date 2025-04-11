@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,8 +29,7 @@ import Assistants from "./pages/Assistants";
 import AssistantInterface from "./pages/AssistantInterface";
 import NotFound from "./pages/NotFound";
 import Calendar from "./pages/Calendar";
-import Blog from "./pages/Blog";
-import BlogPost from "./pages/BlogPost";
+import DataBlueprintSeries from "./pages/DataBlueprintSeries";
 import ExploreDataCareers from "./pages/ExploreDataCareers";
 // import ChatBot from "./components/chat/ChatBot";  // Temporarily comment out to fix console errors
 import Messages from "./pages/Messages";
@@ -55,15 +55,7 @@ const App = () => (
               <Route path="/courses/:courseId" element={<CourseDetail />} />
               <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
               <Route path="/resources" element={<Resources />} />
-              
-              {/* Add dedicated routes for Data Blueprint */}
-              <Route path="/data-blueprint" element={<Blog />} />
-              <Route path="/data-blueprint/:slug" element={<BlogPost />} />
-              
-              {/* Keep blog routes under resources for now */}
-              <Route path="/resources/blog" element={<Blog />} />
-              <Route path="/resources/blog/:slug" element={<BlogPost />} />
-              
+              <Route path="/resources/data-blueprint" element={<DataBlueprintSeries />} />
               <Route path="/events" element={<Events />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
