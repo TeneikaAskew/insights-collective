@@ -5,6 +5,14 @@ import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
 
+// Define typical salary ranges for each career path
+const careerPathSalaries: Record<CareerTrack, number> = {
+  'AI/ML': 160000,
+  'Analytics': 110000,
+  'Data Engineering': 140000,
+  'Business Intelligence': 120000
+};
+
 export function useCareerCoach() {
   const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
@@ -31,10 +39,18 @@ export function useCareerCoach() {
         throw new Error('Failed to start conversation');
       }
       
-      // Step 3: Navigate to assistant interface
-      // We're storing the quiz context in localStorage for the assistant to use
+      // Step 3: Determine top career path from scores
+      const sortedTracks = Object.entries(scores)
+        .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+      
+      const topCareerPath = sortedTracks[0][0] as CareerTrack;
+      const recommendedSalary = careerPathSalaries[topCareerPath];
+      
+      // Step 4: Store settings for the assistant interface to use
       localStorage.setItem('activeQuizAttemptId', quizAttemptId);
       localStorage.setItem('activeConversationId', conversationId);
+      localStorage.setItem('recommendedCareerPath', topCareerPath);
+      localStorage.setItem('recommendedSalary', recommendedSalary.toString());
       
       // Navigate to the career coach assistant
       navigate('/assistant/career-coach');

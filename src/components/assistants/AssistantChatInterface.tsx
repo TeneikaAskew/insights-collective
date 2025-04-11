@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Assistant } from '@/types/assistants';
 import AssistantChatSidebar from './AssistantChatSidebar';
@@ -8,6 +7,7 @@ import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import { PersonalizationSettings } from './types';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
+import { CareerTrack } from '@/data/careerQuizData';
 
 // Re-export types for backward compatibility
 export type { Message, Chat } from './types';
@@ -19,11 +19,27 @@ interface AssistantChatInterfaceProps {
 const AssistantChatInterface: React.FC<AssistantChatInterfaceProps> = ({ initialAssistant }) => {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
   const [showRightSidebar, setShowRightSidebar] = useState(true);
+  
+  // Initialize with default values or values from quiz results
+  const initialCareerFocus = 'Technology';
+  const initialCareerPath = localStorage.getItem('recommendedCareerPath') as CareerTrack || 'Data Engineering';
+  const initialSalaryCap = parseInt(localStorage.getItem('recommendedSalary') || '100000');
+  
   const [personalizationSettings, setPersonalizationSettings] = useState<PersonalizationSettings>({
-    careerFocus: 'Technology',
-    careerPath: 'Data Engineering',
-    salaryCap: 100000
+    careerFocus: initialCareerFocus,
+    careerPath: initialCareerPath,
+    salaryCap: initialSalaryCap
   });
+  
+  // Clean up localStorage once we've used the values
+  useEffect(() => {
+    if (initialAssistant.id === 'career-coach') {
+      // We keep these for the conversation context
+      // but can remove the personalization setting items
+      localStorage.removeItem('recommendedCareerPath');
+      localStorage.removeItem('recommendedSalary');
+    }
+  }, [initialAssistant.id]);
   
   const {
     assistant,

@@ -27,6 +27,7 @@ const careerAreas = [
   'Engineering'
 ];
 
+// Use the exact values from our CareerTrack type to ensure consistency
 const careerPaths = [
   'AI/ML',
   'Analytics',
