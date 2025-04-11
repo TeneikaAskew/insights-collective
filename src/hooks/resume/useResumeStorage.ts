@@ -79,62 +79,127 @@ export function useResumeStorage() {
   const { toast } = useToast();
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
+  // const uploadResumeFile = async (file: File, userId: string): Promise<UploadResult> => {
+  //   if (!userId) {
+  //     toast({
+  //       title: "Authentication required",
+  //       description: "Please log in to upload a resume",
+  //       variant: "destructive",
+  //     });
+  //     return { fileName: '', filePath: '', success: false };
+  //   }
+
+  //   setUploading(true);
+
+  //   try {
+  //     console.log("Starting file upload process for user:", userId);
+      
+  //     // Create a unique file name with user ID folder structure
+  //     const fileExtension = file.name.split('.').pop() || '';
+  //     const fileName = `resume_${Date.now()}.${fileExtension}`;
+      
+  //     console.log("Uploading to resumes bucket with file path:", fileName);
+      
+  //     // Upload file to Supabase Storage - using proper bucket name
+  //     const { data, error } = await supabase.storage
+  //       .from('resumes')
+  //       .upload(fileName, file, { upsert: true });
+      
+  //     if (error) {
+  //       console.error("Upload error details:", JSON.stringify(error));
+  //       throw error;
+  //     }
+      
+  //     console.log("Upload successful, file path:", data?.path);
+      
+  //     return {
+  //       fileName: fileName.split('/').pop() || '',
+  //       filePath: fileName,
+  //       success: true
+  //     };
+  //   } catch (error) {
+  //     console.error('Error uploading resume:', error);
+      
+  //     toast({
+  //       title: "Upload failed",
+  //       description: "Failed to upload your resume. Please try again.",
+  //       variant: "destructive",
+  //     });
+      
+  //     return {
+  //       fileName: '',
+  //       filePath: '',
+  //       success: false
+  //     };
+  //   } finally {
+  //     setUploading(false);
+  //   }
+  // };
+
   const uploadResumeFile = async (file: File, userId: string): Promise<UploadResult> => {
-    if (!userId) {
-      toast({
-        title: "Authentication required",
-        description: "Please log in to upload a resume",
-        variant: "destructive",
-      });
-      return { fileName: '', filePath: '', success: false };
-    }
+  if (!userId) {
+    toast({
+      title: "Authentication required",
+      description: "Please log in to upload a resume",
+      variant: "destructive",
+    });
+    return { fileName: '', filePath: '', success: false };
+  }
 
-    setUploading(true);
+  setUploading(true);
 
-    try {
-      console.log("Starting file upload process for user:", userId);
-      
-      // Create a unique file name with user ID folder structure
-      const fileExtension = file.name.split('.').pop() || '';
-      const fileName = `resume_${Date.now()}.${fileExtension}`;
-      
-      console.log("Uploading to resumes bucket with file path:", fileName);
-      
-      // Upload file to Supabase Storage - using proper bucket name
-      const { data, error } = await supabase.storage
-        .from('resumes')
-        .upload(fileName, file, { upsert: true });
-      
-      if (error) {
-        console.error("Upload error details:", JSON.stringify(error));
-        throw error;
-      }
-      
-      console.log("Upload successful, file path:", data?.path);
-      
-      return {
-        fileName: fileName.split('/').pop() || '',
-        filePath: fileName,
-        success: true
-      };
-    } catch (error) {
-      console.error('Error uploading resume:', error);
-      
-      toast({
-        title: "Upload failed",
-        description: "Failed to upload your resume. Please try again.",
-        variant: "destructive",
-      });
-      
-      return {
-        fileName: '',
-        filePath: '',
-        success: false
-      };
-    } finally {
-      setUploading(false);
+  try {
+    console.log("Starting file upload process for user:", userId);
+    
+    // Create a simple file name without folder structure for testing
+    const fileExtension = file.name.split('.').pop() || '';
+    const fileName = `resume_${Date.now()}.${fileExtension}`;
+    
+    console.log("Uploading to resumes bucket with file path:", fileName);
+    
+    // Check file size
+    if (file.size > 5 * 1024 * 1024) { // 5MB limit
+      throw new Error("File size exceeds 5MB limit");
     }
-  };
+    
+    // Upload file to Supabase Storage - using simple path
+    const { data, error } = await supabase.storage
+      .from('resumes')
+      .upload(fileName, file, { upsert: true });
+    
+    if (error) {
+      console.error("Upload error details:", JSON.stringify(error, null, 2));
+      console.error("Error code:", error.code);
+      console.error("Error message:", error.message);
+      console.error("Error status:", error.status);
+      throw error;
+    }
+    
+    console.log("Upload successful, full response:", JSON.stringify(data));
+    
+    return {
+      fileName: fileName,
+      filePath: fileName,
+      success: true
+    };
+  } catch (error) {
+    console.error('Error uploading resume:', error);
+    
+    toast({
+      title: "Upload failed",
+      description: `Failed to upload your resume: ${error.message}`,
+      variant: "destructive",
+    });
+    
+    return {
+      fileName: '',
+      filePath: '',
+      success: false
+    };
+  } finally {
+    setUploading(false);
+  }
+};
   
   const getResumeFileUrl = async (userId: string, filePath: string) => {
     try {
@@ -183,7 +248,13 @@ export function useResumeStorage() {
       return false;
     }
   };
-
+if (error) {
+  console.error("Upload error details:", JSON.stringify(error, null, 2));
+  console.error("Error code:", error.code);
+  console.error("Error message:", error.message);
+  console.error("Error status:", error.status);
+  throw error;
+}
   return {
     uploading,
     downloadUrl,
