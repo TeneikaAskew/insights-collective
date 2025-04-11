@@ -1,4 +1,4 @@
-import { actionWords } from './bulletAnalysis';
+
 // Rewrite bullet function
 export function rewriteBullet(bullet: string, analysis: any): string {
   // In a real application, this would be done with a more sophisticated NLP approach
@@ -6,7 +6,6 @@ export function rewriteBullet(bullet: string, analysis: any): string {
   
   // Simple rewriting logic
   let rewritten = bullet;
-  
   
   // If the bullet doesn't start with an action word, try to add one
   if (analysis.xyz_scores.action_words < 5) {
