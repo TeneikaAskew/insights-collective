@@ -19,4 +19,6 @@ export function handleApiError(error: any, defaultMessage = "An unexpected error
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  // Optional but good practice:
+  'Access-Control-Allow-Credentials': 'true',
 };
