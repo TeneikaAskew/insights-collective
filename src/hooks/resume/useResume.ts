@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useResumeStorage } from './useResumeStorage';
 
 export interface Resume {
   id: string;
@@ -19,12 +20,39 @@ export interface Resume {
   analysis?: any;
 }
 
+// Helper function to ensure the resumes table exists
+const ensureResumesTableExists = async () => {
+  try {
+    // We'll check if the table exists by performing a query
+    const { error } = await supabase
+      .from('resumes')
+      .select('id')
+      .limit(1);
+    
+    // If there's a PostgreSQL error specifically about relation not existing
+    if (error && error.code === '42P01') {
+      console.error("Resumes table does not exist:", error);
+      throw new Error("Resumes table does not exist. Please create it using SQL migrations.");
+    } else if (error) {
+      console.error("Error checking resumes table:", error);
+    } else {
+      console.log("Resumes table exists");
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error ensuring resumes table exists:", error);
+    throw error;
+  }
+};
+
 export const useResume = () => {
   const [resume, setResume] = useState<Resume | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const { uploadResumeFile, getResumeFileUrl } = useResumeStorage();
 
   // Load resume data when user changes
   useEffect(() => {
@@ -42,6 +70,9 @@ export const useResume = () => {
 
     try {
       setLoading(true);
+      
+      // Verify the table exists
+      await ensureResumesTableExists();
       
       const { data, error } = await supabase
         .from('resumes')
@@ -63,15 +94,13 @@ export const useResume = () => {
         // Transform database record to match Resume interface
         const fileName = data.file_path.split('/').pop() || '';
         
-        // Get public URL for the file
-        const { data: { publicUrl } } = supabase.storage
-          .from('resumes')
-          .getPublicUrl(data.file_path);
+        // Get signed URL for the file
+        const fileUrl = await getResumeFileUrl(user.id, data.file_path);
         
         setResume({
           ...data,
           file_name: fileName,
-          file_url: publicUrl,
+          file_url: fileUrl,
           created_at: data.uploaded_at // Use uploaded_at as created_at
         });
       } else {
@@ -81,7 +110,7 @@ export const useResume = () => {
       console.error('Error in fetchResume:', error);
       toast({
         title: 'Error',
-        description: 'An unexpected error occurred.',
+        description: 'An unexpected error occurred loading your resume.',
         variant: 'destructive',
       });
     } finally {
@@ -103,11 +132,20 @@ export const useResume = () => {
     try {
       setUploading(true);
       
-      // Extract text from file
+      // Ensure table exists
+      await ensureResumesTableExists();
+      
+      // Upload file to storage
+      const uploadResult = await uploadResumeFile(file, user.id);
+      
+      if (!uploadResult.success) {
+        throw new Error('Failed to upload resume file');
+      }
+      
+      // Extract text from file for analysis
       let fileText = '';
       try {
-        // This assumes we have a helper function elsewhere that extracts text
-        // We'll store this text in the database for easier access
+        // This uses the extractTextFromFile function from useResumeStorage
         const textReader = new FileReader();
         textReader.readAsText(file);
         fileText = await new Promise((resolve) => {
@@ -116,24 +154,6 @@ export const useResume = () => {
       } catch (err) {
         console.warn('Could not extract text from file, continuing with upload');
       }
-
-      // Create folder for user if it doesn't exist
-      const filePath = `${user.id}/${file.name}`;
-      
-      // Upload file to storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('resumes')
-        .upload(filePath, file, { upsert: true });
-      
-      if (uploadError) {
-        console.error('Upload error details:', uploadError);
-        throw new Error('Failed to upload resume file');
-      }
-      
-      // Get public URL for the file
-      const { data: { publicUrl } } = supabase.storage
-        .from('resumes')
-        .getPublicUrl(filePath);
       
       // Check if user already has a resume record
       const { data: existingResume, error: fetchError } = await supabase
@@ -149,7 +169,7 @@ export const useResume = () => {
         saveResult = await supabase
           .from('resumes')
           .update({
-            file_path: filePath,
+            file_path: uploadResult.filePath,
             text: fileText,
             updated_at: new Date().toISOString()
           })
@@ -160,7 +180,7 @@ export const useResume = () => {
           .from('resumes')
           .insert({
             user_id: user.id,
-            file_path: filePath,
+            file_path: uploadResult.filePath,
             text: fileText,
             uploaded_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -169,7 +189,7 @@ export const useResume = () => {
       
       if (saveResult.error) {
         console.error('Error saving resume record:', saveResult.error);
-        throw new Error('Failed to save resume information');
+        throw new Error('Failed to save resume information to database');
       }
       
       // Refresh resume data
@@ -199,13 +219,12 @@ export const useResume = () => {
     if (!user || !resume) return false;
 
     try {
-      // Delete file from storage
-      const { error: storageError } = await supabase.storage
-        .from('resumes')
-        .remove([resume.file_path]);
+      // Delete file from storage (using the storage hook)
+      const { deleteResumeFile } = useResumeStorage();
+      const storageResult = await deleteResumeFile(user.id, resume.file_path);
       
-      if (storageError) {
-        console.error('Error deleting file from storage:', storageError);
+      if (!storageResult) {
+        console.warn('Could not delete file from storage, continuing with database deletion');
       }
       
       // Delete record from database
@@ -216,7 +235,7 @@ export const useResume = () => {
       
       if (dbError) {
         console.error('Error deleting resume record:', dbError);
-        throw new Error('Failed to delete resume information');
+        throw new Error('Failed to delete resume information from database');
       }
       
       // Clear the resume state

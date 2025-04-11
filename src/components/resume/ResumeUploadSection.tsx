@@ -1,10 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { FileUp, File, DownloadCloud, Trash2 } from 'lucide-react';
+import { FileUp, File, DownloadCloud, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Resume } from '@/hooks/resume/useResume';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ResumeUploadSectionProps {
   resumeFile: File | null;
@@ -33,18 +34,39 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
   handleDownload,
   pdfDataUrl,
 }) => {
+  // State to track file errors
+  const [fileError, setFileError] = useState<string | null>(null);
+
+  // Clear file error when a new file is selected
+  useEffect(() => {
+    if (resumeFile) {
+      setFileError(null);
+    }
+  }, [resumeFile]);
+
   // Display file preview based on file type
   const renderFilePreview = () => {
     // For PDF files
     if (resume?.file_url) {
-      // If we have a stored resume with a URL
-      return (
-        <iframe 
-          src={`${resume.file_url}#toolbar=0&navpanes=0`}
-          className="w-full aspect-[8.5/11] border rounded-md"
-          title="Resume preview"
-        />
-      );
+      try {
+        // If we have a stored resume with a URL
+        return (
+          <iframe 
+            src={`${resume.file_url}#toolbar=0&navpanes=0`}
+            className="w-full aspect-[8.5/11] border rounded-md"
+            title="Resume preview"
+            onError={() => setFileError("Could not load resume preview. The file may be inaccessible.")}
+          />
+        );
+      } catch (error) {
+        console.error("Error rendering resume preview:", error);
+        return (
+          <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-red-50">
+            <AlertCircle className="h-12 w-12 text-red-500 mb-2" />
+            <p className="text-red-500">Error loading preview</p>
+          </div>
+        );
+      }
     }
     
     // For local preview of newly selected files
@@ -56,6 +78,7 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
             src={pdfDataUrl}
             className="w-full aspect-[8.5/11] border rounded-md"
             title="Resume preview"
+            onError={() => setFileError("Could not load PDF preview")}
           />
         );
       }
@@ -89,6 +112,15 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {fileError && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              {fileError}
+            </AlertDescription>
+          </Alert>
+        )}
+      
         {loading ? (
           <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-10 text-center">
             <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -125,7 +157,7 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
                 </p>
               </div>
               <div className="flex gap-2">
-                {resume && (
+                {resume && resume.file_url && (
                   <Button variant="outline" size="icon" onClick={handleDownload}>
                     <DownloadCloud className="h-4 w-4" />
                   </Button>
