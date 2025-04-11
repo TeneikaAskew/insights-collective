@@ -1,5 +1,6 @@
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.31.0'
 
 // Define CORS headers
 const corsHeaders = {
@@ -91,15 +92,17 @@ interface AIRequest {
   assistantType: string;
   conversationId?: string;
   quizAttemptId?: string;
+  context?: string;
 }
 
 
 /**
  * formatResponse
- * Cleans up the raw LLM output into your bullet‑only, balanced‑bold Markdown.
+ * Cleans up the raw LLM output into properly formatted Markdown.
  */
-
 function formatResponse(raw: string): string {
+  if (!raw) return '';
+
   let text = raw;
 
   // 1) Fix unbalanced bold markers: **…* or *…** → **…**
@@ -215,6 +218,36 @@ async function trackConversation(conversationId: string, content: string, sender
   }
 }
 
+// Get previous conversation history for better context
+async function getPreviousMessages(conversationId: string, supabaseClient: any, limit = 5): Promise<string> {
+  try {
+    if (!conversationId) return '';
+    
+    const { data, error } = await supabaseClient
+      .from('assistant_messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+      
+    if (error || !data || data.length === 0) {
+      return '';
+    }
+    
+    // Format conversation history
+    const history = data
+      .reverse()
+      .map(msg => `${msg.sender_type.toUpperCase()}: ${msg.content.substring(0, 200)}${msg.content.length > 200 ? '...' : ''}`)
+      .join('\n\n');
+      
+    return `PREVIOUS CONVERSATION CONTEXT:\n${history}`;
+    
+  } catch (error) {
+    console.error('Error getting conversation history:', error);
+    return '';
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -225,7 +258,7 @@ serve(async (req) => {
     // Get API key from environment variable
     const apiKey = Deno.env.get('GROQ');
     if (!apiKey) {
-      throw new Error('GROQ API key not found');
+      throw new Error('GROQ API key not found. Please configure the GROQ secret in Supabase.');
     }
     
     // Parse the request body
@@ -237,8 +270,25 @@ serve(async (req) => {
       salaryCap, 
       assistantType,
       conversationId,
-      quizAttemptId
+      quizAttemptId,
+      context = ''
     } = requestData;
+    
+    if (!query || query.trim().length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: "Missing query parameter",
+          response: "I need a question or topic to respond to. Please provide a query."
+        }),
+        { 
+          status: 400, 
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        }
+      );
+    }
     
     console.log(`Received query: ${query}`);
     console.log(`Career focus: ${careerFocus}, Career path: ${careerPath}, Salary cap: ${salaryCap}`);
@@ -252,22 +302,29 @@ serve(async (req) => {
       console.log(`Quiz Attempt ID: ${quizAttemptId}`);
     }
     
-    // Create Supabase client if needed for quiz data
+    // Create Supabase client for database operations
     let quizContext = '';
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
+    let conversationHistory = '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     
-    // @ts-ignore: Supabase is loaded from the global scope in edge functions
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    
-    // Fetch quiz data if available
-    if (quizAttemptId) {
-      quizContext = await fetchQuizData(quizAttemptId, supabase);
-    }
-    
-    // Track user message in database if we have a conversation ID
-    if (conversationId) {
-      await trackConversation(conversationId, query, 'user', supabase);
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn("Supabase credentials not found, conversation tracking disabled");
+    } else {
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      
+      // Fetch quiz data if available
+      if (quizAttemptId) {
+        quizContext = await fetchQuizData(quizAttemptId, supabase);
+      }
+      
+      // Get conversation history if available
+      if (conversationId) {
+        conversationHistory = await getPreviousMessages(conversationId, supabase);
+        
+        // Track user message in database
+        await trackConversation(conversationId, query, 'user', supabase);
+      }
     }
     
     // Create context based on user preferences
@@ -283,75 +340,110 @@ serve(async (req) => {
       userContext += `\n\n${quizContext}`;
     }
     
+    // Add conversation history if available
+    if (conversationHistory) {
+      userContext += `\n\n${conversationHistory}`;
+    }
+    
+    // Add additional context if provided
+    if (context) {
+      userContext += `\n\nADDITIONAL CONTEXT:\n${context}`;
+    }
+    
     // Prepare the API call to GROQ
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama3-8b-8192', // Using Llama3 8B model
-        messages: [
-          {
-            role: 'system',
-            content: `You are a helpful data career assistant with expertise in the data industry. 
-                     Use the following knowledge base to inform your responses: 
-                     ${KNOWLEDGE_BASE}
-                    
-                     
-                     ${userContext}
-                     
-                     Focus on providing accurate, actionable advice based on the knowledge base above.
-                     If you're unsure about something or if the information isn't in the knowledge base,
-                     acknowledge the limitations of your knowledge rather than making up information.`
-          },
-          {
-            role: 'user',
-            content: query
-          }
-        ],
-        max_tokens: 1024,
-        temperature: 0.7
-      })
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
     
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('GROQ API error:', errorData);
-      throw new Error(`GROQ API returned ${response.status}: ${errorData}`);
-    }
-    
-    const data = await response.json();
-    let aiResponse = data.choices[0].message.content;
-    
-    // Replace "* " with "\n- " for better formatted bullet points
-    // Applying formatting function here:
-    aiResponse = formatResponse(aiResponse).replace(/\* /g, "\n- ");
-    
-    // Track assistant response in database if we have a conversation ID
-    if (conversationId) {
-      await trackConversation(conversationId, aiResponse, 'assistant', supabase);
-    }
-    
-    console.log('AI response generated successfully.');
-    
-    // Return the AI response
-    return new Response(
-      JSON.stringify({ response: aiResponse }),
-      { 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
+    try {
+      console.log("Calling GROQ API...");
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'llama3-8b-8192', // Using Llama3 8B model
+          messages: [
+            {
+              role: 'system',
+              content: `You are a helpful data career assistant with expertise in the data industry. 
+                       Use the following knowledge base to inform your responses: 
+                       ${KNOWLEDGE_BASE}
+                       
+                       ${userContext}
+                       
+                       Focus on providing accurate, actionable advice based on the knowledge base above.
+                       If you're unsure about something or if the information isn't in the knowledge base,
+                       acknowledge the limitations of your knowledge rather than making up information.`
+            },
+            {
+              role: 'user',
+              content: query
+            }
+          ],
+          max_tokens: 1024,
+          temperature: 0.7
+        }),
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('GROQ API error:', errorText);
+        throw new Error(`GROQ API returned ${response.status}: ${errorText}`);
       }
-    );
-    
+      
+      const data = await response.json();
+      let aiResponse = data.choices[0].message.content;
+      
+      // Apply formatting function
+      aiResponse = formatResponse(aiResponse);
+      
+      console.log('AI response generated successfully.');
+      
+      // Track assistant response in database
+      if (conversationId && supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        await trackConversation(conversationId, aiResponse, 'assistant', supabase);
+      }
+      
+      // Return the AI response
+      return new Response(
+        JSON.stringify({ response: aiResponse }),
+        { 
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        }
+      );
+    } catch (fetchError) {
+      clearTimeout(timeoutId);
+      
+      if (fetchError.name === 'AbortError') {
+        console.error('GROQ API request timed out');
+        throw new Error('Request timed out. The AI service is taking too long to respond.');
+      } else {
+        throw fetchError;
+      }
+    }
   } catch (error) {
     console.error('Error processing request:', error.message);
     
+    // Create a user-friendly error response
+    const errorMessage = error.message || 'An unexpected error occurred';
+    const userFriendlyMessage = errorMessage.includes('API') || errorMessage.includes('GROQ')
+      ? 'The AI service is currently unavailable. Please try again in a few moments.'
+      : errorMessage;
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: errorMessage,
+        response: `I apologize, but I encountered an error: ${userFriendlyMessage} Please try again or contact support if the issue persists.`
+      }),
       { 
         status: 500, 
         headers: { 

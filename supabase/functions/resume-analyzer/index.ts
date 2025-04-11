@@ -7,6 +7,8 @@ import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
 import { corsHeaders } from "./utils.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0"
+import { serveBulletImprover } from "./bulletImprover.ts";
+import { detectSentences } from "./sentenceDetector.ts";
 
 // Initialize Supabase client for database operations
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -15,6 +17,39 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // In-memory cache for bullet points (simple implementation)
 const bulletCache = new Map();
+
+// Export important functions for other services
+export { detectSentences };
+export { serveBulletImprover };
+
+// Service handler for sentence detection
+export function serveSentenceDetector() {
+  return async (req: Request) => {
+    try {
+      const { text } = await req.json();
+      
+      if (!text || typeof text !== 'string') {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid text parameter" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const sentences = await detectSentences(text);
+      
+      return new Response(
+        JSON.stringify({ sentences }),
+        { headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    } catch (error) {
+      console.error("Error in sentence detector service:", error);
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to detect sentences" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+  };
+}
 
 // Main function to analyze resume
 async function analyzeResume(resumeText: string, userId?: string) {
@@ -72,7 +107,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
     } else {
       try {
         // Try primary extraction method
-        bulletPoints = extractBulletPoints(resumeText);
+        bulletPoints = await extractBulletPoints(resumeText);
         
         // If no bullets found, use fallback
         if (!bulletPoints || bulletPoints.length === 0) {
@@ -116,7 +151,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
     
     // Step 3: Analyze each bullet
     try {
-      const analyzedBullets = bulletPoints.map(bullet => {
+      const analyzedBullets = await Promise.all(bulletPoints.map(async bullet => {
         try {
           // Word balance analysis
           const wordBalance = analyzeWordBalance(bullet);
@@ -128,10 +163,10 @@ async function analyzeResume(resumeText: string, userId?: string) {
           const bulletTotal = wordBalance.word_balance_score + xyzScores.xyz_total;
           
           // Generate rewritten bullet
-          const rewritten = rewriteBullet(bullet, { xyz_scores: xyzScores });
+          const rewritten = await rewriteBullet(bullet, { xyz_scores: xyzScores });
           
           // Generate tips
-          const tips = generateTips(bullet, { xyz_scores: xyzScores, word_balance_score: wordBalance.word_balance_score });
+          const tips = await generateTips(bullet, { xyz_scores: xyzScores, word_balance_score: wordBalance.word_balance_score });
           
           return {
             original: bullet,
@@ -165,7 +200,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
             tips: "We had trouble analyzing this bullet. Consider rephrasing it with more action verbs and specific metrics."
           };
         }
-      });
+      }));
       
       // Calculate resume average
       const totalScore = analyzedBullets.reduce((sum, bullet) => sum + bullet.bullet_total, 0);
@@ -257,46 +292,57 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   
-  try {
-    // Parse the request body
-    const requestData = await req.json();
-    const { resumeText, userId } = requestData;
-    
-    // Analyze the resume
-    const analysis = await analyzeResume(resumeText, userId);
-    
-    // Return the analysis
-    return new Response(
-      JSON.stringify(analysis),
-      { 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders
+  // Get the request path
+  const url = new URL(req.url);
+  const path = url.pathname.split('/').pop();
+  
+  // Route to the appropriate service based on the path
+  if (path === 'detect-sentences') {
+    return await serveSentenceDetector()(req);
+  } else if (path === 'improve-bullet') {
+    return await serveBulletImprover()(req);
+  } else {
+    try {
+      // Parse the request body for the main resume analysis endpoint
+      const requestData = await req.json();
+      const { resumeText, userId } = requestData;
+      
+      // Analyze the resume
+      const analysis = await analyzeResume(resumeText, userId);
+      
+      // Return the analysis
+      return new Response(
+        JSON.stringify(analysis),
+        { 
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
         }
-      }
-    );
-    
-  } catch (error) {
-    console.error('Error processing request:', error.message);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        // Minimal valid analysis to prevent frontend crashes
-        resume_percent: 50,
-        letter_grade: "C",
-        themes: ["Error during analysis, please try again"],
-        elevator_pitch: "We encountered an error. Please try again with a different resume format.",
-        explanation: `Error: ${error.message}`,
-        bullets: []
-      }),
-      { 
-        status: 500, 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders
+      );
+      
+    } catch (error) {
+      console.error('Error processing request:', error.message);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: error.message,
+          // Minimal valid analysis to prevent frontend crashes
+          resume_percent: 50,
+          letter_grade: "C",
+          themes: ["Error during analysis, please try again"],
+          elevator_pitch: "We encountered an error. Please try again with a different resume format.",
+          explanation: `Error: ${error.message}`,
+          bullets: []
+        }),
+        { 
+          status: 500, 
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
         }
-      }
-    );
+      );
+    }
   }
 })
