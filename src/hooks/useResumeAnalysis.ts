@@ -1,4 +1,3 @@
-
 // import { useState, useEffect } from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -269,7 +268,7 @@ export function useResumeAnalysis() {
         // Create a basic fallback analysis
         const fallbackAnalysis = {
           resume_id: user.id,
-          resume_percent: 00, //50
+          resume_percent: 0, //50
           letter_grade: "Z+",//"C+"
           bullets: [],
           elevator_pitch: "",//"Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
