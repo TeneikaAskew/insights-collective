@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -288,6 +289,3 @@ export const useResume = () => {
     refreshResume: fetchResume
   };
 };
-
-// Import at the top level to prevent hooks-related errors
-import { useResumeStorage } from './useResumeStorage';
