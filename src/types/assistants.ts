@@ -12,4 +12,5 @@ export type Assistant = {
   description: string;
   category: "analytics" | "coding" | "content" | "career";
   popular?: boolean;
+  instructions: string; // Added this property
 };
