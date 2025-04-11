@@ -101,6 +101,7 @@ export default function Events() {
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [registeredEvents, setRegisteredEvents] = useState<string[]>([]);
   const { toast } = useToast();
   const { isAuthenticated, user } = useAuth();
   
@@ -116,6 +117,12 @@ export default function Events() {
         localStorage.setItem(`event_${event.id}_uuid`, newId);
       }
     });
+    
+    // Load registered events from localStorage
+    const savedRegisteredEvents = localStorage.getItem('registeredEvents');
+    if (savedRegisteredEvents) {
+      setRegisteredEvents(JSON.parse(savedRegisteredEvents));
+    }
   }, []);
   
   const handleRegister = async (eventId: string, userData?: any) => {
@@ -134,6 +141,11 @@ export default function Events() {
         ? { ...event, registrations: event.registrations + 1 } 
         : event
     ));
+    
+    // Save registration to localStorage
+    const updatedRegisteredEvents = [...registeredEvents, eventId];
+    setRegisteredEvents(updatedRegisteredEvents);
+    localStorage.setItem('registeredEvents', JSON.stringify(updatedRegisteredEvents));
     
     // The actual registration is handled in the EventCard component
     toast({
@@ -165,6 +177,8 @@ export default function Events() {
   // Past events
   const pastEvents = sortedEvents.filter(event => event.date < today);
   
+  const isSearching = searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all';
+  
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -190,14 +204,22 @@ export default function Events() {
           
           <TabsContent value="upcoming" className="space-y-6">
             {upcomingEvents.length > 0 ? (
-              <EventsList events={upcomingEvents} onRegister={handleRegister} />
+              <EventsList 
+                events={upcomingEvents} 
+                onRegister={handleRegister} 
+                registeredEvents={registeredEvents}
+              />
             ) : (
-              <NoEventsMessage isSearching={searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all'} />
+              <NoEventsMessage isSearching={isSearching} />
             )}
           </TabsContent>
           
           <TabsContent value="past" className="space-y-6">
-            <EventsList events={pastEvents} isPast={true} />
+            <EventsList 
+              events={pastEvents} 
+              registeredEvents={registeredEvents}
+              isPast={true}
+            />
           </TabsContent>
         </Tabs>
       </div>

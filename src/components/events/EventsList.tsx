@@ -26,15 +26,17 @@ export interface Event {
 interface EventsListProps {
   events: Event[];
   isLoading?: boolean;
-  onRegister: (eventId: string) => void;
-  registeredEvents: string[];
+  onRegister?: (eventId: string) => void;
+  registeredEvents?: string[];
+  isPast?: boolean; // Added missing prop
 }
 
 export const EventsList: React.FC<EventsListProps> = ({
   events,
   isLoading = false,
-  onRegister,
-  registeredEvents
+  onRegister = () => {},
+  registeredEvents = [],
+  isPast = false
 }) => {
   if (isLoading) {
     return (
@@ -53,7 +55,7 @@ export const EventsList: React.FC<EventsListProps> = ({
   }
 
   if (events.length === 0) {
-    return <NoEventsMessage />;
+    return <NoEventsMessage isSearching={true} />;
   }
 
   return (
@@ -68,6 +70,7 @@ export const EventsList: React.FC<EventsListProps> = ({
           isRegistered={registeredEvents.includes(event.id)}
           onRegister={() => onRegister(event.id)}
           formattedDate={formatDate(event.date)}
+          isPast={isPast}
         />
       ))}
     </div>

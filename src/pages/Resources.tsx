@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -11,7 +10,6 @@ import { Search, FileText, Video, BookOpen, Link as LinkIcon, Layout, Plus } fro
 import { useAuth } from '@/contexts/AuthContext';
 import { AddResourceModal } from '@/components/resources/AddResourceModal';
 
-// Mock resources data
 const mockResources = [
   {
     id: '1',
@@ -82,10 +80,14 @@ const mockResources = [
 const Resources = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [isAddResourceModalOpen, setIsAddResourceModalOpen] = useState(false);
+  const [resources, setResources] = useState(mockResources);
   const { isAuthenticated } = useAuth();
   
-  const filteredResources = mockResources.filter(resource => {
+  const handleAddResource = (newResource: any) => {
+    setResources([...resources, newResource]);
+  };
+  
+  const filteredResources = resources.filter(resource => {
     const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          resource.description.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -106,10 +108,7 @@ const Resources = () => {
           </div>
           
           {isAuthenticated && (
-            <Button onClick={() => setIsAddResourceModalOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Resource
-            </Button>
+            <AddResourceModal onAddResource={handleAddResource} />
           )}
         </div>
         
@@ -180,11 +179,6 @@ const Resources = () => {
             </Card>
           ))}
         </div>
-        
-        <AddResourceModal 
-          isOpen={isAddResourceModalOpen} 
-          onClose={() => setIsAddResourceModalOpen(false)} 
-        />
       </div>
     </AppLayout>
   );

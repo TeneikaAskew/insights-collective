@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -215,6 +216,3 @@ export function AddResourceModal({ onAddResource }: AddResourceModalProps) {
     </Dialog>
   );
 }
-
-export default AddResourceModal;
-export { AddResourceModal };
