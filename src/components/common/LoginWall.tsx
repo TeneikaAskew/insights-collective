@@ -1,10 +1,11 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LoginWallProps {
   message: string;
@@ -15,7 +16,13 @@ interface LoginWallProps {
 
 const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: LoginWallProps) => {
   const location = useLocation();
+  const { storeRedirectPath } = useAuth();
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+  
+  // Store the current path for redirect after login
+  useEffect(() => {
+    storeRedirectPath(location.pathname);
+  }, [location.pathname, storeRedirectPath]);
   
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">

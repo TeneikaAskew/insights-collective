@@ -1,14 +1,21 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileUp } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ResumeLoginWall = () => {
   // Get current path for redirect after login
   const location = useLocation();
+  const { storeRedirectPath } = useAuth();
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
+  
+  // Store the current path for redirect after login
+  useEffect(() => {
+    storeRedirectPath(location.pathname);
+  }, [location.pathname, storeRedirectPath]);
   
   return (
     <div className="container mx-auto py-12">

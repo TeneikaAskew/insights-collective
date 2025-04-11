@@ -37,6 +37,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     adminLogout: () => {
       sessionStorage.removeItem('isAdminAuthenticated');
       setIsAdminAuthenticated(false);
+    },
+    // Add method to store redirect path (can be used anywhere in the app)
+    storeRedirectPath: (path: string) => {
+      if (path && path !== '/login' && path !== '/register' && path !== '/') {
+        localStorage.setItem('redirectAfterLogin', path);
+        console.log('Stored redirect path:', path);
+      }
     }
   };
   

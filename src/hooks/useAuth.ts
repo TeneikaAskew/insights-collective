@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -21,6 +20,46 @@ export const useAuthProvider = () => {
   // Get enriched user data
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
   
+  // Helper function to handle post-login redirects
+  const handleRedirectAfterLogin = useCallback(() => {
+    // Priority 1: Check localStorage for saved redirect path
+    const storedRedirect = localStorage.getItem('redirectAfterLogin');
+    
+    // Priority 2: Check location state for redirect info
+    const locationState = location.state as { from?: { pathname: string } } | null;
+    const fromPath = locationState?.from?.pathname;
+    
+    // Priority 3: Check URL parameters
+    const urlParams = new URLSearchParams(location.search);
+    const redirectParam = urlParams.get('redirect');
+    
+    console.log('Redirect options:', { storedRedirect, fromPath, redirectParam });
+    
+    // Choose redirect path based on priority
+    let redirectTo = '/dashboard'; // Default fallback
+    
+    if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
+      redirectTo = storedRedirect;
+      localStorage.removeItem('redirectAfterLogin');
+    } else if (fromPath && fromPath !== '/login' && fromPath !== '/register') {
+      redirectTo = fromPath;
+    } else if (redirectParam) {
+      redirectTo = redirectParam;
+    }
+    
+    // Special case for admin routes
+    const isAdmin = sessionStorage.getItem('isAdminAuthenticated') === 'true';
+    if (isAdmin && redirectTo.startsWith('/admin')) {
+      console.log('Redirecting admin to:', redirectTo);
+    } else if (isAdmin && !redirectTo.startsWith('/admin')) {
+      // If admin is logged in but redirect is not to admin route, still honor the redirect
+      console.log('Admin redirecting to non-admin route:', redirectTo);
+    }
+    
+    console.log('Final redirect destination:', redirectTo);
+    navigate(redirectTo);
+  }, [navigate, location]);
+  
   // Update session and user on auth state change
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -29,14 +68,10 @@ export const useAuthProvider = () => {
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           setSession(session);
           
-          // Check for redirect after sign-in
-          const redirectPath = localStorage.getItem('redirectAfterLogin');
-          if (redirectPath) {
-            setTimeout(() => {
-              navigate(redirectPath);
-              localStorage.removeItem('redirectAfterLogin');
-            }, 0);
-          }
+          // Use setTimeout to avoid auth state deadlocks
+          setTimeout(() => {
+            handleRedirectAfterLogin();
+          }, 0);
         } else if (event === 'SIGNED_OUT') {
           setSession(null);
           localStorage.removeItem('redirectAfterLogin');
@@ -53,7 +88,7 @@ export const useAuthProvider = () => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [handleRedirectAfterLogin]);
   
   const login = useCallback(async (email: string, password: string, redirectTo?: string) => {
     try {
@@ -72,10 +107,7 @@ export const useAuthProvider = () => {
         description: 'Logged in successfully',
       });
       
-      // Redirect will be handled by the auth state change listener
-      if (redirectTo) {
-        localStorage.setItem('redirectAfterLogin', redirectTo);
-      }
+      // Don't navigate here - let the auth state change handler do it
     } catch (error: any) {
       setError(error.message);
       toast({
@@ -86,17 +118,17 @@ export const useAuthProvider = () => {
     } finally {
       setLoading(false);
     }
-  }, [navigate, toast]);
+  }, [toast]);
 
   const googleSignIn = useCallback(async (redirectTo?: string) => {
     try {
       setLoading(true);
       setError(null);
       
-      // Store redirect URL for after auth
-      if (redirectTo) {
+      // Store redirect URL for after auth if provided and not already stored
+      if (redirectTo && !localStorage.getItem('redirectAfterLogin')) {
         localStorage.setItem('redirectAfterLogin', redirectTo);
-      } else if (location.pathname !== '/login') {
+      } else if (location.pathname !== '/login' && !localStorage.getItem('redirectAfterLogin')) {
         localStorage.setItem('redirectAfterLogin', location.pathname);
       }
       
@@ -191,4 +223,5 @@ export const useAuthProvider = () => {
 export type AuthContextType = ReturnType<typeof useAuthProvider> & {
   isAdminAuthenticated?: boolean;
   adminLogout?: () => void;
+  storeRedirectPath?: (path: string) => void;
 };

@@ -9,8 +9,15 @@ interface AdminGuardProps {
 }
 
 const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
-  const { isAdminAuthenticated } = useAuth();
+  const { isAdminAuthenticated, storeRedirectPath } = useAuth();
   const location = useLocation();
+  
+  // Store current admin path for post-login redirect
+  useEffect(() => {
+    if (!isAdminAuthenticated && location.pathname.startsWith('/admin')) {
+      storeRedirectPath(location.pathname);
+    }
+  }, [isAdminAuthenticated, location.pathname, storeRedirectPath]);
   
   // Show loading state while checking authentication
   if (isAdminAuthenticated === null) {
@@ -24,6 +31,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   
   // Redirect to unified login page with admin tab if not authenticated
   if (!isAdminAuthenticated) {
+    // Pass the current location via state as a backup
     return <Navigate to="/login?tab=admin" state={{ from: location }} replace />;
   }
   
