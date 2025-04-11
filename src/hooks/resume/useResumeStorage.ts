@@ -78,26 +78,52 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
 };
 
 // Simplified bucket check that doesn't try to create the bucket if it doesn't exist
+// const checkBucketExists = async (): Promise<boolean> => {
+//   try {
+//     // Just check if the bucket exists without trying to create it
+//     const { data, error } = await supabase.storage.listBuckets() //supabase.storage.getBucket('Resumes');
+//       console.log("Bucket check: ", data, "Error: ", error)
+    
+//     if (error) {
+//       if (error.message.includes('Bucket not found')) {
+//         console.log('Resumes bucket not found. This should be created by SQL migrations.');
+//         return false;
+//       }
+      
+//       console.error('Error checking resumes bucket:', error);
+//       return false;
+//     }
+    
+//     console.log('Resumes bucket exists');
+//     return true;
+//   } catch (error) {
+//     console.error('Error checking bucket existence:', error);
+//     return false;
+//   }
+// };
+
 const checkBucketExists = async (): Promise<boolean> => {
   try {
-    // Just check if the bucket exists without trying to create it
-    const { data, error } = await supabase.storage.listBuckets() //supabase.storage.getBucket('Resumes');
-      console.log("Bucket check: ", data, "Error: ", error)
-    
+    const { data: buckets, error } = await supabase.storage.listBuckets();
+    console.log("Bucket check: ", buckets, "Error: ", error);
+
     if (error) {
-      if (error.message.includes('Bucket not found')) {
-        console.log('Resumes bucket not found. This should be created by SQL migrations.');
-        return false;
-      }
-      
-      console.error('Error checking resumes bucket:', error);
+      console.error('Error checking buckets:', error);
       return false;
     }
-    
+
+    // Look for a bucket with ID 'resumes' (case-sensitive)
+    const exists = buckets?.some(bucket => bucket.id === 'resumes');
+
+    if (!exists) {
+      console.log('Resumes bucket not found. This should be created by SQL migrations.');
+      return false;
+    }
+
     console.log('Resumes bucket exists');
     return true;
   } catch (error) {
-    console.error('Error checking bucket existence:', error);
+    console.error('Unexpected error checking bucket existence:', error);
     return false;
   }
 };
