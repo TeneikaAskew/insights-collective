@@ -1,12 +1,12 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
-const hasFetchedResume = useRef(false);
 
-
-const signedUrlCache = new Map<string, string>(); // Create cache outside of hook
+// Create cache outside of hook
+const signedUrlCache = new Map<string, string>();
 
 export interface Resume {
   id: string;
@@ -58,6 +58,7 @@ export const useResume = () => {
   const { toast } = useToast();
   const signedUrlCacheRef = useRef<Map<string, string>>(signedUrlCache);
   const hasFetchedUrlRef = useRef<boolean>(false);
+  const hasFetchedResume = useRef(false);
   
   // Import the storage functions directly rather than using the hook again
   // This fixes the React error #321 (hooks can't be used conditionally)
@@ -70,13 +71,12 @@ export const useResume = () => {
     } else {
       setResume(null);
       setLoading(false);
-      // hasFetchedResume.current = false; // ✅ Reset if user logs out or changes
+      hasFetchedResume.current = false; // Reset if user logs out or changes
     }
   }, [user]);
 
   // Fetch resume data from Supabase
   const fetchResume = async () => {
-    // if (!user) return;
     if (!user || hasFetchedResume.current) return;
     hasFetchedResume.current = true;
 

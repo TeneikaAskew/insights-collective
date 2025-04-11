@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CareerTrack, getSkillLevel, getTrackPersona } from '@/data/careerQuizData';
@@ -21,16 +20,13 @@ const QuizResultsSection = () => {
   const { initiateCareerCoachChat } = useCareerCoach();
 
   useEffect(() => {
-    // Load saved quiz results from localStorage
     const loadQuizResults = () => {
       try {
-        // Check if we have quiz scores in localStorage
         const storedScores = localStorage.getItem('quizScores');
         
         if (storedScores) {
           const scores = JSON.parse(storedScores) as Record<CareerTrack, number>;
           
-          // Sort tracks by score (highest to lowest) and take top 3
           const topTracks = Object.entries(scores)
             .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
             .slice(0, 3)
@@ -70,7 +66,6 @@ const QuizResultsSection = () => {
     }
   };
 
-  // Helper function to map tracks to career roles
   const getCareerRoleId = (track: CareerTrack): string => {
     switch (track) {
       case 'AI/ML':
@@ -87,11 +82,9 @@ const QuizResultsSection = () => {
   };
 
   const handleTakeQuiz = () => {
-    // Scroll to quiz section on homepage
     navigate('/#quiz-section');
   };
 
-  // Create default empty scores object with the correct type
   const getDefaultScores = (): Record<CareerTrack, number> => {
     return {
       'AI/ML': 0,
@@ -101,7 +94,6 @@ const QuizResultsSection = () => {
     };
   };
 
-  // Create default empty answers object
   const getDefaultAnswers = (): Record<number, number | string> => {
     return {};
   };
