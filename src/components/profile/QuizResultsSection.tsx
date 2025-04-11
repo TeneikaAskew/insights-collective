@@ -91,6 +91,21 @@ const QuizResultsSection = () => {
     navigate('/#quiz-section');
   };
 
+  // Create default empty scores object with the correct type
+  const getDefaultScores = (): Record<CareerTrack, number> => {
+    return {
+      'AI/ML': 0,
+      'Analytics': 0,
+      'Data Engineering': 0,
+      'Business Intelligence': 0
+    };
+  };
+
+  // Create default empty answers object
+  const getDefaultAnswers = (): Record<number, number | string> => {
+    return {};
+  };
+
   return (
     <div>
       {hasResults && quizResults ? (
@@ -137,7 +152,7 @@ const QuizResultsSection = () => {
             </Button>
             <Button 
               size="sm"
-              onClick={() => initiateCareerCoachChat({}, {})} 
+              onClick={() => initiateCareerCoachChat(getDefaultAnswers(), getDefaultScores())} 
             >
               Chat with Career Coach
             </Button>

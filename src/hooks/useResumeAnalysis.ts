@@ -1,3 +1,4 @@
+
 // import { useState, useEffect } from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
@@ -172,7 +173,7 @@ export function useResumeAnalysis() {
       console.log("Calling resume-analyzer edge function");
       
       try {
-        const { data, error } = await supabase.functions.invoke('resume-analyzer', {
+        const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
           body: { 
             resumeText: resumeText,
             userId: user.id
@@ -184,12 +185,12 @@ export function useResumeAnalysis() {
           throw error;
         }
         
-        console.log("Resume analysis complete:", data ? "Success" : "No data returned");
+        console.log("Resume analysis complete:", analysisData ? "Success" : "No data returned");
         
-        // if (!data) {
-        //   throw new Error("No data returned from analysis");
-        // }
-        if (!data) {
+        // Check if we have analysis data
+        let finalAnalysisData = analysisData;
+        
+        if (!finalAnalysisData) {
           console.warn("No analysis returned from edge function; attempting fallback to DB");
         
           const { data: resumeRecord, error: fetchError } = await supabase
@@ -205,15 +206,14 @@ export function useResumeAnalysis() {
         
           if (resumeRecord?.analysis) {
             console.warn("Using existing analysis from DB");
-            data = resumeRecord.analysis;
+            finalAnalysisData = resumeRecord.analysis;
           } else {
             throw new Error("No analysis data returned from edge function or DB");
           }
         }
-
         
         // Clean up any prompt markers or artifacts in the analysis data
-        const cleanedData = cleanAnalysisOutput(data);
+        const cleanedData = cleanAnalysisOutput(finalAnalysisData);
         
         // Add the resume ID to the analysis data
         cleanedData.resume_id = user.id;
