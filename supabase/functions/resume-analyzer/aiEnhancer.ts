@@ -61,15 +61,47 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
     // 4) Ensure bold-only lines become headers
     text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
   
-    // 5) Remove noisy labels like “Professional Elevator Pitch:***” and others
-    text = text.replace(/Professional Elevator Pitch:\*+\s*/gi, '');
-    text = text.replace(/Brief Explanation of the Resume Grade:\*+\s*/gi, '');
-    text = text.replace(/Three Specific Improvement Themes:\*+\s*/gi, '');
-    // Remove noisy labels from the text:
-    text = text.replace(/Professional Elevator Pitch:\s*\*+\s*/gi, '');
-    text = text.replace(/Brief Explanation of the Resume Grade:\s*\*+\s*/gi, '');
-    text = text.replace(/Three Specific Improvement Themes:\s*\*+\s*/gi, '');
-    text = text.replace(/Resume Grade and Explanation:\s*\*+\s*/gi, '');
+    // // 5) Remove noisy labels like “Professional Elevator Pitch:***” and others
+    // text = text.replace(/Professional Elevator Pitch:\*+\s*/gi, '');
+    // text = text.replace(/Brief Explanation of the Resume Grade:\*+\s*/gi, '');
+    // text = text.replace(/Three Specific Improvement Themes:\*+\s*/gi, '');
+    // // Remove noisy labels from the text:
+    // text = text.replace(/Professional Elevator Pitch:\s*\*+\s*/gi, '');
+    // text = text.replace(/Brief Explanation of the Resume Grade:\s*\*+\s*/gi, '');
+    // text = text.replace(/Three Specific Improvement Themes:\s*\*+\s*/gi, '');
+    // text = text.replace(/Resume Grade and Explanation:\s*\*+\s*/gi, '');
+
+      // 5) Remove noisy markdown-like labels (flexible pattern)
+    text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
+  
+    // 6) Remove known noise patterns
+    const noisyPatterns = [
+      /Resume Grade Explanation:\*?.*/gi,
+      /Brief Explanation of the Resume Grade:\*?.*/gi,
+      /Three Specific Improvement Themes:\*?.*/gi,
+      /Quantifiable Results:\*?.*/gi,
+      /IStronger Action Verbs:k:.*/gi,
+      /Specific Improvement Themes:\*?.*/gi,
+      /Concise Language:\*?.*/gi,
+      /Professional Elevator Pitch:\*?.*/gi,
+      /Resume Grade and Explanation:\*?.*/gi
+    ];
+    for (const pattern of noisyPatterns) {
+      text = text.replace(pattern, '');
+    }
+  
+    // 7) Remove markdown-like noise lines
+    text = text.replace(/^##\s*\*/gm, '');
+    text = text.replace(/-\s*\*+[A-Za-z\s]+:\*+/g, '-');
+    text = text.replace(/\*+[A-Za-z\s]+:\*+/g, '');
+  
+    // 8) Remove floating bold/italic markers (e.g., **, ***, etc.)
+    text = text.replace(/(?<=\s|^)\*{2,}(?=\s|$)/g, '');
+    text = text.replace(/(?<=\s|^)_+(?=\s|$)/g, '');
+  
+    // 9) Collapse 3+ blank lines → 2
+    text = text.replace(/\n{3,}/g, '\n\n');
+
 
 
   
