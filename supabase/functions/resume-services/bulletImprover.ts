@@ -1,9 +1,13 @@
 
 import { safeJsonParse, handleApiError } from '../resume-analyzer/utils.ts';
 
-// Type for the bullet improvement parameters
-interface BulletImproverParams {
-  original: string;
+interface BulletImprovement {
+  rewritten: string;
+  tips: string;
+}
+
+interface BulletData {
+  original: string; 
   xyz_scores: {
     hard_soft: number;
     action_words: number;
@@ -19,36 +23,14 @@ interface BulletImproverParams {
   };
 }
 
-// Response type
-interface BulletImproverResponse {
-  rewritten: string;
-  tips: string;
-}
-
-// Improve a bullet point using GROQ
-export async function improveBullet(params: BulletImproverParams): Promise<BulletImproverResponse> {
+// Improve bullet points using GROQ
+export async function improveBullet(bullet: BulletData): Promise<BulletImprovement> {
   try {
     const GROQ_API_KEY = Deno.env.get('GROQ');
     if (!GROQ_API_KEY) {
-      console.warn("GROQ API key not found, falling back to basic rewrite");
+      console.warn("GROQ API key not found, bullet improvement will be limited");
       throw new Error("GROQ API key not configured");
     }
-
-    const { original, xyz_scores, word_balance_score, word_balance } = params;
-    
-    // Create a summary of current scores and areas for improvement
-    const improvementNeeds = [];
-    if (xyz_scores.hard_soft < 3) improvementNeeds.push("add more specific technical skills or leadership traits");
-    if (xyz_scores.action_words < 3) improvementNeeds.push("use stronger action verbs and avoid passive voice");
-    if (xyz_scores.measurable_results < 3) improvementNeeds.push("include quantifiable results (%, $, metrics)");
-    if (xyz_scores.clarity_focus < 3) improvementNeeds.push("make more concise and focused (aim for 25 words)");
-    if (word_balance.industry_pct < 20) improvementNeeds.push("include more industry-specific terms");
-    if (word_balance.action_pct < 10) improvementNeeds.push("increase use of strong action words");
-    if (word_balance.metric_pct < 5) improvementNeeds.push("add more quantifiable metrics");
-    
-    const improvementSummary = improvementNeeds.length > 0 
-      ? `Areas to improve: ${improvementNeeds.join(", ")}.` 
-      : "This is already a strong bullet, but consider minor enhancements for clarity and impact.";
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -61,30 +43,38 @@ export async function improveBullet(params: BulletImproverParams): Promise<Bulle
         messages: [
           {
             role: 'system',
-            content: `You are an expert resume writer specializing in improving resume bullet points. You will analyze a resume bullet and improve it, focusing on clarity, measurable impact, and professional phrasing. Return a JSON object with two fields: "rewritten" (the improved bullet) and "tips" (concise advice for further refinement). 
-
-Current scores:
-- Hard/Soft Skills: ${xyz_scores.hard_soft}/5
-- Action Words: ${xyz_scores.action_words}/5
-- Measurable Results: ${xyz_scores.measurable_results}/5
-- Clarity & Focus: ${xyz_scores.clarity_focus}/5
-- Word Balance Score: ${word_balance_score}/25
-
-Word distribution:
-- Industry Terms: ${word_balance.industry_pct}%
-- Common Words: ${word_balance.common_pct}%
-- Action Words: ${word_balance.action_pct}%
-- Metrics: ${word_balance.metric_pct}%
-
-${improvementSummary}`
+            content: `You are a resume writing expert. Analyze and improve bullet points to make them more impactful and professional.
+            Focus on:
+            1. Strong action verbs
+            2. Measurable achievements
+            3. Technical skills and leadership qualities
+            4. Clarity and conciseness
+            Return ONLY a JSON object with two fields:
+            - "rewritten": the improved bullet point
+            - "tips": specific improvement suggestions for the original`
           },
           {
             role: 'user',
-            content: `Improve this resume bullet point:\n\n"${original}"\n\nReturn only valid JSON with "rewritten" and "tips" fields.`
+            content: `Improve this resume bullet point:
+            
+Original: "${bullet.original}"
+
+Current scores:
+- Hard/Soft Skills: ${bullet.xyz_scores.hard_soft}/5
+- Action Words: ${bullet.xyz_scores.action_words}/5
+- Measurable Results: ${bullet.xyz_scores.measurable_results}/5
+- Clarity & Focus: ${bullet.xyz_scores.clarity_focus}/5
+- Word Balance Score: ${bullet.word_balance_score}/25
+- Industry terms: ${bullet.word_balance.industry_pct}%
+- Common words: ${bullet.word_balance.common_pct}%
+- Action words: ${bullet.word_balance.action_pct}%
+- Metric terms: ${bullet.word_balance.metric_pct}%
+
+Please rewrite this bullet to improve its impact focusing on the weakest areas identified above. Return only a JSON with "rewritten" and "tips" fields.`
           }
         ],
         temperature: 0.3,
-        max_tokens: 512
+        max_tokens: 1024
       })
     });
 
@@ -95,20 +85,26 @@ ${improvementSummary}`
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '{}';
+    const content = data.choices?.[0]?.message?.content || '';
     
-    // Parse the JSON response
-    let result: BulletImproverResponse;
+    let improvement: BulletImprovement;
     try {
-      result = safeJsonParse(content, { rewritten: original, tips: "Could not generate improvements." });
+      // Try to parse the content as JSON directly
+      improvement = safeJsonParse(content, {
+        rewritten: bullet.original,
+        tips: "No specific improvement suggestions available."
+      });
       
-      // If parsing failed or resulted in incorrect format, try to extract JSON from content
-      if (!result.rewritten || !result.tips) {
-        const jsonMatch = content.match(/\{.*\}/s);
+      // If fields are missing, look for JSON object in content
+      if (!improvement.rewritten || !improvement.tips) {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          const extractedJson = safeJsonParse(jsonMatch[0], { rewritten: original, tips: "Could not generate improvements." });
-          if (extractedJson.rewritten && extractedJson.tips) {
-            result = extractedJson;
+          const extractedJson = safeJsonParse(jsonMatch[0], {
+            rewritten: bullet.original,
+            tips: "No specific improvement suggestions available."
+          });
+          if (extractedJson.rewritten) {
+            improvement = extractedJson;
           }
         }
       }
@@ -118,15 +114,14 @@ ${improvementSummary}`
     }
 
     return {
-      rewritten: result.rewritten || original,
-      tips: result.tips || "Consider improving this bullet point by adding more specificity, metrics, and stronger action verbs."
+      rewritten: improvement.rewritten || bullet.original,
+      tips: improvement.tips || "No specific improvement suggestions available."
     };
   } catch (error) {
     console.error("Error in bullet improvement:", error);
-    // Provide a default response when GROQ fails
     return {
-      rewritten: params.original,
-      tips: "Consider using stronger action verbs, adding measurable results, and being more concise."
+      rewritten: bullet.original,
+      tips: "Consider improving this bullet with more specific achievements and stronger action verbs."
     };
   }
 }

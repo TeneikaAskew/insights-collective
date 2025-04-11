@@ -67,7 +67,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
       },
       word_balance_score: Math.min(25, (selectedBullet?.word_balance_score || 0) + 2),
       word_balance: {
-        industry_pct: Math.min(45, (selectedBullet?.word_balance?.industry_pct || 0) + 2),
+        industry_pct: Math.min(45, (selectedBullet?.word_balance?.industry_pct || 0) + 5),
         common_pct: Math.max(25, (selectedBullet?.word_balance?.common_pct || 0) - 2),
         action_pct: Math.min(15, (selectedBullet?.word_balance?.action_pct || 0) + 2),
         metric_pct: Math.min(15, (selectedBullet?.word_balance?.metric_pct || 0) + 2)

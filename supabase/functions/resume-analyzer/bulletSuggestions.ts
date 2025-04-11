@@ -1,5 +1,5 @@
 
-import { actionWords } from './bulletAnalysis';
+import { actionWords } from './bulletAnalysis.ts';
 import { improveBullet } from '../resume-services/bulletImprover.ts';
 
 // Rewrite bullet function using GROQ
