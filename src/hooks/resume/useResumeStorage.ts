@@ -81,7 +81,7 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
 const checkBucketExists = async (): Promise<boolean> => {
   try {
     // Just check if the bucket exists without trying to create it
-    const { data, error } = await supabase.storage.getBucket('Resumes');
+    const { data, error } = await supabase.storage.listBuckets() //supabase.storage.getBucket('Resumes');
       console.log("Bucket check: ", data, "Error: ", error)
     
     if (error) {
