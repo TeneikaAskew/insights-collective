@@ -12,7 +12,6 @@ export const generatePersistentUUID = (id: string, prefix: string = ''): string 
   const namespace = `${prefix}_${id}`;
   
   // Use namespace as a seed to generate a UUID in a deterministic way
-  // This is a simple implementation - in production, you might want more sophisticated UUID generation
   let hash = 0;
   for (let i = 0; i < namespace.length; i++) {
     const char = namespace.charCodeAt(i);
@@ -20,17 +19,22 @@ export const generatePersistentUUID = (id: string, prefix: string = ''): string 
     hash = hash & hash; // Convert to 32bit integer
   }
   
-  // Use hash as a seed for Math.random
-  const seed = Math.abs(hash);
-  const random = () => {
-    const x = Math.sin(seed++) * 10000;
-    return x - Math.floor(x);
+  // Create a seeded random generator function
+  const createSeededRandom = (initialSeed: number) => {
+    let seed = initialSeed;
+    return () => {
+      const x = Math.sin(seed++) * 10000;
+      return x - Math.floor(x);
+    };
   };
+  
+  // Use the hash as a seed
+  const seededRandom = createSeededRandom(Math.abs(hash));
   
   // Generate parts of a UUID using our seeded random function
   const parts = [];
   for (let i = 0; i < 8; i++) {
-    parts.push(Math.floor(random() * 16).toString(16));
+    parts.push(Math.floor(seededRandom() * 16).toString(16));
   }
   
   // Format as UUID
