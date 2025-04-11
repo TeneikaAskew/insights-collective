@@ -204,12 +204,12 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
             key={idx} 
             className={`transition-colors duration-200 ${
               part.category === BULLET_CATEGORIES.HARD_SOFT 
-                ? 'text-blue-800 hover:text-blue-900' : 
+                ? 'text-[#1E40AF] font-bold' : 
               part.category === BULLET_CATEGORIES.ACTION 
-                ? 'text-amber-600 hover:text-amber-700' : 
+                ? 'text-[#D97706] font-bold' : 
               part.category === BULLET_CATEGORIES.MEASURABLE 
-                ? 'text-teal-600 hover:text-teal-700' : 
-              'text-gray-600 hover:text-gray-700'
+                ? 'text-[#0D9488] font-bold' : 
+              'text-gray-600'
             }`}
           >
             {part.text}
