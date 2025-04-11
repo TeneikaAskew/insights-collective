@@ -22,6 +22,7 @@ const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: Log
   // Store the current path for redirect after login
   useEffect(() => {
     storeRedirectPath(location.pathname);
+    console.log('LoginWall: stored path:', location.pathname);
   }, [location.pathname, storeRedirectPath]);
   
   return (

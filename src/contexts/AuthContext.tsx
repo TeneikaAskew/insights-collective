@@ -42,7 +42,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     storeRedirectPath: (path: string) => {
       if (path && path !== '/login' && path !== '/register' && path !== '/') {
         localStorage.setItem('redirectAfterLogin', path);
-        console.log('Stored redirect path:', path);
+        console.log('AuthContext: Stored redirect path:', path);
       }
     }
   };

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,7 +19,7 @@ const Login = () => {
   
   // Extract redirect URL and tab from query parameters
   const query = new URLSearchParams(location.search);
-  const redirectTo = query.get('redirect') || '/dashboard';
+  const redirectTo = query.get('redirect');
   const defaultTab = query.get('tab') || 'user';
   
   // Get the from location if it exists
@@ -28,8 +27,9 @@ const Login = () => {
   
   // Store the redirect URL in localStorage when the component mounts
   useEffect(() => {
-    if (from && from !== '/dashboard' && from !== '/login') {
+    if (from && from !== '/login' && from !== '/register') {
       localStorage.setItem('redirectAfterLogin', from);
+      console.log('Login page: stored redirect path:', from);
     }
   }, [from]);
 
@@ -47,13 +47,9 @@ const Login = () => {
   // Redirect authenticated users
   useEffect(() => {
     if (isAuthenticated) {
-      const storedRedirect = localStorage.getItem('redirectAfterLogin');
-      if (storedRedirect) {
-        navigate(storedRedirect);
-        localStorage.removeItem('redirectAfterLogin');
-      } else {
-        navigate(from);
-      }
+      const redirectPath = from || localStorage.getItem('redirectAfterLogin') || '/dashboard';
+      navigate(redirectPath, { replace: true });
+      localStorage.removeItem('redirectAfterLogin');
     }
   }, [isAuthenticated, navigate, from]);
   

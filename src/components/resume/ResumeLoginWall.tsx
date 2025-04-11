@@ -15,6 +15,7 @@ const ResumeLoginWall = () => {
   // Store the current path for redirect after login
   useEffect(() => {
     storeRedirectPath(location.pathname);
+    console.log('ResumeLoginWall: stored path:', location.pathname);
   }, [location.pathname, storeRedirectPath]);
   
   return (

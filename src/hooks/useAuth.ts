@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -22,29 +23,29 @@ export const useAuthProvider = () => {
   
   // Helper function to handle post-login redirects
   const handleRedirectAfterLogin = useCallback(() => {
-    // Priority 1: Check localStorage for saved redirect path
-    const storedRedirect = localStorage.getItem('redirectAfterLogin');
+    // Priority 1: Check URL parameters for redirect info
+    const urlParams = new URLSearchParams(location.search);
+    const redirectParam = urlParams.get('redirect');
     
     // Priority 2: Check location state for redirect info
     const locationState = location.state as { from?: { pathname: string } } | null;
     const fromPath = locationState?.from?.pathname;
     
-    // Priority 3: Check URL parameters
-    const urlParams = new URLSearchParams(location.search);
-    const redirectParam = urlParams.get('redirect');
+    // Priority 3: Check localStorage for saved redirect path
+    const storedRedirect = localStorage.getItem('redirectAfterLogin');
     
-    console.log('Redirect options:', { storedRedirect, fromPath, redirectParam });
+    console.log('Redirect options:', { redirectParam, fromPath, storedRedirect });
     
     // Choose redirect path based on priority
     let redirectTo = '/dashboard'; // Default fallback
     
-    if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
-      redirectTo = storedRedirect;
-      localStorage.removeItem('redirectAfterLogin');
+    if (redirectParam) {
+      redirectTo = redirectParam;
     } else if (fromPath && fromPath !== '/login' && fromPath !== '/register') {
       redirectTo = fromPath;
-    } else if (redirectParam) {
-      redirectTo = redirectParam;
+    } else if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
+      redirectTo = storedRedirect;
+      localStorage.removeItem('redirectAfterLogin');
     }
     
     // Special case for admin routes
@@ -57,7 +58,7 @@ export const useAuthProvider = () => {
     }
     
     console.log('Final redirect destination:', redirectTo);
-    navigate(redirectTo);
+    navigate(redirectTo, { replace: true });
   }, [navigate, location]);
   
   // Update session and user on auth state change
