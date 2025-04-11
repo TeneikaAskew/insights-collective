@@ -3,6 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
+const hasFetchedResume = useRef(false);
+
 
 const signedUrlCache = new Map<string, string>(); // Create cache outside of hook
 
@@ -68,12 +70,15 @@ export const useResume = () => {
     } else {
       setResume(null);
       setLoading(false);
+      // hasFetchedResume.current = false; // ✅ Reset if user logs out or changes
     }
   }, [user]);
 
   // Fetch resume data from Supabase
   const fetchResume = async () => {
-    if (!user) return;
+    // if (!user) return;
+    if (!user || hasFetchedResume.current) return;
+    hasFetchedResume.current = true;
 
     try {
       setLoading(true);
