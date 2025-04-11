@@ -125,3 +125,36 @@ Please rewrite this bullet to improve its impact focusing on the weakest areas i
     };
   }
 }
+
+// Helper service function to expose endpoint
+export function serveBulletImprover() {
+  return async (req: Request) => {
+    try {
+      const bulletData = await req.json();
+      
+      if (!bulletData || !bulletData.original) {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid bullet data" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const improvement = await improveBullet(bulletData);
+      
+      return new Response(
+        JSON.stringify(improvement),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    } catch (error) {
+      console.error("Error in bullet improver service:", error);
+      return new Response(
+        JSON.stringify({ 
+          error: error.message || "Failed to improve bullet",
+          rewritten: bulletData?.original || "",
+          tips: "Our system encountered an error while generating improvements."
+        }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  };
+}

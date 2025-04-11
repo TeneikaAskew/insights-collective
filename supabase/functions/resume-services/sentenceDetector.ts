@@ -73,3 +73,32 @@ export async function detectSentences(text: string): Promise<string[]> {
     throw error;
   }
 }
+
+// Helper service function to expose endpoint
+export function serveSentenceDetector() {
+  return async (req: Request) => {
+    try {
+      const { text } = await req.json();
+      
+      if (!text || typeof text !== 'string') {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid text parameter" }),
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
+      const sentences = await detectSentences(text);
+      
+      return new Response(
+        JSON.stringify({ sentences }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    } catch (error) {
+      console.error("Error in sentence detector service:", error);
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to detect sentences" }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  };
+}
