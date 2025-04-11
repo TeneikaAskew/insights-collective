@@ -15,8 +15,16 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   // Store current admin path for post-login redirect
   useEffect(() => {
     if (!isAdminAuthenticated && location.pathname.startsWith('/admin')) {
-      storeRedirectPath(location.pathname);
-      console.log('AdminGuard: stored admin path:', location.pathname);
+      // Save the admin path both ways for redundancy
+      // 1. In localStorage (our primary method)
+      localStorage.setItem('redirectAfterLogin', location.pathname);
+      console.log('AdminGuard: stored admin path in localStorage:', location.pathname);
+      
+      // 2. Using the context method if available (redundant backup)
+      if (storeRedirectPath) {
+        storeRedirectPath(location.pathname);
+        console.log('AdminGuard: stored admin path via context:', location.pathname);
+      }
     }
   }, [isAdminAuthenticated, location.pathname, storeRedirectPath]);
   
@@ -32,8 +40,11 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   
   // Redirect to unified login page with admin tab if not authenticated
   if (!isAdminAuthenticated) {
+    // Create URL with tab parameter and redirect to admin login
+    const loginUrl = `/login?tab=admin`;
+    
     // Pass the current location via state for redirect after login
-    return <Navigate to="/login?tab=admin" state={{ from: location }} replace />;
+    return <Navigate to={loginUrl} state={{ from: location }} replace />;
   }
   
   // Render children if authenticated

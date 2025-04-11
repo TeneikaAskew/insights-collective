@@ -19,19 +19,30 @@ const Login = () => {
   
   // Extract redirect URL and tab from query parameters
   const query = new URLSearchParams(location.search);
-  const redirectTo = query.get('redirect');
+  const redirectParam = query.get('redirect');
   const defaultTab = query.get('tab') || 'user';
   
-  // Get the from location if it exists
-  const from = location.state?.from?.pathname || redirectTo;
+  // Get the from location - prioritize different sources
+  // 1. From location state (highest priority)
+  // 2. From URL parameter
+  // 3. From localStorage (fallback)
+  const fromState = location.state?.from?.pathname;
+  const from = fromState || redirectParam || localStorage.getItem('redirectAfterLogin');
   
   // Store the redirect URL in localStorage when the component mounts
   useEffect(() => {
+    console.log('Login page: Checking redirect paths. Options:', {
+      fromState,
+      redirectParam,
+      localStoragePath: localStorage.getItem('redirectAfterLogin'),
+      currentPath: location.pathname
+    });
+    
     if (from && from !== '/login' && from !== '/register') {
       localStorage.setItem('redirectAfterLogin', from);
       console.log('Login page: stored redirect path:', from);
     }
-  }, [from]);
+  }, [from, fromState, redirectParam, location.pathname]);
 
   // States for regular login
   const [email, setEmail] = useState('');
@@ -47,9 +58,14 @@ const Login = () => {
   // Redirect authenticated users
   useEffect(() => {
     if (isAuthenticated) {
-      const redirectPath = from || localStorage.getItem('redirectAfterLogin') || '/dashboard';
+      const redirectPath = from || '/dashboard';
+      console.log('Login page: User authenticated, redirecting to:', redirectPath);
       navigate(redirectPath, { replace: true });
-      localStorage.removeItem('redirectAfterLogin');
+      if (!redirectPath.startsWith('/admin')) {
+        // Only clear localStorage if not redirecting to admin route
+        // Admin routes should keep their redirects in sessionStorage
+        localStorage.removeItem('redirectAfterLogin');
+      }
     }
   }, [isAuthenticated, navigate, from]);
   
@@ -64,7 +80,7 @@ const Login = () => {
     
     try {
       setLoading(true);
-      await login(email, password, from !== '/dashboard' ? from : undefined);
+      await login(email, password);
       // Redirect handled by useEffect
     } catch (error: any) {
       setError(error.message);
@@ -76,10 +92,7 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      // Store the current path for redirect after login
-      if (from !== '/dashboard' && from !== '/login') {
-        localStorage.setItem('redirectAfterLogin', from);
-      }
+      // The redirect URL is already stored in localStorage by the useEffect above
       await googleSignIn();
       // OAuth redirect will happen automatically
     } catch (error: any) {
@@ -105,8 +118,14 @@ const Login = () => {
           description: 'Logged in as administrator',
         });
         
-        // Redirect to admin dashboard or previous page
-        const adminRedirect = from.startsWith('/admin') ? from : '/admin';
+        // Redirect to admin dashboard or previous admin page
+        const adminRedirect = fromState?.startsWith('/admin') 
+          ? fromState 
+          : localStorage.getItem('redirectAfterLogin')?.startsWith('/admin')
+            ? localStorage.getItem('redirectAfterLogin')
+            : '/admin';
+        
+        console.log('Admin login: Redirecting to:', adminRedirect);
         navigate(adminRedirect);
       } else {
         toast({

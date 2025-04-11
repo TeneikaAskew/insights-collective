@@ -41,11 +41,17 @@ export const useAuthProvider = () => {
     
     if (redirectParam) {
       redirectTo = redirectParam;
+      console.log('Using redirect from URL parameter:', redirectParam);
     } else if (fromPath && fromPath !== '/login' && fromPath !== '/register') {
       redirectTo = fromPath;
+      console.log('Using redirect from location state:', fromPath);
     } else if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
       redirectTo = storedRedirect;
-      localStorage.removeItem('redirectAfterLogin');
+      console.log('Using redirect from localStorage:', storedRedirect);
+      // Clear the stored redirect, but only if it's not an admin route
+      if (!redirectTo.startsWith('/admin')) {
+        localStorage.removeItem('redirectAfterLogin');
+      }
     }
     
     // Special case for admin routes
@@ -75,7 +81,7 @@ export const useAuthProvider = () => {
           }, 0);
         } else if (event === 'SIGNED_OUT') {
           setSession(null);
-          localStorage.removeItem('redirectAfterLogin');
+          // Don't clear localStorage here to avoid issues with admin redirects
         }
       }
     );

@@ -17,12 +17,23 @@ interface LoginWallProps {
 const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: LoginWallProps) => {
   const location = useLocation();
   const { storeRedirectPath } = useAuth();
+  
+  // Create login URL with redirect parameter 
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   
   // Store the current path for redirect after login
   useEffect(() => {
-    storeRedirectPath(location.pathname);
-    console.log('LoginWall: stored path:', location.pathname);
+    // Store redirect path in localStorage
+    if (location.pathname !== '/login' && location.pathname !== '/register') {
+      localStorage.setItem('redirectAfterLogin', location.pathname);
+      console.log('LoginWall: stored path in localStorage:', location.pathname);
+    }
+    
+    // Also use the context method if available (this will be a redundant backup)
+    if (storeRedirectPath) {
+      storeRedirectPath(location.pathname);
+      console.log('LoginWall: stored path via context:', location.pathname);
+    }
   }, [location.pathname, storeRedirectPath]);
   
   return (
