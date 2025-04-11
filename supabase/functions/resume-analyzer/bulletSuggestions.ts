@@ -1,6 +1,6 @@
 
 import { actionWords } from './bulletAnalysis.ts';
-import { improveBullet } from '../resume-services/bulletImprover.ts';
+import { improveBullet } from './bulletImprover.ts';
 
 import { skillsKeywords } from './bulletAnalysis.ts';
 

@@ -46,7 +46,7 @@ export const courseSuggestorAssistant: Assistant = {
       className: "h-4 w-4"
     }
   },
-  category: 'education'
+  category: 'career'
 };
 
 export const resumeAnalyzerAssistant: Assistant = {
