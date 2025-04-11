@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -7,11 +8,7 @@ import { enhanceWithGroq } from "./aiEnhancer.ts";
 import { serveBulletImprover } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0"
-
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+import { corsHeaders } from "./utils.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -390,8 +387,11 @@ async function analyzeResume(resumeText: string, userId?: string) {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: corsHeaders
+    });
   }
   
   const url = new URL(req.url);

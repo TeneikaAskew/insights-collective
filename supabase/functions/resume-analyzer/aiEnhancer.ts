@@ -61,17 +61,7 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
     // 4) Ensure bold-only lines become headers
     text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
   
-    // // 5) Remove noisy labels like “Professional Elevator Pitch:***” and others
-    // text = text.replace(/Professional Elevator Pitch:\*+\s*/gi, '');
-    // text = text.replace(/Brief Explanation of the Resume Grade:\*+\s*/gi, '');
-    // text = text.replace(/Three Specific Improvement Themes:\*+\s*/gi, '');
-    // // Remove noisy labels from the text:
-    // text = text.replace(/Professional Elevator Pitch:\s*\*+\s*/gi, '');
-    // text = text.replace(/Brief Explanation of the Resume Grade:\s*\*+\s*/gi, '');
-    // text = text.replace(/Three Specific Improvement Themes:\s*\*+\s*/gi, '');
-    // text = text.replace(/Resume Grade and Explanation:\s*\*+\s*/gi, '');
-
-      // 5) Remove noisy markdown-like labels (flexible pattern)
+    // 5) Remove noisy markdown-like labels (flexible pattern)
     text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
   
     // 6) Remove known noise patterns
@@ -102,16 +92,9 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
     // 9) Collapse 3+ blank lines → 2
     text = text.replace(/\n{3,}/g, '\n\n');
 
-
-
-  
-    // 6) Collapse 3+ blank lines → 2
-    text = text.replace(/\n{3,}/g, '\n\n');
-  
-    // 7) Trim trailing spaces and outer whitespace
-    return text.split('\n').map(line => line.trimEnd()).join('\n').trim(); //.map(l => l.trimEnd())
+    // 10) Trim trailing spaces and outer whitespace
+    return text.split('\n').map(line => line.trimEnd()).join('\n').trim();
   }
-
     
     // Call the GROQ API with timeout
     const controller = new AbortController();

@@ -29,3 +29,6 @@ api_url = "http://localhost:54321"
 
 [functions.assistant-ai]
 verify_jwt = true
+
+[functions.resume-analyzer]
+verify_jwt = true
