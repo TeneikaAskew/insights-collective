@@ -29,7 +29,7 @@ export interface BlogPost {
 const blogPosts: BlogPost[] = [
   {
     id: '1',
-    title: 'Getting Started with Data Science: A Beginner's Guide',
+    title: 'Getting Started with Data Science: A Beginner\'s Guide',
     slug: 'getting-started-with-data-science',
     excerpt: 'Embark on your data science journey with this comprehensive guide for beginners.',
     content: `
@@ -378,9 +378,9 @@ const BlogPost: React.FC = () => {
     <AppLayout>
       <div className="container py-8 max-w-4xl mx-auto">
         <Button variant="ghost" size="sm" className="mb-6" asChild>
-          <Link to="/resources">
+          <Link to="/resources/blog">
             <ChevronLeft className="h-4 w-4 mr-1" />
-            Back to Resources
+            Back to Blog
           </Link>
         </Button>
         

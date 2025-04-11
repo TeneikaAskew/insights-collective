@@ -16,7 +16,7 @@ import { BlogPost } from './BlogPost';
 const blogPosts: BlogPost[] = [
   {
     id: '1',
-    title: 'Getting Started with Data Science: A Beginner's Guide',
+    title: 'Getting Started with Data Science: A Beginner\'s Guide',
     slug: 'getting-started-with-data-science',
     excerpt: 'Embark on your data science journey with this comprehensive guide for beginners.',
     content: '',
