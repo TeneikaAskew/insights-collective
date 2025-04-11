@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -22,6 +21,7 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // In-memory cache for bullet points (simple implementation)
 const bulletCache = new Map();
+const roastCache = new Map();
 
 // Export important functions for other services
 export { detectSentences };
@@ -54,6 +54,96 @@ export function serveSentenceDetector() {
       );
     }
   };
+}
+
+// Function to get a resume roast using GROQ
+async function getResumeRoast(resumeText: string, userId?: string) {
+  try {
+    // Check cache first if userId is provided
+    const cacheKey = userId ? `user:${userId}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
+    
+    if (roastCache.has(cacheKey)) {
+      console.log("Using cached roast");
+      return { roast: roastCache.get(cacheKey) };
+    }
+    
+    // If no text, return a default message
+    if (!resumeText) {
+      return { 
+        roast: "I need to see your resume first to provide specific feedback. Please upload your resume so I can analyze it and give you targeted advice on how to improve it."
+      };
+    }
+    
+    try {
+      // Call GROQ API for roast
+      const groqApiKey = Deno.env.get('GROQ');
+      if (!groqApiKey) {
+        throw new Error("GROQ API key not found");
+      }
+      
+      const prompt = `
+        I'm looking at this resume text:
+        
+        ${resumeText.substring(0, 4000)}
+        
+        Now, I need a full-on resume roast. Don't sugarcoat it — tell me what's holding this back. Why am I not getting callbacks, referrals, or interviews? Tear it apart like a hiring manager who's had one too many resumes land on their desk. Be blunt. What's outdated, what's weak, what's missing, what makes you roll your eyes, and what makes you scroll past me? Give me the real — and then tell me how to fix it so I actually start landing opportunities.
+        
+        Be specific and provide actionable advice. Format your response with no markdown, just clean text. Keep it to 3-4 paragraphs maximum.
+      `;
+      
+      const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${groqApiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: "llama3-70b-8192",
+          messages: [
+            { role: "system", content: "You are a brutally honest resume critic. Your job is to point out the real issues in a resume without sugarcoating, then provide actionable advice." },
+            { role: "user", content: prompt }
+          ],
+          temperature: 0.7,
+          max_tokens: 750
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(`GROQ API error: ${result.error?.message || 'Unknown error'}`);
+      }
+      
+      const roastText = result.choices[0].message.content.trim();
+      
+      // Clean up the response - remove any markdown or formatting artifacts
+      const cleanRoast = roastText
+        .replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, '')
+        .replace(/^[–\-\*\s]*|:/g, '')
+        .trim();
+      
+      // Cache the roast if userId is provided
+      if (cacheKey) {
+        roastCache.set(cacheKey, cleanRoast);
+        console.log(`Cached roast for ${cacheKey}`);
+      }
+      
+      return { roast: cleanRoast };
+    } catch (groqError) {
+      console.error("Error getting resume roast with GROQ:", groqError);
+      
+      // Return a fallback roast
+      return { 
+        roast: "Your resume needs more specific accomplishments and metrics. The language is too generic and doesn't highlight your unique value. Try quantifying your achievements and using more powerful action verbs. Also, make sure your resume is tailored for each specific role you apply for rather than using a one-size-fits-all approach."
+      };
+    }
+  } catch (error) {
+    console.error('Error in getResumeRoast:', error);
+    return { 
+      error: error.message,
+      roast: "I couldn't analyze your resume properly. Please ensure your resume has proper formatting and try again."
+    };
+  }
 }
 
 // Main function to analyze resume
@@ -308,8 +398,26 @@ serve(async (req) => {
     return await serveBulletImprover()(req);
   } else {
     try {
-      // Parse the request body for the main resume analysis endpoint
+      // Parse the request body
       const requestData = await req.json();
+      
+      // Check if this is a request for a resume roast
+      if (requestData.action === 'get-roast') {
+        const { resumeText, userId } = requestData;
+        const roastData = await getResumeRoast(resumeText, userId);
+        
+        return new Response(
+          JSON.stringify(roastData),
+          { 
+            headers: { 
+              'Content-Type': 'application/json',
+              ...corsHeaders
+            }
+          }
+        );
+      }
+      
+      // Otherwise, proceed with resume analysis
       const { resumeText, userId } = requestData;
       
       // Analyze the resume

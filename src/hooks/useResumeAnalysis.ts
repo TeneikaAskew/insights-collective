@@ -100,6 +100,9 @@ export function useResumeAnalysis() {
     console.log("Starting resume analysis with text of length:", resumeText.length);
     
     try {
+      // Store the resume text in localStorage for potential later use
+      localStorage.setItem(`resume_text_${user.id}`, resumeText);
+      
       // Step 1: Call the Edge Function with user ID and text
       console.log("Calling resume-analyzer edge function");
       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
@@ -115,6 +118,9 @@ export function useResumeAnalysis() {
       
       // Clean up any prompt markers or artifacts in the analysis data
       const cleanedData = cleanAnalysisOutput(data);
+      
+      // Add the resume ID to the analysis data
+      cleanedData.resume_id = user.id;
       
       // Save the analysis to localStorage for persistence
       if (cleanedData && user) {

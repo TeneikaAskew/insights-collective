@@ -49,6 +49,7 @@ export interface ResumeAnalysis {
   themes: string[];
   elevator_pitch: string;
   explanation: string;
+  resume_id?: string;
   
   // Adding the missing keyword count properties
   ai_ml_keywords_count?: number;
