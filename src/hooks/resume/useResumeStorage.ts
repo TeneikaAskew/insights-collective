@@ -105,7 +105,7 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
 const checkBucketExists = async (): Promise<boolean> => {
   try {
     const { data: buckets, error } = await supabase.storage.listBuckets();
-    console.log("Bucket check: ", buckets, "Error: ", error);
+    console.log("Bucket check: ", buckets, data, "Error: ", error);
 
     if (error) {
       console.error('Error checking buckets:', error);
