@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -104,6 +103,33 @@ const ensureStorageBucketExists = async () => {
     return true;
   } catch (error) {
     console.error('Error ensuring bucket exists:', error);
+    return false;
+  }
+};
+
+// Export this function directly so it can be imported elsewhere
+export const deleteResumeFile = async (userId: string, filePath: string) => {
+  try {
+    // Ensure path is correctly formatted
+    const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
+    console.log("Deleting file at path:", fullPath);
+    
+    // Ensure storage bucket exists
+    await ensureStorageBucketExists();
+    
+    const { error: deleteFileError } = await supabase
+      .storage
+      .from('resumes')
+      .remove([fullPath]);
+      
+    if (deleteFileError) {
+      console.error("Error deleting file:", deleteFileError);
+      throw deleteFileError;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting resume file:', error);
     return false;
   }
 };
@@ -217,31 +243,13 @@ export function useResumeStorage() {
     }
   };
   
-  const deleteResumeFile = async (userId: string, filePath: string) => {
-    try {
-      // Ensure path is correctly formatted
-      const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
-      console.log("Deleting file at path:", fullPath);
-      
-      // Ensure storage bucket exists
-      await ensureStorageBucketExists();
-      
-      const { error: deleteFileError } = await supabase
-        .storage
-        .from('resumes')
-        .remove([fullPath]);
-        
-      if (deleteFileError) {
-        console.error("Error deleting file:", deleteFileError);
-        throw deleteFileError;
-      }
-      
+  // Keep the function in the hook for backward compatibility
+  const deleteResumeFileHook = async (userId: string, filePath: string) => {
+    const result = await deleteResumeFile(userId, filePath);
+    if (result) {
       setDownloadUrl(null);
-      return true;
-    } catch (error) {
-      console.error('Error deleting resume file:', error);
-      return false;
     }
+    return result;
   };
 
   return {
@@ -249,7 +257,7 @@ export function useResumeStorage() {
     downloadUrl,
     uploadResumeFile,
     getResumeFileUrl,
-    deleteResumeFile,
+    deleteResumeFile: deleteResumeFileHook,
     extractTextFromFile
   };
 }

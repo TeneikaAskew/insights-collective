@@ -1,8 +1,8 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
 
 export interface Resume {
   id: string;
@@ -239,9 +239,6 @@ export const useResume = () => {
     if (!user || !resume) return false;
 
     try {
-      // Import required function directly to avoid React hooks usage issues
-      const { deleteResumeFile } = await import('./useResumeStorage');
-      
       try {
         const storageResult = await deleteResumeFile(user.id, resume.file_path);
         if (!storageResult) {
