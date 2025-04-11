@@ -388,11 +388,22 @@ async function analyzeResume(resumeText: string, userId?: string) {
 
 serve(async (req) => {
   // Handle CORS preflight requests
+  // if (req.method === 'OPTIONS') {
+  //   return new Response(null, { 
+  //     headers: corsHeaders
+  //   });
+  // }
   if (req.method === 'OPTIONS') {
-    return new Response(null, { 
-      headers: corsHeaders
-    });
-  }
+  return new Response(null, {
+    status: 200,
+    headers: {
+      ...corsHeaders,
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Max-Age': '86400'
+    }
+  });
+}
+
   
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
