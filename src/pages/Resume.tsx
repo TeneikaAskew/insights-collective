@@ -152,7 +152,10 @@ const Resume = () => {
           />
         </div>
 
-        {/* 4) Always‑visible, collapsible bullet‑analysis panel */}
+        {/* Moved ResumeChat above the bullet analysis section */}
+        {(showCareerChat || analysis) && <ResumeChat resumeAnalysis={analysis} />}
+
+        {/* Bullet-analysis panel now comes after the chat */}
         <details open className="border rounded-md bg-white shadow-sm">
           <summary className="cursor-pointer px-4 py-2 font-medium">
             Resume Bullet Analysis
@@ -168,8 +171,6 @@ const Resume = () => {
             )}
           </div>
         </details>
-
-        {showCareerChat && <ResumeChat resumeAnalysis={analysis} />}
       </div>
     </AppLayout>
   );

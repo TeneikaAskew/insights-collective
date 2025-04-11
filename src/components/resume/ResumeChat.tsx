@@ -23,6 +23,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [initialRoast, setInitialRoast] = useState<string | null>(null);
+  const [roastRequested, setRoastRequested] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Scroll to bottom whenever messages change
@@ -82,6 +83,48 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
       setMessages([welcomeMessage]);
     }
   }, [resumeAnalysis, initialRoast]);
+  
+  const handleRequestRoast = async () => {
+    if (!resumeAnalysis || roastRequested) return;
+    
+    setRoastRequested(true);
+    setIsLoading(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('resume-analyzer', {
+        body: { 
+          action: 'get-roast',
+          resumeText: localStorage.getItem(`resume_text_${resumeAnalysis.resume_id}`) || ''
+        }
+      });
+      
+      if (error) throw error;
+      
+      if (data && data.roast) {
+        const roastMessage: Message = {
+          id: `roast-${Date.now()}`,
+          role: 'assistant',
+          content: `**Here's my honest assessment of your resume:**\n\n${data.roast}`,
+          timestamp: new Date(),
+        };
+        
+        setMessages(prev => [...prev, roastMessage]);
+      }
+    } catch (error) {
+      console.error('Error getting resume roast:', error);
+      
+      const fallbackMessage: Message = {
+        id: `roast-fallback-${Date.now()}`,
+        role: 'assistant',
+        content: "I couldn't generate a detailed assessment right now. However, I'd recommend focusing on adding more specific achievements and metrics to your resume to make it stand out.",
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, fallbackMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -186,12 +229,12 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   };
   
   return (
-    <Card className="w-full h-[500px] mt-6 flex flex-col">
+    <Card className="w-full mt-6 mb-6 flex flex-col">
       <CardHeader className="px-4 py-3 border-b">
         <CardTitle className="text-lg">Resume Career Coach</CardTitle>
       </CardHeader>
       
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[500px]">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${
             message.role === 'assistant' 
@@ -214,6 +257,46 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
             </div>
           </div>
         ))}
+        
+        {messages.length === 0 && resumeAnalysis && !isLoading && (
+          <div className="text-center p-6">
+            <p className="text-muted-foreground mb-4">
+              Your resume is ready for review. I can provide personalized advice to help you improve it.
+            </p>
+            <Button 
+              onClick={() => {
+                // Initialize with message when user hasn't received one yet
+                let welcomeContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.`;
+                
+                welcomeContent += `\n\nLet's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`;
+                
+                const welcomeMessage: Message = {
+                  id: `welcome-${Date.now()}`,
+                  role: 'assistant',
+                  content: welcomeContent,
+                  timestamp: new Date(),
+                };
+                
+                setMessages([welcomeMessage]);
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Start Chat
+            </Button>
+          </div>
+        )}
+        
+        {messages.length > 0 && !roastRequested && !initialRoast && (
+          <div className="flex justify-center my-4">
+            <Button 
+              onClick={handleRequestRoast}
+              variant="outline"
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Roast my resume
+            </Button>
+          </div>
+        )}
         
         {isLoading && (
           <div className="flex justify-start">
