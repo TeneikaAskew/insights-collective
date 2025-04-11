@@ -9,7 +9,7 @@ import ResumeUploadSection from '@/components/resume/ResumeUploadSection';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
 import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
-import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
+import { useResumeStorage } from '@/hooks/resume/useResumeStorage';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -20,6 +20,7 @@ const Resume = () => {
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string | null>(null);
+  const { extractTextFromFile } = useResumeStorage();
   
   // Load preview when resumeFile changes
   useEffect(() => {
@@ -48,7 +49,7 @@ const Resume = () => {
       
       extractText();
     }
-  }, [resumeFile, toast]);
+  }, [resumeFile, toast, extractTextFromFile]);
   
   // Debug logs to track state changes
   useEffect(() => {
