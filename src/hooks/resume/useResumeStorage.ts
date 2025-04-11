@@ -110,11 +110,11 @@ export const deleteResumeFile = async (userId: string, filePath: string) => {
     console.log("Deleting file at path:", fullPath);
     
     // Check if bucket exists but don't try to create it
-    const bucketExists = await checkBucketExists();
-    if (!bucketExists) {
-      console.error('Storage bucket does not exist');
-      return false;
-    }
+    // const bucketExists = await checkBucketExists();
+    // if (!bucketExists) {
+    //   console.error('Storage bucket does not exist');
+    //   return false;
+    // }
     
     const { error: deleteFileError } = await supabase
       .storage
