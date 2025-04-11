@@ -57,6 +57,8 @@ export function useResumeData() {
         .from('resumes')
         .select('*')
         .eq('user_id', user.id)
+        .order('uploaded_at', { ascending: false }) // Order by latest
+        .limit(1) // Only take the latest one
         .maybeSingle();
         
       if (error) {
