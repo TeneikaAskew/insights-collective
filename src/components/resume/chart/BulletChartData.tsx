@@ -1,6 +1,14 @@
 
 import { BulletAnalysis } from '@/components/assistants/types';
 
+// Define categories for consistent use across components
+export const BULLET_CATEGORIES = {
+  HARD_SOFT: 'hard_soft',
+  ACTION: 'action',
+  MEASURABLE: 'measurable',
+  COMMON: 'common'
+};
+
 // Helper function to prepare chart data
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   if (!bullet) {
@@ -22,33 +30,37 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     xyz_scores = { hard_soft: 0, action_words: 0, measurable_results: 0, clarity_focus: 0 },
   } = bullet || {};
 
-  // Format data for the chart with colors matching the theme
+  // Format data for the chart with colors matching the brand theme
   const data = [
     {
       name: 'Hard & Soft Skills',
       value: xyz_scores.hard_soft || 0,
-      fill: '#9b87f5', // Primary Purple from theme
+      fill: 'var(--color-hard-soft)',
+      category: BULLET_CATEGORIES.HARD_SOFT,
       target: 35,
       percent: 0
     },
     {
       name: 'Action Words',
       value: xyz_scores.action_words || 0,
-      fill: '#F97316', // Bright Orange from theme
+      fill: 'var(--color-action)',
+      category: BULLET_CATEGORIES.ACTION,
       target: 15,
       percent: 0
     },
     {
       name: 'Measurable Results',
       value: xyz_scores.measurable_results || 0,
-      fill: '#0EA5E9', // Ocean Blue from theme
+      fill: 'var(--color-measurable)',
+      category: BULLET_CATEGORIES.MEASURABLE,
       target: 15,
       percent: 0
     },
     {
       name: 'Common Words',
       value: xyz_scores.clarity_focus || 0,
-      fill: '#8E9196', // Neutral Gray from theme
+      fill: 'var(--color-common)',
+      category: BULLET_CATEGORIES.COMMON,
       target: 35,
       percent: 0
     }

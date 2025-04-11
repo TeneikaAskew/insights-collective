@@ -2,7 +2,7 @@
 import React from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { BulletDonutChart, DistributionBar } from './chart/ChartComponents';
-import { prepareBulletChartData } from './chart/BulletChartData';
+import { prepareBulletChartData, BULLET_CATEGORIES } from './chart/BulletChartData';
 
 interface BulletPointChartProps {
   bullet: BulletAnalysis;
@@ -19,6 +19,14 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
 
   return (
     <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
+      <style jsx>{`
+        :root {
+          --color-hard-soft: #1E40AF; /* Primary blue for Hard & Soft Skills */
+          --color-action: #D97706;    /* Amber for Action Words */
+          --color-measurable: #0D9488; /* Teal for Measurable Results */
+          --color-common: #6B7280;    /* Gray for Common Words */
+        }
+      `}</style>
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-1">
           <h3 className="text-md font-semibold text-center mb-4">Bullet Anatomy</h3>

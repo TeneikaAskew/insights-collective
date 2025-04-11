@@ -106,6 +106,13 @@ export default {
 					700: '#7e22ce',
 					800: '#6b21a8',
 					900: '#581c87',
+				},
+				// Resume chart colors
+				'resume-chart': {
+					'hard-soft': '#1E40AF',    // Blue for Hard & Soft Skills
+					'action': '#D97706',       // Amber for Action Words
+					'measurable': '#0D9488',   // Teal for Measurable Results
+					'common': '#6B7280',       // Gray for Common Words
 				}
 			},
 			borderRadius: {

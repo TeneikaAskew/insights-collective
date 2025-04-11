@@ -1,4 +1,6 @@
+
 import { actionWords } from './bulletAnalysis';
+
 // Rewrite bullet function
 export function rewriteBullet(bullet: string, analysis: any): string {
   // In a real application, this would be done with a more sophisticated NLP approach
@@ -7,22 +9,72 @@ export function rewriteBullet(bullet: string, analysis: any): string {
   // Simple rewriting logic
   let rewritten = bullet;
   
-  
   // If the bullet doesn't start with an action word, try to add one
   if (analysis.xyz_scores.action_words < 5) {
-    const actionWords = ["Developed", "Implemented", "Delivered", "Achieved", "Improved"];
-    const randomAction = actionWords[Math.floor(Math.random() * actionWords.length)];
-    rewritten = `${randomAction} ${rewritten.charAt(0).toLowerCase() + rewritten.slice(1)}`;
+    const strongActionWords = ["Developed", "Implemented", "Delivered", "Achieved", "Improved", 
+                             "Spearheaded", "Led", "Pioneered", "Orchestrated", "Transformed"];
+    const randomAction = strongActionWords[Math.floor(Math.random() * strongActionWords.length)];
+    
+    // Check if it already starts with an action word
+    const startsWithAction = actionWords.some(word => 
+      bullet.toLowerCase().startsWith(word.toLowerCase())
+    );
+    
+    if (!startsWithAction) {
+      rewritten = `${randomAction} ${rewritten.charAt(0).toLowerCase() + rewritten.slice(1)}`;
+    } else {
+      // Replace weak action word with stronger one
+      const firstWord = bullet.split(' ')[0];
+      rewritten = bullet.replace(firstWord, randomAction);
+    }
   }
   
   // If there are no metrics, suggest adding them
-  if (analysis.xyz_scores.measurable_results < 5 && !rewritten.includes("%")) {
-    rewritten += " resulting in 15% improvement in efficiency";
+  if (analysis.xyz_scores.measurable_results < 5) {
+    const metrics = [
+      "resulting in 15% improvement in efficiency",
+      "increasing productivity by 20%",
+      "generating $50K in additional revenue",
+      "reducing costs by 30%",
+      "saving 25 hours per week"
+    ];
+    const randomMetric = metrics[Math.floor(Math.random() * metrics.length)];
+    
+    // Only add if no percentage or dollar sign exists
+    if (!rewritten.includes("%") && !rewritten.includes("$")) {
+      rewritten += `, ${randomMetric}`;
+    }
   }
   
   // If the bullet is too long, try to shorten it
   if (analysis.xyz_scores.clarity_focus < 5) {
-    rewritten = rewritten.split(" ").slice(0, 22).join(" ") + ".";
+    const words = rewritten.split(" ");
+    if (words.length > 25) {
+      rewritten = words.slice(0, 22).join(" ") + ".";
+    }
+  }
+  
+  // If lacking technical or leadership skills, try to incorporate them
+  if (analysis.xyz_scores.hard_soft < 5) {
+    const skills = [
+      "using advanced data analysis techniques",
+      "leveraging agile methodology",
+      "through cross-functional leadership",
+      "by implementing automated workflows",
+      "utilizing cloud infrastructure"
+    ];
+    
+    const randomSkill = skills[Math.floor(Math.random() * skills.length)];
+    
+    if (!rewritten.includes("using") && !rewritten.includes("leveraging") && !rewritten.includes("implementing")) {
+      // Add before any metric if one exists
+      if (rewritten.includes("resulting in") || rewritten.includes("increasing") || rewritten.includes("reducing")) {
+        const parts = rewritten.split(/resulting in|increasing|reducing/);
+        rewritten = `${parts[0]} ${randomSkill} ${rewritten.substring(parts[0].length)}`;
+      } else {
+        rewritten += ` ${randomSkill}`;
+      }
+    }
   }
   
   return rewritten;
@@ -82,12 +134,7 @@ export function generateThemes(bullets: any[]): string[] {
   }
   
   // If we don't have enough themes, add some general ones
-  // const generalThemes = [
-  //   "Include more industry-specific keywords relevant to your target role",
-  //   "Focus on achievements rather than responsibilities",
-  //   "Ensure a balanced mix of technical skills and soft skills"
-  // ];
-    const generalThemes = [
+  const generalThemes = [
     // Branding & Positioning
     "Open with a sharp professional summary that clearly states your unique value proposition",
     "Tailor every section to the specific job description instead of using a one‑size‑fits‑all resume",
@@ -100,8 +147,8 @@ export function generateThemes(bullets: any[]): string[] {
   
     // Storytelling & Structure
     "Group bullets by theme (e.g., Growth, Efficiency, Leadership) to create a clear narrative arc",
-    "Lead every bullet with a powerful action verb and follow the ‘challenge‑action‑result’ structure",
-    "Remove redundant or outdated experience that doesn’t serve your current career goals",
+    "Lead every bullet with a powerful action verb and follow the 'challenge‑action‑result' structure",
+    "Remove redundant or outdated experience that doesn't serve your current career goals",
   
     // ATS & Keyword Optimization
     "Mirror critical keywords from the job posting to pass Applicant Tracking Systems (ATS)",
@@ -109,8 +156,8 @@ export function generateThemes(bullets: any[]): string[] {
     "Use consistent formatting (dates, headings, bullet style) to prevent ATS parsing errors",
   
     // Design & Readability
-    "Keep the resume to one or two pages—recruiters spend <10 seconds on the first pass",
-    "Use whitespace, bolding, and section headers strategically to guide the reader’s eye",
+    "Keep the resume to one or two pages—recruiters spend <10 seconds on the first pass",
+    "Use whitespace, bolding, and section headers strategically to guide the reader's eye",
     "Avoid dense blocks of text; aim for 2–3 lines per bullet and plenty of white space",
   
     // Leadership & Soft Skills
@@ -119,10 +166,9 @@ export function generateThemes(bullets: any[]): string[] {
   
     // Modern Extras
     "Link to relevant work samples, GitHub repos, or a personal website to showcase proof of skill",
-    "Add a concise ‘Key Technologies’ or ‘Core Competencies’ section for quick scanning"
+    "Add a concise 'Key Technologies' or 'Core Competencies' section for quick scanning"
   ];
 
-  
   while (themes.length < 3) {
     const newTheme = generalThemes.shift();
     if (newTheme) themes.push(newTheme);

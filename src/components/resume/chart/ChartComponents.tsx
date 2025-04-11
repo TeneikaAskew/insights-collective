@@ -2,6 +2,7 @@
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { BULLET_CATEGORIES } from './BulletChartData';
 
 // Helper function to determine if target is met
 export const isTargetMet = (actual: number, target: number) => {
@@ -15,7 +16,38 @@ export interface ChartDataItem {
   fill: string;
   target: number;
   percent: number;
+  category: string;
 }
+
+// Get color class based on category
+export const getCategoryColorClass = (category: string): string => {
+  switch (category) {
+    case BULLET_CATEGORIES.HARD_SOFT:
+      return 'bg-blue-800';
+    case BULLET_CATEGORIES.ACTION:
+      return 'bg-amber-600';
+    case BULLET_CATEGORIES.MEASURABLE:
+      return 'bg-teal-600';
+    case BULLET_CATEGORIES.COMMON:
+    default:
+      return 'bg-gray-500';
+  }
+};
+
+// Get text color class based on category
+export const getCategoryTextColorClass = (category: string): string => {
+  switch (category) {
+    case BULLET_CATEGORIES.HARD_SOFT:
+      return 'text-blue-800';
+    case BULLET_CATEGORIES.ACTION:
+      return 'text-amber-600';
+    case BULLET_CATEGORIES.MEASURABLE:
+      return 'text-teal-600';
+    case BULLET_CATEGORIES.COMMON:
+    default:
+      return 'text-gray-500';
+  }
+};
 
 // Donut chart component
 export const BulletDonutChart: React.FC<{
@@ -59,7 +91,7 @@ export const DistributionBar: React.FC<{
     <div className="relative">
       <div className="flex justify-between text-sm mb-1">
         <div className="flex items-center">
-          <div className="w-4 h-4 mr-2 rounded-full" style={{ backgroundColor: item.fill }}></div>
+          <div className={`w-4 h-4 mr-2 rounded-full ${getCategoryColorClass(item.category)}`}></div>
           <span>{item.name}</span>
         </div>
         <div className="flex items-center space-x-10">
@@ -73,10 +105,9 @@ export const DistributionBar: React.FC<{
       </div>
       <div className="h-2 w-full bg-gray-200 rounded">
         <div 
-          className="h-full rounded" 
+          className={`h-full rounded ${getCategoryColorClass(item.category)}`}
           style={{
             width: `${Math.min(100, item.percent)}%`,
-            backgroundColor: item.fill
           }}
         ></div>
       </div>
