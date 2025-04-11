@@ -188,4 +188,7 @@ export const useAuthProvider = () => {
   };
 };
 
-export type AuthContextType = ReturnType<typeof useAuthProvider>;
+export type AuthContextType = ReturnType<typeof useAuthProvider> & {
+  isAdminAuthenticated?: boolean;
+  adminLogout?: () => void;
+};

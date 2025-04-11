@@ -1,39 +1,19 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Shield } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AdminGuardProps {
   children: React.ReactNode;
 }
 
 const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const { isAdminAuthenticated } = useAuth();
   const location = useLocation();
-
-  useEffect(() => {
-    // Check if the user is authenticated as admin
-    const checkAuth = () => {
-      const isAdminAuthenticated = sessionStorage.getItem('isAdminAuthenticated') === 'true';
-      setIsAuthenticated(isAdminAuthenticated);
-    };
-    
-    checkAuth();
-    
-    // Listen for storage events (if admin logs out in another tab)
-    const handleStorageChange = () => {
-      checkAuth();
-    };
-    
-    window.addEventListener('storage', handleStorageChange);
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-    };
-  }, []);
   
   // Show loading state while checking authentication
-  if (isAuthenticated === null) {
+  if (isAdminAuthenticated === null) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <Shield className="h-16 w-16 text-primary animate-pulse" />
@@ -43,7 +23,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   }
   
   // Redirect to unified login page with admin tab if not authenticated
-  if (!isAuthenticated) {
+  if (!isAdminAuthenticated) {
     return <Navigate to="/login?tab=admin" state={{ from: location }} replace />;
   }
   

@@ -15,6 +15,7 @@ interface LoginWallProps {
 
 const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: LoginWallProps) => {
   const location = useLocation();
+  const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
@@ -37,7 +38,7 @@ const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: Log
           )}
           
           <div className="flex flex-col w-full gap-2 mt-4">
-            <Link to="/login" state={{ from: location }}>
+            <Link to={loginUrl} state={{ from: location }}>
               <Button className="w-full">Sign In</Button>
             </Link>
             <Link to="/register" state={{ from: location }}>

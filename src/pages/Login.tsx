@@ -23,12 +23,15 @@ const Login = () => {
   const redirectTo = query.get('redirect') || '/dashboard';
   const defaultTab = query.get('tab') || 'user';
   
+  // Get the from location if it exists
+  const from = location.state?.from?.pathname || redirectTo;
+  
   // Store the redirect URL in localStorage when the component mounts
   useEffect(() => {
-    if (redirectTo && redirectTo !== '/dashboard') {
-      localStorage.setItem('redirectAfterLogin', redirectTo);
+    if (from && from !== '/dashboard' && from !== '/login') {
+      localStorage.setItem('redirectAfterLogin', from);
     }
-  }, [redirectTo]);
+  }, [from]);
 
   // States for regular login
   const [email, setEmail] = useState('');
@@ -49,10 +52,10 @@ const Login = () => {
         navigate(storedRedirect);
         localStorage.removeItem('redirectAfterLogin');
       } else {
-        navigate(redirectTo);
+        navigate(from);
       }
     }
-  }, [isAuthenticated, navigate, redirectTo]);
+  }, [isAuthenticated, navigate, from]);
   
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +68,7 @@ const Login = () => {
     
     try {
       setLoading(true);
-      await login(email, password);
+      await login(email, password, from !== '/dashboard' ? from : undefined);
       // Redirect handled by useEffect
     } catch (error: any) {
       setError(error.message);
@@ -77,6 +80,10 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
+      // Store the current path for redirect after login
+      if (from !== '/dashboard' && from !== '/login') {
+        localStorage.setItem('redirectAfterLogin', from);
+      }
       await googleSignIn();
       // OAuth redirect will happen automatically
     } catch (error: any) {
@@ -102,8 +109,9 @@ const Login = () => {
           description: 'Logged in as administrator',
         });
         
-        // Redirect to admin dashboard
-        navigate('/admin');
+        // Redirect to admin dashboard or previous page
+        const adminRedirect = from.startsWith('/admin') ? from : '/admin';
+        navigate(adminRedirect);
       } else {
         toast({
           title: 'Error',
