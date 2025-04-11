@@ -1,12 +1,10 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
-const signedUrlCache = useRef<Map<string, string>>(new Map()); //Add a cache and guard at the top:
-const hasFetchedUrlRef = useRef<boolean>(false);
 
+const signedUrlCache = new Map<string, string>(); // Create cache outside of hook
 
 export interface Resume {
   id: string;
@@ -56,6 +54,8 @@ export const useResume = () => {
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  const signedUrlCacheRef = useRef<Map<string, string>>(signedUrlCache);
+  const hasFetchedUrlRef = useRef<boolean>(false);
   
   // Import the storage functions directly rather than using the hook again
   // This fixes the React error #321 (hooks can't be used conditionally)
@@ -121,15 +121,15 @@ export const useResume = () => {
         let fileUrl = null;
         const fullPath = data.file_path;
         
-        if (signedUrlCache.current.has(fullPath)) {
-          fileUrl = signedUrlCache.current.get(fullPath)!;
+        if (signedUrlCacheRef.current.has(fullPath)) {
+          fileUrl = signedUrlCacheRef.current.get(fullPath)!;
           console.log("Using cached signed URL:", fileUrl);
         } else if (!hasFetchedUrlRef.current) {
           try {
             hasFetchedUrlRef.current = true;
             fileUrl = await getResumeFileUrl(user.id, fullPath);
             if (fileUrl) {
-              signedUrlCache.current.set(fullPath, fileUrl);
+              signedUrlCacheRef.current.set(fullPath, fileUrl);
             }
           } catch (urlError) {
             console.error('Error getting file URL:', urlError);
