@@ -77,85 +77,34 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
   }
 };
 
-// Simplified bucket check that doesn't try to create the bucket if it doesn't exist
-// const checkBucketExists = async (): Promise<boolean> => {
-//   try {
-//     // Just check if the bucket exists without trying to create it
-//     const { data, error } = await supabase.storage.listBuckets() //supabase.storage.getBucket('Resumes');
-//       console.log("Bucket check: ", data, "Error: ", error)
-    
-//     if (error) {
-//       if (error.message.includes('Bucket not found')) {
-//         console.log('Resumes bucket not found. This should be created by SQL migrations.');
-//         return false;
-//       }
-      
-//       console.error('Error checking resumes bucket:', error);
-//       return false;
-//     }
-    
-//     console.log('Resumes bucket exists');
-//     return true;
-//   } catch (error) {
-//     console.error('Error checking bucket existence:', error);
-//     return false;
-//   }
-// };
-
-// const checkBucketExists = async (): Promise<boolean> => {
-//   try {
-//     const { data: buckets, error } = await supabase.storage.listBuckets();
-//     console.log("Bucket check: ", buckets, "Error: ", error);
-
-//     if (error) {
-//       console.error('Error checking buckets:', error);
-//       return false;
-//     }
-
-//     // Look for a bucket with ID 'resumes' (case-sensitive)
-//     const exists = buckets?.some(bucket => bucket.id === 'resumes');
-
-//     if (!exists) {
-//       console.log('Resumes bucket not found. This should be created by SQL migrations.');
-//       return false;
-//     }
-
-//     console.log('Resumes bucket exists');
-//     return true;
-//   } catch (error) {
-//     console.error('Unexpected error checking bucket existence:', error);
-//     return false;
-//   }
-// };
-
+// Improved bucket check that doesn't try to create the bucket if it doesn't exist
+// and uses a direct approach to check if we can access the bucket
 const checkBucketExists = async (): Promise<boolean> => {
   try {
-    const { data: buckets, error } = await supabase.storage.listBuckets();
+    // Instead of listing all buckets, try to get details of the specific bucket
+    // This is more reliable and avoids permission issues with listing all buckets
+    const { data, error } = await supabase
+      .storage
+      .from('resumes')
+      .list('', { limit: 1 });
+      
+    // If we can list files, the bucket exists and we have access
+    if (!error) {
+      console.log('Successfully accessed resumes bucket');
+      return true;
+    }
     
-    console.log("Buckets returned:", buckets);
-    console.log("Error returned:", error);
-
-    if (error) {
-      console.error('Error checking buckets:', error);
+    // Check for specific error messages that indicate the bucket doesn't exist
+    if (error.message.includes('bucket') && error.message.toLowerCase().includes('not found')) {
+      console.log('Resumes bucket not found');
       return false;
     }
-
-    if (!Array.isArray(buckets)) {
-      console.error('Unexpected data format:', buckets);
-      return false;
-    }
-
-    const exists = buckets.some(bucket => bucket.id === 'resumes');
-
-    if (!exists) {
-      console.log('Resumes bucket not found. This should be created by SQL migrations.');
-      return false;
-    }
-
-    console.log('Resumes bucket exists');
-    return true;
+    
+    // Log any other errors but assume the bucket might exist
+    console.error('Error checking bucket access:', error);
+    return false;
   } catch (error) {
-    console.error('Unexpected error checking bucket existence:', error);
+    console.error('Unexpected error checking bucket access:', error);
     return false;
   }
 };
@@ -170,7 +119,7 @@ export const deleteResumeFile = async (userId: string, filePath: string) => {
     // Check if bucket exists but don't try to create it
     const bucketExists = await checkBucketExists();
     if (!bucketExists) {
-      console.error('Storage bucket does not exist');
+      console.error('Storage bucket does not exist or cannot be accessed');
       return false;
     }
     
@@ -220,7 +169,7 @@ export function useResumeStorage() {
           description: "Resume storage is not configured properly. Please contact support.",
           variant: "destructive",
         });
-        throw new Error("Storage bucket does not exist");
+        throw new Error("Storage bucket does not exist or cannot be accessed");
       }
       
       // Create a unique file name with user ID folder structure
@@ -286,32 +235,26 @@ export function useResumeStorage() {
       const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
       console.log("Getting signed URL for path:", fullPath);
       
-      // Check if bucket exists but don't try to create it
+      // Check if we can access the bucket
       const bucketExists = await checkBucketExists();
       if (!bucketExists) {
-        console.error('Storage bucket does not exist');
+        console.error('Storage bucket does not exist or cannot be accessed');
         return null;
       }
       
-      // Try to get a signed URL even if the check failed
-      // This will work if the bucket actually exists despite the check failing
-      try {
-        const { data: fileData, error: fileError } = await supabase
-          .storage
-          .from('resumes')
-          .createSignedUrl(fullPath, 3600); // 1 hour expiry
-          
-        if (fileError) {
-          console.error("Error creating signed URL:", fileError);
-          return null;
-        }
+      // Try to get a signed URL
+      const { data: fileData, error: fileError } = await supabase
+        .storage
+        .from('resumes')
+        .createSignedUrl(fullPath, 3600); // 1 hour expiry
         
-        console.log("Successfully created signed URL:", fileData?.signedUrl);
-        return fileData?.signedUrl;
-      } catch (urlError) {
-        console.error("Error creating signed URL:", urlError);
+      if (fileError) {
+        console.error("Error creating signed URL:", fileError);
         return null;
       }
+      
+      console.log("Successfully created signed URL:", fileData?.signedUrl);
+      return fileData?.signedUrl;
     } catch (error) {
       console.error('Error getting resume file URL:', error);
       return null;

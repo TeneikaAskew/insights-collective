@@ -154,26 +154,6 @@ export const useResume = () => {
       return false;
     }
 
-
-
-// Before the upload attempt
-console.log("User ID:", user.id);
-console.log("File details:", {
-  name: file.name,
-  type: file.type,
-  size: `${(file.size / 1024).toFixed(2)} KB`
-});
-
-// Try to list buckets first
-const { data: bucketList, error: listError } = await supabase.storage.listBuckets();
-console.log("Available buckets:", bucketList?.map(b => b.name) || []);
-if (listError) {
-  console.error("Error listing buckets:", listError);
-}
-
-
-    
-
     try {
       setUploading(true);
       

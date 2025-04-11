@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,8 +11,9 @@ import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 import { useResumeStorage, extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -24,6 +26,8 @@ const Resume = () => {
   const [extractedText, setExtractedText] = useState<string | null>(null);
   const [hasLoadedAnalysis, setHasLoadedAnalysis] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -33,10 +37,14 @@ const Resume = () => {
       
       try {
         console.log("Initial data load started");
+        setStorageError(null);
         await refreshResume();
         setInitialLoadComplete(true);
       } catch (err) {
         console.error("Error in initial data load:", err);
+        if (err.message?.includes('bucket') || err.message?.includes('storage')) {
+          setStorageError("Resume storage is not properly configured. Please contact support.");
+        }
       }
     };
     
@@ -125,19 +133,27 @@ const Resume = () => {
     }
     
     setHasLoadedAnalysis(false);
+    setStorageError(null);
     
-    const ok = await uploadResume(resumeFile);
-    if (ok) {
-      try {
-        await analyzeResume(extractedText);
-        setHasLoadedAnalysis(true);
-      } catch (error) {
-        console.error('Error analyzing resume:', error);
-        toast({
-          title: 'Analysis Error',
-          description: 'Resume was uploaded but analysis failed. You can try again later.',
-          variant: 'destructive',
-        });
+    try {
+      const ok = await uploadResume(resumeFile);
+      if (ok) {
+        try {
+          await analyzeResume(extractedText);
+          setHasLoadedAnalysis(true);
+        } catch (error) {
+          console.error('Error analyzing resume:', error);
+          toast({
+            title: 'Analysis Error',
+            description: 'Resume was uploaded but analysis failed. You can try again later.',
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading resume:', error);
+      if (error.message?.includes('bucket') || error.message?.includes('storage')) {
+        setStorageError("Resume storage is not properly configured. Please contact support.");
       }
     }
   };
@@ -168,17 +184,34 @@ const Resume = () => {
   const handleStartCareerChat = () => setShowCareerChat(true);
 
   const handleRefreshData = async () => {
+    setIsRefreshing(true);
     setHasLoadedAnalysis(false);
-    await refreshResume();
-    toast({
-      title: 'Refreshed',
-      description: 'Resume data has been refreshed.',
-    });
+    setStorageError(null);
+    
+    try {
+      await refreshResume();
+      toast({
+        title: 'Refreshed',
+        description: 'Resume data has been refreshed.',
+      });
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      if (error.message?.includes('bucket') || error.message?.includes('storage')) {
+        setStorageError("Resume storage is not properly configured. Please contact support.");
+      }
+      toast({
+        title: 'Refresh Failed',
+        description: 'Could not refresh resume data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   if (!isAuthenticated) return <ResumeLoginWall />;
 
-  const loading = resumeLoading || isAnalyzing;
+  const loading = resumeLoading || isAnalyzing || isRefreshing;
 
   return (
     <AppLayout>
@@ -187,9 +220,20 @@ const Resume = () => {
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
           <Button variant="outline" size="sm" onClick={handleRefreshData} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh Data
           </Button>
         </div>
+
+        {storageError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Storage Error</AlertTitle>
+            <AlertDescription>
+              {storageError}
+            </AlertDescription>
+          </Alert>
+        )}
 
         {careerAlignments && careerAlignments.length > 0 && (
           <div className="space-y-2">
