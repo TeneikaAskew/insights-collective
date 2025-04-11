@@ -82,7 +82,7 @@ const checkBucketExists = async (): Promise<boolean> => {
   try {
     // Just check if the bucket exists without trying to create it
     const { data, error } = await supabase.storage.getBucket('resumes');
-    console.log(data)
+    console.log("Bucket check: ", data)
     
     if (error) {
       if (error.message.includes('Bucket not found')) {
