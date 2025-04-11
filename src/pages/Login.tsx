@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,19 +17,13 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Extract redirect URL and tab from query parameters
   const query = new URLSearchParams(location.search);
   const redirectParam = query.get('redirect');
   const defaultTab = query.get('tab') || 'user';
   
-  // Get the from location - prioritize different sources
-  // 1. From location state (highest priority)
-  // 2. From URL parameter
-  // 3. From localStorage (fallback)
   const fromState = location.state?.from?.pathname;
   const from = fromState || redirectParam || localStorage.getItem('redirectAfterLogin');
   
-  // Store the redirect URL in localStorage when the component mounts
   useEffect(() => {
     console.log('Login page: Checking redirect paths. Options:', {
       fromState,
@@ -45,28 +38,23 @@ const Login = () => {
     }
   }, [from, fromState, redirectParam, location.pathname]);
 
-  // States for regular login
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // States for admin login
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [showAdminPassword, setShowAdminPassword] = useState(false);
   const [adminLoading, setAdminLoading] = useState(false);
   
-  // Redirect authenticated users
   useEffect(() => {
     if (isAuthenticated) {
       const redirectPath = from || '/dashboard';
       console.log('Login page: User authenticated, redirecting to:', redirectPath);
       navigate(redirectPath, { replace: true });
       if (!redirectPath.startsWith('/admin')) {
-        // Only clear localStorage if not redirecting to admin route
-        // Admin routes should keep their redirects in sessionStorage
         localStorage.removeItem('redirectAfterLogin');
       }
     }
@@ -84,7 +72,6 @@ const Login = () => {
     try {
       setLoading(true);
       await login(email, password);
-      // Redirect handled by useEffect
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -95,9 +82,7 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     try {
       setLoading(true);
-      // The redirect URL is already stored in localStorage by the useEffect above
       await googleSignIn();
-      // OAuth redirect will happen automatically
     } catch (error: any) {
       console.error('Google sign-in failed:', error);
       setError(error.message);
@@ -111,9 +96,7 @@ const Login = () => {
     setAdminLoading(true);
     
     try {
-      // For demo purposes, hardcoded admin credentials
       if (adminUsername === 'admin' && adminPassword === 'admin123') {
-        // Store admin authentication in session storage
         sessionStorage.setItem('isAdminAuthenticated', 'true');
         
         toast({
@@ -121,7 +104,6 @@ const Login = () => {
           description: 'Logged in as administrator',
         });
         
-        // Redirect to admin dashboard or previous admin page
         const adminRedirect = fromState?.startsWith('/admin') 
           ? fromState 
           : localStorage.getItem('redirectAfterLogin')?.startsWith('/admin')

@@ -47,15 +47,19 @@ const CourseDetail = () => {
       
       // Check if course is in wishlist
       const checkWishlist = async () => {
-        const { data, error } = await supabase
-          .from('course_wishlists')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('course_id', courseId)
-          .maybeSingle();
-        
-        if (!error && data) {
-          setIsWishlisted(true);
+        try {
+          const { data, error } = await supabase
+            .from('course_wishlists')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('course_id', courseId)
+            .maybeSingle();
+          
+          if (!error && data) {
+            setIsWishlisted(true);
+          }
+        } catch (error) {
+          console.error('Error checking wishlist:', error);
         }
       };
       

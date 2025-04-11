@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,19 +23,15 @@ const Dashboard = () => {
   
   if (!user) return null;
   
-  // Get the enrolled courses for the user
   const enrolledCourses = mockService.getEnrolledCourses(user.id);
   
-  // Get notifications for the user
   const notifications = mockService.getUserNotifications(user.id);
   
-  // Progress values would come from the database in a real application
   const courseProgress = {
     "course1": 75,
     "course2": 30
   };
   
-  // Upcoming deadlines (would be calculated from assignments and quizzes in a real app)
   const upcomingDeadlines = [
     {
       id: "deadline1",
@@ -54,7 +49,6 @@ const Dashboard = () => {
     }
   ];
   
-  // Format the due date
   const formatDueDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString(undefined, {
@@ -146,7 +140,6 @@ const Dashboard = () => {
                   <CourseCard 
                     key={course.id} 
                     course={course}
-                    progress={courseProgress[course.id as keyof typeof courseProgress] || 0} 
                   />
                 ))}
               </div>

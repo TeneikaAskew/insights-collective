@@ -31,14 +31,18 @@ const CourseCard: React.FC<CourseCardProps> = ({
   React.useEffect(() => {
     if (isAuthenticated && user) {
       const checkWishlist = async () => {
-        const { data } = await supabase
-          .from('course_wishlists')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('course_id', course.id)
-          .maybeSingle();
-        
-        setWishlisted(!!data);
+        try {
+          const { data } = await supabase
+            .from('course_wishlists')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('course_id', course.id)
+            .maybeSingle();
+          
+          setWishlisted(!!data);
+        } catch (error) {
+          console.error('Error checking wishlist:', error);
+        }
       };
       
       checkWishlist();

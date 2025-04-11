@@ -1,4 +1,3 @@
-
 export interface Profile {
   id: string;
   first_name: string | null;
@@ -38,7 +37,13 @@ export interface Message {
   sender?: Profile | null;
 }
 
-// This extends the native User type from Supabase auth
+export interface CourseWishlist {
+  id: string;
+  user_id: string;
+  course_id: string;
+  created_at: string;
+}
+
 export interface UserWithProfile {
   id: string;
   email: string;
@@ -53,7 +58,6 @@ export interface UserWithProfile {
   };
 }
 
-// Export Database types to be used with TypeScript
 export type Database = {
   public: {
     Tables: {
@@ -94,6 +98,14 @@ export type Database = {
           course_id: string;
           enrolled_at: string;
           completion_status: number;
+        };
+      };
+      course_wishlists: {
+        Row: {
+          id: string;
+          user_id: string;
+          course_id: string;
+          created_at: string;
         };
       };
       resumes: {
