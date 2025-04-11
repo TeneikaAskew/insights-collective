@@ -1,6 +1,5 @@
 
 import { actionWords } from './bulletAnalysis.ts';
-import { detectSentences } from '../resume-services/sentenceDetector.ts';
 
 // Function to extract bullet points from resume text
 export async function extractBulletPoints(text: string): Promise<string[]> {
@@ -13,14 +12,15 @@ export async function extractBulletPoints(text: string): Promise<string[]> {
   const bulletRegex = /^[\s]*[•\-–—*][\s]+(.*)/gm;
   let results = [...text.matchAll(bulletRegex)].map(m => m[1].trim());
 
-  // If no bullet-formatted points found, try to detect sentences using GROQ
+  // If no bullet-formatted points found, try to detect sentences
   if (results.length === 0) {
     try {
-      console.log("Attempting to detect sentences with GROQ");
-      results = await detectSentences(text);
-      console.log(`Detected ${results.length} sentences using GROQ service`);
+      console.log("Attempting to detect sentences with fallback");
+      // Use fallback extraction instead of the missing sentenceDetector
+      results = fallbackExtractSentences(text);
+      console.log(`Detected ${results.length} sentences using fallback detection`);
     } catch (error) {
-      console.error("Error using GROQ sentence detection, falling back to regex:", error);
+      console.error("Error using sentence detection, falling back to regex:", error);
       // Fall back to regex patterns
       results = fallbackExtractSentences(text);
     }

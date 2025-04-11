@@ -1,4 +1,3 @@
-
 import {
   BarChart2,
   BookOpen,
@@ -46,7 +45,7 @@ export const courseSuggestorAssistant: Assistant = {
       className: "h-4 w-4"
     }
   },
-  category: 'education'
+  category: 'coding'
 };
 
 export const resumeAnalyzerAssistant: Assistant = {

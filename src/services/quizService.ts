@@ -82,7 +82,8 @@ export const storeQuizAttempt = async (
     Object.entries(answers).forEach(([questionId, answer]) => {
       const dbColumn = questionMapping[parseInt(questionId)];
       if (dbColumn && typeof answer === 'number') {
-        quizData[dbColumn as keyof typeof quizData] = answer;
+        // Fix the type error by using type assertion 
+        (quizData as any)[dbColumn] = answer;
       }
     });
     
