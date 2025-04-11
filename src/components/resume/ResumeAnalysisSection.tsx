@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { ResumeAnalysis } from '@/components/assistants/types';
 import OverallScoreCard from './OverallScoreCard';
 import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
+import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
 
 interface ResumeAnalysisSectionProps {
   loading: boolean;
@@ -49,19 +50,10 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             <div className="h-3 bg-muted rounded w-3/4"></div>
           </div>
         ) : analysis ? (
-          <div className="space-y-6">
-            {/* Overall Resume Score Card */}
-            <OverallScoreCard 
-              letterGrade={analysis.letter_grade || 'C'}
-              resumePercent={analysis.resume_percent || 0}
-              elevatorPitch={analysis.elevator_pitch || ''}
-              themes={analysis.themes || []}
-              explanation={analysis.explanation || ''}
-              onStartCareerChat={handleStartCareerChat}
-            />
-            
-         
-          </div>
+          <ResumeAnalysisDisplay 
+            analysis={analysis}
+            onStartCareerChat={handleStartCareerChat}
+          />
         ) : resume?.analysis ? (
           <div className="space-y-4">
             <div>

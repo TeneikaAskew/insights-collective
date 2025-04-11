@@ -11,13 +11,14 @@ import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 import { useResumeStorage, extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const { resume, loading, uploading, uploadResume, deleteResume } = useResume();
-  const { analysis, isAnalyzing, analyzeResume } = useResumeAnalysis();
+  const { analysis, isAnalyzing, analyzeResume, careerAlignments } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string | null>(null);
@@ -109,12 +110,20 @@ const Resume = () => {
       <div className="container mx-auto py-6 space-y-6">
         <h1 className="text-2xl font-bold">Resume Management</h1>
 
-        {resume?.career_alignment_score && resume?.target_role && (
-          <div className="bg-accent/20 border border-accent rounded-md p-4">
-            <p className="font-medium">
-              Your resume is {resume.career_alignment_score}% aligned with{' '}
-              {resume.target_role}
-            </p>
+        {/* Career Alignment Alerts */}
+        {careerAlignments && careerAlignments.length > 0 && (
+          <div className="space-y-2">
+            {careerAlignments.map((alignment, index) => (
+              <Alert key={index} className={`${
+                index === 0 
+                  ? "bg-accent/20 border border-accent" 
+                  : "bg-slate-50 border border-slate-200"
+              }`}>
+                <AlertDescription>
+                  {alignment.description}
+                </AlertDescription>
+              </Alert>
+            ))}
           </div>
         )}
 
