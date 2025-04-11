@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { mockService } from '@/lib/mockData';
-import { Bell, Lock, User, Settings, LogOut } from 'lucide-react';
+import { Bell, Lock, User, Settings, LogOut, Award } from 'lucide-react';
+import QuizResultsSection from '@/components/profile/QuizResultsSection';
 
 const Profile = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -56,6 +57,12 @@ const Profile = () => {
                   <a href="#account">
                     <User className="mr-2 h-4 w-4" />
                     Account
+                  </a>
+                </Button>
+                <Button variant="outline" className="w-full justify-start" asChild>
+                  <a href="#quiz-results">
+                    <Award className="mr-2 h-4 w-4" />
+                    Quiz Results
                   </a>
                 </Button>
                 <Button variant="outline" className="w-full justify-start" asChild>
@@ -118,6 +125,17 @@ const Profile = () => {
               <CardFooter>
                 <Button>Save Changes</Button>
               </CardFooter>
+            </Card>
+            
+            {/* Quiz Results Section */}
+            <Card id="quiz-results">
+              <CardHeader>
+                <CardTitle>Career Path Quiz Results</CardTitle>
+                <CardDescription>Your career path assessment and recommendations</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <QuizResultsSection />
+              </CardContent>
             </Card>
             
             <Card id="security">
