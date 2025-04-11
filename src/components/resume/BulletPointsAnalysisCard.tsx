@@ -150,7 +150,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         
         {/* Suggested Improved Bullet Analysis Visualization */}
         {displayBullet?.rewritten && <div className="mt-6 border-t pt-4">
-            <h4 className="text-md font-semibold mb-4">Suggested Improved Bullet Analysis Visualization:</h4>
+            
             
             {/* Improved bullet text display */}
             <div className="text-center mb-4">
