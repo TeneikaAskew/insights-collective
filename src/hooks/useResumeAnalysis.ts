@@ -56,7 +56,7 @@ export function useResumeAnalysis() {
       const basePercentage = analysis.resume_percent || 0;
       let pathMultiplier = 1.0;
       
-      // Adjust alignment based on path-specific keywords found
+      // Adjust alignment based on path-specific keywords found - using optional chaining for safety
       switch(path) {
         case 'AI/ML':
           pathMultiplier = analysis.ai_ml_keywords_count ? 1 + (analysis.ai_ml_keywords_count / 100) : 0.85;
