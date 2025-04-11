@@ -330,7 +330,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
             console.error("Error finding resume record:", findError);
           } else if (resumeRecord) {
             const { error: updateError } = await supabase
-              .from('resumes')
+              .from('resums
               .update({ 
                 analysis: enhancedAnalysis,
                 updated_at: new Date().toISOString()
