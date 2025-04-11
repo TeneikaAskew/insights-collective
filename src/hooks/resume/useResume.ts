@@ -154,33 +154,19 @@ export const useResume = () => {
 
 
 
-try {
-  // Check if bucket exists, if not create it
-  const { data: buckets } = await supabase.storage.listBuckets();
-  const bucketExists = buckets?.some(bucket => bucket.name === 'resumes');
-  
-  console.log("Available buckets:", buckets?.map(b => b.name));
-  
-  if (!bucketExists) {
-    console.log("Creating 'resumes' bucket");
-    const { data, error } = await supabase.storage.createBucket('resumes', {
-      public: false,
-      allowedMimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
-      fileSizeLimit: 10485760, // 10MB
-    });
-    
-    if (error) {
-      console.error("Error creating bucket:", error);
-      throw new Error(`Could not create storage bucket: ${error.message}`);
-    }
-    
-    console.log("Bucket created successfully:", data);
-  } else {
-    console.log("Bucket 'resumes' already exists");
-  }
-} catch (err) {
-  console.error("Error checking/creating bucket:", err);
-  throw new Error(`Storage setup failed: ${err.message}`);
+// Before the upload attempt
+console.log("User ID:", user.id);
+console.log("File details:", {
+  name: file.name,
+  type: file.type,
+  size: `${(file.size / 1024).toFixed(2)} KB`
+});
+
+// Try to list buckets first
+const { data: bucketList, error: listError } = await supabase.storage.listBuckets();
+console.log("Available buckets:", bucketList?.map(b => b.name) || []);
+if (listError) {
+  console.error("Error listing buckets:", listError);
 }
 
 
