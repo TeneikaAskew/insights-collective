@@ -91,14 +91,13 @@ interface AIRequest {
   assistantType: string;
   conversationId?: string;
   quizAttemptId?: string;
+  context?: string;
 }
-
 
 /**
  * formatResponse
  * Cleans up the raw LLM output into your bullet‑only, balanced‑bold Markdown.
  */
-
 function formatResponse(raw: string): string {
   let text = raw;
 
@@ -131,6 +130,8 @@ function formatResponse(raw: string): string {
 // New function to fetch quiz data for career coach
 async function fetchQuizData(quizAttemptId: string, supabaseClient: any): Promise<string> {
   try {
+    console.log("Fetching quiz data for attempt ID:", quizAttemptId);
+    
     const { data: quizData, error } = await supabaseClient
       .from('career_quiz_attempts')
       .select('*')
@@ -141,6 +142,8 @@ async function fetchQuizData(quizAttemptId: string, supabaseClient: any): Promis
       console.error('Error fetching quiz data:', error);
       return '';
     }
+    
+    console.log("Successfully retrieved quiz data:", quizData.top_recommended_path);
     
     // Format quiz data as context
     const topPath = quizData.top_recommended_path;
@@ -194,9 +197,14 @@ Question Responses:
 // New function to track conversation history in the database
 async function trackConversation(conversationId: string, content: string, senderType: 'user' | 'assistant', supabaseClient: any): Promise<void> {
   try {
-    if (!conversationId) return;
+    if (!conversationId) {
+      console.log("No conversation ID provided, skipping message tracking");
+      return;
+    }
     
-    await supabaseClient
+    console.log(`Tracking ${senderType} message for conversation ID: ${conversationId}`);
+    
+    const { data, error } = await supabaseClient
       .from('assistant_messages')
       .insert({
         conversation_id: conversationId,
@@ -204,11 +212,22 @@ async function trackConversation(conversationId: string, content: string, sender
         sender_type: senderType
       });
       
+    if (error) {
+      console.error('Error tracking conversation message:', error);
+      return;
+    }
+    
     // Update the conversation's updated_at timestamp
-    await supabaseClient
+    const { error: updateError } = await supabaseClient
       .from('assistant_conversations')
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversationId);
+      
+    if (updateError) {
+      console.error('Error updating conversation timestamp:', updateError);
+    } else {
+      console.log("Successfully tracked message and updated conversation timestamp");
+    }
       
   } catch (error) {
     console.error('Error tracking conversation:', error);
@@ -225,6 +244,7 @@ serve(async (req) => {
     // Get API key from environment variable
     const apiKey = Deno.env.get('GROQ');
     if (!apiKey) {
+      console.error("GROQ API key not configured");
       throw new Error('GROQ API key not found');
     }
     
@@ -237,7 +257,8 @@ serve(async (req) => {
       salaryCap, 
       assistantType,
       conversationId,
-      quizAttemptId
+      quizAttemptId,
+      context
     } = requestData;
     
     console.log(`Received query: ${query}`);
@@ -252,12 +273,21 @@ serve(async (req) => {
       console.log(`Quiz Attempt ID: ${quizAttemptId}`);
     }
     
+    if (context) {
+      console.log(`Custom context provided of length: ${context.length}`);
+    }
+    
     // Create Supabase client if needed for quiz data
     let quizContext = '';
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.warn("Supabase credentials not configured fully");
+    }
     
     // @ts-ignore: Supabase is loaded from the global scope in edge functions
+    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.31.0");
     const supabase = createClient(supabaseUrl, supabaseKey);
     
     // Fetch quiz data if available
@@ -283,6 +313,12 @@ serve(async (req) => {
       userContext += `\n\n${quizContext}`;
     }
     
+    // Add resume context if available
+    if (context) {
+      userContext += `\n\nRESUME CONTEXT:\n${context}`;
+    }
+    
+    console.log("Calling GROQ API with constructed context");
     // Prepare the API call to GROQ
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -323,10 +359,11 @@ serve(async (req) => {
     }
     
     const data = await response.json();
+    console.log("Received response from GROQ API");
+    
     let aiResponse = data.choices[0].message.content;
     
-    // Replace "* " with "\n- " for better formatted bullet points
-    // Applying formatting function here:
+    // Apply formatting function
     aiResponse = formatResponse(aiResponse).replace(/\* /g, "\n- ");
     
     // Track assistant response in database if we have a conversation ID
@@ -351,7 +388,10 @@ serve(async (req) => {
     console.error('Error processing request:', error.message);
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        response: "I'm sorry, I encountered an error while processing your request. Please try again or contact support if the problem persists."
+      }),
       { 
         status: 500, 
         headers: { 
@@ -361,4 +401,4 @@ serve(async (req) => {
       }
     );
   }
-})
+});

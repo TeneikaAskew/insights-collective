@@ -1,12 +1,17 @@
-
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
 import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
 import { corsHeaders } from "./utils.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
+import { serveBulletImprover } from "./bulletImprover.ts";
+import { detectSentences } from "./sentenceDetector.ts";
+
+// Re-export these functions for backward compatibility
+export { detectSentences };
+export { serveBulletImprover };
 
 // Initialize Supabase client for database operations
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -15,6 +20,35 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // In-memory cache for bullet points (simple implementation)
 const bulletCache = new Map();
+
+// Service handler for sentence detection
+export function serveSentenceDetector() {
+  return async (req: Request) => {
+    try {
+      const { text } = await req.json();
+      
+      if (!text || typeof text !== 'string') {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid text parameter" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const sentences = await detectSentences(text);
+      
+      return new Response(
+        JSON.stringify({ sentences }),
+        { headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    } catch (error) {
+      console.error("Error in sentence detector service:", error);
+      return new Response(
+        JSON.stringify({ error: error.message || "Failed to detect sentences" }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+  };
+}
 
 // Main function to analyze resume
 async function analyzeResume(resumeText: string, userId?: string) {
@@ -106,7 +140,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
       return {
         bullets: [],
         resume_average: 0,
-        resume_percent: 50, // Default to 50% instead of 0% to avoid "F"
+        resume_percent: 50, // Default to 0% instead of 0% to avoid "F"
         letter_grade: "C", // Default to "C" instead of "F"
         themes: ["Format your resume with clear bullet points", "Start each bullet with an action verb", "Include measurable achievements"],
         elevator_pitch: "We couldn't detect formatted bullet points in your resume. For a complete analysis, consider organizing your experience in clear bullet points.",
@@ -257,46 +291,56 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
   
-  try {
-    // Parse the request body
-    const requestData = await req.json();
-    const { resumeText, userId } = requestData;
-    
-    // Analyze the resume
-    const analysis = await analyzeResume(resumeText, userId);
-    
-    // Return the analysis
-    return new Response(
-      JSON.stringify(analysis),
-      { 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders
+  // Get the request path
+  const url = new URL(req.url);
+  const path = url.pathname.split('/').pop();
+  
+  // Route to the appropriate service
+  if (path === 'detect-sentences') {
+    return await serveSentenceDetector()(req);
+  } else if (path === 'improve-bullet') {
+    return await serveBulletImprover()(req);
+  } else {
+    try {
+      // Default path: analyze resume
+      const requestData = await req.json();
+      const { resumeText, userId } = requestData;
+      
+      // Analyze the resume
+      const analysis = await analyzeResume(resumeText, userId);
+      
+      // Return the analysis
+      return new Response(
+        JSON.stringify(analysis),
+        { 
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
         }
-      }
-    );
-    
-  } catch (error) {
-    console.error('Error processing request:', error.message);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        // Minimal valid analysis to prevent frontend crashes
-        resume_percent: 50,
-        letter_grade: "C",
-        themes: ["Error during analysis, please try again"],
-        elevator_pitch: "We encountered an error. Please try again with a different resume format.",
-        explanation: `Error: ${error.message}`,
-        bullets: []
-      }),
-      { 
-        status: 500, 
-        headers: { 
-          'Content-Type': 'application/json',
-          ...corsHeaders
+      );
+    } catch (error) {
+      console.error('Error processing request:', error.message);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: error.message,
+          // Minimal valid analysis to prevent frontend crashes
+          resume_percent: 50,
+          letter_grade: "C",
+          themes: ["Error during analysis, please try again"],
+          elevator_pitch: "We encountered an error. Please try again with a different resume format.",
+          explanation: `Error: ${error.message}`,
+          bullets: []
+        }),
+        { 
+          status: 500, 
+          headers: { 
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
         }
-      }
-    );
+      );
+    }
   }
-})
+});
