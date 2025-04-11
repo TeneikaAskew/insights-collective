@@ -1,10 +1,13 @@
 
-import { useState, useEffect } from 'react';
+// import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { CareerTrack } from '@/data/careerQuizData';
+const hasLoadedAnalysis = useRef(false);
+
 
 // Career path alignment calculation
 interface CareerAlignment {
@@ -21,21 +24,41 @@ export function useResumeAnalysis() {
   const { user } = useAuth();
 
   // Load saved analysis from localStorage on component mount
+  // useEffect(() => {
+  //   if (user) {
+  //     const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+  //     console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
+  //     if (savedAnalysis) {
+  //       try {
+  //         const parsedAnalysis = JSON.parse(savedAnalysis);
+  //         setAnalysis(parsedAnalysis);
+  //         calculateCareerAlignments(parsedAnalysis);
+  //       } catch (error) {
+  //         console.error('Error parsing saved analysis:', error);
+  //       }
+  //     }
+  //   }
+  // }, [user]);
+
   useEffect(() => {
-    if (user) {
-      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-      console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
-      if (savedAnalysis) {
-        try {
-          const parsedAnalysis = JSON.parse(savedAnalysis);
-          setAnalysis(parsedAnalysis);
-          calculateCareerAlignments(parsedAnalysis);
-        } catch (error) {
-          console.error('Error parsing saved analysis:', error);
-        }
+  if (user && !hasLoadedAnalysis.current) {
+    hasLoadedAnalysis.current = true;
+
+    const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+    console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
+
+    if (savedAnalysis) {
+      try {
+        const parsedAnalysis = JSON.parse(savedAnalysis);
+        setAnalysis(parsedAnalysis);
+        calculateCareerAlignments(parsedAnalysis);
+      } catch (error) {
+        console.error('Error parsing saved analysis:', error);
       }
     }
-  }, [user]);
+  }
+}, [user]);
+
 
   // Calculate career alignments based on resume analysis
   const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
