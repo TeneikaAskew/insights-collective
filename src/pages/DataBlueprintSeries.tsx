@@ -13,70 +13,80 @@ const blueprintEntries = [
     title: "What Is Data Science?",
     description: "A deep dive into the definition, evolution, and real-world application of data science—from business intelligence to machine learning. Understand how curiosity, coding, and communication converge to turn data into insight.",
     tag: "Fundamentals",
-    link: "/resources/data-blueprint/what-is-data-science"
+    slug: "what-is-data-science",
+    publishedAt: "2025-03-15"
   },
   {
     id: 2,
     title: "Core Roles in a Data Team",
     description: "Explore the anatomy of a modern data team. Learn how analysts, data scientists, engineers, and product managers collaborate—and the tools and skills each role brings to the table.",
     tag: "Team Dynamics",
-    link: "/resources/data-blueprint/core-roles"
+    slug: "core-roles-data-team",
+    publishedAt: "2025-03-22"
   },
   {
     id: 3,
     title: "The Data Science Lifecycle",
     description: "From problem framing to data collection, modeling, and monitoring—get familiar with the iterative workflow that powers every successful data science initiative.",
     tag: "Processes",
-    link: "/resources/data-blueprint/lifecycle"
+    slug: "data-science-lifecycle",
+    publishedAt: "2025-03-29"
   },
   {
     id: 4,
     title: "How to Start a Career in Data Science",
     description: "Academic track? Bootcamp? Self-taught? This post breaks down the key entry points, essential skills, portfolio strategies, and mindset shifts to launch your career with confidence.",
     tag: "Career Entry",
-    link: "/resources/data-blueprint/start-career"
+    slug: "start-career-data-science",
+    publishedAt: "2025-04-05"
   },
   {
     id: 5,
     title: "Responsible AI & Ethics in Data Science",
     description: "Bias, fairness, transparency—explore the ethical considerations behind model development. Learn the principles, tools, and team dynamics that make AI not just smart, but responsible.",
     tag: "Ethics",
-    link: "/resources/data-blueprint/responsible-ai"
+    slug: "responsible-ai-ethics",
+    publishedAt: "2025-04-12"
   },
   {
     id: 6,
     title: "Wisdom From the Field – Career Lessons",
     description: "Hear from top data scientists across LinkedIn, Airbnb, and Google. What do they wish they knew earlier? This post curates their most powerful lessons on failure, communication, impact, and lifelong learning.",
     tag: "Industry Insights",
-    link: "/resources/data-blueprint/career-lessons"
+    slug: "career-lessons-data-science",
+    publishedAt: "2025-04-19"
   },
   {
     id: 7,
     title: "Tools of the Trade",
     description: "Build your data science toolkit with the languages, libraries, and platforms used by the pros. From Python and SQL to MLflow and Streamlit—get a hands-on guide to working smarter.",
     tag: "Technology",
-    link: "/resources/data-blueprint/tools"
+    slug: "data-science-tools",
+    publishedAt: "2025-04-26"
   },
   {
     id: 8,
     title: "Data Science Career Paths",
     description: "Map out your growth. Whether you aspire to stay technical, lead teams, specialize in ML, or pivot into product, this guide lays out the real-world trajectories and how to navigate them.",
     tag: "Career Growth",
-    link: "/resources/data-blueprint/career-paths"
+    slug: "data-science-career-paths",
+    publishedAt: "2025-05-03"
   },
   {
     id: 9,
     title: "Resume & Portfolio Tips",
     description: "Your resume gets you the interview. Your portfolio gets you the job. Learn how to craft results-driven bullet points, showcase real-world projects, and stand out in a crowded field.",
     tag: "Job Search",
-    link: "/resources/data-blueprint/resume-portfolio"
+    slug: "resume-portfolio-tips",
+    publishedAt: "2025-05-10"
   },
   {
     id: 10,
     title: "Case Studies That Inspire",
     description: "Real-world wins from the field—like predicting air traffic delays, detecting mental health crises, or optimizing multi-touch marketing. These examples show the impact data science has across industries.",
     tag: "Applications",
-    link: "/resources/data-blueprint/case-studies"
+    slug: "data-science-case-studies",
+    publishedAt: "2025-05-17"
   }
 ];
 
@@ -127,7 +137,7 @@ const DataBlueprintSeries = () => {
                   <h3 className="text-xl font-semibold mb-2">{entry.title}</h3>
                   <p className="text-muted-foreground mb-4 flex-grow">{entry.description}</p>
                   <Button variant="ghost" className="self-start" asChild>
-                    <Link to={entry.link}>
+                    <Link to={`/blog/${entry.slug}`}>
                       Read more <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                   </Button>

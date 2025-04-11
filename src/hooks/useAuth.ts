@@ -67,11 +67,21 @@ export const useAuthProvider = () => {
     navigate(redirectTo, { replace: true });
   }, [navigate, location]);
   
+  // Store redirect path function
+  const storeRedirectPath = useCallback((path: string) => {
+    if (path && path !== '/login' && path !== '/register') {
+      localStorage.setItem('redirectAfterLogin', path);
+      console.log('Stored redirect path:', path);
+    }
+  }, []);
+  
   // Update session and user on auth state change
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, !!session);
+        
         if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
           setSession(session);
           
@@ -82,12 +92,14 @@ export const useAuthProvider = () => {
         } else if (event === 'SIGNED_OUT') {
           setSession(null);
           // Don't clear localStorage here to avoid issues with admin redirects
+          console.log('User signed out');
         }
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', !!session);
       setSession(session);
       setLoading(false);
     });
@@ -198,14 +210,31 @@ export const useAuthProvider = () => {
 
   const logout = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
+      console.log('Logging out...');
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Clear admin authentication in session storage
+      sessionStorage.removeItem('isAdminAuthenticated');
+      
+      // Clear redirect after login
       localStorage.removeItem('redirectAfterLogin');
+      
+      // Clear session state
+      setSession(null);
+      
       toast({
         title: 'Success',
         description: 'Logged out successfully',
       });
+      
+      // Navigate to homepage after logout
       navigate('/');
     } catch (error: any) {
+      console.error('Logout error:', error);
       toast({
         title: 'Error',
         description: error.message,
@@ -213,6 +242,19 @@ export const useAuthProvider = () => {
       });
     }
   }, [navigate, toast]);
+  
+  // Admin logout function
+  const adminLogout = useCallback(() => {
+    sessionStorage.removeItem('isAdminAuthenticated');
+    toast({
+      title: 'Success',
+      description: 'Admin logged out successfully',
+    });
+    navigate('/');
+  }, [navigate, toast]);
+  
+  // Check admin authentication
+  const isAdminAuthenticated = sessionStorage.getItem('isAdminAuthenticated') === 'true';
   
   return {
     user: enrichedUser,
@@ -223,12 +265,11 @@ export const useAuthProvider = () => {
     register,
     googleSignIn,
     logout,
-    isAuthenticated: !!enrichedUser
+    adminLogout,
+    isAdminAuthenticated,
+    isAuthenticated: !!enrichedUser,
+    storeRedirectPath
   };
 };
 
-export type AuthContextType = ReturnType<typeof useAuthProvider> & {
-  isAdminAuthenticated?: boolean;
-  adminLogout?: () => void;
-  storeRedirectPath?: (path: string) => void;
-};
+export type AuthContextType = ReturnType<typeof useAuthProvider>;
