@@ -69,6 +69,8 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
     text = text.replace(/Professional Elevator Pitch:\s*\*+\s*/gi, '');
     text = text.replace(/Brief Explanation of the Resume Grade:\s*\*+\s*/gi, '');
     text = text.replace(/Three Specific Improvement Themes:\s*\*+\s*/gi, '');
+    text = text.replace(/Resume Grade and Explanation:\s*\*+\s*/gi, '');
+
 
   
     // 6) Collapse 3+ blank lines → 2
