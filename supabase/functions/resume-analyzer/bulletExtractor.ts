@@ -32,7 +32,9 @@ export async function extractBulletPoints(text: string): Promise<string[]> {
       `^(${actionWords.map(w => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`,
       'i'
     );
-    results = [...text.matchAll(actionRegex)].map(m => m[0].trim());
+    results = [...text.split('\n')]
+      .filter(line => actionRegex.test(line.trim()))
+      .map(m => m.trim());
   }
 
   // Filter out any empty results

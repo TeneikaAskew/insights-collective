@@ -34,6 +34,8 @@ import ExploreDataCareers from "./pages/ExploreDataCareers";
 import ChatBot from "./components/chat/ChatBot";
 import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
+import AdminLogin from "./pages/AdminLogin";
+import AdminGuard from "./components/admin/AdminGuard";
 
 const queryClient = new QueryClient();
 
@@ -65,15 +67,19 @@ const App = () => (
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId?" element={<Messages />} />
               <Route path="/resume" element={<Resume />} />
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/activity" element={<AdminActivity />} />
-              <Route path="/admin/courses" element={<AdminCourses />} />
-              <Route path="/admin/users" element={<AdminUsers />} />
-              <Route path="/admin/enrollments" element={<AdminEnrollments />} />
-              <Route path="/admin/certificates" element={<AdminCertificates />} />
-              <Route path="/admin/resources" element={<AdminResources />} />
-              <Route path="/admin/events" element={<AdminEvents />} />
-              <Route path="/admin/settings" element={<AdminDashboard />} />
+              <Route path="/admin-login" element={<AdminLogin />} />
+              
+              {/* Protected Admin Routes */}
+              <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+              <Route path="/admin/activity" element={<AdminGuard><AdminActivity /></AdminGuard>} />
+              <Route path="/admin/courses" element={<AdminGuard><AdminCourses /></AdminGuard>} />
+              <Route path="/admin/users" element={<AdminGuard><AdminUsers /></AdminGuard>} />
+              <Route path="/admin/enrollments" element={<AdminGuard><AdminEnrollments /></AdminGuard>} />
+              <Route path="/admin/certificates" element={<AdminGuard><AdminCertificates /></AdminGuard>} />
+              <Route path="/admin/resources" element={<AdminGuard><AdminResources /></AdminGuard>} />
+              <Route path="/admin/events" element={<AdminGuard><AdminEvents /></AdminGuard>} />
+              <Route path="/admin/settings" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+              
               <Route path="*" element={<NotFound />} />
             </Routes>
             <ChatBot />
