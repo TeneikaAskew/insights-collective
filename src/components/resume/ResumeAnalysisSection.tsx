@@ -60,10 +60,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
               onStartCareerChat={handleStartCareerChat}
             />
             
-            {/* Bullet Points Analysis Card */}
-            {analysis.bullets && analysis.bullets.length > 0 && (
-              <BulletPointsAnalysisCard bullets={analysis.bullets} />
-            )}
+         
           </div>
         ) : resume?.analysis ? (
           <div className="space-y-4">
