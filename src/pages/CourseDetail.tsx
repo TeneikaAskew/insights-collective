@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -14,6 +13,12 @@ import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Sha
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { 
+  isEnrolledInCourse, 
+  addEnrolledCourse, 
+  isWishlistedCourse, 
+  toggleWishlistedCourse 
+} from '@/utils/idUtils';
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -30,6 +35,13 @@ const CourseDetail = () => {
 
   // Check enrollment and wishlist status
   useEffect(() => {
+    // First check localStorage
+    if (courseId) {
+      setIsEnrolled(isEnrolledInCourse(courseId));
+      setIsWishlisted(isWishlistedCourse(courseId));
+    }
+    
+    // If authenticated, also check Supabase
     if (isAuthenticated && user && courseId) {
       // Check if user is enrolled
       const checkEnrollment = async () => {
@@ -91,21 +103,29 @@ const CourseDetail = () => {
       return;
     }
     
+    if (!courseId) return;
+    
     setEnrolling(true);
     
     try {
-      // Add enrollment to database
-      const { error } = await supabase
-        .from('enrollments')
-        .insert({
-          user_id: user.id,
-          course_id: courseId,
-          completion_status: 0
-        });
-      
-      if (error) throw error;
-      
+      // Update localStorage status first for immediate UI feedback
+      addEnrolledCourse(courseId);
       setIsEnrolled(true);
+      
+      // Then sync with Supabase if user is authenticated
+      if (isAuthenticated && user) {
+        // Add enrollment to database
+        const { error } = await supabase
+          .from('enrollments')
+          .insert({
+            user_id: user.id,
+            course_id: courseId,
+            completion_status: 0
+          });
+        
+        if (error) throw error;
+      }
+      
       toast({
         title: "Successfully enrolled!",
         description: `You have been enrolled in ${course.title}`,
@@ -131,41 +151,43 @@ const CourseDetail = () => {
       return;
     }
     
+    if (!courseId) return;
+    
     setAddingToWishlist(true);
     
     try {
-      if (isWishlisted) {
-        // Remove from wishlist
-        const { error } = await supabase
-          .from('course_wishlists')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('course_id', courseId);
-        
-        if (error) throw error;
-        
-        setIsWishlisted(false);
-        toast({
-          title: "Removed from wishlist",
-          description: `${course.title} has been removed from your wishlist`,
-        });
-      } else {
-        // Add to wishlist
-        const { error } = await supabase
-          .from('course_wishlists')
-          .insert({
-            user_id: user.id,
-            course_id: courseId
-          });
-        
-        if (error) throw error;
-        
-        setIsWishlisted(true);
-        toast({
-          title: "Added to wishlist",
-          description: `${course.title} has been added to your wishlist`,
-        });
+      // Update localStorage status first for immediate UI feedback
+      const newWishlistStatus = toggleWishlistedCourse(courseId);
+      setIsWishlisted(newWishlistStatus);
+      
+      // Then sync with Supabase if user is authenticated
+      if (isAuthenticated && user) {
+        if (newWishlistStatus) {
+          // Add to wishlist in Supabase
+          const { error } = await supabase
+            .from('course_wishlists')
+            .insert({
+              user_id: user.id,
+              course_id: courseId
+            });
+          
+          if (error) throw error;
+        } else {
+          // Remove from wishlist in Supabase
+          const { error } = await supabase
+            .from('course_wishlists')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('course_id', courseId);
+          
+          if (error) throw error;
+        }
       }
+      
+      toast({
+        title: newWishlistStatus ? "Added to wishlist" : "Removed from wishlist",
+        description: `${course.title} has been ${newWishlistStatus ? 'added to' : 'removed from'} your wishlist`,
+      });
     } catch (error: any) {
       console.error('Error updating wishlist:', error);
       toast({
@@ -173,6 +195,9 @@ const CourseDetail = () => {
         description: error.message || "There was an error updating your wishlist",
         variant: "destructive"
       });
+      
+      // Revert local state if Supabase operation failed
+      setIsWishlisted(!isWishlisted);
     } finally {
       setAddingToWishlist(false);
     }

@@ -1,3 +1,4 @@
+
 import { Calendar, Clock, MapPin, Link, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,9 +27,10 @@ interface EventCardProps {
     calendlyLink?: string;
   };
   onRegister?: (eventId: string, userData?: any) => void;
+  isRegistered?: boolean; // Add isRegistered prop
 }
 
-export function EventCard({ event, onRegister }: EventCardProps) {
+export function EventCard({ event, onRegister, isRegistered = false }: EventCardProps) {
   const { isAuthenticated, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -80,6 +82,9 @@ export function EventCard({ event, onRegister }: EventCardProps) {
           className="absolute inset-0 w-full h-full object-cover"
         />
         <Badge className="absolute top-2 right-2 bg-orange-500 text-white">{event.type}</Badge>
+        {isRegistered && (
+          <Badge className="absolute top-2 left-2 bg-green-500 text-white">Registered</Badge>
+        )}
       </div>
       <CardHeader>
         <CardTitle className="line-clamp-2">{event.title}</CardTitle>
@@ -118,7 +123,9 @@ export function EventCard({ event, onRegister }: EventCardProps) {
         <p className="text-muted-foreground line-clamp-3">{event.description}</p>
       </CardContent>
       <CardFooter>
-        {isAtCapacity ? (
+        {isRegistered ? (
+          <Button disabled className="w-full bg-green-600 cursor-default">Already Registered</Button>
+        ) : isAtCapacity ? (
           <Button disabled className="w-full">Event Full</Button>
         ) : (
           <Button 

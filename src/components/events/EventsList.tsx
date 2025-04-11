@@ -22,9 +22,10 @@ interface EventsListProps {
   events: Event[];
   isPast?: boolean;
   onRegister?: (eventId: string, userData?: any) => void;
+  registeredEvents?: string[]; // Add registered events array
 }
 
-export function EventsList({ events, isPast = false, onRegister }: EventsListProps) {
+export function EventsList({ events, isPast = false, onRegister, registeredEvents = [] }: EventsListProps) {
   if (events.length === 0) {
     return (
       <div className="text-center py-12">
@@ -40,7 +41,11 @@ export function EventsList({ events, isPast = false, onRegister }: EventsListPro
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
       {events.map((event) => (
         <div key={event.id} className={isPast ? "opacity-70" : ""}>
-          <EventCard event={event} onRegister={!isPast ? onRegister : undefined} />
+          <EventCard 
+            event={event} 
+            onRegister={!isPast ? onRegister : undefined} 
+            isRegistered={registeredEvents.includes(event.id)} 
+          />
         </div>
       ))}
     </div>

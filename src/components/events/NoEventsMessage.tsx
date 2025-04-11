@@ -2,10 +2,10 @@
 import { Calendar } from 'lucide-react';
 
 interface NoEventsMessageProps {
-  isSearching: boolean;
+  isSearching?: boolean;
 }
 
-export function NoEventsMessage({ isSearching }: NoEventsMessageProps) {
+export function NoEventsMessage({ isSearching = false }: NoEventsMessageProps) {
   return (
     <div className="text-center py-12">
       <Calendar className="mx-auto h-12 w-12 text-muted-foreground" />

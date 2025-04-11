@@ -8,6 +8,9 @@ import { EventsHeader } from '@/components/events/EventsHeader';
 import { EventsFilter } from '@/components/events/EventsFilter';
 import { EventsList } from '@/components/events/EventsList';
 import { NoEventsMessage } from '@/components/events/NoEventsMessage';
+import { useAuth } from '@/contexts/AuthContext';
+import { getRegisteredEvents, registerForEvent, isRegisteredForEvent } from '@/utils/idUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 // Mock events data
 const mockEvents = [
@@ -98,22 +101,93 @@ export default function Events() {
   const [searchQuery, setSearchQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [registeredEvents, setRegisteredEvents] = useState<string[]>([]);
   const { toast } = useToast();
+  const { isAuthenticated, user } = useAuth();
   
+  // Load user's registered events from localStorage on component mount
   useEffect(() => {
-    // In a real app, this would fetch events from an API
-    setEvents(mockEvents);
-  }, []);
+    setRegisteredEvents(getRegisteredEvents());
+    
+    // In a real app with Supabase, we would fetch the user's registered events
+    const fetchRegisteredEvents = async () => {
+      if (isAuthenticated && user) {
+        try {
+          const { data, error } = await supabase
+            .from('event_registrations')
+            .select('event_id')
+            .eq('user_id', user.id);
+            
+          if (!error && data) {
+            // Combine Supabase registrations with localStorage ones
+            const supabaseRegistrations = data.map(item => item.event_id);
+            const localRegistrations = getRegisteredEvents();
+            
+            // Combine and remove duplicates
+            const combinedRegistrations = [...new Set([...supabaseRegistrations, ...localRegistrations])];
+            setRegisteredEvents(combinedRegistrations);
+          }
+        } catch (error) {
+          console.error('Error fetching registered events:', error);
+        }
+      }
+    };
+    
+    fetchRegisteredEvents();
+  }, [isAuthenticated, user]);
   
   const handleRegister = (eventId: string, userData?: any) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to register for this event.",
+        variant: "default",
+      });
+      return;
+    }
+    
     console.log('Registering for event:', eventId, userData);
     
-    // Update the registration count
+    // Update the registration count in the UI
     setEvents(events.map(event => 
       event.id === eventId 
         ? { ...event, registrations: event.registrations + 1 } 
         : event
     ));
+    
+    // Save registration in localStorage
+    registerForEvent(eventId);
+    
+    // Update component state
+    setRegisteredEvents(prev => [...prev, eventId]);
+    
+    // In a real app, we would also save to Supabase
+    if (isAuthenticated && user) {
+      const saveToSupabase = async () => {
+        try {
+          const { error } = await supabase
+            .from('event_registrations')
+            .insert({
+              user_id: user.id,
+              event_id: eventId
+            });
+            
+          if (error) {
+            console.error('Error saving event registration to Supabase:', error);
+          }
+        } catch (error) {
+          console.error('Error in Supabase operation:', error);
+        }
+      };
+      
+      saveToSupabase();
+    }
+    
+    toast({
+      title: 'Registration Successful',
+      description: 'You have been registered for this event.',
+      variant: "default",
+    });
   };
   
   const filteredEvents = events.filter(event => {
@@ -138,6 +212,8 @@ export default function Events() {
   
   // Past events
   const pastEvents = sortedEvents.filter(event => event.date < today);
+  
+  const isSearching = searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all';
   
   return (
     <AppLayout>
@@ -164,14 +240,22 @@ export default function Events() {
           
           <TabsContent value="upcoming" className="space-y-6">
             {upcomingEvents.length > 0 ? (
-              <EventsList events={upcomingEvents} onRegister={handleRegister} />
+              <EventsList 
+                events={upcomingEvents} 
+                onRegister={handleRegister} 
+                registeredEvents={registeredEvents}
+              />
             ) : (
-              <NoEventsMessage isSearching={searchQuery !== '' || typeFilter !== 'all' || formatFilter !== 'all'} />
+              <NoEventsMessage isSearching={isSearching} />
             )}
           </TabsContent>
           
           <TabsContent value="past" className="space-y-6">
-            <EventsList events={pastEvents} isPast={true} />
+            <EventsList 
+              events={pastEvents} 
+              isPast={true} 
+              registeredEvents={registeredEvents}
+            />
           </TabsContent>
         </Tabs>
       </div>

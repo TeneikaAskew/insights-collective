@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,6 +8,7 @@ import { Course } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { isWishlistedCourse, toggleWishlistedCourse } from '@/utils/idUtils';
 
 interface CourseCardProps {
   course: Course;
@@ -27,8 +27,12 @@ const CourseCard: React.FC<CourseCardProps> = ({
   const navigate = useNavigate();
   const { toast } = useToast();
   
-  // Check wishlist status on mount if authenticated
+  // Check wishlist status on mount
   React.useEffect(() => {
+    // First check localStorage
+    setWishlisted(isWishlistedCourse(course.id));
+    
+    // If authenticated, also check Supabase
     if (isAuthenticated && user) {
       const checkWishlist = async () => {
         try {
@@ -39,7 +43,10 @@ const CourseCard: React.FC<CourseCardProps> = ({
             .eq('course_id', course.id)
             .maybeSingle();
           
-          setWishlisted(!!data);
+          // If exists in Supabase, override localStorage state
+          if (data) {
+            setWishlisted(true);
+          }
         } catch (error) {
           console.error('Error checking wishlist:', error);
         }
@@ -63,42 +70,42 @@ const CourseCard: React.FC<CourseCardProps> = ({
     setIsLoading(true);
     
     try {
-      if (wishlisted) {
-        // Remove from wishlist
-        const { error } = await supabase
-          .from('course_wishlists')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('course_id', course.id);
-        
-        if (error) throw error;
-        
-        setWishlisted(false);
-        toast({
-          title: "Removed from wishlist",
-          description: `${course.title} has been removed from your wishlist`,
-        });
-      } else {
-        // Add to wishlist
-        const { error } = await supabase
-          .from('course_wishlists')
-          .insert({
-            user_id: user.id,
-            course_id: course.id
-          });
-        
-        if (error) throw error;
-        
-        setWishlisted(true);
-        toast({
-          title: "Added to wishlist",
-          description: `${course.title} has been added to your wishlist`,
-        });
+      // Update localStorage status first for immediate UI feedback
+      const newWishlistStatus = toggleWishlistedCourse(course.id);
+      setWishlisted(newWishlistStatus);
+      
+      // Then sync with Supabase if user is authenticated
+      if (isAuthenticated && user) {
+        if (newWishlistStatus) {
+          // Add to wishlist in Supabase
+          const { error } = await supabase
+            .from('course_wishlists')
+            .insert({
+              user_id: user.id,
+              course_id: course.id
+            });
+          
+          if (error) throw error;
+        } else {
+          // Remove from wishlist in Supabase
+          const { error } = await supabase
+            .from('course_wishlists')
+            .delete()
+            .eq('user_id', user.id)
+            .eq('course_id', course.id);
+          
+          if (error) throw error;
+        }
       }
+      
+      toast({
+        title: newWishlistStatus ? "Added to wishlist" : "Removed from wishlist",
+        description: `${course.title} has been ${newWishlistStatus ? 'added to' : 'removed from'} your wishlist`,
+      });
       
       // Call parent callback if provided
       if (onWishlistToggle) {
-        onWishlistToggle(course.id, !wishlisted);
+        onWishlistToggle(course.id, newWishlistStatus);
       }
     } catch (error: any) {
       console.error('Error updating wishlist:', error);
@@ -107,6 +114,9 @@ const CourseCard: React.FC<CourseCardProps> = ({
         description: error.message || "There was an error updating your wishlist",
         variant: "destructive"
       });
+      
+      // Revert local state if Supabase operation failed
+      setWishlisted(!wishlisted);
     } finally {
       setIsLoading(false);
     }
