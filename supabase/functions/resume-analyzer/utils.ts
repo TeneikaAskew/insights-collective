@@ -1,27 +1,22 @@
 
-// Common CORS headers for Edge Functions
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-// Helper function to safely parse JSON
-export function safeJsonParse(text: string, fallback: any = {}) {
+// Safe JSON parse with fallback
+export function safeJsonParse(jsonString: string, fallback: any): any {
   try {
-    return JSON.parse(text);
-  } catch (error) {
-    console.error("Error parsing JSON:", error);
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error("Error parsing JSON:", e);
     return fallback;
   }
 }
 
-// Helper function to handle API errors
-export function handleApiError(error: any, defaultMessage = "An error occurred") {
-  console.error("API Error:", error);
-  
-  const message = error?.message || defaultMessage;
-  return {
-    error: true,
-    message
-  };
+// Handle API errors consistently
+export function handleApiError(error: any, defaultMessage = "An unexpected error occurred"): string {
+  if (typeof error === 'string') return error;
+  return error?.message || defaultMessage;
 }
+
+// Export CORS headers for use across the application
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};

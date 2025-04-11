@@ -5,10 +5,15 @@ import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
 import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
-import { corsHeaders } from "./utils.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0"
 import { serveBulletImprover } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0"
+
+// Define CORS headers for all responses
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 // Initialize Supabase client for database operations
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
