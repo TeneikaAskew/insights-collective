@@ -8,7 +8,7 @@ import { Course } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { isWishlistedCourse, toggleWishlistedCourse } from '@/utils/idUtils';
+import { isWishlistedCourse, toggleWishlistedCourse, generatePersistentUUID } from '@/utils/idUtils';
 
 interface CourseCardProps {
   course: Course;
@@ -36,11 +36,14 @@ const CourseCard: React.FC<CourseCardProps> = ({
     if (isAuthenticated && user) {
       const checkWishlist = async () => {
         try {
+          // Generate consistent UUID for this course
+          const courseUUID = generatePersistentUUID(course.id, 'course');
+          
           const { data } = await supabase
             .from('course_wishlists')
             .select('id')
             .eq('user_id', user.id)
-            .eq('course_id', course.id)
+            .eq('course_id', courseUUID)
             .maybeSingle();
           
           // If exists in Supabase, override localStorage state
@@ -76,13 +79,16 @@ const CourseCard: React.FC<CourseCardProps> = ({
       
       // Then sync with Supabase if user is authenticated
       if (isAuthenticated && user) {
+        // Generate consistent UUID for this course
+        const courseUUID = generatePersistentUUID(course.id, 'course');
+        
         if (newWishlistStatus) {
           // Add to wishlist in Supabase
           const { error } = await supabase
             .from('course_wishlists')
             .insert({
               user_id: user.id,
-              course_id: course.id
+              course_id: courseUUID
             });
           
           if (error) throw error;
@@ -92,7 +98,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
             .from('course_wishlists')
             .delete()
             .eq('user_id', user.id)
-            .eq('course_id', course.id);
+            .eq('course_id', courseUUID);
           
           if (error) throw error;
         }
