@@ -18,6 +18,7 @@ export interface Resume {
   career_alignment_score?: number;
   target_role?: string;
   analysis?: any;
+  initial_assessment?: string;
 }
 
 // Helper function to ensure the resumes table exists
@@ -43,6 +44,50 @@ const ensureResumesTableExists = async () => {
   } catch (error) {
     console.error("Error ensuring resumes table exists:", error);
     throw error;
+  }
+};
+
+// Helper function to ensure the storage bucket exists
+const ensureResumesBucketExists = async () => {
+  try {
+    // Check if the bucket exists
+    const { data: buckets, error: bucketsError } = await supabase
+      .storage
+      .listBuckets();
+    
+    if (bucketsError) {
+      console.error("Error checking buckets:", bucketsError);
+      throw bucketsError;
+    }
+    
+    // Check if resumes bucket exists
+    const resumesBucket = buckets?.find(bucket => bucket.name === 'resumes');
+    
+    if (!resumesBucket) {
+      // Create the bucket if it doesn't exist
+      console.log("Creating resumes bucket...");
+      const { error: createError } = await supabase
+        .storage
+        .createBucket('resumes', {
+          public: false,
+          fileSizeLimit: 10485760, // 10MB
+          allowedMimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+        });
+      
+      if (createError) {
+        console.error("Error creating bucket:", createError);
+        throw createError;
+      }
+      
+      console.log("Resumes bucket created successfully");
+    } else {
+      console.log("Resumes bucket already exists");
+    }
+    
+    return true;
+  } catch (error) {
+    console.error("Error ensuring bucket exists:", error);
+    return false;
   }
 };
 
@@ -74,8 +119,14 @@ export const useResume = () => {
     try {
       setLoading(true);
       
-      // Verify the table exists
-      await ensureResumesTableExists();
+      // Verify the table and bucket exist
+      try {
+        await ensureResumesTableExists();
+        await ensureResumesBucketExists();
+      } catch (setupError) {
+        console.error("Error ensuring database/storage setup:", setupError);
+        // Continue with the function, as we might still be able to fetch data
+      }
       
       const { data, error } = await supabase
         .from('resumes')
@@ -112,6 +163,13 @@ export const useResume = () => {
           file_url: fileUrl,
           created_at: data.uploaded_at // Use uploaded_at as created_at
         });
+        
+        console.log("Resume loaded successfully:", {
+          id: data.id,
+          hasText: !!data.text,
+          hasUrl: !!fileUrl,
+          hasAnalysis: !!data.analysis
+        });
       } else {
         setResume(null);
       }
@@ -143,11 +201,13 @@ export const useResume = () => {
       
       // Ensure table exists
       await ensureResumesTableExists();
+      await ensureResumesBucketExists();
       
       // Extract text from file for analysis
       let fileText = '';
       try {
         fileText = await extractTextFromFile(file);
+        console.log("Successfully extracted text, length:", fileText.length);
       } catch (extractError) {
         console.warn('Could not extract text from file:', extractError);
         try {
@@ -157,6 +217,7 @@ export const useResume = () => {
           fileText = await new Promise((resolve) => {
             textReader.onload = () => resolve(textReader.result as string);
           });
+          console.log("Used fallback text extraction, length:", fileText.length);
         } catch (err) {
           console.warn('Fallback text extraction also failed:', err);
           // Continue with empty text - at least we can store the file
@@ -186,6 +247,7 @@ export const useResume = () => {
       let saveResult;
       
       if (existingResume?.id) {
+        console.log("Updating existing resume record");
         // Update existing record
         saveResult = await supabase
           .from('resumes')
@@ -196,6 +258,7 @@ export const useResume = () => {
           })
           .eq('id', existingResume.id);
       } else {
+        console.log("Creating new resume record");
         // Insert new record
         saveResult = await supabase
           .from('resumes')
@@ -262,6 +325,10 @@ export const useResume = () => {
       
       // Clear the resume state
       setResume(null);
+      
+      // Also clear any cached analysis data
+      localStorage.removeItem(`resume_analysis_${user.id}`);
+      localStorage.removeItem(`resume_text_${user.id}`);
       
       toast({
         title: 'Success',

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -37,8 +38,8 @@ export function useResumeAnalysis() {
   }, [user]);
 
   // Calculate career alignments based on resume analysis
-  const calculateCareerAlignments = (analysis: ResumeAnalysis) => {
-    if (!analysis) return;
+  const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
+    if (!analysisData) return;
 
     // Get the user's quiz results from localStorage if available
     const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
@@ -52,27 +53,27 @@ export function useResumeAnalysis() {
     // Calculate alignment scores
     const alignments: CareerAlignment[] = sortedPaths.slice(0, 3).map(path => {
       // Base alignment on resume grade and path-specific factors
-      const basePercentage = analysis.resume_percent || 0;
+      const basePercentage = analysisData.resume_percent || 0;
       let pathMultiplier = 1.0;
       
       // Adjust alignment based on path-specific keywords found - using optional chaining for safety
       switch(path) {
         case 'AI/ML':
-          pathMultiplier = analysis.ai_ml_keywords_count ? 1 + (analysis.ai_ml_keywords_count / 100) : 0.85;
+          pathMultiplier = analysisData.ai_ml_keywords_count ? 1 + (analysisData.ai_ml_keywords_count / 100) : 0.85;
           break;
         case 'Analytics':
-          pathMultiplier = analysis.analytics_keywords_count ? 1 + (analysis.analytics_keywords_count / 100) : 0.9;
+          pathMultiplier = analysisData.analytics_keywords_count ? 1 + (analysisData.analytics_keywords_count / 100) : 0.9;
           break;
         case 'Data Engineering':
-          pathMultiplier = analysis.data_engineering_keywords_count ? 1 + (analysis.data_engineering_keywords_count / 100) : 0.8;
+          pathMultiplier = analysisData.data_engineering_keywords_count ? 1 + (analysisData.data_engineering_keywords_count / 100) : 0.8;
           break;
         case 'Business Intelligence':
-          pathMultiplier = analysis.bi_keywords_count ? 1 + (analysis.bi_keywords_count / 100) : 0.75;
+          pathMultiplier = analysisData.bi_keywords_count ? 1 + (analysisData.bi_keywords_count / 100) : 0.75;
           break;
       }
       
       // If specific keyword counts aren't available, use resume skills/keywords to estimate
-      if (!analysis.ai_ml_keywords_count) {
+      if (!analysisData.ai_ml_keywords_count) {
         // Use a random factor for demo purposes, would be better with actual keyword analysis
         const randomFactor = 0.7 + (Math.random() * 0.6); // Between 0.7 and 1.3
         pathMultiplier = randomFactor;
@@ -102,7 +103,10 @@ export function useResumeAnalysis() {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching assessment:", error);
+        throw error;
+      }
       
       if (data && data.roast) {
         // Update the resume record with the initial assessment
@@ -128,10 +132,12 @@ export function useResumeAnalysis() {
   };
 
   const analyzeResume = async (resumeText: string): Promise<boolean> => {
-    if (!resumeText || !user) return false;
+    if (!resumeText || !user) {
+      console.log("Cannot analyze: missing text or user");
+      return false;
+    }
     
     // Clear previous analysis before starting new one
-    setAnalysis(null);
     setIsAnalyzing(true);
     console.log("Starting resume analysis with text of length:", resumeText.length);
     
@@ -148,9 +154,16 @@ export function useResumeAnalysis() {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        console.error("Edge function error:", error);
+        throw error;
+      }
       
       console.log("Resume analysis complete:", data ? "Success" : "No data returned");
+      
+      if (!data) {
+        throw new Error("No data returned from analysis");
+      }
       
       // Clean up any prompt markers or artifacts in the analysis data
       const cleanedData = cleanAnalysisOutput(data);
@@ -167,7 +180,27 @@ export function useResumeAnalysis() {
       calculateCareerAlignments(cleanedData as ResumeAnalysis);
       
       // Fetch and store the assessment in parallel
-      fetchAndStoreAssessment(resumeText, user.id);
+      fetchAndStoreAssessment(resumeText, user.id)
+        .catch(err => console.error("Error fetching assessment:", err));
+      
+      // Also update the analysis in the resume record
+      try {
+        const { error: updateError } = await supabase
+          .from('resumes')
+          .update({ 
+            analysis: cleanedData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id);
+          
+        if (updateError) {
+          console.error("Error updating resume with analysis:", updateError);
+        } else {
+          console.log("Successfully stored analysis in resume record");
+        }
+      } catch (updateErr) {
+        console.error("Error updating resume record:", updateErr);
+      }
       
       toast({
         title: "Resume Analysis Complete",

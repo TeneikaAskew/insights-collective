@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -34,11 +35,13 @@ export const extractTextFromFile = async (file: File): Promise<string> => {
 // Extract text from PDF file
 const extractTextFromPDF = async (file: File): Promise<string> => {
   try {
+    console.log("Starting PDF text extraction");
     const arrayBuffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
     // Load the PDF document
     const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
+    console.log(`PDF loaded, pages: ${pdf.numPages}`);
     
     let fullText = '';
     
@@ -53,6 +56,7 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
       fullText += pageText + '\n';
     }
     
+    console.log(`PDF text extraction complete, total length: ${fullText.length}`);
     return fullText;
   } catch (error) {
     console.error('Error extracting text from PDF:', error);
@@ -63,8 +67,10 @@ const extractTextFromPDF = async (file: File): Promise<string> => {
 // Extract text from DOCX file
 const extractTextFromDOCX = async (file: File): Promise<string> => {
   try {
+    console.log("Starting DOCX text extraction");
     const arrayBuffer = await file.arrayBuffer();
     const result = await mammoth.extractRawText({ arrayBuffer });
+    console.log(`DOCX text extraction complete, total length: ${result.value.length}`);
     return result.value;
   } catch (error) {
     console.error('Error extracting text from DOCX:', error);
@@ -93,6 +99,9 @@ const ensureStorageBucketExists = async () => {
       }
       
       console.log('Successfully created resumes bucket');
+      
+      // Ensure policies are set up for the bucket
+      await ensureResumePolicies();
     } else if (error) {
       console.error('Error checking resumes bucket:', error);
       throw error;
@@ -103,6 +112,19 @@ const ensureStorageBucketExists = async () => {
     return true;
   } catch (error) {
     console.error('Error ensuring bucket exists:', error);
+    return false;
+  }
+};
+
+// Ensure storage policies exist
+const ensureResumePolicies = async () => {
+  try {
+    // For now, we'll skip this in the client as it requires admin privileges
+    // In production, this would be handled by a Supabase migration
+    console.log("Storage policies should be created via SQL migrations");
+    return true;
+  } catch (error) {
+    console.error('Error ensuring resume policies:', error);
     return false;
   }
 };

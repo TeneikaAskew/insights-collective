@@ -17,13 +17,27 @@ const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const { resume, loading, uploading, uploadResume, deleteResume } = useResume();
-  const { analysis, isAnalyzing, analyzeResume, careerAlignments } = useResumeAnalysis();
+  const { resume, loading, uploading, uploadResume, deleteResume, refreshResume } = useResume();
+  const { analysis, isAnalyzing, analyzeResume, careerAlignments, setAnalysis } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string | null>(null);
+  const [hasLoadedAnalysis, setHasLoadedAnalysis] = useState(false);
 
-  // 1) Preview PDF and extract text
+  // 1) Load existing analysis on mount and when resume changes
+  useEffect(() => {
+    if (user && resume?.analysis && !analysis && !hasLoadedAnalysis) {
+      try {
+        console.log("Loading analysis from resume object:", resume.analysis);
+        setAnalysis(resume.analysis);
+        setHasLoadedAnalysis(true);
+      } catch (err) {
+        console.error("Error setting analysis from resume:", err);
+      }
+    }
+  }, [user, resume, analysis, setAnalysis, hasLoadedAnalysis]);
+
+  // 2) Preview PDF and extract text
   useEffect(() => {
     if (!resumeFile) return;
 
@@ -48,16 +62,22 @@ const Resume = () => {
     })();
   }, [resumeFile, toast]);
 
-  // 2) If we already have a stored resume and no analysis in-memory, re-run analysis
+  // 3) If we already have a stored resume and no analysis in-memory, re-run analysis
   useEffect(() => {
-    if (resumeFile === null && resume?.text && !analysis) {
-      // if your `resume` object contains the text you originally uploaded (e.g. resume.text),
-      // re-analyze it on mount so the bullets card never disappears.
+    if (resumeFile === null && resume?.text && !analysis && !isAnalyzing) {
+      console.log("Analyzing existing resume text");
       analyzeResume(resume.text);
     }
-  }, [resume, resumeFile, analysis, analyzeResume]);
+  }, [resume, resumeFile, analysis, analyzeResume, isAnalyzing]);
 
-  // 3) Handlers
+  // 4) Refresh all data on initial load
+  useEffect(() => {
+    if (user && !loading) {
+      refreshResume();
+    }
+  }, [user, loading, refreshResume]);
+
+  // 5) Handlers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -88,6 +108,7 @@ const Resume = () => {
     if (ok) {
       try {
         await analyzeResume(extractedText);
+        setHasLoadedAnalysis(true);
       } catch (error) {
         console.error('Error analyzing resume:', error);
         toast({
@@ -106,6 +127,8 @@ const Resume = () => {
       setPdfDataUrl(null);
       setExtractedText(null);
       setShowCareerChat(false);
+      setAnalysis(null);
+      setHasLoadedAnalysis(false);
     } catch (error) {
       console.error('Error in handleDelete:', error);
       toast({
