@@ -117,7 +117,7 @@ export const deleteResumeFile = async (userId: string, filePath: string) => {
     
     const { error: deleteFileError } = await supabase
       .storage
-      .from('resumes')
+      .from('Resumes')
       .remove([fullPath]);
       
     if (deleteFileError) {
@@ -172,7 +172,7 @@ export function useResumeStorage() {
       
       // Upload the file
       const { data, error } = await supabase.storage
-        .from('resumes')
+        .from('Resumes')
         .upload(fileName, file, { upsert: true });
       
       if (error) {
@@ -239,7 +239,7 @@ export function useResumeStorage() {
       try {
         const { data: fileData, error: fileError } = await supabase
           .storage
-          .from('resumes')
+          .from('Resumes')
           .createSignedUrl(fullPath, 3600); // 1 hour expiry
           
         if (fileError) {
