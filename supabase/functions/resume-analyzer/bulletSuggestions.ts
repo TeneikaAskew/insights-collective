@@ -2,6 +2,8 @@
 import { actionWords } from './bulletAnalysis.ts';
 import { improveBullet } from '../resume-services/bulletImprover.ts';
 
+import { skillsKeywords } from './bulletAnalysis.ts';
+
 // Rewrite bullet function using GROQ
 export async function rewriteBullet(bullet: string, analysis: any): Promise<string> {
   try {
@@ -102,13 +104,15 @@ function fallbackRewriteBullet(bullet: string, analysis: any): string {
   
   // If lacking technical or leadership skills, try to incorporate them
   if (analysis.xyz_scores.hard_soft < 5) {
-    const skills = [
-      "using advanced data analysis techniques",
-      "leveraging agile methodology",
-      "through cross-functional leadership",
-      "by implementing automated workflows",
-      "utilizing cloud infrastructure"
-    ];
+    const skills = skillsKeywords
+      
+    //   [
+    //   "using advanced data analysis techniques",
+    //   "leveraging agile methodology",
+    //   "through cross-functional leadership",
+    //   "by implementing automated workflows",
+    //   "utilizing cloud infrastructure"
+    // ];
     
     const randomSkill = skills[Math.floor(Math.random() * skills.length)];
     
