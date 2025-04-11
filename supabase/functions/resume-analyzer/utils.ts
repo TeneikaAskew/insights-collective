@@ -18,7 +18,9 @@ export function handleApiError(error: any, defaultMessage = "An unexpected error
 // Export CORS headers for use across the application
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
   // Optional but good practice:
   'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Max-Age': '86400'
 };
