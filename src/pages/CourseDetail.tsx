@@ -14,6 +14,7 @@ import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Sha
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -28,20 +29,38 @@ const CourseDetail = () => {
   // Get course details
   const course = mockService.getCourseById(courseId || '');
 
+  // Generate a valid UUID for this course based on its ID
+  const getValidCourseUuid = () => {
+    // For real implementation, courses in DB would already have proper UUIDs
+    // This is just for mock data compatibility
+    const storedId = localStorage.getItem(`course_${courseId}_uuid`);
+    if (storedId) return storedId;
+    
+    const newId = uuidv4();
+    localStorage.setItem(`course_${courseId}_uuid`, newId);
+    return newId;
+  };
+
+  const validCourseUuid = getValidCourseUuid();
+
   // Check enrollment and wishlist status
   useEffect(() => {
     if (isAuthenticated && user && courseId) {
       // Check if user is enrolled
       const checkEnrollment = async () => {
-        const { data, error } = await supabase
-          .from('enrollments')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('course_id', courseId)
-          .maybeSingle();
-        
-        if (!error && data) {
-          setIsEnrolled(true);
+        try {
+          const { data, error } = await supabase
+            .from('enrollments')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('course_id', validCourseUuid)
+            .maybeSingle();
+          
+          if (!error && data) {
+            setIsEnrolled(true);
+          }
+        } catch (error) {
+          console.error('Error checking enrollment:', error);
         }
       };
       
@@ -52,7 +71,7 @@ const CourseDetail = () => {
             .from('course_wishlists')
             .select('id')
             .eq('user_id', user.id)
-            .eq('course_id', courseId)
+            .eq('course_id', validCourseUuid)
             .maybeSingle();
           
           if (!error && data) {
@@ -66,7 +85,7 @@ const CourseDetail = () => {
       checkEnrollment();
       checkWishlist();
     }
-  }, [isAuthenticated, user, courseId]);
+  }, [isAuthenticated, user, courseId, validCourseUuid]);
   
   if (!course) {
     return (
@@ -99,8 +118,7 @@ const CourseDetail = () => {
         .from('enrollments')
         .insert({
           user_id: user.id,
-          course_id: courseId,
-          completion_status: 0
+          course_id: validCourseUuid
         });
       
       if (error) throw error;
@@ -140,7 +158,7 @@ const CourseDetail = () => {
           .from('course_wishlists')
           .delete()
           .eq('user_id', user.id)
-          .eq('course_id', courseId);
+          .eq('course_id', validCourseUuid);
         
         if (error) throw error;
         
@@ -155,7 +173,7 @@ const CourseDetail = () => {
           .from('course_wishlists')
           .insert({
             user_id: user.id,
-            course_id: courseId
+            course_id: validCourseUuid
           });
         
         if (error) throw error;

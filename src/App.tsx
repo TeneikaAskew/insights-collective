@@ -29,7 +29,8 @@ import Assistants from "./pages/Assistants";
 import AssistantInterface from "./pages/AssistantInterface";
 import NotFound from "./pages/NotFound";
 import Calendar from "./pages/Calendar";
-import DataBlueprintSeries from "./pages/DataBlueprintSeries";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 import ExploreDataCareers from "./pages/ExploreDataCareers";
 // import ChatBot from "./components/chat/ChatBot";  // Temporarily comment out to fix console errors
 import Messages from "./pages/Messages";
@@ -55,7 +56,9 @@ const App = () => (
               <Route path="/courses/:courseId" element={<CourseDetail />} />
               <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
               <Route path="/resources" element={<Resources />} />
-              <Route path="/resources/data-blueprint" element={<DataBlueprintSeries />} />
+              {/* Replace the data-blueprint with the blog */}
+              <Route path="/resources/blog" element={<Blog />} />
+              <Route path="/resources/blog/:slug" element={<BlogPost />} />
               <Route path="/events" element={<Events />} />
               <Route path="/notifications" element={<Notifications />} />
               <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
@@ -66,6 +69,9 @@ const App = () => (
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId?" element={<Messages />} />
               <Route path="/resume" element={<Resume />} />
+              
+              {/* Redirect data-blueprint to blog */}
+              <Route path="/resources/data-blueprint" element={<Navigate to="/resources/blog" replace />} />
               
               {/* Redirect admin-login to login with admin tab */}
               <Route path="/admin-login" element={<Navigate to="/login?tab=admin" replace />} />

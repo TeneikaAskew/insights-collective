@@ -8,6 +8,9 @@ import { EventsHeader } from '@/components/events/EventsHeader';
 import { EventsFilter } from '@/components/events/EventsFilter';
 import { EventsList } from '@/components/events/EventsList';
 import { NoEventsMessage } from '@/components/events/NoEventsMessage';
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Mock events data
 const mockEvents = [
@@ -99,21 +102,44 @@ export default function Events() {
   const [formatFilter, setFormatFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const { toast } = useToast();
+  const { isAuthenticated, user } = useAuth();
   
   useEffect(() => {
     // In a real app, this would fetch events from an API
     setEvents(mockEvents);
+    
+    // Ensure all events have UUID mappings for Supabase
+    mockEvents.forEach(event => {
+      const storedId = localStorage.getItem(`event_${event.id}_uuid`);
+      if (!storedId) {
+        const newId = uuidv4();
+        localStorage.setItem(`event_${event.id}_uuid`, newId);
+      }
+    });
   }, []);
   
-  const handleRegister = (eventId: string, userData?: any) => {
-    console.log('Registering for event:', eventId, userData);
+  const handleRegister = async (eventId: string, userData?: any) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to register for events",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    // Update the registration count
+    // Update the registration count in UI
     setEvents(events.map(event => 
       event.id === eventId 
         ? { ...event, registrations: event.registrations + 1 } 
         : event
     ));
+    
+    // The actual registration is handled in the EventCard component
+    toast({
+      title: "Registration successful",
+      description: "You have been registered for the event",
+    });
   };
   
   const filteredEvents = events.filter(event => {
