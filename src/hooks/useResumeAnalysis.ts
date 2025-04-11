@@ -187,9 +187,31 @@ export function useResumeAnalysis() {
         
         console.log("Resume analysis complete:", data ? "Success" : "No data returned");
         
+        // if (!data) {
+        //   throw new Error("No data returned from analysis");
+        // }
         if (!data) {
-          throw new Error("No data returned from analysis");
+          console.warn("No analysis returned from edge function; attempting fallback to DB");
+        
+          const { data: resumeRecord, error: fetchError } = await supabase
+            .from('resumes')
+            .select('analysis')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        
+          if (fetchError) {
+            console.error("Error fetching stored analysis from database:", fetchError);
+            throw new Error("No analysis returned and database fetch failed");
+          }
+        
+          if (resumeRecord?.analysis) {
+            console.warn("Using existing analysis from DB");
+            data = resumeRecord.analysis;
+          } else {
+            throw new Error("No analysis data returned from edge function or DB");
+          }
         }
+
         
         // Clean up any prompt markers or artifacts in the analysis data
         const cleanedData = cleanAnalysisOutput(data);
