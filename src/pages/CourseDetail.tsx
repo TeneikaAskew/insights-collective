@@ -1,6 +1,6 @@
 
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import ModuleCard from '@/components/common/ModuleCard';
 import { mockService } from '@/lib/mockData';
@@ -10,16 +10,59 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Share } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [enrolling, setEnrolling] = useState(false);
+  const [addingToWishlist, setAddingToWishlist] = useState(false);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isWishlisted, setIsWishlisted] = useState(false);
   const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   
   // Get course details
   const course = mockService.getCourseById(courseId || '');
+
+  // Check enrollment and wishlist status
+  useEffect(() => {
+    if (isAuthenticated && user && courseId) {
+      // Check if user is enrolled
+      const checkEnrollment = async () => {
+        const { data, error } = await supabase
+          .from('enrollments')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('course_id', courseId)
+          .maybeSingle();
+        
+        if (!error && data) {
+          setIsEnrolled(true);
+        }
+      };
+      
+      // Check if course is in wishlist
+      const checkWishlist = async () => {
+        const { data, error } = await supabase
+          .from('course_wishlists')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('course_id', courseId)
+          .maybeSingle();
+        
+        if (!error && data) {
+          setIsWishlisted(true);
+        }
+      };
+      
+      checkEnrollment();
+      checkWishlist();
+    }
+  }, [isAuthenticated, user, courseId]);
   
   if (!course) {
     return (
@@ -35,18 +78,134 @@ const CourseDetail = () => {
     );
   }
   
-  // Mock enrollment function
-  const handleEnroll = () => {
+  // Handle enrollment
+  const handleEnroll = async () => {
+    if (!isAuthenticated) {
+      // Store current path for redirect after login
+      localStorage.setItem('redirectAfterLogin', `/courses/${courseId}`);
+      navigate('/login', { state: { from: `/courses/${courseId}` } });
+      return;
+    }
+    
     setEnrolling(true);
     
-    // Simulate API call
-    setTimeout(() => {
-      setEnrolling(false);
+    try {
+      // Add enrollment to database
+      const { error } = await supabase
+        .from('enrollments')
+        .insert({
+          user_id: user.id,
+          course_id: courseId,
+          completion_status: 0
+        });
+      
+      if (error) throw error;
+      
+      setIsEnrolled(true);
       toast({
         title: "Successfully enrolled!",
         description: `You have been enrolled in ${course.title}`,
       });
-    }, 1000);
+    } catch (error: any) {
+      console.error('Error enrolling in course:', error);
+      toast({
+        title: "Enrollment failed",
+        description: error.message || "There was an error enrolling in this course",
+        variant: "destructive"
+      });
+    } finally {
+      setEnrolling(false);
+    }
+  };
+  
+  // Handle wishlist
+  const handleWishlist = async () => {
+    if (!isAuthenticated) {
+      // Store current path for redirect after login
+      localStorage.setItem('redirectAfterLogin', `/courses/${courseId}`);
+      navigate('/login', { state: { from: `/courses/${courseId}` } });
+      return;
+    }
+    
+    setAddingToWishlist(true);
+    
+    try {
+      if (isWishlisted) {
+        // Remove from wishlist
+        const { error } = await supabase
+          .from('course_wishlists')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('course_id', courseId);
+        
+        if (error) throw error;
+        
+        setIsWishlisted(false);
+        toast({
+          title: "Removed from wishlist",
+          description: `${course.title} has been removed from your wishlist`,
+        });
+      } else {
+        // Add to wishlist
+        const { error } = await supabase
+          .from('course_wishlists')
+          .insert({
+            user_id: user.id,
+            course_id: courseId
+          });
+        
+        if (error) throw error;
+        
+        setIsWishlisted(true);
+        toast({
+          title: "Added to wishlist",
+          description: `${course.title} has been added to your wishlist`,
+        });
+      }
+    } catch (error: any) {
+      console.error('Error updating wishlist:', error);
+      toast({
+        title: "Wishlist update failed",
+        description: error.message || "There was an error updating your wishlist",
+        variant: "destructive"
+      });
+    } finally {
+      setAddingToWishlist(false);
+    }
+  };
+  
+  // Handle sharing
+  const handleShare = (platform: string) => {
+    const url = window.location.href;
+    const title = `Check out this course: ${course.title}`;
+    
+    switch (platform) {
+      case 'facebook':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
+        break;
+      case 'twitter':
+        window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(title)}`, '_blank');
+        break;
+      case 'linkedin':
+        window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
+        break;
+      case 'instagram':
+        // Instagram doesn't have a direct share URL, copy to clipboard instead
+        navigator.clipboard.writeText(url).then(() => {
+          toast({
+            title: "Link copied",
+            description: "Course link copied to clipboard for sharing",
+          });
+        });
+        break;
+      default:
+        navigator.clipboard.writeText(url).then(() => {
+          toast({
+            title: "Link copied",
+            description: "Course link copied to clipboard for sharing",
+          });
+        });
+    }
   };
   
   // Calculate overall progress (would come from the database in a real app)
@@ -247,7 +406,9 @@ const CourseDetail = () => {
                     <p className="text-muted-foreground mb-6">
                       Enroll in the course to join discussions with instructors and other students.
                     </p>
-                    <Button>Enroll Now</Button>
+                    <Button onClick={handleEnroll} disabled={isEnrolled}>
+                      {isEnrolled ? "Already Enrolled" : "Enroll Now"}
+                    </Button>
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -268,12 +429,21 @@ const CourseDetail = () => {
                 </div>
                 
                 <div className="flex flex-col gap-3">
-                  <Button size="lg" onClick={handleEnroll} disabled={enrolling}>
-                    {enrolling ? "Enrolling..." : "Enroll in Course"}
+                  <Button 
+                    size="lg" 
+                    onClick={handleEnroll} 
+                    disabled={enrolling || isEnrolled}
+                  >
+                    {enrolling ? "Enrolling..." : isEnrolled ? "Already Enrolled" : "Enroll in Course"}
                   </Button>
                   
-                  <Button variant="outline" size="lg">
-                    Add to Wishlist
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    onClick={handleWishlist}
+                    disabled={addingToWishlist}
+                  >
+                    {addingToWishlist ? "Updating..." : isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
                   </Button>
                 </div>
                 
@@ -302,29 +472,32 @@ const CourseDetail = () => {
                 <div>
                   <h3 className="font-semibold mb-2">Share This Course:</h3>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="h-9 w-9">
+                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('facebook')}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path>
                       </svg>
                     </Button>
-                    <Button variant="outline" size="icon" className="h-9 w-9">
+                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('twitter')}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z"></path>
                       </svg>
                     </Button>
-                    <Button variant="outline" size="icon" className="h-9 w-9">
+                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('linkedin')}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"></path>
                         <rect x="2" y="9" width="4" height="12"></rect>
                         <circle cx="4" cy="4" r="2"></circle>
                       </svg>
                     </Button>
-                    <Button variant="outline" size="icon" className="h-9 w-9">
+                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('instagram')}>
                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
                         <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
                         <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
                       </svg>
+                    </Button>
+                    <Button variant="outline" size="icon" className="h-9 w-9" onClick={() => handleShare('copy')}>
+                      <Share className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>

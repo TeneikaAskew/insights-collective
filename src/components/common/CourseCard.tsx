@@ -1,81 +1,165 @@
 
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Course } from "@/types";
-import { Link } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import EnrollmentBadge from "@/components/course/EnrollmentBadge";
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Heart } from 'lucide-react';
+import { Course } from '@/types';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface CourseCardProps {
   course: Course;
-  progress?: number;
+  isWishlisted?: boolean;
+  onWishlistToggle?: (courseId: string, newStatus: boolean) => void;
 }
 
-const CourseCard = ({ course, progress }: CourseCardProps) => {
-  const { user } = useAuth();
-  const isEnrolled = user?.enrolledCourses?.includes(course.id);
+const CourseCard: React.FC<CourseCardProps> = ({ 
+  course,
+  isWishlisted = false,
+  onWishlistToggle
+}) => {
+  const [wishlisted, setWishlisted] = React.useState(isWishlisted);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const { isAuthenticated, user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  
+  // Check wishlist status on mount if authenticated
+  React.useEffect(() => {
+    if (isAuthenticated && user) {
+      const checkWishlist = async () => {
+        const { data } = await supabase
+          .from('course_wishlists')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('course_id', course.id)
+          .maybeSingle();
+        
+        setWishlisted(!!data);
+      };
+      
+      checkWishlist();
+    }
+  }, [isAuthenticated, user, course.id]);
+  
+  const handleWishlist = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isAuthenticated) {
+      // Store current path for redirect after login
+      localStorage.setItem('redirectAfterLogin', `/courses`);
+      navigate('/login', { state: { from: `/courses` } });
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      if (wishlisted) {
+        // Remove from wishlist
+        const { error } = await supabase
+          .from('course_wishlists')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('course_id', course.id);
+        
+        if (error) throw error;
+        
+        setWishlisted(false);
+        toast({
+          title: "Removed from wishlist",
+          description: `${course.title} has been removed from your wishlist`,
+        });
+      } else {
+        // Add to wishlist
+        const { error } = await supabase
+          .from('course_wishlists')
+          .insert({
+            user_id: user.id,
+            course_id: course.id
+          });
+        
+        if (error) throw error;
+        
+        setWishlisted(true);
+        toast({
+          title: "Added to wishlist",
+          description: `${course.title} has been added to your wishlist`,
+        });
+      }
+      
+      // Call parent callback if provided
+      if (onWishlistToggle) {
+        onWishlistToggle(course.id, !wishlisted);
+      }
+    } catch (error: any) {
+      console.error('Error updating wishlist:', error);
+      toast({
+        title: "Wishlist update failed",
+        description: error.message || "There was an error updating your wishlist",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
   
   return (
-    <Card className="h-full flex flex-col">
-      <CardHeader className="p-0">
-        <div className="relative h-48 w-full">
-          <img 
-            src={course.thumbnail || "/placeholder.svg"} 
-            alt={course.title}
-            className="w-full h-full object-cover rounded-t-lg"
-          />
-          <div className="absolute top-2 right-2 flex gap-2">
-            <Badge variant="secondary">{course.level}</Badge>
+    <Card className="overflow-hidden hover:shadow-md transition-shadow">
+      <Link to={`/courses/${course.id}`} className="block">
+        <div className="relative">
+          <div className="aspect-video overflow-hidden">
+            <img 
+              src={course.thumbnail} 
+              alt={course.title} 
+              className="w-full h-full object-cover transition-transform hover:scale-105" 
+            />
+          </div>
+          <button 
+            onClick={handleWishlist}
+            disabled={isLoading}
+            className="absolute top-2 right-2 bg-white/80 backdrop-blur-sm p-2 rounded-full hover:bg-white transition-colors z-10"
+          >
+            <Heart 
+              className={`h-5 w-5 ${wishlisted ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} 
+            />
+          </button>
+        </div>
+      </Link>
+      
+      <CardContent className="p-5">
+        <Link to={`/courses/${course.id}`} className="block">
+          <div className="flex items-center justify-between mb-2">
             <Badge>{course.category}</Badge>
-          </div>
-          {progress !== undefined && progress > 0 && (
-            <div className="absolute bottom-0 left-0 right-0 bg-background/80 px-3 py-1">
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-primary h-2 rounded-full" 
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="text-xs text-right mt-1">{progress}% complete</div>
+            <div className="flex items-center">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                className="h-4 w-4 text-yellow-500 mr-1" 
+                viewBox="0 0 20 20" 
+                fill="currentColor"
+              >
+                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118l-2.8-2.034c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+              </svg>
+              <span className="text-sm font-medium">{course.rating.toFixed(1)}</span>
             </div>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="p-4 flex-grow">
-        <div className="mb-2">
-          <h3 className="font-bold text-lg line-clamp-2">{course.title}</h3>
-          <p className="text-sm text-muted-foreground">
-            Instructor: {course.instructor.name}
-          </p>
-        </div>
-        <p className="text-sm line-clamp-3 mb-2">{course.description}</p>
-        <div className="mt-auto flex flex-wrap gap-1">
-          {course.tags.map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      </CardContent>
-      <CardFooter className="p-4 pt-0 flex justify-between items-center">
-        <div className="text-sm">
-          <div className="flex items-center gap-1">
-            <span>⭐ {course.rating.toFixed(1)}</span>
-            <span className="text-muted-foreground">•</span>
-            <span>{course.enrollmentCount} students</span>
           </div>
-          <div>{course.duration}</div>
-        </div>
-        
-        {isEnrolled ? (
-          <EnrollmentBadge courseId={course.id} />
-        ) : (
-          <Button asChild>
-            <Link to={`/courses/${course.id}`}>View Course</Link>
-          </Button>
-        )}
-      </CardFooter>
+          
+          <h3 className="text-lg font-semibold mb-2 line-clamp-2">{course.title}</h3>
+          
+          <p className="text-muted-foreground text-sm mb-4 line-clamp-2">
+            {course.description}
+          </p>
+          
+          <div className="flex justify-between items-center text-sm">
+            <span className="text-primary">{course.level}</span>
+            <span>{course.duration}</span>
+          </div>
+        </Link>
+      </CardContent>
     </Card>
   );
 };
