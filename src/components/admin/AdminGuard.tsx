@@ -42,9 +42,9 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     );
   }
   
-  // Redirect to admin login if not authenticated
+  // Redirect to unified login page with admin tab if not authenticated
   if (!isAuthenticated) {
-    return <Navigate to="/admin-login" state={{ from: location }} replace />;
+    return <Navigate to="/login?tab=admin" state={{ from: location }} replace />;
   }
   
   // Render children if authenticated

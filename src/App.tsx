@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ToastProvider } from "@/hooks/use-toast";
 import Index from "./pages/Index";
@@ -31,10 +31,9 @@ import NotFound from "./pages/NotFound";
 import Calendar from "./pages/Calendar";
 import DataBlueprintSeries from "./pages/DataBlueprintSeries";
 import ExploreDataCareers from "./pages/ExploreDataCareers";
-import ChatBot from "./components/chat/ChatBot";
+// import ChatBot from "./components/chat/ChatBot";  // Temporarily comment out to fix console errors
 import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
-import AdminLogin from "./pages/AdminLogin";
 import AdminGuard from "./components/admin/AdminGuard";
 
 const queryClient = new QueryClient();
@@ -67,7 +66,9 @@ const App = () => (
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:conversationId?" element={<Messages />} />
               <Route path="/resume" element={<Resume />} />
-              <Route path="/admin-login" element={<AdminLogin />} />
+              
+              {/* Redirect admin-login to login with admin tab */}
+              <Route path="/admin-login" element={<Navigate to="/login?tab=admin" replace />} />
               
               {/* Protected Admin Routes */}
               <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
@@ -82,7 +83,7 @@ const App = () => (
               
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <ChatBot />
+            {/* Temporarily removed ChatBot to fix console errors */}
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

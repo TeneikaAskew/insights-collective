@@ -1,33 +1,27 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import { FaGoogle } from 'react-icons/fa';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useAuth } from '@/contexts/AuthContext';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { GraduationCap, Loader2, Shield } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
+import { FaGoogle } from 'react-icons/fa';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters')
-});
-
-type LoginFormData = z.infer<typeof loginSchema>;
 
 const Login = () => {
   const { login, googleSignIn, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-
-  // Extract redirect URL from query parameters or use a default
+  
+  // Extract redirect URL and tab from query parameters
   const query = new URLSearchParams(location.search);
   const redirectTo = query.get('redirect') || '/dashboard';
+  const defaultTab = query.get('tab') || 'user';
   
   // Store the redirect URL in localStorage when the component mounts
   useEffect(() => {
@@ -36,8 +30,17 @@ const Login = () => {
     }
   }, [redirectTo]);
 
-  const [isLoading, setIsLoading] = useState(false);
-
+  // States for regular login
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
+  // States for admin login
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+  
   // Redirect authenticated users
   useEffect(() => {
     if (isAuthenticated) {
@@ -50,115 +53,242 @@ const Login = () => {
       }
     }
   }, [isAuthenticated, navigate, redirectTo]);
-
-  const form = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: ''
+  
+  const handleUserLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    
+    if (!email || !password) {
+      setError('Please enter both email and password');
+      return;
     }
-  });
-
-  const onSubmit = async (data: LoginFormData) => {
+    
     try {
-      setIsLoading(true);
-      await login(data.email, data.password);
-      // Note: no need to navigate here as the useEffect will handle it
-    } catch (error) {
-      console.error('Login failed:', error);
-      // The login function already handles toast errors
+      setLoading(true);
+      await login(email, password);
+      // Redirect handled by useEffect
+    } catch (error: any) {
+      setError(error.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
+  
   const handleGoogleSignIn = async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       await googleSignIn();
       // OAuth redirect will happen automatically
-    } catch (error) {
+    } catch (error: any) {
       console.error('Google sign-in failed:', error);
+      setError(error.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
-
+  
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminLoading(true);
+    
+    try {
+      // For demo purposes, hardcoded admin credentials
+      if (adminUsername === 'admin' && adminPassword === 'admin123') {
+        // Store admin authentication in session storage
+        sessionStorage.setItem('isAdminAuthenticated', 'true');
+        
+        toast({
+          title: 'Success',
+          description: 'Logged in as administrator',
+        });
+        
+        // Redirect to admin dashboard
+        navigate('/admin');
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Invalid admin credentials',
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      console.error('Admin login error:', error);
+      toast({
+        title: 'Error',
+        description: 'An error occurred during login',
+        variant: 'destructive',
+      });
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+  
   if (isAuthenticated) {
     return <div className="flex justify-center items-center h-screen">Redirecting...</div>;
   }
-
+  
   return (
-    <div className="container flex h-screen w-screen flex-col items-center justify-center">
-      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl">Login</CardTitle>
-            <CardDescription>
-              Enter your credentials to access your account
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="your.email@example.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Password</FormLabel>
-                      <FormControl>
-                        <Input type="password" placeholder="••••••••" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full" disabled={isLoading}>
-                  {isLoading ? 'Logging in...' : 'Login'}
+    <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <Link to="/" className="inline-flex items-center text-2xl font-bold text-primary">
+            <GraduationCap className="h-8 w-8 mr-2" />
+            Insights Collective
+          </Link>
+        </div>
+        
+        <Tabs defaultValue={defaultTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
+            <TabsTrigger value="user">User Login</TabsTrigger>
+            <TabsTrigger value="admin">Admin Access</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="user">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl">Welcome back</CardTitle>
+                <CardDescription>
+                  Sign in to your Insights Collective account
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full flex items-center justify-center mb-4"
+                  onClick={handleGoogleSignIn}
+                  disabled={loading}
+                >
+                  <FaGoogle className="mr-2 h-4 w-4" />
+                  Sign in with Google
                 </Button>
-              </form>
-            </Form>
-            <div className="relative my-4">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-300"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="bg-white px-2 text-gray-500">Or</span>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              className="w-full flex items-center gap-2"
-              onClick={handleGoogleSignIn}
-              disabled={isLoading}
-            >
-              <FaGoogle className="h-4 w-4" />
-              Continue with Google
-            </Button>
-          </CardContent>
-          <CardFooter className="flex flex-col">
-            <p className="mt-2 text-center text-sm text-gray-600">
-              Don't have an account?{" "}
-              <Link to="/register" className="text-blue-600 hover:text-blue-800">
-                Register
-              </Link>
-            </p>
-          </CardFooter>
-        </Card>
+                
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <Separator />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                  </div>
+                </div>
+                
+                <form onSubmit={handleUserLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="your.email@ic.tech"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="password">Password</Label>
+                      <Link to="/reset-password" className="text-xs text-primary hover:underline">
+                        Forgot password?
+                      </Link>
+                    </div>
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  {error && (
+                    <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
+                      {error}
+                    </div>
+                  )}
+                  
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Signing in...
+                      </>
+                    ) : (
+                      'Sign In'
+                    )}
+                  </Button>
+                  
+                  <p className="text-center text-sm text-muted-foreground">
+                    Don't have an account?{' '}
+                    <Link to="/register" className="text-primary hover:underline">
+                      Create account
+                    </Link>
+                  </p>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+          
+          <TabsContent value="admin">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-2xl flex items-center">
+                  <Shield className="h-5 w-5 mr-2 text-primary" /> 
+                  Administrator Access
+                </CardTitle>
+                <CardDescription>
+                  Restricted area. Authorized personnel only.
+                </CardDescription>
+              </CardHeader>
+              
+              <CardContent>
+                <form onSubmit={handleAdminLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="adminUsername">Username</Label>
+                    <Input
+                      id="adminUsername"
+                      placeholder="admin"
+                      value={adminUsername}
+                      onChange={(e) => setAdminUsername(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="adminPassword">Password</Label>
+                    <Input
+                      id="adminPassword"
+                      type="password"
+                      placeholder="••••••••"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  <Button type="submit" className="w-full" disabled={adminLoading}>
+                    {adminLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Authenticating...
+                      </>
+                    ) : (
+                      'Administrator Login'
+                    )}
+                  </Button>
+                </form>
+              </CardContent>
+              
+              <CardFooter className="text-center text-xs text-muted-foreground">
+                <p className="w-full">
+                  For demo: Username: admin, Password: admin123
+                </p>
+              </CardFooter>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
