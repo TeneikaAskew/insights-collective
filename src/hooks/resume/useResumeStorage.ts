@@ -101,29 +101,32 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
 //     return false;
 //   }
 // };
-
 const checkBucketExists = async (): Promise<boolean> => {
   try {
-    const { data: buckets, error } = await supabase.storage.listBuckets();
-    console.log("Bucket check: ", buckets, "Error: ", error);
-
-    if (error) {
-      console.error('Error checking buckets:', error);
+    // Instead of listing all buckets, try to get details of the specific bucket
+    // This is more reliable and avoids permission issues with listing all buckets
+    const { data, error } = await supabase
+      .storage
+      .from('resumes')
+      .list('', { limit: 1 });
+      
+    // If we can list files, the bucket exists and we have access
+    if (!error) {
+      console.log('Successfully accessed resumes bucket');
+      return true;
+    }
+    
+    // Check for specific error messages that indicate the bucket doesn't exist
+    if (error.message.includes('bucket') && error.message.toLowerCase().includes('not found')) {
+      console.log('Resumes bucket not found');
       return false;
     }
-
-    // Look for a bucket with ID 'resumes' (case-sensitive)
-    const exists = buckets?.some(bucket => bucket.id === 'resumes');
-
-    if (!exists) {
-      console.log('Resumes bucket not found. This should be created by SQL migrations.');
-      return false;
-    }
-
-    console.log('Resumes bucket exists');
-    return true;
+    
+    // Log any other errors but assume the bucket might exist
+    console.error('Error checking bucket access:', error);
+    return false;
   } catch (error) {
-    console.error('Unexpected error checking bucket existence:', error);
+    console.error('Unexpected error checking bucket access:', error);
     return false;
   }
 };
