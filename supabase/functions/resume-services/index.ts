@@ -1,7 +1,12 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { serveBulletImprover } from "./bulletImprover.ts";
-import { corsHeaders } from "../resume-analyzer/utils.ts";
+
+// Define our own cors headers directly in this file instead of importing them
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 // Re-export the sentence detector from the analyzer for backwards compatibility
 import { detectSentences } from "../resume-analyzer/sentenceDetector.ts";
