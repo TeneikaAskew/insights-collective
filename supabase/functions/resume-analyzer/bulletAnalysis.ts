@@ -1,4 +1,4 @@
-  const industryWords = [
+export const industryWords = [
     /* Core data & analytics */
     "data","analytics","analysis","bi","intelligence","insights","sql","nosql","python","r","scala","java","julia","sas","matlab","stata",
     "tableau","powerbi","looker","qlik","superset","mode","redash","excel","sheets",
@@ -34,7 +34,7 @@
     "jira","confluence","api","microservice","microservices","serverless","event","events","logging","observability"
   ];
 
-  const actionWords = [
+export const actionWords = [
     "accelerated", "accomplished", "achieved", "acquired", "activated", "adapted", "addressed", "administered", "advanced", "advised",
     "advocated", "aligned", "allocated", "analyzed", "applied", "appraised", "assembled", "assessed", "assigned", "assisted",
     "attained", "automated", "boosted", "budgeted", "built", "calculated", "centralized", "championed", "changed", "clarified",
@@ -57,7 +57,7 @@
     "validated", "won", "yielded"
   ];
 
-  const softSkills = [
+export const softSkills = [
     "leadership", "management", "mentoring", "coaching", "teamwork", "presentation",
     "stakeholder", "negotiation", "influence", "persuasion", "problem-solving",
     "critical-thinking", "adaptability", "creativity", "innovation", "strategic-thinking",
@@ -69,7 +69,7 @@
 
 const skillsKeywords = [...industryWords, ...actionWords, ...softSkills];
 
-const weakPhrases = [
+export const weakPhrases = [
   "responsible for", "duties include", "helped with", "assisted with", "involved in", "participated in", "worked on", "tasked with",
   "supporting", "responsible to", "a part of", "contributed to", "played a role in", "worked alongside", "was part of",
   "was responsible for", "was involved in", "provided support", "helped manage", "helped develop", "helped implement",
