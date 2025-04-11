@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -108,11 +109,12 @@ async function getResumeRoast(resumeText: string, userId?: string) {
         })
       });
       
-      const result = await response.json();
-      
       if (!response.ok) {
+        const result = await response.json();
         throw new Error(`GROQ API error: ${result.error?.message || 'Unknown error'}`);
       }
+      
+      const result = await response.json();
       
       const roastText = result.choices[0].message.content.trim();
       
@@ -253,7 +255,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
           letter_grade: "C", // Default to "C" instead of "F"
           themes: ["Try reorganizing your resume into clear bullet points for better analysis"],
           elevator_pitch: "Unable to extract bullet points from your resume. Please format your resume with clear bullet points for analysis.",
-          explanation: "We couldn't properly analyze your resume format. Please ensure your experience is organized in bullet points starting with •, –, —, -, or *."
+          explanation: "We couldn't properly analyze your resume format. Please ensure your experience is organized in bullet points for automatic analysis. Includes bullet formats starting with •, –, —, -, or *."
         };
       }
     }
@@ -377,6 +379,16 @@ async function analyzeResume(resumeText: string, userId?: string) {
           }
         } catch (updateError) {
           console.error("Error updating resume analysis:", updateError);
+        }
+      }
+      
+      // Ensure initial assessment is also generated
+      if (userId) {
+        try {
+          const assessment = await getResumeRoast(resumeText, userId);
+          console.log("Generated and stored initial assessment");
+        } catch (assessmentError) {
+          console.error("Error generating initial assessment:", assessmentError);
         }
       }
       

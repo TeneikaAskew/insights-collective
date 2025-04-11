@@ -86,16 +86,34 @@ const Resume = () => {
     }
     const ok = await uploadResume(resumeFile);
     if (ok) {
-      await analyzeResume(extractedText);
+      try {
+        await analyzeResume(extractedText);
+      } catch (error) {
+        console.error('Error analyzing resume:', error);
+        toast({
+          title: 'Analysis Error',
+          description: 'Resume was uploaded but analysis failed. You can try again later.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 
   const handleDelete = async () => {
-    if (resume) await deleteResume();
-    setResumeFile(null);
-    setPdfDataUrl(null);
-    setExtractedText(null);
-    setShowCareerChat(false);
+    try {
+      if (resume) await deleteResume();
+      setResumeFile(null);
+      setPdfDataUrl(null);
+      setExtractedText(null);
+      setShowCareerChat(false);
+    } catch (error) {
+      console.error('Error in handleDelete:', error);
+      toast({
+        title: 'Delete Failed',
+        description: 'Could not delete resume. Please try again.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleDownload = () => {

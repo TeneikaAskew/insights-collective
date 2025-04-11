@@ -73,6 +73,41 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
   }
 };
 
+// Check if storage bucket exists and create it if not
+const ensureStorageBucketExists = async () => {
+  try {
+    // Try to get bucket
+    const { data: bucket, error } = await supabase.storage.getBucket('resumes');
+    
+    if (error && error.message.includes('The resource was not found')) {
+      console.log('Resumes bucket not found, creating it...');
+      
+      // Create bucket if it doesn't exist
+      const { error: createError } = await supabase.storage.createBucket('resumes', {
+        public: false,
+        fileSizeLimit: 10485760, // 10MB
+      });
+      
+      if (createError) {
+        console.error('Error creating resumes bucket:', createError);
+        throw new Error('Failed to create storage bucket for resumes');
+      }
+      
+      console.log('Successfully created resumes bucket');
+    } else if (error) {
+      console.error('Error checking resumes bucket:', error);
+      throw error;
+    } else {
+      console.log('Resumes bucket exists');
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error ensuring bucket exists:', error);
+    return false;
+  }
+};
+
 export function useResumeStorage() {
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
@@ -93,6 +128,9 @@ export function useResumeStorage() {
 
     try {
       console.log("Starting file upload process for user:", userId);
+      
+      // Ensure bucket exists
+      await ensureStorageBucketExists();
       
       // Create a unique file name with user ID folder structure
       const fileExtension = file.name.split('.').pop() || '';
@@ -158,6 +196,9 @@ export function useResumeStorage() {
       const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
       console.log("Getting signed URL for path:", fullPath);
       
+      // Ensure storage bucket exists
+      await ensureStorageBucketExists();
+      
       const { data: fileData, error: fileError } = await supabase
         .storage
         .from('resumes')
@@ -181,6 +222,9 @@ export function useResumeStorage() {
       // Ensure path is correctly formatted
       const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
       console.log("Deleting file at path:", fullPath);
+      
+      // Ensure storage bucket exists
+      await ensureStorageBucketExists();
       
       const { error: deleteFileError } = await supabase
         .storage

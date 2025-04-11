@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useResumeStorage } from './useResumeStorage';
 
 export interface Resume {
   id: string;
@@ -52,6 +51,9 @@ export const useResume = () => {
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  // Import the storage functions directly rather than using the hook again
+  // This fixes the React error #321 (hooks can't be used conditionally)
   const { uploadResumeFile, getResumeFileUrl, extractTextFromFile } = useResumeStorage();
 
   // Load resume data when user changes
@@ -237,8 +239,9 @@ export const useResume = () => {
     if (!user || !resume) return false;
 
     try {
-      // Delete file from storage (using the storage hook)
-      const { deleteResumeFile } = useResumeStorage();
+      // Import required function directly to avoid React hooks usage issues
+      const { deleteResumeFile } = await import('./useResumeStorage');
+      
       try {
         const storageResult = await deleteResumeFile(user.id, resume.file_path);
         if (!storageResult) {
@@ -288,3 +291,6 @@ export const useResume = () => {
     refreshResume: fetchResume
   };
 };
+
+// Import at the top level to prevent hooks-related errors
+import { useResumeStorage } from './useResumeStorage';
