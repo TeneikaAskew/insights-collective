@@ -52,7 +52,7 @@ export const useResume = () => {
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
-  const { uploadResumeFile, getResumeFileUrl } = useResumeStorage();
+  const { uploadResumeFile, getResumeFileUrl, extractTextFromFile } = useResumeStorage();
 
   // Load resume data when user changes
   useEffect(() => {
@@ -95,7 +95,13 @@ export const useResume = () => {
         const fileName = data.file_path.split('/').pop() || '';
         
         // Get signed URL for the file
-        const fileUrl = await getResumeFileUrl(user.id, data.file_path);
+        let fileUrl = null;
+        try {
+          fileUrl = await getResumeFileUrl(user.id, data.file_path);
+        } catch (urlError) {
+          console.error('Error getting file URL:', urlError);
+          // We'll continue without the URL
+        }
         
         setResume({
           ...data,
@@ -135,24 +141,31 @@ export const useResume = () => {
       // Ensure table exists
       await ensureResumesTableExists();
       
+      // Extract text from file for analysis
+      let fileText = '';
+      try {
+        fileText = await extractTextFromFile(file);
+      } catch (extractError) {
+        console.warn('Could not extract text from file:', extractError);
+        try {
+          // Fallback to basic text extraction
+          const textReader = new FileReader();
+          textReader.readAsText(file);
+          fileText = await new Promise((resolve) => {
+            textReader.onload = () => resolve(textReader.result as string);
+          });
+        } catch (err) {
+          console.warn('Fallback text extraction also failed:', err);
+          // Continue with empty text - at least we can store the file
+          fileText = 'Text extraction failed. Please try again with a different file format.';
+        }
+      }
+      
       // Upload file to storage
       const uploadResult = await uploadResumeFile(file, user.id);
       
       if (!uploadResult.success) {
-        throw new Error('Failed to upload resume file');
-      }
-      
-      // Extract text from file for analysis
-      let fileText = '';
-      try {
-        // This uses the extractTextFromFile function from useResumeStorage
-        const textReader = new FileReader();
-        textReader.readAsText(file);
-        fileText = await new Promise((resolve) => {
-          textReader.onload = () => resolve(textReader.result as string);
-        });
-      } catch (err) {
-        console.warn('Could not extract text from file, continuing with upload');
+        throw new Error('Failed to upload resume file to storage');
       }
       
       // Check if user already has a resume record
@@ -161,6 +174,11 @@ export const useResume = () => {
         .select('id')
         .eq('user_id', user.id)
         .maybeSingle();
+      
+      if (fetchError && fetchError.code !== 'PGRST116') {
+        console.error('Error checking for existing resume:', fetchError);
+        throw new Error('Failed to check for existing resume');
+      }
       
       let saveResult;
       
@@ -221,10 +239,13 @@ export const useResume = () => {
     try {
       // Delete file from storage (using the storage hook)
       const { deleteResumeFile } = useResumeStorage();
-      const storageResult = await deleteResumeFile(user.id, resume.file_path);
-      
-      if (!storageResult) {
-        console.warn('Could not delete file from storage, continuing with database deletion');
+      try {
+        const storageResult = await deleteResumeFile(user.id, resume.file_path);
+        if (!storageResult) {
+          console.warn('Could not delete file from storage, continuing with database deletion');
+        }
+      } catch (storageError) {
+        console.warn('Error deleting from storage, continuing with database deletion:', storageError);
       }
       
       // Delete record from database

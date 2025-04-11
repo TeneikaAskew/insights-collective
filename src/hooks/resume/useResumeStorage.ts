@@ -73,49 +73,6 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
   }
 };
 
-// Helper function to ensure 'resumes' bucket exists
-const ensureResumesBucketExists = async () => {
-  try {
-    // Check if bucket exists
-    const { data: buckets, error: listError } = await supabase
-      .storage
-      .listBuckets();
-    
-    if (listError) {
-      console.error("Error listing buckets:", listError);
-      throw listError;
-    }
-    
-    const bucketExists = buckets?.some(bucket => bucket.name === 'resumes');
-    
-    if (!bucketExists) {
-      console.log("Resumes bucket doesn't exist, creating it...");
-      
-      // Create the bucket if it doesn't exist
-      const { error: createError } = await supabase
-        .storage
-        .createBucket('resumes', {
-          public: false,
-          fileSizeLimit: 50 * 1024 * 1024, // 50MB limit
-        });
-      
-      if (createError) {
-        console.error("Error creating resumes bucket:", createError);
-        throw createError;
-      }
-      
-      console.log("Created resumes bucket successfully");
-    } else {
-      console.log("Resumes bucket already exists");
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("Failed to ensure resumes bucket exists:", error);
-    throw error;
-  }
-};
-
 export function useResumeStorage() {
   const [uploading, setUploading] = useState(false);
   const { user } = useAuth();
@@ -137,22 +94,35 @@ export function useResumeStorage() {
     try {
       console.log("Starting file upload process for user:", userId);
       
-      // Ensure the resumes bucket exists
-      await ensureResumesBucketExists();
-      
       // Create a unique file name with user ID folder structure
       const fileExtension = file.name.split('.').pop() || '';
       const fileName = `${userId}/resume_${Date.now()}.${fileExtension}`;
       
-      console.log("Uploading to resumes bucket with file path:", fileName);
+      console.log("Uploading file to path:", fileName);
       
-      // Upload file to Supabase Storage
+      // Try to upload the file directly without checking for bucket existence
       const { data, error } = await supabase.storage
         .from('resumes')
         .upload(fileName, file, { upsert: true });
       
       if (error) {
-        console.error("Upload error details:", JSON.stringify(error));
+        // If bucket doesn't exist, this is likely the issue
+        console.error("Upload error details:", error);
+        
+        if (error.message?.includes("Bucket not found")) {
+          toast({
+            title: "Storage Setup Required",
+            description: "Resume storage is not configured. Please contact support.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Upload Failed",
+            description: "There was an error uploading your file. Please try again.",
+            variant: "destructive",
+          });
+        }
+        
         throw error;
       }
       
@@ -184,9 +154,6 @@ export function useResumeStorage() {
   
   const getResumeFileUrl = async (userId: string, filePath: string) => {
     try {
-      // Ensure bucket exists before trying to get URL
-      await ensureResumesBucketExists();
-      
       // Make sure the path is correctly formed
       const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
       console.log("Getting signed URL for path:", fullPath);
@@ -197,7 +164,7 @@ export function useResumeStorage() {
         .createSignedUrl(fullPath, 3600); // 1 hour expiry
         
       if (fileError) {
-        console.error("Error creating signed URL:", JSON.stringify(fileError));
+        console.error("Error creating signed URL:", fileError);
         return null;
       }
       
@@ -211,9 +178,6 @@ export function useResumeStorage() {
   
   const deleteResumeFile = async (userId: string, filePath: string) => {
     try {
-      // Ensure bucket exists
-      await ensureResumesBucketExists();
-      
       // Ensure path is correctly formatted
       const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
       console.log("Deleting file at path:", fullPath);
@@ -224,7 +188,7 @@ export function useResumeStorage() {
         .remove([fullPath]);
         
       if (deleteFileError) {
-        console.error("Error deleting file:", JSON.stringify(deleteFileError));
+        console.error("Error deleting file:", deleteFileError);
         throw deleteFileError;
       }
       
