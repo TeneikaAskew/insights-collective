@@ -89,6 +89,8 @@ interface AIRequest {
   careerPath: string;
   salaryCap: number;
   assistantType: string;
+  conversationId?: string;
+  quizAttemptId?: string;
 }
 
 
@@ -126,6 +128,92 @@ function formatResponse(raw: string): string {
   return text;
 }
 
+// New function to fetch quiz data for career coach
+async function fetchQuizData(quizAttemptId: string, supabaseClient: any): Promise<string> {
+  try {
+    const { data: quizData, error } = await supabaseClient
+      .from('career_quiz_attempts')
+      .select('*')
+      .eq('id', quizAttemptId)
+      .single();
+    
+    if (error || !quizData) {
+      console.error('Error fetching quiz data:', error);
+      return '';
+    }
+    
+    // Format quiz data as context
+    const topPath = quizData.top_recommended_path;
+    let pathScore = 0;
+    
+    switch(topPath) {
+      case 'AI/ML':
+        pathScore = quizData.result_ai_ml_score;
+        break;
+      case 'Analytics':
+        pathScore = quizData.result_analytics_score;
+        break;
+      case 'Data Engineering':
+        pathScore = quizData.result_data_engineering_score;
+        break;
+      case 'Business Intelligence':
+        pathScore = quizData.result_business_intelligence_score;
+        break;
+    }
+    
+    const quizContext = `
+QUIZ RESULTS CONTEXT:
+Top recommended career path: ${topPath} (Score: ${pathScore})
+
+Other paths considered:
+- AI/ML: ${quizData.result_ai_ml_score}
+- Analytics: ${quizData.result_analytics_score}
+- Data Engineering: ${quizData.result_data_engineering_score}
+- Business Intelligence: ${quizData.result_business_intelligence_score}
+
+Question Responses:
+- Analytical Thinking: ${quizData.q_analytical_thinking || 'N/A'}/5
+- Creative Problem Solving: ${quizData.q_creative_problem_solving || 'N/A'}/5
+- Technical Complexity: ${quizData.q_technical_complexity || 'N/A'}/5
+- Business Value: ${quizData.q_business_value || 'N/A'}/5
+- Communication: ${quizData.q_communication || 'N/A'}/5
+- Teamwork: ${quizData.q_teamwork || 'N/A'}/5
+- Data Orientation: ${quizData.q_data_orientation || 'N/A'}/5
+- Math/Stats Comfort: ${quizData.q_math_stats_comfort || 'N/A'}/5
+- Coding Preference: ${quizData.q_coding_preference || 'N/A'}/5
+- Visualization Interest: ${quizData.q_visualization_interest || 'N/A'}/5
+`;
+
+    return quizContext;
+  } catch (error) {
+    console.error('Error in fetchQuizData:', error);
+    return '';
+  }
+}
+
+// New function to track conversation history in the database
+async function trackConversation(conversationId: string, content: string, senderType: 'user' | 'assistant', supabaseClient: any): Promise<void> {
+  try {
+    if (!conversationId) return;
+    
+    await supabaseClient
+      .from('assistant_messages')
+      .insert({
+        conversation_id: conversationId,
+        content,
+        sender_type: senderType
+      });
+      
+    // Update the conversation's updated_at timestamp
+    await supabaseClient
+      .from('assistant_conversations')
+      .update({ updated_at: new Date().toISOString() })
+      .eq('id', conversationId);
+      
+  } catch (error) {
+    console.error('Error tracking conversation:', error);
+  }
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -142,19 +230,58 @@ serve(async (req) => {
     
     // Parse the request body
     const requestData: AIRequest = await req.json();
-    const { query, careerFocus, careerPath, salaryCap, assistantType } = requestData;
+    const { 
+      query, 
+      careerFocus, 
+      careerPath, 
+      salaryCap, 
+      assistantType,
+      conversationId,
+      quizAttemptId
+    } = requestData;
     
     console.log(`Received query: ${query}`);
     console.log(`Career focus: ${careerFocus}, Career path: ${careerPath}, Salary cap: ${salaryCap}`);
     console.log(`Assistant type: ${assistantType}`);
     
+    if (conversationId) {
+      console.log(`Conversation ID: ${conversationId}`);
+    }
+    
+    if (quizAttemptId) {
+      console.log(`Quiz Attempt ID: ${quizAttemptId}`);
+    }
+    
+    // Create Supabase client if needed for quiz data
+    let quizContext = '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://siuqvhscuiycvdrtiqsh.supabase.co';
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdXF2aHNjdWl5Y3ZkcnRpcXNoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQyMDU0MTUsImV4cCI6MjA1OTc4MTQxNX0.CbAWzKbUfbqYKAZr93jAQm8z8chbNoTe0EnK-E_4u9w';
+    
+    // @ts-ignore: Supabase is loaded from the global scope in edge functions
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Fetch quiz data if available
+    if (quizAttemptId) {
+      quizContext = await fetchQuizData(quizAttemptId, supabase);
+    }
+    
+    // Track user message in database if we have a conversation ID
+    if (conversationId) {
+      await trackConversation(conversationId, query, 'user', supabase);
+    }
+    
     // Create context based on user preferences
-    const userContext = `
+    let userContext = `
       The user is interested in the ${careerFocus} sector, 
       specifically in ${careerPath} career paths, 
       with a target salary range up to $${salaryCap}.
       You are acting as a ${assistantType} assistant.
     `;
+    
+    // Add quiz context if available
+    if (quizContext) {
+      userContext += `\n\n${quizContext}`;
+    }
     
     // Prepare the API call to GROQ
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -201,6 +328,11 @@ serve(async (req) => {
     // Replace "* " with "\n- " for better formatted bullet points
     // Applying formatting function here:
     aiResponse = formatResponse(aiResponse).replace(/\* /g, "\n- ");
+    
+    // Track assistant response in database if we have a conversation ID
+    if (conversationId) {
+      await trackConversation(conversationId, aiResponse, 'assistant', supabase);
+    }
     
     console.log('AI response generated successfully.');
     

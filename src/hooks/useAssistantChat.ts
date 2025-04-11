@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,8 +15,63 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentChat, setCurrentChat] = useState<Chat | null>(null);
+  const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  
+  // Check for quiz data context on initialization
+  useEffect(() => {
+    const storedQuizAttemptId = localStorage.getItem('activeQuizAttemptId');
+    const storedConversationId = localStorage.getItem('activeConversationId');
+    
+    if (storedQuizAttemptId) {
+      setQuizAttemptId(storedQuizAttemptId);
+    }
+    
+    if (storedConversationId) {
+      setConversationId(storedConversationId);
+      
+      // Fetch conversation history if we have a conversation ID
+      if (storedConversationId) {
+        fetchConversationHistory(storedConversationId);
+      }
+    }
+  }, []);
+  
+  // Function to fetch conversation history from Supabase
+  const fetchConversationHistory = async (convId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('assistant_messages')
+        .select('*')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: true });
+        
+      if (error) {
+        console.error('Error fetching conversation history:', error);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        const chatMessages: Message[] = data.map((msg) => ({
+          id: msg.id,
+          role: msg.sender_type as 'user' | 'assistant' | 'system',
+          content: msg.content,
+          timestamp: new Date(msg.created_at)
+        }));
+        
+        setMessages(chatMessages);
+      }
+    } catch (error) {
+      console.error('Error in fetchConversationHistory:', error);
+    }
+  };
   
   const initializeChat = (settings: PersonalizationSettings) => {
+    // Skip initialization if we have conversation history
+    if (conversationId && messages.length > 0) {
+      return;
+    }
+    
     const { careerFocus, careerPath, salaryCap } = settings;
     
     const welcomeMessage: Message = {
@@ -60,6 +115,14 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
     ) || careerExplorerAssistant;
     
     setAssistant(newAssistant);
+    
+    // Reset quiz context if changing away from career coach
+    if (assistantId !== 'career-coach') {
+      setQuizAttemptId(null);
+      setConversationId(null);
+      localStorage.removeItem('activeQuizAttemptId');
+      localStorage.removeItem('activeConversationId');
+    }
     
     // Update URL without reloading
     navigate(`/assistant/${assistantId}`, { replace: true });
@@ -105,7 +168,9 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
           careerFocus,
           careerPath,
           salaryCap,
-          assistantType: assistant.name
+          assistantType: assistant.name,
+          conversationId: conversationId || undefined,
+          quizAttemptId: quizAttemptId || undefined
         }
       });
       
@@ -199,6 +264,14 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
     
     setCurrentChat(newChat);
     
+    // Reset quiz context when starting a new chat
+    if (assistant.id !== 'career-coach') {
+      setQuizAttemptId(null);
+      setConversationId(null);
+      localStorage.removeItem('activeQuizAttemptId');
+      localStorage.removeItem('activeConversationId');
+    }
+    
     // Save to localStorage
     const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
     savedChats.push(newChat);
@@ -233,6 +306,8 @@ export const useAssistantChat = (initialAssistant: Assistant) => {
     inputValue,
     isLoading,
     currentChat,
+    quizAttemptId,
+    conversationId,
     setInputValue,
     handleAssistantChange,
     handleSendMessage,

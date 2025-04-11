@@ -9,6 +9,142 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      assistant_conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          quiz_attempt_id: string | null
+          session_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          quiz_attempt_id?: string | null
+          session_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          quiz_attempt_id?: string | null
+          session_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_conversations_quiz_attempt_id_fkey"
+            columns: ["quiz_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "career_quiz_attempts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string | null
+          id: string
+          sender_type: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string | null
+          id?: string
+          sender_type: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string | null
+          id?: string
+          sender_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      career_quiz_attempts: {
+        Row: {
+          created_at: string | null
+          id: string
+          q_analytical_thinking: number | null
+          q_business_value: number | null
+          q_coding_preference: number | null
+          q_communication: number | null
+          q_creative_problem_solving: number | null
+          q_data_orientation: number | null
+          q_math_stats_comfort: number | null
+          q_teamwork: number | null
+          q_technical_complexity: number | null
+          q_visualization_interest: number | null
+          result_ai_ml_score: number | null
+          result_analytics_score: number | null
+          result_business_intelligence_score: number | null
+          result_data_engineering_score: number | null
+          session_id: string | null
+          top_recommended_path: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          q_analytical_thinking?: number | null
+          q_business_value?: number | null
+          q_coding_preference?: number | null
+          q_communication?: number | null
+          q_creative_problem_solving?: number | null
+          q_data_orientation?: number | null
+          q_math_stats_comfort?: number | null
+          q_teamwork?: number | null
+          q_technical_complexity?: number | null
+          q_visualization_interest?: number | null
+          result_ai_ml_score?: number | null
+          result_analytics_score?: number | null
+          result_business_intelligence_score?: number | null
+          result_data_engineering_score?: number | null
+          session_id?: string | null
+          top_recommended_path?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          q_analytical_thinking?: number | null
+          q_business_value?: number | null
+          q_coding_preference?: number | null
+          q_communication?: number | null
+          q_creative_problem_solving?: number | null
+          q_data_orientation?: number | null
+          q_math_stats_comfort?: number | null
+          q_teamwork?: number | null
+          q_technical_complexity?: number | null
+          q_visualization_interest?: number | null
+          result_ai_ml_score?: number | null
+          result_analytics_score?: number | null
+          result_business_intelligence_score?: number | null
+          result_data_engineering_score?: number | null
+          session_id?: string | null
+          top_recommended_path?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       conversation_participants: {
         Row: {
           added_at: string | null
@@ -488,10 +624,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      quiz_analytics: {
+        Row: {
+          ai_ml_recommendations: number | null
+          analytics_recommendations: number | null
+          bi_recommendations: number | null
+          data_engineering_recommendations: number | null
+          day: string | null
+          total_attempts: number | null
+          unique_sessions: number | null
+          unique_users: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      [_ in never]: never
+      generate_initial_assistant_message: {
+        Args: { quiz_attempt_id: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

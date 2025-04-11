@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { CareerTrack, QuizQuestion, quizQuestions, getSkillLevel, getTrackPersona, getCourseRecommendations } from '@/data/careerQuizData';
 import { ArrowLeft, ArrowRight, BarChart2, Brain, Database, Presentation } from 'lucide-react';
@@ -98,7 +97,7 @@ const Quiz: React.FC = () => {
   };
 
   if (showResults) {
-    return <QuizResults scores={scores} onReset={resetQuiz} />;
+    return <QuizResults scores={scores} answers={answers} onReset={resetQuiz} />;
   }
 
   return (

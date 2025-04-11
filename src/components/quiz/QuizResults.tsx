@@ -4,14 +4,19 @@ import { Link } from 'react-router-dom';
 import { CareerTrack, getSkillLevel, getTrackPersona, getCourseRecommendations } from '@/data/careerQuizData';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, Presentation, RefreshCw, Share2 } from 'lucide-react';
+import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, MessageCircle, Presentation, RefreshCw, Share2 } from 'lucide-react';
+import { useCareerCoach } from '@/hooks/useCareerCoach';
 
 interface QuizResultsProps {
   scores: Record<CareerTrack, number>;
+  answers: Record<number, number | string>;
   onReset: () => void;
 }
 
-const QuizResults: React.FC<QuizResultsProps> = ({ scores, onReset }) => {
+const QuizResults: React.FC<QuizResultsProps> = ({ scores, answers, onReset }) => {
+  // Get the useCareerCoach hook
+  const { initiateCareerCoachChat, isProcessing } = useCareerCoach();
+  
   // Sort tracks by score (highest to lowest) and take top 3
   const topTracks = Object.entries(scores)
     .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
@@ -89,6 +94,11 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, onReset }) => {
     URL.revokeObjectURL(url);
   };
 
+  // Handler for the Career Coach button
+  const handleCareerCoachClick = async () => {
+    await initiateCareerCoachChat(answers, scores);
+  };
+
   return (
     <div className="w-full">
       <div className="max-w-4xl mx-auto">
@@ -97,6 +107,20 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, onReset }) => {
           <p className="text-muted-foreground">
             Based on your answers, here are the top data career paths you might excel in.
           </p>
+          
+          {/* Career Coach Button - Added at the top */}
+          <div className="mt-6 mb-4">
+            <Button 
+              onClick={handleCareerCoachClick} 
+              disabled={isProcessing}
+              className="w-full sm:w-auto text-lg py-6 px-8 bg-primary/90 hover:bg-primary flex items-center justify-center gap-2"
+              size="lg"
+            >
+              <MessageCircle className="h-5 w-5" />
+              Chat with our Career Coach
+              {isProcessing && <span className="ml-2 animate-spin">⏳</span>}
+            </Button>
+          </div>
           
           <div className="flex gap-3 justify-center mt-4">
             <Button variant="outline" onClick={onReset} className="flex items-center gap-2">
