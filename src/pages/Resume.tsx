@@ -152,8 +152,8 @@ const Resume = () => {
           />
         </div>
 
-        {/* Moved ResumeChat above the bullet analysis section */}
-        {(showCareerChat || analysis) && <ResumeChat resumeAnalysis={analysis} />}
+        {/* Only show chat when showCareerChat is true */}
+        {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
 
         {/* Bullet-analysis panel now comes after the chat */}
         <details open className="border rounded-md bg-white shadow-sm">

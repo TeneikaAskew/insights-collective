@@ -31,58 +31,82 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
   
-  // Fetch initial resume roast on mount
+  // Fetch initial resume assessment and create welcome message on component mount
   useEffect(() => {
-    async function getResumeRoast() {
-      if (resumeAnalysis) {
+    if (resumeAnalysis) {
+      setIsLoading(true);
+      
+      // Immediately set up welcome message with basic info
+      const welcomeMessage: Message = {
+        id: `welcome-${Date.now()}`,
+        role: 'assistant',
+        content: `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.`,
+        timestamp: new Date(),
+      };
+      
+      setMessages([welcomeMessage]);
+      
+      // Try to fetch detailed assessment
+      (async () => {
         try {
-          setIsLoading(true);
+          const resumeText = localStorage.getItem(`resume_text_${resumeAnalysis.resume_id}`) || '';
+          
+          if (!resumeText) {
+            throw new Error('No resume text found');
+          }
           
           const { data, error } = await supabase.functions.invoke('resume-analyzer', {
             body: { 
               action: 'get-roast',
-              resumeText: localStorage.getItem(`resume_text_${resumeAnalysis.resume_id}`) || ''
+              resumeText: resumeText
             }
           });
           
           if (error) throw error;
           
           if (data && data.roast) {
+            // Update welcome message with roast
+            const updatedWelcomeMessage: Message = {
+              ...welcomeMessage,
+              content: `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
+
+**Here's my honest assessment:**
+${data.roast}
+
+Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`
+            };
+            
+            setMessages([updatedWelcomeMessage]);
             setInitialRoast(data.roast);
+          } else {
+            // If no roast, still add the question to the welcome message
+            const updatedWelcomeMessage: Message = {
+              ...welcomeMessage,
+              content: `${welcomeMessage.content}
+
+Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`
+            };
+            
+            setMessages([updatedWelcomeMessage]);
           }
         } catch (error) {
           console.error('Error fetching resume roast:', error);
+          
+          // Fallback message
+          const updatedWelcomeMessage: Message = {
+            ...welcomeMessage,
+            content: `${welcomeMessage.content}
+
+Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`
+          };
+          
+          setMessages([updatedWelcomeMessage]);
         } finally {
           setIsLoading(false);
         }
-      }
+      })();
     }
-    
-    getResumeRoast();
   }, [resumeAnalysis]);
-  
-  // Initialize with welcome message, insights, and first question
-  useEffect(() => {
-    if (resumeAnalysis) {
-      let welcomeContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.`;
-      
-      // Add the resume roast insights if available
-      if (initialRoast) {
-        welcomeContent += `\n\n**Here's my honest assessment:**\n${initialRoast}\n\n`;
-      }
-      
-      welcomeContent += `\nLet's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`;
-      
-      const welcomeMessage: Message = {
-        id: `welcome-${Date.now()}`,
-        role: 'assistant',
-        content: welcomeContent,
-        timestamp: new Date(),
-      };
-      
-      setMessages([welcomeMessage]);
-    }
-  }, [resumeAnalysis, initialRoast]);
   
   const handleRequestRoast = async () => {
     if (!resumeAnalysis || roastRequested) return;
@@ -263,26 +287,6 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
             <p className="text-muted-foreground mb-4">
               Your resume is ready for review. I can provide personalized advice to help you improve it.
             </p>
-            <Button 
-              onClick={() => {
-                // Initialize with message when user hasn't received one yet
-                let welcomeContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.`;
-                
-                welcomeContent += `\n\nLet's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`;
-                
-                const welcomeMessage: Message = {
-                  id: `welcome-${Date.now()}`,
-                  role: 'assistant',
-                  content: welcomeContent,
-                  timestamp: new Date(),
-                };
-                
-                setMessages([welcomeMessage]);
-              }}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Start Chat
-            </Button>
           </div>
         )}
         
