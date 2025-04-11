@@ -1,13 +1,9 @@
-
-// import { useState, useEffect } from 'react';
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { CareerTrack } from '@/data/careerQuizData';
-
-
 
 // Career path alignment calculation
 interface CareerAlignment {
@@ -24,42 +20,24 @@ export function useResumeAnalysis() {
   const { user } = useAuth();
   const hasLoadedAnalysis = useRef(false);
 
-  // Load saved analysis from localStorage on component mount
-  // useEffect(() => {
-  //   if (user) {
-  //     const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-  //     console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
-  //     if (savedAnalysis) {
-  //       try {
-  //         const parsedAnalysis = JSON.parse(savedAnalysis);
-  //         setAnalysis(parsedAnalysis);
-  //         calculateCareerAlignments(parsedAnalysis);
-  //       } catch (error) {
-  //         console.error('Error parsing saved analysis:', error);
-  //       }
-  //     }
-  //   }
-  // }, [user]);
-
   useEffect(() => {
-  if (user && !hasLoadedAnalysis.current) {
-    hasLoadedAnalysis.current = true;
+    if (user && !hasLoadedAnalysis.current) {
+      hasLoadedAnalysis.current = true;
 
-    const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-    console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
+      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+      console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
 
-    if (savedAnalysis) {
-      try {
-        const parsedAnalysis = JSON.parse(savedAnalysis);
-        setAnalysis(parsedAnalysis);
-        calculateCareerAlignments(parsedAnalysis);
-      } catch (error) {
-        console.error('Error parsing saved analysis:', error);
+      if (savedAnalysis) {
+        try {
+          const parsedAnalysis = JSON.parse(savedAnalysis);
+          setAnalysis(parsedAnalysis);
+          calculateCareerAlignments(parsedAnalysis);
+        } catch (error) {
+          console.error('Error parsing saved analysis:', error);
+        }
       }
     }
-  }
-}, [user]);
-
+  }, [user]);
 
   // Calculate career alignments based on resume analysis
   const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
@@ -268,16 +246,16 @@ export function useResumeAnalysis() {
         // Create a basic fallback analysis
         const fallbackAnalysis = {
           resume_id: user.id,
-          resume_percent: 0, //50
-          letter_grade: "Z+",//"C+"
+          resume_percent: 50,
+          letter_grade: "C+",
           bullets: [],
-          elevator_pitch: "",//"Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
+          elevator_pitch: "Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
           themes: [
-            "",// "Add more metrics and achievements to your bullet points",
-            "",// "Use stronger action verbs at the start of each bullet point",
-            ""// "Make your bullet points more concise and focused on results"
+            "Add more metrics and achievements to your bullet points",
+            "Use stronger action verbs at the start of each bullet point",
+            "Make your bullet points more concise and focused on results"
           ],
-          explanation: '',//"Your resume would benefit from more specific accomplishments with metrics. Focus on what you achieved rather than just responsibilities."
+          explanation: "Your resume would benefit from more specific accomplishments with metrics. Focus on what you achieved rather than just responsibilities."
         };
         
         // Save the fallback analysis

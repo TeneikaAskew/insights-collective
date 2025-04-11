@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CareerTrack, getSkillLevel, getTrackPersona } from '@/data/careerQuizData';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Brain, BarChart3, Database, Presentation, ArrowRight } from 'lucide-react';
+import { Brain, BarChart3, Database, Presentation, ArrowRight, Award } from 'lucide-react';
 import { useCareerCoach } from '@/hooks/useCareerCoach';
 
 interface QuizResult {
@@ -20,36 +21,61 @@ const QuizResultsSection = () => {
   const { initiateCareerCoachChat } = useCareerCoach();
 
   useEffect(() => {
-    const loadQuizResults = () => {
-      try {
-        const storedScores = localStorage.getItem('quizScores');
-        
-        if (storedScores) {
-          const scores = JSON.parse(storedScores) as Record<CareerTrack, number>;
-          
-          const topTracks = Object.entries(scores)
-            .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
-            .slice(0, 3)
-            .map(([track, score]) => ({
-              track: track as CareerTrack,
-              score: Math.round(score),
-              level: getSkillLevel(Math.round(score)),
-              persona: getTrackPersona(track as CareerTrack)
-            }));
-          
-          setQuizResults(topTracks);
-          setHasResults(true);
-        } else {
-          setHasResults(false);
-        }
-      } catch (error) {
-        console.error("Error loading quiz results:", error);
-        setHasResults(false);
-      }
-    };
-    
     loadQuizResults();
+    // Add event listener to refresh results when storage changes
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
+
+  const handleStorageChange = (e: StorageEvent) => {
+    if (e.key === 'quizScores') {
+      loadQuizResults();
+    }
+  };
+
+  const loadQuizResults = () => {
+    try {
+      const storedScores = localStorage.getItem('quizScores');
+      
+      if (storedScores) {
+        const scores = JSON.parse(storedScores) as Record<CareerTrack, number>;
+        
+        // Verify if we have valid scores
+        const hasValidScores = Object.values(scores).some(score => score > 0);
+        
+        if (!hasValidScores) {
+          console.log("Quiz scores found but all values are zero");
+          setHasResults(false);
+          setQuizResults(null);
+          return;
+        }
+        
+        const topTracks = Object.entries(scores)
+          .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
+          .slice(0, 3)
+          .map(([track, score]) => ({
+            track: track as CareerTrack,
+            score: Math.round(score),
+            level: getSkillLevel(Math.round(score)),
+            persona: getTrackPersona(track as CareerTrack)
+          }));
+        
+        console.log("Quiz results loaded:", topTracks);
+        setQuizResults(topTracks);
+        setHasResults(true);
+      } else {
+        console.log("No quiz scores found in localStorage");
+        setHasResults(false);
+        setQuizResults(null);
+      }
+    } catch (error) {
+      console.error("Error loading quiz results:", error);
+      setHasResults(false);
+      setQuizResults(null);
+    }
+  };
 
   const getTrackIcon = (track: CareerTrack) => {
     switch (track) {
@@ -96,6 +122,18 @@ const QuizResultsSection = () => {
 
   const getDefaultAnswers = (): Record<number, number | string> => {
     return {};
+  };
+
+  // For debugging - will be removed in production
+  const debugQuizResults = () => {
+    const mockScores: Record<CareerTrack, number> = {
+      'AI/ML': 85,
+      'Analytics': 72,
+      'Data Engineering': 60,
+      'Business Intelligence': 45
+    };
+    localStorage.setItem('quizScores', JSON.stringify(mockScores));
+    loadQuizResults();
   };
 
   return (
@@ -153,8 +191,19 @@ const QuizResultsSection = () => {
       ) : (
         <Alert>
           <AlertDescription className="flex flex-col gap-4">
-            <p>You haven't taken the career path quiz yet. Take the quiz to discover which data career paths align with your skills and interests.</p>
-            <Button onClick={handleTakeQuiz}>Take Career Quiz</Button>
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-muted-foreground" />
+              <p>You haven't taken the career path quiz yet. Take the quiz to discover which data career paths align with your skills and interests.</p>
+            </div>
+            <div className="flex justify-between">
+              <Button onClick={handleTakeQuiz}>Take Career Quiz</Button>
+              {/* Debug button only for development - remove in production */}
+              {process.env.NODE_ENV === 'development' && (
+                <Button variant="outline" onClick={debugQuizResults} size="sm">
+                  Debug: Load Results
+                </Button>
+              )}
+            </div>
           </AlertDescription>
         </Alert>
       )}
