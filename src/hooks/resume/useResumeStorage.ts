@@ -96,7 +96,7 @@ export function useResumeStorage() {
       
       // Create a unique file name with user ID folder structure
       const fileExtension = file.name.split('.').pop() || '';
-      const fileName = `${userId}/resume_${Date.now()}.${fileExtension}`;
+      const fileName = `resume_${Date.now()}.${fileExtension}`;
       
       console.log("Uploading to resumes bucket with file path:", fileName);
       
