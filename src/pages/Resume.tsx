@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,21 +11,44 @@ import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 import { useResumeStorage, extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const { resume, loading, uploading, uploadResume, deleteResume, refreshResume } = useResume();
+  const { resume, loading: resumeLoading, uploading, uploadResume, deleteResume, refreshResume } = useResume();
   const { analysis, isAnalyzing, analyzeResume, careerAlignments, setAnalysis } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string | null>(null);
   const [hasLoadedAnalysis, setHasLoadedAnalysis] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // 1) Load existing analysis on mount and when resume changes
   useEffect(() => {
-    if (user && resume?.analysis && !analysis && !hasLoadedAnalysis) {
+    let isMounted = true;
+    
+    const loadInitialData = async () => {
+      if (initialLoadComplete || !user) return;
+      
+      try {
+        console.log("Initial data load started");
+        await refreshResume();
+        setInitialLoadComplete(true);
+      } catch (err) {
+        console.error("Error in initial data load:", err);
+      }
+    };
+    
+    loadInitialData();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [user, initialLoadComplete, refreshResume]);
+
+  useEffect(() => {
+    if (resume?.analysis && !analysis && !hasLoadedAnalysis && user) {
       try {
         console.log("Loading analysis from resume object:", resume.analysis);
         setAnalysis(resume.analysis);
@@ -35,18 +57,15 @@ const Resume = () => {
         console.error("Error setting analysis from resume:", err);
       }
     }
-  }, [user, resume, analysis, setAnalysis, hasLoadedAnalysis]);
+  }, [resume, analysis, setAnalysis, hasLoadedAnalysis, user]);
 
-  // 2) Preview PDF and extract text
   useEffect(() => {
     if (!resumeFile) return;
 
-    // PDF preview
     const reader = new FileReader();
     reader.onload = (e) => setPdfDataUrl(e.target?.result as string);
     reader.readAsDataURL(resumeFile);
 
-    // Text extraction
     (async () => {
       try {
         const text = await extractTextFromFile(resumeFile);
@@ -62,22 +81,21 @@ const Resume = () => {
     })();
   }, [resumeFile, toast]);
 
-  // 3) If we already have a stored resume and no analysis in-memory, re-run analysis
   useEffect(() => {
-    if (resumeFile === null && resume?.text && !analysis && !isAnalyzing) {
+    if (resume?.text && !analysis && !isAnalyzing && !hasLoadedAnalysis && initialLoadComplete) {
       console.log("Analyzing existing resume text");
-      analyzeResume(resume.text);
+      analyzeResume(resume.text)
+        .then(success => {
+          if (success) {
+            setHasLoadedAnalysis(true);
+          }
+        })
+        .catch(err => {
+          console.error("Error analyzing resume:", err);
+        });
     }
-  }, [resume, resumeFile, analysis, analyzeResume, isAnalyzing]);
+  }, [resume, analysis, analyzeResume, isAnalyzing, hasLoadedAnalysis, initialLoadComplete]);
 
-  // 4) Refresh all data on initial load
-  useEffect(() => {
-    if (user && !loading) {
-      refreshResume();
-    }
-  }, [user, loading, refreshResume]);
-
-  // 5) Handlers
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -86,6 +104,7 @@ const Resume = () => {
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ) {
       setResumeFile(file);
+      setHasLoadedAnalysis(false);
     } else {
       toast({
         title: 'Invalid type',
@@ -104,6 +123,9 @@ const Resume = () => {
       });
       return;
     }
+    
+    setHasLoadedAnalysis(false);
+    
     const ok = await uploadResume(resumeFile);
     if (ok) {
       try {
@@ -145,14 +167,30 @@ const Resume = () => {
 
   const handleStartCareerChat = () => setShowCareerChat(true);
 
+  const handleRefreshData = async () => {
+    setHasLoadedAnalysis(false);
+    await refreshResume();
+    toast({
+      title: 'Refreshed',
+      description: 'Resume data has been refreshed.',
+    });
+  };
+
   if (!isAuthenticated) return <ResumeLoginWall />;
+
+  const loading = resumeLoading || isAnalyzing;
 
   return (
     <AppLayout>
       <div className="container mx-auto py-6 space-y-6">
-        <h1 className="text-2xl font-bold">Resume Management</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Resume Management</h1>
+          
+          <Button variant="outline" size="sm" onClick={handleRefreshData} disabled={loading}>
+            Refresh Data
+          </Button>
+        </div>
 
-        {/* Career Alignment Alerts */}
         {careerAlignments && careerAlignments.length > 0 && (
           <div className="space-y-2">
             {careerAlignments.map((alignment, index) => (
@@ -194,10 +232,8 @@ const Resume = () => {
           />
         </div>
 
-        {/* Only show chat when showCareerChat is true */}
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
 
-        {/* Bullet-analysis panel comes after the chat */}
         <details open className="border rounded-md bg-white shadow-sm">
           <summary className="cursor-pointer px-4 py-2 font-medium">
             Resume Bullet Analysis

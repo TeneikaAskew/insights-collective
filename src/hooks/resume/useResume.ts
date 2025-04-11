@@ -21,8 +21,8 @@ export interface Resume {
   initial_assessment?: string;
 }
 
-// Helper function to ensure the resumes table exists
-const ensureResumesTableExists = async () => {
+// Helper function to check if the resumes table exists
+const checkResumesTableExists = async () => {
   try {
     // We'll check if the table exists by performing a query
     const { error } = await supabase
@@ -33,60 +33,16 @@ const ensureResumesTableExists = async () => {
     // If there's a PostgreSQL error specifically about relation not existing
     if (error && error.code === '42P01') {
       console.error("Resumes table does not exist:", error);
-      throw new Error("Resumes table does not exist. Please create it using SQL migrations.");
+      return false;
     } else if (error) {
       console.error("Error checking resumes table:", error);
+      return false;
     } else {
       console.log("Resumes table exists");
+      return true;
     }
-    
-    return true;
   } catch (error) {
-    console.error("Error ensuring resumes table exists:", error);
-    throw error;
-  }
-};
-
-// Helper function to ensure the storage bucket exists
-const ensureResumesBucketExists = async () => {
-  try {
-    // Check if the bucket exists
-    const { data: buckets, error: bucketsError } = await supabase
-      .storage
-      .listBuckets();
-    
-    if (bucketsError) {
-      console.error("Error checking buckets:", bucketsError);
-      throw bucketsError;
-    }
-    
-    // Check if resumes bucket exists
-    const resumesBucket = buckets?.find(bucket => bucket.name === 'resumes');
-    
-    if (!resumesBucket) {
-      // Create the bucket if it doesn't exist
-      console.log("Creating resumes bucket...");
-      const { error: createError } = await supabase
-        .storage
-        .createBucket('resumes', {
-          public: false,
-          fileSizeLimit: 10485760, // 10MB
-          allowedMimeTypes: ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-        });
-      
-      if (createError) {
-        console.error("Error creating bucket:", createError);
-        throw createError;
-      }
-      
-      console.log("Resumes bucket created successfully");
-    } else {
-      console.log("Resumes bucket already exists");
-    }
-    
-    return true;
-  } catch (error) {
-    console.error("Error ensuring bucket exists:", error);
+    console.error("Error checking if resumes table exists:", error);
     return false;
   }
 };
@@ -119,13 +75,13 @@ export const useResume = () => {
     try {
       setLoading(true);
       
-      // Verify the table and bucket exist
-      try {
-        await ensureResumesTableExists();
-        await ensureResumesBucketExists();
-      } catch (setupError) {
-        console.error("Error ensuring database/storage setup:", setupError);
-        // Continue with the function, as we might still be able to fetch data
+      // Verify the table exists
+      const tableExists = await checkResumesTableExists();
+      if (!tableExists) {
+        console.error("Resumes table does not exist");
+        setResume(null);
+        setLoading(false);
+        return;
       }
       
       const { data, error } = await supabase
@@ -199,9 +155,16 @@ export const useResume = () => {
     try {
       setUploading(true);
       
-      // Ensure table exists
-      await ensureResumesTableExists();
-      await ensureResumesBucketExists();
+      // Check if table exists
+      const tableExists = await checkResumesTableExists();
+      if (!tableExists) {
+        toast({
+          title: 'Setup Required',
+          description: 'Resume system is not properly configured. Please contact support.',
+          variant: 'destructive',
+        });
+        return false;
+      }
       
       // Extract text from file for analysis
       let fileText = '';
