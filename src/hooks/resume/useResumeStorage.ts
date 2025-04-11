@@ -102,18 +102,50 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
 //   }
 // };
 
+// const checkBucketExists = async (): Promise<boolean> => {
+//   try {
+//     const { data: buckets, error } = await supabase.storage.listBuckets();
+//     console.log("Bucket check: ", buckets, "Error: ", error);
+
+//     if (error) {
+//       console.error('Error checking buckets:', error);
+//       return false;
+//     }
+
+//     // Look for a bucket with ID 'resumes' (case-sensitive)
+//     const exists = buckets?.some(bucket => bucket.id === 'resumes');
+
+//     if (!exists) {
+//       console.log('Resumes bucket not found. This should be created by SQL migrations.');
+//       return false;
+//     }
+
+//     console.log('Resumes bucket exists');
+//     return true;
+//   } catch (error) {
+//     console.error('Unexpected error checking bucket existence:', error);
+//     return false;
+//   }
+// };
+
 const checkBucketExists = async (): Promise<boolean> => {
   try {
     const { data: buckets, error } = await supabase.storage.listBuckets();
-    console.log("Bucket check: ", buckets, data, "Error: ", error);
+    
+    console.log("Buckets returned:", buckets);
+    console.log("Error returned:", error);
 
     if (error) {
       console.error('Error checking buckets:', error);
       return false;
     }
 
-    // Look for a bucket with ID 'resumes' (case-sensitive)
-    const exists = buckets?.some(bucket => bucket.id === 'resumes');
+    if (!Array.isArray(buckets)) {
+      console.error('Unexpected data format:', buckets);
+      return false;
+    }
+
+    const exists = buckets.some(bucket => bucket.id === 'resumes');
 
     if (!exists) {
       console.log('Resumes bucket not found. This should be created by SQL migrations.');
