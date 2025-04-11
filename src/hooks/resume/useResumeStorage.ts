@@ -272,7 +272,7 @@ export function useResumeStorage() {
       // Upload file to Storage
       const { error: uploadError } = await supabase
         .storage
-        .from('resumes')
+        .from('Resumes')
         .upload(filePath, file);
         
       if (uploadError) throw uploadError;
