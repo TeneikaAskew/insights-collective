@@ -7,8 +7,8 @@ export const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Re-export the sentence detector from the analyzer for backwards compatibility
-import { detectSentences, serveSentenceDetector, serveBulletImprover } from "../resume-analyzer/index.ts";
+// Re-export the sentence detector and bullet improver from the analyzer module
+import { detectSentences, serveSentenceDetector, serveBulletImprover } from "./resume-analyzer/index.ts";
 export { detectSentences };
 
 serve(async (req: Request) => {
