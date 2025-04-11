@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
@@ -7,9 +8,11 @@ import BulletPointChart from './BulletPointChart';
 import { CheckCircle, AlertTriangle, Edit2 } from 'lucide-react';
 import { HighlightedBulletText } from './text/BulletTextParser';
 import { ScoreWithIcon } from './chart/ChartComponents';
+
 interface BulletPointsAnalysisCardProps {
   bullets: BulletAnalysis[];
 }
+
 const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   bullets = [] // Provide default empty array
 }) => {
@@ -32,6 +35,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
 
   // Safely select the bullet (handle case where selectedBulletIndex is out of range)
   const selectedBullet = bullets[selectedBulletIndex < bullets.length ? selectedBulletIndex : 0] || bullets[0];
+  
   return <Card>
       <CardHeader>
         <CardTitle className="text-center">Resume Bullet Analysis</CardTitle>
@@ -40,13 +44,20 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Bullet selection */}
+        {/* Bullet selection with wider dropdown */}
         <div>
           <label className="block text-sm font-medium mb-2">Select bullet point to analyze:</label>
-          <select className="w-full border rounded p-2" value={selectedBulletIndex} onChange={e => setSelectedBulletIndex(parseInt(e.target.value))}>
-            {bullets.map((bullet, idx) => <option key={idx} value={idx}>
-                {bullet?.original?.substring(0, 60) || `Bullet point ${idx + 1}`}...
-              </option>)}
+          <select 
+            className="w-full border rounded p-2 text-ellipsis" 
+            value={selectedBulletIndex} 
+            onChange={e => setSelectedBulletIndex(parseInt(e.target.value))}
+            style={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}
+          >
+            {bullets.map((bullet, idx) => (
+              <option key={idx} value={idx} style={{ maxWidth: '100%', whiteSpace: 'normal' }}>
+                {bullet?.original || `Bullet point ${idx + 1}`}
+              </option>
+            ))}
           </select>
         </div>
         
@@ -162,9 +173,9 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           </p>
         </div>
         
-        {/* Accordion for all bullet points */}
+        {/* Display all bullets in an Accordion */}
         <div className="mt-6 border-t pt-4">
-          <h4 className="text-md font-semibold mb-4">All Bullet Points Analysis:</h4>
+          <h4 className="text-md font-semibold mb-4">Bullet Points:</h4>
           <Accordion type="single" collapsible className="space-y-2">
             {bullets.map((bullet, index) => <BulletPointItem key={index} bullet={bullet} index={index} />)}
           </Accordion>
@@ -172,4 +183,5 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
       </CardContent>
     </Card>;
 };
+
 export default BulletPointsAnalysisCard;

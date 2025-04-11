@@ -1,11 +1,57 @@
 
 import { actionWords } from './bulletAnalysis';
+import { improveBullet } from '../resume-services/bulletImprover.ts';
 
-// Rewrite bullet function
-export function rewriteBullet(bullet: string, analysis: any): string {
-  // In a real application, this would be done with a more sophisticated NLP approach
-  // This is a simplified version for demonstration purposes
-  
+// Rewrite bullet function using GROQ
+export async function rewriteBullet(bullet: string, analysis: any): Promise<string> {
+  try {
+    // Use the GROQ-based bullet improver
+    const result = await improveBullet({
+      original: bullet,
+      xyz_scores: analysis.xyz_scores,
+      word_balance_score: analysis.word_balance_score || 0,
+      word_balance: analysis.word_balance || {
+        industry_pct: 0,
+        common_pct: 0,
+        action_pct: 0,
+        metric_pct: 0
+      }
+    });
+    
+    return result.rewritten;
+  } catch (error) {
+    console.error("Error using GROQ bullet improvement, falling back to basic rewrite:", error);
+    // Fallback to simple rewriting logic
+    return fallbackRewriteBullet(bullet, analysis);
+  }
+}
+
+// Generate tips for improvement using GROQ
+export async function generateTips(bullet: string, analysis: any): Promise<string> {
+  try {
+    // Use the GROQ-based bullet improver
+    const result = await improveBullet({
+      original: bullet,
+      xyz_scores: analysis.xyz_scores,
+      word_balance_score: analysis.word_balance_score || 0,
+      word_balance: analysis.word_balance || {
+        industry_pct: 0,
+        common_pct: 0,
+        action_pct: 0,
+        metric_pct: 0
+      }
+    });
+    
+    return result.tips;
+  } catch (error) {
+    console.error("Error using GROQ tips generation, falling back to basic tips:", error);
+    // Fallback to simple tips logic
+    return fallbackGenerateTips(analysis);
+  }
+}
+
+// Fallback rewrite function if GROQ is unavailable
+function fallbackRewriteBullet(bullet: string, analysis: any): string {
   // Simple rewriting logic
   let rewritten = bullet;
   
@@ -80,8 +126,8 @@ export function rewriteBullet(bullet: string, analysis: any): string {
   return rewritten;
 }
 
-// Generate tips for improvement
-export function generateTips(bullet: string, analysis: any): string {
+// Fallback tips generation if GROQ is unavailable
+function fallbackGenerateTips(analysis: any): string {
   let tips = "";
   
   if (analysis.xyz_scores.hard_soft < 5) {

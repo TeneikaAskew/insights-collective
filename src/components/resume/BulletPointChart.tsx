@@ -19,7 +19,7 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
 
   return (
     <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
-      <style jsx>{`
+      <style>{`
         :root {
           --color-hard-soft: #1E40AF; /* Primary blue for Hard & Soft Skills */
           --color-action: #D97706;    /* Amber for Action Words */
