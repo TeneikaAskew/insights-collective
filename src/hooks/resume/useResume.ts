@@ -42,8 +42,6 @@ export function useResume() {
       }
       
       // 3. Store additional information in the database
-      let resumeId = null;
-      
       // Check if user already has a resume
       const { data: existingResume } = await supabase
         .from('resumes')
@@ -72,7 +70,7 @@ export function useResume() {
         // Update existing resume with extracted text
         operationSuccess = await updateResumeRecord(user.id, {
           file_path: uploadResult.filePath,
-          text: resumeText, // Using the text field from interface
+          text: resumeText,
           analysis: mockAnalysis,
           updated_at: new Date().toISOString()
         });
@@ -81,7 +79,7 @@ export function useResume() {
         operationSuccess = await createResumeRecord({
           user_id: user.id,
           file_path: uploadResult.filePath,
-          text: resumeText, // Using the text field from interface
+          text: resumeText,
           analysis: mockAnalysis,
           career_alignment_score: 72,
           target_role: 'Data Analyst'

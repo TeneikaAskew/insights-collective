@@ -9,6 +9,13 @@ import mammoth from 'mammoth';
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
 
+// Interface for upload result
+export interface UploadResult {
+  fileName: string;
+  filePath: string;
+  success: boolean;
+}
+
 // Export the text extraction function so it can be imported elsewhere
 export const extractTextFromFile = async (file: File): Promise<string> => {
   try {
@@ -72,133 +79,73 @@ export function useResumeStorage() {
   const { toast } = useToast();
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
-  // const uploadResumeFile = async (file: File, userId: string) => {
-  //   setUploading(true);
-  //   try {
-  //     // Use consistent naming format with timestamp
-  //     const timestamp = Date.now();
-  //     const fileName = `resume_${timestamp}.${file.name.split('.').pop()}`;
-  //     const filePath = `${userId}/${fileName}`;
-      
-  //     // Upload file to Storage
-  //     const { error: uploadError } = await supabase
-  //       .storage
-  //       .from('Resumes')
-  //       .upload(filePath, file);
-        
-  //     if (uploadError) throw uploadError;
-      
-  //     // Check if user already has a resume record
-  //     const { data: existingResume, error: fetchError } = await supabase
-  //       .from('resumes')
-  //       .select('id')
-  //       .eq('user_id', userId)
-  //       .maybeSingle();
-      
-  //     if (fetchError) throw fetchError;
-      
-  //     if (existingResume) {
-  //       // Update existing record
-  //       const { error } = await supabase
-  //         .from('resumes')
-  //         .update({ 
-  //           file_path: fileName,
-  //           updated_at: new Date().toISOString()
-  //         })
-  //         .eq('id', existingResume.id);
-          
-  //       if (error) throw error;
-  //     } else {
-  //       // Create new record
-  //       const { error } = await supabase
-  //         .from('resumes')
-  //         .insert({
-  //           user_id: userId,
-  //           file_path: fileName
-  //         });
-          
-  //       if (error) throw error;
-  //     }
-      
-  //     return { fileName, filePath, timestamp, success: true };
-  //   } catch (error) {
-  //     console.error('Error uploading resume file:', error);
-  //     toast({
-  //       title: 'Error',
-  //       description: 'Failed to upload resume file. Please try again.',
-  //       variant: 'destructive',
-  //     });
-  //     return { success: false };
-  //   } finally {
-  //     setUploading(false);
-  //   }
-  // };
   const uploadResumeFile = async (file: File, userId: string): Promise<UploadResult> => {
-  if (!userId) {
-    toast({
-      title: "Authentication required",
-      description: "Please log in to upload a resume",
-      variant: "destructive",
-    });
-    return { fileName: '', filePath: '', success: false };
-  }
-
-  setUploading(true);
-
-  try {
-    console.log("Starting file upload process for user:", userId);
-    
-    // Create a unique file name (no nested paths)
-    const fileExtension = file.name.split('.').pop() || '';
-    const fileName = `resume_${Date.now()}.${fileExtension}`;
-    
-    console.log("Uploading to resumes bucket with file name:", fileName);
-    
-    // Upload file to Supabase Storage - using simpler path strategy and lowercase bucket name
-    const { data, error } = await supabase.storage
-      .from('resumes') // LOWERCASE 'r' - critical change!
-      .upload(fileName, file, { upsert: true });
-    
-    if (error) {
-      console.error("Upload error details:", JSON.stringify(error));
-      throw error;
+    if (!userId) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to upload a resume",
+        variant: "destructive",
+      });
+      return { fileName: '', filePath: '', success: false };
     }
-    
-    console.log("Upload successful, file path:", data?.path);
-    
-    return {
-      fileName,
-      filePath: fileName, // Using the simple file name as the path
-      success: true
-    };
-  } catch (error) {
-    console.error('Error uploading resume:', error);
-    
-    toast({
-      title: "Upload failed",
-      description: "Failed to upload your resume. Please try again.",
-      variant: "destructive",
-    });
-    
-    return {
-      fileName: '',
-      filePath: '',
-      success: false
-    };
-  } finally {
-    setUploading(false);
-  }
-};
+
+    setUploading(true);
+
+    try {
+      console.log("Starting file upload process for user:", userId);
+      
+      // Create a unique file name with user ID folder structure
+      const fileExtension = file.name.split('.').pop() || '';
+      const fileName = `${userId}/resume_${Date.now()}.${fileExtension}`;
+      
+      console.log("Uploading to resumes bucket with file path:", fileName);
+      
+      // Upload file to Supabase Storage - using proper bucket name
+      const { data, error } = await supabase.storage
+        .from('resumes')
+        .upload(fileName, file, { upsert: true });
+      
+      if (error) {
+        console.error("Upload error details:", JSON.stringify(error));
+        throw error;
+      }
+      
+      console.log("Upload successful, file path:", data?.path);
+      
+      return {
+        fileName: fileName.split('/').pop() || '',
+        filePath: fileName,
+        success: true
+      };
+    } catch (error) {
+      console.error('Error uploading resume:', error);
+      
+      toast({
+        title: "Upload failed",
+        description: "Failed to upload your resume. Please try again.",
+        variant: "destructive",
+      });
+      
+      return {
+        fileName: '',
+        filePath: '',
+        success: false
+      };
+    } finally {
+      setUploading(false);
+    }
+  };
+  
   const getResumeFileUrl = async (userId: string, filePath: string) => {
     try {
-      // Important: Use the correct bucket name (Resumes with capital R)
-      // and construct the correct file path
-      console.log("Getting signed URL for path:", `${userId}/${filePath}`);
+      // Make sure the path is correctly formed
+      const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
+      console.log("Getting signed URL for path:", fullPath);
       
       const { data: fileData, error: fileError } = await supabase
         .storage
-        .from('resumes')  // Use the correct bucket name with capital R
-        .createSignedUrl(`${userId}/${filePath}`, 3600); // 1 hour expiry
+        .from('resumes')
+        .createSignedUrl(fullPath, 3600); // 1 hour expiry
         
       if (fileError) {
         console.error("Error creating signed URL:", JSON.stringify(fileError));
@@ -215,12 +162,14 @@ export function useResumeStorage() {
   
   const deleteResumeFile = async (userId: string, filePath: string) => {
     try {
-      console.log("Deleting file at path:", `${userId}/${filePath}`);
+      // Ensure path is correctly formatted
+      const fullPath = filePath.includes(userId) ? filePath : `${userId}/${filePath}`;
+      console.log("Deleting file at path:", fullPath);
       
       const { error: deleteFileError } = await supabase
         .storage
-        .from('resumes')  // Use the correct bucket name with capital R
-        .remove([`${userId}/${filePath}`]);
+        .from('resumes')
+        .remove([fullPath]);
         
       if (deleteFileError) {
         console.error("Error deleting file:", JSON.stringify(deleteFileError));
@@ -241,6 +190,6 @@ export function useResumeStorage() {
     uploadResumeFile,
     getResumeFileUrl,
     deleteResumeFile,
-    extractTextFromFile  // Make sure to export this function in the returned object!
+    extractTextFromFile
   };
 }
