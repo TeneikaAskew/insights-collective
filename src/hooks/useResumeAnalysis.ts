@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { CareerTrack } from '@/data/careerQuizData';
-const hasLoadedAnalysis = useRef(false);
+
 
 
 // Career path alignment calculation
@@ -22,6 +22,7 @@ export function useResumeAnalysis() {
   const [careerAlignments, setCareerAlignments] = useState<CareerAlignment[]>([]);
   const { toast } = useToast();
   const { user } = useAuth();
+  const hasLoadedAnalysis = useRef(false);
 
   // Load saved analysis from localStorage on component mount
   // useEffect(() => {
