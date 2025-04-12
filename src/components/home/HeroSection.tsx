@@ -12,6 +12,7 @@ const RotatingWords = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [wordWidth, setWordWidth] = useState(0);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
+  const containerRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -27,16 +28,24 @@ const RotatingWords = () => {
       // Get the width of the current word element
       const width = wordRefs.current[currentIndex]?.getBoundingClientRect().width || 0;
       setWordWidth(width);
+      
+      // Update container width to fit the word
+      if (containerRef.current) {
+        containerRef.current.style.minWidth = `${width + 10}px`;
+      }
     }
   }, [currentIndex, words]);
 
   return (
-    <span className="relative inline-block h-[1.3em] align-bottom overflow-hidden min-w-[120px] md:min-w-[180px]">
+    <span 
+      ref={containerRef}
+      className="relative inline-block h-[1.3em] align-bottom overflow-visible min-w-[120px] md:min-w-[180px] transition-all duration-300"
+    >
       {words.map((word, index) => (
         <motion.span
           key={word}
           ref={el => wordRefs.current[index] = el}
-          className="absolute inset-0 flex items-center justify-center font-bold text-primary-foreground drop-shadow-sm"
+          className="absolute inset-0 flex items-center justify-center font-bold text-slate-800 dark:text-primary-foreground drop-shadow-md"
           initial={{ opacity: 0, y: 40 }}
           animate={{
             opacity: index === currentIndex ? 1 : 0,
@@ -56,8 +65,8 @@ const RotatingWords = () => {
       <motion.div 
         className="absolute bottom-0 left-1/2 h-2 bg-primary/40"
         animate={{
-          width: wordWidth > 0 ? wordWidth : "100%",
-          x: wordWidth > 0 ? -wordWidth / 2 : "-50%"
+          width: wordWidth > 0 ? wordWidth + 10 : "100%",
+          x: wordWidth > 0 ? -(wordWidth + 10) / 2 : "-50%"
         }}
         transition={{ duration: 0.3, ease: "easeOut" }}
         style={{
@@ -164,12 +173,12 @@ const HeroSection = () => {
             </div>
           </motion.div>
           
-          {/* Scroll indicator */}
+          {/* Scroll indicator - adjusted to not overlap with content on mobile */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 1 }}
-            className="absolute bottom-5 left-1/2 transform -translate-x-1/2 flex flex-col items-center text-gray-400"
+            className="absolute bottom-[-10px] left-1/2 transform -translate-x-1/2 flex flex-col items-center text-gray-400 md:bottom-5"
           >
             <span className="text-sm mb-2">Scroll to explore</span>
             <ChevronDown className="w-5 h-5 animate-bounce" />
