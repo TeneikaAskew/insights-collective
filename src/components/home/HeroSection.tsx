@@ -157,7 +157,7 @@ const HeroSection = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.6 }}
-            className="mt-16 flex flex-wrap justify-center gap-8 text-sm text-gray-500 dark:text-gray-400"
+            className="mt-16 mb-10 flex flex-wrap justify-center gap-8 text-sm text-gray-500 dark:text-gray-400"
           >
             <div className="flex items-center">
               <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
@@ -173,12 +173,12 @@ const HeroSection = () => {
             </div>
           </motion.div>
           
-          {/* Scroll indicator - adjusted to not overlap with content on mobile */}
+          {/* Scroll indicator - fixed positioning and responsive adjustments */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.6, delay: 1 }}
-            className="absolute bottom-[-10px] left-1/2 transform -translate-x-1/2 flex flex-col items-center text-gray-400 md:bottom-5"
+            className="relative mt-4 flex flex-col items-center text-gray-400 md:absolute md:bottom-[-30px] md:left-1/2 md:transform md:-translate-x-1/2"
           >
             <span className="text-sm mb-2">Scroll to explore</span>
             <ChevronDown className="w-5 h-5 animate-bounce" />
