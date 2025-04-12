@@ -10,11 +10,8 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
     // Use the blueprint entries instead of querying a non-existent table
     const blueprintEntries = getBlueprintEntries();
     
-    // Convert ID from number to string if needed (to match our updated type)
-    return blueprintEntries.map(entry => ({
-      ...entry,
-      id: String(entry.id) // Ensure ID is a string
-    }));
+    // The IDs are already strings in the updated blueprintEntries
+    return blueprintEntries;
   } catch (error) {
     console.error('Error fetching blog posts:', error);
     return [];
@@ -28,10 +25,7 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
     const blueprintPost = blueprintEntries.find(post => post.slug === slug);
     
     if (blueprintPost) {
-      return {
-        ...blueprintPost,
-        id: String(blueprintPost.id) // Ensure ID is a string
-      };
+      return blueprintPost;
     }
     
     return null;

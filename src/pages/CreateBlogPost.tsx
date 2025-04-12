@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -25,7 +26,7 @@ import { createBlogPost } from '@/services/blogService';
 import ReactMarkdown from 'react-markdown';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { BlogPost } from '@/types/blog';
+import { BlogPost, BlogFormData } from '@/types/blog';
 
 const formSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters" }),
@@ -99,15 +100,15 @@ const CreateBlogPost = () => {
     setIsSubmitting(true);
     
     try {
-      // Create the blog post with required fields properly defined
+      // Create the blog post with required fields
       const blogPost = await createBlogPost({
         title: data.title,
         content: data.content,
         excerpt: data.excerpt,
         slug: data.slug,
-        imageUrl: data.imageUrl,
+        imageUrl: data.imageUrl || undefined,
         publishedAt: new Date().toISOString(),
-        authorId: user?.id,
+        authorId: user?.id || 'anonymous',
         authorName: user?.email?.split('@')[0] || 'Admin',
         tags: tags
       });

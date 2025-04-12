@@ -4,7 +4,7 @@ import { BlogPost } from '@/types/blog';
 // Blueprint entries with extended content for blog posts
 const blueprintEntries: BlogPost[] = [
   {
-    id: 1,
+    id: "1",
     slug: "what-is-data-science",
     title: "What Is Data Science?",
     excerpt: "A deep dive into the definition, evolution, and real-world application of data science—from business intelligence to machine learning.",
@@ -36,7 +36,7 @@ As AI and machine learning continue to advance, data science will play an increa
     tags: ["Fundamentals", "Overview", "Beginners"]
   },
   {
-    id: 2,
+    id: "2",
     slug: "core-roles-data-team",
     title: "Core Roles in a Data Team",
     excerpt: "Explore the anatomy of a modern data team. Learn how analysts, data scientists, engineers, and product managers collaborate.",
@@ -73,7 +73,7 @@ The most effective data teams maintain clear communication channels and collabor
     tags: ["Team Dynamics", "Roles", "Career"]
   },
   {
-    id: 3,
+    id: "3",
     slug: "data-science-lifecycle",
     title: "The Data Science Lifecycle",
     excerpt: "From problem framing to data collection, modeling, and monitoring—get familiar with the iterative workflow that powers every successful data science initiative.",
@@ -110,7 +110,7 @@ Data science is rarely linear—teams often move back and forth between these st
     tags: ["Processes", "Methodology", "Best Practices"]
   },
   {
-    id: 4,
+    id: "4",
     slug: "start-career-data-science",
     title: "How to Start a Career in Data Science",
     excerpt: "Academic track? Bootcamp? Self-taught? This post breaks down the key entry points, essential skills, portfolio strategies, and mindset shifts to launch your career with confidence.",
@@ -154,7 +154,7 @@ Consider starting with internships, entry-level analyst positions, or contributi
     tags: ["Career Entry", "Skills", "Education"]
   },
   {
-    id: 5,
+    id: "5",
     slug: "responsible-ai-ethics",
     title: "Responsible AI & Ethics in Data Science",
     excerpt: "Bias, fairness, transparency—explore the ethical considerations behind model development. Learn the principles, tools, and team dynamics that make AI not just smart, but responsible.",
@@ -203,7 +203,7 @@ Staying informed about evolving regulations like GDPR, the EU AI Act, and indust
     tags: ["Ethics", "Responsible AI", "Bias"]
   },
   {
-    id: 6,
+    id: "6",
     slug: "career-lessons-data-science",
     title: "Wisdom From the Field – Career Lessons",
     excerpt: "Hear from top data scientists across LinkedIn, Airbnb, and Google. What do they wish they knew earlier? This post curates their most powerful lessons on failure, communication, impact, and lifelong learning.",
@@ -244,7 +244,7 @@ Experienced data scientists share insights gained through years of solving compl
     tags: ["Industry Insights", "Career Growth", "Advice"]
   },
   {
-    id: 7,
+    id: "7",
     slug: "data-science-tools",
     title: "Tools of the Trade",
     excerpt: "Build your data science toolkit with the languages, libraries, and platforms used by the pros. From Python and SQL to MLflow and Streamlit—get a hands-on guide to working smarter.",
@@ -324,7 +324,7 @@ New frameworks and platforms continue to emerge, automate routine tasks, and ena
     tags: ["Technology", "Tools", "Software"]
   },
   {
-    id: 8,
+    id: "8",
     slug: "data-science-career-paths",
     title: "Data Science Career Paths",
     excerpt: "Map out your growth. Whether you aspire to stay technical, lead teams, specialize in ML, or pivot into product, this guide lays out the real-world trajectories and how to navigate them.",
@@ -400,7 +400,7 @@ Data science skills can also create opportunities to transition into adjacent fi
     tags: ["Career Growth", "Career Paths", "Professional Development"]
   },
   {
-    id: 9,
+    id: "9",
     slug: "resume-portfolio-tips",
     title: "Resume & Portfolio Tips",
     excerpt: "Your resume gets you the interview. Your portfolio gets you the job. Learn how to craft results-driven bullet points, showcase real-world projects, and stand out in a crowded field.",
@@ -472,7 +472,7 @@ Regularly update your portfolio with new skills and projects, highlighting your 
     tags: ["Job Search", "Resume", "Portfolio"]
   },
   {
-    id: 10,
+    id: "10",
     slug: "data-science-case-studies",
     title: "Case Studies That Inspire",
     excerpt: "Real-world wins from the field—like predicting air traffic delays, detecting mental health crises, or optimizing multi-touch marketing. These examples show the impact data science has across industries.",
