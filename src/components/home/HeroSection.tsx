@@ -1,14 +1,17 @@
+
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, ArrowRight, ChevronDown } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion } from 'framer-motion';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 // Rotating words component
 const RotatingWords = () => {
   const words = ["Future", "Career", "Insights", "Impact", "Skills", "Edge", "Superpowers"];
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [wordWidth, setWordWidth] = useState(0);
+  const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -18,12 +21,22 @@ const RotatingWords = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Update the underline width based on the current word
+  useEffect(() => {
+    if (wordRefs.current[currentIndex]) {
+      // Get the width of the current word element
+      const width = wordRefs.current[currentIndex]?.getBoundingClientRect().width || 0;
+      setWordWidth(width);
+    }
+  }, [currentIndex, words]);
+
   return (
     <span className="relative inline-block h-[1.3em] align-bottom overflow-hidden min-w-[120px] md:min-w-[180px]">
       {words.map((word, index) => (
         <motion.span
           key={word}
-          className="absolute inset-0 flex items-center justify-center"
+          ref={el => wordRefs.current[index] = el}
+          className="absolute inset-0 flex items-center justify-center font-bold text-primary-foreground drop-shadow-sm"
           initial={{ opacity: 0, y: 40 }}
           animate={{
             opacity: index === currentIndex ? 1 : 0,
@@ -38,9 +51,19 @@ const RotatingWords = () => {
       <span className="sr-only">
         {words.join(", ")}
       </span>
-      <svg className="absolute bottom-0 left-0 w-full h-2 text-primary/40" viewBox="0 0 100 10" preserveAspectRatio="none">
-        <path fill="currentColor" d="M0 10 C 30 0, 70 0, 100 10 L 100 0 L 0 0 Z"></path>
-      </svg>
+      
+      {/* Dynamic underline that adapts to word width */}
+      <motion.div 
+        className="absolute bottom-0 left-1/2 h-2 bg-primary/40"
+        animate={{
+          width: wordWidth > 0 ? wordWidth : "100%",
+          x: wordWidth > 0 ? -wordWidth / 2 : "-50%"
+        }}
+        transition={{ duration: 0.3, ease: "easeOut" }}
+        style={{
+          borderRadius: "100% 100% 0 0",
+        }}
+      />
     </span>
   );
 };
