@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -136,6 +136,12 @@ const AppSidebar = () => {
       url: "/admin/events",
       icon: Calendar,
       active: location.pathname === '/admin/events',
+    },
+    {
+      title: "Page Visibility",
+      url: "/admin/page-visibility",
+      icon: Eye,
+      active: location.pathname === '/admin/page-visibility',
     },
     {
       title: "Settings",

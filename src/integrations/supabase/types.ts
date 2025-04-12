@@ -508,6 +508,36 @@ export type Database = {
           },
         ]
       }
+      page_visibility: {
+        Row: {
+          created_at: string | null
+          id: string
+          page_name: string
+          page_path: string
+          updated_at: string | null
+          visible_to_instructors: boolean
+          visible_to_users: boolean
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          page_name: string
+          page_path: string
+          updated_at?: string | null
+          visible_to_instructors?: boolean
+          visible_to_users?: boolean
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          page_name?: string
+          page_path?: string
+          updated_at?: string | null
+          visible_to_instructors?: boolean
+          visible_to_users?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -677,7 +707,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      user_role: "admin" | "instructor" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -792,6 +822,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["admin", "instructor", "user"],
+    },
   },
 } as const
