@@ -156,28 +156,37 @@ const AppSidebar = () => {
   }
 
   return (
-    <Sidebar>
-      <SidebarHeader>
+    <Sidebar className="bg-gradient-to-b from-white to-gray-50 border-r border-gray-100">
+      <SidebarHeader className="border-b border-gray-100">
         <div className="flex items-center space-x-2 px-4 py-3">
           <Link to="/" className="flex items-center space-x-2">
-            <GraduationCap className="h-6 w-6 text-sidebar-primary" />
-            <span className="font-bold text-lg">Insights Collective</span>
+            <GraduationCap className="h-6 w-6 text-primary" />
+            <span className="font-bold text-lg text-gray-800">Insights Collective</span>
           </Link>
         </div>
-        <SidebarTrigger />
+        <SidebarTrigger className="text-gray-500 hover:text-primary" />
       </SidebarHeader>
       
-      <SidebarContent>
+      <SidebarContent className="py-2">
         <SidebarGroup>
-          <SidebarGroupLabel>Main Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-gray-500 font-medium px-4 py-2">Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={item.active}>
-                    <Link to={item.url}>
+                  <SidebarMenuButton 
+                    asChild
+                    isActive={item.active}
+                    className={`transition-all duration-200 ${item.active 
+                      ? 'bg-primary/10 text-primary font-medium' 
+                      : 'text-gray-600 hover:bg-gray-100'}`}
+                  >
+                    <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
                       {item.icon && <item.icon className="h-5 w-5" />}
                       <span>{item.title}</span>
+                      {item.active && <div className="ml-auto">
+                        <ChevronRight className="h-4 w-4" />
+                      </div>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -188,15 +197,24 @@ const AppSidebar = () => {
         
         {isAuthenticated && isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-gray-500 font-medium px-4 py-2">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminMenuItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={item.active}>
-                      <Link to={item.url}>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={item.active}
+                      className={`transition-all duration-200 ${item.active 
+                        ? 'bg-primary/10 text-primary font-medium' 
+                        : 'text-gray-600 hover:bg-gray-100'}`}
+                    >
+                      <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
                         <item.icon className="h-5 w-5" />
                         <span>{item.title}</span>
+                        {item.active && <div className="ml-auto">
+                          <ChevronRight className="h-4 w-4" />
+                        </div>}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -207,9 +225,9 @@ const AppSidebar = () => {
         )}
       </SidebarContent>
       
-      <SidebarFooter>
-        <div className="px-3 py-2">
-          <div className="text-xs text-muted-foreground">
+      <SidebarFooter className="border-t border-gray-100 mt-auto">
+        <div className="px-4 py-3">
+          <div className="text-xs text-gray-500">
             <p>Insights Collective v1.0</p>
           </div>
         </div>

@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, ArrowRight, ChevronDown } from 'lucide-react';
@@ -13,6 +12,7 @@ const RotatingWords = () => {
   const [wordWidth, setWordWidth] = useState(0);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const containerRef = useRef<HTMLSpanElement>(null);
+  const [maxWordWidth, setMaxWordWidth] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -22,6 +22,36 @@ const RotatingWords = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // First, calculate the maximum width of all words
+  useEffect(() => {
+    const calculateMaxWidth = () => {
+      let maxWidth = 0;
+      wordRefs.current.forEach((ref) => {
+        if (ref) {
+          const width = ref.getBoundingClientRect().width;
+          if (width > maxWidth) {
+            maxWidth = width;
+          }
+        }
+      });
+      setMaxWordWidth(maxWidth);
+      
+      // Set initial container width to handle the largest word
+      if (containerRef.current && maxWidth > 0) {
+        containerRef.current.style.minWidth = `${maxWordWidth + 10}px`;
+      }
+    };
+
+    // Calculate once all refs are set
+    if (wordRefs.current.filter(Boolean).length === words.length) {
+      calculateMaxWidth();
+    }
+    
+    // Recalculate on window resize
+    window.addEventListener('resize', calculateMaxWidth);
+    return () => window.removeEventListener('resize', calculateMaxWidth);
+  }, [words]);
+
   // Update the underline width based on the current word
   useEffect(() => {
     if (wordRefs.current[currentIndex]) {
@@ -29,12 +59,14 @@ const RotatingWords = () => {
       const width = wordRefs.current[currentIndex]?.getBoundingClientRect().width || 0;
       setWordWidth(width);
       
-      // Update container width to fit the word
+      // Update container width to fit the word, but never exceed max width
       if (containerRef.current) {
-        containerRef.current.style.minWidth = `${width + 10}px`;
+        // Add padding for the underline
+        const displayWidth = Math.min(width + 10, maxWordWidth + 10);
+        containerRef.current.style.minWidth = `${displayWidth}px`;
       }
     }
-  }, [currentIndex, words]);
+  }, [currentIndex, words, maxWordWidth]);
 
   return (
     <span 
@@ -65,8 +97,8 @@ const RotatingWords = () => {
       <motion.div 
         className="absolute bottom-0 left-1/2 h-2 bg-primary/40"
         animate={{
-          width: wordWidth > 0 ? wordWidth + 10 : "100%",
-          x: wordWidth > 0 ? -(wordWidth + 10) / 2 : "-50%"
+          width: wordWidth > 0 ? Math.min(wordWidth + 10, maxWordWidth + 10) : 100,
+          x: wordWidth > 0 ? -Math.min(wordWidth + 10, maxWordWidth + 10) / 2 : -50
         }}
         transition={{ duration: 0.3, ease: "easeOut" }}
         style={{
