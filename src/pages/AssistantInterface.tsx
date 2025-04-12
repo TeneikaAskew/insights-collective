@@ -9,6 +9,7 @@ import { Assistant } from '@/types/assistants';
 import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
+import { CareerTrack } from '@/data/careerQuizData';
 
 const AssistantInterface = () => {
   const { assistantId } = useParams();
@@ -57,7 +58,7 @@ const AssistantInterface = () => {
                 if (conversationId) {
                   // Determine top career path from scores
                   const sortedTracks = Object.entries(scores)
-                    .sort(([, scoreA], [, scoreB]) => scoreB - scoreA);
+                    .sort(([, scoreA], [, scoreB]) => Number(scoreB) - Number(scoreA));
                   
                   const topCareerPath = sortedTracks[0][0];
                   
