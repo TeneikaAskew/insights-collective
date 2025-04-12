@@ -1,4 +1,6 @@
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33,7 +35,7 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 37 91% 56%; /* Energetic Amber */
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
 
     --sidebar-background: 222 54% 23%; /* Vira Deep Blue */
     --sidebar-foreground: 0 0% 100%;
@@ -100,12 +102,16 @@
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
   
   html {
     @apply scroll-smooth;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold;
   }
 }
 
@@ -132,7 +138,7 @@
   }
   
   .section-heading {
-    @apply text-3xl font-bold mb-6 text-center;
+    @apply text-3xl md:text-4xl font-bold mb-6 text-center font-display;
   }
   
   .section-subheading {
@@ -163,6 +169,40 @@
   .text-gradient-insight-vira {
     @apply bg-gradient-to-r from-insightBlue to-viraDeepBlue bg-clip-text text-transparent;
   }
+  
+  /* Interactive button with gradient hover */
+  .btn-gradient {
+    @apply relative overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1;
+  }
+  
+  .btn-gradient::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-primary/80 to-accent/80 opacity-0 transition-opacity duration-300;
+  }
+  
+  .btn-gradient:hover::before {
+    @apply opacity-100;
+  }
+  
+  /* Card styling */
+  .modern-card {
+    @apply bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100;
+  }
+  
+  /* Enhanced hover effects */
+  .hover-lift {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-md;
+  }
+  
+  /* Badge styling */
+  .badge {
+    @apply text-xs font-medium px-2 py-1 rounded-full;
+  }
+  
+  /* Modern button */
+  .modern-button {
+    @apply rounded-full font-medium shadow-sm transition-all duration-300 flex items-center justify-center gap-2 hover:shadow-md hover:-translate-y-0.5;
+  }
 }
 
 @keyframes fadeIn {
@@ -173,5 +213,42 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Animated background */
+.animated-grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(31, 117, 254, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(31, 117, 254, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 0) 80%);
+}
+
+/* Animated gradient */
+.animated-gradient {
+  @apply bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 bg-[length:200%_200%] animate-gradient-x;
+}
+
+/* Blob animation */
+.blob {
+  @apply absolute rounded-full bg-gradient-to-r filter blur-3xl opacity-50;
+  animation: blob-animation 20s infinite alternate;
+}
+
+@keyframes blob-animation {
+  0% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(5%, 5%) scale(1.1);
+  }
+  66% {
+    transform: translate(-5%, 5%) scale(0.9);
+  }
+  100% {
+    transform: translate(0, 0) scale(1);
   }
 }
