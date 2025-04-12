@@ -104,12 +104,12 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                       </div>
                     )}
                     
-                    {/* Progress overlay - only show if progress is available */}
-                    {course.progress && (
+                    {/* Progress overlay - only show if progress exists as a custom prop */}
+                    {(course as any).progress && (
                       <div className="absolute bottom-0 left-0 w-full h-1.5 bg-gray-200">
                         <div 
                           className="h-full bg-primary" 
-                          style={{ width: `${course.progress}%` }}
+                          style={{ width: `${(course as any).progress}%` }}
                         ></div>
                       </div>
                     )}
@@ -144,7 +144,7 @@ const FeaturedCourses = ({ courses }: FeaturedCoursesProps) => {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center text-muted-foreground text-sm">
                         <BookOpen className="h-4 w-4 mr-1" />
-                        <span>{course.lessons?.length || 10} lessons</span>
+                        <span>{course.modules.length || 0} lessons</span>
                       </div>
                       <Button 
                         size="sm" 
