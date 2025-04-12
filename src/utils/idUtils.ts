@@ -1,13 +1,47 @@
-
 import { v4 as uuidv4 } from 'uuid';
 
 // Local storage keys
 const COURSE_ENROLLMENT_KEY = 'insightsCollective_enrolledCourses';
 const COURSE_WISHLIST_KEY = 'insightsCollective_wishlistedCourses';
 const EVENT_REGISTRATION_KEY = 'insightsCollective_registeredEvents';
+const COURSE_UUID_MAPPING_KEY = 'insightsCollective_courseUuidMapping';
 
-// Generate a consistent UUID based on a string ID
+// Get or create persistent UUID mapping
+const getCourseUuidMapping = (): Record<string, string> => {
+  const storedMapping = localStorage.getItem(COURSE_UUID_MAPPING_KEY);
+  return storedMapping ? JSON.parse(storedMapping) : {};
+};
+
+// Save UUID mapping to localStorage
+const saveCourseUuidMapping = (mapping: Record<string, string>): void => {
+  localStorage.setItem(COURSE_UUID_MAPPING_KEY, JSON.stringify(mapping));
+};
+
+// Generate a persistent UUID for a mock course ID
+export const getMappedCourseUuid = (courseId: string): string => {
+  const mapping = getCourseUuidMapping();
+  
+  // If we already have a UUID for this course ID, return it
+  if (mapping[courseId]) {
+    return mapping[courseId];
+  }
+  
+  // Otherwise, generate a new UUID, save it, and return it
+  const newUuid = uuidv4();
+  mapping[courseId] = newUuid;
+  saveCourseUuidMapping(mapping);
+  
+  return newUuid;
+};
+
+// Generate a consistent UUID based on a string ID (keep for backwards compatibility)
 export const generatePersistentUUID = (id: string, prefix: string = ''): string => {
+  // For courses, use our new UUID mapping system
+  if (prefix === 'course') {
+    return getMappedCourseUuid(id);
+  }
+  
+  // For other types, use the old method
   // Create a namespace using the prefix to ensure different UUIDs for courses vs events with the same ID
   const namespace = `${prefix}_${id}`;
   

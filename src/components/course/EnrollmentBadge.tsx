@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { getMappedCourseUuid } from '@/utils/idUtils';
 
 interface EnrollmentBadgeProps {
   courseId: string;
@@ -16,7 +17,10 @@ const EnrollmentBadge = ({ courseId }: EnrollmentBadgeProps) => {
     return null;
   }
   
-  const isEnrolled = user.enrolledCourses.includes(courseId);
+  // Get the UUID mapped to this course ID for checking enrollment
+  const courseUUID = getMappedCourseUuid(courseId);
+  
+  const isEnrolled = user.enrolledCourses.includes(courseUUID);
   
   if (!isEnrolled) {
     return null;

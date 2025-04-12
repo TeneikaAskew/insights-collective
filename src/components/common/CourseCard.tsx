@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
@@ -8,7 +9,11 @@ import { Course } from '@/types';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { isWishlistedCourse, toggleWishlistedCourse, generatePersistentUUID } from '@/utils/idUtils';
+import { 
+  isWishlistedCourse, 
+  toggleWishlistedCourse, 
+  getMappedCourseUuid 
+} from '@/utils/idUtils';
 
 interface CourseCardProps {
   course: Course;
@@ -37,7 +42,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
       const checkWishlist = async () => {
         try {
           // Generate consistent UUID for this course
-          const courseUUID = generatePersistentUUID(course.id, 'course');
+          const courseUUID = getMappedCourseUuid(course.id);
           
           const { data } = await supabase
             .from('course_wishlists')
@@ -80,7 +85,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
       // Then sync with Supabase if user is authenticated
       if (isAuthenticated && user) {
         // Generate consistent UUID for this course
-        const courseUUID = generatePersistentUUID(course.id, 'course');
+        const courseUUID = getMappedCourseUuid(course.id);
         
         if (newWishlistStatus) {
           // Add to wishlist in Supabase
