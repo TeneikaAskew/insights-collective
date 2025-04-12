@@ -184,7 +184,7 @@ const AppSidebar = () => {
                     asChild
                     isActive={item.active}
                     className={`transition-all duration-200 hover:bg-gray-50 ${item.active 
-                      ? 'bg-primary/5 text-primary font-medium border-l-2 border-primary' 
+                      ? 'bg-soft-white text-slate-gray font-medium border-l-2 border-primary' 
                       : 'text-gray-700 hover:text-primary'}`}
                   >
                     <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
@@ -245,3 +245,4 @@ const AppSidebar = () => {
 };
 
 export default AppSidebar;
+
