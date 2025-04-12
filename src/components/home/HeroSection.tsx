@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, ArrowRight, ChevronDown } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { motion } from 'framer-motion';
-import { useState, useEffect, useRef } from 'react';
+//import { motion } from 'framer-motion';
+//import { useState, useEffect, useRef } from 'react';
 
 // Rotating words component
-const RotatingWords = () => {
+//const RotatingWords = () => {
   const words = ["Future", "Career", "Insights", "Impact", "Skills", "Edge", "Superpowers"];
   const [currentIndex, setCurrentIndex] = useState(0);
   const wordRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -106,6 +106,44 @@ const RotatingWords = () => {
           maxWidth: maxWordWidth + 10
         }}
       />
+    </span>
+  );
+};
+
+
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+
+const RotatingWords = () => {
+  const words = ["Future", "Career", "Insights", "Impact", "Skills", "Edge", "Superpowers"];
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % words.length);
+    }, 2500);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span className="relative inline-block align-bottom min-w-[120px] h-[1.3em]">
+      <AnimatePresence mode="wait">
+        <motion.span
+          key={words[currentIndex]}
+          layout
+          className="inline-block relative font-bold text-slate-800 dark:text-primary-foreground drop-shadow-md"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -30 }}
+          transition={{ duration: 0.4 }}
+        >
+          {words[currentIndex]}
+          <motion.span
+            layoutId="underline"
+            className="absolute left-0 -bottom-1 h-1 w-full bg-primary/40 rounded-t-full"
+          />
+        </motion.span>
+      </AnimatePresence>
     </span>
   );
 };
