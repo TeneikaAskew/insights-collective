@@ -156,7 +156,7 @@ const AppSidebar = () => {
   }
 
   return (
-    <Sidebar className="bg-gradient-to-b from-white to-gray-50 border-r border-gray-100">
+    <Sidebar className="bg-white border-r border-gray-100 shadow-sm">
       <SidebarHeader className="border-b border-gray-100">
         <div className="flex items-center space-x-2 px-4 py-3">
           <Link to="/" className="flex items-center space-x-2">
@@ -177,12 +177,12 @@ const AppSidebar = () => {
                   <SidebarMenuButton 
                     asChild
                     isActive={item.active}
-                    className={`transition-all duration-200 ${item.active 
-                      ? 'bg-primary/10 text-primary font-medium' 
-                      : 'text-gray-600 hover:bg-gray-100'}`}
+                    className={`transition-all duration-200 hover:bg-gray-50 ${item.active 
+                      ? 'bg-primary/5 text-primary font-medium border-l-2 border-primary' 
+                      : 'text-gray-700 hover:text-primary'}`}
                   >
                     <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                      {item.icon && <item.icon className="h-5 w-5" />}
+                      <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-500'}`} />
                       <span>{item.title}</span>
                       {item.active && <div className="ml-auto">
                         <ChevronRight className="h-4 w-4" />
@@ -205,12 +205,12 @@ const AppSidebar = () => {
                     <SidebarMenuButton 
                       asChild
                       isActive={item.active}
-                      className={`transition-all duration-200 ${item.active 
-                        ? 'bg-primary/10 text-primary font-medium' 
-                        : 'text-gray-600 hover:bg-gray-100'}`}
+                      className={`transition-all duration-200 hover:bg-gray-50 ${item.active 
+                        ? 'bg-primary/5 text-primary font-medium border-l-2 border-primary' 
+                        : 'text-gray-700 hover:text-primary'}`}
                     >
                       <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                        <item.icon className="h-5 w-5" />
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-500'}`} />
                         <span>{item.title}</span>
                         {item.active && <div className="ml-auto">
                           <ChevronRight className="h-4 w-4" />
