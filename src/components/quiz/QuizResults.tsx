@@ -1,11 +1,18 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CareerTrack, getSkillLevel, getTrackPersona, getCourseRecommendations } from '@/data/careerQuizData';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, BarChart2, BarChart3, Brain, Database, Download, MessageCircle, Presentation, RefreshCw, Share2 } from 'lucide-react';
+import { 
+  ArrowRight, BarChart2, BarChart3, Brain, Database, 
+  Download, MessageCircle, Presentation, RefreshCw, Share2 
+} from 'lucide-react';
 import { useCareerCoach } from '@/hooks/useCareerCoach';
+import { useAuth } from '@/contexts/AuthContext';
+import { storeQuizAttempt } from '@/services/quizService';
+import { useToast } from '@/hooks/use-toast';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useNavigate } from 'react-router-dom';
 
 interface QuizResultsProps {
   scores: Record<CareerTrack, number>;
@@ -16,6 +23,19 @@ interface QuizResultsProps {
 const QuizResults: React.FC<QuizResultsProps> = ({ scores, answers, onReset }) => {
   // Get the useCareerCoach hook
   const { initiateCareerCoachChat, isProcessing } = useCareerCoach();
+  const { isAuthenticated, storeRedirectPath } = useAuth();
+  const { toast } = useToast();
+  const navigate = useNavigate();
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Save quiz results to localStorage for potential later use
+  React.useEffect(() => {
+    if (scores && answers) {
+      localStorage.setItem('quizScores', JSON.stringify(scores));
+      localStorage.setItem('quizAnswers', JSON.stringify(answers));
+    }
+  }, [scores, answers]);
   
   // Sort tracks by score (highest to lowest) and take top 3
   const topTracks = Object.entries(scores)
@@ -60,8 +80,63 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, answers, onReset }) =
     }
   };
 
+  // Wrapper for any action that requires authentication
+  const handleAuthRequiredAction = (action: () => void, redirectPath: string) => {
+    if (!isAuthenticated) {
+      // Store the path for redirect after login
+      storeRedirectPath(redirectPath);
+      
+      // Store quiz data for after login
+      localStorage.setItem('quizScores', JSON.stringify(scores));
+      localStorage.setItem('quizAnswers', JSON.stringify(answers));
+      
+      // Redirect to login
+      toast({
+        title: "Login Required",
+        description: "Please log in to continue.",
+        variant: "default"
+      });
+      
+      navigate('/login');
+      return;
+    }
+    
+    // If authenticated, perform the action
+    action();
+  };
+
+  const saveQuizResults = async () => {
+    if (!isAuthenticated) return;
+    
+    setIsSaving(true);
+    try {
+      const quizAttemptId = await storeQuizAttempt(answers, scores);
+      
+      if (quizAttemptId) {
+        toast({
+          title: "Quiz Results Saved",
+          description: "Your quiz results have been saved to your profile.",
+          variant: "default"
+        });
+        
+        // Clear stored quiz data as it's now in Supabase
+        localStorage.removeItem('quizScores');
+        localStorage.removeItem('quizAnswers');
+      }
+    } catch (error) {
+      console.error('Error saving quiz results:', error);
+      toast({
+        title: "Error Saving Results",
+        description: "There was an issue saving your quiz results. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+      setShowSaveDialog(false);
+    }
+  };
+
   const downloadResults = () => {
-    // Simple implementation to create a text summary for download
     const content = `
       Career Path Quiz Results
       
@@ -94,6 +169,12 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, answers, onReset }) =
     URL.revokeObjectURL(url);
   };
 
+  const shareResults = () => {
+    handleAuthRequiredAction(() => {
+      setShowSaveDialog(true);
+    }, '/quiz#results');
+  };
+
   // Handler for the Career Coach button
   const handleCareerCoachClick = async () => {
     await initiateCareerCoachChat(answers, scores);
@@ -122,14 +203,22 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, answers, onReset }) =
             </Button>
           </div>
           
-          <div className="flex gap-3 justify-center mt-4">
+          <div className="flex flex-wrap gap-3 justify-center mt-4">
             <Button variant="outline" onClick={onReset} className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4" /> Take Quiz Again
             </Button>
-            <Button variant="outline" onClick={downloadResults} className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => handleAuthRequiredAction(downloadResults, '/quiz#results')} 
+              className="flex items-center gap-2"
+            >
               <Download className="h-4 w-4" /> Download Results
             </Button>
-            <Button variant="outline" className="flex items-center gap-2">
+            <Button 
+              variant="outline" 
+              onClick={shareResults} 
+              className="flex items-center gap-2"
+            >
               <Share2 className="h-4 w-4" /> Share Results
             </Button>
           </div>
@@ -240,6 +329,26 @@ const QuizResults: React.FC<QuizResultsProps> = ({ scores, answers, onReset }) =
           </div>
         </div>
       </div>
+      
+      {/* Save Dialog */}
+      <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Quiz Results</DialogTitle>
+            <DialogDescription>
+              Would you like to save your quiz results to your profile? This will allow you to reference them later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setShowSaveDialog(false)}>
+              Not Now
+            </Button>
+            <Button onClick={saveQuizResults} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Results'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

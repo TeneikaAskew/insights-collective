@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
@@ -20,6 +20,50 @@ export function useCareerCoach() {
   const { toast } = useToast();
   const { isAuthenticated, storeRedirectPath } = useAuth();
 
+  // Check for stored quiz results on authentication
+  useEffect(() => {
+    const syncQuizResultsToSupabase = async () => {
+      if (isAuthenticated) {
+        const storedScores = localStorage.getItem('quizScores');
+        const storedAnswers = localStorage.getItem('quizAnswers');
+        
+        if (storedScores && storedAnswers) {
+          try {
+            const scores = JSON.parse(storedScores);
+            const answers = JSON.parse(storedAnswers);
+            
+            // Only sync if we have valid data
+            if (Object.keys(scores).length > 0 && Object.keys(answers).length > 0) {
+              console.log('Syncing stored quiz results to Supabase silently');
+              const quizAttemptId = await storeQuizAttempt(answers, scores);
+              
+              if (quizAttemptId) {
+                console.log('Successfully synced quiz results to Supabase');
+                
+                // If the user was redirected to login from career coach, initialize conversation
+                const redirectPath = localStorage.getItem('redirectAfterLogin');
+                if (redirectPath === '/assistant/career-coach') {
+                  // Store the quiz attempt ID for later use
+                  localStorage.setItem('activeQuizAttemptId', quizAttemptId);
+                  
+                  // Only start conversation if redirected from career coach
+                  const conversationId = await startCareerCoachConversation(quizAttemptId);
+                  if (conversationId) {
+                    localStorage.setItem('activeConversationId', conversationId);
+                  }
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error syncing quiz results to Supabase:', error);
+          }
+        }
+      }
+    };
+    
+    syncQuizResultsToSupabase();
+  }, [isAuthenticated]);
+
   const initiateCareerCoachChat = async (
     answers: Record<number, number | string>,
     scores: Record<CareerTrack, number>
@@ -29,8 +73,9 @@ export function useCareerCoach() {
       // Store the career coach path for redirect after login
       storeRedirectPath('/assistant/career-coach');
       
-      // Store quiz scores for after login
+      // Store quiz data for after login
       localStorage.setItem('quizScores', JSON.stringify(scores));
+      localStorage.setItem('quizAnswers', JSON.stringify(answers));
       
       // Redirect to login
       toast({
@@ -72,6 +117,10 @@ export function useCareerCoach() {
       localStorage.setItem('activeConversationId', conversationId);
       localStorage.setItem('recommendedCareerPath', topCareerPath);
       localStorage.setItem('recommendedSalary', recommendedSalary.toString());
+      
+      // Clear stored quiz data as it's now in Supabase
+      localStorage.removeItem('quizScores');
+      localStorage.removeItem('quizAnswers');
       
       // Navigate to the career coach assistant
       navigate('/assistant/career-coach');
