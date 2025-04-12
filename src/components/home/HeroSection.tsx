@@ -1,9 +1,49 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, ArrowRight, ChevronDown } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+
+// Rotating words component
+const RotatingWords = () => {
+  const words = ["Future", "Career", "Insights", "Impact", "Skills", "Edge", "Superpowers"];
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % words.length);
+    }, 2500); // Change word every 2.5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <span className="relative inline-block h-[1.3em] align-bottom overflow-hidden min-w-[120px] md:min-w-[180px]">
+      {words.map((word, index) => (
+        <motion.span
+          key={word}
+          className="absolute inset-0 flex items-center justify-center"
+          initial={{ opacity: 0, y: 40 }}
+          animate={{
+            opacity: index === currentIndex ? 1 : 0,
+            y: index === currentIndex ? 0 : 40
+          }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          aria-hidden={index !== currentIndex}
+        >
+          {word}
+        </motion.span>
+      ))}
+      <span className="sr-only">
+        {words.join(", ")}
+      </span>
+      <svg className="absolute bottom-0 left-0 w-full h-2 text-primary/40" viewBox="0 0 100 10" preserveAspectRatio="none">
+        <path fill="currentColor" d="M0 10 C 30 0, 70 0, 100 10 L 100 0 L 0 0 Z"></path>
+      </svg>
+    </span>
+  );
+};
 
 const HeroSection = () => {
   const isMobile = useIsMobile();
@@ -39,11 +79,7 @@ const HeroSection = () => {
             transition={{ duration: 0.6 }}
           >
             <h1 className="text-4xl md:text-6xl font-bold mb-6 font-display leading-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
-              Accelerate Your <span className="relative inline-block">Data Career
-                <svg className="absolute bottom-0 left-0 w-full h-2 text-primary/40" viewBox="0 0 100 10" preserveAspectRatio="none">
-                  <path fill="currentColor" d="M0 10 C 30 0, 70 0, 100 10 L 100 0 L 0 0 Z"></path>
-                </svg>
-              </span>
+              Accelerate Your <RotatingWords />
             </h1>
           </motion.div>
           
