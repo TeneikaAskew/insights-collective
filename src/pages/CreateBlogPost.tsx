@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
@@ -26,6 +25,7 @@ import { createBlogPost } from '@/services/blogService';
 import ReactMarkdown from 'react-markdown';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
+import { BlogPost } from '@/types/blog';
 
 const formSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters" }),
@@ -99,13 +99,17 @@ const CreateBlogPost = () => {
     setIsSubmitting(true);
     
     try {
-      // Create the blog post with provided data
+      // Create the blog post with required fields properly defined
       const blogPost = await createBlogPost({
-        ...data,
+        title: data.title,
+        content: data.content,
+        excerpt: data.excerpt,
+        slug: data.slug,
+        imageUrl: data.imageUrl,
         publishedAt: new Date().toISOString(),
         authorId: user?.id,
-        authorName: user?.displayName || user?.email?.split('@')[0] || 'Admin',
-        tags
+        authorName: user?.email?.split('@')[0] || 'Admin',
+        tags: tags
       });
 
       if (blogPost) {
@@ -389,7 +393,7 @@ const CreateBlogPost = () => {
                       </p>
                       <p>
                         <span className="font-medium">Author:</span>{' '}
-                        {user?.displayName || user?.email?.split('@')[0] || 'Admin'}
+                        {user?.email?.split('@')[0] || 'Admin'}
                       </p>
                     </div>
                   </div>

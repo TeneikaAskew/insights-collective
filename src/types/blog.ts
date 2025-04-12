@@ -1,6 +1,6 @@
 
 export interface BlogPost {
-  id: number;
+  id: string;  // Changed from number to string to match Supabase's UUID format
   slug: string;
   title: string;
   content: string;
