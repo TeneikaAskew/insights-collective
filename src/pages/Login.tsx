@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { FaGoogle } from 'react-icons/fa';
+import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const { login, googleSignIn, isAuthenticated } = useAuth();
+  const { login, googleSignIn, githubSignIn, twitterSignIn, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -73,13 +73,35 @@ const Login = () => {
     }
   };
   
-  const handleGoogleSignIn = async () => {
+  const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setLoading(true);
-      await googleSignIn();
+      setError(null);
+      
+      switch (provider) {
+        case 'google':
+          await googleSignIn();
+          break;
+        case 'github':
+          await githubSignIn();
+          break;
+        case 'twitter':
+          await twitterSignIn();
+          break;
+      }
     } catch (error: any) {
-      console.error('Google sign-in failed:', error);
-      setError(error.message);
+      console.error(`${provider} sign-in failed:`, error);
+      
+      if (error.message.includes('provider is not enabled')) {
+        setError(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in is not enabled. Please contact your administrator.`);
+        toast({
+          title: 'Authentication Error',
+          description: `${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in is not enabled in the Supabase dashboard.`,
+          variant: 'destructive'
+        });
+      } else {
+        setError(error.message);
+      }
     } finally {
       setLoading(false);
     }
@@ -108,16 +130,40 @@ const Login = () => {
           </CardHeader>
           
           <CardContent>
-            <Button 
-              type="button" 
-              variant="outline" 
-              className="w-full flex items-center justify-center mb-4"
-              onClick={handleGoogleSignIn}
-              disabled={loading}
-            >
-              <FaGoogle className="mr-2 h-4 w-4" />
-              Sign in with Google
-            </Button>
+            <div className="flex flex-col gap-3">
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full flex items-center justify-center"
+                onClick={() => handleSocialSignIn('google')}
+                disabled={loading}
+              >
+                <FaGoogle className="mr-2 h-4 w-4" />
+                Sign in with Google
+              </Button>
+              
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full flex items-center justify-center"
+                onClick={() => handleSocialSignIn('github')}
+                disabled={loading}
+              >
+                <FaGithub className="mr-2 h-4 w-4" />
+                Sign in with GitHub
+              </Button>
+              
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full flex items-center justify-center"
+                onClick={() => handleSocialSignIn('twitter')}
+                disabled={loading}
+              >
+                <FaTwitter className="mr-2 h-4 w-4" />
+                Sign in with Twitter
+              </Button>
+            </div>
             
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">

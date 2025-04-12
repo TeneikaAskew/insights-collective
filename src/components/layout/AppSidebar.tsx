@@ -1,5 +1,4 @@
-
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Github, Twitter } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -72,7 +71,6 @@ const AppSidebar = () => {
     },
   ];
 
-  // Add authenticated-only menu items
   const authenticatedMenuItems = [
     {
       title: "Messages",
@@ -153,29 +151,27 @@ const AppSidebar = () => {
 
   const isAdmin = user?.role === 'admin';
   
-  // Determine which menu items to show based on authentication status
   const menuItems = [...publicMenuItems];
   
   if (isAuthenticated) {
-    // Add authenticated-only items
     menuItems.push(...authenticatedMenuItems);
   }
 
   return (
-    <Sidebar className="bg-white border-r border-gray-100 shadow-sm">
-      <SidebarHeader className="border-b border-gray-100">
+    <Sidebar className="bg-viraDeepBlue border-r border-gray-700 text-white">
+      <SidebarHeader className="border-b border-gray-700">
         <div className="flex items-center space-x-2 px-4 py-3">
           <Link to="/" className="flex items-center space-x-2">
             <GraduationCap className="h-6 w-6 text-primary" />
-            <span className="font-bold text-lg text-gray-800">Insights Collective</span>
+            <span className="font-bold text-lg text-white">Insights Collective</span>
           </Link>
         </div>
-        <SidebarTrigger className="text-gray-500 hover:text-primary" />
+        <SidebarTrigger className="text-gray-400 hover:text-white" />
       </SidebarHeader>
       
       <SidebarContent className="py-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-500 font-medium px-4 py-2">Main Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-gray-400 font-medium px-4 py-2">Main Menu</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item) => (
@@ -183,12 +179,12 @@ const AppSidebar = () => {
                   <SidebarMenuButton 
                     asChild
                     isActive={item.active}
-                    className={`transition-all duration-200 hover:bg-gray-50 ${item.active 
-                      ? 'bg-soft-white text-slate-gray font-medium border-l-2 border-primary' 
-                      : 'text-gray-700 hover:text-primary'}`}
+                    className={`transition-all duration-200 ${item.active 
+                      ? 'bg-white/10 text-white font-medium border-l-2 border-primary' 
+                      : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
                   >
                     <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                      <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-500'}`} />
+                      <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-400'}`} />
                       <span>{item.title}</span>
                       {item.active && <div className="ml-auto">
                         <ChevronRight className="h-4 w-4" />
@@ -203,7 +199,7 @@ const AppSidebar = () => {
         
         {isAuthenticated && isAdmin && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-gray-500 font-medium px-4 py-2">Administration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-gray-400 font-medium px-4 py-2">Administration</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminMenuItems.map((item) => (
@@ -211,12 +207,12 @@ const AppSidebar = () => {
                     <SidebarMenuButton 
                       asChild
                       isActive={item.active}
-                      className={`transition-all duration-200 hover:bg-gray-50 ${item.active 
-                        ? 'bg-primary/5 text-primary font-medium border-l-2 border-primary' 
-                        : 'text-gray-700 hover:text-primary'}`}
+                      className={`transition-all duration-200 ${item.active 
+                        ? 'bg-white/10 text-white font-medium border-l-2 border-primary' 
+                        : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
                     >
                       <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                        <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-500'}`} />
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-400'}`} />
                         <span>{item.title}</span>
                         {item.active && <div className="ml-auto">
                           <ChevronRight className="h-4 w-4" />
@@ -231,9 +227,9 @@ const AppSidebar = () => {
         )}
       </SidebarContent>
       
-      <SidebarFooter className="border-t border-gray-100 mt-auto">
+      <SidebarFooter className="border-t border-gray-700 mt-auto">
         <div className="px-4 py-3">
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-400">
             <p>Insights Collective v1.0</p>
           </div>
         </div>
@@ -245,4 +241,3 @@ const AppSidebar = () => {
 };
 
 export default AppSidebar;
-

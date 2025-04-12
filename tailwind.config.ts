@@ -61,8 +61,8 @@ export default {
 					foreground: 'hsl(var(--sidebar-foreground))',
 					primary: 'hsl(var(--sidebar-primary))',
 					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'hsl(var(--soft-white, 0 0% 98%))',
-					'accent-foreground': 'hsl(var(--slate-gray, 0 0% 17%))',
+					accent: 'rgba(255, 255, 255, 0.1)',
+					'accent-foreground': 'rgba(255, 255, 255, 0.95)',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},

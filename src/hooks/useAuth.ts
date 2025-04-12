@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -145,7 +146,7 @@ export const useAuthProvider = () => {
     }
   }, [toast]);
 
-  const googleSignIn = useCallback(async (redirectTo?: string) => {
+  const socialSignIn = useCallback(async (provider: 'google' | 'github' | 'twitter', redirectTo?: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -158,7 +159,7 @@ export const useAuthProvider = () => {
       }
       
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider,
         options: {
           redirectTo: `${window.location.origin}/dashboard`,
         }
@@ -177,6 +178,18 @@ export const useAuthProvider = () => {
       setLoading(false);
     }
   }, [toast, location]);
+
+  const googleSignIn = useCallback(async (redirectTo?: string) => {
+    return socialSignIn('google', redirectTo);
+  }, [socialSignIn]);
+
+  const githubSignIn = useCallback(async (redirectTo?: string) => {
+    return socialSignIn('github', redirectTo);
+  }, [socialSignIn]);
+
+  const twitterSignIn = useCallback(async (redirectTo?: string) => {
+    return socialSignIn('twitter', redirectTo);
+  }, [socialSignIn]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
     try {
@@ -270,6 +283,8 @@ export const useAuthProvider = () => {
     login,
     register,
     googleSignIn,
+    githubSignIn,
+    twitterSignIn,
     logout,
     isAdminAuthenticated,
     isAuthenticated: !!enrichedUser,
