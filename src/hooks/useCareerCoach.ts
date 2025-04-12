@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Define typical salary ranges for each career path
 const careerPathSalaries: Record<CareerTrack, number> = {
@@ -17,11 +18,31 @@ export function useCareerCoach() {
   const [isProcessing, setIsProcessing] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { isAuthenticated, storeRedirectPath } = useAuth();
 
   const initiateCareerCoachChat = async (
     answers: Record<number, number | string>,
     scores: Record<CareerTrack, number>
   ) => {
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      // Store the career coach path for redirect after login
+      storeRedirectPath('/assistant/career-coach');
+      
+      // Store quiz scores for after login
+      localStorage.setItem('quizScores', JSON.stringify(scores));
+      
+      // Redirect to login
+      toast({
+        title: "Login Required",
+        description: "Please log in to chat with our Career Coach.",
+        variant: "default"
+      });
+      
+      navigate('/login');
+      return false;
+    }
+    
     setIsProcessing(true);
     
     try {

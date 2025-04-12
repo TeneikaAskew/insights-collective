@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CareerTrack, getSkillLevel, getTrackPersona } from '@/data/careerQuizData';
@@ -174,6 +173,11 @@ const QuizResultsSection = () => {
   };
 
   const getDefaultScores = (): Record<CareerTrack, number> => {
+    const storedScores = localStorage.getItem('quizScores');
+    if (storedScores) {
+      return JSON.parse(storedScores) as Record<CareerTrack, number>;
+    }
+    
     return {
       'AI/ML': 0,
       'Analytics': 0,

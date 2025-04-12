@@ -82,9 +82,6 @@ const App = () => (
               <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
               <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
               
-              {/* Redirect admin-login to login with admin tab */}
-              <Route path="/admin-login" element={<Navigate to="/login?tab=admin" replace />} />
-              
               {/* Protected Admin Routes */}
               <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
               <Route path="/admin/activity" element={<AdminGuard><AdminActivity /></AdminGuard>} />

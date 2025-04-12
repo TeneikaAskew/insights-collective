@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -55,17 +54,25 @@ export const useAuthProvider = () => {
     }
     
     // Special case for admin routes
-    const isAdmin = sessionStorage.getItem('isAdminAuthenticated') === 'true';
-    if (isAdmin && redirectTo.startsWith('/admin')) {
+    if (enrichedUser?.role === 'admin' && redirectTo.startsWith('/admin')) {
       console.log('Redirecting admin to:', redirectTo);
-    } else if (isAdmin && !redirectTo.startsWith('/admin')) {
+    } else if (enrichedUser?.role === 'admin' && !redirectTo.startsWith('/admin')) {
       // If admin is logged in but redirect is not to admin route, still honor the redirect
       console.log('Admin redirecting to non-admin route:', redirectTo);
+    } else if (enrichedUser?.role !== 'admin' && redirectTo.startsWith('/admin')) {
+      // If non-admin tries to access admin route, redirect to dashboard
+      console.log('Non-admin attempted to access admin route, redirecting to dashboard');
+      redirectTo = '/dashboard';
+      toast({
+        title: 'Access Denied',
+        description: 'You do not have permission to access the admin area.',
+        variant: 'destructive'
+      });
     }
     
     console.log('Final redirect destination:', redirectTo);
     navigate(redirectTo, { replace: true });
-  }, [navigate, location]);
+  }, [navigate, location, enrichedUser, toast]);
   
   // Store redirect path function
   const storeRedirectPath = useCallback((path: string) => {
@@ -91,7 +98,6 @@ export const useAuthProvider = () => {
           }, 0);
         } else if (event === 'SIGNED_OUT') {
           setSession(null);
-          // Don't clear localStorage here to avoid issues with admin redirects
           console.log('User signed out');
         }
       }
@@ -254,7 +260,7 @@ export const useAuthProvider = () => {
   }, [navigate, toast]);
   
   // Check admin authentication
-  const isAdminAuthenticated = sessionStorage.getItem('isAdminAuthenticated') === 'true';
+  const isAdminAuthenticated = enrichedUser?.role === 'admin';
   
   return {
     user: enrichedUser,
@@ -265,7 +271,6 @@ export const useAuthProvider = () => {
     register,
     googleSignIn,
     logout,
-    adminLogout,
     isAdminAuthenticated,
     isAuthenticated: !!enrichedUser,
     storeRedirectPath

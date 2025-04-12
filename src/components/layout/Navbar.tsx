@@ -17,7 +17,7 @@ import SiteSearch from '@/components/search/SiteSearch';
 const Navbar = () => {
   const location = useLocation();
   const { toggleSidebar } = useSidebar();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isAdminAuthenticated, logout } = useAuth();
   
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
@@ -76,7 +76,7 @@ const Navbar = () => {
                     <DropdownMenuItem asChild>
                       <Link to="/dashboard">Dashboard</Link>
                     </DropdownMenuItem>
-                    {user?.role === 'admin' && (
+                    {isAdminAuthenticated && (
                       <DropdownMenuItem asChild>
                         <Link to="/admin">Admin Dashboard</Link>
                       </DropdownMenuItem>

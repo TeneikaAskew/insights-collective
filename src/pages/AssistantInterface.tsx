@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, Navigate, useLocation } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginWall from '@/components/common/LoginWall';
@@ -10,8 +10,16 @@ import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 
 const AssistantInterface = () => {
   const { assistantId } = useParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, storeRedirectPath } = useAuth();
+  const location = useLocation();
   const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null);
+  
+  // Store the current path for redirect after login
+  useEffect(() => {
+    if (!isAuthenticated) {
+      storeRedirectPath(location.pathname);
+    }
+  }, [isAuthenticated, location.pathname, storeRedirectPath]);
   
   // Get assistant from URL params
   useEffect(() => {
