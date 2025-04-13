@@ -186,7 +186,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                     <h5 className="mt-3 font-medium">Ideal For</h5>
                     <p>{result.persona?.idealFor}</p>
                     <h5 className="mt-3 font-medium">Tools</h5>
-                    <div className="flex flex-wrap gap-1  ">{result.persona?.tools.map(tool => <span key={tool} className="text-xs bg-secondary px-2 py-1 rounded-full">{tool}</span>)}</div>
+                    <div className="flex flex-wrap gap-1  ">{result.persona?.tools.map(tool => <span key={tool} className="text-xs bg-aquaTeal  px-2 py-1 rounded-full">{tool}</span>)}</div>
                     <h5 className="mt-3 font-medium">Sample Roles</h5>
                     <div className="flex flex-wrap gap-1">
                       {result.persona?.sampleRoles.map(role => <Link key={role} to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} className="text-xs bg-aquaTeal  px-2 py-1 rounded-full">{role}</Link>)}
