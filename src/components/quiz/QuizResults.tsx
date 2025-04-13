@@ -144,23 +144,23 @@ ${t.courses.map(c => `- ${c.title}: ${c.description}`).join('\\n')}
                 <h4 className="font-semibold text-lg mb-2">Ideal For</h4>
                 <p>{result.persona?.idealFor}</p>
                 <h4 className="mt-4 font-semibold text-lg mb-2">Tools</h4>
-                <div className="flex flex-wrap gap-2">{result.persona?.tools.map(t => <span key={t} className="badge">{t}</span>)}</div>
+                <div className="flex flex-wrap gap-2">{result.persona?.tools.map(t => <span key={t} className="badge bg-aquaTeal">{t}</span>)}</div>
                 <h4 className="mt-4 font-semibold text-lg mb-2">Sample Roles</h4>
                 <div className="flex flex-wrap gap-2">{result.persona?.sampleRoles.map(role => (
-                  <Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} key={role} className="badge bg-secondary text-white">{role}</Link>
+                  <Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} key={role} className="badge bg-aquaTeal text-white">{role}</Link>
                 ))}</div>
               </div>
               <div>
                 <h4 className="font-semibold text-lg mb-2">Courses</h4>
                 <ul className="space-y-2">{result.courses.map(course => (
-                  <li key={course.id} className="bg-muted p-3 rounded"><strong>{course.title}</strong><p className="text-sm">{course.description}</p></li>
+                  <li key={course.id} className="bg-muted p-3 rounded"><strong>{course.title}</strong><p className="text-sm bg-slateGray/20">{course.description}</p></li>
                 ))}</ul>
               </div>
             </div>
           </CardContent>
           <CardFooter className="flex flex-wrap gap-2 mt-4">
             <Button asChild><Link to={`/courses?category=${result.track.toLowerCase().replace(/\\s+/g, '-')}`}>Browse Courses <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
-            <Button variant="outline" asChild><Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`}>Explore Careers <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+            <Button variant="outline" asChild><Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`}>Explore Careers <ArrowRight className="ml-2 h-4 w-4 aqua-teal" /></Link></Button>
           </CardFooter>
         </Card>
       ))}
