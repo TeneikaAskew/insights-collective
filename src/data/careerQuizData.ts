@@ -68,7 +68,7 @@ export const quizQuestions: QuizQuestion[] = [
   },
   {
     id: 3,
-    text: "Do you prefer writing scripts and building systems over analyzing trends?",
+    text: "Do you prefer writing scripts and building systems (A) over analyzing trends (B)?",
     type: "scale",
     scaleType: "preference",
     weights: {
