@@ -34,10 +34,10 @@ export default {
 					foreground: 'hsl(var(--primary-foreground))'
 				},
 				secondary: {
-					// DEFAULT: 'hsl(var(--secondary))',
-					// foreground: 'hsl(var(--secondary-foreground))'
-                    DEFAULT: 'hsl(164, 61%, 60%)',       // Aqua Teal (#5ED3B5)
-                    foreground: 'hsl(0, 0%, 0%)'        // Slate Gray (#2C2C2C)
+					DEFAULT: 'hsl(var(--secondary))',
+					foreground: 'hsl(var(--secondary-foreground))'
+                    // DEFAULT: 'hsl(164, 61%, 60%)',       // Aqua Teal (#5ED3B5)
+                    // foreground: 'hsl(0, 0%, 0%)'        // Slate Gray (#2C2C2C)
                     //  DEFAULT: 'hsl(37, 91%, 56%)',        // Energetic Amber (#F9A826)
                     // foreground: 'hsl(0, 0%, 100%)'       // White (#FFFFFF)
 				},
