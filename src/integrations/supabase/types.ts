@@ -83,16 +83,20 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
-          q_analytical_thinking: number | null
-          q_business_value: number | null
-          q_coding_preference: number | null
-          q_communication: number | null
-          q_creative_problem_solving: number | null
-          q_data_orientation: number | null
-          q_math_stats_comfort: number | null
-          q_teamwork: number | null
-          q_technical_complexity: number | null
-          q_visualization_interest: number | null
+          q1_coding_comfort: number | null
+          q10_tool_choice: string | null
+          q11_ai_product_interest: number | null
+          q12_strategic_influence_interest: number | null
+          q13_infrastructure_interest: number | null
+          q14_kpi_reporting_interest: number | null
+          q2_stat_modeling_interest: number | null
+          q3_systems_vs_trends: number | null
+          q4_insight_generation: number | null
+          q5_stakeholder_communication: number | null
+          q6_business_vs_processing: number | null
+          q7_system_optimization: number | null
+          q8_modeling_patterns: number | null
+          q9_business_question_focus: number | null
           result_ai_ml_score: number | null
           result_analytics_score: number | null
           result_business_intelligence_score: number | null
@@ -104,16 +108,20 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string
-          q_analytical_thinking?: number | null
-          q_business_value?: number | null
-          q_coding_preference?: number | null
-          q_communication?: number | null
-          q_creative_problem_solving?: number | null
-          q_data_orientation?: number | null
-          q_math_stats_comfort?: number | null
-          q_teamwork?: number | null
-          q_technical_complexity?: number | null
-          q_visualization_interest?: number | null
+          q1_coding_comfort?: number | null
+          q10_tool_choice?: string | null
+          q11_ai_product_interest?: number | null
+          q12_strategic_influence_interest?: number | null
+          q13_infrastructure_interest?: number | null
+          q14_kpi_reporting_interest?: number | null
+          q2_stat_modeling_interest?: number | null
+          q3_systems_vs_trends?: number | null
+          q4_insight_generation?: number | null
+          q5_stakeholder_communication?: number | null
+          q6_business_vs_processing?: number | null
+          q7_system_optimization?: number | null
+          q8_modeling_patterns?: number | null
+          q9_business_question_focus?: number | null
           result_ai_ml_score?: number | null
           result_analytics_score?: number | null
           result_business_intelligence_score?: number | null
@@ -125,16 +133,20 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string
-          q_analytical_thinking?: number | null
-          q_business_value?: number | null
-          q_coding_preference?: number | null
-          q_communication?: number | null
-          q_creative_problem_solving?: number | null
-          q_data_orientation?: number | null
-          q_math_stats_comfort?: number | null
-          q_teamwork?: number | null
-          q_technical_complexity?: number | null
-          q_visualization_interest?: number | null
+          q1_coding_comfort?: number | null
+          q10_tool_choice?: string | null
+          q11_ai_product_interest?: number | null
+          q12_strategic_influence_interest?: number | null
+          q13_infrastructure_interest?: number | null
+          q14_kpi_reporting_interest?: number | null
+          q2_stat_modeling_interest?: number | null
+          q3_systems_vs_trends?: number | null
+          q4_insight_generation?: number | null
+          q5_stakeholder_communication?: number | null
+          q6_business_vs_processing?: number | null
+          q7_system_optimization?: number | null
+          q8_modeling_patterns?: number | null
+          q9_business_question_focus?: number | null
           result_ai_ml_score?: number | null
           result_analytics_score?: number | null
           result_business_intelligence_score?: number | null

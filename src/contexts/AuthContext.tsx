@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext } from 'react';
 import { useAuthProvider, AuthContextType } from '@/hooks/useAuth';
 
 // Create context with undefined initial value
@@ -16,7 +16,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     storeRedirectPath: (path: string) => {
       if (path && path !== '/login' && path !== '/register' && path !== '/') {
         localStorage.setItem('redirectAfterLogin', path);
-        console.log('AuthContext: Stored redirect path:', path);
+        if (process.env.NODE_ENV === "development") {
+          console.log('AuthContext: Stored redirect path:', path);
+        }
       }
     }
   };

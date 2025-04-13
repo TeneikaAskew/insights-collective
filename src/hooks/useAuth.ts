@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,6 +18,7 @@ export const useAuthProvider = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
+  const authInitializedRef = useRef(false);
   
   // Get enriched user data
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
@@ -35,20 +36,28 @@ export const useAuthProvider = () => {
     // Priority 3: Check localStorage for saved redirect path
     const storedRedirect = localStorage.getItem('redirectAfterLogin');
     
-    console.log('Redirect options:', { redirectParam, fromPath, storedRedirect });
+    if (process.env.NODE_ENV === "development") {
+      console.log('Redirect options:', { redirectParam, fromPath, storedRedirect });
+    }
     
     // Choose redirect path based on priority
     let redirectTo = '/dashboard'; // Default fallback
     
     if (redirectParam) {
       redirectTo = redirectParam;
-      console.log('Using redirect from URL parameter:', redirectParam);
+      if (process.env.NODE_ENV === "development") {
+        console.log('Using redirect from URL parameter:', redirectParam);
+      }
     } else if (fromPath && fromPath !== '/login' && fromPath !== '/register') {
       redirectTo = fromPath;
-      console.log('Using redirect from location state:', fromPath);
+      if (process.env.NODE_ENV === "development") {
+        console.log('Using redirect from location state:', fromPath);
+      }
     } else if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
       redirectTo = storedRedirect;
-      console.log('Using redirect from localStorage:', storedRedirect);
+      if (process.env.NODE_ENV === "development") {
+        console.log('Using redirect from localStorage:', storedRedirect);
+      }
       // Clear the stored redirect, but only if it's not an admin route
       if (!redirectTo.startsWith('/admin')) {
         localStorage.removeItem('redirectAfterLogin');
@@ -57,13 +66,19 @@ export const useAuthProvider = () => {
     
     // Special case for admin routes
     if (enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-      console.log('Redirecting admin to:', redirectTo);
+      if (process.env.NODE_ENV === "development") {
+        console.log('Redirecting admin to:', redirectTo);
+      }
     } else if (enrichedUser?.roles?.includes('admin') && !redirectTo.startsWith('/admin')) {
       // If admin is logged in but redirect is not to admin route, still honor the redirect
-      console.log('Admin redirecting to non-admin route:', redirectTo);
+      if (process.env.NODE_ENV === "development") {
+        console.log('Admin redirecting to non-admin route:', redirectTo);
+      }
     } else if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
       // If non-admin tries to access admin route, redirect to dashboard
-      console.log('Non-admin attempted to access admin route, redirecting to dashboard');
+      if (process.env.NODE_ENV === "development") {
+        console.log('Non-admin attempted to access admin route, redirecting to dashboard');
+      }
       redirectTo = '/dashboard';
       toast({
         title: 'Access Denied',
@@ -72,7 +87,9 @@ export const useAuthProvider = () => {
       });
     }
     
-    console.log('Final redirect destination:', redirectTo);
+    if (process.env.NODE_ENV === "development") {
+      console.log('Final redirect destination:', redirectTo);
+    }
     navigate(redirectTo, { replace: true });
   }, 1000, { leading: true, trailing: false }), [navigate, location, enrichedUser, toast]);
   
@@ -80,14 +97,18 @@ export const useAuthProvider = () => {
   const storeRedirectPath = useCallback((path: string) => {
     if (path && path !== '/login' && path !== '/register') {
       localStorage.setItem('redirectAfterLogin', path);
-      console.log('Stored redirect path:', path);
+      if (process.env.NODE_ENV === "development") {
+        console.log('Stored redirect path:', path);
+      }
     }
   }, []);
   
   // Force sign out function for handling invalid sessions
   const forceSignOut = useCallback(async () => {
     try {
-      console.log('Force signing out due to invalid session');
+      if (process.env.NODE_ENV === "development") {
+        console.log('Force signing out due to invalid session');
+      }
       await supabase.auth.signOut();
       setSession(null);
       navigate('/login', { replace: true });
@@ -96,20 +117,38 @@ export const useAuthProvider = () => {
     }
   }, [navigate]);
 
-  // Update session and user on auth state change
+  // Update session and user on auth state change - ONLY runs once
   useEffect(() => {
+    // Prevent multiple initializations
+    if (authInitializedRef.current) return;
+    authInitializedRef.current = true;
+    
     let isActive = true;
-    let authListener: { data: { subscription: { unsubscribe: () => void } } };
     
     // Initialize auth state
     const initializeAuth = async () => {
       try {
-        // Set up auth state listener FIRST
-        authListener = supabase.auth.onAuthStateChange(
+        // FIRST: Check for existing session (one-time check)
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session retrieval error:', sessionError);
+          if (isActive) await forceSignOut();
+        } else if (sessionData.session && isActive) {
+          if (process.env.NODE_ENV === "development") {
+            console.log('Initial session check:', !!sessionData.session);
+          }
+          setSession(sessionData.session);
+        }
+        
+        // SECOND: Set up auth state listener (with proper cleanup)
+        const { data: authListener } = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
-            console.log('Auth state changed:', event, !!newSession);
-            
             if (!isActive) return;
+            
+            if (process.env.NODE_ENV === "development") {
+              console.log('Auth state changed:', event, !!newSession);
+            }
             
             if (newSession) {
               setSession(newSession);
@@ -122,41 +161,42 @@ export const useAuthProvider = () => {
               }
             } else if (event === 'SIGNED_OUT') {
               setSession(null);
-              console.log('User signed out');
+              if (process.env.NODE_ENV === "development") {
+                console.log('User signed out');
+              }
             }
           }
         );
-
-        // THEN check for existing session
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Session retrieval error:', error);
-          // If there's an error getting the session, force sign out
-          await forceSignOut();
-        } else if (data.session) {
-          if (isActive) {
-            console.log('Initial session check:', !!data.session);
-            setSession(data.session);
-          }
-        }
         
         if (isActive) setLoading(false);
+        
+        // Return cleanup function
+        return () => {
+          if (authListener?.subscription) {
+            authListener.subscription.unsubscribe();
+          }
+        };
       } catch (err) {
         console.error('Auth initialization error:', err);
         if (isActive) {
           setLoading(false);
           await forceSignOut();
         }
+        return undefined;
       }
     };
 
-    initializeAuth();
-
+    // Start the auth initialization and store the cleanup function
+    const cleanup = initializeAuth();
+    
+    // Return the cleanup function to useEffect
     return () => {
       isActive = false;
-      if (authListener) {
-        authListener.data.subscription.unsubscribe();
+      // Execute the cleanup function if it exists
+      if (cleanup) {
+        cleanup.then(cleanupFn => {
+          if (cleanupFn) cleanupFn();
+        });
       }
     };
   }, [handleRedirectAfterLogin, forceSignOut]);
