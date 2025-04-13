@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,6 +28,18 @@ const Profile = () => {
   
   const enrolledCourses = mockService.getEnrolledCourses(user.id);
   
+  const getInitial = (name?: string) => {
+    return name && name.length > 0 ? name.charAt(0) : '?';
+  };
+  
+  const getFirstName = () => {
+    return user.name ? user.name.split(' ')[0] : '';
+  };
+  
+  const getLastName = () => {
+    return user.name ? user.name.split(' ').slice(1).join(' ') : '';
+  };
+  
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -45,11 +56,22 @@ const Profile = () => {
               <div className="flex flex-col items-center text-center mb-6">
                 <Avatar className="h-24 w-24 mb-4">
                   <AvatarImage src={user.avatar} />
-                  <AvatarFallback className="text-xl">{user.name.charAt(0)}</AvatarFallback>
+                  <AvatarFallback className="text-xl">{getInitial(user.name)}</AvatarFallback>
                 </Avatar>
-                <h2 className="text-xl font-semibold">{user.name}</h2>
+                <h2 className="text-xl font-semibold">{user.name || 'User'}</h2>
                 <p className="text-muted-foreground">{user.email}</p>
-                <Badge className="mt-2">{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Badge>
+                {user.role && (
+                  <Badge className="mt-2">{user.role.charAt(0).toUpperCase() + user.role.slice(1)}</Badge>
+                )}
+                {user.roles && user.roles.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1 justify-center">
+                    {user.roles.map(role => (
+                      <Badge key={role} variant={role === 'admin' ? 'destructive' : role === 'instructor' ? 'outline' : 'default'} className="capitalize">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -101,11 +123,11 @@ const Profile = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="first-name">First Name</Label>
-                    <Input id="first-name" defaultValue={user.name.split(' ')[0]} />
+                    <Input id="first-name" defaultValue={getFirstName()} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="last-name">Last Name</Label>
-                    <Input id="last-name" defaultValue={user.name.split(' ')[1] || ''} />
+                    <Input id="last-name" defaultValue={getLastName()} />
                   </div>
                 </div>
                 
@@ -116,7 +138,7 @@ const Profile = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="bio">Bio</Label>
-                  <Textarea id="bio" defaultValue={user.bio} className="resize-none" rows={4} />
+                  <Textarea id="bio" defaultValue={user.bio || ''} className="resize-none" rows={4} />
                   <p className="text-xs text-muted-foreground">
                     This will be displayed on your profile.
                   </p>
@@ -127,7 +149,6 @@ const Profile = () => {
               </CardFooter>
             </Card>
             
-            {/* Quiz Results Section */}
             <Card id="quiz-results">
               <CardHeader>
                 <CardTitle>Career Path Quiz Results</CardTitle>
