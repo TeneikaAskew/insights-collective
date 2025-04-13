@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -7,6 +8,46 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { PageVisibilityProvider } from "./contexts/PageVisibilityContext";
 import { ToastProvider } from "@/hooks/use-toast";
 import React from "react";
+
+// Import page components
+import Index from "./pages/Index";
+import Dashboard from "./pages/Dashboard";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import CourseList from "./pages/CourseList";
+import CourseDetail from "./pages/CourseDetail";
+import ModuleDetail from "./pages/ModuleDetail";
+import Resources from "./pages/Resources";
+import DataBlueprintSeries from "./pages/DataBlueprintSeries";
+import BlogList from "./pages/BlogList";
+import BlogPost from "./pages/BlogPost";
+import Events from "./pages/Events";
+import Notifications from "./pages/Notifications";
+import ExploreDataCareers from "./pages/ExploreDataCareers";
+import Profile from "./pages/Profile";
+import Calendar from "./pages/Calendar";
+import Assistants from "./pages/Assistants";
+import AssistantInterface from "./pages/AssistantInterface";
+import Messages from "./pages/Messages";
+import Resume from "./pages/Resume";
+import NotFound from "./pages/NotFound";
+
+// Import admin pages
+import AdminDashboard from "./pages/AdminDashboard";
+import AdminActivity from "./pages/AdminActivity";
+import AdminCourses from "./pages/AdminCourses";
+import AdminUsers from "./pages/AdminUsers";
+import AdminEnrollments from "./pages/AdminEnrollments";
+import AdminCertificates from "./pages/AdminCertificates";
+import AdminResources from "./pages/AdminResources";
+import AdminEvents from "./pages/AdminEvents";
+import AdminBlogPosts from "./pages/AdminBlogPosts";
+import CreateBlogPost from "./pages/CreateBlogPost";
+import AdminPageVisibility from "./pages/AdminPageVisibility";
+
+// Import guards and layout components
+import PageVisibilityGuard from "./components/PageVisibilityGuard";
+import AdminGuard from "./components/admin/AdminGuard";
 
 const queryClient = new QueryClient({
   defaultOptions: {
