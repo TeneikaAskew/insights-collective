@@ -9,10 +9,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuthProvider();
   
-  // Create an enhanced auth object with admin status derived from user role
+  // Create an enhanced auth object with admin status derived from user roles
   const enhancedAuth: AuthContextType = {
     ...auth,
-    isAdminAuthenticated: auth.user?.role === 'admin',
+    isAdminAuthenticated: auth.user?.roles?.includes('admin'),
     storeRedirectPath: (path: string) => {
       if (path && path !== '/login' && path !== '/register' && path !== '/') {
         localStorage.setItem('redirectAfterLogin', path);

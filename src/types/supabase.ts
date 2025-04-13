@@ -1,3 +1,4 @@
+
 export interface Profile {
   id: string;
   first_name: string | null;
@@ -5,6 +6,7 @@ export interface Profile {
   avatar_url: string | null;
   bio: string | null;
   role: string;
+  roles: string[];
 }
 
 export interface Conversation {
@@ -51,6 +53,7 @@ export interface UserWithProfile {
   avatar?: string; // Alias for profile avatar_url
   bio?: string; // From profile
   role?: string; // From profile
+  roles?: string[]; // Array of roles
   enrolledCourses?: string[]; // From enrollments
   user_metadata?: {
     avatar_url?: string;

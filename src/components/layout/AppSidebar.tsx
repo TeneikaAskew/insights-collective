@@ -1,3 +1,4 @@
+
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Github, Twitter } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
@@ -41,9 +42,9 @@ const AppSidebar = () => {
     },
     {
       title: "Data Blueprint",
-      url: "/resources/data-blueprint",
+      url: "/data-blueprint",
       icon: FileText,
-      active: location.pathname === '/resources/data-blueprint',
+      active: location.pathname === '/data-blueprint',
     },
     {
       title: "Explore Data Careers",
@@ -149,7 +150,8 @@ const AppSidebar = () => {
     },
   ];
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.roles?.includes('admin');
+  const isInstructor = user?.roles?.includes('instructor');
   
   const menuItems = [...publicMenuItems];
   
@@ -197,12 +199,14 @@ const AppSidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
         
-        {isAuthenticated && isAdmin && (
+        {isAuthenticated && (isAdmin || isInstructor) && (
           <SidebarGroup>
-            <SidebarGroupLabel className="text-gray-400 font-medium px-4 py-2">Administration</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-gray-400 font-medium px-4 py-2">
+              {isAdmin ? 'Administration' : 'Instructor Tools'}
+            </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminMenuItems.map((item) => (
+                {isAdmin && adminMenuItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton 
                       asChild
@@ -221,6 +225,22 @@ const AppSidebar = () => {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+                
+                {isInstructor && !isAdmin && (
+                  // Here we'd show instructor-specific menu items
+                  // This section will be populated as instructor features are built
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild
+                      className="text-gray-300 hover:text-white hover:bg-white/5"
+                    >
+                      <Link to="/instructor/courses" className="flex items-center space-x-3 rounded-md px-3 py-2">
+                        <BookOpen className="h-5 w-5 text-gray-400" />
+                        <span>My Courses</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

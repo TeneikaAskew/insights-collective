@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
 import { UserWithProfile } from '@/types/supabase';
+import { throttle } from 'lodash';
 
 /**
  * Custom hook for authentication functionality
@@ -21,8 +22,8 @@ export const useAuthProvider = () => {
   // Get enriched user data
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
   
-  // Helper function to handle post-login redirects
-  const handleRedirectAfterLogin = useCallback(() => {
+  // Helper function to handle post-login redirects - throttled to prevent multiple redirects
+  const handleRedirectAfterLogin = useCallback(throttle(() => {
     // Priority 1: Check URL parameters for redirect info
     const urlParams = new URLSearchParams(location.search);
     const redirectParam = urlParams.get('redirect');
@@ -55,12 +56,12 @@ export const useAuthProvider = () => {
     }
     
     // Special case for admin routes
-    if (enrichedUser?.role === 'admin' && redirectTo.startsWith('/admin')) {
+    if (enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
       console.log('Redirecting admin to:', redirectTo);
-    } else if (enrichedUser?.role === 'admin' && !redirectTo.startsWith('/admin')) {
+    } else if (enrichedUser?.roles?.includes('admin') && !redirectTo.startsWith('/admin')) {
       // If admin is logged in but redirect is not to admin route, still honor the redirect
       console.log('Admin redirecting to non-admin route:', redirectTo);
-    } else if (enrichedUser?.role !== 'admin' && redirectTo.startsWith('/admin')) {
+    } else if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
       // If non-admin tries to access admin route, redirect to dashboard
       console.log('Non-admin attempted to access admin route, redirecting to dashboard');
       redirectTo = '/dashboard';
@@ -73,7 +74,7 @@ export const useAuthProvider = () => {
     
     console.log('Final redirect destination:', redirectTo);
     navigate(redirectTo, { replace: true });
-  }, [navigate, location, enrichedUser, toast]);
+  }, 1000, { leading: true, trailing: false }), [navigate, location, enrichedUser, toast]);
   
   // Store redirect path function
   const storeRedirectPath = useCallback((path: string) => {
@@ -83,38 +84,82 @@ export const useAuthProvider = () => {
     }
   }, []);
   
+  // Force sign out function for handling invalid sessions
+  const forceSignOut = useCallback(async () => {
+    try {
+      console.log('Force signing out due to invalid session');
+      await supabase.auth.signOut();
+      setSession(null);
+      navigate('/login', { replace: true });
+    } catch (error) {
+      console.error('Force sign out error:', error);
+    }
+  }, [navigate]);
+
   // Update session and user on auth state change
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, !!session);
+    let isActive = true;
+    let authListener: { data: { subscription: { unsubscribe: () => void } } };
+    
+    // Initialize auth state
+    const initializeAuth = async () => {
+      try {
+        // Set up auth state listener FIRST
+        authListener = supabase.auth.onAuthStateChange(
+          async (event, newSession) => {
+            console.log('Auth state changed:', event, !!newSession);
+            
+            if (!isActive) return;
+            
+            if (newSession) {
+              setSession(newSession);
+              
+              // Use setTimeout to avoid auth state deadlocks
+              if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+                setTimeout(() => {
+                  if (isActive) handleRedirectAfterLogin();
+                }, 0);
+              }
+            } else if (event === 'SIGNED_OUT') {
+              setSession(null);
+              console.log('User signed out');
+            }
+          }
+        );
+
+        // THEN check for existing session
+        const { data, error } = await supabase.auth.getSession();
         
-        if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-          setSession(session);
-          
-          // Use setTimeout to avoid auth state deadlocks
-          setTimeout(() => {
-            handleRedirectAfterLogin();
-          }, 0);
-        } else if (event === 'SIGNED_OUT') {
-          setSession(null);
-          console.log('User signed out');
+        if (error) {
+          console.error('Session retrieval error:', error);
+          // If there's an error getting the session, force sign out
+          await forceSignOut();
+        } else if (data.session) {
+          if (isActive) {
+            console.log('Initial session check:', !!data.session);
+            setSession(data.session);
+          }
+        }
+        
+        if (isActive) setLoading(false);
+      } catch (err) {
+        console.error('Auth initialization error:', err);
+        if (isActive) {
+          setLoading(false);
+          await forceSignOut();
         }
       }
-    );
+    };
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', !!session);
-      setSession(session);
-      setLoading(false);
-    });
+    initializeAuth();
 
     return () => {
-      subscription.unsubscribe();
+      isActive = false;
+      if (authListener) {
+        authListener.data.subscription.unsubscribe();
+      }
     };
-  }, [handleRedirectAfterLogin]);
+  }, [handleRedirectAfterLogin, forceSignOut]);
   
   const login = useCallback(async (email: string, password: string, redirectTo?: string) => {
     try {
@@ -273,7 +318,7 @@ export const useAuthProvider = () => {
   }, [navigate, toast]);
   
   // Check admin authentication
-  const isAdminAuthenticated = enrichedUser?.role === 'admin';
+  const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
   
   return {
     user: enrichedUser,

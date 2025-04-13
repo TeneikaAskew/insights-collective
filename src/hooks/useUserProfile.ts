@@ -45,6 +45,24 @@ export const useUserProfile = (authUser: User | null) => {
           userWithProfile.avatar = profile.avatar_url || undefined;
           userWithProfile.bio = profile.bio || undefined;
           userWithProfile.role = profile.role || 'student';
+          
+          // Parse roles from profile
+          if (profile.roles) {
+            userWithProfile.roles = Array.isArray(profile.roles) 
+              ? profile.roles 
+              : (profile.roles || 'student').split(',').map(r => r.trim());
+            
+            // Ensure student is always a base role
+            if (!userWithProfile.roles.includes('student')) {
+              userWithProfile.roles.push('student');
+            }
+          } else {
+            // Default to student role if no roles are set
+            userWithProfile.roles = ['student'];
+          }
+        } else {
+          // Set default roles if no profile
+          userWithProfile.roles = ['student'];
         }
         
         // Get enrolled courses
@@ -68,6 +86,7 @@ export const useUserProfile = (authUser: User | null) => {
         setEnrichedUser({
           ...authUser,
           email: authUser.email || '',
+          roles: ['student'], // Default role
         });
       } finally {
         setLoading(false);

@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -61,7 +62,7 @@ export default {
 					foreground: 'hsl(var(--sidebar-foreground))',
 					primary: 'hsl(var(--sidebar-primary))',
 					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'rgba(255, 255, 255, 0.1)',
+					accent: 'rgba(255, 255, 255, 0.1)', // Changed from blue to white with transparency
 					'accent-foreground': 'rgba(255, 255, 255, 0.95)',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'

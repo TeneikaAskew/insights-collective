@@ -9,12 +9,15 @@ interface AdminGuardProps {
 }
 
 const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
-  const { isAuthenticated, isAdminAuthenticated, storeRedirectPath } = useAuth();
+  const { isAuthenticated, user, storeRedirectPath } = useAuth();
   const location = useLocation();
+  
+  // Check if user has admin role
+  const isAdmin = user?.roles?.includes('admin');
   
   // Store current admin path for post-login redirect
   useEffect(() => {
-    if (!isAuthenticated || !isAdminAuthenticated) {
+    if (!isAuthenticated || !isAdmin) {
       if (location.pathname.startsWith('/admin')) {
         // Save the admin path both ways for redundancy
         // 1. In localStorage (our primary method)
@@ -28,7 +31,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
         }
       }
     }
-  }, [isAuthenticated, isAdminAuthenticated, location.pathname, storeRedirectPath]);
+  }, [isAuthenticated, isAdmin, location.pathname, storeRedirectPath]);
   
   // Show loading state while checking authentication
   if (isAuthenticated === null) {
@@ -46,7 +49,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   }
   
   // Redirect to dashboard if authenticated but not an admin
-  if (!isAdminAuthenticated) {
+  if (!isAdmin) {
     return <Navigate to="/dashboard" state={{ message: "You don't have admin access." }} replace />;
   }
   

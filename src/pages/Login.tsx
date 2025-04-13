@@ -41,6 +41,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
@@ -75,8 +76,8 @@ const Login = () => {
   
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
     try {
-      setLoading(true);
       setError(null);
+      setSocialLoading(provider);
       
       switch (provider) {
         case 'google':
@@ -92,18 +93,20 @@ const Login = () => {
     } catch (error: any) {
       console.error(`${provider} sign-in failed:`, error);
       
-      if (error.message.includes('provider is not enabled')) {
+      if (error.message?.includes('provider is not enabled')) {
         setError(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in is not enabled. Please contact your administrator.`);
         toast({
           title: 'Authentication Error',
           description: `${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in is not enabled in the Supabase dashboard.`,
           variant: 'destructive'
         });
+      } else if (error.message?.includes('redirect')) {
+        setError(`Unable to complete ${provider} sign-in. Please check your network connection.`);
       } else {
-        setError(error.message);
+        setError(error.message || `Failed to sign in with ${provider}`);
       }
     } finally {
-      setLoading(false);
+      setSocialLoading(null);
     }
   };
   
@@ -136,9 +139,13 @@ const Login = () => {
                 variant="outline" 
                 className="w-full flex items-center justify-center"
                 onClick={() => handleSocialSignIn('google')}
-                disabled={loading}
+                disabled={!!socialLoading}
               >
-                <FaGoogle className="mr-2 h-4 w-4" />
+                {socialLoading === 'google' ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FaGoogle className="mr-2 h-4 w-4" />
+                )}
                 Sign in with Google
               </Button>
               
@@ -147,9 +154,13 @@ const Login = () => {
                 variant="outline" 
                 className="w-full flex items-center justify-center"
                 onClick={() => handleSocialSignIn('github')}
-                disabled={loading}
+                disabled={!!socialLoading}
               >
-                <FaGithub className="mr-2 h-4 w-4" />
+                {socialLoading === 'github' ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FaGithub className="mr-2 h-4 w-4" />
+                )}
                 Sign in with GitHub
               </Button>
               
@@ -158,9 +169,13 @@ const Login = () => {
                 variant="outline" 
                 className="w-full flex items-center justify-center"
                 onClick={() => handleSocialSignIn('twitter')}
-                disabled={loading}
+                disabled={!!socialLoading}
               >
-                <FaTwitter className="mr-2 h-4 w-4" />
+                {socialLoading === 'twitter' ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <FaTwitter className="mr-2 h-4 w-4" />
+                )}
                 Sign in with Twitter
               </Button>
             </div>
