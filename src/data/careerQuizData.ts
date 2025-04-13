@@ -10,6 +10,7 @@ export interface QuizQuestion {
   id: number;
   text: string;
   type: 'scale' | 'multiple-choice';
+  scaleType?: 'comfort' | 'preference' | 'agree';
   options?: {
     id: string;
     text: string;
@@ -39,12 +40,13 @@ export interface CourseRecommendation {
   }[];
 }
 
-// Quiz questions
+// Quiz questions (updated)
 export const quizQuestions: QuizQuestion[] = [
   {
     id: 1,
     text: "How comfortable are you with coding in Python, Java, or SQL?",
     type: "scale",
+    scaleType: "comfort",
     weights: {
       "AI/ML": 3,
       "Analytics": 2,
@@ -56,6 +58,7 @@ export const quizQuestions: QuizQuestion[] = [
     id: 2,
     text: "Do you enjoy working with statistical models or machine learning algorithms?",
     type: "scale",
+    scaleType: "agree",
     weights: {
       "AI/ML": 4,
       "Analytics": 2,
@@ -65,8 +68,9 @@ export const quizQuestions: QuizQuestion[] = [
   },
   {
     id: 3,
-    text: "Do you prefer writing scripts and building systems over analyzing trends?",
+    text: "Which do you prefer?",
     type: "scale",
+    scaleType: "preference",
     weights: {
       "AI/ML": 2,
       "Analytics": 0,
@@ -78,6 +82,7 @@ export const quizQuestions: QuizQuestion[] = [
     id: 4,
     text: "I enjoy turning data into insights that drive business decisions.",
     type: "scale",
+    scaleType: "agree",
     weights: {
       "AI/ML": 1,
       "Analytics": 4,
@@ -87,8 +92,9 @@ export const quizQuestions: QuizQuestion[] = [
   },
   {
     id: 5,
-    text: "I prefer talking to stakeholders to understand their problems and presenting dashboards.",
+    text: "How comfortable are you talking to stakeholders to understand their problems and presenting dashboards?",
     type: "scale",
+    scaleType: "comfort",
     weights: {
       "AI/ML": 0,
       "Analytics": 2,
@@ -100,6 +106,7 @@ export const quizQuestions: QuizQuestion[] = [
     id: 6,
     text: "I'm more interested in the 'why' behind numbers than how the data is processed.",
     type: "scale",
+    scaleType: "agree",
     weights: {
       "AI/ML": 1,
       "Analytics": 3,
@@ -111,6 +118,7 @@ export const quizQuestions: QuizQuestion[] = [
     id: 7,
     text: "I like optimizing systems or automating processes.",
     type: "scale",
+    scaleType: "agree",
     weights: {
       "AI/ML": 2,
       "Analytics": 1,
@@ -122,6 +130,7 @@ export const quizQuestions: QuizQuestion[] = [
     id: 8,
     text: "I enjoy exploring patterns in data to build predictive models.",
     type: "scale",
+    scaleType: "agree",
     weights: {
       "AI/ML": 4,
       "Analytics": 3,
@@ -133,6 +142,7 @@ export const quizQuestions: QuizQuestion[] = [
     id: 9,
     text: "I prefer using data to answer specific business questions.",
     type: "scale",
+    scaleType: "agree",
     weights: {
       "AI/ML": 1,
       "Analytics": 3,
@@ -186,52 +196,241 @@ export const quizQuestions: QuizQuestion[] = [
         }
       }
     ]
-  },
-  {
-    id: 11,
-    text: "I want to build cutting-edge AI products.",
-    type: "scale",
-    weights: {
-      "AI/ML": 4,
-      "Analytics": 1,
-      "Data Engineering": 1,
-      "Business Intelligence": 0
-    }
-  },
-  {
-    id: 12,
-    text: "I want to inform strategic decisions with data.",
-    type: "scale",
-    weights: {
-      "AI/ML": 1,
-      "Analytics": 4,
-      "Data Engineering": 1,
-      "Business Intelligence": 3
-    }
-  },
-  {
-    id: 13,
-    text: "I want to design robust data infrastructure.",
-    type: "scale",
-    weights: {
-      "AI/ML": 1,
-      "Analytics": 1,
-      "Data Engineering": 4,
-      "Business Intelligence": 1
-    }
-  },
-  {
-    id: 14,
-    text: "I want to become a go-to person for reporting and KPIs.",
-    type: "scale",
-    weights: {
-      "AI/ML": 0,
-      "Analytics": 2,
-      "Data Engineering": 1,
-      "Business Intelligence": 4
-    }
   }
 ];
+// // Track definitions for the career quiz
+// export type CareerTrack = 'AI/ML' | 'Analytics' | 'Data Engineering' | 'Business Intelligence';
+
+// // Skill level definitions
+// export type SkillLevel = 'Beginner' | 'Intermediate' | 'Advanced';
+
+// // Question type definition
+// export interface QuizQuestion {
+//   id: number;
+//   text: string;
+//   type: 'scale' | 'multiple-choice';
+//   options?: {
+//     id: string;
+//     text: string;
+//     weights: Record<CareerTrack, number>;
+//   }[];
+//   weights?: Record<CareerTrack, number>;
+// }
+
+// // Track persona definition
+// export interface TrackPersona {
+//   track: CareerTrack;
+//   description: string;
+//   idealFor: string;
+//   tools: string[];
+//   sampleRoles: string[];
+//   icon: string;
+// }
+
+// // Course recommendation definition
+// export interface CourseRecommendation {
+//   track: CareerTrack;
+//   level: SkillLevel;
+//   courses: {
+//     id: string;
+//     title: string;
+//     description: string;
+//   }[];
+// }
+
+// // Quiz questions
+// export const quizQuestions: QuizQuestion[] = [
+//   {
+//     id: 1,
+//     text: "How comfortable are you with coding in Python, Java, or SQL?",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 3,
+//       "Analytics": 2,
+//       "Data Engineering": 3,
+//       "Business Intelligence": 1
+//     }
+//   },
+//   {
+//     id: 2,
+//     text: "Do you enjoy working with statistical models or machine learning algorithms?",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 4,
+//       "Analytics": 2,
+//       "Data Engineering": 1,
+//       "Business Intelligence": 0
+//     }
+//   },
+//   {
+//     id: 3,
+//     text: "Do you prefer writing scripts and building systems over analyzing trends?",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 2,
+//       "Analytics": 0,
+//       "Data Engineering": 4,
+//       "Business Intelligence": 1
+//     }
+//   },
+//   {
+//     id: 4,
+//     text: "I enjoy turning data into insights that drive business decisions.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 1,
+//       "Analytics": 4,
+//       "Data Engineering": 1,
+//       "Business Intelligence": 3
+//     }
+//   },
+//   {
+//     id: 5,
+//     text: "I prefer talking to stakeholders to understand their problems and presenting dashboards.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 0,
+//       "Analytics": 2,
+//       "Data Engineering": 0,
+//       "Business Intelligence": 4
+//     }
+//   },
+//   {
+//     id: 6,
+//     text: "I'm more interested in the 'why' behind numbers than how the data is processed.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 1,
+//       "Analytics": 3,
+//       "Data Engineering": 0,
+//       "Business Intelligence": 3
+//     }
+//   },
+//   {
+//     id: 7,
+//     text: "I like optimizing systems or automating processes.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 2,
+//       "Analytics": 1,
+//       "Data Engineering": 4,
+//       "Business Intelligence": 1
+//     }
+//   },
+//   {
+//     id: 8,
+//     text: "I enjoy exploring patterns in data to build predictive models.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 4,
+//       "Analytics": 3,
+//       "Data Engineering": 1,
+//       "Business Intelligence": 1
+//     }
+//   },
+//   {
+//     id: 9,
+//     text: "I prefer using data to answer specific business questions.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 1,
+//       "Analytics": 3,
+//       "Data Engineering": 1,
+//       "Business Intelligence": 4
+//     }
+//   },
+//   {
+//     id: 10,
+//     text: "Which tool excites you most?",
+//     type: "multiple-choice",
+//     options: [
+//       {
+//         id: "a",
+//         text: "Jupyter Notebook",
+//         weights: {
+//           "AI/ML": 4,
+//           "Analytics": 2,
+//           "Data Engineering": 1,
+//           "Business Intelligence": 0
+//         }
+//       },
+//       {
+//         id: "b",
+//         text: "Tableau or Power BI",
+//         weights: {
+//           "AI/ML": 0,
+//           "Analytics": 2,
+//           "Data Engineering": 0,
+//           "Business Intelligence": 4
+//         }
+//       },
+//       {
+//         id: "c",
+//         text: "Apache Spark or Airflow",
+//         weights: {
+//           "AI/ML": 1,
+//           "Analytics": 1,
+//           "Data Engineering": 4,
+//           "Business Intelligence": 0
+//         }
+//       },
+//       {
+//         id: "d",
+//         text: "Excel with pivot tables",
+//         weights: {
+//           "AI/ML": 0,
+//           "Analytics": 3,
+//           "Data Engineering": 0,
+//           "Business Intelligence": 3
+//         }
+//       }
+//     ]
+//   },
+//   {
+//     id: 11,
+//     text: "I want to build cutting-edge AI products.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 4,
+//       "Analytics": 1,
+//       "Data Engineering": 1,
+//       "Business Intelligence": 0
+//     }
+//   },
+//   {
+//     id: 12,
+//     text: "I want to inform strategic decisions with data.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 1,
+//       "Analytics": 4,
+//       "Data Engineering": 1,
+//       "Business Intelligence": 3
+//     }
+//   },
+//   {
+//     id: 13,
+//     text: "I want to design robust data infrastructure.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 1,
+//       "Analytics": 1,
+//       "Data Engineering": 4,
+//       "Business Intelligence": 1
+//     }
+//   },
+//   {
+//     id: 14,
+//     text: "I want to become a go-to person for reporting and KPIs.",
+//     type: "scale",
+//     weights: {
+//       "AI/ML": 0,
+//       "Analytics": 2,
+//       "Data Engineering": 1,
+//       "Business Intelligence": 4
+//     }
+//   }
+// ];
 
 // Track personas
 export const trackPersonas: TrackPersona[] = [
