@@ -195,7 +195,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                   <div>
                     <h4 className="font-semibold mb-2">Recommended Courses</h4>
                     <div className="space-y-3">
-                      {result.courses.map(course => <div key={course.id} className="p-3 bg-aquaTeal /50 rounded-lg">
+                      {result.courses.map(course => <div key={course.id} className="p-3 bg-slate-gray /50 rounded-lg">
                           <h5 className="font-medium">{course.title}</h5>
                           <p className="text-sm">{course.description}</p>
                         </div>)}
