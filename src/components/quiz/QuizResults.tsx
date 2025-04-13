@@ -183,11 +183,11 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                   <div>
                     <h4 className="font-semibold mb-2">Persona Profile</h4>
                     <p>{result.persona?.description}</p>
-                    <h5 className="mt-3 font-medium">Ideal For</h5>
+                    <h5 className="mt-3 font-semibold">Ideal For</h5>
                     <p>{result.persona?.idealFor}</p>
-                    <h5 className="mt-3 font-medium">Tools</h5>
+                    <h5 className="mt-3 fontsemibold">Tools</h5>
                     <div className="flex flex-wrap gap-1  ">{result.persona?.tools.map(tool => <span key={tool} className="text-xs bg-aquaTeal  px-2 py-1 rounded-full">{tool}</span>)}</div>
-                    <h5 className="mt-3 font-medium">Sample Roles</h5>
+                    <h5 className="mt-3 font-semibold">Sample Roles</h5>
                     <div className="flex flex-wrap gap-1">
                       {result.persona?.sampleRoles.map(role => <Link key={role} to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} className="text-xs bg-aquaTeal  px-2 py-1 rounded-full">{role}</Link>)}
                     </div>
