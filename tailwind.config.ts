@@ -36,8 +36,10 @@ export default {
 				secondary: {
 					// DEFAULT: 'hsl(var(--secondary))',
 					// foreground: 'hsl(var(--secondary-foreground))'
-                     DEFAULT: 'hsl(37, 91%, 56%)',        // Energetic Amber (#F9A826)
-                    foreground: 'hsl(0, 0%, 100%)'       // White (#FFFFFF)
+                    DEFAULT: 'hsl(164, 61%, 60%)',       // Aqua Teal (#5ED3B5)
+                    foreground: 'hsl(0, 0%, 17%)'        // Slate Gray (#2C2C2C)
+                    //  DEFAULT: 'hsl(37, 91%, 56%)',        // Energetic Amber (#F9A826)
+                    // foreground: 'hsl(0, 0%, 100%)'       // White (#FFFFFF)
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
