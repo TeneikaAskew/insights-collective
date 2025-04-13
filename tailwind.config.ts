@@ -75,18 +75,7 @@ export default {
 				slateGray: '#2C2C2C',
 				softWhite: '#F9FAFB',
 				dustyGray: '#8A8F9E',
-				learnflow: {
-					50: '#f0f9ff',
-					100: '#e0f2fe',
-					200: '#bae6fd',
-					300: '#7dd3fc',
-					400: '#38bdf8',
-					500: '#0ea5e9',
-					600: '#0284c7',
-					700: '#0369a1',
-					800: '#075985',
-					900: '#0c4a6e',
-				},
+				
 				orange: {
 					50: '#fff7ed',
 					100: '#ffedd5',
