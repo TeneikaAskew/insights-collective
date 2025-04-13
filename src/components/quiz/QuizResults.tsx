@@ -189,7 +189,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
                     <div className="flex flex-wrap gap-1">{result.persona?.tools.map(tool => <span key={tool} className="text-xs bg-secondary px-2 py-1 rounded-full">{tool}</span>)}</div>
                     <h5 className="mt-3 font-medium">Sample Roles</h5>
                     <div className="flex flex-wrap gap-1">
-                      {result.persona?.sampleRoles.map(role => <Link key={role} to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} className="text-xs aquaTealy px-2 py-1 rounded-full">{role}</Link>)}
+                      {result.persona?.sampleRoles.map(role => <Link key={role} to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`} className="text-xs aqua-teal px-2 py-1 rounded-full">{role}</Link>)}
                     </div>
                   </div>
                   <div>
@@ -205,7 +205,7 @@ const QuizResults: React.FC<QuizResultsProps> = ({
               </CardContent>
               <CardFooter className="flex flex-col md:flex-row gap-3">
                 <Button asChild><Link to={`/courses?category=${result.track.toLowerCase().replace(/\\s+/g, '-')}`}>Browse {result.track} Courses <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
-                <Button asChild variant="outline"><Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`}>Explore {result.track} Careers <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
+                <Button asChild variant="outline"><Link to={`/explore-data-careers?role=${getCareerRoleId(result.track)}`}>Explore {result.track} Careers <ArrowRight className="ml-2 h-4 w-4 aqua-teal" /></Link></Button>
               </CardFooter>
             </Card>)}
         </div>
