@@ -100,6 +100,16 @@ export default {
 					800: '#6b21a8',
 					900: '#581c87',
 				},
+              // Insights Collective brand palette
+                insightsCollective: {
+                  insightBlue: 'hsl(217, 88%, 56%)',        // #1F75FE
+                  viraDeepBlue: 'hsl(222, 54%, 23%)',       // #1C2D5A
+                  aquaTeal: 'hsl(164, 61%, 60%)',           // #5ED3B5
+                  energeticAmber: 'hsl(37, 91%, 56%)',      // #F9A826
+                  slateGray: 'hsl(0, 0%, 17%)',             // #2C2C2C
+                  softWhite: 'hsl(0, 0%, 98%)',             // #F9FAFB
+                  dustyGray: 'hsl(220, 6%, 58%)',           // #8A8F9E
+                },
 				// Resume chart colors
 				'resume-chart': {
 					'hard-soft': '#1E40AF',    // Blue for Hard & Soft Skills
