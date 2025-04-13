@@ -34,7 +34,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   }, [isAuthenticated, isAdmin, location.pathname, storeRedirectPath]);
   
   // Show loading state while checking authentication
-  if (isAuthenticated === null) {
+  if (isAuthenticated === undefined) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <Shield className="h-16 w-16 text-primary animate-pulse" />

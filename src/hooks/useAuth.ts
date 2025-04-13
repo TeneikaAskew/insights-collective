@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -22,6 +21,16 @@ export const useAuthProvider = () => {
   
   // Get enriched user data
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
+  
+  // Helper function to store redirect path
+  const storeRedirectPath = useCallback((path: string) => {
+    if (path && path !== '/login' && path !== '/register' && path !== '/') {
+      localStorage.setItem('redirectAfterLogin', path);
+      if (process.env.NODE_ENV === "development") {
+        console.log('Stored redirect path:', path);
+      }
+    }
+  }, []);
   
   // Helper function to handle post-login redirects - throttled to prevent multiple redirects
   const handleRedirectAfterLogin = useCallback(throttle(() => {
@@ -69,11 +78,13 @@ export const useAuthProvider = () => {
       if (process.env.NODE_ENV === "development") {
         console.log('Redirecting admin to:', redirectTo);
       }
+      navigate(redirectTo, { replace: true });
     } else if (enrichedUser?.roles?.includes('admin') && !redirectTo.startsWith('/admin')) {
       // If admin is logged in but redirect is not to admin route, still honor the redirect
       if (process.env.NODE_ENV === "development") {
         console.log('Admin redirecting to non-admin route:', redirectTo);
       }
+      navigate(redirectTo, { replace: true });
     } else if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
       // If non-admin tries to access admin route, redirect to dashboard
       if (process.env.NODE_ENV === "development") {
@@ -85,23 +96,15 @@ export const useAuthProvider = () => {
         description: 'You do not have permission to access the admin area.',
         variant: 'destructive'
       });
-    }
-    
-    if (process.env.NODE_ENV === "development") {
-      console.log('Final redirect destination:', redirectTo);
-    }
-    navigate(redirectTo, { replace: true });
-  }, 1000, { leading: true, trailing: false }), [navigate, location, enrichedUser, toast]);
-  
-  // Store redirect path function
-  const storeRedirectPath = useCallback((path: string) => {
-    if (path && path !== '/login' && path !== '/register') {
-      localStorage.setItem('redirectAfterLogin', path);
+      navigate(redirectTo, { replace: true });
+    } else {
+      // Standard user redirect
       if (process.env.NODE_ENV === "development") {
-        console.log('Stored redirect path:', path);
+        console.log('Final redirect destination:', redirectTo);
       }
+      navigate(redirectTo, { replace: true });
     }
-  }, []);
+  }, 1000, { leading: true, trailing: false }), [navigate, location, enrichedUser, toast]);
   
   // Force sign out function for handling invalid sessions
   const forceSignOut = useCallback(async () => {
