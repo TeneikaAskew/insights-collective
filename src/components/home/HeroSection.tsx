@@ -150,7 +150,7 @@ const HeroSection = () => {
         }} transition={{
           duration: 0.6,
           delay: 1
-        }} className="relative mt-4 flex flex-col items-center text-gray-400 md:absolute md:bottom-[-30px] md:left-1/2 md:transform md:-translate-x-1/2 px-[100px]">
+        }} className="relative mt-4 flex flex-col items-center text-gray-400 md:absolute md:bottom-[-30px] md:left-1/2 md:transform md:-translate-x-1/2 px-0">
             <span className="text-sm mb-2">Scroll to explore</span>
             <ChevronDown className="w-5 h-5 animate-bounce" />
           </motion.div>
