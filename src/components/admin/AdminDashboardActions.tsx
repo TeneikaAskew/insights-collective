@@ -1,13 +1,23 @@
-
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarPlus, Award, Upload, FileSpreadsheet, Activity } from 'lucide-react';
+import { CalendarPlus, Award, Upload, FileSpreadsheet, Activity, BookOpen } from 'lucide-react';
 import { AddEventModal } from '@/components/events/modals/AddEventModal';
 import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+
+const adminActions = [
+  {
+    title: "Manage Courses",
+    description: "Create, edit, and manage course content and assignments",
+    icon: <BookOpen className="h-5 w-5" />,
+    href: "/admin/courses",
+    color: "bg-orange-100 dark:bg-orange-900",
+    iconColor: "text-orange-600 dark:text-orange-300",
+  },
+];
 
 export const AdminDashboardActions = () => {
   const navigate = useNavigate();

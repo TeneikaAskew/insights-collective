@@ -213,6 +213,38 @@ export type Database = {
         }
         Relationships: []
       }
+      course_assignments: {
+        Row: {
+          course_id: string | null
+          created_at: string | null
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          course_id?: string | null
+          created_at?: string | null
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          course_id?: string | null
+          created_at?: string | null
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_assignments_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_wishlists: {
         Row: {
           course_id: string
@@ -482,6 +514,47 @@ export type Database = {
         }
         Relationships: []
       }
+      module_content: {
+        Row: {
+          content: string
+          created_at: string | null
+          id: string
+          module_id: string | null
+          position: number
+          type: Database["public"]["Enums"]["module_content_type"]
+          updated_at: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          id?: string
+          module_id?: string | null
+          position?: number
+          type: Database["public"]["Enums"]["module_content_type"]
+          updated_at?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          id?: string
+          module_id?: string | null
+          position?: number
+          type?: Database["public"]["Enums"]["module_content_type"]
+          updated_at?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "module_content_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       modules: {
         Row: {
           course_id: string | null
@@ -719,6 +792,7 @@ export type Database = {
       }
     }
     Enums: {
+      module_content_type: "text" | "video" | "image"
       user_role: "admin" | "instructor" | "user"
     }
     CompositeTypes: {
@@ -835,6 +909,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      module_content_type: ["text", "video", "image"],
       user_role: ["admin", "instructor", "user"],
     },
   },
