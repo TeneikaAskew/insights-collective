@@ -5,37 +5,54 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const { login, googleSignIn, githubSignIn, twitterSignIn, isAuthenticated } = useAuth();
+  const { login, googleSignIn, githubSignIn, twitterSignIn, isAuthenticated, storeRedirectPath } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Extract redirect path from various sources
   const query = new URLSearchParams(location.search);
   const redirectParam = query.get('redirect');
-  
   const fromState = location.state?.from?.pathname;
-  const from = fromState || redirectParam || localStorage.getItem('redirectAfterLogin');
+  const storedPath = localStorage.getItem('redirectAfterLogin');
   
+  // Determine the redirect destination based on priority
+  const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
+  
+  // Store redirect path on component mount
   useEffect(() => {
     console.log('Login page: Checking redirect paths. Options:', {
       fromState,
       redirectParam,
-      localStoragePath: localStorage.getItem('redirectAfterLogin'),
+      storedPath,
       currentPath: location.pathname
     });
     
-    if (from && from !== '/login' && from !== '/register') {
-      localStorage.setItem('redirectAfterLogin', from);
-      console.log('Login page: stored redirect path:', from);
+    if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
+      // Use context method to store redirect path
+      storeRedirectPath(redirectDestination);
+      console.log('Login page: stored redirect path:', redirectDestination);
     }
-  }, [from, fromState, redirectParam, location.pathname]);
+  }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname]);
+
+  // Redirect authenticated users
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('Login page: User authenticated, redirecting to:', redirectDestination);
+      navigate(redirectDestination, { replace: true });
+      // Only clear localStorage path if not an admin route (preserves admin redirects)
+      if (redirectDestination && !redirectDestination.startsWith('/admin')) {
+        localStorage.removeItem('redirectAfterLogin');
+      }
+    }
+  }, [isAuthenticated, navigate, redirectDestination]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,17 +60,6 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
-  useEffect(() => {
-    if (isAuthenticated) {
-      const redirectPath = from || '/dashboard';
-      console.log('Login page: User authenticated, redirecting to:', redirectPath);
-      navigate(redirectPath, { replace: true });
-      if (!redirectPath.startsWith('/admin')) {
-        localStorage.removeItem('redirectAfterLogin');
-      }
-    }
-  }, [isAuthenticated, navigate, from]);
   
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +73,7 @@ const Login = () => {
     try {
       setLoading(true);
       await login(email, password);
+      // Redirect handled by useEffect when isAuthenticated changes
     } catch (error: any) {
       setError(error.message);
     } finally {
@@ -79,6 +86,11 @@ const Login = () => {
       setError(null);
       setSocialLoading(provider);
       
+      // Before social login, ensure the redirect path is saved
+      if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
+        storeRedirectPath(redirectDestination);
+      }
+      
       switch (provider) {
         case 'google':
           await googleSignIn();
@@ -90,6 +102,7 @@ const Login = () => {
           await twitterSignIn();
           break;
       }
+      // Redirect for social logins is handled by the OAuth provider callback
     } catch (error: any) {
       console.error(`${provider} sign-in failed:`, error);
       

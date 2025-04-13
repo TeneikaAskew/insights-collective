@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -5,7 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
 import { UserWithProfile } from '@/types/supabase';
-import { throttle } from 'lodash';
 
 /**
  * Custom hook for authentication functionality
@@ -18,93 +18,109 @@ export const useAuthProvider = () => {
   const location = useLocation();
   const { toast } = useToast();
   const authInitializedRef = useRef(false);
+  const redirectInProgressRef = useRef(false);
   
   // Get enriched user data
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
   
-  // Helper function to store redirect path
+  // Helper function to store redirect path with debugging
   const storeRedirectPath = useCallback((path: string) => {
     if (path && path !== '/login' && path !== '/register' && path !== '/') {
       localStorage.setItem('redirectAfterLogin', path);
       if (process.env.NODE_ENV === "development") {
-        console.log('Stored redirect path:', path);
+        console.log('Stored redirect path in useAuth:', path);
       }
     }
   }, []);
   
-  // Helper function to handle post-login redirects - throttled to prevent multiple redirects
-  const handleRedirectAfterLogin = useCallback(throttle(() => {
-    // Priority 1: Check URL parameters for redirect info
-    const urlParams = new URLSearchParams(location.search);
-    const redirectParam = urlParams.get('redirect');
-    
-    // Priority 2: Check location state for redirect info
-    const locationState = location.state as { from?: { pathname: string } } | null;
-    const fromPath = locationState?.from?.pathname;
-    
-    // Priority 3: Check localStorage for saved redirect path
-    const storedRedirect = localStorage.getItem('redirectAfterLogin');
-    
-    if (process.env.NODE_ENV === "development") {
-      console.log('Redirect options:', { redirectParam, fromPath, storedRedirect });
+  // Helper function to handle post-login redirects
+  const handleRedirectAfterLogin = useCallback(() => {
+    // Prevent multiple redirects running at once
+    if (redirectInProgressRef.current) {
+      return;
     }
     
-    // Choose redirect path based on priority
-    let redirectTo = '/dashboard'; // Default fallback
+    redirectInProgressRef.current = true;
     
-    if (redirectParam) {
-      redirectTo = redirectParam;
+    try {
+      // Priority 1: Check URL parameters for redirect info
+      const urlParams = new URLSearchParams(location.search);
+      const redirectParam = urlParams.get('redirect');
+      
+      // Priority 2: Check location state for redirect info
+      const locationState = location.state as { from?: { pathname: string } } | null;
+      const fromPath = locationState?.from?.pathname;
+      
+      // Priority 3: Check localStorage for saved redirect path
+      const storedRedirect = localStorage.getItem('redirectAfterLogin');
+      
       if (process.env.NODE_ENV === "development") {
-        console.log('Using redirect from URL parameter:', redirectParam);
+        console.log('Redirect options:', { redirectParam, fromPath, storedRedirect });
       }
-    } else if (fromPath && fromPath !== '/login' && fromPath !== '/register') {
-      redirectTo = fromPath;
-      if (process.env.NODE_ENV === "development") {
-        console.log('Using redirect from location state:', fromPath);
+      
+      // Choose redirect path based on priority
+      let redirectTo = '/dashboard'; // Default fallback
+      
+      if (redirectParam && redirectParam !== '/login' && redirectParam !== '/register') {
+        redirectTo = redirectParam;
+        if (process.env.NODE_ENV === "development") {
+          console.log('Using redirect from URL parameter:', redirectParam);
+        }
+      } else if (fromPath && fromPath !== '/login' && fromPath !== '/register') {
+        redirectTo = fromPath;
+        if (process.env.NODE_ENV === "development") {
+          console.log('Using redirect from location state:', fromPath);
+        }
+      } else if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
+        redirectTo = storedRedirect;
+        if (process.env.NODE_ENV === "development") {
+          console.log('Using redirect from localStorage:', storedRedirect);
+        }
       }
-    } else if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
-      redirectTo = storedRedirect;
-      if (process.env.NODE_ENV === "development") {
-        console.log('Using redirect from localStorage:', storedRedirect);
+      
+      // Handle redirection based on roles and path
+      if (enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
+        if (process.env.NODE_ENV === "development") {
+          console.log('Redirecting admin to:', redirectTo);
+        }
+        navigate(redirectTo, { replace: true });
+      } else if (enrichedUser?.roles?.includes('admin') && !redirectTo.startsWith('/admin')) {
+        // If admin is logged in but redirect is not to admin route, still honor the redirect
+        if (process.env.NODE_ENV === "development") {
+          console.log('Admin redirecting to non-admin route:', redirectTo);
+        }
+        navigate(redirectTo, { replace: true });
+      } else if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
+        // If non-admin tries to access admin route, redirect to dashboard
+        if (process.env.NODE_ENV === "development") {
+          console.log('Non-admin attempted to access admin route, redirecting to dashboard');
+        }
+        redirectTo = '/dashboard';
+        toast({
+          title: 'Access Denied',
+          description: 'You do not have permission to access the admin area.',
+          variant: 'destructive'
+        });
+        navigate(redirectTo, { replace: true });
+      } else {
+        // Standard user redirect
+        if (process.env.NODE_ENV === "development") {
+          console.log('Standard redirect to:', redirectTo);
+        }
+        navigate(redirectTo, { replace: true });
       }
+      
       // Clear the stored redirect, but only if it's not an admin route
       if (!redirectTo.startsWith('/admin')) {
         localStorage.removeItem('redirectAfterLogin');
       }
+    } finally {
+      // Reset the redirect flag after a delay to prevent redirect loops
+      setTimeout(() => {
+        redirectInProgressRef.current = false;
+      }, 100);
     }
-    
-    // Special case for admin routes
-    if (enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-      if (process.env.NODE_ENV === "development") {
-        console.log('Redirecting admin to:', redirectTo);
-      }
-      navigate(redirectTo, { replace: true });
-    } else if (enrichedUser?.roles?.includes('admin') && !redirectTo.startsWith('/admin')) {
-      // If admin is logged in but redirect is not to admin route, still honor the redirect
-      if (process.env.NODE_ENV === "development") {
-        console.log('Admin redirecting to non-admin route:', redirectTo);
-      }
-      navigate(redirectTo, { replace: true });
-    } else if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-      // If non-admin tries to access admin route, redirect to dashboard
-      if (process.env.NODE_ENV === "development") {
-        console.log('Non-admin attempted to access admin route, redirecting to dashboard');
-      }
-      redirectTo = '/dashboard';
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have permission to access the admin area.',
-        variant: 'destructive'
-      });
-      navigate(redirectTo, { replace: true });
-    } else {
-      // Standard user redirect
-      if (process.env.NODE_ENV === "development") {
-        console.log('Final redirect destination:', redirectTo);
-      }
-      navigate(redirectTo, { replace: true });
-    }
-  }, 1000, { leading: true, trailing: false }), [navigate, location, enrichedUser, toast]);
+  }, [navigate, location, enrichedUser, toast]);
   
   // Force sign out function for handling invalid sessions
   const forceSignOut = useCallback(async () => {
@@ -120,7 +136,7 @@ export const useAuthProvider = () => {
     }
   }, [navigate]);
 
-  // Update session and user on auth state change - ONLY runs once
+  // Update session and user on auth state change
   useEffect(() => {
     // Prevent multiple initializations
     if (authInitializedRef.current) return;
@@ -131,20 +147,7 @@ export const useAuthProvider = () => {
     // Initialize auth state
     const initializeAuth = async () => {
       try {
-        // FIRST: Check for existing session (one-time check)
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-        
-        if (sessionError) {
-          console.error('Session retrieval error:', sessionError);
-          if (isActive) await forceSignOut();
-        } else if (sessionData.session && isActive) {
-          if (process.env.NODE_ENV === "development") {
-            console.log('Initial session check:', !!sessionData.session);
-          }
-          setSession(sessionData.session);
-        }
-        
-        // SECOND: Set up auth state listener (with proper cleanup)
+        // FIRST: Set up auth state listener (with proper cleanup)
         const { data: authListener } = supabase.auth.onAuthStateChange(
           async (event, newSession) => {
             if (!isActive) return;
@@ -156,11 +159,13 @@ export const useAuthProvider = () => {
             if (newSession) {
               setSession(newSession);
               
-              // Use setTimeout to avoid auth state deadlocks
+              // Handle sign in events with setTimeout to avoid deadlocks
               if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
                 setTimeout(() => {
-                  if (isActive) handleRedirectAfterLogin();
-                }, 0);
+                  if (isActive && !redirectInProgressRef.current) {
+                    handleRedirectAfterLogin();
+                  }
+                }, 100);
               }
             } else if (event === 'SIGNED_OUT') {
               setSession(null);
@@ -170,6 +175,22 @@ export const useAuthProvider = () => {
             }
           }
         );
+        
+        // SECOND: Check for existing session
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          console.error('Session retrieval error:', sessionError);
+          if (isActive) await forceSignOut();
+        } else if (sessionData.session && isActive) {
+          if (process.env.NODE_ENV === "development") {
+            console.log('Initial session check:', !!sessionData.session);
+          }
+          setSession(sessionData.session);
+          
+          // Don't automatically redirect on initial load
+          // This allows pages to control redirection themselves
+        }
         
         if (isActive) setLoading(false);
         
@@ -204,7 +225,7 @@ export const useAuthProvider = () => {
     };
   }, [handleRedirectAfterLogin, forceSignOut]);
   
-  const login = useCallback(async (email: string, password: string, redirectTo?: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -221,7 +242,7 @@ export const useAuthProvider = () => {
         description: 'Logged in successfully',
       });
       
-      // Don't navigate here - let the auth state change handler do it
+      // Redirect handled by auth state change handler
     } catch (error: any) {
       setError(error.message);
       toast({
@@ -234,18 +255,12 @@ export const useAuthProvider = () => {
     }
   }, [toast]);
 
-  const socialSignIn = useCallback(async (provider: 'google' | 'github' | 'twitter', redirectTo?: string) => {
+  const socialSignIn = useCallback(async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setLoading(true);
       setError(null);
       
-      // Store redirect URL for after auth if provided and not already stored
-      if (redirectTo && !localStorage.getItem('redirectAfterLogin')) {
-        localStorage.setItem('redirectAfterLogin', redirectTo);
-      } else if (location.pathname !== '/login' && !localStorage.getItem('redirectAfterLogin')) {
-        localStorage.setItem('redirectAfterLogin', location.pathname);
-      }
-      
+      // Use the redirectTo option to handle post-auth redirects reliably
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
@@ -265,18 +280,18 @@ export const useAuthProvider = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast, location]);
+  }, [toast]);
 
-  const googleSignIn = useCallback(async (redirectTo?: string) => {
-    return socialSignIn('google', redirectTo);
+  const googleSignIn = useCallback(() => {
+    return socialSignIn('google');
   }, [socialSignIn]);
 
-  const githubSignIn = useCallback(async (redirectTo?: string) => {
-    return socialSignIn('github', redirectTo);
+  const githubSignIn = useCallback(() => {
+    return socialSignIn('github');
   }, [socialSignIn]);
 
-  const twitterSignIn = useCallback(async (redirectTo?: string) => {
-    return socialSignIn('twitter', redirectTo);
+  const twitterSignIn = useCallback(() => {
+    return socialSignIn('twitter');
   }, [socialSignIn]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
@@ -376,7 +391,8 @@ export const useAuthProvider = () => {
     logout,
     isAdminAuthenticated,
     isAuthenticated: !!enrichedUser,
-    storeRedirectPath
+    storeRedirectPath,
+    handleRedirectAfterLogin
   };
 };
 

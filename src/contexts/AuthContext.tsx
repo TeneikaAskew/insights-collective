@@ -12,7 +12,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Create an enhanced auth object with admin status derived from user roles
   const enhancedAuth: AuthContextType = {
     ...auth,
-    // Make sure storeRedirectPath is available from the context
+    // Explicitly include storeRedirectPath to ensure it's available in the context
     storeRedirectPath: auth.storeRedirectPath
   };
   

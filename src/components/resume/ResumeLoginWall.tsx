@@ -16,16 +16,17 @@ const ResumeLoginWall = () => {
   
   // Store the current path for redirect after login
   useEffect(() => {
-    // Store path in localStorage
+    // Only store for non-auth pages
     if (location.pathname !== '/login' && location.pathname !== '/register') {
+      // Store path in localStorage (as a fallback)
       localStorage.setItem('redirectAfterLogin', location.pathname);
       console.log('ResumeLoginWall: stored path in localStorage:', location.pathname);
-    }
-    
-    // Also use the context method if available (redundant backup)
-    if (storeRedirectPath) {
-      storeRedirectPath(location.pathname);
-      console.log('ResumeLoginWall: stored path via context:', location.pathname);
+      
+      // Use the context method for better state management
+      if (storeRedirectPath) {
+        storeRedirectPath(location.pathname);
+        console.log('ResumeLoginWall: stored path via context:', location.pathname);
+      }
     }
   }, [location.pathname, storeRedirectPath]);
   

@@ -1,5 +1,6 @@
+
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,7 +17,20 @@ const Register = () => {
   const [passwordError, setPasswordError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const { register, googleSignIn, loading, error } = useAuth();
+  const [formSubmitting, setFormSubmitting] = useState(false);
+  const { register, googleSignIn, loading, error, storeRedirectPath } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Store the current path or referrer for redirect after registration
+  const storeCurrentPath = () => {
+    // Check if we came from a specific page
+    const from = location.state?.from?.pathname;
+    if (from && from !== '/login' && from !== '/register') {
+      storeRedirectPath(from);
+      console.log('Register page: Stored redirect path:', from);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,10 +41,23 @@ const Register = () => {
       return;
     }
     
-    await register(name, email, password);
+    setFormSubmitting(true);
+    try {
+      // Store path for redirect before registration
+      storeCurrentPath();
+      
+      await register(name, email, password);
+      // Navigation is handled in the auth provider after successful registration
+    } catch (error) {
+      console.error('Registration error:', error);
+    } finally {
+      setFormSubmitting(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
+    // Store path for redirect before Google sign-in
+    storeCurrentPath();
     await googleSignIn();
   };
 
@@ -58,7 +85,7 @@ const Register = () => {
               variant="outline" 
               className="w-full flex items-center justify-center mb-4"
               onClick={handleGoogleSignIn}
-              disabled={loading}
+              disabled={loading || formSubmitting}
             >
               <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
                 <path fill="#EA4335" d="M5.26620003,9.76452941 C6.19878754,6.93863203 8.85444915,4.90909091 12,4.90909091 C13.6909091,4.90909091 15.2181818,5.50909091 16.4181818,6.49090909 L19.9090909,3 C17.7818182,1.14545455 15.0545455,0 12,0 C7.27006974,0 3.1977497,2.69829785 1.23999023,6.65002441 L5.26620003,9.76452941 Z" />
@@ -168,8 +195,8 @@ const Register = () => {
                 <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
               </div>
             
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
+              <Button type="submit" className="w-full" disabled={formSubmitting || loading}>
+                {formSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating account...

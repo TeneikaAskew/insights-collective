@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lock } from 'lucide-react';
@@ -23,16 +23,17 @@ const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: Log
   
   // Store the current path for redirect after login
   useEffect(() => {
-    // Store redirect path in localStorage
+    // Only store non-auth pages as redirect paths
     if (location.pathname !== '/login' && location.pathname !== '/register') {
+      // Store path in localStorage (as a fallback)
       localStorage.setItem('redirectAfterLogin', location.pathname);
       console.log('LoginWall: stored path in localStorage:', location.pathname);
-    }
-    
-    // Also use the context method if available (this will be a redundant backup)
-    if (storeRedirectPath) {
-      storeRedirectPath(location.pathname);
-      console.log('LoginWall: stored path via context:', location.pathname);
+      
+      // Use the context method for better state management
+      if (storeRedirectPath) {
+        storeRedirectPath(location.pathname);
+        console.log('LoginWall: stored path via context:', location.pathname);
+      }
     }
   }, [location.pathname, storeRedirectPath]);
   
