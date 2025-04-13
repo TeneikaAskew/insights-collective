@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -53,20 +52,17 @@ const AdminUsers = () => {
   const [activeTab, setActiveTab] = useState('all');
   const { toast } = useToast();
   
-  // Fetch users from Supabase
   useEffect(() => {
     const fetchUsers = async () => {
       try {
         setLoading(true);
         
-        // Get auth users
         const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
         
         if (authError) {
           throw authError;
         }
         
-        // Get profiles with additional info
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('*');
@@ -75,7 +71,6 @@ const AdminUsers = () => {
           throw profilesError;
         }
         
-        // Get enrollments
         const { data: enrollments, error: enrollmentsError } = await supabase
           .from('enrollments')
           .select('user_id, course_id');
@@ -84,7 +79,6 @@ const AdminUsers = () => {
           throw enrollmentsError;
         }
         
-        // Map enrollments by user
         const enrollmentsByUser: Record<string, string[]> = {};
         enrollments?.forEach(enrollment => {
           if (!enrollmentsByUser[enrollment.user_id]) {
@@ -93,24 +87,20 @@ const AdminUsers = () => {
           enrollmentsByUser[enrollment.user_id].push(enrollment.course_id);
         });
         
-        // Create combined user data
         const userData = authData.users.map(user => {
           const profile = profiles?.find(p => p.id === user.id);
           
-          // Parse roles from profile
-          let roles = ['student']; // Default role
+          let roles = ['student'];
           if (profile?.roles) {
             roles = Array.isArray(profile.roles) 
               ? profile.roles 
               : profile.roles.split(',').map(r => r.trim());
             
-            // Ensure student is always included
             if (!roles.includes('student')) {
               roles.push('student');
             }
           }
           
-          // Get highest role for display
           const highestRole = getHighestRole(roles);
           
           return {
@@ -143,14 +133,12 @@ const AdminUsers = () => {
     fetchUsers();
   }, [toast]);
   
-  // Get the highest role from an array of roles
   const getHighestRole = (roles: string[] = ['student']): string => {
     if (roles.includes('admin')) return 'admin';
     if (roles.includes('instructor')) return 'instructor';
     return 'student';
   };
   
-  // Get badge variant based on role
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'admin':
@@ -162,7 +150,6 @@ const AdminUsers = () => {
     }
   };
   
-  // Filter users based on search term and active tab
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
       user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -199,7 +186,6 @@ const AdminUsers = () => {
     try {
       setLoading(true);
       
-      // Delete user
       const { error } = await supabase.auth.admin.deleteUser(selectedUser.id);
       
       if (error) throw error;
@@ -227,10 +213,9 @@ const AdminUsers = () => {
     try {
       setLoading(true);
       
-      // Create user
       const { data, error } = await supabase.auth.admin.createUser({
         email: newUser.email,
-        password: Math.random().toString(36).substring(2, 10), // Random password
+        password: Math.random().toString(36).substring(2, 10),
         email_confirm: true,
         user_metadata: {
           name: newUser.name
@@ -240,7 +225,6 @@ const AdminUsers = () => {
       if (error) throw error;
       
       if (data.user) {
-        // Set user roles
         const [firstName, ...lastNameParts] = newUser.name.split(' ');
         const lastName = lastNameParts.join(' ');
         
@@ -255,7 +239,6 @@ const AdminUsers = () => {
         
         if (profileError) throw profileError;
         
-        // Add to users list
         const newUserData: UserData = {
           id: data.user.id,
           email: data.user.email || newUser.email,
@@ -293,12 +276,10 @@ const AdminUsers = () => {
     try {
       setLoading(true);
       
-      // Always ensure student role is included
       if (!updatedRoles.includes('student')) {
         updatedRoles.push('student');
       }
       
-      // Update user roles
       const { error } = await supabase
         .from('profiles')
         .update({ roles: updatedRoles })
@@ -306,7 +287,6 @@ const AdminUsers = () => {
       
       if (error) throw error;
       
-      // Update local state
       setUsers(users.map(user => {
         if (user.id === selectedUser.id) {
           return {
@@ -325,7 +305,6 @@ const AdminUsers = () => {
         description: `Roles for ${selectedUser.name} have been updated.`,
       });
       
-      // Special case for updating current admin
       if (selectedUser.email === 'teneika.askew@gmail.com' && !updatedRoles.includes('admin')) {
         toast({
           title: 'Warning',
@@ -351,7 +330,6 @@ const AdminUsers = () => {
     try {
       setLoading(true);
       
-      // Send password reset email
       const { error } = await supabase.auth.resetPasswordForEmail(selectedUser.email, {
         redirectTo: `${window.location.origin}/reset-password`
       });
@@ -377,7 +355,6 @@ const AdminUsers = () => {
   };
   
   const handleExportUsers = () => {
-    // In a real application, this would generate and download a CSV/Excel file
     toast({
       title: 'Export Started',
       description: 'User data is being prepared for export.',
@@ -388,9 +365,8 @@ const AdminUsers = () => {
     setActiveTab(value);
   };
   
-  // Function to toggle role selection
   const toggleRole = (role: string) => {
-    if (role === 'student') return; // Student role can't be toggled
+    if (role === 'student') return;
     
     setUpdatedRoles(prev => {
       if (prev.includes(role)) {
@@ -401,9 +377,8 @@ const AdminUsers = () => {
     });
   };
   
-  // Function to toggle role for new user
   const toggleNewUserRole = (role: string) => {
-    if (role === 'student') return; // Student role can't be toggled
+    if (role === 'student') return;
     
     setNewUser(prev => {
       const updatedRoles = prev.roles.includes(role)
@@ -417,7 +392,6 @@ const AdminUsers = () => {
     });
   };
   
-  // Set admin role for Teneika Askew if needed
   useEffect(() => {
     const setAdminForTeneika = async () => {
       try {
@@ -426,13 +400,11 @@ const AdminUsers = () => {
         if (teneikaUser && (!teneikaUser.roles?.includes('admin'))) {
           console.log('Setting admin role for Teneika Askew');
           
-          // Ensure student role is present
           const updatedRoles = [...(teneikaUser.roles || []), 'admin'];
           if (!updatedRoles.includes('student')) {
             updatedRoles.push('student');
           }
           
-          // Update profile with admin role
           const { error } = await supabase
             .from('profiles')
             .update({ roles: updatedRoles })
@@ -440,7 +412,6 @@ const AdminUsers = () => {
           
           if (error) throw error;
           
-          // Update local state
           setUsers(users.map(user => {
             if (user.id === teneikaUser.id) {
               return {
@@ -606,7 +577,6 @@ const AdminUsers = () => {
         </Tabs>
       </div>
 
-      {/* Add User Modal */}
       <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
         <DialogContent>
           <DialogHeader>
@@ -679,7 +649,6 @@ const AdminUsers = () => {
         </DialogContent>
       </Dialog>
 
-      {/* View Details Modal */}
       <Dialog open={isViewDetailsOpen} onOpenChange={setIsViewDetailsOpen}>
         <DialogContent>
           <DialogHeader>
@@ -729,7 +698,6 @@ const AdminUsers = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Roles Modal */}
       <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
         <DialogContent>
           <DialogHeader>
@@ -787,7 +755,6 @@ const AdminUsers = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Reset Password Modal */}
       <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
         <DialogContent>
           <DialogHeader>
@@ -817,7 +784,6 @@ const AdminUsers = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Alert */}
       <AlertDialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

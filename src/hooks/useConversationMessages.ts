@@ -52,10 +52,17 @@ export function useConversationMessages(conversationId?: string) {
             .eq('id', message.sender_id)
             .single();
 
-          // Add message with sender profile
+          // Add message with sender profile, ensuring roles is set
+          const profileWithRoles: Profile = {
+            ...(senderData as any),
+            roles: senderData?.roles || senderData?.role ? 
+              (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role, 'student']) : 
+              ['student']
+          };
+
           messagesWithSenders.push({
             ...message,
-            sender: senderError ? null : (senderData as Profile)
+            sender: senderError ? null : profileWithRoles
           });
         }
 
@@ -102,10 +109,18 @@ export function useConversationMessages(conversationId?: string) {
               .eq('id', payload.new.sender_id)
               .single();
             
-            // Create new message with sender profile  
+            // Create new message with sender profile, ensuring roles is set
+            const profileWithRoles: Profile = {
+              ...(senderData as any),
+              roles: senderData?.roles || senderData?.role ? 
+                (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role, 'student']) : 
+                ['student']
+            };
+            
+            // Update messages state
             const newMessage: Message = {
               ...payload.new as any,
-              sender: senderError ? null : (senderData as Profile)
+              sender: senderError ? null : profileWithRoles
             };
             
             // Update messages state

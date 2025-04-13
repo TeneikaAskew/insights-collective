@@ -51,14 +51,17 @@ export const useUserProfile = (authUser: User | null) => {
             userWithProfile.roles = Array.isArray(profile.roles) 
               ? profile.roles 
               : (profile.roles || 'student').split(',').map(r => r.trim());
-            
-            // Ensure student is always a base role
-            if (!userWithProfile.roles.includes('student')) {
-              userWithProfile.roles.push('student');
-            }
+          } else if (profile.role) {
+            // If only role is available, convert it to roles array
+            userWithProfile.roles = [profile.role, 'student'];
           } else {
             // Default to student role if no roles are set
             userWithProfile.roles = ['student'];
+          }
+            
+          // Ensure student is always a base role
+          if (!userWithProfile.roles.includes('student')) {
+            userWithProfile.roles.push('student');
           }
         } else {
           // Set default roles if no profile

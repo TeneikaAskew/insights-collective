@@ -19,7 +19,13 @@ export function useUsers() {
         
         if (error) throw error;
         
-        setUsers(data || []);
+        // Ensure all profiles have the roles property
+        const profilesWithRoles = data?.map(profile => ({
+          ...profile,
+          roles: profile.roles || (profile.role ? [profile.role, 'student'] : ['student'])
+        })) || [];
+        
+        setUsers(profilesWithRoles);
       } catch (error) {
         console.error('Error fetching users:', error);
         toast({

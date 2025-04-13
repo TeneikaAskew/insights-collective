@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 
@@ -181,4 +180,18 @@ export const sendConversationMessage = async (userId: string, conversationId: st
     console.error('Error sending message:', error);
     throw error;
   }
+};
+
+export const enrichProfileWithRoles = (profile: any): Profile => {
+  const enrichedProfile: Profile = {
+    ...profile,
+    roles: profile.roles || (profile.role ? [profile.role, 'student'] : ['student'])
+  };
+  
+  // Ensure student is always included
+  if (!enrichedProfile.roles.includes('student')) {
+    enrichedProfile.roles.push('student');
+  }
+  
+  return enrichedProfile;
 };
