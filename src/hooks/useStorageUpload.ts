@@ -31,14 +31,13 @@ export function useStorageUpload() {
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
-          contentType: file.type,
-          onUploadProgress: (progress) => {
-            const percent = progress.loaded / progress.total * 100;
-            setProgress(percent);
-          }
+          contentType: file.type
         });
       
       if (error) throw error;
+      
+      // Set progress to 100% when upload completes
+      setProgress(100);
       
       // Get public URL
       const { data: urlData } = supabase.storage
@@ -66,7 +65,6 @@ export function useStorageUpload() {
       return null;
     } finally {
       setUploading(false);
-      setProgress(0);
     }
   };
   

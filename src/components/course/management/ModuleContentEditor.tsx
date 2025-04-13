@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { 
   Plus, 
   Type, 
@@ -22,7 +22,8 @@ import {
   MoveUp,
   MoveDown,
   Edit,
-  FileText
+  FileText,
+  Upload as UploadIcon
 } from 'lucide-react';
 import {
   Dialog,
@@ -31,7 +32,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -78,6 +78,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
     content: string;
     type: 'text' | 'video' | 'image';
     position?: number;
+    videoSourceType?: 'url' | 'upload';
   }>({
     content: '',
     type: 'text',
@@ -99,6 +100,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
     setEditingContent({
       content: '',
       type: type,
+      videoSourceType: 'url'
     });
     setEditMode('add');
     setErrors({});
@@ -111,7 +113,8 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
       id: content.id,
       content: content.content,
       type: content.type,
-      position: content.position
+      position: content.position,
+      videoSourceType: 'url' // Default to URL for existing content
     });
     setEditMode('edit');
     setErrors({});
@@ -136,7 +139,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
   const handleVideoTypeChange = (type: string) => {
     setEditingContent(prev => ({
       ...prev,
-      videoType: type
+      videoSourceType: type as 'url' | 'upload'
     }));
   };
   
@@ -451,6 +454,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
                 <Label htmlFor="video-type">Video Source</Label>
                 <Select 
                   defaultValue="url" 
+                  value={editingContent.videoSourceType}
                   onValueChange={handleVideoTypeChange}
                 >
                   <SelectTrigger id="video-type">
@@ -463,7 +467,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
                 </Select>
               </div>
               
-              {(!editingContent.videoType || editingContent.videoType === 'url') ? (
+              {(!editingContent.videoSourceType || editingContent.videoSourceType === 'url') ? (
                 <div className="space-y-2">
                   <Label htmlFor="video-url" className={errors.content ? 'text-destructive' : ''}>
                     Video URL
@@ -500,7 +504,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
                         onClick={() => document.getElementById('video-file')?.click()}
                         disabled={uploading}
                       >
-                        <Upload className="mr-2 h-4 w-4" />
+                        <UploadIcon className="mr-2 h-4 w-4" />
                         {uploading ? 'Uploading...' : 'Select Video'}
                       </Button>
                       {uploading && <Progress value={progress} className="w-[100px]" />}
@@ -545,7 +549,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
                     onClick={() => document.getElementById('image-upload')?.click()}
                     disabled={uploading}
                   >
-                    <Upload className="mr-2 h-4 w-4" />
+                    <UploadIcon className="mr-2 h-4 w-4" />
                     {uploading ? 'Uploading...' : 'Select Image'}
                   </Button>
                   {uploading && <Progress value={progress} className="w-[100px]" />}
