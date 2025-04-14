@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import CourseCard from '@/components/common/CourseCard';
@@ -9,6 +10,8 @@ import { Search, Filter } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Course } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
+import EnrollmentBadge from '@/components/course/EnrollmentBadge';
 
 const CourseList = () => {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -18,6 +21,7 @@ const CourseList = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
   const { toast } = useToast();
+  const { navigateWithAuth } = useAuthenticatedNavigation();
   
   const categories = [...new Set(courses.map(course => course.category))];
   const levels = [...new Set(courses.map(course => course.level))];
@@ -78,6 +82,10 @@ const CourseList = () => {
     
     fetchCourses();
   }, [toast]);
+  
+  const handleCourseClick = (courseId: string) => {
+    navigateWithAuth(`/courses/${courseId}`, { requireAuth: true });
+  };
   
   const filteredCourses = courses.filter(course => {
     const matchesSearch = 
@@ -169,7 +177,12 @@ const CourseList = () => {
             ) : filteredCourses.length > 0 ? (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredCourses.map((course) => (
-                  <CourseCard key={course.id} course={course} />
+                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
+                    <CourseCard key={course.id} course={course} />
+                    <div className="mt-2">
+                      <EnrollmentBadge courseId={course.id} />
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -193,7 +206,12 @@ const CourseList = () => {
                 .sort((a, b) => b.enrollmentCount - a.enrollmentCount)
                 .slice(0, 6)
                 .map((course) => (
-                  <CourseCard key={course.id} course={course} />
+                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
+                    <CourseCard key={course.id} course={course} />
+                    <div className="mt-2">
+                      <EnrollmentBadge courseId={course.id} />
+                    </div>
+                  </div>
                 ))}
             </div>
           </TabsContent>
@@ -204,7 +222,12 @@ const CourseList = () => {
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 .slice(0, 6)
                 .map((course) => (
-                  <CourseCard key={course.id} course={course} />
+                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
+                    <CourseCard key={course.id} course={course} />
+                    <div className="mt-2">
+                      <EnrollmentBadge courseId={course.id} />
+                    </div>
+                  </div>
                 ))}
             </div>
           </TabsContent>
@@ -214,7 +237,12 @@ const CourseList = () => {
               {courses
                 .filter(course => course.category === "AI/ML")
                 .map((course) => (
-                  <CourseCard key={course.id} course={course} />
+                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
+                    <CourseCard key={course.id} course={course} />
+                    <div className="mt-2">
+                      <EnrollmentBadge courseId={course.id} />
+                    </div>
+                  </div>
                 ))}
             </div>
           </TabsContent>
@@ -224,7 +252,12 @@ const CourseList = () => {
               {courses
                 .filter(course => course.category === "Data Engineering")
                 .map((course) => (
-                  <CourseCard key={course.id} course={course} />
+                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
+                    <CourseCard key={course.id} course={course} />
+                    <div className="mt-2">
+                      <EnrollmentBadge courseId={course.id} />
+                    </div>
+                  </div>
                 ))}
             </div>
           </TabsContent>

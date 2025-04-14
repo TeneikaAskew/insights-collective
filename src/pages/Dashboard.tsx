@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
-import { mockService } from '@/lib/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import CourseCard from '@/components/common/CourseCard';
 import NotificationItem from '@/components/common/NotificationItem';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,28 +11,105 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
+import { mockService } from '@/lib/mockData';
+import { useToast } from '@/hooks/use-toast';
+import { Course } from '@/types';
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
-  const navigate = useNavigate();
+  const { navigateWithAuth } = useAuthenticatedNavigation();
+  const { toast } = useToast();
+  
+  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     if (!isAuthenticated) {
-      navigate('/login');
+      navigateWithAuth('/login', { 
+        requireAuth: true, 
+        message: "Please log in to view your dashboard", 
+        title: "Authentication Required" 
+      });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigateWithAuth]);
   
-  if (!user) return null;
+  useEffect(() => {
+    const fetchEnrolledCourses = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        
+        // First get the user's enrollments
+        const { data: enrollments, error: enrollmentsError } = await supabase
+          .from('enrollments')
+          .select('course_id')
+          .eq('user_id', user.id);
+        
+        if (enrollmentsError) throw enrollmentsError;
+        
+        if (enrollments && enrollments.length > 0) {
+          // Get the course details for each enrolled course
+          const courseIds = enrollments.map(enrollment => enrollment.course_id);
+          
+          const { data: courses, error: coursesError } = await supabase
+            .from('courses')
+            .select(`
+              *,
+              instructor:profiles(
+                id,
+                first_name,
+                last_name,
+                avatar_url
+              )
+            `)
+            .in('id', courseIds);
+          
+          if (coursesError) throw coursesError;
+          
+          // Format courses to match Course type
+          const formattedCourses: Course[] = courses.map(course => ({
+            ...course,
+            instructor: {
+              id: course.instructor?.id || '',
+              name: course.instructor 
+                ? `${course.instructor?.first_name || ''} ${course.instructor?.last_name || ''}`.trim()
+                : 'Instructor',
+              email: '',
+              role: 'instructor',
+              avatar: course.instructor?.avatar_url || '',
+            },
+            enrollmentCount: 0,
+            modules: [],
+            rating: 4.5,
+            createdAt: course.created_at,
+            updatedAt: course.updated_at,
+            thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+          }));
+          
+          setEnrolledCourses(formattedCourses);
+        }
+        
+        setLoading(false);
+      } catch (error: any) {
+        console.error('Error fetching enrolled courses:', error);
+        setError(error.message);
+        setLoading(false);
+        toast({
+          title: "Failed to load courses",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchEnrolledCourses();
+  }, [user, toast]);
   
-  const enrolledCourses = mockService.getEnrolledCourses(user.id);
-  
-  const notifications = mockService.getUserNotifications(user.id);
-  
-  const courseProgress = {
-    "course1": 75,
-    "course2": 30
-  };
+  // Get notifications from mock service for now
+  const notifications = user ? mockService.getUserNotifications(user.id) : [];
   
   const upcomingDeadlines = [
     {
@@ -64,6 +141,8 @@ const Dashboard = () => {
   const handleMetricClick = (tab: string) => {
     setActiveTab(tab);
   };
+  
+  if (!user) return null;
   
   return (
     <AppLayout>
@@ -147,12 +226,23 @@ const Dashboard = () => {
           <TabsContent value="courses" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">My Courses</h2>
-              <Button variant="outline" size="sm" asChild>
-                <a href="/courses">Browse Courses</a>
+              <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/courses')}>
+                Browse Courses
               </Button>
             </div>
             
-            {enrolledCourses.length > 0 ? (
+            {loading ? (
+              <div className="flex justify-center p-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              </div>
+            ) : error ? (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <p className="text-muted-foreground mb-4">Error loading courses: {error}</p>
+                  <Button onClick={() => window.location.reload()}>Try Again</Button>
+                </CardContent>
+              </Card>
+            ) : enrolledCourses.length > 0 ? (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {enrolledCourses.map((course) => (
                   <CourseCard 
@@ -165,8 +255,8 @@ const Dashboard = () => {
               <Card>
                 <CardContent className="py-10 text-center">
                   <p className="text-muted-foreground mb-4">You haven't enrolled in any courses yet.</p>
-                  <Button asChild>
-                    <a href="/courses">Browse Courses</a>
+                  <Button onClick={() => navigateWithAuth('/courses')}>
+                    Browse Courses
                   </Button>
                 </CardContent>
               </Card>
@@ -176,8 +266,8 @@ const Dashboard = () => {
           <TabsContent value="deadlines" className="space-y-6">
             <div className="flex items-center justify-between">
               <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
-              <Button variant="outline" size="sm" asChild>
-                <a href="/calendar">View Calendar</a>
+              <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/calendar')}>
+                View Calendar
               </Button>
             </div>
             
