@@ -83,14 +83,37 @@ export function NewConversationButton() {
           .limit(5);
 
         // Combine and deduplicate users
-        const recentUsers = recentContacts?.map(msg => {
-          // Get the other participant (not the current user)
-          const otherParticipant = msg.recipient.find(p => p.user_id !== user.id);
-          return otherParticipant?.profile;
-        }).filter(Boolean) || [];
+        const recentUsers: User[] = [];
+        
+        // Safely extract recipient profiles from recentContacts
+        if (recentContacts && recentContacts.length > 0) {
+          recentContacts.forEach(msg => {
+            // Find participants who are not the current user
+            const otherParticipant = msg.recipient.find(p => p.user_id !== user.id);
+            if (otherParticipant && otherParticipant.profile) {
+              recentUsers.push({
+                id: otherParticipant.profile.id,
+                first_name: otherParticipant.profile.first_name,
+                last_name: otherParticipant.profile.last_name,
+                avatar_url: otherParticipant.profile.avatar_url
+              });
+            }
+          });
+        }
 
-        const allUsers = [...recentUsers, ...(defaultUsers || [])];
-        const uniqueUsers = Array.from(new Map(allUsers.map(user => [user.id, user])).values());
+        // Convert defaultUsers to User[] type
+        const defaultUsersList: User[] = defaultUsers?.map(user => ({
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          avatar_url: user.avatar_url
+        })) || [];
+
+        // Combine and deduplicate
+        const allUsers = [...recentUsers, ...defaultUsersList];
+        const uniqueUsers = Array.from(
+          new Map(allUsers.map(user => [user.id, user])).values()
+        );
         
         setUsers(uniqueUsers.slice(0, 5));
       } catch (error) {
@@ -113,7 +136,16 @@ export function NewConversationButton() {
         .select('id, first_name, last_name, avatar_url')
         .neq('id', user?.id)
         .limit(5);
-      setUsers(data || []);
+      
+      // Convert to User[] type
+      const usersList: User[] = data?.map(profile => ({
+        id: profile.id,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        avatar_url: profile.avatar_url
+      })) || [];
+      
+      setUsers(usersList);
       return;
     }
 
@@ -127,7 +159,16 @@ export function NewConversationButton() {
         .limit(10);
 
       if (error) throw error;
-      setUsers(data || []);
+      
+      // Convert to User[] type
+      const usersList: User[] = data?.map(profile => ({
+        id: profile.id,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        avatar_url: profile.avatar_url
+      })) || [];
+      
+      setUsers(usersList);
     } catch (error) {
       console.error('Error searching users:', error);
       toast({
