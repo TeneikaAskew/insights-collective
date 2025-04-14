@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStoreRedirectPath } from '@/hooks/useAuth';
+
 
 interface LoginWallProps {
   message: string;
@@ -16,7 +18,8 @@ interface LoginWallProps {
 
 const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: LoginWallProps) => {
   const location = useLocation();
-  const { storeRedirectPath } = useAuth();
+  // const { storeRedirectPath } = useAuth();
+  useStoreRedirectPath(); 
   
   // Create login URL with redirect parameter 
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
