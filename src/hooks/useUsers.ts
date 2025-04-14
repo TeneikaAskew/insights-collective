@@ -3,27 +3,30 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile } from '@/types/supabase';
 import { useToast } from './use-toast';
+import { useDebounce } from './useDebounce';
 
-export function useUsers() {
+export function useUsers(initialSearchQuery = '') {
   const [users, setUsers] = useState<Profile[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
+  const [loading, setLoading] = useState(false);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { toast } = useToast();
 
-  const fetchUsers = useCallback(async (searchQuery?: string) => {
+  const fetchUsers = useCallback(async (query?: string) => {
     setLoading(true);
     try {
-      console.log("Fetching users with search query:", searchQuery);
+      console.log("Fetching users with search query:", query);
       
-      let query = supabase
+      let supabaseQuery = supabase
         .from('profiles')
         .select('*');
       
-      if (searchQuery && searchQuery.length > 0) {
+      if (query && query.length > 0) {
         // Use wildcard search on first and last names
-        query = query.or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`);
+        supabaseQuery = supabaseQuery.or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
       }
       
-      const { data, error } = await query;
+      const { data, error } = await supabaseQuery;
       
       if (error) {
         console.error("Supabase error fetching users:", error);
@@ -51,9 +54,21 @@ export function useUsers() {
     }
   }, [toast]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+  // Create a function to update the search query
+  const updateSearchQuery = useCallback((newQuery: string) => {
+    setSearchQuery(newQuery);
+  }, []);
 
-  return { users, loading, fetchUsers };
+  // Fetch users when component mounts or debounced search query changes
+  useEffect(() => {
+    fetchUsers(debouncedSearchQuery);
+  }, [debouncedSearchQuery, fetchUsers]);
+
+  return { 
+    users, 
+    loading, 
+    fetchUsers,
+    searchQuery,
+    updateSearchQuery
+  };
 }

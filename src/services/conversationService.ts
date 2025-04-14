@@ -149,19 +149,21 @@ export const createNewConversation = async (userId: string, subject: string, rec
  */
 export const sendConversationMessage = async (userId: string, conversationId: string, content: string, attachmentUrl?: string) => {
   try {
-    if (!userId || !conversationId) {
-      throw new Error('User ID and Conversation ID are required');
+    if (!userId || !conversationId || !content.trim()) {
+      throw new Error('User ID, Conversation ID, and message content are required');
     }
     
     // Send message
-    const { error } = await supabase
+    const { data: messageData, error } = await supabase
       .from('messages')
       .insert({
         conversation_id: conversationId,
         sender_id: userId,
         content,
         attachment_url: attachmentUrl || null
-      });
+      })
+      .select('id, created_at')
+      .single();
     
     if (error) {
       console.error('Error sending message:', error);
@@ -174,7 +176,7 @@ export const sendConversationMessage = async (userId: string, conversationId: st
       .update({ updated_at: new Date().toISOString() })
       .eq('id', conversationId);
     
-    return true;
+    return messageData;
   } catch (error) {
     console.error('Error sending message:', error);
     throw error;
@@ -236,8 +238,11 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
     const existingConversationId = await findExistingOneOnOneConversation(userId, otherUserId);
     
     if (existingConversationId) {
+      console.log("Found existing conversation:", existingConversationId);
       return existingConversationId;
     }
+    
+    console.log("No existing conversation found, creating new one");
     
     // If no existing conversation, create a new one
     const { data: otherUser, error: userError } = await supabase
@@ -246,12 +251,17 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
       .eq('id', otherUserId)
       .single();
       
-    if (userError) throw userError;
+    if (userError) {
+      console.error("Error fetching other user:", userError);
+      throw userError;
+    }
     
     const subject = otherUser ? 
       `Chat with ${otherUser.first_name} ${otherUser.last_name}` : 
       'New conversation';
-      
+    
+    console.log("Creating new conversation with subject:", subject);
+    
     return await createNewConversation(userId, subject, [otherUserId]);
   } catch (error) {
     console.error('Error in getOrCreateOneOnOneConversation:', error);

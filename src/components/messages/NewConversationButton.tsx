@@ -11,10 +11,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { getOrCreateOneOnOneConversation } from '@/services/conversationService';
+import { getOrCreateOneOnOneConversation, sendConversationMessage } from '@/services/conversationService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useUsers } from '@/hooks/useUsers';
 import {
@@ -25,26 +25,19 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { Profile } from '@/types/supabase';
 
 export function NewConversationButton() {
   const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [selectedUser, setSelectedUser] = useState<Profile | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
-  const { users, loading, fetchUsers } = useUsers();
+  const { users, loading, searchQuery, updateSearchQuery } = useUsers();
   
   // Filter out the current user from the list
   const filteredUsers = users.filter(u => u.id !== user?.id);
-
-  // When the dialog opens or search query changes, fetch users
-  useEffect(() => {
-    if (open) {
-      fetchUsers(searchQuery);
-    }
-  }, [open, searchQuery, fetchUsers]);
 
   const handleStartConversation = async () => {
     if (!selectedUser || !user) {
@@ -59,14 +52,19 @@ export function NewConversationButton() {
     try {
       setIsCreating(true);
       console.log("Starting conversation with user:", selectedUser);
+      
       // Get or create conversation
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
       console.log("Conversation created/retrieved with ID:", conversationId);
       
+      // Send an initial message if user wants
+      const initialMessage = `Hello ${selectedUser.first_name || ''}!`;
+      await sendConversationMessage(user.id, conversationId, initialMessage);
+      
       // Close dialog and navigate to the conversation
       setOpen(false);
       setSelectedUser(null);
-      setSearchQuery('');
+      updateSearchQuery('');
       navigate(`/messages/${conversationId}`);
       
       toast({
@@ -92,6 +90,14 @@ export function NewConversationButton() {
       setSelectedUser(user);
     }
   };
+
+  // Reset state when dialog opens/closes
+  useEffect(() => {
+    if (!open) {
+      setSelectedUser(null);
+      updateSearchQuery('');
+    }
+  }, [open, updateSearchQuery]);
 
   return (
     <>
@@ -120,19 +126,21 @@ export function NewConversationButton() {
                   id="user-search"
                   placeholder="Search by name..."
                   value={searchQuery}
-                  onValueChange={setSearchQuery}
+                  onValueChange={updateSearchQuery}
                 />
-                {loading && (
-                  <div className="flex justify-center p-2">
-                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  </div>
-                )}
                 <CommandList>
+                  {loading && (
+                    <div className="flex justify-center p-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  
                   <CommandEmpty>
                     {searchQuery.length > 0 
                       ? 'No users found' 
                       : 'Type to search for users'}
                   </CommandEmpty>
+                  
                   <CommandGroup>
                     {filteredUsers.map((user) => (
                       <CommandItem
