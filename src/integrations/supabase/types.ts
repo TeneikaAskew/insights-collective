@@ -794,6 +794,14 @@ export type Database = {
         Args: { email: string }
         Returns: string
       }
+      get_user_role: {
+        Args: { user_id: string }
+        Returns: string
+      }
+      is_conversation_participant: {
+        Args: { conversation_id: string; user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       module_content_type: "text" | "video" | "image"

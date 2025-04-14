@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 export function useConversationList() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<any>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -20,11 +21,13 @@ export function useConversationList() {
 
     const loadConversations = async () => {
       setLoading(true);
+      setError(null);
       try {
         const conversationsData = await fetchUserConversations(user.id);
         setConversations(conversationsData);
       } catch (error) {
         console.error('Error loading conversations:', error);
+        setError(error);
         toast({
           title: 'Error',
           description: 'Could not load your conversations. Please try again later.',
@@ -71,6 +74,7 @@ export function useConversationList() {
   
   return { 
     conversations, 
-    loading
+    loading,
+    error
   };
 }

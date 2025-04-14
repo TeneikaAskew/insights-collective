@@ -6,15 +6,30 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
+import { AlertCircle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ConversationListProps {
   conversations: any[];
   loading: boolean;
+  error?: any;
 }
 
-const ConversationList: React.FC<ConversationListProps> = ({ conversations, loading }) => {
+const ConversationList: React.FC<ConversationListProps> = ({ conversations, loading, error }) => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
+
+  if (error) {
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error loading conversations</AlertTitle>
+        <AlertDescription>
+          {error.message || 'Please try again later.'}
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
   if (loading) {
     return (
@@ -36,9 +51,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
 
   if (conversations.length === 0) {
     return (
-      <div className="text-center p-6 border rounded-md">
-        <p className="text-muted-foreground mb-2">No conversations yet</p>
-        <p className="text-sm text-muted-foreground">Start a new conversation to connect with instructors and classmates.</p>
+      <div className="text-center p-6 border rounded-md bg-amber-50 border-amber-200">
+        <p className="text-amber-800 mb-2 font-medium">No conversations yet</p>
+        <p className="text-sm text-amber-700">Start a new conversation to connect with instructors and classmates.</p>
       </div>
     );
   }
@@ -75,8 +90,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
             }}
           >
             <Card
-              className={`p-4 hover:bg-muted/50 cursor-pointer transition-colors ${
-                conversationId === conversation.id ? 'bg-muted' : ''
+              className={`p-4 hover:bg-amber-50/50 cursor-pointer transition-colors ${
+                conversationId === conversation.id ? 'bg-amber-50 border-amber-200' : ''
               }`}
             >
               <div className="flex justify-between items-start gap-3">
@@ -84,24 +99,24 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
                   {conversation.is_group ? (
                     <div className="relative">
                       <Avatar className="h-10 w-10">
-                        <AvatarFallback>GP</AvatarFallback>
+                        <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
                       </Avatar>
                       {otherParticipants.length > 0 && (
                         <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                          <AvatarFallback>{otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}</AvatarFallback>
+                          <AvatarFallback className="bg-amber-200 text-amber-800">{otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}</AvatarFallback>
                         </Avatar>
                       )}
                     </div>
                   ) : (
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
-                      <AvatarFallback>
+                      <AvatarFallback className="bg-amber-100 text-amber-800">
                         {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
                   )}
                   <div className="space-y-1">
-                    <p className="font-medium line-clamp-1">
+                    <p className="font-medium line-clamp-1 text-gray-800">
                       {conversation.subject || 
                         (conversation.is_group 
                           ? `Group (${participants.length} participants)` 
@@ -111,15 +126,15 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
                         )
                       }
                     </p>
-                    <p className="text-sm text-muted-foreground line-clamp-1">
+                    <p className="text-sm text-gray-600 line-clamp-1">
                       {conversation.last_message || 'Start a conversation'}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
-                  <span className="text-xs text-muted-foreground">{timeAgo}</span>
+                  <span className="text-xs text-gray-500">{timeAgo}</span>
                   {conversation.unread_count > 0 && (
-                    <span className="bg-primary text-primary-foreground text-xs rounded-full px-2 py-0.5 mt-1">
+                    <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5 mt-1">
                       {conversation.unread_count}
                     </span>
                   )}

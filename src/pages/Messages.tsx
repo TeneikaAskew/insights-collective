@@ -24,7 +24,7 @@ const Messages = () => {
   const [messageContent, setMessageContent] = useState('');
   const [newConversationOpen, setNewConversationOpen] = useState(false);
   
-  const { conversations, loading: loadingConversations, createConversation, sendMessage } = useConversations();
+  const { conversations, loading: loadingConversations, createConversation, sendMessage, error: conversationsError } = useConversations();
   const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
 
   const handleSendMessage = async () => {
@@ -59,7 +59,7 @@ const Messages = () => {
         <div className="flex flex-col space-y-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold">Messages</h1>
-            <Button onClick={() => setNewConversationOpen(true)} className="flex items-center gap-2">
+            <Button onClick={() => setNewConversationOpen(true)} className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700">
               <Plus className="h-4 w-4" />
               New Conversation
             </Button>
@@ -82,7 +82,11 @@ const Messages = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-1 h-full">
-                  <ConversationList conversations={conversations} loading={loadingConversations} />
+                  <ConversationList 
+                    conversations={conversations} 
+                    loading={loadingConversations}
+                    error={conversationsError} 
+                  />
                 </div>
                 
                 {conversationId ? (
@@ -117,6 +121,7 @@ const Messages = () => {
                         <Button
                           onClick={handleSendMessage}
                           disabled={!messageContent.trim()}
+                          className="bg-amber-600 hover:bg-amber-700"
                         >
                           <Send className="h-4 w-4 mr-2" />
                           Send
@@ -127,12 +132,12 @@ const Messages = () => {
                 ) : (
                   <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
                     <div className="text-center p-6">
-                      <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">No conversation selected</h3>
-                      <p className="text-muted-foreground mb-4">
+                      <MessageSquare className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2 text-gray-800">No conversation selected</h3>
+                      <p className="text-gray-600 mb-4">
                         Select a conversation from the list or start a new one
                       </p>
-                      <Button onClick={() => setNewConversationOpen(true)}>
+                      <Button onClick={() => setNewConversationOpen(true)} className="bg-amber-600 hover:bg-amber-700">
                         Start a new conversation
                       </Button>
                     </div>
