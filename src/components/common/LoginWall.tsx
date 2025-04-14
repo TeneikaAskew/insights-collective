@@ -22,22 +22,37 @@ const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: Log
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   
   // Store the current path for redirect after login
+  // useEffect(() => {
+  //   // Only store non-auth pages as redirect paths
+  //   if (location.pathname !== '/login' && location.pathname !== '/register') {
+  //     // Store path in localStorage (primary method)
+  //     localStorage.setItem('redirectAfterLogin', location.pathname);
+      
+  //     // Also use the context method as a backup
+  //     if (storeRedirectPath) {
+  //       storeRedirectPath(location.pathname);
+  //     }
+      
+  //     if (process.env.NODE_ENV === "development") {
+  //       console.log('LoginWall: stored redirect path:', location.pathname);
+  //     }
+  //   }
+  // }, [location.pathname, storeRedirectPath]);
+
   useEffect(() => {
-    // Only store non-auth pages as redirect paths
-    if (location.pathname !== '/login' && location.pathname !== '/register') {
-      // Store path in localStorage (primary method)
-      localStorage.setItem('redirectAfterLogin', location.pathname);
-      
-      // Also use the context method as a backup
-      if (storeRedirectPath) {
-        storeRedirectPath(location.pathname);
-      }
-      
-      if (process.env.NODE_ENV === "development") {
-        console.log('LoginWall: stored redirect path:', location.pathname);
-      }
+  const fullPath = window.location.pathname + window.location.search;
+  const alreadyStored = localStorage.getItem('redirectAfterLogin');
+
+  if (!alreadyStored && !['/login', '/register'].includes(location.pathname)) {
+    localStorage.setItem('redirectAfterLogin', fullPath);
+    storeRedirectPath?.(fullPath);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('LoginWall: stored redirectAfterLogin path:', fullPath);
     }
-  }, [location.pathname, storeRedirectPath]);
+  }
+}, [location.pathname, storeRedirectPath]);
+
   
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
