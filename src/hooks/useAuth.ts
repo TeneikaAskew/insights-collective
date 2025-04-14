@@ -33,7 +33,9 @@ export const useAuthProvider = () => {
     redirectInProgressRef.current = true;
 
     try {
-      const redirectParam = new URLSearchParams(location.search).get('redirect');
+      // const redirectParam = new URLSearchParams(location.search).get('redirect');
+      const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+
       const fromPath = location.state?.from?.pathname;
       const storedRedirect = localStorage.getItem('redirectAfterLogin');
 
@@ -71,15 +73,20 @@ export const useAuthProvider = () => {
   }, [navigate, location, enrichedUser, toast]);
 
   // Defer redirect until enrichedUser is loaded
+  // useEffect(() => {
+  //   if (awaitingRedirectRef.current && enrichedUser) {
+  //     if (process.env.NODE_ENV === 'development') {
+  //       console.log('✅ enrichedUser loaded, triggering redirect...');
+  //     }
+  //     handleRedirectAfterLogin();
+  //     awaitingRedirectRef.current = false;
+  //   }
+  // }, [enrichedUser, handleRedirectAfterLogin]);
+
   useEffect(() => {
-    if (awaitingRedirectRef.current && enrichedUser) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('✅ enrichedUser loaded, triggering redirect...');
-      }
-      handleRedirectAfterLogin();
-      awaitingRedirectRef.current = false;
-    }
-  }, [enrichedUser, handleRedirectAfterLogin]);
+      // Wait for user state to be restored and redirect will occur in useAuth
+    }, []);
+
 
   useEffect(() => {
     let isMounted = true;
@@ -135,13 +142,34 @@ export const useAuthProvider = () => {
     }
   }, [toast]);
 
+  // const socialSignIn = useCallback(async (provider: 'google' | 'github' | 'twitter') => {
+  //   try {
+  //     setLoading(true);
+  //     const { error } = await supabase.auth.signInWithOAuth({
+  //       provider,
+  //       options: { redirectTo: `${window.location.origin}/auth/callback` },
+  //     });
+  //     if (error) throw error;
+  //   } catch (error: any) {
+  //     toast({ title: 'Error', description: error.message, variant: 'destructive' });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [toast]);
+
+
   const socialSignIn = useCallback(async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setLoading(true);
+      const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+  
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
-        options: { redirectTo: `${window.location.origin}/auth/callback` },
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`
+        }
       });
+  
       if (error) throw error;
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });

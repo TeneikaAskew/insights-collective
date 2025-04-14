@@ -24,7 +24,10 @@ const Login = () => {
   const storedPath = localStorage.getItem('redirectAfterLogin');
   
   // Determine the redirect destination based on priority
-  const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
+  // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
+  const redirectDestination = redirectParam || fromState || '/dashboard';
+  const encodedRedirect = encodeURIComponent(redirectDestination);
+
   
   // Store redirect path on component mount
   useEffect(() => {
