@@ -25,14 +25,16 @@ const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: Log
   useEffect(() => {
     // Only store non-auth pages as redirect paths
     if (location.pathname !== '/login' && location.pathname !== '/register') {
-      // Store path in localStorage (as a fallback)
+      // Store path in localStorage (primary method)
       localStorage.setItem('redirectAfterLogin', location.pathname);
-      console.log('LoginWall: stored path in localStorage:', location.pathname);
       
-      // Use the context method for better state management
+      // Also use the context method as a backup
       if (storeRedirectPath) {
         storeRedirectPath(location.pathname);
-        console.log('LoginWall: stored path via context:', location.pathname);
+      }
+      
+      if (process.env.NODE_ENV === "development") {
+        console.log('LoginWall: stored redirect path:', location.pathname);
       }
     }
   }, [location.pathname, storeRedirectPath]);

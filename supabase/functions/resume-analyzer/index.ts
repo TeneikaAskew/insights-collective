@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -387,7 +386,6 @@ async function analyzeResume(resumeText: string, userId?: string) {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -399,7 +397,6 @@ serve(async (req) => {
     });
   }
 
-  
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
   

@@ -15,12 +15,11 @@ export function handleApiError(error: any, defaultMessage = "An unexpected error
   return error?.message || defaultMessage;
 }
 
-// Export CORS headers for use across the application
+// Export comprehensive CORS headers for use across the application
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  // 'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  // Optional but good practice:
   'Access-Control-Allow-Credentials': 'true',
-  // 'Access-Control-Max-Age': '86400'
+  'Access-Control-Max-Age': '86400'
 };

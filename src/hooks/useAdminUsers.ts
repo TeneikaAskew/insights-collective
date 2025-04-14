@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface AdminUserResponse {
   id: string;
@@ -28,20 +29,33 @@ export function useAdminUsers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const { session } = useAuth();
 
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
     
     try {
+      // Ensure we have a valid session
+      if (!session || !session.access_token) {
+        throw new Error("Authentication required to access admin functions");
+      }
+      
       const { data, error } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'listUsers' }
+        body: { action: 'listUsers' },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (error) throw error;
       
       const response = data as AdminUsersResponse;
       setUsers(response.users || []);
+      
+      if (process.env.NODE_ENV === "development") {
+        console.log('Admin users loaded:', response.users?.length || 0);
+      }
     } catch (err: any) {
       console.error('Error fetching users:', err);
       setError(err.message || 'Failed to load users');
@@ -57,8 +71,15 @@ export function useAdminUsers() {
 
   const updateUserRole = async (userId: string, roles: string[]) => {
     try {
+      if (!session?.access_token) {
+        throw new Error("Authentication required");
+      }
+      
       const { data, error } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'updateUserRole', userId, data: { roles } }
+        body: { action: 'updateUserRole', userId, data: { roles } },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (error) throw error;
@@ -86,8 +107,15 @@ export function useAdminUsers() {
 
   const deleteUser = async (userId: string) => {
     try {
+      if (!session?.access_token) {
+        throw new Error("Authentication required");
+      }
+      
       const { data, error } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'deleteUser', userId }
+        body: { action: 'deleteUser', userId },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (error) throw error;
@@ -109,8 +137,15 @@ export function useAdminUsers() {
 
   const resetUserPassword = async (email: string) => {
     try {
+      if (!session?.access_token) {
+        throw new Error("Authentication required");
+      }
+      
       const { data, error } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'resetPassword', data: { email } }
+        body: { action: 'resetPassword', data: { email } },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
       });
 
       if (error) throw error;
