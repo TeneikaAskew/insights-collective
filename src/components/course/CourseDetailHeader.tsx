@@ -60,7 +60,9 @@ const CourseDetailHeader: React.FC<CourseDetailHeaderProps> = ({
               <Clock className="h-4 w-4 mr-2" />
               {course.duration || 'Self-paced'}
             </div>
-            <EnrollmentBadge status={course.enrollment_status || 'open'} />
+            {course.enrollment_status && (
+              <EnrollmentBadge enrollmentStatus={course.enrollment_status} />
+            )}
           </div>
           
           {isAuthenticated && (
