@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,22 +11,18 @@ import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const { login, googleSignIn, githubSignIn, twitterSignIn, isAuthenticated, handleRedirectAfterLogin } = useAuth();
+  const {
+    login,
+    googleSignIn,
+    githubSignIn,
+    twitterSignIn,
+    isAuthenticated,
+    handleRedirectAfterLogin,
+  } = useAuth();
+
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Extract redirect path from URL params if present
-  const query = new URLSearchParams(location.search);
-  const redirectParam = query.get('redirect');
-  
-
-  // Redirect authenticated users (using the centralized handler)
-  useEffect(() => {
-    if (isAuthenticated) {
-      handleRedirectAfterLogin();
-    }
-  }, [isAuthenticated, handleRedirectAfterLogin]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -35,68 +30,78 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
+
+  const query = new URLSearchParams(location.search);
+  const redirectParam = query.get('redirect');
+
+  useEffect(() => {
+    console.log('[Login] Mounted');
+    console.log('[Login] redirectParam:', redirectParam);
+  }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      console.log('[Login] isAuthenticated true. Calling handleRedirectAfterLogin...');
+      handleRedirectAfterLogin();
+    } else {
+      console.log('[Login] Not authenticated');
+    }
+  }, [isAuthenticated, handleRedirectAfterLogin]);
+
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    
+
     if (!email || !password) {
       setError('Please enter both email and password');
       return;
     }
-    
+
+    console.log('[handleUserLogin] Logging in with email:', email);
+
     try {
       setLoading(true);
       await login(email, password);
-      // Redirect handled by useEffect when isAuthenticated changes
     } catch (error: any) {
+      console.error('[handleUserLogin] Login error:', error);
       setError(error.message);
     } finally {
       setLoading(false);
     }
   };
-  
+
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
+    console.log('[handleSocialSignIn] Initiating social login with:', provider);
     try {
       setError(null);
       setSocialLoading(provider);
-      
-      // Social login will handle redirect via OAuth callback
-      switch (provider) {
-        case 'google':
-          await googleSignIn();
-          break;
-        case 'github':
-          await githubSignIn();
-          break;
-        case 'twitter':
-          await twitterSignIn();
-          break;
-      }
+      await {
+        google: googleSignIn,
+        github: githubSignIn,
+        twitter: twitterSignIn,
+      }[provider]();
     } catch (error: any) {
-      console.error(`${provider} sign-in failed:`, error);
-      
-      if (error.message?.includes('provider is not enabled')) {
-        setError(`${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in is not enabled. Please contact your administrator.`);
-        toast({
-          title: 'Authentication Error',
-          description: `${provider.charAt(0).toUpperCase() + provider.slice(1)} sign-in is not enabled in the Supabase dashboard.`,
-          variant: 'destructive'
-        });
-      } else if (error.message?.includes('redirect')) {
-        setError(`Unable to complete ${provider} sign-in. Please check your network connection.`);
-      } else {
-        setError(error.message || `Failed to sign in with ${provider}`);
-      }
+      console.error(`[${provider}] Social sign-in failed:`, error);
+      toast({
+        title: 'Authentication Error',
+        description: error.message || `Failed to sign in with ${provider}`,
+        variant: 'destructive',
+      });
+      setError(error.message || `Failed to sign in with ${provider}`);
     } finally {
       setSocialLoading(null);
     }
   };
-  
+
   if (isAuthenticated) {
-    return <div className="flex justify-center items-center h-screen">Redirecting...</div>;
+    console.log('[Login] Already authenticated - showing "Redirecting..." screen');
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Redirecting...
+      </div>
+    );
   }
-  
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
       <div className="w-full max-w-md">
@@ -106,7 +111,7 @@ const Login = () => {
             Insights Collective
           </Link>
         </div>
-        
+
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Welcome back</CardTitle>
@@ -114,56 +119,32 @@ const Login = () => {
               Sign in to your Insights Collective account
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent>
-            {/* Social login buttons */}
             <div className="flex flex-col gap-3">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('google')}
-                disabled={!!socialLoading}
-              >
-                {socialLoading === 'google' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaGoogle className="mr-2 h-4 w-4" />
-                )}
-                Sign in with Google
-              </Button>
-              
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('github')}
-                disabled={!!socialLoading}
-              >
-                {socialLoading === 'github' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaGithub className="mr-2 h-4 w-4" />
-                )}
-                Sign in with GitHub
-              </Button>
-              
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('twitter')}
-                disabled={!!socialLoading}
-              >
-                {socialLoading === 'twitter' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaTwitter className="mr-2 h-4 w-4" />
-                )}
-                Sign in with Twitter
-              </Button>
+              {['google', 'github', 'twitter'].map((provider) => (
+                <Button
+                  key={provider}
+                  type="button"
+                  variant="outline"
+                  className="w-full flex items-center justify-center"
+                  onClick={() => handleSocialSignIn(provider as 'google' | 'github' | 'twitter')}
+                  disabled={!!socialLoading}
+                >
+                  {socialLoading === provider ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    {
+                      google: <FaGoogle className="mr-2 h-4 w-4" />,
+                      github: <FaGithub className="mr-2 h-4 w-4" />,
+                      twitter: <FaTwitter className="mr-2 h-4 w-4" />,
+                    }[provider]
+                  )}
+                  Sign in with {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                </Button>
+              ))}
             </div>
-            
+
             <div className="relative my-6">
               <div className="absolute inset-0 flex items-center">
                 <Separator />
@@ -172,8 +153,7 @@ const Login = () => {
                 <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
               </div>
             </div>
-            
-            {/* Email/password login form */}
+
             <form onSubmit={handleUserLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -186,7 +166,7 @@ const Login = () => {
                   required
                 />
               </div>
-              
+
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password">Password</Label>
@@ -197,32 +177,31 @@ const Login = () => {
                 <div className="relative">
                   <Input
                     id="password"
-                    type={showPassword ? "text" : "password"}
+                    type={showPassword ? 'text' : 'password'}
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
-                  <button 
+                  <button
                     type="button"
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowPassword(!showPassword)}
+                    onClick={() => {
+                      setShowPassword((prev) => !prev);
+                      console.log('[Password Toggle] showPassword:', !showPassword);
+                    }}
                   >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
-              
+
               {error && (
                 <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
                   {error}
                 </div>
               )}
-              
+
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
@@ -233,9 +212,9 @@ const Login = () => {
                   'Sign In'
                 )}
               </Button>
-              
+
               <p className="text-center text-sm text-muted-foreground">
-                Don't have an account?{' '}
+                Don&apos;t have an account?{' '}
                 <Link to="/register" className="text-primary hover:underline">
                   Create account
                 </Link>
