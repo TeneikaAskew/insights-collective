@@ -55,21 +55,32 @@ import {
 
 interface ModuleContentEditorProps {
   moduleId: string;
-  onActivate: () => void;
-  onDeactivate: () => void;
-  isActive: boolean;
+  onActivate?: () => void;
+  onDeactivate?: () => void;
+  isActive?: boolean;
+  contentItems?: any[]; // Add this to match how the component is used
+  onAddContent?: (content: any) => Promise<void>;
+  onUpdateContent?: (contentId: string, updatedContent: any) => Promise<void>;
+  onDeleteContent?: (contentId: string) => Promise<void>;
 }
 
 const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({ 
   moduleId,
-  onActivate,
-  onDeactivate,
-  isActive
+  onActivate = () => {},
+  onDeactivate = () => {},
+  isActive = false,
+  contentItems,
+  onAddContent,
+  onUpdateContent,
+  onDeleteContent
 }) => {
   const { user } = useAuth();
   const { contents, loading, addContent, updateContent, deleteContent, reorderContent } = useModuleContent(moduleId);
   const { uploadFile, uploading, progress } = useStorageUpload();
   const { canEdit } = useCoursePermissions(); // We don't need courseId here as it's already checked in parent
+  
+  // Use contentItems from props if provided, otherwise use from the hook
+  const moduleContents = contentItems || contents;
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [contentType, setContentType] = useState<'text' | 'video' | 'image'>('text');
@@ -176,19 +187,36 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
     try {
       if (editMode === 'edit' && editingContent.id) {
         // Update existing content
-        await updateContent(editingContent.id, {
-          content: editingContent.content,
-          type: editingContent.type
-        });
+        if (onUpdateContent) {
+          await onUpdateContent(editingContent.id, {
+            content: editingContent.content,
+            type: editingContent.type
+          });
+        } else {
+          await updateContent(editingContent.id, {
+            content: editingContent.content,
+            type: editingContent.type
+          });
+        }
       } else {
         // Create new content
-        await addContent({
-          module_id: moduleId,
-          content: editingContent.content,
-          type: editingContent.type,
-          position: contents.length,
-          uploaded_by: user?.id || ''
-        });
+        if (onAddContent) {
+          await onAddContent({
+            module_id: moduleId,
+            content: editingContent.content,
+            type: editingContent.type,
+            position: moduleContents.length,
+            uploaded_by: user?.id || ''
+          });
+        } else {
+          await addContent({
+            module_id: moduleId,
+            content: editingContent.content,
+            type: editingContent.type,
+            position: moduleContents.length,
+            uploaded_by: user?.id || ''
+          });
+        }
       }
       
       setIsModalOpen(false);
@@ -198,24 +226,28 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
   };
   
   const handleDeleteContent = async (id: string) => {
-    await deleteContent(id);
+    if (onDeleteContent) {
+      await onDeleteContent(id);
+    } else {
+      await deleteContent(id);
+    }
   };
   
   const handleMoveContent = async (id: string, direction: 'up' | 'down') => {
-    const contentIndex = contents.findIndex(c => c.id === id);
+    const contentIndex = moduleContents.findIndex(c => c.id === id);
     if (contentIndex === -1) return;
     
     const newIndex = direction === 'up' ? contentIndex - 1 : contentIndex + 1;
-    if (newIndex < 0 || newIndex >= contents.length) return;
+    if (newIndex < 0 || newIndex >= moduleContents.length) return;
     
-    const newOrder = [...contents];
+    const newOrder = [...moduleContents];
     const [movedItem] = newOrder.splice(contentIndex, 1);
     newOrder.splice(newIndex, 0, movedItem);
     
     await reorderContent(newOrder);
   };
   
-  if (loading) {
+  if (loading && !contentItems) {
     return (
       <div className="py-4">
         <Progress value={30} className="w-full animate-pulse" />
@@ -257,7 +289,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
         )}
       </div>
       
-      {contents.length === 0 ? (
+      {moduleContents.length === 0 ? (
         <div className="text-center py-6 border rounded-md bg-muted/50">
           <p className="text-muted-foreground mb-4">No content has been added to this module yet.</p>
           {canEdit && (
@@ -291,7 +323,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
         </div>
       ) : (
         <div className="space-y-4">
-          {contents.map((content, index) => (
+          {moduleContents.map((content, index) => (
             <Card key={content.id} className="overflow-hidden">
               <div className="bg-muted px-4 py-2 flex items-center justify-between">
                 <div className="flex items-center space-x-2">
@@ -312,7 +344,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
                         <span className="sr-only">Move Up</span>
                       </Button>
                     )}
-                    {index < contents.length - 1 && (
+                    {index < moduleContents.length - 1 && (
                       <Button 
                         variant="ghost" 
                         size="sm"

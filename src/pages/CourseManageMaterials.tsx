@@ -23,14 +23,12 @@ const CourseManageMaterials = () => {
   const [moduleContents, setModuleContents] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('modules');
   
-  // Fetch course and modules data
   useEffect(() => {
     const fetchCourseData = async () => {
       if (!courseId) return;
       
       setLoading(true);
       try {
-        // Fetch course
         const { data: courseData, error: courseError } = await supabase
           .from('courses')
           .select('*')
@@ -40,7 +38,6 @@ const CourseManageMaterials = () => {
         if (courseError) throw courseError;
         setCourse(courseData);
         
-        // Fetch modules
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
           .select('*')
@@ -50,7 +47,6 @@ const CourseManageMaterials = () => {
         if (modulesError) throw modulesError;
         setModules(modulesData || []);
         
-        // Set the first module as selected by default
         if (modulesData && modulesData.length > 0) {
           setSelectedModule(modulesData[0].id);
           fetchModuleContents(modulesData[0].id);
@@ -71,7 +67,6 @@ const CourseManageMaterials = () => {
     fetchCourseData();
   }, [courseId, toast]);
   
-  // Fetch module contents when selected module changes
   const fetchModuleContents = async (moduleId: string) => {
     if (!moduleId) return;
     
@@ -104,7 +99,6 @@ const CourseManageMaterials = () => {
     if (!selectedModule) return;
     
     try {
-      // Get the highest position value to add new content at the end
       const highestPosition = moduleContents.length > 0 
         ? Math.max(...moduleContents.map(item => item.position)) + 1 
         : 0;
@@ -120,7 +114,6 @@ const CourseManageMaterials = () => {
         
       if (error) throw error;
       
-      // Refresh the content list
       fetchModuleContents(selectedModule);
       
       toast({
@@ -147,7 +140,6 @@ const CourseManageMaterials = () => {
         
       if (error) throw error;
       
-      // Refresh the content list
       fetchModuleContents(selectedModule!);
       
       toast({
@@ -174,7 +166,6 @@ const CourseManageMaterials = () => {
         
       if (error) throw error;
       
-      // Refresh the content list
       fetchModuleContents(selectedModule!);
       
       toast({
@@ -192,7 +183,6 @@ const CourseManageMaterials = () => {
     }
   };
   
-  // If permissions are still loading or user doesn't have edit access
   if (permissionsLoading) {
     return (
       <AppLayout>
