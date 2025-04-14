@@ -6,14 +6,25 @@ const AuthCallback = () => {
   const navigate = useNavigate();
   const { handleRedirectAfterLogin } = useAuth();
 
-  useEffect(() => {
-    // Wait a brief moment to let Supabase session settle
-    const timeout = setTimeout(() => {
+    useEffect(() => {
+    // Wait until auth is ready
+    if (!loading && isAuthenticated) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AuthCallback] Authenticated, redirecting...');
+      }
       handleRedirectAfterLogin();
-    }, 300); // Give Supabase a second to update session
+    }
+  }, [isAuthenticated, loading, handleRedirectAfterLogin]);
 
-    return () => clearTimeout(timeout);
-  }, [handleRedirectAfterLogin]);
+  //doesn't wait for authentication
+  // useEffect(() => {
+  //   // Wait a brief moment to let Supabase session settle
+  //   const timeout = setTimeout(() => {
+  //     handleRedirectAfterLogin();
+  //   }, 300); // Give Supabase a second to update session
+
+  //   return () => clearTimeout(timeout);
+  // }, [handleRedirectAfterLogin]);
 
   return (
     <div className="flex justify-center items-center h-screen">
