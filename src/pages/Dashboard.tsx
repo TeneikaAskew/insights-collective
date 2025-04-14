@@ -1,4 +1,6 @@
-import { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { mockService } from '@/lib/mockData';
@@ -13,6 +15,7 @@ import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
+  const navigate = useNavigate();
   
   useEffect(() => {
     if (!isAuthenticated) {
