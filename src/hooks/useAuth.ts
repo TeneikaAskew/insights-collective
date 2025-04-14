@@ -44,7 +44,9 @@ export const useAuthProvider = () => {
       const fromPath = location.state?.from?.pathname;
       const storedRedirect = localStorage.getItem('redirectAfterLogin');
 
-      let redirectTo = '/dashboard';
+      // let redirectTo = '/dashboard';
+      let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
+
 
       if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
         redirectTo = redirectParam;
