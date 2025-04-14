@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -19,8 +18,10 @@ export const useAuthProvider = () => {
   const awaitingRedirectRef = useRef(false);
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
+  
+  const isAuthenticated = !!enrichedUser;
+  const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
-  // Store redirect path in localStorage
   const storeRedirectPath = useCallback((path: string) => {
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
     
@@ -34,7 +35,6 @@ export const useAuthProvider = () => {
     }
   }, []);
 
-  // Centralized redirect handler after login
   const handleRedirectAfterLogin = useCallback(() => {
     if (redirectInProgressRef.current) return;
     redirectInProgressRef.current = true;
@@ -76,19 +76,6 @@ export const useAuthProvider = () => {
       }, 100);
     }
   }, [navigate, location, enrichedUser, toast]);
-
-  // Handle automatic redirect after login 
-  useEffect(() => {
-    // If user is authenticated and we're not already redirecting
-    if (isAuthenticated && !loading && !redirectInProgressRef.current) {
-      const storedRedirect = localStorage.getItem('redirectAfterLogin');
-      // Check if we're on login page or have a stored redirect
-      if ((location.pathname === '/login' || location.pathname === '/register') || 
-          (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register')) {
-        handleRedirectAfterLogin();
-      }
-    }
-  }, [isAuthenticated, loading, location.pathname]);
 
   useEffect(() => {
     let isMounted = true;
@@ -195,9 +182,6 @@ export const useAuthProvider = () => {
     setSession(null);
     navigate('/');
   }, [navigate]);
-
-  const isAuthenticated = !!enrichedUser;
-  const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
   return {
     session,
