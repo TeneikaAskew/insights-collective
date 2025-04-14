@@ -8,8 +8,7 @@ interface PageVisibilityGuardProps {
   children: React.ReactNode;
 }
 
-// const PageVisibilityGuard: React.FC<PageVisibilityGuardProps> = ({ children }) => {
-export default function PageVisibilityGuard({ children }) {
+const PageVisibilityGuard: React.FC<PageVisibilityGuardProps> = ({ children }) => {
   const location = useLocation();
   useEffect(() => {
     const path = window.location.pathname + window.location.search;
