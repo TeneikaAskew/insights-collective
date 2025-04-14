@@ -14,10 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { getOrCreateOneOnOneConversation } from '@/services/conversationService';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useUsers } from '@/hooks/useUsers';
 import {
   Command,
   CommandEmpty,
@@ -27,144 +27,24 @@ import {
   CommandList,
 } from '@/components/ui/command';
 
-type User = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
-  last_message_at?: string;
-};
-
 export function NewConversationButton() {
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [users, setUsers] = useState<User[]>([]);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
+  const { users, loading, fetchUsers } = useUsers();
+  
+  // Filter out the current user from the list
+  const filteredUsers = users.filter(u => u.id !== user?.id);
 
-  // Load recent contacts and default users
+  // When the dialog opens or search query changes, fetch users
   useEffect(() => {
-    const loadInitialUsers = async () => {
-      if (!user) return;
-      
-      setLoading(true);
-      try {
-        console.log("Loading initial users");
-        // Just get some default users
-        const { data: defaultUsers, error } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .neq('id', user.id)
-          .limit(5);
-
-        if (error) {
-          console.error('Error fetching initial users:', error);
-          throw error;
-        }
-
-        console.log("Fetched default users:", defaultUsers);
-        
-        // Convert defaultUsers to User[] type
-        const defaultUsersList: User[] = defaultUsers?.map(user => ({
-          id: user.id,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          avatar_url: user.avatar_url
-        })) || [];
-        
-        setUsers(defaultUsersList);
-      } catch (error) {
-        console.error('Error loading initial users:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load users. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (open) {
-      loadInitialUsers();
+      fetchUsers(searchQuery);
     }
-  }, [open, user, toast]);
-
-  const searchUsers = async (query: string) => {
-    if (!user) return;
-    
-    if (!query.trim() || query.length < 2) {
-      // Load default users when search is cleared
-      try {
-        console.log("Loading default users (search cleared)");
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .neq('id', user.id)
-          .limit(5);
-        
-        if (error) {
-          console.error('Error fetching default users:', error);
-          throw error;
-        }
-
-        console.log("Fetched default users:", data);
-        
-        // Convert to User[] type
-        const usersList: User[] = data?.map(profile => ({
-          id: profile.id,
-          first_name: profile.first_name,
-          last_name: profile.last_name,
-          avatar_url: profile.avatar_url
-        })) || [];
-        
-        setUsers(usersList);
-      } catch (error) {
-        console.error('Error loading default users:', error);
-      }
-      return;
-    }
-
-    setLoading(true);
-    try {
-      console.log(`Searching users with query: "${query}"`);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
-        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-        .neq('id', user.id)
-        .limit(10);
-
-      if (error) {
-        console.error('Error searching users:', error);
-        throw error;
-      }
-
-      console.log(`Found ${data?.length || 0} users matching "${query}":`, data);
-      
-      // Convert to User[] type
-      const usersList: User[] = data?.map(profile => ({
-        id: profile.id,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        avatar_url: profile.avatar_url
-      })) || [];
-      
-      setUsers(usersList);
-    } catch (error) {
-      console.error('Error searching users:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to search users. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [open, searchQuery, fetchUsers]);
 
   const handleStartConversation = async () => {
     if (!selectedUser || !user) {
@@ -176,7 +56,6 @@ export function NewConversationButton() {
       return;
     }
 
-    setLoading(true);
     try {
       console.log("Starting conversation with user:", selectedUser);
       // Get or create conversation
@@ -188,6 +67,11 @@ export function NewConversationButton() {
       setSelectedUser(null);
       setSearchQuery('');
       navigate(`/messages/${conversationId}`);
+      
+      toast({
+        title: 'Success',
+        description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name} started.`,
+      });
     } catch (error) {
       console.error('Error starting conversation:', error);
       toast({
@@ -195,17 +79,14 @@ export function NewConversationButton() {
         description: 'Failed to start conversation. Please try again.',
         variant: 'destructive',
       });
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleSelectUser = (userId: string) => {
     console.log("User selected:", userId);
-    const user = users.find(u => u.id === userId);
+    const user = filteredUsers.find(u => u.id === userId);
     if (user) {
       setSelectedUser(user);
-      setSearchQuery(`${user.first_name || ''} ${user.last_name || ''}`.trim());
     }
   };
 
@@ -238,7 +119,6 @@ export function NewConversationButton() {
                   value={searchQuery}
                   onValueChange={(value) => {
                     setSearchQuery(value);
-                    searchUsers(value);
                   }}
                 />
                 {loading && (
@@ -253,7 +133,7 @@ export function NewConversationButton() {
                       : 'No users found'}
                   </CommandEmpty>
                   <CommandGroup>
-                    {users.map((user) => (
+                    {filteredUsers.map((user) => (
                       <CommandItem
                         key={user.id}
                         value={user.id}

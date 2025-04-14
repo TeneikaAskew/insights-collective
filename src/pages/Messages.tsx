@@ -47,6 +47,10 @@ const Messages = () => {
     
     if (success) {
       setMessageContent('');
+      toast({
+        title: 'Message sent',
+        description: 'Your message has been sent successfully',
+      });
     }
   };
 
