@@ -51,15 +51,41 @@ export function NewConversationButton() {
 
     setLoading(true);
     try {
+      // First, attempt to search with ilike (case-insensitive pattern matching)
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
         .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-        .neq('id', user?.id)
-        .limit(10);
+        .neq('id', user?.id);
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (error) {
+        console.error('Error in first search attempt:', error);
+        throw error;
+      }
+
+      // If no results, try without the filter on the current user
+      // This helps identify if the issue is with the neq filter
+      if (!data || data.length === 0) {
+        console.log('No results found with first query, trying broader search');
+        const { data: allData, error: allError } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url')
+          .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+          .limit(10);
+          
+        if (allError) {
+          console.error('Error in broader search:', allError);
+          throw allError;
+        }
+        
+        // Filter out current user from results client-side
+        const filteredData = allData?.filter(profile => profile.id !== user?.id) || [];
+        console.log('Broader search results:', filteredData);
+        setUsers(filteredData);
+      } else {
+        console.log('Search results:', data);
+        setUsers(data);
+      }
     } catch (error) {
       console.error('Error searching users:', error);
       toast({
@@ -139,7 +165,11 @@ export function NewConversationButton() {
                   </div>
                 )}
                 <CommandList>
-                  <CommandEmpty>No users found</CommandEmpty>
+                  <CommandEmpty>
+                    {searchQuery.length < 2 
+                      ? 'Type at least 2 characters to search' 
+                      : 'No users found'}
+                  </CommandEmpty>
                   <CommandGroup>
                     {users.map((user) => (
                       <CommandItem
