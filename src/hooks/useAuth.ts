@@ -90,7 +90,6 @@ export const useAuthProvider = () => {
       if (event === 'SIGNED_IN') {
         setSession(newSession);
         toast({ title: 'Success', description: 'Logged in successfully' });
-        awaitingRedirectRef.current = true;
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         localStorage.removeItem('redirectAfterLogin');
