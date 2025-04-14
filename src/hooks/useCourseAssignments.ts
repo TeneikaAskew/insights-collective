@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from './use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { isValidUUID } from '@/utils/idUtils';
 
 type CourseAssignment = {
   id: string;
@@ -21,14 +22,33 @@ type CourseAssignment = {
 export function useCourseAssignments(courseId?: string) {
   const [assignments, setAssignments] = useState<CourseAssignment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   
   useEffect(() => {
-    if (!courseId) return;
+    if (!courseId) {
+      setLoading(false);
+      return;
+    }
+    
+    // Validate UUID format
+    if (!isValidUUID(courseId)) {
+      console.error(`Invalid course UUID format: ${courseId}`);
+      setError('Invalid course ID format');
+      setLoading(false);
+      toast({
+        title: 'Error',
+        description: 'Invalid course ID format',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     const fetchAssignments = async () => {
       setLoading(true);
+      setError(null);
+      
       try {
         const { data, error } = await supabase
           .from('course_assignments')
@@ -42,6 +62,7 @@ export function useCourseAssignments(courseId?: string) {
         setAssignments(data || []);
       } catch (error: any) {
         console.error('Error fetching course assignments:', error);
+        setError(error.message || 'Failed to load course instructors');
         toast({
           title: 'Error',
           description: 'Failed to load course instructors',
@@ -56,7 +77,18 @@ export function useCourseAssignments(courseId?: string) {
   }, [courseId, toast]);
   
   const addInstructor = async (userId: string, role: 'instructor' | 'admin' = 'instructor') => {
-    if (!courseId) return;
+    if (!courseId || !userId) return null;
+    
+    // Validate UUID format
+    if (!isValidUUID(courseId) || !isValidUUID(userId)) {
+      console.error(`Invalid UUID format - courseId: ${courseId}, userId: ${userId}`);
+      toast({
+        title: 'Error',
+        description: 'Invalid ID format',
+        variant: 'destructive',
+      });
+      return null;
+    }
     
     try {
       const { data, error } = await supabase
@@ -105,6 +137,19 @@ export function useCourseAssignments(courseId?: string) {
   };
   
   const removeInstructor = async (assignmentId: string) => {
+    if (!assignmentId) return false;
+    
+    // Validate UUID format
+    if (!isValidUUID(assignmentId)) {
+      console.error(`Invalid assignment UUID format: ${assignmentId}`);
+      toast({
+        title: 'Error',
+        description: 'Invalid assignment ID format',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    
     try {
       const { error } = await supabase
         .from('course_assignments')
@@ -138,6 +183,7 @@ export function useCourseAssignments(courseId?: string) {
   return {
     assignments,
     loading,
+    error,
     addInstructor,
     removeInstructor,
     isUserAssigned

@@ -790,6 +790,10 @@ export type Database = {
         Args: { quiz_attempt_id: string }
         Returns: string
       }
+      get_user_id: {
+        Args: { email: string }
+        Returns: string
+      }
     }
     Enums: {
       module_content_type: "text" | "video" | "image"

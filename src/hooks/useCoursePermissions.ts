@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { isValidUUID } from '@/utils/idUtils';
 
 export function useCoursePermissions(courseId?: string) {
   const { user } = useAuth();
@@ -9,6 +10,7 @@ export function useCoursePermissions(courseId?: string) {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isInstructor, setIsInstructor] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     if (!user || !courseId) {
@@ -17,12 +19,30 @@ export function useCoursePermissions(courseId?: string) {
       return;
     }
     
+    // Validate UUID format
+    if (!isValidUUID(courseId)) {
+      console.error(`Invalid course UUID format: ${courseId}`);
+      setError('Invalid course ID format');
+      setCanEdit(false);
+      setLoading(false);
+      return;
+    }
+    
     const checkPermissions = async () => {
       setLoading(true);
+      setError(null);
       
       try {
         // Check if user is admin
-        const isUserAdmin = user.roles?.includes('admin') || false;
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+        
+        if (profileError) throw profileError;
+        
+        const isUserAdmin = profile?.role === 'admin';
         setIsAdmin(isUserAdmin);
         
         if (isUserAdmin) {
@@ -36,11 +56,14 @@ export function useCoursePermissions(courseId?: string) {
           .from('courses')
           .select('instructor_id')
           .eq('id', courseId)
-          .single();
+          .maybeSingle();
         
-        if (courseError) throw courseError;
+        if (courseError) {
+          console.error('Error fetching course:', courseError);
+          // Don't throw, try to continue checking assignments
+        }
         
-        if (course.instructor_id === user.id) {
+        if (course?.instructor_id === user.id) {
           setCanEdit(true);
           setIsInstructor(true);
           setLoading(false);
@@ -59,8 +82,9 @@ export function useCoursePermissions(courseId?: string) {
         const hasAssignment = assignments && assignments.length > 0;
         setIsInstructor(hasAssignment);
         setCanEdit(hasAssignment);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error checking course permissions:', error);
+        setError(error.message || 'Error checking course permissions');
         setCanEdit(false);
       } finally {
         setLoading(false);
@@ -70,5 +94,5 @@ export function useCoursePermissions(courseId?: string) {
     checkPermissions();
   }, [user, courseId]);
   
-  return { canEdit, loading, isAdmin, isInstructor };
+  return { canEdit, loading, isAdmin, isInstructor, error };
 }

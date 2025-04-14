@@ -1,4 +1,6 @@
+
 import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/integrations/supabase/client';
 
 // Local storage keys
 const COURSE_ENROLLMENT_KEY = 'insightsCollective_enrolledCourses';
@@ -6,10 +8,25 @@ const COURSE_WISHLIST_KEY = 'insightsCollective_wishlistedCourses';
 const EVENT_REGISTRATION_KEY = 'insightsCollective_registeredEvents';
 const COURSE_UUID_MAPPING_KEY = 'insightsCollective_courseUuidMapping';
 
+// Validate UUID format
+export const isValidUUID = (uuid: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
 // Get or create persistent UUID mapping
 const getCourseUuidMapping = (): Record<string, string> => {
   const storedMapping = localStorage.getItem(COURSE_UUID_MAPPING_KEY);
-  return storedMapping ? JSON.parse(storedMapping) : {};
+  const mapping = storedMapping ? JSON.parse(storedMapping) : {};
+  
+  // Validate stored UUIDs to ensure they're valid
+  Object.entries(mapping).forEach(([key, value]) => {
+    if (!isValidUUID(value as string)) {
+      delete mapping[key];
+    }
+  });
+  
+  return mapping;
 };
 
 // Save UUID mapping to localStorage
@@ -17,17 +34,45 @@ const saveCourseUuidMapping = (mapping: Record<string, string>): void => {
   localStorage.setItem(COURSE_UUID_MAPPING_KEY, JSON.stringify(mapping));
 };
 
-// Generate a persistent UUID for a mock course ID
+// Generate a persistent UUID for a course ID or use existing real UUID
 export const getMappedCourseUuid = (courseId: string): string => {
+  // If courseId already looks like a UUID, validate it and return it directly
+  if (isValidUUID(courseId)) {
+    return courseId;
+  }
+  
   const mapping = getCourseUuidMapping();
-  console.log(mapping)
   
   // If we already have a UUID for this course ID, return it
-  if (mapping[courseId]) {
+  if (mapping[courseId] && isValidUUID(mapping[courseId])) {
     return mapping[courseId];
   }
   
-  // Otherwise, generate a new UUID, save it, and return it
+  // Check if this is a real course ID from our database
+  const fetchRealCourseId = async (id: string) => {
+    try {
+      const { data } = await supabase
+        .from('courses')
+        .select('id')
+        .eq('id', id)
+        .maybeSingle();
+      
+      if (data?.id) {
+        // If found in database, store mapping and return real ID
+        mapping[courseId] = data.id;
+        saveCourseUuidMapping(mapping);
+        return data.id;
+      }
+    } catch (error) {
+      console.error('Error checking course ID:', error);
+    }
+    return null;
+  };
+  
+  // Try to fetch real course ID, but don't block rendering
+  fetchRealCourseId(courseId);
+  
+  // Meanwhile, generate a new UUID if needed, save it, and return it
   const newUuid = uuidv4();
   mapping[courseId] = newUuid;
   saveCourseUuidMapping(mapping);
@@ -35,15 +80,19 @@ export const getMappedCourseUuid = (courseId: string): string => {
   return newUuid;
 };
 
-// Generate a consistent UUID based on a string ID (keep for backwards compatibility)
+// Generate a consistent UUID based on a string ID with prefix (such as 'event' or 'module')
 export const generatePersistentUUID = (id: string, prefix: string = ''): string => {
-  // For courses, use our new UUID mapping system
+  // If ID already looks like a UUID, validate and return it directly
+  if (isValidUUID(id)) {
+    return id;
+  }
+  
+  // For courses, use our UUID mapping system
   if (prefix === 'course') {
     return getMappedCourseUuid(id);
   }
   
-  // For other types, use the old method
-  // Create a namespace using the prefix to ensure different UUIDs for courses vs events with the same ID
+  // Create a namespace using the prefix to ensure different UUIDs for different entity types
   const namespace = `${prefix}_${id}`;
   
   // Use namespace as a seed to generate a UUID in a deterministic way
@@ -80,14 +129,21 @@ export const generatePersistentUUID = (id: string, prefix: string = ''): string 
   ].join('-') + '-' + uuidv4().substring(14);
 };
 
-// Course enrollment functions
+// Course enrollment functions - now with UUID validation
 export const getEnrolledCourses = (): string[] => {
   const storedData = localStorage.getItem(COURSE_ENROLLMENT_KEY);
-  return storedData ? JSON.parse(storedData) : [];
+  const courses = storedData ? JSON.parse(storedData) : [];
+  // Filter out invalid UUIDs
+  return courses.filter(isValidUUID);
 };
 
 export const addEnrolledCourse = (courseId: string): void => {
+  // Ensure we have a valid UUID
+  if (!courseId) return;
+  
   const courseUUID = generatePersistentUUID(courseId, 'course');
+  if (!isValidUUID(courseUUID)) return;
+  
   const enrolledCourses = getEnrolledCourses();
   
   if (!enrolledCourses.includes(courseUUID)) {
@@ -97,18 +153,28 @@ export const addEnrolledCourse = (courseId: string): void => {
 };
 
 export const isEnrolledInCourse = (courseId: string): boolean => {
+  if (!courseId) return false;
+  
   const courseUUID = generatePersistentUUID(courseId, 'course');
+  if (!isValidUUID(courseUUID)) return false;
+  
   return getEnrolledCourses().includes(courseUUID);
 };
 
-// Course wishlist functions
+// Course wishlist functions - now with UUID validation
 export const getWishlistedCourses = (): string[] => {
   const storedData = localStorage.getItem(COURSE_WISHLIST_KEY);
-  return storedData ? JSON.parse(storedData) : [];
+  const courses = storedData ? JSON.parse(storedData) : [];
+  // Filter out invalid UUIDs
+  return courses.filter(isValidUUID);
 };
 
 export const toggleWishlistedCourse = (courseId: string): boolean => {
+  if (!courseId) return false;
+  
   const courseUUID = generatePersistentUUID(courseId, 'course');
+  if (!isValidUUID(courseUUID)) return false;
+  
   const wishlistedCourses = getWishlistedCourses();
   
   const isWishlisted = wishlistedCourses.includes(courseUUID);
@@ -127,18 +193,28 @@ export const toggleWishlistedCourse = (courseId: string): boolean => {
 };
 
 export const isWishlistedCourse = (courseId: string): boolean => {
+  if (!courseId) return false;
+  
   const courseUUID = generatePersistentUUID(courseId, 'course');
+  if (!isValidUUID(courseUUID)) return false;
+  
   return getWishlistedCourses().includes(courseUUID);
 };
 
-// Event registration functions
+// Event registration functions - now with UUID validation
 export const getRegisteredEvents = (): string[] => {
   const storedData = localStorage.getItem(EVENT_REGISTRATION_KEY);
-  return storedData ? JSON.parse(storedData) : [];
+  const events = storedData ? JSON.parse(storedData) : [];
+  // Filter out invalid UUIDs
+  return events.filter(isValidUUID);
 };
 
 export const registerForEvent = (eventId: string): void => {
+  if (!eventId) return;
+  
   const eventUUID = generatePersistentUUID(eventId, 'event');
+  if (!isValidUUID(eventUUID)) return;
+  
   const registeredEvents = getRegisteredEvents();
   
   if (!registeredEvents.includes(eventUUID)) {
@@ -148,6 +224,10 @@ export const registerForEvent = (eventId: string): void => {
 };
 
 export const isRegisteredForEvent = (eventId: string): boolean => {
+  if (!eventId) return false;
+  
   const eventUUID = generatePersistentUUID(eventId, 'event');
+  if (!isValidUUID(eventUUID)) return false;
+  
   return getRegisteredEvents().includes(eventUUID);
 };

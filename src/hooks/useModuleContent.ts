@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from './use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { isValidUUID } from '@/utils/idUtils';
 
 type ModuleContent = {
   id: string;
@@ -17,13 +18,27 @@ type ModuleContent = {
 export function useModuleContent(moduleId?: string) {
   const [contents, setContents] = useState<ModuleContent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
   useEffect(() => {
-    if (!moduleId) return;
+    if (!moduleId) {
+      setLoading(false);
+      return;
+    }
+    
+    // Validate UUID format
+    if (!isValidUUID(moduleId)) {
+      console.error(`Invalid module UUID format: ${moduleId}`);
+      setError('Invalid module ID format');
+      setLoading(false);
+      return;
+    }
     
     const fetchModuleContent = async () => {
       setLoading(true);
+      setError(null);
+      
       try {
         const { data, error } = await supabase
           .from('module_content')
@@ -35,6 +50,7 @@ export function useModuleContent(moduleId?: string) {
         setContents(data || []);
       } catch (error: any) {
         console.error('Error fetching module content:', error);
+        setError(error.message || 'Failed to load module content');
         toast({
           title: 'Error',
           description: 'Failed to load module content',
@@ -49,6 +65,17 @@ export function useModuleContent(moduleId?: string) {
   }, [moduleId, toast]);
   
   const addContent = async (newContent: Omit<ModuleContent, 'id' | 'created_at' | 'updated_at'>) => {
+    // Validate module_id UUID format
+    if (!newContent.module_id || !isValidUUID(newContent.module_id)) {
+      console.error(`Invalid module UUID format: ${newContent.module_id}`);
+      toast({
+        title: 'Error',
+        description: 'Invalid module ID format',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('module_content')
@@ -78,6 +105,17 @@ export function useModuleContent(moduleId?: string) {
   };
   
   const updateContent = async (id: string, updates: Partial<Omit<ModuleContent, 'id' | 'created_at' | 'updated_at'>>) => {
+    // Validate content id UUID format
+    if (!id || !isValidUUID(id)) {
+      console.error(`Invalid content UUID format: ${id}`);
+      toast({
+        title: 'Error',
+        description: 'Invalid content ID format',
+        variant: 'destructive',
+      });
+      return null;
+    }
+    
     try {
       const { data, error } = await supabase
         .from('module_content')
@@ -108,6 +146,17 @@ export function useModuleContent(moduleId?: string) {
   };
   
   const deleteContent = async (id: string) => {
+    // Validate content id UUID format
+    if (!id || !isValidUUID(id)) {
+      console.error(`Invalid content UUID format: ${id}`);
+      toast({
+        title: 'Error',
+        description: 'Invalid content ID format',
+        variant: 'destructive',
+      });
+      return false;
+    }
+    
     try {
       const { error } = await supabase
         .from('module_content')
@@ -137,22 +186,31 @@ export function useModuleContent(moduleId?: string) {
   
   const reorderContent = async (newOrder: ModuleContent[]) => {
     try {
+      // Ensure all items have valid UUIDs
+      if (newOrder.some(item => !isValidUUID(item.id))) {
+        console.error('Invalid content UUID format in reordering');
+        toast({
+          title: 'Error',
+          description: 'Invalid content ID format',
+          variant: 'destructive',
+        });
+        return false;
+      }
+      
       // Update positions in the database
       const updates = newOrder.map((content, index) => ({
         id: content.id,
         position: index
       }));
       
-      const { error } = await supabase.rpc('update_module_content_positions', { updates });
-      
-      if (error) {
-        // Fallback to individual updates if RPC is not available
-        for (const content of newOrder) {
-          await supabase
-            .from('module_content')
-            .update({ position: newOrder.findIndex(c => c.id === content.id) })
-            .eq('id', content.id);
-        }
+      // Update each item individually since the RPC might not be available
+      for (const content of newOrder) {
+        const { error } = await supabase
+          .from('module_content')
+          .update({ position: newOrder.findIndex(c => c.id === content.id) })
+          .eq('id', content.id);
+          
+        if (error) throw error;
       }
       
       // Update local state
@@ -178,6 +236,7 @@ export function useModuleContent(moduleId?: string) {
   return {
     contents,
     loading,
+    error,
     addContent,
     updateContent,
     deleteContent,
