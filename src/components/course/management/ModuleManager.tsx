@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -76,6 +75,7 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
+  const [moduleContents, setModuleContents] = useState<any[]>([]);
   
   useEffect(() => {
     if (!courseId) return;
@@ -107,6 +107,126 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     fetchModules();
   }, [courseId, toast]);
   
+  useEffect(() => {
+    if (!activeModuleId) {
+      setModuleContents([]);
+      return;
+    }
+    
+    const fetchModuleContents = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('module_content')
+          .select('*')
+          .eq('module_id', activeModuleId)
+          .order('position', { ascending: true });
+        
+        if (error) throw error;
+        setModuleContents(data || []);
+      } catch (error) {
+        console.error('Error fetching module contents:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load module contents',
+          variant: 'destructive',
+        });
+      }
+    };
+    
+    fetchModuleContents();
+  }, [activeModuleId, toast]);
+  
+  const handleAddContent = async (content: any) => {
+    if (!activeModuleId) return null;
+    
+    try {
+      const { data, error } = await supabase
+        .from('module_content')
+        .insert(content)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setModuleContents([...moduleContents, data]);
+      
+      toast({
+        title: 'Success',
+        description: 'Content added successfully',
+      });
+      
+      return data;
+    } catch (error: any) {
+      console.error('Error adding content:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add content',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+  
+  const handleUpdateContent = async (contentId: string, updates: any) => {
+    try {
+      const { data, error } = await supabase
+        .from('module_content')
+        .update(updates)
+        .eq('id', contentId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      setModuleContents(moduleContents.map(content => 
+        content.id === contentId ? data : content
+      ));
+      
+      toast({
+        title: 'Success',
+        description: 'Content updated successfully',
+      });
+      
+      return data;
+    } catch (error: any) {
+      console.error('Error updating content:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update content',
+        variant: 'destructive',
+      });
+      return null;
+    }
+  };
+  
+  const handleDeleteContent = async (contentId: string) => {
+    try {
+      const { error } = await supabase
+        .from('module_content')
+        .delete()
+        .eq('id', contentId);
+      
+      if (error) throw error;
+      
+      setModuleContents(moduleContents.filter(content => content.id !== contentId));
+      
+      toast({
+        title: 'Success',
+        description: 'Content deleted successfully',
+      });
+      
+      return true;
+    } catch (error: any) {
+      console.error('Error deleting content:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete content',
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+  
   const handleAddModule = () => {
     setSelectedModule(null);
     setEditingModule({
@@ -136,7 +256,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
       [name]: name === 'week' ? parseInt(value) || 1 : value
     }));
     
-    // Clear error when field is updated
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -169,7 +288,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     
     try {
       if (selectedModule) {
-        // Update existing module
         const { data, error } = await supabase
           .from('modules')
           .update({
@@ -190,7 +308,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
           description: 'Module updated successfully',
         });
       } else {
-        // Create new module
         const { data, error } = await supabase
           .from('modules')
           .insert({
@@ -375,6 +492,10 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
                               <div className="border-t pt-4">
                                 <ModuleContentEditor 
                                   moduleId={module.id}
+                                  contents={moduleContents}
+                                  onAddContent={handleAddContent}
+                                  onUpdateContent={handleUpdateContent}
+                                  onDeleteContent={handleDeleteContent}
                                   onActivate={() => setActiveModuleId(module.id)}
                                   onDeactivate={() => setActiveModuleId(null)}
                                   isActive={activeModuleId === module.id}
