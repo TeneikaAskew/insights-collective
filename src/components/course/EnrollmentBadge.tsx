@@ -72,7 +72,7 @@ const EnrollmentBadge = ({ courseId, status }: EnrollmentBadgeProps) => {
   };
   
   const handleEdit = () => {
-    navigate(`/courses/${courseId}/materials`);
+    navigate(`/admin/courses/${courseId}/edit`);
   };
   
   const handleManageMaterials = () => {
@@ -96,7 +96,7 @@ const EnrollmentBadge = ({ courseId, status }: EnrollmentBadgeProps) => {
               <>
                 <Button variant="outline" size="sm" onClick={handleEdit}>
                   <Pencil className="h-4 w-4 mr-1" />
-                  Edit
+                  Edit Course
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleManageMaterials}>
                   Manage Materials
