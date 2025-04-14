@@ -14,24 +14,24 @@ serve(async (req) => {
 
   try {
     const { conversationHistory, messageType } = await req.json();
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
 
-    if (!OPENAI_API_KEY) {
-      throw new Error('OpenAI API key not configured');
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ API key not configured');
     }
 
     const systemPrompt = messageType === 'initial' 
       ? "Generate a friendly, professional initial message to start a conversation in an educational context."
       : "Generate a contextually appropriate response based on the conversation history in an educational context.";
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'mixtral-8x7b-32768',
         messages: [
           { role: 'system', content: systemPrompt },
           ...(conversationHistory?.map(msg => ({
