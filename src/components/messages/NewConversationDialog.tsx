@@ -77,9 +77,11 @@ export function NewConversationDialog({ open, setOpen, onCreateConversation }: N
         </Command> */}
 <Command>
   <CommandInput 
-    placeholder="Search user..." 
-    value={searchTerm}
-    onValueChange={setSearchTerm}
+   
+    placeholder="Search by name..."
+    value={searchQuery}
+    onValueChange={setSearchQuery}
+    className="text-sm"
   />
   <CommandEmpty>No user found.</CommandEmpty>
   <CommandGroup>
