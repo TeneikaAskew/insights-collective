@@ -799,7 +799,7 @@ export type Database = {
         Returns: string
       }
       is_conversation_participant: {
-        Args: { conversation_id: string; user_id: string }
+        Args: { conv_id: string; uid: string }
         Returns: boolean
       }
     }

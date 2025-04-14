@@ -49,8 +49,19 @@ export function useConversationList() {
           schema: 'public', 
           table: 'conversations',
         }, 
-        () => {
-          // Refresh conversations when a new one is created
+        (payload) => {
+          console.log('New conversation created:', payload);
+          loadConversations();
+        }
+      )
+      .on('postgres_changes', 
+        {
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'conversations',
+        }, 
+        (payload) => {
+          console.log('Conversation updated:', payload);
           loadConversations();
         }
       )
@@ -60,12 +71,25 @@ export function useConversationList() {
           schema: 'public', 
           table: 'messages',
         }, 
-        () => {
-          // Refresh conversations when a new message is received
+        (payload) => {
+          console.log('New message received:', payload);
           loadConversations();
         }
       )
-      .subscribe();
+      .on('postgres_changes', 
+        {
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'conversation_participants',
+        }, 
+        (payload) => {
+          console.log('New participant added:', payload);
+          loadConversations();
+        }
+      )
+      .subscribe((status) => {
+        console.log('Realtime subscription status:', status);
+      });
       
     return () => {
       supabase.removeChannel(channel);

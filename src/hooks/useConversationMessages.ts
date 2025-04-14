@@ -101,6 +101,7 @@ export function useConversationMessages(conversationId?: string) {
           filter: `conversation_id=eq.${conversationId}`
         }, 
         async (payload) => {
+          console.log('Received new message:', payload);
           try {
             // Fetch the sender profile for the new message
             const { data: senderData, error: senderError } = await supabase
@@ -138,7 +139,9 @@ export function useConversationMessages(conversationId?: string) {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Message real-time subscription status:', status);
+      });
 
     return () => {
       supabase.removeChannel(channel);

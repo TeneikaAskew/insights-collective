@@ -70,8 +70,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
         // Format the timestamp
         let timeAgo = '';
         try {
-          if (conversation.last_message_time) {
-            timeAgo = formatDistanceToNow(new Date(conversation.last_message_time), { addSuffix: true });
+          if (conversation.last_message?.created_at) {
+            timeAgo = formatDistanceToNow(new Date(conversation.last_message.created_at), { addSuffix: true });
           } else if (conversation.updated_at) {
             timeAgo = formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true });
           }
@@ -79,6 +79,11 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
           console.error('Error formatting date:', error);
           timeAgo = 'Recently';
         }
+
+        // Calculate if there are any unread messages
+        const unreadCount = conversation.last_message && 
+                           !conversation.last_message.read && 
+                           conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
 
         return (
           <Link
@@ -127,15 +132,15 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
                       }
                     </p>
                     <p className="text-sm text-gray-600 line-clamp-1">
-                      {conversation.last_message || 'Start a conversation'}
+                      {conversation.last_message?.content || 'Start a conversation'}
                     </p>
                   </div>
                 </div>
                 <div className="flex flex-col items-end">
                   <span className="text-xs text-gray-500">{timeAgo}</span>
-                  {conversation.unread_count > 0 && (
+                  {unreadCount > 0 && (
                     <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5 mt-1">
-                      {conversation.unread_count}
+                      {unreadCount}
                     </span>
                   )}
                 </div>
