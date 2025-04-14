@@ -1,11 +1,10 @@
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { mockService } from '@/lib/mockData';
 import CourseCard from '@/components/common/CourseCard';
 import NotificationItem from '@/components/common/NotificationItem';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +12,7 @@ import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('courses');
   
   useEffect(() => {
     if (!isAuthenticated) {
@@ -59,6 +58,10 @@ const Dashboard = () => {
     });
   };
   
+  const handleMetricClick = (tab: string) => {
+    setActiveTab(tab);
+  };
+  
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -70,7 +73,10 @@ const Dashboard = () => {
         </div>
         
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
+          <Card 
+            className="cursor-pointer hover:bg-accent/50 transition-colors" 
+            onClick={() => handleMetricClick('courses')}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">Enrolled Courses</CardTitle>
             </CardHeader>
@@ -82,7 +88,10 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card 
+            className="cursor-pointer hover:bg-accent/50 transition-colors" 
+            onClick={() => handleMetricClick('courses')}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">In Progress</CardTitle>
             </CardHeader>
@@ -94,7 +103,10 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card 
+            className="cursor-pointer hover:bg-accent/50 transition-colors" 
+            onClick={() => handleMetricClick('notifications')}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">Notifications</CardTitle>
             </CardHeader>
@@ -106,7 +118,10 @@ const Dashboard = () => {
             </CardContent>
           </Card>
           
-          <Card>
+          <Card 
+            className="cursor-pointer hover:bg-accent/50 transition-colors" 
+            onClick={() => handleMetricClick('deadlines')}
+          >
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">Upcoming Deadlines</CardTitle>
             </CardHeader>
@@ -119,7 +134,7 @@ const Dashboard = () => {
           </Card>
         </div>
         
-        <Tabs defaultValue="courses" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="courses">My Courses</TabsTrigger>
             <TabsTrigger value="deadlines">Upcoming Deadlines</TabsTrigger>

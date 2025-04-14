@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import CourseCard from '@/components/common/CourseCard';
@@ -20,20 +19,17 @@ const CourseList = () => {
   const [levelFilter, setLevelFilter] = useState('all');
   const { toast } = useToast();
   
-  // Extract unique categories and levels from courses
   const categories = [...new Set(courses.map(course => course.category))];
   const levels = [...new Set(courses.map(course => course.level))];
   
-  // Fetch courses from Supabase
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        // First try with the instructor join
-        const { data, error } = await supabase
+        let query = supabase
           .from('courses')
           .select(`
             *,
-            instructor:instructor_id(
+            instructor:profiles(
               id,
               first_name,
               last_name,
@@ -43,48 +39,10 @@ const CourseList = () => {
           .eq('published', true)
           .order('created_at', { ascending: false });
           
-        if (error) {
-          console.error('Error fetching courses with instructor join:', error);
-          
-          // If there's a foreign key relationship error, try without the join
-          if (error.code === 'PGRST200' && error.message.includes('instructor_id')) {
-            console.log('Falling back to fetch courses without instructor join');
-            
-            const { data: basicData, error: basicError } = await supabase
-              .from('courses')
-              .select('*')
-              .eq('published', true)
-              .order('created_at', { ascending: false });
-              
-            if (basicError) throw basicError;
-            
-            // Format course data without instructor details
-            const formattedCourses = basicData.map(course => ({
-              ...course,
-              instructor: {
-                id: course.instructor_id || '',
-                name: 'Instructor',
-                email: '',
-                role: 'instructor',
-                avatar: '',
-              },
-              enrollmentCount: 0,
-              modules: [],
-              rating: 4.5,
-              createdAt: course.created_at,
-              updatedAt: course.updated_at,
-              thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
-            }));
-            
-            setCourses(formattedCourses);
-            setLoading(false);
-            return;
-          } else {
-            throw error;
-          }
-        }
+        const { data, error } = await query;
         
-        // Format course data with instructor details if available
+        if (error) throw error;
+        
         const formattedCourses = data.map(course => ({
           ...course,
           instructor: {
@@ -121,7 +79,6 @@ const CourseList = () => {
     fetchCourses();
   }, [toast]);
   
-  // Filter courses based on search query and filters
   const filteredCourses = courses.filter(course => {
     const matchesSearch = 
       course.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
