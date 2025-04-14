@@ -60,67 +60,68 @@ const CourseManageMaterials = () => {
         variant: "destructive"
       });
       navigate(`/courses/${courseId}`);
+      return;
     }
-  }, [permissionsLoading, isInstructor, canEdit, navigate, courseId, toast]);
-  
-  useEffect(() => {
-    const fetchCourse = async () => {
-      if (!courseId) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('courses')
-          .select('*')
-          .eq('id', courseId)
-          .single();
-        
-        if (error) throw error;
-        setCourse(data);
-      } catch (error) {
-        console.error('Error fetching course:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load course details',
-          variant: 'destructive',
-        });
-      }
-    };
     
-    fetchCourse();
-  }, [courseId, toast]);
+    if (!permissionsLoading && (isInstructor || canEdit)) {
+      fetchCourse();
+      fetchModules();
+    }
+  }, [permissionsLoading, isInstructor, canEdit, courseId]);
   
-  useEffect(() => {
-    const fetchModules = async () => {
-      if (!courseId) return;
-      
+  const fetchCourse = async () => {
+    if (!courseId) return;
+    
+    try {
       setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('modules')
-          .select('*')
-          .eq('course_id', courseId)
-          .order('week', { ascending: true });
-        
-        if (error) throw error;
-        setModules(data || []);
-        
-        if (data && data.length > 0 && !selectedModule) {
-          setSelectedModule(data[0]);
-        }
-      } catch (error) {
-        console.error('Error fetching modules:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load modules',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('id', courseId)
+        .single();
+      
+      if (error) throw error;
+      setCourse(data);
+    } catch (error) {
+      console.error('Error fetching course:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load course details',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  const fetchModules = async () => {
+    if (!courseId) return;
     
-    fetchModules();
-  }, [courseId, toast, selectedModule]);
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('modules')
+        .select('*')
+        .eq('course_id', courseId)
+        .order('week', { ascending: true });
+      
+      if (error) throw error;
+      setModules(data || []);
+      
+      if (data && data.length > 0 && !selectedModule) {
+        setSelectedModule(data[0]);
+      }
+    } catch (error) {
+      console.error('Error fetching modules:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load modules',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
   
   useEffect(() => {
     const fetchModuleContents = async () => {

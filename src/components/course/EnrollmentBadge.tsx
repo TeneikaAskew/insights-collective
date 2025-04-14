@@ -72,7 +72,7 @@ const EnrollmentBadge = ({ courseId, status }: EnrollmentBadgeProps) => {
   };
   
   const handleEdit = () => {
-    navigate(`/admin/courses/${courseId}/edit`);
+    navigate(`/courses/${courseId}/materials`);
   };
   
   const handleManageMaterials = () => {
