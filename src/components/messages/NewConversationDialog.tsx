@@ -46,7 +46,7 @@ export function NewConversationDialog({ open, setOpen, onCreateConversation }: N
           <p className="text-sm text-muted-foreground">Find a user to start chatting with.</p>
         </DialogHeader>
 
-        {/* <Command>
+        <Command>
           <CommandInput
             placeholder="Search by name..."
             value={searchQuery}
@@ -75,8 +75,8 @@ export function NewConversationDialog({ open, setOpen, onCreateConversation }: N
               ))}
             </ScrollArea>
           </CommandList>
-        </Command> */}
-<Command>
+        </Command>
+{/* <Command>
   <CommandInput 
    
     placeholder="Search by name..."
@@ -112,7 +112,7 @@ export function NewConversationDialog({ open, setOpen, onCreateConversation }: N
         </CommandItem>
       ))}
   </CommandGroup>
-</Command>
+</Command> */}
         <DialogFooter className="pt-4">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button onClick={handleCreate} disabled={recipients.length === 0}>Start Conversation</Button>
