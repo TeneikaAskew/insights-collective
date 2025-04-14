@@ -10,7 +10,6 @@ import {
   DialogFooter 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -44,31 +43,31 @@ export function NewConversationButton() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Load recent contacts and default users
+  // Load initial users when dialog opens
   useEffect(() => {
     const loadInitialUsers = async () => {
-      if (!user) return;
+      if (!user || !open) return;
       
       setLoading(true);
       try {
-        // Just get some default users
-        const { data: defaultUsers } = await supabase
+        // Simplified query to just get basic user profiles
+        const { data, error } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, avatar_url')
           .neq('id', user.id)
-          .limit(5);
+          .limit(10);
 
-        // Convert defaultUsers to User[] type
-        const defaultUsersList: User[] = defaultUsers?.map(user => ({
-          id: user.id,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          avatar_url: user.avatar_url
-        })) || [];
+        if (error) throw error;
         
-        setUsers(defaultUsersList);
+        console.log("Loaded initial users:", data);
+        setUsers(data || []);
       } catch (error) {
         console.error('Error loading initial users:', error);
+        toast({
+          title: 'Error',
+          description: 'Could not load user list. Please try again.',
+          variant: 'destructive',
+        });
       } finally {
         setLoading(false);
       }
@@ -77,49 +76,29 @@ export function NewConversationButton() {
     if (open) {
       loadInitialUsers();
     }
-  }, [open, user]);
+  }, [open, user, toast]);
 
   const searchUsers = async (query: string) => {
-    if (!query.trim() || query.length < 2) {
-      // Load default users when search is cleared
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
-        .neq('id', user?.id)
-        .limit(5);
-      
-      // Convert to User[] type
-      const usersList: User[] = data?.map(profile => ({
-        id: profile.id,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        avatar_url: profile.avatar_url
-      })) || [];
-      
-      setUsers(usersList);
-      return;
-    }
-
+    if (!user) return;
+    
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let usersQuery = supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
-        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-        .neq('id', user?.id)
-        .limit(10);
+        .neq('id', user.id);
+      
+      // Only filter by name if query has content
+      if (query && query.length >= 2) {
+        usersQuery = usersQuery.or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
+      }
+      
+      const { data, error } = await usersQuery.limit(10);
 
       if (error) throw error;
       
-      // Convert to User[] type
-      const usersList: User[] = data?.map(profile => ({
-        id: profile.id,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        avatar_url: profile.avatar_url
-      })) || [];
-      
-      setUsers(usersList);
+      console.log("Search results:", data);
+      setUsers(data || []);
     } catch (error) {
       console.error('Error searching users:', error);
       toast({
@@ -144,8 +123,16 @@ export function NewConversationButton() {
 
     setLoading(true);
     try {
+      console.log("Starting conversation with:", selectedUser);
+      
       // Get or create conversation
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
+      
+      if (!conversationId) {
+        throw new Error("Failed to create conversation");
+      }
+      
+      console.log("Created/found conversation:", conversationId);
       
       // Close dialog and navigate to the conversation
       setOpen(false);
@@ -166,6 +153,7 @@ export function NewConversationButton() {
 
   const handleUserSelect = (userId: string) => {
     const user = users.find(u => u.id === userId);
+    console.log("Selected user:", user);
     setSelectedUser(user || null);
   };
 
@@ -208,9 +196,7 @@ export function NewConversationButton() {
                 )}
                 <CommandList>
                   <CommandEmpty>
-                    {searchQuery.length < 2 
-                      ? 'Type at least 2 characters to search' 
-                      : 'No users found'}
+                    {users.length === 0 && !loading ? 'No users found' : 'Type to search'}
                   </CommandEmpty>
                   <CommandGroup>
                     {users.map((user) => (

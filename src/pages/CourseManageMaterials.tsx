@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -316,7 +315,7 @@ const CourseManageMaterials = () => {
                 ) : (
                   <ModuleContentEditor
                     moduleId={selectedModule}
-                    contents={moduleContents}
+                    contentItems={moduleContents}
                     onAddContent={handleAddContent}
                     onUpdateContent={handleUpdateContent}
                     onDeleteContent={handleDeleteContent}
