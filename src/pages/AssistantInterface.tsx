@@ -11,6 +11,22 @@ import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
 
+
+useEffect(() => {
+  const fullPath = window.location.pathname + window.location.search;
+  const alreadyStored = localStorage.getItem('redirectAfterLogin');
+
+  if (!alreadyStored && !['/login', '/register'].includes(location.pathname)) {
+    localStorage.setItem('redirectAfterLogin', fullPath);
+    storeRedirectPath?.(fullPath);
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('LoginWall: stored redirectAfterLogin path:', fullPath);
+    }
+  }
+}, [location.pathname, storeRedirectPath]);
+
+
 const AssistantInterface = () => {
   const { assistantId } = useParams();
   const { isAuthenticated, storeRedirectPath } = useAuth();
