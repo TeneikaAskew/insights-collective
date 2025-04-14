@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Dialog, 
@@ -31,6 +31,7 @@ type User = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  last_message_at?: string;
 };
 
 export function NewConversationButton() {
@@ -43,49 +44,90 @@ export function NewConversationButton() {
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Load recent contacts and default users
+  useEffect(() => {
+    const loadInitialUsers = async () => {
+      if (!user) return;
+      
+      setLoading(true);
+      try {
+        // First get recent contacts from messages
+        const { data: recentContacts } = await supabase
+          .from('messages')
+          .select(`
+            sender:sender_id(
+              id,
+              first_name,
+              last_name,
+              avatar_url
+            ),
+            recipient:conversation_participants!inner(
+              user_id,
+              profile:profiles!inner(
+                id,
+                first_name,
+                last_name,
+                avatar_url
+              )
+            )
+          `)
+          .eq('sender_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        // Then get some default users if we don't have enough recent contacts
+        const { data: defaultUsers } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url')
+          .neq('id', user.id)
+          .limit(5);
+
+        // Combine and deduplicate users
+        const recentUsers = recentContacts?.map(msg => {
+          // Get the other participant (not the current user)
+          const otherParticipant = msg.recipient.find(p => p.user_id !== user.id);
+          return otherParticipant?.profile;
+        }).filter(Boolean) || [];
+
+        const allUsers = [...recentUsers, ...(defaultUsers || [])];
+        const uniqueUsers = Array.from(new Map(allUsers.map(user => [user.id, user])).values());
+        
+        setUsers(uniqueUsers.slice(0, 5));
+      } catch (error) {
+        console.error('Error loading initial users:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (open) {
+      loadInitialUsers();
+    }
+  }, [open, user]);
+
   const searchUsers = async (query: string) => {
     if (!query.trim() || query.length < 2) {
-      setUsers([]);
+      // Load default/recent users when search is cleared
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .neq('id', user?.id)
+        .limit(5);
+      setUsers(data || []);
       return;
     }
 
     setLoading(true);
     try {
-      // First, attempt to search with ilike (case-insensitive pattern matching)
       const { data, error } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
         .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-        .neq('id', user?.id);
+        .neq('id', user?.id)
+        .limit(10);
 
-      if (error) {
-        console.error('Error in first search attempt:', error);
-        throw error;
-      }
-
-      // If no results, try without the filter on the current user
-      // This helps identify if the issue is with the neq filter
-      if (!data || data.length === 0) {
-        console.log('No results found with first query, trying broader search');
-        const { data: allData, error: allError } = await supabase
-          .from('profiles')
-          .select('id, first_name, last_name, avatar_url')
-          .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
-          .limit(10);
-          
-        if (allError) {
-          console.error('Error in broader search:', allError);
-          throw allError;
-        }
-        
-        // Filter out current user from results client-side
-        const filteredData = allData?.filter(profile => profile.id !== user?.id) || [];
-        console.log('Broader search results:', filteredData);
-        setUsers(filteredData);
-      } else {
-        console.log('Search results:', data);
-        setUsers(data);
-      }
+      if (error) throw error;
+      setUsers(data || []);
     } catch (error) {
       console.error('Error searching users:', error);
       toast({
