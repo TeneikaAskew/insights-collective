@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,23 +21,24 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { useAdminUsers } from '@/hooks/useAdminUsers';
 
 interface UserData {
   id: string;
   email: string;
-  name: string;
-  avatar?: string;
+  name?: string;
+  first_name?: string;
+  last_name?: string;
+  avatar_url?: string;
   role?: string;
   roles?: string[];
-  enrolledCourses?: string[];
+  providers?: string[];
   created_at?: string;
+  last_sign_in_at?: string;
 }
 
 const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [users, setUsers] = useState<UserData[]>([]);
-  const [loading, setLoading] = useState(true);
   const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
@@ -52,86 +54,18 @@ const AdminUsers = () => {
   const [activeTab, setActiveTab] = useState('all');
   const { toast } = useToast();
   
+  const { 
+    users, 
+    loading, 
+    fetchUsers, 
+    updateUserRole, 
+    deleteUser: deleteUserFn, 
+    resetUserPassword 
+  } = useAdminUsers();
+  
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        
-        const { data: authData, error: authError } = await supabase.auth.admin.listUsers();
-        
-        if (authError) {
-          throw authError;
-        }
-        
-        const { data: profiles, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*');
-        
-        if (profilesError) {
-          throw profilesError;
-        }
-        
-        const { data: enrollments, error: enrollmentsError } = await supabase
-          .from('enrollments')
-          .select('user_id, course_id');
-        
-        if (enrollmentsError) {
-          throw enrollmentsError;
-        }
-        
-        const enrollmentsByUser: Record<string, string[]> = {};
-        enrollments?.forEach(enrollment => {
-          if (!enrollmentsByUser[enrollment.user_id]) {
-            enrollmentsByUser[enrollment.user_id] = [];
-          }
-          enrollmentsByUser[enrollment.user_id].push(enrollment.course_id);
-        });
-        
-        const userData = authData.users.map(user => {
-          const profile = profiles?.find(p => p.id === user.id);
-          
-          let roles = ['student'];
-          if (profile?.roles) {
-            roles = Array.isArray(profile.roles) 
-              ? profile.roles 
-              : profile.roles.split(',').map(r => r.trim());
-            
-            if (!roles.includes('student')) {
-              roles.push('student');
-            }
-          }
-          
-          const highestRole = getHighestRole(roles);
-          
-          return {
-            id: user.id,
-            email: user.email || '',
-            name: profile 
-              ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() 
-              : user.user_metadata?.name || user.email?.split('@')[0] || 'Unknown',
-            avatar: profile?.avatar_url || user.user_metadata?.avatar_url,
-            role: highestRole,
-            roles: roles,
-            enrolledCourses: enrollmentsByUser[user.id] || [],
-            created_at: user.created_at
-          };
-        });
-        
-        setUsers(userData);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load users. Please try again.',
-          variant: 'destructive'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
     fetchUsers();
-  }, [toast]);
+  }, []);
   
   const getHighestRole = (roles: string[] = ['student']): string => {
     if (roles.includes('admin')) return 'admin';
@@ -151,8 +85,9 @@ const AdminUsers = () => {
   };
   
   const filteredUsers = users.filter(user => {
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     const matchesSearch = 
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
       user.email.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (activeTab === 'all') return matchesSearch;
@@ -184,18 +119,15 @@ const AdminUsers = () => {
     if (!selectedUser) return;
     
     try {
-      setLoading(true);
+      const result = await deleteUserFn(selectedUser.id);
       
-      const { error } = await supabase.auth.admin.deleteUser(selectedUser.id);
+      if (!result.success) throw new Error(result.error);
       
-      if (error) throw error;
-      
-      setUsers(users.filter(user => user.id !== selectedUser.id));
       setIsDeleteUserOpen(false);
       
       toast({
         title: 'User Deleted',
-        description: `${selectedUser.name} has been removed from the system.`,
+        description: `User has been removed from the system.`,
       });
     } catch (error: any) {
       console.error('Error deleting user:', error);
@@ -204,60 +136,18 @@ const AdminUsers = () => {
         description: error.message || 'Failed to delete user.',
         variant: 'destructive'
       });
-    } finally {
-      setLoading(false);
     }
   };
   
   const handleAddUser = async () => {
     try {
-      setLoading(true);
+      setIsAddUserOpen(false);
       
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: newUser.email,
-        password: Math.random().toString(36).substring(2, 10),
-        email_confirm: true,
-        user_metadata: {
-          name: newUser.name
-        }
+      toast({
+        title: 'Add User Not Implemented',
+        description: `Creating users through the admin panel isn't supported. Users must register through the sign-up page.`,
+        variant: 'destructive'
       });
-      
-      if (error) throw error;
-      
-      if (data.user) {
-        const [firstName, ...lastNameParts] = newUser.name.split(' ');
-        const lastName = lastNameParts.join(' ');
-        
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: data.user.id,
-            first_name: firstName,
-            last_name: lastName,
-            roles: newUser.roles
-          });
-        
-        if (profileError) throw profileError;
-        
-        const newUserData: UserData = {
-          id: data.user.id,
-          email: data.user.email || newUser.email,
-          name: newUser.name,
-          roles: newUser.roles,
-          role: getHighestRole(newUser.roles),
-          enrolledCourses: [],
-          created_at: new Date().toISOString()
-        };
-        
-        setUsers([...users, newUserData]);
-        setNewUser({ name: '', email: '', roles: ['student'] });
-        setIsAddUserOpen(false);
-        
-        toast({
-          title: 'User Added',
-          description: `${newUser.name} has been added to the system.`,
-        });
-      }
     } catch (error: any) {
       console.error('Error adding user:', error);
       toast({
@@ -265,8 +155,6 @@ const AdminUsers = () => {
         description: error.message || 'Failed to add user.',
         variant: 'destructive'
       });
-    } finally {
-      setLoading(false);
     }
   };
   
@@ -274,44 +162,20 @@ const AdminUsers = () => {
     if (!selectedUser) return;
     
     try {
-      setLoading(true);
-      
       if (!updatedRoles.includes('student')) {
         updatedRoles.push('student');
       }
       
-      const { error } = await supabase
-        .from('profiles')
-        .update({ roles: updatedRoles })
-        .eq('id', selectedUser.id);
+      const result = await updateUserRole(selectedUser.id, updatedRoles);
       
-      if (error) throw error;
-      
-      setUsers(users.map(user => {
-        if (user.id === selectedUser.id) {
-          return {
-            ...user,
-            roles: updatedRoles,
-            role: getHighestRole(updatedRoles)
-          };
-        }
-        return user;
-      }));
+      if (!result.success) throw new Error(result.error);
       
       setIsEditUserOpen(false);
       
       toast({
         title: 'User Updated',
-        description: `Roles for ${selectedUser.name} have been updated.`,
+        description: `Roles have been updated.`,
       });
-      
-      if (selectedUser.email === 'teneika.askew@gmail.com' && !updatedRoles.includes('admin')) {
-        toast({
-          title: 'Warning',
-          description: 'Teneika Askew should have admin role. Please add it back.',
-          variant: 'destructive'
-        });
-      }
     } catch (error: any) {
       console.error('Error updating user roles:', error);
       toast({
@@ -319,8 +183,6 @@ const AdminUsers = () => {
         description: error.message || 'Failed to update user roles.',
         variant: 'destructive'
       });
-    } finally {
-      setLoading(false);
     }
   };
   
@@ -328,13 +190,9 @@ const AdminUsers = () => {
     if (!selectedUser) return;
     
     try {
-      setLoading(true);
+      const result = await resetUserPassword(selectedUser.email);
       
-      const { error } = await supabase.auth.resetPasswordForEmail(selectedUser.email, {
-        redirectTo: `${window.location.origin}/reset-password`
-      });
-      
-      if (error) throw error;
+      if (!result.success) throw new Error(result.error);
       
       setIsResetPasswordOpen(false);
       
@@ -349,16 +207,43 @@ const AdminUsers = () => {
         description: error.message || 'Failed to send password reset email.',
         variant: 'destructive'
       });
-    } finally {
-      setLoading(false);
     }
   };
   
   const handleExportUsers = () => {
-    toast({
-      title: 'Export Started',
-      description: 'User data is being prepared for export.',
-    });
+    try {
+      // Create CSV string
+      const headers = "ID,Name,Email,Role,Created At,Last Sign In\n";
+      const csvData = filteredUsers.map(user => {
+        const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+        const createdAt = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A';
+        const lastSignIn = user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'N/A';
+        return `"${user.id}","${name}","${user.email}","${user.role}","${createdAt}","${lastSignIn}"`;
+      }).join('\n');
+      
+      const csvContent = `data:text/csv;charset=utf-8,${headers}${csvData}`;
+      const encodedUri = encodeURI(csvContent);
+      
+      // Create a link and trigger download
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      link.setAttribute("download", "users.csv");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: 'Export Completed',
+        description: 'User data has been exported to CSV.',
+      });
+    } catch (error) {
+      console.error('Error exporting users:', error);
+      toast({
+        title: 'Export Failed',
+        description: 'Failed to export user data.',
+        variant: 'destructive'
+      });
+    }
   };
   
   const handleTabChange = (value: string) => {
@@ -391,52 +276,37 @@ const AdminUsers = () => {
       };
     });
   };
-  
+
+  // Ensure admin for specific users like Teneika
   useEffect(() => {
-    const setAdminForTeneika = async () => {
-      try {
-        const teneikaUser = users.find(user => user.email === 'teneika.askew@gmail.com');
+    const checkAndUpdateAdmin = async () => {
+      // Find Teneika's account or any other email that should always be admin
+      const teneikaUser = users.find(user => 
+        user.email === 'teneika.askew@gmail.com' && 
+        (!user.roles?.includes('admin'))
+      );
+      
+      if (teneikaUser) {
+        console.log('Ensuring admin role for Teneika Askew');
         
-        if (teneikaUser && (!teneikaUser.roles?.includes('admin'))) {
-          console.log('Setting admin role for Teneika Askew');
-          
-          const updatedRoles = [...(teneikaUser.roles || []), 'admin'];
-          if (!updatedRoles.includes('student')) {
-            updatedRoles.push('student');
-          }
-          
-          const { error } = await supabase
-            .from('profiles')
-            .update({ roles: updatedRoles })
-            .eq('id', teneikaUser.id);
-          
-          if (error) throw error;
-          
-          setUsers(users.map(user => {
-            if (user.id === teneikaUser.id) {
-              return {
-                ...user,
-                roles: updatedRoles,
-                role: 'admin'
-              };
-            }
-            return user;
-          }));
-          
-          toast({
-            title: 'Admin Role Added',
-            description: 'Teneika Askew has been granted admin privileges.',
-          });
+        const updatedRoles = [...(teneikaUser.roles || []), 'admin'];
+        if (!updatedRoles.includes('student')) {
+          updatedRoles.push('student');
         }
-      } catch (error) {
-        console.error('Error setting admin role:', error);
+        
+        await updateUserRole(teneikaUser.id, updatedRoles);
+        
+        toast({
+          title: 'Admin Role Added',
+          description: 'Teneika Askew has been granted admin privileges.',
+        });
       }
     };
     
-    if (users.length > 0) {
-      setAdminForTeneika();
+    if (users.length > 0 && !loading) {
+      checkAndUpdateAdmin();
     }
-  }, [users, toast]);
+  }, [users, loading]);
   
   return (
     <AppLayout>
@@ -447,10 +317,6 @@ const AdminUsers = () => {
             <Button variant="outline" size="sm" onClick={handleExportUsers}>
               <Download className="h-4 w-4 mr-2" />
               Export
-            </Button>
-            <Button size="sm" onClick={() => setIsAddUserOpen(true)}>
-              <UserPlus className="h-4 w-4 mr-2" />
-              Add User
             </Button>
           </div>
         </div>
@@ -504,69 +370,86 @@ const AdminUsers = () => {
                         <TableHead>Name</TableHead>
                         <TableHead>Email</TableHead>
                         <TableHead>Role</TableHead>
-                        <TableHead>Enrolled Courses</TableHead>
+                        <TableHead>Joined</TableHead>
+                        <TableHead>Last Login</TableHead>
+                        <TableHead>Provider</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredUsers.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
+                          <TableCell colSpan={8} className="h-24 text-center">
                             No users found.
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredUsers.map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell>
-                              <Checkbox />
-                            </TableCell>
-                            <TableCell className="font-medium">{user.name}</TableCell>
-                            <TableCell>{user.email}</TableCell>
-                            <TableCell>
-                              <Badge variant={getRoleBadgeVariant(user.role || 'student')}>
-                                {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || 'Student'}
-                              </Badge>
-                              {user.roles && user.roles.length > 1 && (
-                                <span className="ml-2 text-xs text-muted-foreground">
-                                  +{user.roles.length - 1} more
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell>{user.enrolledCourses?.length || 0}</TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="sm">
-                                    <MoreHorizontal className="h-4 w-4" />
-                                    <span className="sr-only">Actions</span>
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => handleOpenUserDetails(user)}>
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    View Details
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>
-                                    <PenSquare className="mr-2 h-4 w-4" />
-                                    Edit Roles
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>
-                                    <KeyRound className="mr-2 h-4 w-4" />
-                                    Reset Password
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem 
-                                    className="text-destructive focus:text-destructive"
-                                    onClick={() => handleOpenDeleteUser(user)}
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Delete User
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))
+                        filteredUsers.map((user) => {
+                          const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                          return (
+                            <TableRow key={user.id}>
+                              <TableCell>
+                                <Checkbox />
+                              </TableCell>
+                              <TableCell className="font-medium">{name || 'Unnamed User'}</TableCell>
+                              <TableCell>{user.email}</TableCell>
+                              <TableCell>
+                                <Badge variant={getRoleBadgeVariant(user.role || 'student')}>
+                                  {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || 'Student'}
+                                </Badge>
+                                {user.roles && user.roles.length > 1 && (
+                                  <span className="ml-2 text-xs text-muted-foreground">
+                                    +{user.roles.length - 1} more
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>
+                                {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
+                              </TableCell>
+                              <TableCell>
+                                {user.last_sign_in_at 
+                                  ? new Date(user.last_sign_in_at).toLocaleDateString() 
+                                  : 'Never'}
+                              </TableCell>
+                              <TableCell>
+                                {user.providers && user.providers.length > 0
+                                  ? user.providers.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')
+                                  : 'Email'}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="sm">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                      <span className="sr-only">Actions</span>
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleOpenUserDetails(user)}>
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>
+                                      <PenSquare className="mr-2 h-4 w-4" />
+                                      Edit Roles
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>
+                                      <KeyRound className="mr-2 h-4 w-4" />
+                                      Reset Password
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem 
+                                      className="text-destructive focus:text-destructive"
+                                      onClick={() => handleOpenDeleteUser(user)}
+                                    >
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete User
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
                       )}
                     </TableBody>
                   </Table>
@@ -636,15 +519,8 @@ const AdminUsers = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddUserOpen(false)} disabled={loading}>Cancel</Button>
-            <Button onClick={handleAddUser} disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
-                </>
-              ) : 'Add User'}
-            </Button>
+            <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddUser}>Add User</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -659,7 +535,7 @@ const AdminUsers = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Name</h4>
-                  <p>{selectedUser.name}</p>
+                  <p>{`${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || 'Not provided'}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Email</h4>
@@ -682,12 +558,24 @@ const AdminUsers = () => {
                   </div>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Enrolled Courses</h4>
-                  <p>{selectedUser.enrolledCourses?.length || 0}</p>
+                  <h4 className="text-sm font-medium text-muted-foreground">Provider</h4>
+                  <p>
+                    {selectedUser.providers && selectedUser.providers.length > 0
+                      ? selectedUser.providers.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')
+                      : 'Email'}
+                  </p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Joined</h4>
                   <p>{selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'Unknown'}</p>
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-muted-foreground">Last Sign-In</h4>
+                  <p>
+                    {selectedUser.last_sign_in_at 
+                      ? new Date(selectedUser.last_sign_in_at).toLocaleDateString() 
+                      : 'Never'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -703,7 +591,7 @@ const AdminUsers = () => {
           <DialogHeader>
             <DialogTitle>Edit User Roles</DialogTitle>
             <DialogDescription>
-              Manage the roles assigned to {selectedUser?.name}.
+              Manage the roles assigned to {selectedUser ? `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || selectedUser.email : ''}.
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
@@ -742,15 +630,8 @@ const AdminUsers = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditUserOpen(false)} disabled={loading}>Cancel</Button>
-            <Button onClick={handleUpdateUserRoles} disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Updating...
-                </>
-              ) : 'Update Roles'}
-            </Button>
+            <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateUserRoles}>Update Roles</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -771,15 +652,8 @@ const AdminUsers = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsResetPasswordOpen(false)} disabled={loading}>Cancel</Button>
-            <Button onClick={handleResetPassword} disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : 'Send Reset Link'}
-            </Button>
+            <Button variant="outline" onClick={() => setIsResetPasswordOpen(false)}>Cancel</Button>
+            <Button onClick={handleResetPassword}>Send Reset Link</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -794,18 +668,12 @@ const AdminUsers = () => {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleDeleteUser} 
               className="bg-destructive text-destructive-foreground"
-              disabled={loading}
             >
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : 'Delete'}
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
