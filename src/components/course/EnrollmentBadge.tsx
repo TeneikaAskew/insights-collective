@@ -11,9 +11,10 @@ import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 
 interface EnrollmentBadgeProps {
   courseId: string;
+  status?: string;
 }
 
-const EnrollmentBadge = ({ courseId }: EnrollmentBadgeProps) => {
+const EnrollmentBadge = ({ courseId, status }: EnrollmentBadgeProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isEnrolled, setIsEnrolled] = useState(false);
@@ -74,6 +75,10 @@ const EnrollmentBadge = ({ courseId }: EnrollmentBadgeProps) => {
     navigate(`/admin/courses/${courseId}/edit`);
   };
   
+  const handleManageMaterials = () => {
+    navigate(`/courses/${courseId}/materials`);
+  };
+  
   if (!isEnrolled && !isInstructor) {
     return null;
   }
@@ -88,10 +93,15 @@ const EnrollmentBadge = ({ courseId }: EnrollmentBadgeProps) => {
               View Course
             </Button>
             {canEdit && (
-              <Button variant="outline" size="sm" onClick={handleEdit}>
-                <Pencil className="h-4 w-4 mr-1" />
-                Edit
-              </Button>
+              <>
+                <Button variant="outline" size="sm" onClick={handleEdit}>
+                  <Pencil className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleManageMaterials}>
+                  Manage Materials
+                </Button>
+              </>
             )}
           </div>
         </>

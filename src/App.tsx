@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -52,6 +51,7 @@ import AdminGuard from "./components/admin/AdminGuard";
 // Import course management components
 import CourseManagementDashboard from '@/components/course/management/CourseManagementDashboard';
 import CourseEditor from '@/components/course/management/CourseEditor';
+import CourseManageMaterials from './pages/CourseManageMaterials';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -129,6 +129,12 @@ function App() {
                     <Route path="/admin/blog" element={<AdminGuard><AdminBlogPosts /></AdminGuard>} />
                     <Route path="/admin/blog/create" element={<AdminGuard><CreateBlogPost /></AdminGuard>} />
                     <Route path="/admin/page-visibility" element={<AdminGuard><AdminPageVisibility /></AdminGuard>} />
+                    
+                    <Route path="/courses/:courseId/materials" element={
+                      <PageVisibilityGuard>
+                        <CourseManageMaterials />
+                      </PageVisibilityGuard>
+                    } />
                     
                     <Route path="*" element={<NotFound />} />
                   </Routes>
