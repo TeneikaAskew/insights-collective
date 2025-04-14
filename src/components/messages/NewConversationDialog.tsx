@@ -17,14 +17,23 @@ type NewConversationDialogProps = {
 export function NewConversationDialog({ open, setOpen, onCreateConversation }: NewConversationDialogProps) {
   const [recipients, setRecipients] = useState<User[]>([])
   const { users: availableUsers, searchQuery, setSearchQuery, loading } = useUsers()
-  
-  // Reset state when dialog opens/closes
+
+  // Debugging log to track state
+  useEffect(() => {
+    if (open) {
+      console.log("Available users:", availableUsers);
+      console.log("Loading state:", loading);
+      console.log("Search query:", searchQuery);
+    }
+  }, [availableUsers, loading, searchQuery, open]);
+
+  // Reset state when dialog closes
   useEffect(() => {
     if (!open) {
       setRecipients([])
       setSearchQuery("")
     }
-  }, [open, setSearchQuery])
+  }, [open, setSearchQuery]);
 
   const toggleRecipient = (user: User) => {
     setRecipients(prev => {
@@ -55,55 +64,71 @@ export function NewConversationDialog({ open, setOpen, onCreateConversation }: N
           <p className="text-sm text-muted-foreground">Find a user to start chatting with.</p>
         </DialogHeader>
 
-        <div className="flex flex-wrap gap-2 mb-2">
-          {recipients.map(recipient => (
-            <div key={recipient.id} className="flex items-center gap-1 bg-muted px-2 py-1 rounded">
-              <span>{recipient.first_name} {recipient.last_name}</span>
-              <button 
-                onClick={() => toggleRecipient(recipient)}
-                className="ml-1 hover:text-destructive"
-              >
-                ×
-              </button>
-            </div>
-          ))}
+        {recipients.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {recipients.map(recipient => (
+              <div key={recipient.id} className="flex items-center gap-1 bg-muted px-2 py-1 rounded">
+                <span>{recipient.first_name} {recipient.last_name}</span>
+                <button 
+                  onClick={() => toggleRecipient(recipient)}
+                  className="ml-1 hover:text-destructive"
+                  type="button"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="relative">
+          <Command className="rounded-lg border shadow-md overflow-visible">
+            <CommandInput
+              placeholder="Search by name..."
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+              className="text-sm"
+            />
+            <CommandList>
+              {loading ? (
+                <div className="p-2 text-center text-sm text-muted-foreground">Loading...</div>
+              ) : availableUsers.length === 0 ? (
+                <div className="p-2 text-center text-sm text-muted-foreground">No users found</div>
+              ) : (
+                <ScrollArea className="max-h-[250px]">
+                  {availableUsers.map((user) => (
+                    <CommandItem
+                      key={user.id}
+                      onSelect={() => toggleRecipient(user)}
+                      className={cn(
+                        "cursor-pointer", 
+                        isSelected(user) ? "bg-muted" : ""
+                      )}
+                    >
+                      <div className="flex items-center gap-2 w-full">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage src={user.avatar_url} alt={`${user.first_name} ${user.last_name}`} />
+                          <AvatarFallback>{user.first_name?.[0]}{user.last_name?.[0]}</AvatarFallback>
+                        </Avatar>
+                        <span>{user.first_name} {user.last_name}</span>
+                      </div>
+                    </CommandItem>
+                  ))}
+                </ScrollArea>
+              )}
+            </CommandList>
+          </Command>
         </div>
 
-        <Command className="rounded-lg border shadow-md">
-          <CommandInput
-            placeholder="Search by name..."
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-            className="text-sm"
-          />
-          <CommandList>
-            <CommandEmpty>No users found</CommandEmpty>
-            {loading && <div className="p-2 text-muted-foreground text-sm">Loading...</div>}
-            <ScrollArea className="max-h-[250px] overflow-auto">
-              {!loading && availableUsers.map((user) => (
-                <CommandItem
-                  key={user.id}
-                  value={`${user.first_name} ${user.last_name}`}
-                  onSelect={() => toggleRecipient(user)}
-                  className={cn(
-                    "cursor-pointer flex items-center gap-2 px-4 py-2", 
-                    isSelected(user) ? "bg-muted" : ""
-                  )}
-                >
-                  <Avatar className="h-6 w-6 flex-shrink-0">
-                    <AvatarImage src={user.avatar_url} />
-                    <AvatarFallback>{user.first_name?.[0]}{user.last_name?.[0]}</AvatarFallback>
-                  </Avatar>
-                  <span>{user.first_name} {user.last_name}</span>
-                </CommandItem>
-              ))}
-            </ScrollArea>
-          </CommandList>
-        </Command>
-
         <DialogFooter className="pt-4">
-          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreate} disabled={recipients.length === 0}>
+          <Button variant="outline" onClick={() => setOpen(false)} type="button">
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCreate} 
+            disabled={recipients.length === 0}
+            type="button"
+          >
             Start Conversation
           </Button>
         </DialogFooter>
