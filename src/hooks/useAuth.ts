@@ -23,9 +23,7 @@ export const useAuthProvider = () => {
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
     
     if (
-      !alreadyStored && // ✅ Only store if nothing is already there
-      path &&
-      !['/login', '/register', '/'].includes(path)
+      !alreadyStored && path && !['/login', '/register', '/'].includes(path)
     ) {
       localStorage.setItem('redirectAfterLogin', path);
       if (process.env.NODE_ENV === 'development') {
@@ -33,6 +31,17 @@ export const useAuthProvider = () => {
       }
     }
   }, []);
+
+//   const storeRedirectPath = useCallback((path: string) => {
+//   const existing = localStorage.getItem('redirectAfterLogin');
+//   if (!existing && path && !['/login', '/register', '/'].includes(path)) {
+//     localStorage.setItem('redirectAfterLogin', path);
+//     if (process.env.NODE_ENV === 'development') {
+//       console.log('Stored redirect path:', path);
+//     }
+//   }
+// }, []);
+
 
   const handleRedirectAfterLogin = useCallback(() => {
     if (redirectInProgressRef.current) return;

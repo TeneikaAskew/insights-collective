@@ -19,15 +19,35 @@ const Login = () => {
   
   // Extract redirect path from various sources
   const query = new URLSearchParams(location.search);
-  const redirectParam = query.get('redirect');
-  const fromState = location.state?.from?.pathname;
-  const storedPath = localStorage.getItem('redirectAfterLogin');
+  // Get the current full path including query
+  const fullCurrentPath = window.location.pathname + window.location.search;
+
+  // const redirectParam = query.get('redirect');
+  // const fromState = location.state?.from?.pathname;
+  // const storedPath = localStorage.getItem('redirectAfterLogin');
   
   
-  // Determine the redirect destination based on priority
-  // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
-  const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
-  const encodedRedirect = encodeURIComponent(redirectDestination);
+  // // Determine the redirect destination based on priority
+  // // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
+  // const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
+  // const encodedRedirect = encodeURIComponent(redirectDestination);
+
+  useEffect(() => {
+    const alreadyStored = localStorage.getItem('redirectAfterLogin');
+    const current = window.location.pathname + window.location.search;
+  
+    console.log('Login page: Checking redirect path:', {
+      alreadyStored,
+      current
+    });
+  
+    if (!alreadyStored && !['/login', '/register'].includes(current)) {
+      localStorage.setItem('redirectAfterLogin', current);
+      storeRedirectPath(current); // context method, optional
+      console.log('Login page: stored redirect path:', current);
+    }
+  }, [storeRedirectPath]);
+
 
   
   // Store redirect path on component mount
