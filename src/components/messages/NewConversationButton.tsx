@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -32,6 +31,13 @@ type User = {
   last_name: string | null;
   avatar_url: string | null;
   last_message_at?: string;
+};
+
+type RecipientProfile = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
 };
 
 export function NewConversationButton() {
@@ -93,11 +99,13 @@ export function NewConversationButton() {
             
             otherParticipants.forEach(participant => {
               if (participant.profile) {
+                // Ensure we're accessing the profile object correctly
+                const profile = participant.profile as RecipientProfile;
                 recentUsers.push({
-                  id: participant.profile.id,
-                  first_name: participant.profile.first_name,
-                  last_name: participant.profile.last_name,
-                  avatar_url: participant.profile.avatar_url
+                  id: profile.id,
+                  first_name: profile.first_name,
+                  last_name: profile.last_name,
+                  avatar_url: profile.avatar_url
                 });
               }
             });
