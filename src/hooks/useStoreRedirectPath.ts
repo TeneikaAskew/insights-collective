@@ -20,7 +20,7 @@ export const useStoreRedirectPath = () => {
     //   if (storeRedirectPath) {
     //     storeRedirectPath(fullPath);
     //   }
-     if (!stored && !['/login', '/register'].includes(location.pathname)) {
+     if (!alreadyStored  && !['/login', '/register'].includes(location.pathname)) {
       localStorage.setItem('redirectAfterLogin', fullPath);
       storeRedirectPath?.(fullPath);
       
