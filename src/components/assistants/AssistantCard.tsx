@@ -5,8 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
-
 
 interface AssistantCardProps {
   assistant: Assistant;

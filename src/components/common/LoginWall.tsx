@@ -17,7 +17,10 @@ interface LoginWallProps {
 
 const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: LoginWallProps) => {
   const location = useLocation();
-
+  
+  // Use the hook to store redirect path (will be a no-op if already stored by AppLayout)
+  useStoreRedirectPath();
+  
   // Create login URL with redirect parameter 
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   
