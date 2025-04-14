@@ -19,14 +19,31 @@ export const useAuthProvider = () => {
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
+  // const storeRedirectPath = useCallback((path: string) => {
+  //   if (path && !['/login', '/register', '/'].includes(path)) {
+  //     localStorage.setItem('redirectAfterLogin', path);
+  //     if (process.env.NODE_ENV === 'development') {
+  //       console.log('Stored redirect path:', path);
+  //     }
+  //   }
+  // }, []);
+
+
   const storeRedirectPath = useCallback((path: string) => {
-    if (path && !['/login', '/register', '/'].includes(path)) {
+  const alreadyStored = localStorage.getItem('redirectAfterLogin');
+  
+    if (
+      !alreadyStored && // ✅ Only store if nothing is already there
+      path &&
+      !['/login', '/register', '/'].includes(path)
+    ) {
       localStorage.setItem('redirectAfterLogin', path);
       if (process.env.NODE_ENV === 'development') {
         console.log('Stored redirect path:', path);
       }
     }
   }, []);
+
 
   const handleRedirectAfterLogin = useCallback(() => {
     if (redirectInProgressRef.current) return;
