@@ -46,6 +46,10 @@ export const useAuthProvider = () => {
 
       let redirectTo = '/dashboard';
 
+      if (redirectTo === location.pathname) {
+        redirectTo = '/dashboard';
+      }    
+
       if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
         redirectTo = redirectParam;
       } else if (fromPath && !['/login', '/register'].includes(fromPath)) {
