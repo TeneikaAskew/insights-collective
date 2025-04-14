@@ -22,7 +22,7 @@ type PageVisibilityContextType = {
 const PageVisibilityContext = createContext<PageVisibilityContextType | undefined>(undefined);
 
 export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user } = useAuth(); // This hook must be used inside AuthProvider
   const [pageVisibility, setPageVisibility] = useState<PageVisibility[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -50,6 +50,10 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     if (user) {
       fetchPageVisibility();
+    } else {
+      // Handle case when user is not authenticated
+      setIsLoading(false);
+      setPageVisibility([]);
     }
   }, [user]);
 
