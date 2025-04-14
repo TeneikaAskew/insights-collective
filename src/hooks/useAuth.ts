@@ -18,6 +18,7 @@ export const useAuthProvider = () => {
   const awaitingRedirectRef = useRef(false);
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
+  console.log("EnrichedUser: ", enrichedUser)
   
   const isAuthenticated = !!enrichedUser;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
@@ -80,6 +81,10 @@ export const useAuthProvider = () => {
       }, 100);
     }
   }, [navigate, location, enrichedUser, toast]);
+  console.log('redirectParam', redirectParam);
+  console.log('fromPath', fromPath);
+  console.log('storedRedirect', storedRedirect);
+
 
   useEffect(() => {
     let isMounted = true;
@@ -89,6 +94,8 @@ export const useAuthProvider = () => {
 
       if (event === 'SIGNED_IN') {
         setSession(newSession);
+        awaitingRedirectRef.current = true;
+
         toast({ title: 'Success', description: 'Logged in successfully' });
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
@@ -114,6 +121,14 @@ export const useAuthProvider = () => {
       data.subscription?.unsubscribe();
     };
   }, [toast]);
+
+  useEffect(() => {
+  if (awaitingRedirectRef.current && isAuthenticated && !loading) {
+    handleRedirectAfterLogin();
+    awaitingRedirectRef.current = false;
+  }
+}, [isAuthenticated, loading, handleRedirectAfterLogin]);
+
 
   const login = useCallback(async (email: string, password: string) => {
     try {
