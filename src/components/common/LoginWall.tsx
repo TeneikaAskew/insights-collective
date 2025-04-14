@@ -19,25 +19,25 @@ const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: Log
   const { storeRedirectPath } = useAuth();
   
   // Create login URL with redirect parameter 
-  const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+  const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   
   // Store the current path for redirect after login
   useEffect(() => {
     // Only store non-auth pages as redirect paths
     if (location.pathname !== '/login' && location.pathname !== '/register') {
-      // Store full path including query params in localStorage
-      localStorage.setItem('redirectAfterLogin', location.pathname + location.search);
+      // Store path in localStorage (primary method)
+      localStorage.setItem('redirectAfterLogin', location.pathname);
       
       // Also use the context method as a backup
       if (storeRedirectPath) {
-        storeRedirectPath(location.pathname + location.search);
+        storeRedirectPath(location.pathname);
       }
       
       if (process.env.NODE_ENV === "development") {
-        console.log('LoginWall: stored redirect path:', location.pathname + location.search);
+        console.log('LoginWall: stored redirect path:', location.pathname);
       }
     }
-  }, [location.pathname, location.search, storeRedirectPath]);
+  }, [location.pathname, storeRedirectPath]);
   
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">
