@@ -17,15 +17,21 @@ const Login = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Extract redirect path from query parameters
+  // Extract redirect path from various sources
   const query = new URLSearchParams(location.search);
-  const redirectParam = query.get('redirect');
-  const fromState = location.state?.from?.pathname;
-  const storedPath = localStorage.getItem('redirectAfterLogin');
+  // Get the current full path including query
+  const fullCurrentPath = window.location.pathname + window.location.search;
+
+  // const redirectParam = query.get('redirect');
+  // const fromState = location.state?.from?.pathname;
+  // const storedPath = localStorage.getItem('redirectAfterLogin');
   
-  // Determine the redirect destination based on priority
-  const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
   
+  // // Determine the redirect destination based on priority
+  // // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
+  // const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
+  // const encodedRedirect = encodeURIComponent(redirectDestination);
+
   useEffect(() => {
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
     const current = window.location.pathname + window.location.search;
@@ -41,34 +47,36 @@ const Login = () => {
       console.log('Login page: stored redirect path:', current);
     }
   }, [storeRedirectPath]);
+
+
   
-  // Store redirect path on component mount
-  useEffect(() => {
-    console.log(location, 'Login page: Checking redirect paths. Options:', {
-      fromState,
-      redirectParam,
-      storedPath,
-      currentPath: location.pathname
-    });
+  // // Store redirect path on component mount
+  // useEffect(() => {
+  //   console.log(location, 'Login page: Checking redirect paths. Options:', {
+  //     fromState,
+  //     redirectParam,
+  //     storedPath,
+  //     currentPath: location.pathname
+  //   });
     
-    if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
-      // Use context method to store redirect path
-      storeRedirectPath(redirectDestination);
-      console.log('Login page: stored redirect path:', redirectDestination);
-    }
-  }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname, storedPath]);
+  //   if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
+  //     // Use context method to store redirect path
+  //     storeRedirectPath(redirectDestination);
+  //     console.log('Login page: stored redirect path:', redirectDestination);
+  //   }
+  // }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname]);
 
   // Redirect authenticated users
-  useEffect(() => {
-    if (isAuthenticated) {
-      console.log('Login page: User authenticated, redirecting to:', redirectDestination);
-      navigate(redirectDestination, { replace: true });
-      // Only clear localStorage path if not an admin route (preserves admin redirects)
-      if (redirectDestination && !redirectDestination.startsWith('/admin')) {
-        localStorage.removeItem('redirectAfterLogin');
-      }
-    }
-  }, [isAuthenticated, navigate, redirectDestination]);
+  // useEffect(() => {
+  //   if (isAuthenticated) {
+  //     console.log('Login page: User authenticated, redirecting to:', redirectDestination);
+  //     navigate(redirectDestination, { replace: true });
+  //     // Only clear localStorage path if not an admin route (preserves admin redirects)
+  //     if (redirectDestination && !redirectDestination.startsWith('/admin')) {
+  //       localStorage.removeItem('redirectAfterLogin');
+  //     }
+  //   }
+  // }, [isAuthenticated, navigate, redirectDestination]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
