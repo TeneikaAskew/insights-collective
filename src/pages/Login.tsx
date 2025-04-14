@@ -22,6 +22,9 @@ const Login = () => {
   const redirectParam = query.get('redirect');
   const fromState = location.state?.from?.pathname;
   const storedPath = localStorage.getItem('redirectAfterLogin');
+   const location = useLocation();
+  const { storeRedirectPath } = useAuth();
+  console.log(location)
   
   // Determine the redirect destination based on priority
   // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
