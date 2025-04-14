@@ -22,7 +22,7 @@ const Login = () => {
   // Get the current full path including query
   const fullCurrentPath = window.location.pathname + window.location.search;
 
-  // const redirectParam = query.get('redirect');
+
   // const fromState = location.state?.from?.pathname;
   // const storedPath = localStorage.getItem('redirectAfterLogin');
   
@@ -46,6 +46,7 @@ const Login = () => {
   }, [storeRedirectPath]);
 
   // // Determine the redirect destination based on priority
+  const redirectParam = query.get('redirect');
   // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
   const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
   const encodedRedirect = encodeURIComponent(redirectDestination);
