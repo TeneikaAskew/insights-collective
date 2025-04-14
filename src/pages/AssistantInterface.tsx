@@ -11,14 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
 
-
-import { useStoreRedirectPath } from '@/hooks/useAuth';
-
-const AssistantsPage = () => {
-  useStoreRedirectPath(); // 🔐 stores path on load (if not yet stored)
-};
-
-
 const AssistantInterface = () => {
   const { assistantId } = useParams();
   const { isAuthenticated, storeRedirectPath } = useAuth();
