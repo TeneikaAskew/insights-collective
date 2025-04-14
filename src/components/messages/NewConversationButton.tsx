@@ -10,6 +10,7 @@ import {
   DialogFooter 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +32,14 @@ type User = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
+  last_message_at?: string;
+};
+
+type RecipientProfile = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
 };
 
 export function NewConversationButton() {
@@ -43,31 +52,31 @@ export function NewConversationButton() {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Load initial users when dialog opens
+  // Load recent contacts and default users
   useEffect(() => {
     const loadInitialUsers = async () => {
-      if (!user || !open) return;
+      if (!user) return;
       
       setLoading(true);
       try {
-        // Simplified query to just get basic user profiles
-        const { data, error } = await supabase
+        // Just get some default users
+        const { data: defaultUsers } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, avatar_url')
           .neq('id', user.id)
-          .limit(10);
+          .limit(5);
 
-        if (error) throw error;
+        // Convert defaultUsers to User[] type
+        const defaultUsersList: User[] = defaultUsers?.map(user => ({
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          avatar_url: user.avatar_url
+        })) || [];
         
-        console.log("Loaded initial users:", data);
-        setUsers(data || []);
+        setUsers(defaultUsersList);
       } catch (error) {
         console.error('Error loading initial users:', error);
-        toast({
-          title: 'Error',
-          description: 'Could not load user list. Please try again.',
-          variant: 'destructive',
-        });
       } finally {
         setLoading(false);
       }
@@ -76,29 +85,49 @@ export function NewConversationButton() {
     if (open) {
       loadInitialUsers();
     }
-  }, [open, user, toast]);
+  }, [open, user]);
 
   const searchUsers = async (query: string) => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      let usersQuery = supabase
+    if (!query.trim() || query.length < 2) {
+      // Load default users when search is cleared
+      const { data } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
-        .neq('id', user.id);
+        .neq('id', user?.id)
+        .limit(5);
       
-      // Only filter by name if query has content
-      if (query && query.length >= 2) {
-        usersQuery = usersQuery.or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
-      }
+      // Convert to User[] type
+      const usersList: User[] = data?.map(profile => ({
+        id: profile.id,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        avatar_url: profile.avatar_url
+      })) || [];
       
-      const { data, error } = await usersQuery.limit(10);
+      setUsers(usersList);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, first_name, last_name, avatar_url')
+        .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`)
+        .neq('id', user?.id)
+        .limit(10);
 
       if (error) throw error;
       
-      console.log("Search results:", data);
-      setUsers(data || []);
+      // Convert to User[] type
+      const usersList: User[] = data?.map(profile => ({
+        id: profile.id,
+        first_name: profile.first_name,
+        last_name: profile.last_name,
+        avatar_url: profile.avatar_url
+      })) || [];
+      
+      setUsers(usersList);
     } catch (error) {
       console.error('Error searching users:', error);
       toast({
@@ -123,16 +152,8 @@ export function NewConversationButton() {
 
     setLoading(true);
     try {
-      console.log("Starting conversation with:", selectedUser);
-      
       // Get or create conversation
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
-      
-      if (!conversationId) {
-        throw new Error("Failed to create conversation");
-      }
-      
-      console.log("Created/found conversation:", conversationId);
       
       // Close dialog and navigate to the conversation
       setOpen(false);
@@ -149,12 +170,6 @@ export function NewConversationButton() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleUserSelect = (userId: string) => {
-    const user = users.find(u => u.id === userId);
-    console.log("Selected user:", user);
-    setSelectedUser(user || null);
   };
 
   return (
@@ -196,15 +211,19 @@ export function NewConversationButton() {
                 )}
                 <CommandList>
                   <CommandEmpty>
-                    {users.length === 0 && !loading ? 'No users found' : 'Type to search'}
+                    {searchQuery.length < 2 
+                      ? 'Type at least 2 characters to search' 
+                      : 'No users found'}
                   </CommandEmpty>
                   <CommandGroup>
                     {users.map((user) => (
                       <CommandItem
                         key={user.id}
                         value={user.id}
-                        onSelect={() => handleUserSelect(user.id)}
-                        className={`cursor-pointer ${selectedUser?.id === user.id ? 'bg-amber-100' : ''}`}
+                        onSelect={() => {
+                          setSelectedUser(user);
+                          setSearchQuery(`${user.first_name} ${user.last_name}`);
+                        }}
                       >
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
