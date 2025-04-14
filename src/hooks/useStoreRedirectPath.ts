@@ -39,6 +39,7 @@ export const useStoreRedirectPath = () => {
       let href = '';
       if (anchor && anchor.href) {
         href = anchor.href;
+        console.log(href, " - button clicked")
       } else if (button && button.dataset.href) {
         href = button.dataset.href;
       } else {
