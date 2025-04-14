@@ -33,8 +33,8 @@ export const useAuthProvider = () => {
     redirectInProgressRef.current = true;
 
     try {
-      // const redirectParam = new URLSearchParams(location.search).get('redirect');
-      const redirectParam = new URLSearchParams(window.location.search).get('redirect');
+      const redirectParam = new URLSearchParams(location.search).get('redirect');
+      // const redirectParam = new URLSearchParams(window.location.search).get('redirect');
 
       const fromPath = location.state?.from?.pathname;
       const storedRedirect = localStorage.getItem('redirectAfterLogin');
