@@ -26,7 +26,8 @@ export const useAuthProvider = () => {
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
     
     if (
-      !alreadyStored && path && !['/login', '/register', '/'].includes(path)
+      // !alreadyStored && path && !['/login', '/register', '/'].includes(path)
+       path &&  !['/login', '/register', '/'].includes(path) &&  alreadyStored !== path
     ) {
       localStorage.setItem('redirectAfterLogin', path);
       if (process.env.NODE_ENV === 'development') {
