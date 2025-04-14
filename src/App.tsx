@@ -53,14 +53,6 @@ import AdminGuard from "./components/admin/AdminGuard";
 import CourseManagementDashboard from '@/components/course/management/CourseManagementDashboard';
 import CourseEditor from '@/components/course/management/CourseEditor';
 
-//Import Router
-import AuthCallback from '@/pages/AuthCallback';
-import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
-
-
-import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
-
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -71,8 +63,6 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  
-  useStoreRedirectPath();
   return (
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
@@ -139,8 +129,6 @@ function App() {
                     <Route path="/admin/blog" element={<AdminGuard><AdminBlogPosts /></AdminGuard>} />
                     <Route path="/admin/blog/create" element={<AdminGuard><CreateBlogPost /></AdminGuard>} />
                     <Route path="/admin/page-visibility" element={<AdminGuard><AdminPageVisibility /></AdminGuard>} />
-                    <Route path="/auth/callback" element={<AuthCallback />} />
-
                     
                     <Route path="*" element={<NotFound />} />
                   </Routes>

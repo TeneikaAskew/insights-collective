@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -18,17 +19,13 @@ export const useAuthProvider = () => {
   const awaitingRedirectRef = useRef(false);
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
-  console.log("EnrichedUser: ", enrichedUser)
-  
-  const isAuthenticated = !!enrichedUser;
-  const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
+  // Store redirect path in localStorage
   const storeRedirectPath = useCallback((path: string) => {
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
     
     if (
-      // !alreadyStored && path && !['/login', '/register', '/'].includes(path)
-       path &&  !['/login', '/register', '/'].includes(path) &&  alreadyStored !== path
+      !alreadyStored && path && !['/login', '/register', '/'].includes(path)
     ) {
       localStorage.setItem('redirectAfterLogin', path);
       if (process.env.NODE_ENV === 'development') {
@@ -37,31 +34,25 @@ export const useAuthProvider = () => {
     }
   }, []);
 
+  // Centralized redirect handler after login
   const handleRedirectAfterLogin = useCallback(() => {
     if (redirectInProgressRef.current) return;
     redirectInProgressRef.current = true;
 
     try {
       const redirectParam = new URLSearchParams(location.search).get('redirect');
-      // const fromPath = location.state?.from?.pathname;
-      const fromPath = localStorage.getItem('redirectAfterLogin')
+      const fromPath = location.state?.from?.pathname;
       const storedRedirect = localStorage.getItem('redirectAfterLogin');
-      console.log('redirectParam', redirectParam);
-      console.log('fromPath', fromPath);
-      console.log('storedRedirect', storedRedirect);
 
-      // let redirectTo = '/dashboard';
-      let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
-      console.log("useAuth redirectTo: ", redirectTo)
+      let redirectTo = '/dashboard';
 
-
-      // if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
-      //   redirectTo = redirectParam;
-      // } else if (fromPath && !['/login', '/register'].includes(fromPath)) {
-      //   redirectTo = fromPath;
-      // } else if (storedRedirect && !['/login', '/register'].includes(storedRedirect)) {
-      //   redirectTo = storedRedirect;
-      // }
+      if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
+        redirectTo = redirectParam;
+      } else if (fromPath && !['/login', '/register'].includes(fromPath)) {
+        redirectTo = fromPath;
+      } else if (storedRedirect && !['/login', '/register'].includes(storedRedirect)) {
+        redirectTo = storedRedirect;
+      }
 
       if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
         toast({
@@ -78,8 +69,6 @@ export const useAuthProvider = () => {
         console.log('Redirecting to:', redirectTo);
       }
 
-      
-
       navigate(redirectTo, { replace: true });
     } finally {
       setTimeout(() => {
@@ -87,8 +76,19 @@ export const useAuthProvider = () => {
       }, 100);
     }
   }, [navigate, location, enrichedUser, toast]);
-  
 
+  // Handle automatic redirect after login 
+  useEffect(() => {
+    // If user is authenticated and we're not already redirecting
+    if (isAuthenticated && !loading && !redirectInProgressRef.current) {
+      const storedRedirect = localStorage.getItem('redirectAfterLogin');
+      // Check if we're on login page or have a stored redirect
+      if ((location.pathname === '/login' || location.pathname === '/register') || 
+          (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register')) {
+        handleRedirectAfterLogin();
+      }
+    }
+  }, [isAuthenticated, loading, location.pathname]);
 
   useEffect(() => {
     let isMounted = true;
@@ -98,9 +98,8 @@ export const useAuthProvider = () => {
 
       if (event === 'SIGNED_IN') {
         setSession(newSession);
-        awaitingRedirectRef.current = true;
-
         toast({ title: 'Success', description: 'Logged in successfully' });
+        awaitingRedirectRef.current = true;
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         localStorage.removeItem('redirectAfterLogin');
@@ -125,14 +124,6 @@ export const useAuthProvider = () => {
       data.subscription?.unsubscribe();
     };
   }, [toast]);
-
-  useEffect(() => {
-  if (awaitingRedirectRef.current && isAuthenticated && !loading) {
-    handleRedirectAfterLogin();
-    awaitingRedirectRef.current = false;
-  }
-}, [isAuthenticated, loading, handleRedirectAfterLogin]);
-
 
   const login = useCallback(async (email: string, password: string) => {
     try {
@@ -159,9 +150,7 @@ export const useAuthProvider = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(localStorage.getItem('redirectAfterLogin') || '/dashboard')}`
-          redirectTo: `${window.location.origin}/auth/callback`,
-
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(localStorage.getItem('redirectAfterLogin') || '/dashboard')}`
         }
       });
       if (error) throw error;
@@ -206,6 +195,9 @@ export const useAuthProvider = () => {
     setSession(null);
     navigate('/');
   }, [navigate]);
+
+  const isAuthenticated = !!enrichedUser;
+  const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
   return {
     session,
