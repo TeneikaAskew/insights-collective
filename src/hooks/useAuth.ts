@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -23,11 +24,14 @@ export const useAuthProvider = () => {
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
   const storeRedirectPath = useCallback((path: string) => {
+    // Fix: Remove reference to undefined 'alreadyStored' variable
+    const storedPath = localStorage.getItem('redirectAfterLogin');
+    
     if (path && !['/login', '/register', '/'].includes(path)) {
       localStorage.setItem('redirectAfterLogin', path);
       console.log('[storeRedirectPath] Stored redirect path:', path);
     } else {
-      console.log('[storeRedirectPath] Skipped storing path:', { path, alreadyStored });
+      console.log('[storeRedirectPath] Skipped storing path:', { path, storedPath });
     }
   }, []);
 

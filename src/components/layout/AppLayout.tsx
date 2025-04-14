@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
@@ -9,8 +10,8 @@ type AppLayoutProps = {
 };
 
 const AppLayout = ({ children }: AppLayoutProps) => {
-  // Use the authenticated navigation hook instead
-  const { navigateAuthenticated } = useAuthenticatedNavigation();
+  // Fix: Use the correct property name from the hook
+  const { navigateWithAuth } = useAuthenticatedNavigation();
   
   return (
     <SidebarProvider>
