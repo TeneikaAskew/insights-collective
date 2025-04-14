@@ -14,27 +14,17 @@ interface AssistantCardProps {
 
 export const AssistantCard = ({ assistant, featured = false, onLaunch }: AssistantCardProps) => {
   const IconComponent = assistant.icon.component;
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-  const { toast } = useToast();
-  
+  // const { isAuthenticated } = useAuth();
+  // const navigate = useNavigate();
+  const { navigateWithAuth } = useAuthenticatedNavigation();
   const handleLaunch = () => {
-
-    // First, always store the target path regardless of authentication status
     const targetPath = `/assistant/${assistant.id}`;
-    localStorage.setItem('redirectAfterLogin', targetPath);
-    console.log('[AssistantCard] Stored redirect to assistant:', targetPath);
     
-    if (!isAuthenticated) {
-      // Redirect to login if not authenticated
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to use our AI assistants",
-        variant: "default",
-      });
-      navigate('/login');
-      return;
-    }
+    navigateWithAuth(targetPath, {
+      requireAuth: true,
+      message: "Please log in to use our AI assistants",
+      title: "Authentication Required"
+    });
     
     if (onLaunch) {
       onLaunch(assistant);
