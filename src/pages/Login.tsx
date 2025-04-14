@@ -27,10 +27,7 @@ const Login = () => {
   // const storedPath = localStorage.getItem('redirectAfterLogin');
   
   
-  // // Determine the redirect destination based on priority
-  // // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
-  // const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
-  // const encodedRedirect = encodeURIComponent(redirectDestination);
+
 
   useEffect(() => {
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
@@ -48,23 +45,26 @@ const Login = () => {
     }
   }, [storeRedirectPath]);
 
-
+  // // Determine the redirect destination based on priority
+  // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
+  const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
+  const encodedRedirect = encodeURIComponent(redirectDestination);
   
-  // // Store redirect path on component mount
-  // useEffect(() => {
-  //   console.log(location, 'Login page: Checking redirect paths. Options:', {
-  //     fromState,
-  //     redirectParam,
-  //     storedPath,
-  //     currentPath: location.pathname
-  //   });
+  // Store redirect path on component mount
+  useEffect(() => {
+    console.log(location, 'Login page: Checking redirect paths. Options:', {
+      fromState,
+      redirectParam,
+      storedPath,
+      currentPath: location.pathname
+    });
     
-  //   if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
-  //     // Use context method to store redirect path
-  //     storeRedirectPath(redirectDestination);
-  //     console.log('Login page: stored redirect path:', redirectDestination);
-  //   }
-  // }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname]);
+    if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
+      // Use context method to store redirect path
+      storeRedirectPath(redirectDestination);
+      console.log('Login page: stored redirect path:', redirectDestination);
+    }
+  }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname]);
 
   // Redirect authenticated users
   // useEffect(() => {
