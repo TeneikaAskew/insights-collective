@@ -1,17 +1,12 @@
-
 import React from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileUp } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
 
 const ResumeLoginWall = () => {
   // Get current path for redirect after login
   const location = useLocation();
-  
-  // Use the hook to store redirect path
-  useStoreRedirectPath();
   
   // Create login URL with redirect parameter
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
