@@ -50,13 +50,13 @@ export const useAuthProvider = () => {
       console.log("useAuth redirectTo: ", redirectTo)
 
 
-      if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
-        redirectTo = redirectParam;
-      } else if (fromPath && !['/login', '/register'].includes(fromPath)) {
-        redirectTo = fromPath;
-      } else if (storedRedirect && !['/login', '/register'].includes(storedRedirect)) {
-        redirectTo = storedRedirect;
-      }
+      // if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
+      //   redirectTo = redirectParam;
+      // } else if (fromPath && !['/login', '/register'].includes(fromPath)) {
+      //   redirectTo = fromPath;
+      // } else if (storedRedirect && !['/login', '/register'].includes(storedRedirect)) {
+      //   redirectTo = storedRedirect;
+      // }
 
       if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
         toast({
