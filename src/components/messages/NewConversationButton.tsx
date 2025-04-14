@@ -32,14 +32,6 @@ type User = {
   first_name: string | null;
   last_name: string | null;
   avatar_url: string | null;
-  last_message_at?: string;
-};
-
-type RecipientProfile = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
 };
 
 export function NewConversationButton() {
@@ -172,6 +164,11 @@ export function NewConversationButton() {
     }
   };
 
+  const handleUserSelect = (userId: string) => {
+    const user = users.find(u => u.id === userId);
+    setSelectedUser(user || null);
+  };
+
   return (
     <>
       <Button 
@@ -220,10 +217,8 @@ export function NewConversationButton() {
                       <CommandItem
                         key={user.id}
                         value={user.id}
-                        onSelect={() => {
-                          setSelectedUser(user);
-                          setSearchQuery(`${user.first_name} ${user.last_name}`);
-                        }}
+                        onSelect={() => handleUserSelect(user.id)}
+                        className={`cursor-pointer ${selectedUser?.id === user.id ? 'bg-amber-100' : ''}`}
                       >
                         <div className="flex items-center gap-2">
                           <Avatar className="h-8 w-8">
