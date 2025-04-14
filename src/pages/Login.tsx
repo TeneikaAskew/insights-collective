@@ -22,7 +22,7 @@ const Login = () => {
   const redirectParam = query.get('redirect');
   const fromState = location.state?.from?.pathname;
   const storedPath = localStorage.getItem('redirectAfterLogin');
-  console.log(location)
+  
   
   // Determine the redirect destination based on priority
   // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
@@ -32,7 +32,7 @@ const Login = () => {
   
   // Store redirect path on component mount
   useEffect(() => {
-    console.log('Login page: Checking redirect paths. Options:', {
+    console.log(location, 'Login page: Checking redirect paths. Options:', {
       fromState,
       redirectParam,
       storedPath,
