@@ -12,7 +12,7 @@ import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const { login, googleSignIn, githubSignIn, twitterSignIn, isAuthenticated, storeRedirectPath } = useAuth();
+  const { login, googleSignIn, githubSignIn, twitterSignIn, isAuthenticated, storeRedirectPath, handleRedirectAfterLogin } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,40 +23,44 @@ const Login = () => {
   const fromState = location.state?.from?.pathname;
   const storedPath = localStorage.getItem('redirectAfterLogin');
   
-  
   // Determine the redirect destination based on priority
-  // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
-  const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
-  const encodedRedirect = encodeURIComponent(redirectDestination);
-
+  const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
   
   // Store redirect path on component mount
   useEffect(() => {
-    console.log(location, 'Login page: Checking redirect paths. Options:', {
-      fromState,
-      redirectParam,
-      storedPath,
-      currentPath: location.pathname
-    });
+    if (process.env.NODE_ENV === "development") {
+      console.log('Login page: Checking redirect paths. Options:', {
+        fromState,
+        redirectParam,
+        storedPath,
+        currentPath: location.pathname,
+        fullPath: location.pathname + location.search
+      });
+    }
     
     if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
+      // Store full path including query params in localStorage for use after login
+      localStorage.setItem('redirectAfterLogin', redirectDestination);
+      
       // Use context method to store redirect path
       storeRedirectPath(redirectDestination);
-      console.log('Login page: stored redirect path:', redirectDestination);
+      
+      if (process.env.NODE_ENV === "development") {
+        console.log('Login page: stored redirect path:', redirectDestination);
+      }
     }
-  }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname]);
-
+  }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname, location.search]);
+  
   // Redirect authenticated users
-  // useEffect(() => {
-  //   if (isAuthenticated) {
-  //     console.log('Login page: User authenticated, redirecting to:', redirectDestination);
-  //     navigate(redirectDestination, { replace: true });
-  //     // Only clear localStorage path if not an admin route (preserves admin redirects)
-  //     if (redirectDestination && !redirectDestination.startsWith('/admin')) {
-  //       localStorage.removeItem('redirectAfterLogin');
-  //     }
-  //   }
-  // }, [isAuthenticated, navigate, redirectDestination]);
+  useEffect(() => {
+    if (isAuthenticated) {
+      if (process.env.NODE_ENV === "development") {
+        console.log('Login page: User authenticated, redirecting using handleRedirectAfterLogin');
+      }
+      // Use the centralized redirect handler from AuthContext
+      handleRedirectAfterLogin();
+    }
+  }, [isAuthenticated, handleRedirectAfterLogin]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
