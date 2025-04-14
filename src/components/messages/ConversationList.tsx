@@ -15,7 +15,7 @@ interface ConversationListProps {
   error?: any;
 }
 
-const ConversationList: React.FC<ConversationListProps> = ({ conversations, loading, error }) => {
+const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error }) => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
 
@@ -49,7 +49,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
     );
   }
 
-  if (conversations.length === 0) {
+  if (!conversations || conversations.length === 0) {
     return (
       <div className="text-center p-6 border rounded-md bg-amber-50 border-amber-200">
         <p className="text-amber-800 mb-2 font-medium">No conversations yet</p>

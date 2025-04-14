@@ -44,7 +44,7 @@ export function useConversationMessages(conversationId?: string) {
         // For each message, fetch the sender profile separately
         const messagesWithSenders: Message[] = [];
 
-        for (const message of messagesData) {
+        for (const message of messagesData || []) {
           // Fetch sender profile
           const { data: senderData, error: senderError } = await supabase
             .from('profiles')
@@ -125,7 +125,7 @@ export function useConversationMessages(conversationId?: string) {
             };
             
             // Update messages state
-            setMessages(prevMessages => [...prevMessages, newMessage]);
+            setMessages(prevMessages => [...(prevMessages || []), newMessage]);
             
             // Mark message as read if it's not from the current user
             if (newMessage.sender_id !== user.id) {
@@ -148,5 +148,5 @@ export function useConversationMessages(conversationId?: string) {
     };
   }, [conversationId, user, toast]);
 
-  return { messages, loading };
+  return { messages: messages || [], loading };
 }

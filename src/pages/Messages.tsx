@@ -49,7 +49,7 @@ const Messages = () => {
     return <LoginWall 
       message="Sign in to access your messages and connect with instructors and classmates."
       visibleItems={0}
-      totalItems={conversations.length}
+      totalItems={conversations?.length ?? 0}
     />;
   }
 
@@ -83,7 +83,7 @@ const Messages = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-1 h-full">
                   <ConversationList 
-                    conversations={conversations} 
+                    conversations={conversations || []} 
                     loading={loadingConversations}
                     error={conversationsError} 
                   />
@@ -92,7 +92,7 @@ const Messages = () => {
                 {conversationId ? (
                   <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
                     <div className="flex-1 overflow-y-auto">
-                      <MessageThread messages={messages} loading={loadingMessages} />
+                      <MessageThread messages={messages || []} loading={loadingMessages} />
                     </div>
                     
                     <div className="p-4 border-t">

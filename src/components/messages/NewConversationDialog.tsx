@@ -1,27 +1,24 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useUsers } from "@/hooks/useUsers";
-import { Profile } from "@/types/supabase";
-import { Check, ChevronsUpDown } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@/components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+
+interface User {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+}
 
 interface NewConversationDialogProps {
   open: boolean;
@@ -35,130 +32,204 @@ const NewConversationDialog: React.FC<NewConversationDialogProps> = ({
   onCreateConversation
 }) => {
   const [subject, setSubject] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  const [recipients, setRecipients] = useState<User[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [openCombobox, setOpenCombobox] = useState(false);
-  const { users, loading } = useUsers();
+  const [searchValue, setSearchValue] = useState('');
   const navigate = useNavigate();
-  const { user: currentUser } = useAuth();
-  
-  const filteredUsers = users.filter(user => user.id !== currentUser?.id);
-  
+  const { toast } = useToast();
+
+  // Fetch available users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      setLoadingUsers(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url')
+          .not('id', 'eq', (await supabase.auth.getUser()).data.user?.id);
+        
+        if (error) throw error;
+        
+        setAvailableUsers(data || []);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        toast({
+          title: 'Error',
+          description: 'Could not load users. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingUsers(false);
+      }
+    };
+    
+    if (open) {
+      fetchUsers();
+    }
+  }, [open, toast]);
+
   const handleCreateConversation = async () => {
-    if (selectedUsers.length === 0) return;
+    if (!subject.trim() || recipients.length === 0) {
+      toast({
+        title: 'Invalid input',
+        description: 'Please enter a subject and select at least one recipient.',
+        variant: 'destructive',
+      });
+      return;
+    }
     
-    const conversationId = await onCreateConversation(subject, selectedUsers);
+    setLoading(true);
     
-    if (conversationId) {
-      onOpenChange(false);
-      navigate(`/messages/${conversationId}`);
+    try {
+      const recipientIds = recipients.map(r => r.id);
+      const conversationId = await onCreateConversation(subject, recipientIds);
+      
+      if (conversationId) {
+        onOpenChange(false);
+        navigate(`/messages/${conversationId}`);
+        setSubject('');
+        setRecipients([]);
+      }
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to create conversation. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
   };
-  
-  const getUserDisplayName = (user: Profile) => {
-    return `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.id;
+
+  const addRecipient = (user: User) => {
+    if (!recipients.find(r => r.id === user.id)) {
+      setRecipients([...recipients, user]);
+    }
+    setOpenCombobox(false);
+    setSearchValue('');
   };
-  
+
+  const removeRecipient = (userId: string) => {
+    setRecipients(recipients.filter(r => r.id !== userId));
+  };
+
+  const filteredUsers = availableUsers.filter(user => 
+    !recipients.some(r => r.id === user.id) && 
+    ((user.first_name && user.first_name.toLowerCase().includes(searchValue.toLowerCase())) || 
+     (user.last_name && user.last_name.toLowerCase().includes(searchValue.toLowerCase())))
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[525px]">
         <DialogHeader>
           <DialogTitle>New Conversation</DialogTitle>
-          <DialogDescription>
-            Create a new conversation with other users.
-          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="grid gap-2">
-            <Label htmlFor="subject">Subject (Optional)</Label>
+        
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="subject">Subject</Label>
             <Input
               id="subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              placeholder="Enter conversation subject..."
+              placeholder="Enter conversation subject"
             />
           </div>
           
-          <div className="grid gap-2">
-            <Label htmlFor="recipients">Recipients</Label>
+          <div className="space-y-2">
+            <Label>Recipients</Label>
+            
+            <div className="flex flex-wrap gap-2 mb-2">
+              {recipients.map(recipient => (
+                <div key={recipient.id} className="flex items-center gap-1 bg-amber-100 text-amber-800 px-2 py-1 rounded">
+                  <span>{recipient.first_name} {recipient.last_name}</span>
+                  <button 
+                    onClick={() => removeRecipient(recipient.id)}
+                    className="text-amber-800 hover:text-amber-950"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            
             <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   role="combobox"
                   aria-expanded={openCombobox}
-                  className="justify-between"
-                  disabled={loading}
+                  className="w-full justify-between"
                 >
-                  {selectedUsers.length > 0 
-                    ? `${selectedUsers.length} user${selectedUsers.length !== 1 ? 's' : ''} selected`
-                    : "Select users..."}
+                  {searchValue || "Select recipients..."}
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[300px] p-0">
+              <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                 <Command>
-                  <CommandInput placeholder="Search user..." />
-                  <CommandEmpty>No user found.</CommandEmpty>
-                  <CommandGroup>
-                    {filteredUsers.map((user) => (
-                      <CommandItem
-                        key={user.id}
-                        value={user.id}
-                        onSelect={() => {
-                          setSelectedUsers((prev) => {
-                            if (prev.includes(user.id)) {
-                              return prev.filter((id) => id !== user.id);
-                            } else {
-                              return [...prev, user.id];
-                            }
-                          });
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedUsers.includes(user.id) ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        {getUserDisplayName(user)}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
+                  <CommandInput 
+                    placeholder="Search users..." 
+                    value={searchValue}
+                    onValueChange={setSearchValue}
+                  />
+                  <CommandList>
+                    <CommandEmpty>No users found.</CommandEmpty>
+                    <CommandGroup>
+                      {loadingUsers ? (
+                        <div className="flex justify-center p-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        </div>
+                      ) : (
+                        filteredUsers.map(user => (
+                          <CommandItem
+                            key={user.id}
+                            value={user.id}
+                            onSelect={() => addRecipient(user)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Avatar className="h-6 w-6">
+                                <AvatarImage src={user.avatar_url || ''} />
+                                <AvatarFallback className="bg-amber-100 text-amber-800">
+                                  {user.first_name?.[0] || ''}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>{user.first_name} {user.last_name}</span>
+                            </div>
+                            <Check
+                              className={cn(
+                                "ml-auto h-4 w-4",
+                                recipients.some(r => r.id === user.id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                          </CommandItem>
+                        ))
+                      )}
+                    </CommandGroup>
+                  </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
-            
-            {selectedUsers.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {selectedUsers.map((userId) => {
-                  const user = users.find(u => u.id === userId);
-                  if (!user) return null;
-                  
-                  return (
-                    <div 
-                      key={userId} 
-                      className="bg-secondary text-secondary-foreground px-2 py-1 rounded-md text-xs flex items-center"
-                    >
-                      {getUserDisplayName(user)}
-                      <button 
-                        className="ml-1 text-secondary-foreground/70 hover:text-secondary-foreground"
-                        onClick={() => setSelectedUsers(prev => prev.filter(id => id !== userId))}
-                      >
-                        ×
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
+        
         <DialogFooter>
           <Button 
-            type="button" 
-            onClick={handleCreateConversation}
-            disabled={selectedUsers.length === 0}
+            variant="outline" 
+            onClick={() => onOpenChange(false)}
           >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCreateConversation}
+            disabled={loading || !subject.trim() || recipients.length === 0}
+            className="bg-amber-600 hover:bg-amber-700"
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create
           </Button>
         </DialogFooter>
