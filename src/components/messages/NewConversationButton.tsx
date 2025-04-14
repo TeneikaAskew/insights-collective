@@ -89,15 +89,18 @@ export function NewConversationButton() {
         if (recentContacts && recentContacts.length > 0) {
           recentContacts.forEach(msg => {
             // Find participants who are not the current user
-            const otherParticipant = msg.recipient.find(p => p.user_id !== user.id);
-            if (otherParticipant && otherParticipant.profile) {
-              recentUsers.push({
-                id: otherParticipant.profile.id,
-                first_name: otherParticipant.profile.first_name,
-                last_name: otherParticipant.profile.last_name,
-                avatar_url: otherParticipant.profile.avatar_url
-              });
-            }
+            const otherParticipants = msg.recipient.filter(p => p.user_id !== user.id);
+            
+            otherParticipants.forEach(participant => {
+              if (participant.profile) {
+                recentUsers.push({
+                  id: participant.profile.id,
+                  first_name: participant.profile.first_name,
+                  last_name: participant.profile.last_name,
+                  avatar_url: participant.profile.avatar_url
+                });
+              }
+            });
           });
         }
 
