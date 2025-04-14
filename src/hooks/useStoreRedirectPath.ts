@@ -13,16 +13,16 @@ export const useStoreRedirectPath = () => {
 
     const isAuthRoute = ['/login', '/register'].includes(location.pathname);
 
-    // if (!alreadyStored && !isAuthRoute) {
-    //   localStorage.setItem('redirectAfterLogin', fullPath);
-      
-    //   // Also use context method if available
-    //   if (storeRedirectPath) {
-    //     storeRedirectPath(fullPath);
-    //   }
-     if (!stored && !['/login', '/register'].includes(location.pathname)) {
+    if (!alreadyStored && !isAuthRoute) {
       localStorage.setItem('redirectAfterLogin', fullPath);
-      storeRedirectPath?.(fullPath);
+      
+      // Also use context method if available
+      if (storeRedirectPath) {
+        storeRedirectPath(fullPath);
+      }
+     // if (!stored && !['/login', '/register'].includes(location.pathname)) {
+     //  localStorage.setItem('redirectAfterLogin', fullPath);
+     //  storeRedirectPath?.(fullPath);
       
       if (process.env.NODE_ENV === 'development') {
         console.log('[Redirect Logic] Stored:', fullPath);
