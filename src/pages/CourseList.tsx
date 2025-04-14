@@ -1,28 +1,89 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import CourseCard from '@/components/common/CourseCard';
-import { mockService } from '@/lib/mockData';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Filter } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Course } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 const CourseList = () => {
-  const allCourses = mockService.getAllCourses();
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [levelFilter, setLevelFilter] = useState('all');
+  const { toast } = useToast();
   
-  // Extract unique categories and levels
-  const categories = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
-  const levels = ['Beginner', 'Intermediate', 'Advanced'];
+  // Extract unique categories and levels from courses
+  const categories = [...new Set(courses.map(course => course.category))];
+  const levels = [...new Set(courses.map(course => course.level))];
+  
+  // Fetch courses from Supabase
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('courses')
+          .select(`
+            *,
+            instructor:instructor_id(
+              id,
+              first_name,
+              last_name,
+              avatar_url
+            )
+          `)
+          .eq('published', true)
+          .order('created_at', { ascending: false });
+          
+        if (error) throw error;
+        
+        // Format course data to match the expected format
+        const formattedCourses = data.map(course => ({
+          ...course,
+          instructor: {
+            id: course.instructor?.id || '',
+            name: `${course.instructor?.first_name || ''} ${course.instructor?.last_name || ''}`.trim(),
+            email: '',
+            role: 'instructor',
+            avatar: course.instructor?.avatar_url || '',
+          },
+          enrollmentCount: 0, // We'll get this in a separate query if needed
+          modules: [], // We'll load these on the detail page
+          rating: 4.5, // Default if not available
+          createdAt: course.created_at,
+          updatedAt: course.updated_at,
+          thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+        }));
+        
+        setCourses(formattedCourses);
+        setLoading(false);
+      } catch (error: any) {
+        console.error('Error fetching courses:', error);
+        setError(error.message);
+        setLoading(false);
+        toast({
+          title: "Failed to load courses",
+          description: error.message || "There was an error loading the courses",
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchCourses();
+  }, [toast]);
   
   // Filter courses based on search query and filters
-  const filteredCourses = allCourses.filter(course => {
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                         course.description.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredCourses = courses.filter(course => {
+    const matchesSearch = 
+      course.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      course.description.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
     const matchesLevel = levelFilter === 'all' || course.level === levelFilter;
@@ -94,7 +155,19 @@ const CourseList = () => {
           </TabsList>
           
           <TabsContent value="all" className="mt-6">
-            {filteredCourses.length > 0 ? (
+            {loading ? (
+              <div className="flex justify-center p-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <h3 className="text-lg font-medium">Error loading courses</h3>
+                <p className="text-muted-foreground mt-1">{error}</p>
+                <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+                  Try Again
+                </Button>
+              </div>
+            ) : filteredCourses.length > 0 ? (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredCourses.map((course) => (
                   <CourseCard key={course.id} course={course} />
@@ -117,7 +190,7 @@ const CourseList = () => {
           
           <TabsContent value="popular" className="mt-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {allCourses
+              {courses
                 .sort((a, b) => b.enrollmentCount - a.enrollmentCount)
                 .slice(0, 6)
                 .map((course) => (
@@ -128,7 +201,7 @@ const CourseList = () => {
           
           <TabsContent value="new" className="mt-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {allCourses
+              {courses
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 .slice(0, 6)
                 .map((course) => (
@@ -139,7 +212,7 @@ const CourseList = () => {
           
           <TabsContent value="ai-ml" className="mt-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {allCourses
+              {courses
                 .filter(course => course.category === "AI/ML")
                 .map((course) => (
                   <CourseCard key={course.id} course={course} />
@@ -149,7 +222,7 @@ const CourseList = () => {
           
           <TabsContent value="data-engineering" className="mt-6">
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {allCourses
+              {courses
                 .filter(course => course.category === "Data Engineering")
                 .map((course) => (
                   <CourseCard key={course.id} course={course} />

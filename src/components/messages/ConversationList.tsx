@@ -1,33 +1,34 @@
 
 import React from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { User } from 'lucide-react';
-import { Conversation } from '@/types/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { Link, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Card } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ConversationListProps {
-  conversations: Conversation[];
+  conversations: any[];
   loading: boolean;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({ conversations, loading }) => {
   const { conversationId } = useParams();
-  const { user } = useAuth();
-  
+  const navigate = useNavigate();
+
   if (loading) {
     return (
-      <div className="border rounded-md divide-y">
+      <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="p-4 flex justify-between items-center animate-pulse">
-            <div className="flex items-center space-x-3">
-              <div className="h-8 w-8 bg-muted rounded-full" />
-              <div className="space-y-2">
-                <div className="h-4 w-32 bg-muted rounded" />
-                <div className="h-3 w-40 bg-muted rounded" />
+          <Card key={i} className="p-4">
+            <div className="flex gap-3">
+              <Skeleton className="h-12 w-12 rounded-full" />
+              <div className="flex-1">
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-3 w-1/2" />
               </div>
             </div>
-            <div className="h-3 w-10 bg-muted rounded" />
-          </div>
+          </Card>
         ))}
       </div>
     );
@@ -35,86 +36,99 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations, load
 
   if (conversations.length === 0) {
     return (
-      <div className="border rounded-md p-6 text-center text-muted-foreground">
-        No conversations yet. Start a new one!
+      <div className="text-center p-6 border rounded-md">
+        <p className="text-muted-foreground mb-2">No conversations yet</p>
+        <p className="text-sm text-muted-foreground">Start a new conversation to connect with instructors and classmates.</p>
       </div>
     );
   }
 
-  const getConversationName = (conversation: Conversation) => {
-    if (conversation.subject) return conversation.subject;
-    
-    if (conversation.participants) {
-      // For 1-1 conversations, show the other person's name
-      const otherParticipants = conversation.participants.filter(
-        p => p.user_id !== user?.id
-      );
-      
-      if (otherParticipants.length > 0) {
-        const otherUser = otherParticipants[0].profile;
-        if (otherUser) {
-          return `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || 'User';
-        }
-      }
-    }
-    
-    return 'Conversation';
-  };
-  
-  const getLastMessagePreview = (conversation: Conversation) => {
-    if (!conversation.last_message) return 'No messages yet';
-    return conversation.last_message.content.length > 40 
-      ? conversation.last_message.content.substring(0, 40) + '...' 
-      : conversation.last_message.content;
-  };
-  
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    
-    if (date.toDateString() === now.toDateString()) {
-      return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    
-    if (now.getTime() - date.getTime() < 7 * 24 * 60 * 60 * 1000) {
-      return date.toLocaleDateString([], { weekday: 'short' });
-    }
-    
-    return date.toLocaleDateString([], { month: 'short', day: 'numeric' });
-  };
-  
-  const isUnread = (conversation: Conversation) => {
-    return conversation.last_message && 
-      !conversation.last_message.read && 
-      conversation.last_message.sender_id !== user?.id;
-  };
-
   return (
-    <div className="border rounded-md divide-y">
-      {conversations.map(conv => (
-        <Link 
-          key={conv.id} 
-          to={`/messages/${conv.id}`}
-          className={`p-4 flex justify-between items-center hover:bg-accent cursor-pointer ${
-            conv.id === conversationId ? 'bg-accent/30' : ''
-          } ${isUnread(conv) ? 'bg-accent/10 font-medium' : ''}`}
-        >
-          <div className="flex items-center space-x-3">
-            <User className="h-8 w-8 text-muted-foreground" />
-            <div>
-              <div className="font-medium">{getConversationName(conv)}</div>
-              <div className="text-sm text-muted-foreground truncate max-w-md">
-                {getLastMessagePreview(conv)}
+    <div className="space-y-2 h-full overflow-auto">
+      {conversations.map((conversation) => {
+        // Safely handle missing participants
+        const participants = conversation.participants || [];
+        const otherParticipants = participants.filter(
+          (p: any) => p.user_id !== conversation.created_by
+        );
+        
+        // Format the timestamp
+        let timeAgo = '';
+        try {
+          if (conversation.last_message_time) {
+            timeAgo = formatDistanceToNow(new Date(conversation.last_message_time), { addSuffix: true });
+          } else if (conversation.updated_at) {
+            timeAgo = formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true });
+          }
+        } catch (error) {
+          console.error('Error formatting date:', error);
+          timeAgo = 'Recently';
+        }
+
+        return (
+          <Link
+            key={conversation.id}
+            to={`/messages/${conversation.id}`}
+            onClick={(e) => {
+              e.preventDefault();
+              navigate(`/messages/${conversation.id}`);
+            }}
+          >
+            <Card
+              className={`p-4 hover:bg-muted/50 cursor-pointer transition-colors ${
+                conversationId === conversation.id ? 'bg-muted' : ''
+              }`}
+            >
+              <div className="flex justify-between items-start gap-3">
+                <div className="flex gap-3">
+                  {conversation.is_group ? (
+                    <div className="relative">
+                      <Avatar className="h-10 w-10">
+                        <AvatarFallback>GP</AvatarFallback>
+                      </Avatar>
+                      {otherParticipants.length > 0 && (
+                        <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
+                          <AvatarFallback>{otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}</AvatarFallback>
+                        </Avatar>
+                      )}
+                    </div>
+                  ) : (
+                    <Avatar className="h-10 w-10">
+                      <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
+                      <AvatarFallback>
+                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                  )}
+                  <div className="space-y-1">
+                    <p className="font-medium line-clamp-1">
+                      {conversation.subject || 
+                        (conversation.is_group 
+                          ? `Group (${participants.length} participants)` 
+                          : otherParticipants[0]?.profile?.first_name
+                            ? `${otherParticipants[0]?.profile?.first_name} ${otherParticipants[0]?.profile?.last_name || ''}`
+                            : 'Conversation'
+                        )
+                      }
+                    </p>
+                    <p className="text-sm text-muted-foreground line-clamp-1">
+                      {conversation.last_message || 'Start a conversation'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end">
+                  <span className="text-xs text-muted-foreground">{timeAgo}</span>
+                  {conversation.unread_count > 0 && (
+                    <span className="bg-primary text-primary-foreground text-xs rounded-full px-2 py-0.5 mt-1">
+                      {conversation.unread_count}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
-          {conv.last_message && (
-            <div className="text-sm text-muted-foreground">
-              {formatDate(conv.last_message.created_at)}
-            </div>
-          )}
-        </Link>
-      ))}
+            </Card>
+          </Link>
+        );
+      })}
     </div>
   );
 };

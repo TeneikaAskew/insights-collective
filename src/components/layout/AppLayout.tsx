@@ -10,7 +10,7 @@ type AppLayoutProps = {
 };
 
 const AppLayout = ({ children }: AppLayoutProps) => {
-  // Fix: Use the correct property name from the hook
+  // Fixed: Use the correct property name from the hook
   const { navigateWithAuth } = useAuthenticatedNavigation();
   
   return (

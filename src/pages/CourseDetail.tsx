@@ -1,8 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import ModuleCard from '@/components/common/ModuleCard';
-import { mockService } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -13,57 +13,154 @@ import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Sha
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishlistedCourse } from '@/utils/idUtils';
+import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishlistedCourse, generatePersistentUUID, isValidUUID } from '@/utils/idUtils';
+import { Course } from '@/types';
+
 const CourseDetail = () => {
-  const {
-    courseId
-  } = useParams<{
-    courseId: string;
-  }>();
+  const { courseId } = useParams<{ courseId: string }>();
   const [enrolling, setEnrolling] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const {
-    toast
-  } = useToast();
-  const {
-    user,
-    isAuthenticated
-  } = useAuth();
+  const [course, setCourse] = useState<Course | null>(null);
+  const [modules, setModules] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  
+  // Fetch course details from Supabase
+  useEffect(() => {
+    const fetchCourseData = async () => {
+      if (!courseId) {
+        setError("No course ID provided");
+        setLoading(false);
+        return;
+      }
 
-  // Get course details
-  const course = mockService.getCourseById(courseId || '');
+      try {
+        // Validate UUID format for Supabase queries
+        const courseUUID = generatePersistentUUID(courseId, 'course');
+        if (!isValidUUID(courseUUID)) {
+          throw new Error("Invalid course ID format");
+        }
+        
+        // Fetch course data
+        const { data: courseData, error: courseError } = await supabase
+          .from('courses')
+          .select(`
+            *,
+            instructor:instructor_id(
+              id,
+              first_name,
+              last_name,
+              avatar_url
+            )
+          `)
+          .eq('id', courseUUID)
+          .single();
+
+        if (courseError) throw courseError;
+        if (!courseData) throw new Error("Course not found");
+
+        // Fetch modules for this course
+        const { data: modulesData, error: modulesError } = await supabase
+          .from('modules')
+          .select('*')
+          .eq('course_id', courseUUID)
+          .order('week', { ascending: true });
+
+        if (modulesError) throw modulesError;
+
+        // Format course data to match the expected format
+        const formattedCourse = {
+          ...courseData,
+          instructor: {
+            id: courseData.instructor?.id || '',
+            name: `${courseData.instructor?.first_name || ''} ${courseData.instructor?.last_name || ''}`.trim(),
+            email: '',
+            role: 'instructor',
+            avatar: courseData.instructor?.avatar_url || '',
+          },
+          enrollmentCount: 0, // We'll get this in a separate query if needed
+          modules: modulesData || [],
+          rating: 4.5, // Default if not available
+          createdAt: courseData.created_at,
+          updatedAt: courseData.updated_at,
+          thumbnail: courseData.image_url || courseData.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+        };
+
+        setCourse(formattedCourse);
+        setModules(modulesData || []);
+        setLoading(false);
+      } catch (error: any) {
+        console.error('Error fetching course data:', error);
+        setError(error.message || "Error loading course");
+        setLoading(false);
+        toast({
+          title: "Failed to load course",
+          description: error.message || "There was an error loading the course data",
+          variant: "destructive"
+        });
+      }
+    };
+
+    fetchCourseData();
+  }, [courseId, toast]);
 
   // Check enrollment and wishlist status
   useEffect(() => {
+    if (!courseId) return;
+    
     // First check localStorage
-    if (courseId) {
-      setIsEnrolled(isEnrolledInCourse(courseId));
-      setIsWishlisted(isWishlistedCourse(courseId));
-    }
+    setIsEnrolled(isEnrolledInCourse(courseId));
+    setIsWishlisted(isWishlistedCourse(courseId));
 
     // If authenticated, also check Supabase
     if (isAuthenticated && user && courseId) {
       // Check if user is enrolled
       const checkEnrollment = async () => {
-        const {
-          data,
-          error
-        } = await supabase.from('enrollments').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle();
-        if (!error && data) {
-          setIsEnrolled(true);
+        try {
+          // Generate consistent UUID for Supabase query
+          const courseUUID = generatePersistentUUID(courseId, 'course');
+          if (!isValidUUID(courseUUID)) {
+            console.error(`Invalid course UUID: ${courseUUID} for course ID: ${courseId}`);
+            return;
+          }
+          
+          const { data, error } = await supabase
+            .from('enrollments')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('course_id', courseUUID)
+            .maybeSingle();
+            
+          if (!error && data) {
+            setIsEnrolled(true);
+          }
+        } catch (error) {
+          console.error('Error checking enrollment:', error);
         }
       };
 
       // Check if course is in wishlist
       const checkWishlist = async () => {
         try {
-          const {
-            data,
-            error
-          } = await supabase.from('course_wishlists').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle();
+          // Generate consistent UUID for Supabase query
+          const courseUUID = generatePersistentUUID(courseId, 'course');
+          if (!isValidUUID(courseUUID)) {
+            console.error(`Invalid course UUID: ${courseUUID} for course ID: ${courseId}`);
+            return;
+          }
+          
+          const { data, error } = await supabase
+            .from('course_wishlists')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('course_id', courseUUID)
+            .maybeSingle();
+            
           if (!error && data) {
             setIsWishlisted(true);
           }
@@ -71,15 +168,25 @@ const CourseDetail = () => {
           console.error('Error checking wishlist:', error);
         }
       };
+      
       checkEnrollment();
       checkWishlist();
     }
   }, [isAuthenticated, user, courseId]);
-  if (!course) {
+
+  if (loading) {
+    return <AppLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </AppLayout>;
+  }
+
+  if (error || !course) {
     return <AppLayout>
         <div className="text-center py-12">
           <h1 className="text-3xl font-bold mb-4">Course Not Found</h1>
-          <p className="text-muted-foreground mb-6">The course you're looking for doesn't exist or has been removed.</p>
+          <p className="text-muted-foreground mb-6">{error || "The course you're looking for doesn't exist or has been removed."}</p>
           <Button asChild>
             <Link to="/courses">Browse Courses</Link>
           </Button>
@@ -99,9 +206,17 @@ const CourseDetail = () => {
       });
       return;
     }
+    
     if (!courseId) return;
     setEnrolling(true);
+    
     try {
+      // Generate consistent UUID for Supabase
+      const courseUUID = generatePersistentUUID(courseId, 'course');
+      if (!isValidUUID(courseUUID)) {
+        throw new Error(`Invalid course UUID format for course ID: ${courseId}`);
+      }
+      
       // Update localStorage status first for immediate UI feedback
       addEnrolledCourse(courseId);
       setIsEnrolled(true);
@@ -109,15 +224,15 @@ const CourseDetail = () => {
       // Then sync with Supabase if user is authenticated
       if (isAuthenticated && user) {
         // Add enrollment to database
-        const {
-          error
-        } = await supabase.from('enrollments').insert({
+        const { error } = await supabase.from('enrollments').insert({
           user_id: user.id,
-          course_id: courseId,
+          course_id: courseUUID,
           completion_status: 0
         });
+        
         if (error) throw error;
       }
+      
       toast({
         title: "Successfully enrolled!",
         description: `You have been enrolled in ${course.title}`
@@ -146,9 +261,17 @@ const CourseDetail = () => {
       });
       return;
     }
+    
     if (!courseId) return;
     setAddingToWishlist(true);
+    
     try {
+      // Generate consistent UUID for Supabase
+      const courseUUID = generatePersistentUUID(courseId, 'course');
+      if (!isValidUUID(courseUUID)) {
+        throw new Error(`Invalid course UUID format for course ID: ${courseId}`);
+      }
+      
       // Update localStorage status first for immediate UI feedback
       const newWishlistStatus = toggleWishlistedCourse(courseId);
       setIsWishlisted(newWishlistStatus);
@@ -157,21 +280,22 @@ const CourseDetail = () => {
       if (isAuthenticated && user) {
         if (newWishlistStatus) {
           // Add to wishlist in Supabase
-          const {
-            error
-          } = await supabase.from('course_wishlists').insert({
+          const { error } = await supabase.from('course_wishlists').insert({
             user_id: user.id,
-            course_id: courseId
+            course_id: courseUUID
           });
+          
           if (error) throw error;
         } else {
           // Remove from wishlist in Supabase
-          const {
-            error
-          } = await supabase.from('course_wishlists').delete().eq('user_id', user.id).eq('course_id', courseId);
+          const { error } = await supabase.from('course_wishlists').delete()
+            .eq('user_id', user.id)
+            .eq('course_id', courseUUID);
+            
           if (error) throw error;
         }
       }
+      
       toast({
         title: newWishlistStatus ? "Added to wishlist" : "Removed from wishlist",
         description: `${course.title} has been ${newWishlistStatus ? 'added to' : 'removed from'} your wishlist`
@@ -195,6 +319,7 @@ const CourseDetail = () => {
   const handleShare = (platform: string) => {
     const url = window.location.href;
     const title = `Check out this course: ${course.title}`;
+    
     switch (platform) {
       case 'facebook':
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
@@ -225,8 +350,10 @@ const CourseDetail = () => {
   };
 
   // Calculate overall progress (would come from the database in a real app)
-  const overallProgress = course.modules.reduce((sum, module) => sum + module.completionStatus, 0) / (course.modules.length || 1);
-  return <AppLayout>
+  const overallProgress = course.modules.reduce((sum, module) => sum + (module.completionStatus || 0), 0) / (course.modules.length || 1);
+  
+  return (
+    <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center mb-4">
           <Button variant="ghost" size="sm" className="mr-2" asChild>
@@ -287,9 +414,11 @@ const CourseDetail = () => {
                 <p className="text-lg mb-6">{course.description}</p>
                 
                 <div className="flex flex-wrap gap-3">
-                  {course.tags.map(tag => <Badge key={tag} variant="outline">
+                  {course.tags && course.tags.map(tag => (
+                    <Badge key={tag} variant="outline">
                       {tag}
-                    </Badge>)}
+                    </Badge>
+                  ))}
                 </div>
               </CardContent>
             </Card>
@@ -306,12 +435,20 @@ const CourseDetail = () => {
                 <div>
                   <h2 className="text-2xl font-bold mb-2">Course Modules</h2>
                   <p className="text-muted-foreground mb-6">
-                    This course contains {course.modules.length} modules organized by week.
+                    This course contains {modules.length} modules organized by week.
                   </p>
                   
-                  <div className="space-y-4">
-                    {course.modules.map(module => <ModuleCard key={module.id} courseId={course.id} module={module} />)}
-                  </div>
+                  {modules.length > 0 ? (
+                    <div className="space-y-4">
+                      {modules.map(module => (
+                        <ModuleCard key={module.id} courseId={course.id} module={module} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center p-8 border rounded-lg bg-muted/20">
+                      <p>No modules available for this course yet.</p>
+                    </div>
+                  )}
                 </div>
               </TabsContent>
               
@@ -334,7 +471,7 @@ const CourseDetail = () => {
                           </li>
                           <li className="flex items-start">
                             <span className="mr-2">•</span>
-                            <span>Master {course.tags.join(", ")} techniques</span>
+                            <span>Master {course.tags?.join(", ") || "key techniques"}</span>
                           </li>
                           <li className="flex items-start">
                             <span className="mr-2">•</span>
@@ -350,7 +487,7 @@ const CourseDetail = () => {
                       
                       <div>
                         <h3 className="text-lg font-semibold mb-2">Course Structure</h3>
-                        <p>This course is structured in {course.modules.length} weekly modules, each containing video lessons, reading materials, quizzes, and assignments to reinforce your learning.</p>
+                        <p>This course is structured in {modules.length} weekly modules, each containing video lessons, reading materials, quizzes, and assignments to reinforce your learning.</p>
                       </div>
                     </div>
                   </CardContent>
@@ -369,12 +506,12 @@ const CourseDetail = () => {
                       <div>
                         <h3 className="text-lg font-semibold mb-2">Required Materials</h3>
                         <ul className="space-y-2">
-                          <li className="flex items-center p-3 bg-primary rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3 text-primary" />
+                          <li className="flex items-center p-3 bg-amber-100 dark:bg-amber-900/20 rounded-lg">
+                            <BookOpen className="h-5 w-5 mr-3 text-amber-600 dark:text-amber-400" />
                             <span>Main course textbook (provided as PDF)</span>
                           </li>
-                          <li className="flex items-center p-3 bg-secondary rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3 text-primary" />
+                          <li className="flex items-center p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
+                            <BookOpen className="h-5 w-5 mr-3 text-amber-600 dark:text-amber-400" />
                             <span>Exercise workbook</span>
                           </li>
                         </ul>
@@ -383,12 +520,12 @@ const CourseDetail = () => {
                       <div>
                         <h3 className="text-lg font-semibold mb-2">Recommended Resources</h3>
                         <ul className="space-y-2">
-                          <li className="flex items-center p-3 bg-secondary rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3 text-primary" />
+                          <li className="flex items-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                            <BookOpen className="h-5 w-5 mr-3 text-gray-600 dark:text-gray-400" />
                             <span>Supplementary reading materials</span>
                           </li>
-                          <li className="flex items-center p-3 bg-secondary rounded-lg">
-                            <BookOpen className="h-5 w-5 mr-3 text-primary" />
+                          <li className="flex items-center p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                            <BookOpen className="h-5 w-5 mr-3 text-gray-600 dark:text-gray-400" />
                             <span>Community forum resources</span>
                           </li>
                         </ul>
@@ -406,8 +543,8 @@ const CourseDetail = () => {
                     <p className="text-muted-foreground mb-6">
                       Enroll in the course to join discussions with instructors and other students.
                     </p>
-                    <Button onClick={handleEnroll} disabled={isEnrolled}>
-                      {isEnrolled ? "Already Enrolled" : "Enroll Now"}
+                    <Button onClick={handleEnroll} disabled={isEnrolled || enrolling}>
+                      {enrolling ? "Enrolling..." : isEnrolled ? "Already Enrolled" : "Enroll Now"}
                     </Button>
                   </CardContent>
                 </Card>
@@ -438,23 +575,23 @@ const CourseDetail = () => {
                   </Button>
                 </div>
                 
-                <div className="bg-secondary p-4 rounded-lg space-y-3">
+                <div className="bg-gray-100 dark:bg-gray-800 p-4 rounded-lg space-y-3">
                   <h3 className="font-semibold">This Course Includes:</h3>
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-center">
-                      <BookOpen className="h-4 w-4 mr-2 text-primary" />
-                      <span>{course.modules.reduce((sum, m) => sum + m.lessons.length, 0)} lessons</span>
+                      <BookOpen className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" />
+                      <span>{modules.length > 0 ? modules.reduce((sum, m) => sum + (m.lessons?.length || 0), 0) : 0} lessons</span>
                     </li>
                     <li className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2 text-primary" />
+                      <Clock className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" />
                       <span>{course.duration} of content</span>
                     </li>
                     <li className="flex items-center">
-                      <Users className="h-4 w-4 mr-2 text-primary" />
+                      <Users className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" />
                       <span>Access to student community</span>
                     </li>
                     <li className="flex items-center">
-                      <Star className="h-4 w-4 mr-2 text-primary" />
+                      <Star className="h-4 w-4 mr-2 text-amber-600 dark:text-amber-400" />
                       <span>Course completion certificate</span>
                     </li>
                   </ul>
@@ -497,6 +634,8 @@ const CourseDetail = () => {
           </div>
         </div>
       </div>
-    </AppLayout>;
+    </AppLayout>
+  );
 };
+
 export default CourseDetail;
