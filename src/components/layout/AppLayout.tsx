@@ -1,28 +1,29 @@
+
 import React from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
-import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
+import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
 
 type AppLayoutProps = {
   children: React.ReactNode;
 };
 
 const AppLayout = ({ children }: AppLayoutProps) => {
-  // Use the authenticated navigation hook instead
-  const { navigateAuthenticated } = useAuthenticatedNavigation();
-  
+  // Add the hook to capture redirect paths
+  useStoreRedirectPath();
+
   return (
     <SidebarProvider>
-      <div className="flex h-screen overflow-hidden">
+      <div className="min-h-screen flex w-full bg-gradient-to-br from-white to-gray-50">
         <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex-1 flex flex-col">
           <Navbar />
-          <main className="flex-1 overflow-auto p-4">
+          <main className="flex-1 p-4 md:p-6 overflow-auto">
             {children}
           </main>
-          <footer className="p-4 border-t text-center text-sm text-gray-500">
-            © {new Date().getFullYear()} Insights Collective. All rights reserved.
+          <footer className="p-4 text-center text-sm text-muted-foreground border-t border-gray-100">
+            <p>© {new Date().getFullYear()} Insights Collective. All rights reserved.</p>
           </footer>
         </div>
       </div>
