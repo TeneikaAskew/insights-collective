@@ -85,9 +85,20 @@ const Login = () => {
     }
   };
 
+  // if (isAuthenticated) {
+  //   return <div className="flex justify-center items-center h-screen">Redirecting...</div>;
+  // }
+
+  useEffect(() => {
   if (isAuthenticated) {
-    return <div className="flex justify-center items-center h-screen">Redirecting...</div>;
+    const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+    localStorage.removeItem('redirectAfterLogin');
+
+    console.log('[Login] Redirecting authenticated user to:', redirectTo);
+    navigate(redirectTo, { replace: true });
   }
+}, [isAuthenticated, navigate]);
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
