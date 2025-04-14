@@ -6,7 +6,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
 import { UserWithProfile } from '@/types/supabase';
-const awaitingRedirectAfterLoginRef = useRef(false);
 
 
 /**
@@ -21,6 +20,7 @@ export const useAuthProvider = () => {
   const { toast } = useToast();
   const authInitializedRef = useRef(false);
   const redirectInProgressRef = useRef(false);
+  const awaitingRedirectAfterLoginRef = useRef(false);
   
   // Get enriched user data
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
