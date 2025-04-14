@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageSquare, Send, Paperclip, Plus } from 'lucide-react';
+import { MessageSquare, Send, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,9 +11,9 @@ import AppLayout from '@/components/layout/AppLayout';
 import LoginWall from '@/components/common/LoginWall';
 import ConversationList from '@/components/messages/ConversationList';
 import MessageThread from '@/components/messages/MessageThread';
-import NewConversationDialog from '@/components/messages/NewConversationDialog';
 import { useConversations } from '@/hooks/useConversations';
 import { useConversationMessages } from '@/hooks/useConversationMessages';
+import { NewConversationButton } from '@/components/messages/NewConversationButton';
 
 const Messages = () => {
   const { conversationId } = useParams();
@@ -22,9 +22,8 @@ const Messages = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('inbox');
   const [messageContent, setMessageContent] = useState('');
-  const [newConversationOpen, setNewConversationOpen] = useState(false);
   
-  const { conversations, loading: loadingConversations, createConversation, sendMessage, error: conversationsError } = useConversations();
+  const { conversations, loading: loadingConversations, sendMessage, error: conversationsError } = useConversations();
   const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
 
   const handleSendMessage = async () => {
@@ -35,14 +34,6 @@ const Messages = () => {
     if (success) {
       setMessageContent('');
     }
-  };
-
-  const handleAttachFile = () => {
-    // File attachment logic would go here
-    toast({
-      title: "Feature coming soon",
-      description: "File attachments will be available in the next update.",
-    });
   };
 
   if (!isAuthenticated) {
@@ -59,10 +50,7 @@ const Messages = () => {
         <div className="flex flex-col space-y-4">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold">Messages</h1>
-            <Button onClick={() => setNewConversationOpen(true)} className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700">
-              <Plus className="h-4 w-4" />
-              New Conversation
-            </Button>
+            <NewConversationButton />
           </div>
           
           <Tabs defaultValue={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -97,14 +85,6 @@ const Messages = () => {
                     
                     <div className="p-4 border-t">
                       <div className="flex space-x-2">
-                        <Button 
-                          variant="outline"
-                          size="icon"
-                          onClick={handleAttachFile}
-                        >
-                          <Paperclip className="h-4 w-4" />
-                        </Button>
-                        
                         <Input
                           value={messageContent}
                           onChange={(e) => setMessageContent(e.target.value)}
@@ -137,9 +117,7 @@ const Messages = () => {
                       <p className="text-gray-600 mb-4">
                         Select a conversation from the list or start a new one
                       </p>
-                      <Button onClick={() => setNewConversationOpen(true)} className="bg-amber-600 hover:bg-amber-700">
-                        Start a new conversation
-                      </Button>
+                      <NewConversationButton />
                     </div>
                   </div>
                 )}
@@ -162,12 +140,6 @@ const Messages = () => {
               </div>
             </TabsContent>
           </Tabs>
-          
-          <NewConversationDialog
-            open={newConversationOpen}
-            onOpenChange={setNewConversationOpen}
-            onCreateConversation={createConversation}
-          />
         </div>
       </div>
     </AppLayout>

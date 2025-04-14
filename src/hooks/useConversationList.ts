@@ -40,50 +40,43 @@ export function useConversationList() {
     
     loadConversations();
     
-    // Set up real-time listener for conversation updates
+    // Set up real-time listener for various conversation-related changes
     const channel = supabase
       .channel('conversation-changes')
       .on('postgres_changes', 
-        {
-          event: 'INSERT', 
+        { 
+          event: '*', 
           schema: 'public', 
           table: 'conversations',
+          filter: `created_by=eq.${user.id}`
         }, 
         (payload) => {
-          console.log('New conversation created:', payload);
+          console.log('Conversation change detected:', payload);
           loadConversations();
         }
       )
       .on('postgres_changes', 
-        {
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'conversations',
-        }, 
-        (payload) => {
-          console.log('Conversation updated:', payload);
-          loadConversations();
-        }
-      )
-      .on('postgres_changes', 
-        {
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'messages',
-        }, 
-        (payload) => {
-          console.log('New message received:', payload);
-          loadConversations();
-        }
-      )
-      .on('postgres_changes', 
-        {
-          event: 'INSERT', 
+        { 
+          event: '*', 
           schema: 'public', 
           table: 'conversation_participants',
+          filter: `user_id=eq.${user.id}`
         }, 
         (payload) => {
-          console.log('New participant added:', payload);
+          console.log('Participant change detected:', payload);
+          loadConversations();
+        }
+      )
+      .on('postgres_changes', 
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'messages'
+        }, 
+        (payload) => {
+          // We'll reload all conversations when a new message is detected
+          // to ensure last_message and updated_at are refreshed
+          console.log('New message detected:', payload);
           loadConversations();
         }
       )
@@ -97,7 +90,7 @@ export function useConversationList() {
   }, [user, toast]);
   
   return { 
-    conversations: conversations || [], 
+    conversations, 
     loading,
     error
   };

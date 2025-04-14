@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
@@ -69,6 +70,7 @@ export const fetchUserConversations = async (userId: string) => {
       throw conversationsError;
     }
     
+    // Transform the data to match our expected types
     return conversationsData.map(conversation => ({
       ...conversation,
       participants: conversation.participants.map(p => ({
@@ -76,7 +78,7 @@ export const fetchUserConversations = async (userId: string) => {
         profile: p.profile ? enrichProfileWithRoles(p.profile) : undefined
       })),
       last_message: conversation.last_message[0] || null
-    }));
+    })) as Conversation[];
   } catch (error) {
     console.error('Error in fetchUserConversations:', error);
     throw error;
@@ -112,34 +114,27 @@ export const createNewConversation = async (userId: string, subject: string, rec
       throw new Error('Failed to create conversation');
     }
     
-    // Add current user as participant
-    const { error: participantError } = await supabase
-      .from('conversation_participants')
-      .insert({
+    // Add all recipients as participants
+    const participantInserts = [
+      // Include current user as participant
+      {
         conversation_id: conversationData.id,
         user_id: userId
-      });
+      },
+      // Add all other recipients
+      ...recipientIds.map(recipientId => ({
+        conversation_id: conversationData.id,
+        user_id: recipientId
+      }))
+    ];
+    
+    const { error: participantsError } = await supabase
+      .from('conversation_participants')
+      .insert(participantInserts);
       
-    if (participantError) {
-      console.error('Error adding current user as participant:', participantError);
-      throw participantError;
-    }
-    
-    // Add all recipients as participants
-    const participantInserts = recipientIds.map(recipientId => ({
-      conversation_id: conversationData.id,
-      user_id: recipientId
-    }));
-    
-    if (participantInserts.length > 0) {
-      const { error: recipientsError } = await supabase
-        .from('conversation_participants')
-        .insert(participantInserts);
-        
-      if (recipientsError) {
-        console.error('Error adding recipients as participants:', recipientsError);
-        throw recipientsError;
-      }
+    if (participantsError) {
+      console.error('Error adding participants:', participantsError);
+      throw participantsError;
     }
     
     return conversationData.id;
@@ -182,6 +177,84 @@ export const sendConversationMessage = async (userId: string, conversationId: st
     return true;
   } catch (error) {
     console.error('Error sending message:', error);
+    throw error;
+  }
+};
+
+/**
+ * Check if a one-on-one conversation already exists between two users
+ */
+export const findExistingOneOnOneConversation = async (userId: string, otherUserId: string) => {
+  try {
+    // Get conversations where current user is a participant
+    const { data: userConversations, error: userError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId);
+      
+    if (userError) throw userError;
+    if (!userConversations || userConversations.length === 0) return null;
+    
+    const conversationIds = userConversations.map(c => c.conversation_id);
+    
+    // Find conversations where other user is also a participant
+    const { data: sharedConversations, error: sharedError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', otherUserId)
+      .in('conversation_id', conversationIds);
+      
+    if (sharedError) throw sharedError;
+    if (!sharedConversations || sharedConversations.length === 0) return null;
+    
+    const sharedIds = sharedConversations.map(c => c.conversation_id);
+    
+    // Find non-group conversations among shared conversations
+    const { data: nonGroupConvs, error: groupError } = await supabase
+      .from('conversations')
+      .select('id')
+      .in('id', sharedIds)
+      .eq('is_group', false);
+      
+    if (groupError) throw groupError;
+    if (!nonGroupConvs || nonGroupConvs.length === 0) return null;
+    
+    // Return the first matching conversation
+    return nonGroupConvs[0].id;
+  } catch (error) {
+    console.error('Error finding existing conversation:', error);
+    return null;
+  }
+};
+
+/**
+ * Get or create a one-on-one conversation with another user
+ */
+export const getOrCreateOneOnOneConversation = async (userId: string, otherUserId: string) => {
+  try {
+    // First try to find existing conversation
+    const existingConversationId = await findExistingOneOnOneConversation(userId, otherUserId);
+    
+    if (existingConversationId) {
+      return existingConversationId;
+    }
+    
+    // If no existing conversation, create a new one
+    const { data: otherUser, error: userError } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', otherUserId)
+      .single();
+      
+    if (userError) throw userError;
+    
+    const subject = otherUser ? 
+      `Chat with ${otherUser.first_name} ${otherUser.last_name}` : 
+      'New conversation';
+      
+    return await createNewConversation(userId, subject, [otherUserId]);
+  } catch (error) {
+    console.error('Error in getOrCreateOneOnOneConversation:', error);
     throw error;
   }
 };
