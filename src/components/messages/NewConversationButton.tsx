@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -5,6 +6,7 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
+  DialogDescription,
   DialogFooter 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -57,63 +59,12 @@ export function NewConversationButton() {
       
       setLoading(true);
       try {
-        // First get recent contacts from messages
-        const { data: recentContacts } = await supabase
-          .from('messages')
-          .select(`
-            sender:sender_id(
-              id,
-              first_name,
-              last_name,
-              avatar_url
-            ),
-            recipient:conversation_participants!inner(
-              user_id,
-              profile:profiles!inner(
-                id,
-                first_name,
-                last_name,
-                avatar_url
-              )
-            )
-          `)
-          .eq('sender_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        // Then get some default users if we don't have enough recent contacts
+        // Just get some default users
         const { data: defaultUsers } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, avatar_url')
           .neq('id', user.id)
           .limit(5);
-
-        // Combine and deduplicate users
-        const recentUsers: User[] = [];
-        
-        // Safely extract recipient profiles from recentContacts
-        if (recentContacts && recentContacts.length > 0) {
-          recentContacts.forEach(msg => {
-            // Find participants who are not the current user
-            const otherParticipants = msg.recipient.filter(p => p.user_id !== user.id);
-            
-            otherParticipants.forEach(participant => {
-              if (participant.profile) {
-                // Check if profile is an array and handle accordingly
-                const profileData = Array.isArray(participant.profile) 
-                  ? participant.profile[0] // Take the first item if it's an array
-                  : participant.profile;   // Use as is if it's an object
-                  
-                recentUsers.push({
-                  id: profileData.id,
-                  first_name: profileData.first_name,
-                  last_name: profileData.last_name,
-                  avatar_url: profileData.avatar_url
-                });
-              }
-            });
-          });
-        }
 
         // Convert defaultUsers to User[] type
         const defaultUsersList: User[] = defaultUsers?.map(user => ({
@@ -122,14 +73,8 @@ export function NewConversationButton() {
           last_name: user.last_name,
           avatar_url: user.avatar_url
         })) || [];
-
-        // Combine and deduplicate
-        const allUsers = [...recentUsers, ...defaultUsersList];
-        const uniqueUsers = Array.from(
-          new Map(allUsers.map(user => [user.id, user])).values()
-        );
         
-        setUsers(uniqueUsers.slice(0, 5));
+        setUsers(defaultUsersList);
       } catch (error) {
         console.error('Error loading initial users:', error);
       } finally {
@@ -144,7 +89,7 @@ export function NewConversationButton() {
 
   const searchUsers = async (query: string) => {
     if (!query.trim() || query.length < 2) {
-      // Load default/recent users when search is cleared
+      // Load default users when search is cleared
       const { data } = await supabase
         .from('profiles')
         .select('id, first_name, last_name, avatar_url')
@@ -241,6 +186,9 @@ export function NewConversationButton() {
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Start a New Conversation</DialogTitle>
+            <DialogDescription>
+              Find a user to start chatting with.
+            </DialogDescription>
           </DialogHeader>
           
           <div className="py-4 space-y-4">

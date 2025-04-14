@@ -527,7 +527,15 @@ export type Database = {
           read?: boolean | null
           sender_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       module_content: {
         Row: {
@@ -812,10 +820,6 @@ export type Database = {
       get_user_role: {
         Args: { user_id: string }
         Returns: string
-      }
-      is_conversation_participant: {
-        Args: { conv_id: string; uid: string }
-        Returns: boolean
       }
     }
     Enums: {
