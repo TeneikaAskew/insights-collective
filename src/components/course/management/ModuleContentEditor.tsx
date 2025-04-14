@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useModuleContent } from '@/hooks/useModuleContent';
@@ -55,19 +54,20 @@ import {
 
 interface ModuleContentEditorProps {
   moduleId: string;
-  onActivate: () => void;
-  onDeactivate: () => void;
-  isActive: boolean;
+  contents: any[];
+  onAddContent: (content: any) => Promise<any>;
+  onUpdateContent: (contentId: string, updates: any) => Promise<any>;
+  onDeleteContent: (contentId: string) => Promise<boolean>;
 }
 
 const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({ 
   moduleId,
-  onActivate,
-  onDeactivate,
-  isActive
+  contents,
+  onAddContent,
+  onUpdateContent,
+  onDeleteContent
 }) => {
   const { user } = useAuth();
-  const { contents, loading, addContent, updateContent, deleteContent, reorderContent } = useModuleContent(moduleId);
   const { uploadFile, uploading, progress } = useStorageUpload();
   const { canEdit } = useCoursePermissions(); // We don't need courseId here as it's already checked in parent
   
@@ -85,15 +85,6 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
   });
   const [editMode, setEditMode] = useState<'add' | 'edit'>('add');
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
-  // Activate content editor when opened
-  useEffect(() => {
-    if (isModalOpen) {
-      onActivate();
-    } else {
-      onDeactivate();
-    }
-  }, [isModalOpen, onActivate, onDeactivate]);
   
   const handleAddContent = (type: 'text' | 'video' | 'image') => {
     setContentType(type);
@@ -176,13 +167,13 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
     try {
       if (editMode === 'edit' && editingContent.id) {
         // Update existing content
-        await updateContent(editingContent.id, {
+        await onUpdateContent(editingContent.id, {
           content: editingContent.content,
           type: editingContent.type
         });
       } else {
         // Create new content
-        await addContent({
+        await onAddContent({
           module_id: moduleId,
           content: editingContent.content,
           type: editingContent.type,
@@ -197,10 +188,6 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
     }
   };
   
-  const handleDeleteContent = async (id: string) => {
-    await deleteContent(id);
-  };
-  
   const handleMoveContent = async (id: string, direction: 'up' | 'down') => {
     const contentIndex = contents.findIndex(c => c.id === id);
     if (contentIndex === -1) return;
@@ -212,7 +199,16 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
     const [movedItem] = newOrder.splice(contentIndex, 1);
     newOrder.splice(newIndex, 0, movedItem);
     
-    await reorderContent(newOrder);
+    // Update positions before sending to backend
+    const updatedOrder = newOrder.map((content, index) => ({
+      ...content,
+      position: index
+    }));
+    
+    // Update each item with new position
+    for (const item of updatedOrder) {
+      await onUpdateContent(item.id, { position: item.position });
+    }
   };
   
   if (loading) {
@@ -352,7 +348,7 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => handleDeleteContent(content.id)}
+                            onClick={() => onDeleteContent(content.id)}
                             className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                           >
                             Delete

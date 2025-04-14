@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { ModuleContentEditor } from '@/components/course/management/ModuleContentEditor';
+import ModuleContentEditor from '@/components/course/management/ModuleContentEditor';
 import AppLayout from '@/components/layout/AppLayout';
 import { Plus, ChevronLeft, Trash2, Save, Pencil } from 'lucide-react';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
@@ -53,7 +52,6 @@ const CourseManageMaterials = () => {
   const [newModuleDescription, setNewModuleDescription] = useState('');
   const [newModuleWeek, setNewModuleWeek] = useState(1);
   
-  // Authorization check
   useEffect(() => {
     if (!permissionsLoading && !isInstructor && !canEdit) {
       toast({
@@ -65,7 +63,6 @@ const CourseManageMaterials = () => {
     }
   }, [permissionsLoading, isInstructor, canEdit, navigate, courseId, toast]);
   
-  // Fetch course details
   useEffect(() => {
     const fetchCourse = async () => {
       if (!courseId) return;
@@ -92,7 +89,6 @@ const CourseManageMaterials = () => {
     fetchCourse();
   }, [courseId, toast]);
   
-  // Fetch modules
   useEffect(() => {
     const fetchModules = async () => {
       if (!courseId) return;
@@ -108,7 +104,6 @@ const CourseManageMaterials = () => {
         if (error) throw error;
         setModules(data || []);
         
-        // Select first module by default if available
         if (data && data.length > 0 && !selectedModule) {
           setSelectedModule(data[0]);
         }
@@ -127,7 +122,6 @@ const CourseManageMaterials = () => {
     fetchModules();
   }, [courseId, toast, selectedModule]);
   
-  // Fetch module contents when a module is selected
   useEffect(() => {
     const fetchModuleContents = async () => {
       if (!selectedModule) return;
@@ -206,7 +200,6 @@ const CourseManageMaterials = () => {
       
       if (error) throw error;
       
-      // Update local state
       setModules(modules.map(module => 
         module.id === selectedModule.id 
           ? { ...module, title: newModuleTitle, description: newModuleDescription, week: newModuleWeek } 
@@ -244,13 +237,11 @@ const CourseManageMaterials = () => {
     }
     
     try {
-      // Delete all module content first
       await supabase
         .from('module_content')
         .delete()
         .eq('module_id', moduleId);
       
-      // Then delete the module
       const { error } = await supabase
         .from('modules')
         .delete()
@@ -258,11 +249,9 @@ const CourseManageMaterials = () => {
       
       if (error) throw error;
       
-      // Update local state
       const updatedModules = modules.filter(module => module.id !== moduleId);
       setModules(updatedModules);
       
-      // If the deleted module was selected, select another one
       if (selectedModule && selectedModule.id === moduleId) {
         setSelectedModule(updatedModules.length > 0 ? updatedModules[0] : null);
       }
@@ -330,7 +319,6 @@ const CourseManageMaterials = () => {
       
       if (error) throw error;
       
-      // Update local state
       setModuleContents(moduleContents.map(content => 
         content.id === contentId ? { ...content, ...updatedContent } : content
       ));
@@ -361,7 +349,6 @@ const CourseManageMaterials = () => {
       
       if (error) throw error;
       
-      // Update local state
       setModuleContents(moduleContents.filter(content => content.id !== contentId));
       
       toast({
@@ -381,7 +368,6 @@ const CourseManageMaterials = () => {
     }
   };
   
-  // Start edit module with current values
   const startEditModule = (module: any) => {
     setNewModuleTitle(module.title);
     setNewModuleDescription(module.description);
@@ -611,7 +597,7 @@ const CourseManageMaterials = () => {
                 <CardContent>
                   <ModuleContentEditor 
                     moduleId={selectedModule.id}
-                    contentItems={moduleContents}
+                    contents={moduleContents}
                     onAddContent={handleAddContent}
                     onUpdateContent={handleUpdateContent}
                     onDeleteContent={handleDeleteContent}
