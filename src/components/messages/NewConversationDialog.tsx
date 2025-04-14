@@ -45,7 +45,7 @@ export function NewConversationDialog({ open, setOpen, onCreateConversation }: N
           <p className="text-sm text-muted-foreground">Find a user to start chatting with.</p>
         </DialogHeader>
 
-        <Command>
+        {/* <Command>
           <CommandInput
             placeholder="Search by name..."
             value={searchQuery}
@@ -74,8 +74,42 @@ export function NewConversationDialog({ open, setOpen, onCreateConversation }: N
               ))}
             </ScrollArea>
           </CommandList>
-        </Command>
-
+        </Command> */}
+<Command>
+  <CommandInput 
+    placeholder="Search user..." 
+    value={searchTerm}
+    onValueChange={setSearchTerm}
+  />
+  <CommandEmpty>No user found.</CommandEmpty>
+  <CommandGroup>
+    {filteredUsers
+      .filter(user =>
+        getUserDisplayName(user).toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .map((user) => (
+        <CommandItem
+          key={user.id}
+          value={user.id}
+          onSelect={() => {
+            setSelectedUsers((prev) =>
+              prev.includes(user.id)
+                ? prev.filter((id) => id !== user.id)
+                : [...prev, user.id]
+            );
+          }}
+        >
+          <Check
+            className={cn(
+              "mr-2 h-4 w-4",
+              selectedUsers.includes(user.id) ? "opacity-100" : "opacity-0"
+            )}
+          />
+          {getUserDisplayName(user)}
+        </CommandItem>
+      ))}
+  </CommandGroup>
+</Command>
         <DialogFooter className="pt-4">
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           <Button onClick={handleCreate} disabled={recipients.length === 0}>Start Conversation</Button>
