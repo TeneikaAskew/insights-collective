@@ -6,6 +6,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
 import { UserWithProfile } from '@/types/supabase';
+const awaitingRedirectAfterLoginRef = useRef(false);
+
 
 /**
  * Custom hook for authentication functionality
@@ -22,6 +24,15 @@ export const useAuthProvider = () => {
   
   // Get enriched user data
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
+
+  useEffect(() => {
+  if (awaitingRedirectAfterLoginRef.current && enrichedUser) {
+    console.log('✅ enrichedUser is ready, redirecting now...');
+    handleRedirectAfterLogin();
+    awaitingRedirectAfterLoginRef.current = false;
+  }
+}, [enrichedUser, handleRedirectAfterLogin]);
+
   
   // Helper function to store redirect path with debugging
   const storeRedirectPath = useCallback((path: string) => {
@@ -130,6 +141,8 @@ export const useAuthProvider = () => {
                   title: 'Success',
                   description: 'Logged in successfully',
                 });
+
+                awaitingRedirectAfterLoginRef.current = true;
                 
                 // Use setTimeout to ensure state is updated before redirect
                 setTimeout(() => {
