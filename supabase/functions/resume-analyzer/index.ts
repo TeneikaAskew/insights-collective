@@ -26,7 +26,8 @@ export function serveSentenceDetector() {
     if (req.method === 'OPTIONS') {
       return new Response(null, { 
         status: 200, 
-        headers: corsHeaders 
+        // headers: corsHeaders 
+        headers: preflightCorsHeaders
       });
     }
 
