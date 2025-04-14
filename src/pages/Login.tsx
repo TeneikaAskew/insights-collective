@@ -25,7 +25,7 @@ const Login = () => {
   
   // Determine the redirect destination based on priority
   // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
-  const redirectDestination = redirectParam || fromState ; //|| '/dashboard'
+  const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
   const encodedRedirect = encodeURIComponent(redirectDestination);
 
   
