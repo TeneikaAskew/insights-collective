@@ -12,17 +12,25 @@ export function useUsers() {
   const fetchUsers = useCallback(async (searchQuery?: string) => {
     setLoading(true);
     try {
+      console.log("Fetching users with search query:", searchQuery);
+      
       let query = supabase
         .from('profiles')
         .select('*');
       
-      if (searchQuery) {
+      if (searchQuery && searchQuery.length > 0) {
+        // Use wildcard search on first and last names
         query = query.or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`);
       }
       
       const { data, error } = await query;
       
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error fetching users:", error);
+        throw error;
+      }
+      
+      console.log("Fetched users:", data);
       
       // Ensure all profiles have the roles property
       const profilesWithRoles = data?.map(profile => ({

@@ -10,7 +10,6 @@ import {
   DialogFooter 
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +30,7 @@ export function NewConversationButton() {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user } = useAuth();
@@ -57,6 +57,7 @@ export function NewConversationButton() {
     }
 
     try {
+      setIsCreating(true);
       console.log("Starting conversation with user:", selectedUser);
       // Get or create conversation
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
@@ -79,6 +80,8 @@ export function NewConversationButton() {
         description: 'Failed to start conversation. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -117,9 +120,7 @@ export function NewConversationButton() {
                   id="user-search"
                   placeholder="Search by name..."
                   value={searchQuery}
-                  onValueChange={(value) => {
-                    setSearchQuery(value);
-                  }}
+                  onValueChange={setSearchQuery}
                 />
                 {loading && (
                   <div className="flex justify-center p-2">
@@ -128,16 +129,16 @@ export function NewConversationButton() {
                 )}
                 <CommandList>
                   <CommandEmpty>
-                    {searchQuery.length < 2 
-                      ? 'Type at least 2 characters to search' 
-                      : 'No users found'}
+                    {searchQuery.length > 0 
+                      ? 'No users found' 
+                      : 'Type to search for users'}
                   </CommandEmpty>
                   <CommandGroup>
                     {filteredUsers.map((user) => (
                       <CommandItem
                         key={user.id}
                         value={user.id}
-                        onSelect={() => handleSelectUser(user.id)}
+                        onSelect={handleSelectUser}
                         className="cursor-pointer hover:bg-amber-50"
                       >
                         <div className="flex items-center gap-2">
@@ -182,11 +183,17 @@ export function NewConversationButton() {
             </Button>
             <Button 
               onClick={handleStartConversation}
-              disabled={loading || !selectedUser}
+              disabled={loading || !selectedUser || isCreating}
               className="bg-amber-600 hover:bg-amber-700"
             >
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Start Conversation
+              {isCreating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Start Conversation"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
