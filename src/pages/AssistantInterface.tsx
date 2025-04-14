@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, Navigate, useLocation } from 'react-router-dom';
+import { useParams, Navigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginWall from '@/components/common/LoginWall';
@@ -9,7 +9,7 @@ import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
-import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
+import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 
 const AssistantInterface = () => {
   const { assistantId } = useParams();
@@ -18,7 +18,7 @@ const AssistantInterface = () => {
   const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  useStoreRedirectPath();
+  // Removed useStoreRedirectPath() - we'll handle navigation with useAuthenticatedNavigation
   
   useEffect(() => {
     const initializeCareerCoach = async () => {
@@ -98,6 +98,8 @@ const AssistantInterface = () => {
     }
   }, [assistantId]);
 
+  // We don't need to replace this with useAuthenticatedNavigation because 
+  // we're not redirecting to login - we're showing a LoginWall component instead
   if (!isAuthenticated) {
     return (
       <LoginWall 
