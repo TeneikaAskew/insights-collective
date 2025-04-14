@@ -11,21 +11,12 @@ import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
 
-const location = useLocation();
-const { storeRedirectPath } = useAuth();
-useEffect(() => {
-  const fullPath = window.location.pathname + window.location.search;
-  const alreadyStored = localStorage.getItem('redirectAfterLogin');
 
-  if (!alreadyStored && !['/login', '/register'].includes(location.pathname)) {
-    localStorage.setItem('redirectAfterLogin', fullPath);
-    storeRedirectPath?.(fullPath);
+import { useStoreRedirectPath } from '@/hooks/useAuth';
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log('LoginWall: stored redirectAfterLogin path:', fullPath);
-    }
-  }
-}, [location.pathname, storeRedirectPath]);
+const AssistantsPage = () => {
+  useStoreRedirectPath(); // 🔐 stores path on load (if not yet stored)
+};
 
 
 const AssistantInterface = () => {

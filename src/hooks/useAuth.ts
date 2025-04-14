@@ -42,6 +42,30 @@ export const useAuthProvider = () => {
 //   }
 // }, []);
 
+  // hooks/useStoreRedirectPath.ts
+import { useLocation } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
+
+export const useStoreRedirectPath = () => {
+  const location = useLocation();
+  const { storeRedirectPath } = useAuth();
+
+  useEffect(() => {
+    const fullPath = window.location.pathname + window.location.search;
+    const alreadyStored = localStorage.getItem('redirectAfterLogin');
+
+    if (!alreadyStored && !['/login', '/register'].includes(location.pathname)) {
+      localStorage.setItem('redirectAfterLogin', fullPath);
+      storeRedirectPath?.(fullPath);
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[Redirect Logic] Storing redirectAfterLogin path:', fullPath);
+      }
+    }
+  }, [location.pathname, storeRedirectPath]);
+};
+
+
 
   const handleRedirectAfterLogin = useCallback(() => {
     if (redirectInProgressRef.current) return;
