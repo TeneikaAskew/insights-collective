@@ -4,24 +4,52 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export const useStoreRedirectPath = () => {
   const location = useLocation();
-  const { isAuthenticated } = useAuth(); // 👈 Access auth state
+  const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     const fullPath = location.pathname + location.search;
     const isAuthPage = ['/login', '/register'].includes(location.pathname);
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
 
-    console.log('[useStoreRedirectPath] Current location:', fullPath);
-    console.log('[useStoreRedirectPath] Already stored:', alreadyStored);
-    console.log('[useStoreRedirectPath] Authenticated:', isAuthenticated);
+    // Log for debugging
+    console.log('[useStoreRedirectPath] ⏩ Evaluating path...');
+    console.log('  📍 Path:', fullPath);
+    console.log('  ✅ isAuthPage:', isAuthPage);
+    console.log('  🔒 isAuthenticated:', isAuthenticated);
+    console.log('  🗂 alreadyStored:', alreadyStored);
 
-    // ✅ Store only if not on auth page, not logged in, and nothing already stored
-    if (!isAuthenticated && !isAuthPage && alreadyStored !== fullPath) {
+    // Store if unauthenticated, not already stored, and not an auth page
+    if (!isAuthenticated && !isAuthPage && !alreadyStored) {
       localStorage.setItem('redirectAfterLogin', fullPath);
-      console.log('[useStoreRedirectPath] 🔁 Stored new path:', fullPath);
+      console.log('[useStoreRedirectPath] 💾 Stored redirect path:', fullPath);
     }
   }, [location.pathname, location.search, isAuthenticated]);
 };
+
+// import { useEffect } from 'react';
+// import { useLocation } from 'react-router-dom';
+// import { useAuth } from '@/contexts/AuthContext';
+
+// export const useStoreRedirectPath = () => {
+//   const location = useLocation();
+//   const { isAuthenticated } = useAuth(); // 👈 Access auth state
+
+//   useEffect(() => {
+//     const fullPath = location.pathname + location.search;
+//     const isAuthPage = ['/login', '/register'].includes(location.pathname);
+//     const alreadyStored = localStorage.getItem('redirectAfterLogin');
+
+//     console.log('[useStoreRedirectPath] Current location:', fullPath);
+//     console.log('[useStoreRedirectPath] Already stored:', alreadyStored);
+//     console.log('[useStoreRedirectPath] Authenticated:', isAuthenticated);
+
+//     // ✅ Store only if not on auth page, not logged in, and nothing already stored
+//     if (!isAuthenticated && !isAuthPage && alreadyStored !== fullPath) {
+//       localStorage.setItem('redirectAfterLogin', fullPath);
+//       console.log('[useStoreRedirectPath] 🔁 Stored new path:', fullPath);
+//     }
+//   }, [location.pathname, location.search, isAuthenticated]);
+// };
 
 
 // import { useEffect } from 'react';
