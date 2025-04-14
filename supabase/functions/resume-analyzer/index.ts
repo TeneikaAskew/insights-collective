@@ -1,5 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
 import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions.ts";
@@ -7,7 +7,7 @@ import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
 import { serveBulletImprover } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 import { corsHeaders } from "./utils.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -330,7 +330,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
             console.error("Error finding resume record:", findError);
           } else if (resumeRecord) {
             const { error: updateError } = await supabase
-              .from('resums
+              .from('resumes')
               .update({ 
                 analysis: enhancedAnalysis,
                 updated_at: new Date().toISOString()
@@ -388,21 +388,16 @@ async function analyzeResume(resumeText: string, userId?: string) {
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  // if (req.method === 'OPTIONS') {
-  //   return new Response(null, { 
-  //     headers: corsHeaders
-  //   });
-  // }
   if (req.method === 'OPTIONS') {
-  return new Response(null, {
-    status: 200,
-    headers: {
-      ...corsHeaders,
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Max-Age': '86400'
-    }
-  });
-}
+    return new Response(null, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Max-Age': '86400'
+      }
+    });
+  }
 
   
   const url = new URL(req.url);
