@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect } from 'react';
 import { useAuthProvider, AuthContextType } from '@/hooks/useAuth';
 
@@ -8,22 +7,31 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // Provider component that wraps app and makes auth object available
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuthProvider();
-  
-  // Handle automatic redirects when the auth context is initialized 
-  // This ensures redirects happen at the app root level
+
   useEffect(() => {
+    const storedRedirect = localStorage.getItem('redirectAfterLogin');
+
+    console.log('[AuthProvider] Context initialized');
+    console.log('[AuthProvider] Auth state:', {
+      isAuthenticated: auth.isAuthenticated,
+      loading: auth.loading,
+      storedRedirect
+    });
+
     // Check if there's a stored redirect path and we're authenticated
     if (auth.isAuthenticated && !auth.loading) {
-      const storedRedirect = localStorage.getItem('redirectAfterLogin');
-      if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
-        if (process.env.NODE_ENV === "development") {
-          console.log('AuthProvider detected redirect path:', storedRedirect);
-        }
+      if (storedRedirect && !['/login', '/register'].includes(storedRedirect)) {
+        console.log('[AuthProvider] ✅ Valid stored redirect detected:', storedRedirect);
+        console.log('[AuthProvider] 🔁 Triggering handleRedirectAfterLogin');
         auth.handleRedirectAfterLogin();
+      } else {
+        console.log('[AuthProvider] ℹ️ No valid redirect path to process');
       }
+    } else {
+      console.log('[AuthProvider] ⏳ Waiting for auth or still loading...');
     }
   }, [auth.isAuthenticated, auth.loading, auth.handleRedirectAfterLogin]);
-  
+
   return (
     <AuthContext.Provider value={auth}>
       {children}
