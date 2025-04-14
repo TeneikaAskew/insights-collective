@@ -13,23 +13,26 @@ import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Sha
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  isEnrolledInCourse, 
-  addEnrolledCourse, 
-  isWishlistedCourse, 
-  toggleWishlistedCourse 
-} from '@/utils/idUtils';
-
+import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishlistedCourse } from '@/utils/idUtils';
 const CourseDetail = () => {
-  const { courseId } = useParams<{ courseId: string }>();
+  const {
+    courseId
+  } = useParams<{
+    courseId: string;
+  }>();
   const [enrolling, setEnrolling] = useState(false);
   const [addingToWishlist, setAddingToWishlist] = useState(false);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const { toast } = useToast();
-  const { user, isAuthenticated } = useAuth();
+  const {
+    toast
+  } = useToast();
+  const {
+    user,
+    isAuthenticated
+  } = useAuth();
   const navigate = useNavigate();
-  
+
   // Get course details
   const course = mockService.getCourseById(courseId || '');
 
@@ -40,33 +43,27 @@ const CourseDetail = () => {
       setIsEnrolled(isEnrolledInCourse(courseId));
       setIsWishlisted(isWishlistedCourse(courseId));
     }
-    
+
     // If authenticated, also check Supabase
     if (isAuthenticated && user && courseId) {
       // Check if user is enrolled
       const checkEnrollment = async () => {
-        const { data, error } = await supabase
-          .from('enrollments')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('course_id', courseId)
-          .maybeSingle();
-        
+        const {
+          data,
+          error
+        } = await supabase.from('enrollments').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle();
         if (!error && data) {
           setIsEnrolled(true);
         }
       };
-      
+
       // Check if course is in wishlist
       const checkWishlist = async () => {
         try {
-          const { data, error } = await supabase
-            .from('course_wishlists')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('course_id', courseId)
-            .maybeSingle();
-          
+          const {
+            data,
+            error
+          } = await supabase.from('course_wishlists').select('id').eq('user_id', user.id).eq('course_id', courseId).maybeSingle();
           if (!error && data) {
             setIsWishlisted(true);
           }
@@ -74,15 +71,12 @@ const CourseDetail = () => {
           console.error('Error checking wishlist:', error);
         }
       };
-      
       checkEnrollment();
       checkWishlist();
     }
   }, [isAuthenticated, user, courseId]);
-  
   if (!course) {
-    return (
-      <AppLayout>
+    return <AppLayout>
         <div className="text-center py-12">
           <h1 className="text-3xl font-bold mb-4">Course Not Found</h1>
           <p className="text-muted-foreground mb-6">The course you're looking for doesn't exist or has been removed.</p>
@@ -90,45 +84,43 @@ const CourseDetail = () => {
             <Link to="/courses">Browse Courses</Link>
           </Button>
         </div>
-      </AppLayout>
-    );
+      </AppLayout>;
   }
-  
+
   // Handle enrollment
   const handleEnroll = async () => {
     if (!isAuthenticated) {
       // Store current path for redirect after login
       localStorage.setItem('redirectAfterLogin', `/courses/${courseId}`);
-      navigate('/login', { state: { from: `/courses/${courseId}` } });
+      navigate('/login', {
+        state: {
+          from: `/courses/${courseId}`
+        }
+      });
       return;
     }
-    
     if (!courseId) return;
-    
     setEnrolling(true);
-    
     try {
       // Update localStorage status first for immediate UI feedback
       addEnrolledCourse(courseId);
       setIsEnrolled(true);
-      
+
       // Then sync with Supabase if user is authenticated
       if (isAuthenticated && user) {
         // Add enrollment to database
-        const { error } = await supabase
-          .from('enrollments')
-          .insert({
-            user_id: user.id,
-            course_id: courseId,
-            completion_status: 0
-          });
-        
+        const {
+          error
+        } = await supabase.from('enrollments').insert({
+          user_id: user.id,
+          course_id: courseId,
+          completion_status: 0
+        });
         if (error) throw error;
       }
-      
       toast({
         title: "Successfully enrolled!",
-        description: `You have been enrolled in ${course.title}`,
+        description: `You have been enrolled in ${course.title}`
       });
     } catch (error: any) {
       console.error('Error enrolling in course:', error);
@@ -141,52 +133,48 @@ const CourseDetail = () => {
       setEnrolling(false);
     }
   };
-  
+
   // Handle wishlist
   const handleWishlist = async () => {
     if (!isAuthenticated) {
       // Store current path for redirect after login
       localStorage.setItem('redirectAfterLogin', `/courses/${courseId}`);
-      navigate('/login', { state: { from: `/courses/${courseId}` } });
+      navigate('/login', {
+        state: {
+          from: `/courses/${courseId}`
+        }
+      });
       return;
     }
-    
     if (!courseId) return;
-    
     setAddingToWishlist(true);
-    
     try {
       // Update localStorage status first for immediate UI feedback
       const newWishlistStatus = toggleWishlistedCourse(courseId);
       setIsWishlisted(newWishlistStatus);
-      
+
       // Then sync with Supabase if user is authenticated
       if (isAuthenticated && user) {
         if (newWishlistStatus) {
           // Add to wishlist in Supabase
-          const { error } = await supabase
-            .from('course_wishlists')
-            .insert({
-              user_id: user.id,
-              course_id: courseId
-            });
-          
+          const {
+            error
+          } = await supabase.from('course_wishlists').insert({
+            user_id: user.id,
+            course_id: courseId
+          });
           if (error) throw error;
         } else {
           // Remove from wishlist in Supabase
-          const { error } = await supabase
-            .from('course_wishlists')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('course_id', courseId);
-          
+          const {
+            error
+          } = await supabase.from('course_wishlists').delete().eq('user_id', user.id).eq('course_id', courseId);
           if (error) throw error;
         }
       }
-      
       toast({
         title: newWishlistStatus ? "Added to wishlist" : "Removed from wishlist",
-        description: `${course.title} has been ${newWishlistStatus ? 'added to' : 'removed from'} your wishlist`,
+        description: `${course.title} has been ${newWishlistStatus ? 'added to' : 'removed from'} your wishlist`
       });
     } catch (error: any) {
       console.error('Error updating wishlist:', error);
@@ -195,19 +183,18 @@ const CourseDetail = () => {
         description: error.message || "There was an error updating your wishlist",
         variant: "destructive"
       });
-      
+
       // Revert local state if Supabase operation failed
       setIsWishlisted(!isWishlisted);
     } finally {
       setAddingToWishlist(false);
     }
   };
-  
+
   // Handle sharing
   const handleShare = (platform: string) => {
     const url = window.location.href;
     const title = `Check out this course: ${course.title}`;
-    
     switch (platform) {
       case 'facebook':
         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank');
@@ -223,7 +210,7 @@ const CourseDetail = () => {
         navigator.clipboard.writeText(url).then(() => {
           toast({
             title: "Link copied",
-            description: "Course link copied to clipboard for sharing",
+            description: "Course link copied to clipboard for sharing"
           });
         });
         break;
@@ -231,20 +218,15 @@ const CourseDetail = () => {
         navigator.clipboard.writeText(url).then(() => {
           toast({
             title: "Link copied",
-            description: "Course link copied to clipboard for sharing",
+            description: "Course link copied to clipboard for sharing"
           });
         });
     }
   };
-  
+
   // Calculate overall progress (would come from the database in a real app)
-  const overallProgress = course.modules.reduce(
-    (sum, module) => sum + module.completionStatus, 
-    0
-  ) / (course.modules.length || 1);
-  
-  return (
-    <AppLayout>
+  const overallProgress = course.modules.reduce((sum, module) => sum + module.completionStatus, 0) / (course.modules.length || 1);
+  return <AppLayout>
       <div className="space-y-6">
         <div className="flex items-center mb-4">
           <Button variant="ghost" size="sm" className="mr-2" asChild>
@@ -259,20 +241,13 @@ const CourseDetail = () => {
           <div className="lg:col-span-2 space-y-6">
             <Card>
               <div className="aspect-video w-full overflow-hidden">
-                <img 
-                  src={course.thumbnail} 
-                  alt={course.title} 
-                  className="w-full h-full object-cover"
-                />
+                <img src={course.thumbnail} alt={course.title} className="w-full h-full object-cover" />
               </div>
               <CardContent className="p-6">
                 <div className="flex flex-wrap gap-2 mb-4">
                   <Badge>{course.category}</Badge>
                   <Badge variant="outline">{course.level}</Badge>
-                  <Badge variant={
-                    course.enrollmentStatus === 'Open' ? 'secondary' :
-                    course.enrollmentStatus === 'In Progress' ? 'default' : 'outline'
-                  }>
+                  <Badge variant={course.enrollmentStatus === 'Open' ? 'secondary' : course.enrollmentStatus === 'In Progress' ? 'default' : 'outline'}>
                     {course.enrollmentStatus}
                   </Badge>
                 </div>
@@ -312,11 +287,9 @@ const CourseDetail = () => {
                 <p className="text-lg mb-6">{course.description}</p>
                 
                 <div className="flex flex-wrap gap-3">
-                  {course.tags.map((tag) => (
-                    <Badge key={tag} variant="outline">
+                  {course.tags.map(tag => <Badge key={tag} variant="outline">
                       {tag}
-                    </Badge>
-                  ))}
+                    </Badge>)}
                 </div>
               </CardContent>
             </Card>
@@ -337,9 +310,7 @@ const CourseDetail = () => {
                   </p>
                   
                   <div className="space-y-4">
-                    {course.modules.map((module) => (
-                      <ModuleCard key={module.id} courseId={course.id} module={module} />
-                    ))}
+                    {course.modules.map(module => <ModuleCard key={module.id} courseId={course.id} module={module} />)}
                   </div>
                 </div>
               </TabsContent>
@@ -398,7 +369,7 @@ const CourseDetail = () => {
                       <div>
                         <h3 className="text-lg font-semibold mb-2">Required Materials</h3>
                         <ul className="space-y-2">
-                          <li className="flex items-center p-3 bg-secondary rounded-lg">
+                          <li className="flex items-center p-3 bg-primary rounded-lg">
                             <BookOpen className="h-5 w-5 mr-3 text-primary" />
                             <span>Main course textbook (provided as PDF)</span>
                           </li>
@@ -458,20 +429,11 @@ const CourseDetail = () => {
                 </div>
                 
                 <div className="flex flex-col gap-3">
-                  <Button 
-                    size="lg" 
-                    onClick={handleEnroll} 
-                    disabled={enrolling || isEnrolled}
-                  >
+                  <Button size="lg" onClick={handleEnroll} disabled={enrolling || isEnrolled}>
                     {enrolling ? "Enrolling..." : isEnrolled ? "Already Enrolled" : "Enroll in Course"}
                   </Button>
                   
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    onClick={handleWishlist}
-                    disabled={addingToWishlist}
-                  >
+                  <Button variant="outline" size="lg" onClick={handleWishlist} disabled={addingToWishlist}>
                     {addingToWishlist ? "Updating..." : isWishlisted ? "Remove from Wishlist" : "Add to Wishlist"}
                   </Button>
                 </div>
@@ -535,8 +497,6 @@ const CourseDetail = () => {
           </div>
         </div>
       </div>
-    </AppLayout>
-  );
+    </AppLayout>;
 };
-
 export default CourseDetail;
