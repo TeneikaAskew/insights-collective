@@ -218,24 +218,58 @@ export const useAuthProvider = () => {
     }
   }, [navigate]);
 
+  // const login = useCallback(async (email: string, password: string) => {
+  //   try {
+  //     setLoading(true);
+  //     setError(null);
+      
+  //     const { error } = await supabase.auth.signInWithPassword({
+  //       email,
+  //       password,
+  //     });
+      
+  //     if (error) throw error;
+      
+  //     toast({
+  //       title: 'Success',
+  //       description: 'Logged in successfully',
+  //     });
+      
+  //     // Redirect handled by auth state change handler
+  //   } catch (error: any) {
+  //     setError(error.message);
+  //     toast({
+  //       title: 'Error',
+  //       description: error.message,
+  //       variant: 'destructive',
+  //     });
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // }, [toast]);
   const login = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
-      
+  
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-      
+  
       if (error) throw error;
-      
+  
       toast({
         title: 'Success',
         description: 'Logged in successfully',
       });
-      
-      // Redirect handled by auth state change handler
+  
+      // ✅ Explicit redirect fallback if SIGNED_IN event is delayed
+      setTimeout(() => {
+        if (!redirectInProgressRef.current) {
+          handleRedirectAfterLogin();
+        }
+      }, 300);
     } catch (error: any) {
       setError(error.message);
       toast({
@@ -246,7 +280,7 @@ export const useAuthProvider = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, handleRedirectAfterLogin]);
 
   const socialSignIn = useCallback(async (provider: 'google' | 'github' | 'twitter') => {
     try {

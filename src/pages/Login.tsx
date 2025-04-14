@@ -43,16 +43,16 @@ const Login = () => {
   }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname]);
 
   // Redirect authenticated users
-  useEffect(() => {
-    if (isAuthenticated) {
-      console.log('Login page: User authenticated, redirecting to:', redirectDestination);
-      navigate(redirectDestination, { replace: true });
-      // Only clear localStorage path if not an admin route (preserves admin redirects)
-      if (redirectDestination && !redirectDestination.startsWith('/admin')) {
-        localStorage.removeItem('redirectAfterLogin');
-      }
-    }
-  }, [isAuthenticated, navigate, redirectDestination]);
+  // useEffect(() => {
+  //   if (isAuthenticated) {
+  //     console.log('Login page: User authenticated, redirecting to:', redirectDestination);
+  //     navigate(redirectDestination, { replace: true });
+  //     // Only clear localStorage path if not an admin route (preserves admin redirects)
+  //     if (redirectDestination && !redirectDestination.startsWith('/admin')) {
+  //       localStorage.removeItem('redirectAfterLogin');
+  //     }
+  //   }
+  // }, [isAuthenticated, navigate, redirectDestination]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
