@@ -43,7 +43,8 @@ export const useAuthProvider = () => {
 
     try {
       const redirectParam = new URLSearchParams(location.search).get('redirect');
-      const fromPath = location.state?.from?.pathname;
+      // const fromPath = location.state?.from?.pathname;
+      const fromPath = localStorage.getItem('redirectAfterLogin')
       const storedRedirect = localStorage.getItem('redirectAfterLogin');
       console.log('redirectParam', redirectParam);
       console.log('fromPath', fromPath);
