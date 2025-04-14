@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageSquare, Send, Plus } from 'lucide-react';
+import { MessageSquare, Send, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,9 +23,22 @@ const Messages = () => {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('inbox');
   const [messageContent, setMessageContent] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   
   const { conversations, loading: loadingConversations, sendMessage, error: conversationsError } = useConversations();
   const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
+
+  // If we encounter an authentication error, show a toast and navigate to login
+  useEffect(() => {
+    if (conversationsError?.message?.includes('JWT')) {
+      toast({
+        title: 'Authentication Error',
+        description: 'Please sign in to access your messages',
+        variant: 'destructive',
+      });
+      navigate('/login?redirect=/messages');
+    }
+  }, [conversationsError, toast, navigate]);
 
   const handleSendMessage = async () => {
     if (!messageContent.trim() || !conversationId) return;
@@ -39,6 +53,26 @@ const Messages = () => {
   const handleSuggestedMessage = (message: string) => {
     setMessageContent(message);
   };
+
+  const filteredConversations = conversations?.filter(conv => {
+    if (!searchQuery) return true;
+    
+    const searchLower = searchQuery.toLowerCase();
+    // Search by subject
+    if (conv.subject?.toLowerCase().includes(searchLower)) return true;
+    
+    // Search by participant names
+    const hasMatchingParticipant = conv.participants?.some(p => 
+      p.profile?.first_name?.toLowerCase().includes(searchLower) || 
+      p.profile?.last_name?.toLowerCase().includes(searchLower)
+    );
+    if (hasMatchingParticipant) return true;
+    
+    // Search in last message
+    if (conv.last_message?.content?.toLowerCase().includes(searchLower)) return true;
+    
+    return false;
+  });
 
   if (!isAuthenticated) {
     return <LoginWall 
@@ -68,14 +102,16 @@ const Messages = () => {
                 <Input 
                   placeholder="Search messages..." 
                   className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <MessageSquare className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-1 h-full">
                   <ConversationList 
-                    conversations={conversations || []} 
+                    conversations={filteredConversations || []} 
                     loading={loadingConversations}
                     error={conversationsError} 
                   />
@@ -139,14 +175,28 @@ const Messages = () => {
                 <Input 
                   placeholder="Search sent messages..." 
                   className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                 />
-                <MessageSquare className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+                <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
               </div>
               
               <div className="border rounded-md divide-y">
-                <div className="p-6 text-center text-muted-foreground">
-                  No sent messages yet.
-                </div>
+                {activeTab === 'sent' && conversations?.filter(c => 
+                  c.last_message?.sender_id === user?.id
+                )?.length === 0 ? (
+                  <div className="p-6 text-center text-muted-foreground">
+                    No sent messages yet.
+                  </div>
+                ) : (
+                  <ConversationList 
+                    conversations={conversations?.filter(c => 
+                      c.last_message?.sender_id === user?.id
+                    ) || []} 
+                    loading={loadingConversations}
+                    error={conversationsError} 
+                  />
+                )}
               </div>
             </TabsContent>
           </Tabs>

@@ -17,7 +17,10 @@ export function useConversationList() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const loadConversations = async () => {
       setLoading(true);
@@ -82,6 +85,9 @@ export function useConversationList() {
       )
       .subscribe((status) => {
         console.log('Realtime subscription status:', status);
+        if (status !== 'SUBSCRIBED') {
+          console.error('Failed to subscribe to realtime changes:', status);
+        }
       });
       
     return () => {
