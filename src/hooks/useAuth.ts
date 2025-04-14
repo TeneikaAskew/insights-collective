@@ -45,6 +45,9 @@ export const useAuthProvider = () => {
       const redirectParam = new URLSearchParams(location.search).get('redirect');
       const fromPath = location.state?.from?.pathname;
       const storedRedirect = localStorage.getItem('redirectAfterLogin');
+      console.log('redirectParam', redirectParam);
+      console.log('fromPath', fromPath);
+      console.log('storedRedirect', storedRedirect);
 
       // let redirectTo = '/dashboard';
       let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
@@ -74,6 +77,8 @@ export const useAuthProvider = () => {
         console.log('Redirecting to:', redirectTo);
       }
 
+      
+
       navigate(redirectTo, { replace: true });
     } finally {
       setTimeout(() => {
@@ -81,9 +86,7 @@ export const useAuthProvider = () => {
       }, 100);
     }
   }, [navigate, location, enrichedUser, toast]);
-  console.log('redirectParam', redirectParam);
-  console.log('fromPath', fromPath);
-  console.log('storedRedirect', storedRedirect);
+  
 
 
   useEffect(() => {
