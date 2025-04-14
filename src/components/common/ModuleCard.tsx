@@ -11,7 +11,12 @@ interface ModuleCardProps {
 }
 
 const ModuleCard = ({ courseId, module }: ModuleCardProps) => {
-  const totalItems = module.lessons.length + module.assignments.length + module.quizzes.length;
+  // Add null checks for all potential undefined properties
+  const lessons = module.lessons || [];
+  const assignments = module.assignments || [];
+  const quizzes = module.quizzes || [];
+  
+  const totalItems = lessons.length + assignments.length + quizzes.length;
   
   return (
     <Link to={`/courses/${courseId}/modules/${module.id}`}>
@@ -30,31 +35,31 @@ const ModuleCard = ({ courseId, module }: ModuleCardProps) => {
           <div className="flex flex-col gap-2">
             <div className="flex justify-between text-sm mb-1">
               <span>Completion</span>
-              <span>{module.completionStatus}%</span>
+              <span>{module.completionStatus || 0}%</span>
             </div>
-            <Progress value={module.completionStatus} className="h-2" />
+            <Progress value={module.completionStatus || 0} className="h-2" />
             
             <div className="grid grid-cols-3 gap-2 mt-2">
               <div className="flex flex-col items-center justify-center p-2 bg-secondary rounded-lg">
                 <BookOpen className="h-4 w-4 mb-1" />
-                <span className="text-xs">{module.lessons.length} Lessons</span>
+                <span className="text-xs">{lessons.length} Lessons</span>
               </div>
               
               <div className="flex flex-col items-center justify-center p-2 bg-secondary rounded-lg">
                 <FileText className="h-4 w-4 mb-1" />
-                <span className="text-xs">{module.assignments.length} Assignments</span>
+                <span className="text-xs">{assignments.length} Assignments</span>
               </div>
               
               <div className="flex flex-col items-center justify-center p-2 bg-secondary rounded-lg">
                 <Clock className="h-4 w-4 mb-1" />
-                <span className="text-xs">{module.quizzes.length} Quizzes</span>
+                <span className="text-xs">{quizzes.length} Quizzes</span>
               </div>
             </div>
           </div>
         </CardContent>
         
         <CardFooter className="pt-0 flex justify-between items-center">
-          {module.completionStatus === 100 ? (
+          {(module.completionStatus || 0) === 100 ? (
             <div className="flex items-center text-green-500 text-sm">
               <CheckCircle className="h-4 w-4 mr-1" />
               <span>Completed</span>
