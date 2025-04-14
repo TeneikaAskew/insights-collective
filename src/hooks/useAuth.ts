@@ -23,8 +23,7 @@ export const useAuthProvider = () => {
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
   const storeRedirectPath = useCallback((path: string) => {
-    const alreadyStored = localStorage.getItem('redirectAfterLogin');
-    if (path && !['/login', '/register', '/'].includes(path) && alreadyStored !== path) {
+    if (path && !['/login', '/register', '/'].includes(path)) {
       localStorage.setItem('redirectAfterLogin', path);
       console.log('[storeRedirectPath] Stored redirect path:', path);
     } else {
