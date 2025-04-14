@@ -22,7 +22,7 @@
 //   }, [location.pathname, location.search, storeRedirectPath]);
 // };
 
-
+// hooks/useStoreRedirectPath.ts
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -32,40 +32,38 @@ export const useStoreRedirectPath = () => {
   const { storeRedirectPath } = useAuth();
 
   useEffect(() => {
-    const updateRedirectPath = (path: string) => {
+    const updateRedirect = (path: string) => {
       const isAuthPage = ['/login', '/register'].includes(path);
       const alreadyStored = localStorage.getItem('redirectAfterLogin');
 
       if (!isAuthPage && alreadyStored !== path) {
         localStorage.setItem('redirectAfterLogin', path);
         storeRedirectPath?.(path);
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[useStoreRedirectPath] 🔁 Updated redirectAfterLogin to:', path);
-        }
+        console.log('[useStoreRedirectPath] 🔁 Updated redirectAfterLogin to:', path);
+      } else {
+        console.log('[storeRedirectPath] Skipped storing path:', { path, alreadyStored });
       }
     };
 
-    const handleClick = (event: MouseEvent) => {
-      const anchor = (event.target as HTMLElement)?.closest('a');
+    const clickHandler = (e: MouseEvent) => {
+      const anchor = (e.target as HTMLElement)?.closest('a');
       if (anchor && anchor.href && anchor.origin === window.location.origin) {
-        const nextPath = anchor.pathname + anchor.search;
-        updateRedirectPath(nextPath);
+        const newPath = anchor.pathname + anchor.search;
+        updateRedirect(newPath);
       }
     };
 
-    // Listen for clicks to capture the intended destination before navigation
-    window.addEventListener('click', handleClick);
+    // Listen for anchor link clicks to capture path before navigation
+    window.addEventListener('click', clickHandler);
 
-    // Also run once on mount (as fallback)
-    const currentPath = location.pathname + location.search;
-    updateRedirectPath(currentPath);
+    // Fallback: store current path on mount
+    const fallbackPath = location.pathname + location.search;
+    updateRedirect(fallbackPath);
 
-    return () => {
-      window.removeEventListener('click', handleClick);
-    };
+    return () => window.removeEventListener('click', clickHandler);
   }, [location.pathname, location.search, storeRedirectPath]);
 };
+
 
 
 // import { useEffect } from 'react';
