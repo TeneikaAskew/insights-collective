@@ -11,7 +11,8 @@ import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
 
-
+const location = useLocation();
+const { storeRedirectPath } = useAuth();
 useEffect(() => {
   const fullPath = window.location.pathname + window.location.search;
   const alreadyStored = localStorage.getItem('redirectAfterLogin');
