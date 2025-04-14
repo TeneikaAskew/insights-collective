@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageSquare, Send, Plus } from 'lucide-react';
@@ -14,6 +13,7 @@ import MessageThread from '@/components/messages/MessageThread';
 import { useConversations } from '@/hooks/useConversations';
 import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { NewConversationButton } from '@/components/messages/NewConversationButton';
+import MessageSuggestions from '@/components/messages/MessageSuggestions';
 
 const Messages = () => {
   const { conversationId } = useParams();
@@ -34,6 +34,10 @@ const Messages = () => {
     if (success) {
       setMessageContent('');
     }
+  };
+
+  const handleSuggestedMessage = (message: string) => {
+    setMessageContent(message);
   };
 
   if (!isAuthenticated) {
@@ -82,6 +86,12 @@ const Messages = () => {
                     <div className="flex-1 overflow-y-auto">
                       <MessageThread messages={messages || []} loading={loadingMessages} />
                     </div>
+                    
+                    <MessageSuggestions
+                      onSelectMessage={handleSuggestedMessage}
+                      conversationId={conversationId}
+                      messages={messages}
+                    />
                     
                     <div className="p-4 border-t">
                       <div className="flex space-x-2">
