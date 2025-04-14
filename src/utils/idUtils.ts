@@ -20,6 +20,7 @@ const saveCourseUuidMapping = (mapping: Record<string, string>): void => {
 // Generate a persistent UUID for a mock course ID
 export const getMappedCourseUuid = (courseId: string): string => {
   const mapping = getCourseUuidMapping();
+  console.log(mapping)
   
   // If we already have a UUID for this course ID, return it
   if (mapping[courseId]) {
