@@ -41,6 +41,10 @@ export function useAdminUsers() {
         throw new Error("Authentication required to access admin functions");
       }
       
+      if (process.env.NODE_ENV === "development") {
+        console.log('Fetching admin users with access token:', !!session.access_token);
+      }
+      
       const { data, error } = await supabase.functions.invoke('admin-users', {
         body: { action: 'listUsers' },
         headers: {
@@ -48,7 +52,10 @@ export function useAdminUsers() {
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error details:', error);
+        throw error;
+      }
       
       const response = data as AdminUsersResponse;
       setUsers(response.users || []);

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -21,6 +22,14 @@ export { serveBulletImprover };
 
 export function serveSentenceDetector() {
   return async (req: Request) => {
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      return new Response(null, { 
+        status: 200, 
+        headers: corsHeaders 
+      });
+    }
+
     try {
       const { text } = await req.json();
       
@@ -386,14 +395,11 @@ async function analyzeResume(resumeText: string, userId?: string) {
 }
 
 serve(async (req) => {
+  // Proper handling of CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
-      headers: {
-        ...corsHeaders,
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Max-Age': '86400'
-      }
+      headers: corsHeaders
     });
   }
 

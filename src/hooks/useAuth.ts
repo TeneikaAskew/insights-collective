@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -113,7 +114,7 @@ export const useAuthProvider = () => {
       try {
         // Set up auth state listener
         const { data: authListener } = supabase.auth.onAuthStateChange(
-          (event, newSession) => {
+          async (event, newSession) => {
             if (!isActive) return;
             
             if (process.env.NODE_ENV === "development") {
@@ -135,7 +136,7 @@ export const useAuthProvider = () => {
                   if (isActive && !redirectInProgressRef.current) {
                     handleRedirectAfterLogin();
                   }
-                }, 100);
+                }, 0);
               }
             } else if (event === 'SIGNED_OUT') {
               setSession(null);
@@ -157,6 +158,17 @@ export const useAuthProvider = () => {
             console.log('Initial session check:', !!sessionData.session);
           }
           setSession(sessionData.session);
+          
+          // If we have an existing session and a stored redirect path,
+          // trigger the redirect logic immediately after setting the session
+          const storedRedirect = localStorage.getItem('redirectAfterLogin');
+          if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
+            setTimeout(() => {
+              if (isActive && !redirectInProgressRef.current) {
+                handleRedirectAfterLogin();
+              }
+            }, 0);
+          }
         }
         
         if (isActive) setLoading(false);
