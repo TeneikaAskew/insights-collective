@@ -89,6 +89,12 @@ const Login = () => {
   //   return <div className="flex justify-center items-center h-screen">Redirecting...</div>;
   // }
 
+  if (isAuthenticated) {
+  // Optional: keep this as fallback visual
+  return <div className="flex justify-center items-center h-screen">Redirecting...</div>;
+}
+
+
   useEffect(() => {
   if (isAuthenticated) {
     const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
