@@ -107,14 +107,7 @@ export const useAuthProvider = () => {
   }, [navigate, location, enrichedUser, toast]);
 
 
-  useEffect(() => {
-    if (awaitingRedirectAfterLoginRef.current && enrichedUser) {
-      console.log('✅ enrichedUser is ready, redirecting now...');
-      handleRedirectAfterLogin();
-      awaitingRedirectAfterLoginRef.current = false;
-    }
-  }, [enrichedUser, handleRedirectAfterLogin]);
-  
+
   // Update session and user on auth state change
   useEffect(() => {
     // Prevent multiple initializations
@@ -162,6 +155,15 @@ export const useAuthProvider = () => {
             }
           }
         );
+
+          useEffect(() => {
+    if (awaitingRedirectAfterLoginRef.current && enrichedUser) {
+      console.log('✅ enrichedUser is ready, redirecting now...');
+      handleRedirectAfterLogin();
+      awaitingRedirectAfterLoginRef.current = false;
+    }
+  }, [enrichedUser, handleRedirectAfterLogin]);
+  
         
         // Check for existing session
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
