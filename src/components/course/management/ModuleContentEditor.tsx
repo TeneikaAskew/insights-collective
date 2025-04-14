@@ -1,6 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useModuleContent } from '@/hooks/useModuleContent';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { Button } from '@/components/ui/button';
@@ -31,7 +31,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,7 +42,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from "@/components/ui/alert-dialog";
 import { Progress } from '@/components/ui/progress';
 import { 
   Select, 
@@ -58,6 +58,10 @@ interface ModuleContentEditorProps {
   onAddContent: (content: any) => Promise<any>;
   onUpdateContent: (contentId: string, updates: any) => Promise<any>;
   onDeleteContent: (contentId: string) => Promise<boolean>;
+  // Add these new props to fix the error in ModuleManager.tsx
+  onActivate?: () => void;
+  onDeactivate?: () => void;
+  isActive?: boolean;
 }
 
 const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({ 
@@ -65,7 +69,10 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
   contents,
   onAddContent,
   onUpdateContent,
-  onDeleteContent
+  onDeleteContent,
+  onActivate,
+  onDeactivate,
+  isActive
 }) => {
   const { user } = useAuth();
   const { uploadFile, uploading, progress } = useStorageUpload();
@@ -85,6 +92,15 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
   });
   const [editMode, setEditMode] = useState<'add' | 'edit'>('add');
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // Call onActivate/onDeactivate when modal is opened/closed if provided
+  useEffect(() => {
+    if (isModalOpen && onActivate) {
+      onActivate();
+    } else if (!isModalOpen && onDeactivate) {
+      onDeactivate();
+    }
+  }, [isModalOpen, onActivate, onDeactivate]);
   
   const handleAddContent = (type: 'text' | 'video' | 'image') => {
     setContentType(type);
@@ -211,7 +227,8 @@ const ModuleContentEditor: React.FC<ModuleContentEditorProps> = ({
     }
   };
   
-  if (loading) {
+  // Fixed: Using 'uploading' instead of 'loading'
+  if (uploading) {
     return (
       <div className="py-4">
         <Progress value={30} className="w-full animate-pulse" />
