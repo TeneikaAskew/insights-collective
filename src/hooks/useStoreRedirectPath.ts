@@ -8,6 +8,7 @@ export const useStoreRedirectPath = () => {
   const { storeRedirectPath } = useAuth(); // Optional if using auth context
 
   useEffect(() => {
+    const path = location.pathname;
     const fullPath = location.pathname + location.search;
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
 
@@ -22,7 +23,11 @@ export const useStoreRedirectPath = () => {
     //   }
      if (!alreadyStored  && !['/login', '/register'].includes(location.pathname)) {
       localStorage.setItem('redirectAfterLogin', fullPath);
+       // localStorage.setItem('redirectAfterLogin', path);
+      console.log('[DEBUG] Set redirectAfterLogin from:', window.location.href, " here is the location.pathname: ", path);
+
       storeRedirectPath?.(fullPath);
+       
       
       if (process.env.NODE_ENV === 'development') {
         console.log('[Redirect Logic] Stored:', fullPath);
