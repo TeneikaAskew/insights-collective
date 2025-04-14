@@ -3,12 +3,16 @@ import React from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
+import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
 
 type AppLayoutProps = {
   children: React.ReactNode;
 };
 
 const AppLayout = ({ children }: AppLayoutProps) => {
+  // Add the hook to capture redirect paths
+  useStoreRedirectPath();
+
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full bg-gradient-to-br from-white to-gray-50">

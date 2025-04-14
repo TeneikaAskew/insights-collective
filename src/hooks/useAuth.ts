@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -19,6 +20,7 @@ export const useAuthProvider = () => {
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
+  // Store redirect path in localStorage
   const storeRedirectPath = useCallback((path: string) => {
     const alreadyStored = localStorage.getItem('redirectAfterLogin');
     
@@ -32,17 +34,7 @@ export const useAuthProvider = () => {
     }
   }, []);
 
-//   const storeRedirectPath = useCallback((path: string) => {
-//   const existing = localStorage.getItem('redirectAfterLogin');
-//   if (!existing && path && !['/login', '/register', '/'].includes(path)) {
-//     localStorage.setItem('redirectAfterLogin', path);
-//     if (process.env.NODE_ENV === 'development') {
-//       console.log('Stored redirect path:', path);
-//     }
-//   }
-// }, []);
-
-
+  // Centralized redirect handler after login
   const handleRedirectAfterLogin = useCallback(() => {
     if (redirectInProgressRef.current) return;
     redirectInProgressRef.current = true;
@@ -85,9 +77,18 @@ export const useAuthProvider = () => {
     }
   }, [navigate, location, enrichedUser, toast]);
 
+  // Handle automatic redirect after login 
   useEffect(() => {
-    // Wait for user state to be restored and redirect will occur in useAuth
-  }, []);
+    // If user is authenticated and we're not already redirecting
+    if (isAuthenticated && !loading && !redirectInProgressRef.current) {
+      const storedRedirect = localStorage.getItem('redirectAfterLogin');
+      // Check if we're on login page or have a stored redirect
+      if ((location.pathname === '/login' || location.pathname === '/register') || 
+          (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register')) {
+        handleRedirectAfterLogin();
+      }
+    }
+  }, [isAuthenticated, loading, location.pathname]);
 
   useEffect(() => {
     let isMounted = true;
@@ -195,6 +196,7 @@ export const useAuthProvider = () => {
     navigate('/');
   }, [navigate]);
 
+  const isAuthenticated = !!enrichedUser;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
   return {
@@ -208,7 +210,7 @@ export const useAuthProvider = () => {
     googleSignIn: () => socialSignIn('google'),
     githubSignIn: () => socialSignIn('github'),
     twitterSignIn: () => socialSignIn('twitter'),
-    isAuthenticated: !!enrichedUser,
+    isAuthenticated,
     isAdminAuthenticated,
     storeRedirectPath,
     handleRedirectAfterLogin,

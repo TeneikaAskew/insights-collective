@@ -11,18 +11,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   // Handle automatic redirects when the auth context is initialized 
   // This ensures redirects happen at the app root level
-  // useEffect(() => {
-  //   // Check if there's a stored redirect path and we're authenticated
-  //   if (auth.isAuthenticated && !auth.loading) {
-  //     const storedRedirect = localStorage.getItem('redirectAfterLogin');
-  //     if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
-  //       if (process.env.NODE_ENV === "development") {
-  //         console.log('AuthProvider detected redirect path:', storedRedirect);
-  //       }
-  //       auth.handleRedirectAfterLogin();
-  //     }
-  //   }
-  // }, [auth.isAuthenticated, auth.loading, auth.handleRedirectAfterLogin]);
+  useEffect(() => {
+    // Check if there's a stored redirect path and we're authenticated
+    if (auth.isAuthenticated && !auth.loading) {
+      const storedRedirect = localStorage.getItem('redirectAfterLogin');
+      if (storedRedirect && storedRedirect !== '/login' && storedRedirect !== '/register') {
+        if (process.env.NODE_ENV === "development") {
+          console.log('AuthProvider detected redirect path:', storedRedirect);
+        }
+        auth.handleRedirectAfterLogin();
+      }
+    }
+  }, [auth.isAuthenticated, auth.loading, auth.handleRedirectAfterLogin]);
   
   return (
     <AuthContext.Provider value={auth}>

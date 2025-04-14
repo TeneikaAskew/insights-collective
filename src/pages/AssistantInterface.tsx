@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Navigate, useLocation } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -10,26 +9,19 @@ import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
+import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
 
 const AssistantInterface = () => {
   const { assistantId } = useParams();
-  const { isAuthenticated, storeRedirectPath } = useAuth();
-  const location = useLocation();
+  const { isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [selectedAssistant, setSelectedAssistant] = useState<Assistant | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
-  // Store the current path for redirect after login
-  useEffect(() => {
-    if (!isAuthenticated) {
-      storeRedirectPath(location.pathname);
-    }
-  }, [isAuthenticated, location.pathname, storeRedirectPath]);
+  useStoreRedirectPath();
   
-  // Check for and process stored quiz data after authentication
   useEffect(() => {
     const initializeCareerCoach = async () => {
-      // Only run for career coach assistant and when authenticated
       if (assistantId === 'career-coach' && isAuthenticated) {
         const storedScores = localStorage.getItem('quizScores');
         const storedAnswers = localStorage.getItem('quizAnswers');
@@ -41,33 +33,27 @@ const AssistantInterface = () => {
             const scores = JSON.parse(storedScores);
             const answers = JSON.parse(storedAnswers);
             
-            // If we have valid data and don't already have an active quiz attempt
             if (Object.keys(scores).length > 0 && 
                 Object.keys(answers).length > 0 && 
                 !localStorage.getItem('activeQuizAttemptId')) {
               
               console.log('Initializing career coach with stored quiz data');
               
-              // Store quiz attempt
               const quizAttemptId = await storeQuizAttempt(answers, scores);
               
               if (quizAttemptId) {
-                // Start conversation
                 const conversationId = await startCareerCoachConversation(quizAttemptId);
                 
                 if (conversationId) {
-                  // Determine top career path from scores
                   const sortedTracks = Object.entries(scores)
                     .sort(([, scoreA], [, scoreB]) => Number(scoreB) - Number(scoreA));
                   
                   const topCareerPath = sortedTracks[0][0];
                   
-                  // Store settings for the assistant interface to use
                   localStorage.setItem('activeQuizAttemptId', quizAttemptId);
                   localStorage.setItem('activeConversationId', conversationId);
                   localStorage.setItem('recommendedCareerPath', topCareerPath);
                   
-                  // Clear stored quiz data as it's now in Supabase
                   localStorage.removeItem('quizScores');
                   localStorage.removeItem('quizAnswers');
                   
@@ -97,26 +83,21 @@ const AssistantInterface = () => {
     initializeCareerCoach();
   }, [assistantId, isAuthenticated, toast]);
   
-  // Get assistant from URL params
   useEffect(() => {
     if (assistantId) {
-      // Find assistant by ID
       const assistant = [...allAssistants, careerExplorerAssistant].find(
         a => a.id === assistantId
       );
       if (assistant) {
         setSelectedAssistant(assistant);
       } else {
-        // Default to career explorer if assistant not found
         setSelectedAssistant(careerExplorerAssistant);
       }
     } else {
-      // Default to career explorer if no assistant specified
       setSelectedAssistant(careerExplorerAssistant);
     }
   }, [assistantId]);
 
-  // If not authenticated, show login wall
   if (!isAuthenticated) {
     return (
       <LoginWall 
@@ -127,7 +108,6 @@ const AssistantInterface = () => {
     );
   }
   
-  // If processing quiz data, show loading state
   if (isProcessing) {
     return (
       <AppLayout>
@@ -142,7 +122,6 @@ const AssistantInterface = () => {
     );
   }
   
-  // If no assistant is selected yet, show loading
   if (!selectedAssistant) {
     return (
       <AppLayout>

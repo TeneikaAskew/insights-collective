@@ -1,11 +1,12 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
 
 interface LoginWallProps {
   message: string;
@@ -16,28 +17,12 @@ interface LoginWallProps {
 
 const LoginWall = ({ message, visibleItems = 2, totalItems = 10, children }: LoginWallProps) => {
   const location = useLocation();
-  const { storeRedirectPath } = useAuth();
+  
+  // Use the hook to store redirect path (will be a no-op if already stored by AppLayout)
+  useStoreRedirectPath();
   
   // Create login URL with redirect parameter 
   const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
-  
-  // Store the current path for redirect after login
-  useEffect(() => {
-    // Only store non-auth pages as redirect paths
-    if (location.pathname !== '/login' && location.pathname !== '/register') {
-      // Store path in localStorage (primary method)
-      localStorage.setItem('redirectAfterLogin', location.pathname);
-      
-      // Also use the context method as a backup
-      if (storeRedirectPath) {
-        storeRedirectPath(location.pathname);
-      }
-      
-      if (process.env.NODE_ENV === "development") {
-        console.log('LoginWall: stored redirect path:', location.pathname);
-      }
-    }
-  }, [location.pathname, storeRedirectPath]);
   
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] p-4">

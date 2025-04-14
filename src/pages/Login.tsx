@@ -12,71 +12,31 @@ import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
 const Login = () => {
-  const { login, googleSignIn, githubSignIn, twitterSignIn, isAuthenticated, storeRedirectPath } = useAuth();
+  const { login, googleSignIn, githubSignIn, twitterSignIn, isAuthenticated, handleRedirectAfterLogin } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Extract redirect path from various sources
+  // Extract redirect path from URL params if present
   const query = new URLSearchParams(location.search);
-  // Get the current full path including query
-  const fullCurrentPath = window.location.pathname + window.location.search;
-
-  // const redirectParam = query.get('redirect');
-  // const fromState = location.state?.from?.pathname;
-  // const storedPath = localStorage.getItem('redirectAfterLogin');
+  const redirectParam = query.get('redirect');
   
-  
-  // // Determine the redirect destination based on priority
-  // // const redirectDestination = redirectParam || fromState || storedPath || '/dashboard';
-  // const redirectDestination = redirectParam;// || fromState ; //|| '/dashboard'
-  // const encodedRedirect = encodeURIComponent(redirectDestination);
-
+  // If there's a redirect in the URL, store it
   useEffect(() => {
-    const alreadyStored = localStorage.getItem('redirectAfterLogin');
-    const current = window.location.pathname + window.location.search;
-  
-    console.log('Login page: Checking redirect path:', {
-      alreadyStored,
-      current
-    });
-  
-    if (!alreadyStored && !['/login', '/register'].includes(current)) {
-      localStorage.setItem('redirectAfterLogin', current);
-      storeRedirectPath(current); // context method, optional
-      console.log('Login page: stored redirect path:', current);
+    if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
+      localStorage.setItem('redirectAfterLogin', redirectParam);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Login page: stored redirect from URL param:', redirectParam);
+      }
     }
-  }, [storeRedirectPath]);
+  }, [redirectParam]);
 
-
-  
-  // Store redirect path on component mount
+  // Redirect authenticated users (using the centralized handler)
   useEffect(() => {
-    console.log(location, 'Login page: Checking redirect paths. Options:', {
-      fromState,
-      redirectParam,
-      storedPath,
-      currentPath: location.pathname
-    });
-    
-    if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
-      // Use context method to store redirect path
-      storeRedirectPath(redirectDestination);
-      console.log('Login page: stored redirect path:', redirectDestination);
+    if (isAuthenticated) {
+      handleRedirectAfterLogin();
     }
-  }, [redirectDestination, storeRedirectPath, fromState, redirectParam, location.pathname]);
-
-  // Redirect authenticated users
-  // useEffect(() => {
-  //   if (isAuthenticated) {
-  //     console.log('Login page: User authenticated, redirecting to:', redirectDestination);
-  //     navigate(redirectDestination, { replace: true });
-  //     // Only clear localStorage path if not an admin route (preserves admin redirects)
-  //     if (redirectDestination && !redirectDestination.startsWith('/admin')) {
-  //       localStorage.removeItem('redirectAfterLogin');
-  //     }
-  //   }
-  // }, [isAuthenticated, navigate, redirectDestination]);
+  }, [isAuthenticated, handleRedirectAfterLogin]);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -110,11 +70,7 @@ const Login = () => {
       setError(null);
       setSocialLoading(provider);
       
-      // Before social login, ensure the redirect path is saved
-      if (redirectDestination && redirectDestination !== '/login' && redirectDestination !== '/register') {
-        storeRedirectPath(redirectDestination);
-      }
-      
+      // Social login will handle redirect via OAuth callback
       switch (provider) {
         case 'google':
           await googleSignIn();
@@ -126,7 +82,6 @@ const Login = () => {
           await twitterSignIn();
           break;
       }
-      // Redirect for social logins is handled by the OAuth provider callback
     } catch (error: any) {
       console.error(`${provider} sign-in failed:`, error);
       
@@ -170,6 +125,7 @@ const Login = () => {
           </CardHeader>
           
           <CardContent>
+            {/* Social login buttons */}
             <div className="flex flex-col gap-3">
               <Button 
                 type="button" 
@@ -226,6 +182,7 @@ const Login = () => {
               </div>
             </div>
             
+            {/* Email/password login form */}
             <form onSubmit={handleUserLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
