@@ -1,6 +1,6 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
+import { enrichProfileWithRoles } from '@/utils/profileUtils';
 
 /**
  * Fetches all conversations for a user
@@ -12,7 +12,7 @@ export const fetchUserConversations = async (userId: string) => {
       return [];
     }
     
-    // Get all conversations where the user is a participant
+    // First, get conversation IDs for the user
     const { data: participantData, error: participantError } = await supabase
       .from('conversation_participants')
       .select('conversation_id')
@@ -29,109 +29,55 @@ export const fetchUserConversations = async (userId: string) => {
     
     const conversationIds = participantData.map(p => p.conversation_id);
     
-    // Get conversation details
+    // Fetch conversations with participants and last message
     const { data: conversationsData, error: conversationsError } = await supabase
       .from('conversations')
       .select(`
-        id, 
-        subject, 
-        is_group, 
+        id,
+        subject,
+        is_group,
         created_by,
+        updated_at,
         created_at,
-        updated_at
-      `)
+        participants:conversation_participants(
+          id,
+          user_id,
+          added_at,
+          profile:profiles(
+            id,
+            first_name,
+            last_name,
+            avatar_url,
+            role
+          )
+        ),
+        last_message:messages(
+          id,
+          sender_id,
+          content,
+          read,
+          created_at
+        )
+        `)
       .in('id', conversationIds)
-      .order('updated_at', { ascending: false });
-      
+      .order('updated_at', { ascending: false })
+      .limit(20);
+    
     if (conversationsError) {
-      console.error('Error fetching conversations data:', conversationsError);
+      console.error('Error fetching conversations:', conversationsError);
       throw conversationsError;
     }
     
-    if (!conversationsData || conversationsData.length === 0) {
-      return [];
-    }
-    
-    // Process each conversation individually to avoid relation errors
-    const enrichedConversations: Conversation[] = [];
-    
-    for (const conversation of conversationsData) {
-      try {
-        // Get participants for this conversation
-        const { data: participantsData, error: participantsError } = await supabase
-          .from('conversation_participants')
-          .select(`
-            id,
-            conversation_id,
-            user_id,
-            added_at
-          `)
-          .eq('conversation_id', conversation.id);
-          
-        if (participantsError) {
-          console.error(`Error fetching participants for conversation ${conversation.id}:`, participantsError);
-          continue; // Skip this conversation but continue processing others
-        }
-        
-        // Get profiles for each participant
-        const participantsWithProfiles: ConversationParticipant[] = [];
-        
-        for (const participant of participantsData || []) {
-          const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', participant.user_id)
-            .single();
-            
-          if (!profileError && profileData) {
-            participantsWithProfiles.push({
-              ...participant,
-              profile: profileData
-            });
-          } else {
-            // Still add the participant without profile information
-            participantsWithProfiles.push({
-              ...participant,
-              profile: undefined
-            });
-          }
-        }
-        
-        // Get latest message for this conversation
-        const { data: messageData, error: messageError } = await supabase
-          .from('messages')
-          .select(`
-            id,
-            sender_id,
-            conversation_id,
-            content,
-            read,
-            created_at
-          `)
-          .eq('conversation_id', conversation.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-          
-        let lastMessage: Message | undefined = undefined;
-        
-        if (!messageError && messageData && messageData.length > 0) {
-          lastMessage = messageData[0] as Message;
-        }
-        
-        enrichedConversations.push({
-          ...conversation,
-          participants: participantsWithProfiles,
-          last_message: lastMessage
-        });
-      } catch (error) {
-        console.error(`Error processing conversation ${conversation.id}:`, error);
-        // Continue with next conversation
-      }
-    }
-    
-    return enrichedConversations;
+    return conversationsData.map(conversation => ({
+      ...conversation,
+      participants: conversation.participants.map(p => ({
+        ...p,
+        profile: p.profile ? enrichProfileWithRoles(p.profile) : undefined
+      })),
+      last_message: conversation.last_message[0] || null
+    }));
   } catch (error) {
-    console.error('Error fetching conversations:', error);
+    console.error('Error in fetchUserConversations:', error);
     throw error;
   }
 };
