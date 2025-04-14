@@ -23,17 +23,17 @@ const Login = () => {
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // 🧠 NEW LOGIC: Store redirect path only once — if not already stored
-  useEffect(() => {
-    const stored = localStorage.getItem('redirectAfterLogin');
-    const current = window.location.pathname + window.location.search;
+  // // 🧠 NEW LOGIC: Store redirect path only once — if not already stored
+  // useEffect(() => {
+  //   const stored = localStorage.getItem('redirectAfterLogin');
+  //   const current = window.location.pathname + window.location.search;
 
-    if (!stored && !['/login', '/register'].includes(current)) {
-      localStorage.setItem('redirectAfterLogin', current);
-      storeRedirectPath(current);
-      console.log('Stored redirectAfterLogin path:', current);
-    }
-  }, [storeRedirectPath]);
+  //   if (!stored && !['/login', '/register'].includes(current)) {
+  //     localStorage.setItem('redirectAfterLogin', current);
+  //     storeRedirectPath(current);
+  //     console.log('Stored redirectAfterLogin path:', current);
+  //   }
+  // }, [storeRedirectPath]);
 
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
