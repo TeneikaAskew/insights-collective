@@ -396,13 +396,18 @@ async function analyzeResume(resumeText: string, userId?: string) {
 
 serve(async (req) => {
   // Proper handling of CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders
-    });
-  }
-
+  // if (req.method === 'OPTIONS') {
+  //   return new Response(null, {
+  //     status: 200,
+  //     headers: corsHeaders
+  //   });
+  // }
+if (req.method === 'OPTIONS') {
+  return new Response(null, {
+    status: 200,
+    headers: preflightCorsHeaders
+  });
+}
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
   
