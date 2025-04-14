@@ -19,6 +19,12 @@ export const AssistantCard = ({ assistant, featured = false, onLaunch }: Assista
   const { toast } = useToast();
   
   const handleLaunch = () => {
+
+    // First, always store the target path regardless of authentication status
+    const targetPath = `/assistant/${assistant.id}`;
+    localStorage.setItem('redirectAfterLogin', targetPath);
+    console.log('[AssistantCard] Stored redirect to assistant:', targetPath);
+    
     if (!isAuthenticated) {
       // Redirect to login if not authenticated
       toast({
