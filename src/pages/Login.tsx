@@ -89,21 +89,25 @@ const Login = () => {
   //   return <div className="flex justify-center items-center h-screen">Redirecting...</div>;
   // }
 
-  if (isAuthenticated) {
-  // Optional: keep this as fallback visual
+if (isAuthenticated) {
+  const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+  localStorage.removeItem('redirectAfterLogin');
+  console.log('[Login] Redirecting to:', redirectPath);
+  navigate(redirectPath, { replace: true });
   return <div className="flex justify-center items-center h-screen">Redirecting...</div>;
 }
 
 
-  useEffect(() => {
-  if (isAuthenticated) {
-    const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
-    localStorage.removeItem('redirectAfterLogin');
 
-    console.log('[Login] Redirecting authenticated user to:', redirectTo);
-    navigate(redirectTo, { replace: true });
-  }
-}, [isAuthenticated, navigate]);
+//   useEffect(() => {
+//   if (isAuthenticated) {
+//     const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+//     localStorage.removeItem('redirectAfterLogin');
+
+//     console.log('[Login] Redirecting authenticated user to:', redirectTo);
+//     navigate(redirectTo, { replace: true });
+//   }
+// }, [isAuthenticated, navigate]);
 
 
   return (
