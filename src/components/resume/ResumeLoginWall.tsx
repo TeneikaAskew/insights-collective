@@ -11,26 +11,24 @@ const ResumeLoginWall = () => {
   const location = useLocation();
   const { storeRedirectPath } = useAuth();
   
-  // Create login URL with redirect parameter, including query params
-  const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`;
+  // Create login URL with redirect parameter
+  const loginUrl = `/login?redirect=${encodeURIComponent(location.pathname)}`;
   
   // Store the current path for redirect after login
   useEffect(() => {
     // Only store for non-auth pages
     if (location.pathname !== '/login' && location.pathname !== '/register') {
-      // Store full path including query params in localStorage
-      localStorage.setItem('redirectAfterLogin', location.pathname + location.search);
+      // Store path in localStorage (as a fallback)
+      localStorage.setItem('redirectAfterLogin', location.pathname);
+      console.log('ResumeLoginWall: stored path in localStorage:', location.pathname);
       
       // Use the context method for better state management
       if (storeRedirectPath) {
-        storeRedirectPath(location.pathname + location.search);
-      }
-      
-      if (process.env.NODE_ENV === "development") {
-        console.log('ResumeLoginWall: stored full path in localStorage:', location.pathname + location.search);
+        storeRedirectPath(location.pathname);
+        console.log('ResumeLoginWall: stored path via context:', location.pathname);
       }
     }
-  }, [location.pathname, location.search, storeRedirectPath]);
+  }, [location.pathname, storeRedirectPath]);
   
   return (
     <div className="container mx-auto py-12">
