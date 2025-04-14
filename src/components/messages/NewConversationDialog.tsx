@@ -17,6 +17,7 @@ type NewConversationDialogProps = {
 export function NewConversationDialog({ open, setOpen, onCreateConversation }: NewConversationDialogProps) {
   const [recipients, setRecipients] = useState<User[]>([])
   const { users: availableUsers, searchQuery, setSearchQuery, loading } = useUsers()
+  const [searchTerm, setSearchTerm] = useState('');
 
   const toggleRecipient = (user: User) => {
     const exists = recipients.find((u) => u.id === user.id)
