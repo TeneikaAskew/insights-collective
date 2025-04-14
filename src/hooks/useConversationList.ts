@@ -24,7 +24,7 @@ export function useConversationList() {
       setError(null);
       try {
         const conversationsData = await fetchUserConversations(user.id);
-        setConversations(conversationsData || []);
+        setConversations(conversationsData as Conversation[]);
       } catch (error) {
         console.error('Error loading conversations:', error);
         setError(error);

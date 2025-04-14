@@ -42,6 +42,7 @@ export const fetchUserConversations = async (userId: string) => {
         participants:conversation_participants(
           id,
           user_id,
+          conversation_id,
           added_at,
           profile:profiles(
             id,
@@ -183,20 +184,4 @@ export const sendConversationMessage = async (userId: string, conversationId: st
     console.error('Error sending message:', error);
     throw error;
   }
-};
-
-export const enrichProfileWithRoles = (profile: any): Profile => {
-  if (!profile) return null as any;
-  
-  const enrichedProfile: Profile = {
-    ...profile,
-    roles: profile.roles || (profile.role ? [profile.role, 'student'] : ['student'])
-  };
-  
-  // Ensure student is always included
-  if (!enrichedProfile.roles.includes('student')) {
-    enrichedProfile.roles.push('student');
-  }
-  
-  return enrichedProfile;
 };
