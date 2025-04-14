@@ -46,6 +46,7 @@ export const useAuthProvider = () => {
 
       // let redirectTo = '/dashboard';
       let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
+      console.log("useAuth redirectTo: ", redirectTo)
 
 
       if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
@@ -139,7 +140,9 @@ export const useAuthProvider = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(localStorage.getItem('redirectAfterLogin') || '/dashboard')}`
+          // redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(localStorage.getItem('redirectAfterLogin') || '/dashboard')}`
+          redirectTo: `${window.location.origin}/auth/callback`,
+
         }
       });
       if (error) throw error;

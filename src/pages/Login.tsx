@@ -22,14 +22,14 @@ const Login = () => {
   const redirectParam = query.get('redirect');
   
   // If there's a redirect in the URL, store it
-  useEffect(() => {
-    if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
-      localStorage.setItem('redirectAfterLogin', redirectParam);
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Login page: stored redirect from URL param:', redirectParam);
-      }
-    }
-  }, [redirectParam]);
+  // useEffect(() => {
+  //   if (redirectParam && !['/login', '/register'].includes(redirectParam)) {
+  //     localStorage.setItem('redirectAfterLogin', redirectParam);
+  //     if (process.env.NODE_ENV === 'development') {
+  //       console.log('Login page: stored redirect from URL param:', redirectParam);
+  //     }
+  //   }
+  // }, [redirectParam]);
 
   // Redirect authenticated users (using the centralized handler)
   useEffect(() => {
