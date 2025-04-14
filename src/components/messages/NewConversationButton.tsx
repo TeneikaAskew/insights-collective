@@ -99,13 +99,16 @@ export function NewConversationButton() {
             
             otherParticipants.forEach(participant => {
               if (participant.profile) {
-                // Ensure we're accessing the profile object correctly
-                const profile = participant.profile as RecipientProfile;
+                // Check if profile is an array and handle accordingly
+                const profileData = Array.isArray(participant.profile) 
+                  ? participant.profile[0] // Take the first item if it's an array
+                  : participant.profile;   // Use as is if it's an object
+                  
                 recentUsers.push({
-                  id: profile.id,
-                  first_name: profile.first_name,
-                  last_name: profile.last_name,
-                  avatar_url: profile.avatar_url
+                  id: profileData.id,
+                  first_name: profileData.first_name,
+                  last_name: profileData.last_name,
+                  avatar_url: profileData.avatar_url
                 });
               }
             });
