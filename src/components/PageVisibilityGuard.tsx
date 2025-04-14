@@ -10,6 +10,19 @@ interface PageVisibilityGuardProps {
 
 const PageVisibilityGuard: React.FC<PageVisibilityGuardProps> = ({ children }) => {
   const location = useLocation();
+  useEffect(() => {
+    const path = window.location.pathname + window.location.search;
+    const alreadyStored = localStorage.getItem('redirectAfterLogin');
+    const isAuthPage = ['/login', '/register'].includes(location.pathname);
+
+    if (!alreadyStored && !isAuthPage) {
+      localStorage.setItem('redirectAfterLogin', path);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[PageVisibilityGuard] Stored redirectAfterLogin:', path);
+      }
+    }
+  }, [location]);
+  
   const { isPageVisible, isLoading } = usePageVisibility();
   const [isVisible, setIsVisible] = useState(true);
   
