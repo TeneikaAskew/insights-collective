@@ -28,6 +28,7 @@ const CourseList = () => {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
+        // First try with the instructor join
         const { data, error } = await supabase
           .from('courses')
           .select(`
@@ -42,21 +43,62 @@ const CourseList = () => {
           .eq('published', true)
           .order('created_at', { ascending: false });
           
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching courses with instructor join:', error);
+          
+          // If there's a foreign key relationship error, try without the join
+          if (error.code === 'PGRST200' && error.message.includes('instructor_id')) {
+            console.log('Falling back to fetch courses without instructor join');
+            
+            const { data: basicData, error: basicError } = await supabase
+              .from('courses')
+              .select('*')
+              .eq('published', true)
+              .order('created_at', { ascending: false });
+              
+            if (basicError) throw basicError;
+            
+            // Format course data without instructor details
+            const formattedCourses = basicData.map(course => ({
+              ...course,
+              instructor: {
+                id: course.instructor_id || '',
+                name: 'Instructor',
+                email: '',
+                role: 'instructor',
+                avatar: '',
+              },
+              enrollmentCount: 0,
+              modules: [],
+              rating: 4.5,
+              createdAt: course.created_at,
+              updatedAt: course.updated_at,
+              thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+            }));
+            
+            setCourses(formattedCourses);
+            setLoading(false);
+            return;
+          } else {
+            throw error;
+          }
+        }
         
-        // Format course data to match the expected format
+        // Format course data with instructor details if available
         const formattedCourses = data.map(course => ({
           ...course,
           instructor: {
-            id: course.instructor?.id || '',
-            name: `${course.instructor?.first_name || ''} ${course.instructor?.last_name || ''}`.trim(),
+            id: course.instructor?.id || course.instructor_id || '',
+            name: course.instructor 
+              ? `${course.instructor?.first_name || ''} ${course.instructor?.last_name || ''}`.trim()
+              : 'Instructor',
             email: '',
             role: 'instructor',
             avatar: course.instructor?.avatar_url || '',
           },
-          enrollmentCount: 0, // We'll get this in a separate query if needed
-          modules: [], // We'll load these on the detail page
-          rating: 4.5, // Default if not available
+          enrollmentCount: 0,
+          modules: [],
+          rating: 4.5,
           createdAt: course.created_at,
           updatedAt: course.updated_at,
           thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',

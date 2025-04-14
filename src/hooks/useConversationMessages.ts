@@ -41,35 +41,55 @@ export function useConversationMessages(conversationId?: string) {
 
         if (messagesError) throw messagesError;
 
-        // For each message, fetch the sender profile separately
+        // For each message, fetch the sender profile separately with error handling
         const messagesWithSenders: Message[] = [];
 
         for (const message of messagesData || []) {
-          // Fetch sender profile
-          const { data: senderData, error: senderError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', message.sender_id)
-            .single();
+          try {
+            // Fetch sender profile
+            const { data: senderData, error: senderError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', message.sender_id)
+              .maybeSingle();
 
-          if (!senderError && senderData) {
-            // Add message with sender profile, ensuring roles is set
-            const profileWithRoles: Profile = {
-              ...(senderData as any),
-              roles: senderData?.roles || senderData?.role ? 
-                (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role, 'student']) : 
-                ['student']
-            };
+            if (!senderError && senderData) {
+              // Add message with sender profile, ensuring roles is set
+              const profileWithRoles: Profile = {
+                ...(senderData as any),
+                roles: senderData?.roles || senderData?.role ? 
+                  (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role || 'student', 'student']) : 
+                  ['student']
+              };
 
+              messagesWithSenders.push({
+                ...message,
+                sender: profileWithRoles
+              });
+            } else {
+              // Still add the message even if sender profile couldn't be fetched
+              console.warn('Could not fetch sender profile:', senderError);
+              messagesWithSenders.push({
+                ...message,
+                sender: {
+                  id: message.sender_id || '',
+                  first_name: 'Unknown',
+                  last_name: 'User',
+                  roles: ['student'],
+                } as Profile
+              });
+            }
+          } catch (profileError) {
+            console.error('Error processing profile for message:', profileError);
+            // Add message with fallback profile
             messagesWithSenders.push({
               ...message,
-              sender: profileWithRoles
-            });
-          } else {
-            // Still add the message even if sender profile couldn't be fetched
-            messagesWithSenders.push({
-              ...message,
-              sender: null
+              sender: {
+                id: message.sender_id || '',
+                first_name: 'Unknown',
+                last_name: 'User',
+                roles: ['student'],
+              } as Profile
             });
           }
         }
@@ -77,12 +97,17 @@ export function useConversationMessages(conversationId?: string) {
         setMessages(messagesWithSenders);
 
         // Mark messages as read
-        await supabase
-          .from('messages')
-          .update({ read: true })
-          .eq('conversation_id', conversationId)
-          .neq('sender_id', user.id)
-          .eq('read', false);
+        try {
+          await supabase
+            .from('messages')
+            .update({ read: true })
+            .eq('conversation_id', conversationId)
+            .neq('sender_id', user.id)
+            .eq('read', false);
+        } catch (markReadError) {
+          console.error('Error marking messages as read:', markReadError);
+          // Don't throw here, we still want to show messages
+        }
 
       } catch (error) {
         console.error('Error fetching messages:', error);
@@ -116,14 +141,14 @@ export function useConversationMessages(conversationId?: string) {
               .from('profiles')
               .select('*')
               .eq('id', payload.new.sender_id)
-              .single();
+              .maybeSingle();
             
             if (!senderError && senderData) {
               // Create new message with sender profile, ensuring roles is set
               const profileWithRoles: Profile = {
                 ...(senderData as any),
                 roles: senderData?.roles || senderData?.role ? 
-                  (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role, 'student']) : 
+                  (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role || 'student', 'student']) : 
                   ['student']
               };
               
@@ -137,19 +162,29 @@ export function useConversationMessages(conversationId?: string) {
               setMessages(prevMessages => [...(prevMessages || []), newMessage]);
             } else {
               // Still add the message even if sender profile couldn't be fetched
+              console.warn('Could not fetch sender profile for real-time message:', senderError);
               const newMessage: Message = {
                 ...payload.new as any,
-                sender: null
+                sender: {
+                  id: payload.new.sender_id || '',
+                  first_name: 'Unknown',
+                  last_name: 'User',
+                  roles: ['student'],
+                } as Profile
               };
               setMessages(prevMessages => [...(prevMessages || []), newMessage]);
             }
             
             // Mark message as read if it's not from the current user
             if (payload.new.sender_id !== user.id) {
-              await supabase
-                .from('messages')
-                .update({ read: true })
-                .eq('id', payload.new.id);
+              try {
+                await supabase
+                  .from('messages')
+                  .update({ read: true })
+                  .eq('id', payload.new.id);
+              } catch (markReadError) {
+                console.error('Error marking real-time message as read:', markReadError);
+              }
             }
           } catch (error) {
             console.error('Error processing real-time message:', error);

@@ -7,6 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Chat } from './AssistantChatInterface';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { v4 as uuidv4 } from 'uuid';
 
 interface AssistantChatSidebarProps {
   currentChat: Chat | null;
@@ -27,26 +28,30 @@ const AssistantChatSidebar = ({
     // Load chats from localStorage
     const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
     
-    // Convert string dates to Date objects
+    // Convert string dates to Date objects and ensure unique IDs
     const parsedChats = savedChats.map((chat: any) => ({
       ...chat,
+      // Generate a random ID if missing or duplicate
+      id: chat.id || uuidv4(),
       createdAt: new Date(chat.createdAt),
       updatedAt: new Date(chat.updatedAt),
       messages: chat.messages.map((msg: any) => ({
         ...msg,
+        id: msg.id || uuidv4(), // Ensure each message has a unique ID
         timestamp: new Date(msg.timestamp)
       }))
     }));
     
-    // Sort by most recent updated and ensure unique IDs
-    const uniqueChats = parsedChats.reduce((acc: Chat[], current: Chat) => {
-      const isDuplicate = acc.some(item => item.id === current.id);
-      if (!isDuplicate) {
-        acc.push(current);
+    // Ensure unique IDs for all chats
+    const chatMap = new Map<string, Chat>();
+    parsedChats.forEach((chat: Chat) => {
+      if (!chatMap.has(chat.id)) {
+        chatMap.set(chat.id, chat);
       }
-      return acc;
-    }, []);
+    });
     
+    // Convert map back to array and sort
+    const uniqueChats = Array.from(chatMap.values());
     const sortedChats = uniqueChats.sort((a: Chat, b: Chat) => 
       b.updatedAt.getTime() - a.updatedAt.getTime()
     );
