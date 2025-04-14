@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { useAuth } from '@/contexts/AuthContext';
@@ -24,6 +23,7 @@ const Dashboard = () => {
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [teachingCourses, setTeachingCourses] = useState<Course[]>([]);
   
   useEffect(() => {
     if (!isAuthenticated) {
@@ -42,7 +42,6 @@ const Dashboard = () => {
       try {
         setLoading(true);
         
-        // First get the user's enrollments
         const { data: enrollments, error: enrollmentsError } = await supabase
           .from('enrollments')
           .select('course_id')
@@ -51,7 +50,6 @@ const Dashboard = () => {
         if (enrollmentsError) throw enrollmentsError;
         
         if (enrollments && enrollments.length > 0) {
-          // Get the course details for each enrolled course
           const courseIds = enrollments.map(enrollment => enrollment.course_id);
           
           const { data: courses, error: coursesError } = await supabase
@@ -69,7 +67,6 @@ const Dashboard = () => {
           
           if (coursesError) throw coursesError;
           
-          // Format courses to match Course type
           const formattedCourses: Course[] = courses.map(course => ({
             ...course,
             instructor: {
@@ -108,7 +105,70 @@ const Dashboard = () => {
     fetchEnrolledCourses();
   }, [user, toast]);
   
-  // Get notifications from mock service for now
+  useEffect(() => {
+    const fetchInstructorCourses = async () => {
+      if (!user) return;
+      
+      try {
+        const { data: assignments, error: assignmentsError } = await supabase
+          .from('course_assignments')
+          .select('course_id')
+          .eq('user_id', user.id);
+        
+        if (assignmentsError) throw assignmentsError;
+        
+        if (assignments && assignments.length > 0) {
+          const courseIds = assignments.map(assignment => assignment.course_id);
+          
+          const { data: courses, error: coursesError } = await supabase
+            .from('courses')
+            .select(`
+              *,
+              instructor:profiles(
+                id,
+                first_name,
+                last_name,
+                avatar_url
+              )
+            `)
+            .in('id', courseIds);
+          
+          if (coursesError) throw coursesError;
+          
+          const formattedCourses: Course[] = courses.map(course => ({
+            ...course,
+            instructor: {
+              id: course.instructor?.id || '',
+              name: course.instructor 
+                ? `${course.instructor?.first_name || ''} ${course.instructor?.last_name || ''}`.trim()
+                : 'Instructor',
+              email: '',
+              role: 'instructor',
+              avatar: course.instructor?.avatar_url || '',
+            },
+            enrollmentCount: 0,
+            modules: [],
+            rating: 4.5,
+            createdAt: course.created_at,
+            updatedAt: course.updated_at,
+            thumbnail: course.image_url || course.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
+          }));
+          
+          setTeachingCourses(formattedCourses);
+        }
+      } catch (error: any) {
+        console.error('Error fetching instructor courses:', error);
+        toast({
+          title: "Failed to load instructor courses",
+          description: error.message,
+          variant: "destructive"
+        });
+      }
+    };
+    
+    fetchInstructorCourses();
+  }, [user, toast]);
+  
   const notifications = user ? mockService.getUserNotifications(user.id) : [];
   
   const upcomingDeadlines = [
@@ -219,6 +279,9 @@ const Dashboard = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList>
             <TabsTrigger value="courses">My Courses</TabsTrigger>
+            {teachingCourses.length > 0 && (
+              <TabsTrigger value="teaching">Teaching</TabsTrigger>
+            )}
             <TabsTrigger value="deadlines">Upcoming Deadlines</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
           </TabsList>
@@ -262,6 +325,26 @@ const Dashboard = () => {
               </Card>
             )}
           </TabsContent>
+          
+          {teachingCourses.length > 0 && (
+            <TabsContent value="teaching" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">Courses You Teach</h2>
+                <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/admin/courses')}>
+                  Manage Courses
+                </Button>
+              </div>
+              
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {teachingCourses.map((course) => (
+                  <CourseCard 
+                    key={course.id} 
+                    course={course}
+                  />
+                ))}
+              </div>
+            </TabsContent>
+          )}
           
           <TabsContent value="deadlines" className="space-y-6">
             <div className="flex items-center justify-between">
