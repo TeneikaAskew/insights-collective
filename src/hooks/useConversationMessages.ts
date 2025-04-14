@@ -52,18 +52,26 @@ export function useConversationMessages(conversationId?: string) {
             .eq('id', message.sender_id)
             .single();
 
-          // Add message with sender profile, ensuring roles is set
-          const profileWithRoles: Profile = {
-            ...(senderData as any),
-            roles: senderData?.roles || senderData?.role ? 
-              (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role, 'student']) : 
-              ['student']
-          };
+          if (!senderError && senderData) {
+            // Add message with sender profile, ensuring roles is set
+            const profileWithRoles: Profile = {
+              ...(senderData as any),
+              roles: senderData?.roles || senderData?.role ? 
+                (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role, 'student']) : 
+                ['student']
+            };
 
-          messagesWithSenders.push({
-            ...message,
-            sender: senderError ? null : profileWithRoles
-          });
+            messagesWithSenders.push({
+              ...message,
+              sender: profileWithRoles
+            });
+          } else {
+            // Still add the message even if sender profile couldn't be fetched
+            messagesWithSenders.push({
+              ...message,
+              sender: null
+            });
+          }
         }
 
         setMessages(messagesWithSenders);
@@ -110,29 +118,38 @@ export function useConversationMessages(conversationId?: string) {
               .eq('id', payload.new.sender_id)
               .single();
             
-            // Create new message with sender profile, ensuring roles is set
-            const profileWithRoles: Profile = {
-              ...(senderData as any),
-              roles: senderData?.roles || senderData?.role ? 
-                (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role, 'student']) : 
-                ['student']
-            };
-            
-            // Update messages state
-            const newMessage: Message = {
-              ...payload.new as any,
-              sender: senderError ? null : profileWithRoles
-            };
-            
-            // Update messages state
-            setMessages(prevMessages => [...(prevMessages || []), newMessage]);
+            if (!senderError && senderData) {
+              // Create new message with sender profile, ensuring roles is set
+              const profileWithRoles: Profile = {
+                ...(senderData as any),
+                roles: senderData?.roles || senderData?.role ? 
+                  (Array.isArray(senderData.roles) ? senderData.roles : [senderData.role, 'student']) : 
+                  ['student']
+              };
+              
+              // Update messages state
+              const newMessage: Message = {
+                ...payload.new as any,
+                sender: profileWithRoles
+              };
+              
+              // Update messages state
+              setMessages(prevMessages => [...(prevMessages || []), newMessage]);
+            } else {
+              // Still add the message even if sender profile couldn't be fetched
+              const newMessage: Message = {
+                ...payload.new as any,
+                sender: null
+              };
+              setMessages(prevMessages => [...(prevMessages || []), newMessage]);
+            }
             
             // Mark message as read if it's not from the current user
-            if (newMessage.sender_id !== user.id) {
+            if (payload.new.sender_id !== user.id) {
               await supabase
                 .from('messages')
                 .update({ read: true })
-                .eq('id', newMessage.id);
+                .eq('id', payload.new.id);
             }
           } catch (error) {
             console.error('Error processing real-time message:', error);

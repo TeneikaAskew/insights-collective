@@ -38,8 +38,16 @@ const AssistantChatSidebar = ({
       }))
     }));
     
-    // Sort by most recent updated
-    const sortedChats = parsedChats.sort((a: Chat, b: Chat) => 
+    // Sort by most recent updated and ensure unique IDs
+    const uniqueChats = parsedChats.reduce((acc: Chat[], current: Chat) => {
+      const isDuplicate = acc.some(item => item.id === current.id);
+      if (!isDuplicate) {
+        acc.push(current);
+      }
+      return acc;
+    }, []);
+    
+    const sortedChats = uniqueChats.sort((a: Chat, b: Chat) => 
       b.updatedAt.getTime() - a.updatedAt.getTime()
     );
     

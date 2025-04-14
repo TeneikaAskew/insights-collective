@@ -61,10 +61,12 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
   return (
     <div className="space-y-2 h-full overflow-auto">
       {conversations.map((conversation) => {
+        if (!conversation) return null;
+        
         // Safely handle missing participants
         const participants = conversation.participants || [];
         const otherParticipants = participants.filter(
-          (p: any) => p.user_id !== conversation.created_by
+          (p: any) => p && p.user_id !== conversation.created_by
         );
         
         // Format the timestamp
@@ -106,9 +108,11 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                       <Avatar className="h-10 w-10">
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
                       </Avatar>
-                      {otherParticipants.length > 0 && (
+                      {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
                         <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                          <AvatarFallback className="bg-amber-200 text-amber-800">{otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}</AvatarFallback>
+                          <AvatarFallback className="bg-amber-200 text-amber-800">
+                            {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
+                          </AvatarFallback>
                         </Avatar>
                       )}
                     </div>
