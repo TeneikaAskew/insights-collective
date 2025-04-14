@@ -25,13 +25,7 @@ export const useAuthProvider = () => {
   // Get enriched user data
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
-  useEffect(() => {
-  if (awaitingRedirectAfterLoginRef.current && enrichedUser) {
-    console.log('✅ enrichedUser is ready, redirecting now...');
-    handleRedirectAfterLogin();
-    awaitingRedirectAfterLoginRef.current = false;
-  }
-}, [enrichedUser, handleRedirectAfterLogin]);
+
 
   
   // Helper function to store redirect path with debugging
@@ -111,6 +105,15 @@ export const useAuthProvider = () => {
       }, 100);
     }
   }, [navigate, location, enrichedUser, toast]);
+
+
+  useEffect(() => {
+    if (awaitingRedirectAfterLoginRef.current && enrichedUser) {
+      console.log('✅ enrichedUser is ready, redirecting now...');
+      handleRedirectAfterLogin();
+      awaitingRedirectAfterLoginRef.current = false;
+    }
+  }, [enrichedUser, handleRedirectAfterLogin]);
   
   // Update session and user on auth state change
   useEffect(() => {
