@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -79,8 +80,13 @@ export const useAuthProvider = () => {
   useEffect(() => {
     let isMounted = true;
 
+    // Set up the auth state listener FIRST before checking the current session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       if (!isMounted) return;
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Auth state changed:', event, !!newSession);
+      }
 
       if (event === 'SIGNED_IN') {
         setSession(newSession);
@@ -98,21 +104,40 @@ export const useAuthProvider = () => {
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
         localStorage.removeItem('redirectAfterLogin');
+      } else if (event === 'TOKEN_REFRESHED') {
+        setSession(newSession);
       }
     });
 
-    const init = async () => {
-      const { data, error } = await supabase.auth.getSession();
-      if (error || !data.session) {
+    // THEN check for existing session
+    const initAuth = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error getting session:', error);
+          setSession(null);
+        } else if (data.session) {
+          setSession(data.session);
+          
+          // Check if we need to redirect after recovering a session
+          if (awaitingRedirectRef.current && !redirectInProgressRef.current) {
+            setTimeout(() => {
+              if (isMounted) handleRedirectAfterLogin();
+            }, 0);
+          }
+        } else {
+          setSession(null);
+        }
+      } catch (err) {
+        console.error('Session initialization error:', err);
         setSession(null);
-      } else {
-        setSession(data.session);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-
-      setLoading(false);
     };
 
-    init();
+    initAuth();
 
     return () => {
       isMounted = false;
