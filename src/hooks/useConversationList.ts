@@ -25,7 +25,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
   };
 
   if (error) {
-    return (
+    return ( error.message
       // <Alert variant="destructive" className="mb-4">
       //   <AlertCircle className="h-4 w-4" />
       //   <AlertTitle>Error loading conversations</AlertTitle>
