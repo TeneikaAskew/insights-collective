@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
@@ -59,10 +58,9 @@ const ConversationList: React.FC<ConversationListProps> = ({
         .update({ archived: true })
         .eq('id', conversationId);
       
-      // Filter out the archived conversation from the current view instead of reloading
-      const element = e.currentTarget.closest('.conversation-card');
+      const element = e.currentTarget.closest('.conversation-card') as HTMLElement;
       if (element) {
-        element.style.display = 'none';
+        element.classList.add('hidden');
       }
       
       toast({
@@ -86,10 +84,9 @@ const ConversationList: React.FC<ConversationListProps> = ({
         .update({ deleted_at: now })
         .eq('id', conversationId);
       
-      // Filter out the deleted conversation from the current view instead of reloading
-      const element = e.currentTarget.closest('.conversation-card');
+      const element = e.currentTarget.closest('.conversation-card') as HTMLElement;
       if (element) {
-        element.style.display = 'none';
+        element.classList.add('hidden');
       }
       
       toast({
@@ -103,7 +100,6 @@ const ConversationList: React.FC<ConversationListProps> = ({
     }
   };
   
-  // Helper function to get participant initials
   const getInitials = (profile: Profile | undefined): string => {
     if (!profile) return 'U';
     const firstName = profile.first_name || '';
@@ -192,7 +188,6 @@ const ConversationList: React.FC<ConversationListProps> = ({
                           !conversation.last_message.read && 
                           conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
 
-        // Group avatar display handler
         const renderGroupAvatar = () => (
           <div className="relative flex flex-wrap w-10 h-10">
             {otherParticipants.slice(0, 4).map((participant: ConversationParticipant, index: number) => (
