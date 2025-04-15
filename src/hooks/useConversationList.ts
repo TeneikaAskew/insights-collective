@@ -5,52 +5,6 @@ import { useToast } from './use-toast';
 import { fetchUserConversations } from '@/services/conversationService';
 import { supabase } from '@/integrations/supabase/client';
 
-// interface ConversationListProps {
-//   conversations: any[];
-//   loading: boolean;
-//   error?: any;
-//   onDelete?: (id: string) => void;
-//   onArchive?: (id: string) => void;
-// }
-
-// const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error, onDelete, onArchive }) => {
-//   const { conversationId } = useParams();
-//   const navigate = useNavigate();
-
-//   const handleClick = (id: string) => {
-//     navigate(`/messages/${id}`);
-//   };
-
-//   if (error) {
-//     return (
-//       <Alert variant="destructive" className="mb-4">
-//         <AlertCircle className="h-4 w-4" />
-//         <AlertTitle>Error loading conversations</AlertTitle>
-//         <AlertDescription>
-//           {error.message || 'Please try again later.'}
-//         </AlertDescription>
-//       </Alert>
-//     );
-//   }
-
-//   if (loading) {
-//     return (
-//       <div className="space-y-2">
-//         {[1, 2, 3].map((i) => (
-//           <Card key={i} className="p-4">
-//             <div className="flex gap-3">
-//               <Skeleton className="h-12 w-12 rounded-full" />
-//               <div className="flex-1">
-//                 <Skeleton className="h-4 w-3/4 mb-2" />
-//                 <Skeleton className="h-3 w-1/2" />
-//               </div>
-//             </div>
-//           </Card>
-//         ))}
-//       </div>
-//     );
-//   }
-
 /**
  * Hook for fetching and subscribing to conversations
  */
