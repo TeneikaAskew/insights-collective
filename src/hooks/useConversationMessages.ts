@@ -99,6 +99,10 @@ export function useConversationMessages(conversationId?: string) {
               .select('*')
               .eq('id', payload.new.sender_id)
               .maybeSingle();
+
+            if (senderError) {
+                console.error('Error fetching profile:', senderError);
+              }
             
             if (!senderError && senderData) {
               // Create new message with sender profile
