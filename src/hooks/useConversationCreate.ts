@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
@@ -17,21 +16,16 @@ export function useConversationCreate() {
     
     if (!user) {
       console.warn('[useConversationCreate] No authenticated user found');
-      toast({
-        title: 'Error',
-        description: 'You must be logged in to create a conversation',
-        variant: 'destructive',
-      });
       return null;
     }
 
+    console.log('[useConversationCreate] User ID:', user.id);
     console.log('[useConversationCreate] Subject:', subject);
     console.log('[useConversationCreate] Recipients:', recipientIds);
 
     setCreating(true);
     try {
-      // Use the updated createNewConversation function which handles auth internally
-      const conversationId = await createNewConversation(subject, recipientIds);
+      const conversationId = await createNewConversation(user.id, subject, recipientIds);
 
       console.log('[useConversationCreate] Successfully created conversation:', conversationId);
       return conversationId;

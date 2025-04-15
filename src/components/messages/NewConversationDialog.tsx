@@ -11,13 +11,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Search } from 'lucide-react';
+import { Loader2, X, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Profile } from '@/types/supabase';
 import { useUsers } from '@/hooks/useUsers';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { createNewConversation, sendConversationMessage } from '@/services/conversationService';
+import { getOrCreateOneOnOneConversation, sendConversationMessage } from '@/services/conversationService';
 
 interface NewConversationDialogProps {
   open: boolean;
@@ -56,26 +56,28 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
 
     try {
       setIsCreating(true);
-      console.log("Creating conversation with:", selectedUser.id);
+
+      console.log("User: ", user.id, "Selected user to message: ", selectedUser.id)
       
-      // Use createNewConversation directly - which handles auth internally
-      const subject = `Chat with ${selectedUser.first_name} ${selectedUser.last_name}`;
-      const conversationId = await createNewConversation(subject, [selectedUser.id]);
+//       if (authUser?.user?.id !== userId) {
+//         throw new Error("Mismatch between auth.uid() and passed userId – RLS will fail.");
+// }
       
-      // Send an initial message if needed
-      if (conversationId) {
-        const initialMessage = `Hello ${selectedUser.first_name || ''}!`;
-        await sendConversationMessage(user.id, conversationId, initialMessage);
-        
-        // Close dialog and navigate to the conversation
-        onOpenChange(false);
-        navigate(`/messages/${conversationId}`);
-        
-        toast({
-          title: 'Success',
-          description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name} started.`,
-        });
-      }
+      // Get or create conversation
+      const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
+      
+      // Send an initial message
+      const initialMessage = `Hello ${selectedUser.first_name || ''}!`;
+      await sendConversationMessage(user.id, conversationId, initialMessage);
+      
+      // Close dialog and navigate to the conversation
+      onOpenChange(false);
+      navigate(`/messages/${conversationId}`);
+      
+      toast({
+        title: 'Success',
+        description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name} started.`,
+      });
     } catch (error) {
       console.error('Error starting conversation:', error);
       toast({
@@ -87,9 +89,6 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       setIsCreating(false);
     }
   };
-
-  // Filter out the current user from the list
-  const filteredUsers = users.filter(u => user && u.id !== user.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -119,29 +118,29 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
             <div className="flex items-center justify-center py-6">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
-          ) : filteredUsers.length === 0 ? (
+          ) : users.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               {searchQuery ? 'No users found' : 'Type to search for users'}
             </div>
           ) : (
             <div className="divide-y">
-              {filteredUsers.map((u) => (
+              {users.map((user) => (
                 <div
-                  key={u.id}
+                  key={user.id}
                   className={`flex items-center gap-3 px-6 py-3 hover:bg-muted cursor-pointer ${
-                    selectedUser?.id === u.id ? 'bg-muted' : ''
+                    selectedUser?.id === user.id ? 'gray-400' : ''
                   }`}
-                  onClick={() => handleSelectUser(u)}
+                  onClick={() => handleSelectUser(user)}
                 >
                   <Avatar className="h-10 w-10">
-                    <AvatarImage src={u.avatar_url || ''} alt={`${u.first_name} ${u.last_name}`} />
+                    <AvatarImage src={user.avatar_url || ''} alt={`${user.first_name} ${user.last_name}`} />
                     <AvatarFallback className="bg-secondary text-primary">
-                      {u.first_name?.[0] || ''}
-                      {u.last_name?.[0] || ''}
+                      {user.first_name?.[0] || ''}
+                      {user.last_name?.[0] || ''}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="flex-grow font-medium">{u.first_name} {u.last_name}</span>
-                  {selectedUser?.id === u.id && (
+                  <span className="flex-grow font-medium">{user.first_name} {user.last_name}</span>
+                  {selectedUser?.id === user.id && (
                     <div className="h-5 w-5 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
                       <svg 
                         xmlns="http://www.w3.org/2000/svg" 
