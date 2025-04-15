@@ -22,16 +22,15 @@ const ConversationList = ({
   };
 
   if (error) {
-    return <div>{error.message}</div>;
-    //   (
-    //   <Alert variant="destructive" className="mb-4">
-    //     <AlertCircle className="h-4 w-4" />
-    //     {/* <AlertTitle>Error loading conversations</AlertTitle> */}
-    //     <AlertDescription>
-    //       {error.message || 'Please try again later.'}
-    //     </AlertDescription>
-    //   </Alert>
-    // );
+    return (
+      <Alert variant="destructive" className="mb-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error loading conversations</AlertTitle>
+        <AlertDescription>
+          {error.message || 'Please try again later.'}
+        </AlertDescription>
+      </Alert>
+    );
   }
 
   if (loading) {
@@ -70,43 +69,38 @@ const ConversationList = ({
         const participantCount = conv.participants?.length || 0;
         
         // Find other participant(s) - exclude current user
-        // Using both created_by and current_user_id for backward compatibility 
-        const currentUserId = conv.current_user_id || conv.created_by;
         const otherParticipants = conv.participants?.filter(
-          (p) => p.user_id !== currentUserId
+          (p) => p.user_id !== conv.created_by
         ) || [];
         
-        // Set proper display name - prioritize participant name over subject for 1:1 chats
-        let displayName = '';
+        // Set proper display name
+        let displayName = conv.subject || '';
         let avatarUrl = '';
         let avatarFallback = '';
 
         if (conv.is_group) {
-          // For group chats, use subject or generic group name
-          displayName = conv.subject || `Group (${participantCount} participants)`;
+          displayName = displayName || `Group (${participantCount} participants)`;
           avatarFallback = 'G';
         } else if (otherParticipants.length > 0) {
-          // For 1:1 chats, always use participant name
           const participant = otherParticipants[0];
           if (participant?.profile) {
             const firstName = participant.profile.first_name || '';
             const lastName = participant.profile.last_name || '';
             
-            // Always use participant name for 1:1 chats, fall back to subject only if needed
-            displayName = `${firstName} ${lastName}`.trim() || conv.subject || 'Unknown';
+            // Use subject if available, otherwise use participant name
+            displayName = displayName || `${firstName} ${lastName}`.trim();
+            
+            // If we still don't have a name, only then use "Unknown"
+            displayName = displayName || 'Unknown';
             
             avatarUrl = participant.profile.avatar_url || '';
             avatarFallback = firstName.charAt(0) || lastName.charAt(0) || 'U';
           }
-        } else {
-          // Fallback if no participants found
-          displayName = conv.subject || 'Unknown';
-          avatarFallback = 'U';
         }
 
         // Calculate if this conversation has unread messages
         const hasUnread = conv.last_message && !conv.last_message.read && 
-                        conv.last_message.sender_id !== currentUserId;
+                        conv.last_message.sender_id !== conv.created_by;
 
         return (
           <Card
