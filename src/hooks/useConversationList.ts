@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Conversation } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,19 +16,23 @@ export function useConversationList() {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('[useConversationList] useEffect fired');
     if (!user) {
+      console.log('[useConversationList] No user found, skipping load.');
       setLoading(false);
       return;
     }
 
     const loadConversations = async () => {
+      console.log('[useConversationList] Loading conversations for user:', user.id);
       setLoading(true);
       setError(null);
       try {
         const conversationsData = await fetchUserConversations(user.id);
+        console.log('[useConversationList] Conversations fetched:', conversationsData);
         setConversations(conversationsData as Conversation[]);
       } catch (error) {
-        console.error('Error loading conversations:', error);
+        console.error('[useConversationList] Error loading conversations:', error);
         setError(error);
         toast({
           title: 'Error',
@@ -38,66 +41,69 @@ export function useConversationList() {
         });
       } finally {
         setLoading(false);
+        console.log('[useConversationList] Finished loading');
       }
     };
-    
+
     loadConversations();
-    
-    // Set up real-time listener for various conversation-related changes
+
+    console.log('[useConversationList] Setting up realtime channel...');
     const channel = supabase
       .channel('conversation-changes')
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
           table: 'conversations',
-          filter: `created_by=eq.${user.id}`
-        }, 
+          filter: `created_by=eq.${user.id}`,
+        },
         (payload) => {
-          console.log('Conversation change detected:', payload);
+          console.log('[useConversationList] Conversation change detected:', payload);
           loadConversations();
         }
       )
-      .on('postgres_changes', 
-        { 
-          event: '*', 
-          schema: 'public', 
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
           table: 'conversation_participants',
-          filter: `user_id=eq.${user.id}`
-        }, 
+          filter: `user_id=eq.${user.id}`,
+        },
         (payload) => {
-          console.log('Participant change detected:', payload);
+          console.log('[useConversationList] Participant change detected:', payload);
           loadConversations();
         }
       )
-      .on('postgres_changes', 
-        { 
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'messages'
-        }, 
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+        },
         (payload) => {
-          // We'll reload all conversations when a new message is detected
-          // to ensure last_message and updated_at are refreshed
-          console.log('New message detected:', payload);
+          console.log('[useConversationList] New message detected:', payload);
           loadConversations();
         }
       )
       .subscribe((status) => {
-        console.log('Realtime subscription status:', status);
+        console.log('[useConversationList] Realtime subscription status:', status);
         if (status !== 'SUBSCRIBED') {
-          console.error('Failed to subscribe to realtime changes:', status);
+          console.error('[useConversationList] Failed to subscribe to realtime changes:', status);
         }
       });
-      
+
     return () => {
+      console.log('[useConversationList] Cleaning up channel...');
       supabase.removeChannel(channel);
     };
   }, [user, toast]);
-  
-  return { 
-    conversations, 
+
+  return {
+    conversations,
     loading,
-    error
+    error,
   };
 }
