@@ -63,7 +63,7 @@ const ArchivedConversationsList: React.FC<ArchivedConversationsListProps> = ({
       {conversations.filter(c => c.archived && !c.deleted_at).map((conv) => {
         const lastMessage = conv.last_message;
         const participantCount = conv.participants?.length || 0;
-        const participant = conv.participants.find((p: any) => p.user_id !== conv.created_by);
+        const participant = conv.participants.find((p: any) => p.user_id !== conv.current_user_id);
         let displayName = 'Unknown';
 
         if (conv.is_group) {

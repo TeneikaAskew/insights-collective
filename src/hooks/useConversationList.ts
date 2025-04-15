@@ -39,7 +39,7 @@ export function useConversationList() {
           current_user_id: conv.current_user_id || user.id
         }));
         
-        setConversations(enrichedConversations as Conversation[]);
+        setConversations(enrichedConversations);
       } catch (error) {
         console.error('[useConversationList] Error loading conversations:', error);
         setError(error);

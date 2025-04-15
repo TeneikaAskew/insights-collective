@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageSquare, Send, Search } from 'lucide-react';
@@ -9,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import LoginWall from '@/components/common/LoginWall';
 import ConversationList from '@/components/messages/ConversationList';
+import ArchivedConversationsList from '@/components/messages/ArchivedConversationsList';
 import MessageThread from '@/components/messages/MessageThread';
 import { useConversations } from '@/hooks/useConversations';
 import { useConversationMessages } from '@/hooks/useConversationMessages';

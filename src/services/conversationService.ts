@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
@@ -75,14 +76,17 @@ export const fetchUserConversations = async (userId: string) => {
 
     if (conversationsError) throw conversationsError;
 
-    return conversationsData.map(conversation => ({
+    const processedData = conversationsData.map(conversation => ({
       ...conversation,
       participants: conversation.participants.map(p => ({
         ...p,
         profile: p.profile ? enrichProfileWithRoles(p.profile) : undefined
       })),
       last_message: conversation.last_message[0] || null
-    })) as Conversation[];
+    }));
+
+    // Cast to Conversation[] type after proper transformation
+    return processedData as unknown as Conversation[];
   } catch (error) {
     console.error('Error in fetchUserConversations:', error);
     throw error;
