@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
@@ -13,17 +12,25 @@ export function useConversationCreate() {
   const { toast } = useToast();
 
   const createConversation = async (subject: string, recipientIds: string[]) => {
-    console.log(user.id, subject, recipientIds)
-    if (!user) return null;
+    console.log('[useConversationCreate] Attempting to create conversation');
     
+    if (!user) {
+      console.warn('[useConversationCreate] No authenticated user found');
+      return null;
+    }
+
+    console.log('[useConversationCreate] User ID:', user.id);
+    console.log('[useConversationCreate] Subject:', subject);
+    console.log('[useConversationCreate] Recipients:', recipientIds);
+
     setCreating(true);
     try {
-      
       const conversationId = await createNewConversation(user.id, subject, recipientIds);
-      
+
+      console.log('[useConversationCreate] Successfully created conversation:', conversationId);
       return conversationId;
     } catch (error) {
-      console.error('Error creating conversation:', error);
+      console.error('[useConversationCreate] Error creating conversation:', error);
       toast({
         title: 'Error',
         description: 'Failed to create conversation. Please try again.',
@@ -32,6 +39,7 @@ export function useConversationCreate() {
       return null;
     } finally {
       setCreating(false);
+      console.log('[useConversationCreate] Done creating conversation');
     }
   };
   
