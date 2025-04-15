@@ -18,6 +18,8 @@ export const fetchUserConversations = async (userId: string) => {
       .from('conversation_participants')
       .select('conversation_id')
       .eq('user_id', userId);
+
+    console.log("User ID: ", userId)
     
     if (participantError) {
       console.error('Error fetching participant data:', participantError);
@@ -29,6 +31,7 @@ export const fetchUserConversations = async (userId: string) => {
     }
     
     const conversationIds = participantData.map(p => p.conversation_id);
+    console.log("Conversations: ", conversationIds)
     
     // Fetch conversations with participants and last message
     const { data: conversationsData, error: conversationsError } = await supabase
@@ -93,6 +96,8 @@ export const createNewConversation = async (userId: string, subject: string, rec
     if (!userId) {
       throw new Error('User ID is required');
     }
+
+    console.log("User IDs: ", userId, "Recipients: ", recipientIds)
     
     // Create conversation
     const { data: conversationData, error: conversationError } = await supabase
