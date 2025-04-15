@@ -58,18 +58,40 @@ const ArchivedConversationsList: React.FC<ArchivedConversationsListProps> = ({
     );
   }
 
+  // Filter only archived conversations that aren't deleted
+  const archivedConversations = conversations.filter(c => c.archived === true && !c.deleted_at);
+  
+  if (archivedConversations.length === 0) {
+    return (
+      <div className="text-center p-6 text-muted-foreground">
+        No archived conversations
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      {conversations.filter(c => c.archived && !c.deleted_at).map((conv) => {
+      {archivedConversations.map((conv) => {
         const lastMessage = conv.last_message;
         const participantCount = conv.participants?.length || 0;
-        const participant = conv.participants.find((p: any) => p.user_id !== conv.current_user_id);
+        const participant = conv.participants?.find((p: any) => p.user_id !== conv.current_user_id);
+        
+        // Set proper display name
         let displayName = 'Unknown';
+        let avatarFallback = 'U';
 
         if (conv.is_group) {
           displayName = `Group (${participantCount} participants)`;
+          avatarFallback = 'G';
         } else if (participant?.profile) {
-          displayName = `${participant.profile.first_name || 'User'} ${participant.profile.last_name || ''}`;
+          // Only show "Unknown" if both first_name and last_name are empty/null
+          const firstName = participant.profile.first_name || '';
+          const lastName = participant.profile.last_name || '';
+          
+          if (firstName || lastName) {
+            displayName = `${firstName} ${lastName}`.trim();
+            avatarFallback = firstName?.[0] || lastName?.[0] || 'U';
+          }
         }
 
         return (
@@ -83,7 +105,7 @@ const ArchivedConversationsList: React.FC<ArchivedConversationsListProps> = ({
                 <Avatar>
                   <AvatarImage src={participant?.profile?.avatar_url || undefined} />
                   <AvatarFallback>
-                    {conv.is_group ? 'G' : (participant?.profile?.first_name?.[0] || 'U')}
+                    {avatarFallback}
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-1">
@@ -105,6 +127,7 @@ const ArchivedConversationsList: React.FC<ArchivedConversationsListProps> = ({
                   e.stopPropagation(); 
                   onRestore?.(conv.id); 
                 }}
+                aria-label="Restore conversation"
               >
                 <ArchiveRestore className="h-4 w-4" />
               </Button>
@@ -116,12 +139,6 @@ const ArchivedConversationsList: React.FC<ArchivedConversationsListProps> = ({
           </Card>
         );
       })}
-      
-      {conversations.filter(c => c.archived && !c.deleted_at).length === 0 && (
-        <div className="text-center p-6 text-muted-foreground">
-          No archived conversations
-        </div>
-      )}
     </div>
   );
 };

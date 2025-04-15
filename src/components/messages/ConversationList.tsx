@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -9,6 +10,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
+import { Badge } from '@/components/ui/badge';
 
 interface ConversationListProps {
   conversations: any[];
@@ -73,9 +75,20 @@ const ConversationList: React.FC<ConversationListProps> = ({
     );
   }
 
+  // Filter out deleted and archived conversations
+  const activeConversations = conversations.filter(c => !c.deleted_at && !c.archived);
+  
+  if (activeConversations.length === 0) {
+    return (
+      <div className="text-center p-6 text-muted-foreground">
+        No conversations found
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-2">
-      {conversations.filter(c => !c.deleted_at && !c.archived).map((conv) => {
+      {activeConversations.map((conv) => {
         const isActive = conversationId === conv.id;
         const lastMessage = conv.last_message;
         const unreadCount = conv.messages?.filter((msg: any) => 
@@ -101,9 +114,16 @@ const ConversationList: React.FC<ConversationListProps> = ({
           const participant = conv.participants.find((p: any) => 
             p.user_id !== (conv.current_user_id || user?.id)
           );
+          
           if (participant?.profile) {
-            displayName = `${participant.profile.first_name || 'User'} ${participant.profile.last_name || ''}`;
-            avatarFallback = participant.profile.first_name?.[0] || 'U';
+            // Only show "Unknown" if both first_name and last_name are empty/null
+            const firstName = participant.profile.first_name || '';
+            const lastName = participant.profile.last_name || '';
+            
+            if (firstName || lastName) {
+              displayName = `${firstName} ${lastName}`.trim();
+              avatarFallback = firstName?.[0] || lastName?.[0] || 'U';
+            }
             avatarUrl = participant.profile.avatar_url;
           }
         }
@@ -111,7 +131,9 @@ const ConversationList: React.FC<ConversationListProps> = ({
         return (
           <Card
             key={conv.id}
-            className={`p-3 cursor-pointer transition hover:bg-muted/50 relative ${isActive ? 'bg-muted' : ''}`}
+            className={`p-3 cursor-pointer transition relative ${
+              isActive ? 'bg-muted' : unreadCount > 0 ? 'bg-blue-50 hover:bg-blue-100/80' : 'hover:bg-muted/50'
+            }`}
             onClick={() => handleClick(conv.id)}
           >
             <div className="flex justify-between items-center">
@@ -133,24 +155,44 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 )}
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium line-clamp-1">
+                    <span className={`font-medium line-clamp-1 ${unreadCount > 0 ? 'font-semibold' : ''}`}>
                       {displayName}
                     </span>
                     {unreadCount > 0 && (
-                      <span className="text-xs text-blue-600">• {unreadCount} unread</span>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                        {unreadCount} new
+                      </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-1">
+                  <p className={`text-sm line-clamp-1 ${
+                    unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'
+                  }`}>
                     {lastMessage?.content || 'No messages yet'}
                   </p>
                 </div>
               </div>
 
               <div className="flex gap-2">
-                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onArchive?.(conv.id); }}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onArchive?.(conv.id); 
+                  }}
+                  aria-label="Archive conversation"
+                >
                   <Archive className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete?.(conv.id); }}>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onDelete?.(conv.id); 
+                  }}
+                  aria-label="Delete conversation"
+                >
                   <Trash className="h-4 w-4 text-destructive" />
                 </Button>
               </div>
