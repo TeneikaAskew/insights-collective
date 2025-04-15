@@ -105,6 +105,17 @@ export const createNewConversation = async (userId: string, subject: string, rec
       .select('id')
       .single();
     
+    const { data, error } = await supabase
+      .from('conversations')
+      .insert([
+        {
+          created_by: user.id, // must match auth.uid()
+          is_group: false,
+          subject: null
+        }
+      ])
+      .select('id');
+
     if (conversationError) {
       console.error('Error creating conversation:', conversationError);
       throw conversationError;
