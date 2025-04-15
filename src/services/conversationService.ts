@@ -114,7 +114,7 @@ export const createNewConversation = async (userId: string, subject: string, rec
       .from('conversations')
       .insert([
         {
-          created_by: user.id, // must match auth.uid()
+          created_by: auth.id, // must match auth.uid()
           is_group: false,
           subject: null
         }
