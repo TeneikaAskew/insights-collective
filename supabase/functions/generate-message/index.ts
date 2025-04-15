@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const { conversationHistory, messageType } = await req.json();
-    const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY');
+    const GROQ_API_KEY = Deno.env.get('GROQ');
 
     if (!GROQ_API_KEY) {
       throw new Error('GROQ API key not configured');
@@ -31,7 +31,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'mixtral-8x7b-32768',
+        model: 'llama3-8b-8192',
         messages: [
           { role: 'system', content: systemPrompt },
           ...(conversationHistory?.map(msg => ({
