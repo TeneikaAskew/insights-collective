@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
@@ -100,6 +99,7 @@ export const createNewConversation = async (subject: string, recipientIds: strin
 
     console.log("[createNewConversation] Auth UID:", user.id, "Recipients:", recipientIds);
 
+    // First create the conversation with the current user as creator
     const { data: conversationData, error: conversationError } = await supabase
       .from('conversations')
       .insert({
