@@ -50,8 +50,10 @@ const Messages = () => {
   useEffect(() => {
     if (activeTab === 'archived') {
       fetchArchivedConversations();
+    } else if (activeTab === 'inbox' || activeTab === 'sent') {
+      refreshConversations();
     }
-  }, [activeTab, fetchArchivedConversations]);
+  }, [activeTab, fetchArchivedConversations, refreshConversations]);
 
   // If we encounter an authentication error, show a toast and navigate to login
   useEffect(() => {

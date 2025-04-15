@@ -59,8 +59,11 @@ const ConversationList: React.FC<ConversationListProps> = ({
         .update({ archived: true })
         .eq('id', conversationId);
       
-      // Force refresh of the conversations list
-      window.location.reload();
+      // Filter out the archived conversation from the current view instead of reloading
+      const element = e.currentTarget.closest('.conversation-card');
+      if (element) {
+        element.style.display = 'none';
+      }
       
       toast({
         description: "Conversation archived successfully",
@@ -83,8 +86,11 @@ const ConversationList: React.FC<ConversationListProps> = ({
         .update({ deleted_at: now })
         .eq('id', conversationId);
       
-      // Force refresh of the conversations list
-      window.location.reload();
+      // Filter out the deleted conversation from the current view instead of reloading
+      const element = e.currentTarget.closest('.conversation-card');
+      if (element) {
+        element.style.display = 'none';
+      }
       
       toast({
         description: "Conversation deleted successfully",
@@ -204,11 +210,11 @@ const ConversationList: React.FC<ConversationListProps> = ({
               >
                 <Avatar className="w-full h-full border border-white">
                   <AvatarImage 
-                    src={participant?.profile?.avatar_url || ''} 
-                    alt={`${participant?.profile?.first_name || ''} ${participant?.profile?.last_name || ''}`}
+                    src={participant.profile?.avatar_url || ''} 
+                    alt={`${participant.profile?.first_name || ''} ${participant.profile?.last_name || ''}`}
                   />
                   <AvatarFallback className="bg-amber-100 text-amber-800 text-xs">
-                    {getInitials(participant?.profile)}
+                    {getInitials(participant.profile)}
                   </AvatarFallback>
                 </Avatar>
               </div>
@@ -217,95 +223,96 @@ const ConversationList: React.FC<ConversationListProps> = ({
         );
 
         return (
-          <Link
-            key={conversation.id}
-            to={`/messages/${conversation.id}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(`/messages/${conversation.id}`);
-            }}
-          >
-            <Card
-              className={`p-4 hover:bg-amber-50/50 cursor-pointer transition-colors ${
-                conversationId === conversation.id ? 'bg-amber-50 border-amber-200' : ''
-              } group`}
+          <div key={conversation.id} className="conversation-card">
+            <Link
+              to={`/messages/${conversation.id}`}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(`/messages/${conversation.id}`);
+              }}
             >
-              <div className="flex justify-between items-start gap-3">
-                <div className="flex gap-3">
-                  {conversation.is_group ? (
-                    renderGroupAvatar()
-                  ) : (
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage 
-                        src={otherParticipants[0]?.profile?.avatar_url || ''} 
-                        alt={`${otherParticipants[0]?.profile?.first_name || ''} ${otherParticipants[0]?.profile?.last_name || ''}`}
-                      />
-                      <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {getInitials(otherParticipants[0]?.profile)}
-                      </AvatarFallback>
-                    </Avatar>
-                  )}
-                  <div className="space-y-1">
-                    <p className="font-medium line-clamp-1 text-gray-800">
-                      {conversation.subject || 
-                        (conversation.is_group 
-                          ? `Group (${participants.length} participants)` 
-                          : otherParticipants[0]?.profile?.first_name
-                            ? `${otherParticipants[0]?.profile?.first_name} ${otherParticipants[0]?.profile?.last_name || ''}`
-                            : 'Unknown User'
-                        )
-                      }
-                    </p>
-                    <p className="text-sm text-gray-600 line-clamp-1">
-                      {conversation.last_message?.content || 'Start a conversation'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-xs text-gray-500">{timeAgo}</span>
-                  {unreadCount > 0 && (
-                    <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5">
-                      {unreadCount}
-                    </span>
-                  )}
-                  <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isArchived ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={(e) => handleRestore(e, conversation.id)}
-                        className="p-1 h-7 w-7"
-                        title="Restore conversation"
-                      >
-                        <ArchiveRestore className="h-4 w-4" />
-                      </Button>
+              <Card
+                className={`p-4 hover:bg-amber-50/50 cursor-pointer transition-colors ${
+                  conversationId === conversation.id ? 'bg-amber-50 border-amber-200' : ''
+                } group`}
+              >
+                <div className="flex justify-between items-start gap-3">
+                  <div className="flex gap-3">
+                    {conversation.is_group ? (
+                      renderGroupAvatar()
                     ) : (
-                      <>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => handleArchive(e, conversation.id)}
-                          className="p-1 h-7 w-7"
-                          title="Archive conversation"
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={(e) => handleDelete(e, conversation.id)}
-                          className="p-1 h-7 w-7 text-red-500 hover:text-red-700"
-                          title="Delete conversation"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </>
+                      <Avatar className="h-10 w-10">
+                        <AvatarImage 
+                          src={otherParticipants[0]?.profile?.avatar_url || ''} 
+                          alt={`${otherParticipants[0]?.profile?.first_name || ''} ${otherParticipants[0]?.profile?.last_name || ''}`}
+                        />
+                        <AvatarFallback className="bg-amber-100 text-amber-800">
+                          {getInitials(otherParticipants[0]?.profile)}
+                        </AvatarFallback>
+                      </Avatar>
                     )}
+                    <div className="space-y-1">
+                      <p className="font-medium line-clamp-1 text-gray-800">
+                        {conversation.subject || 
+                          (conversation.is_group 
+                            ? `Group (${participants.length} participants)` 
+                            : otherParticipants[0]?.profile?.first_name
+                              ? `${otherParticipants[0]?.profile?.first_name} ${otherParticipants[0]?.profile?.last_name || ''}`
+                              : 'Unknown User'
+                          )
+                        }
+                      </p>
+                      <p className="text-sm text-gray-600 line-clamp-1">
+                        {conversation.last_message?.content || 'Start a conversation'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-xs text-gray-500">{timeAgo}</span>
+                    {unreadCount > 0 && (
+                      <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5">
+                        {unreadCount}
+                      </span>
+                    )}
+                    <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isArchived ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleRestore(e, conversation.id)}
+                          className="p-1 h-7 w-7"
+                          title="Restore conversation"
+                        >
+                          <ArchiveRestore className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleArchive(e, conversation.id)}
+                            className="p-1 h-7 w-7"
+                            title="Archive conversation"
+                          >
+                            <Archive className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={(e) => handleDelete(e, conversation.id)}
+                            className="p-1 h-7 w-7 text-red-500 hover:text-red-700"
+                            title="Delete conversation"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            </Card>
-          </Link>
+              </Card>
+            </Link>
+          </div>
         );
       })}
     </div>

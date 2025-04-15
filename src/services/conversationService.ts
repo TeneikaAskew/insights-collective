@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
@@ -67,6 +66,7 @@ export const fetchUserConversations = async (userId: string) => {
         )
         `)
       .in('id', conversationIds)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false })
       .limit(20);
     
@@ -286,4 +286,3 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
     throw error;
   }
 };
-//hi

@@ -107,6 +107,7 @@ export function useArchivedConversations() {
 
       if (error) throw error;
 
+      // Update local state by removing the restored conversation
       setArchivedConversations(prev => prev.filter(c => c.id !== conversationId));
 
       return true;
