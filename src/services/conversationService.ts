@@ -317,7 +317,7 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
       `Creating new chat: User: ${userId} Other: ${otherUserId} // Chat with ${otherUser.first_name} ${otherUser.last_name}` : 
       'New conversation';
     
-    return await createNewConversation(userId, subject, [otherUserId]);
+    return await createNewConversation(subject, [otherUserId]);
   } catch (error) {
     console.error('Error in getOrCreateOneOnOneConversation:', error);
     throw error;
