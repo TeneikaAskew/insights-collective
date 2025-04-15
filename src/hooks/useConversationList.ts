@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Conversation } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,7 +14,7 @@ export function useConversationList() {
   const [error, setError] = useState<any>(null);
   const { user } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<'all' | 'archived'>('all');
+  const [activeTab, setActiveTab] = useState<'inbox' | 'archived'>('inbox');
 
   useEffect(() => {
     console.log('[useConversationList] useEffect fired');

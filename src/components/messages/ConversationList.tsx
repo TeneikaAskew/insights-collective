@@ -1,14 +1,13 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, Archive, Trash, Dot, Users } from 'lucide-react';
+import { AlertCircle, Archive, Trash, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { Badge } from '@/components/ui/badge';
 
@@ -16,8 +15,8 @@ interface ConversationListProps {
   conversations: any[];
   loading: boolean;
   error?: any;
-  onDelete?: (id: string) => void;
-  onArchive?: (id: string) => void;
+  onDelete?: (id: string) => Promise<void>;
+  onArchive?: (id: string) => Promise<void>;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({ 
@@ -29,20 +28,24 @@ const ConversationList: React.FC<ConversationListProps> = ({
 }) => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
   const { user } = useAuth();
 
   const handleClick = (id: string) => {
     navigate(`/messages/${id}`);
   };
 
-  const handleConfirm = () => {
-    if (!selectedId) return;
-    if (confirmAction === 'archive') onArchive?.(selectedId);
-    if (confirmAction === 'delete') onDelete?.(selectedId);
-    setConfirmAction(null);
-    setSelectedId(null);
+  const handleArchive = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (onArchive) {
+      await onArchive(id);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (onDelete) {
+      await onDelete(id);
+    }
   };
 
   if (error) {
@@ -95,35 +98,24 @@ const ConversationList: React.FC<ConversationListProps> = ({
           !msg.read && msg.sender_id !== (conv.current_user_id || user?.id)
         ).length || 0;
         
-        let displayName = 'Unknown';
-        let avatarFallback = 'U';
-        let avatarUrl;
+        let displayName, avatarUrl;
         
         if (conv.is_group) {
           const participantCount = conv.participants?.length || 0;
           displayName = `Group (${participantCount} participants)`;
-          avatarFallback = 'G';
-          // Use the first two participants' avatars for group display
-          const otherParticipants = conv.participants
-            .filter((p: any) => p.user_id !== (conv.current_user_id || user?.id))
-            .slice(0, 2);
-          if (otherParticipants.length > 0) {
-            avatarUrl = otherParticipants[0]?.profile?.avatar_url;
-          }
-        } else {
-          const participant = conv.participants.find((p: any) => 
+          // Use the first participant's avatar for group
+          const otherParticipant = conv.participants?.find((p: any) => 
             p.user_id !== (conv.current_user_id || user?.id)
           );
-          
+          avatarUrl = otherParticipant?.profile?.avatar_url;
+        } else {
+          const participant = conv.participants?.find((p: any) => 
+            p.user_id !== (conv.current_user_id || user?.id)
+          );
           if (participant?.profile) {
-            // Only show "Unknown" if both first_name and last_name are empty/null
-            const firstName = participant.profile.first_name || '';
-            const lastName = participant.profile.last_name || '';
-            
-            if (firstName || lastName) {
-              displayName = `${firstName} ${lastName}`.trim();
-              avatarFallback = firstName?.[0] || lastName?.[0] || 'U';
-            }
+            const firstName = participant.profile.first_name;
+            const lastName = participant.profile.last_name;
+            displayName = `${firstName} ${lastName}`.trim();
             avatarUrl = participant.profile.avatar_url;
           }
         }
@@ -142,7 +134,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
                   <div className="relative">
                     <Avatar>
                       <AvatarImage src={avatarUrl} />
-                      <AvatarFallback className="bg-primary/10">
+                      <AvatarFallback>
                         <Users className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
@@ -150,7 +142,9 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 ) : (
                   <Avatar>
                     <AvatarImage src={avatarUrl} />
-                    <AvatarFallback>{avatarFallback}</AvatarFallback>
+                    <AvatarFallback>
+                      {displayName?.charAt(0)}
+                    </AvatarFallback>
                   </Avatar>
                 )}
                 <div className="space-y-1">
@@ -176,10 +170,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    onArchive?.(conv.id); 
-                  }}
+                  onClick={(e) => handleArchive(e, conv.id)}
                   aria-label="Archive conversation"
                 >
                   <Archive className="h-4 w-4" />
@@ -187,10 +178,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  onClick={(e) => { 
-                    e.stopPropagation(); 
-                    onDelete?.(conv.id); 
-                  }}
+                  onClick={(e) => handleDelete(e, conv.id)}
                   aria-label="Delete conversation"
                 >
                   <Trash className="h-4 w-4 text-destructive" />

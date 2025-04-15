@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageSquare, Send, Search } from 'lucide-react';
@@ -32,16 +31,10 @@ const Messages = () => {
     loading: loadingConversations, 
     sendMessage, 
     error: conversationsError,
-    activeTab: hookActiveTab,
-    setActiveTab: setHookActiveTab,
     restoreConversation
   } = useConversations();
 
   const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
-
-  useEffect(() => {
-    setHookActiveTab(activeTab);
-  }, [activeTab, setHookActiveTab]);
 
   useEffect(() => {
     if (conversationsError?.message?.includes('JWT')) {
