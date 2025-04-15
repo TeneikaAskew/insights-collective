@@ -37,20 +37,20 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
   }
 
   if (loading) {
-    return (
-      <div className="space-y-2">
-        {[1, 2, 3].map((i) => (
-          <Card key={i} className="p-4">
-            <div className="flex gap-3">
-              <Skeleton className="h-12 w-12 rounded-full" />
-              <div className="flex-1">
-                <Skeleton className="h-4 w-3/4 mb-2" />
-                <Skeleton className="h-3 w-1/2" />
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+    return ( loading
+      // <div className="space-y-2">
+      //   {[1, 2, 3].map((i) => (
+      //     <Card key={i} className="p-4">
+      //       <div className="flex gap-3">
+      //         <Skeleton className="h-12 w-12 rounded-full" />
+      //         <div className="flex-1">
+      //           <Skeleton className="h-4 w-3/4 mb-2" />
+      //           <Skeleton className="h-3 w-1/2" />
+      //         </div>
+      //       </div>
+      //     </Card>
+      //   ))}
+      // </div>
     );
   }
 
