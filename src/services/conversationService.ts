@@ -196,6 +196,7 @@ export const sendConversationMessage = async (userId: string, conversationId: st
     console.error('Error sending message:', error);
     throw error;
   }
+  fetchUserConversations(userId);
 };
 
 /**
