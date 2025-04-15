@@ -46,7 +46,10 @@ export function useArchivedConversations() {
           archived,
           deleted_at,
           participants:conversation_participants(
-            user_id,
+            id,
+            user_id, 
+            conversation_id,
+            added_at,
             profile:profiles(
               first_name,
               last_name,
@@ -67,7 +70,13 @@ export function useArchivedConversations() {
 
       if (conversationsError) throw conversationsError;
 
-      setConversations(conversationsData as Conversation[]);
+      // Transform and type the conversations data properly
+      const typedConversations = conversationsData.map((conv: any) => ({
+        ...conv,
+        last_message: conv.last_message[0] || null
+      })) as Conversation[];
+
+      setConversations(typedConversations);
     } catch (error) {
       console.error('Error fetching archived conversations:', error);
       setError(error);

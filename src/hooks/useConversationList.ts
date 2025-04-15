@@ -30,7 +30,7 @@ export function useConversationList() {
       const activeConversations = conversationsData.filter(
         c => !c.archived && !c.deleted_at
       );
-      setConversations(activeConversations as Conversation[]);
+      setConversations(activeConversations);
     } catch (error) {
       console.error('[useConversationList] Error loading conversations:', error);
       setError(error);

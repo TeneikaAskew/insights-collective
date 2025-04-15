@@ -16,6 +16,8 @@ export interface Conversation {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  archived?: boolean | null;
+  deleted_at?: string | null;
   participants?: ConversationParticipant[];
   last_message?: Message;
 }
