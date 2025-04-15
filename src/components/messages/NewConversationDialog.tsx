@@ -55,6 +55,8 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
 
     try {
       setIsCreating(true);
+
+      console.log("User: ", user.id, "Selected user to message: ", selectedUser.id))
       
       // Get or create conversation
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
