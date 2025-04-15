@@ -127,7 +127,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
                 >
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={user.avatar_url || ''} alt={`${user.first_name} ${user.last_name}`} />
-                    <AvatarFallback className="bg-primary/10 text-primary">
+                    <AvatarFallback className="blue-500 text-primary">
                       {user.first_name?.[0] || ''}
                       {user.last_name?.[0] || ''}
                     </AvatarFallback>
