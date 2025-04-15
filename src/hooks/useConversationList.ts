@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -7,6 +7,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { AlertCircle, Archive, Trash, Dot } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 interface ConversationListProps {
   conversations: any[];
@@ -19,9 +20,19 @@ interface ConversationListProps {
 const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error, onDelete, onArchive }) => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
+  const [confirmAction, setConfirmAction] = useState<'archive' | 'delete' | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const handleClick = (id: string) => {
     navigate(`/messages/${id}`);
+  };
+
+  const handleConfirm = () => {
+    if (!selectedId) return;
+    if (confirmAction === 'archive') onArchive?.(selectedId);
+    if (confirmAction === 'delete') onDelete?.(selectedId);
+    setConfirmAction(null);
+    setSelectedId(null);
   };
 
   if (error) {
@@ -59,7 +70,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       {conversations.filter(c => !c.deleted_at && !c.archived).map((conv) => {
         const isActive = conversationId === conv.id;
         const lastMessage = conv.last_message;
-        const unread = lastMessage && !lastMessage.read && lastMessage.sender_id !== conv.current_user_id;
+        const unreadCount = conv.messages?.filter((msg: any) => !msg.read && msg.sender_id !== conv.current_user_id).length || 0;
         const participant = conv.participants.find((p: any) => p.user_id !== conv.current_user_id);
         const name = `${participant?.profile?.first_name || 'User'} ${participant?.profile?.last_name || ''}`;
 
@@ -82,7 +93,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                     <span className="font-medium line-clamp-1">
                       {name || 'Unnamed'}
                     </span>
-                    {unread && <Dot className="h-4 w-4 text-primary animate-pulse" />}
+                    {unreadCount > 0 && <span className="text-xs text-blue-600">• {unreadCount} unread</span>}
                   </div>
                   <p className="text-sm text-muted-foreground line-clamp-1">
                     {lastMessage?.content || 'No messages yet'}
@@ -91,12 +102,41 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
               </div>
 
               <div className="flex gap-2">
-                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onArchive?.(conv.id); }}>
-                  <Archive className="h-4 w-4" />
-                </Button>
-                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); onDelete?.(conv.id); }}>
-                  <Trash className="h-4 w-4 text-destructive" />
-                </Button>
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setSelectedId(conv.id); setConfirmAction('archive'); }}>
+                      <Archive className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Archive Conversation?</DialogTitle>
+                    </DialogHeader>
+                    <p>This conversation will be moved to the archive. You can restore it later.</p>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
+                      <Button onClick={handleConfirm}>Archive</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); setSelectedId(conv.id); setConfirmAction('delete'); }}>
+                      <Trash className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Delete Conversation?</DialogTitle>
+                    </DialogHeader>
+                    <p>This action cannot be undone. Are you sure you want to delete this conversation?</p>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
+                      <Button onClick={handleConfirm} className="bg-red-600 hover:bg-red-700 text-white">Delete</Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
               </div>
             </div>
 
@@ -111,6 +151,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
 };
 
 export default ConversationList;
+
 
 // import React from 'react';
 // import { useNavigate, useParams } from 'react-router-dom';
