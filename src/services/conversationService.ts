@@ -109,7 +109,7 @@ export const createNewConversation = async (subject: string, recipientIds: strin
         is_group: recipientIds.length > 1,
         created_by: user.id, // This must match auth.uid() for RLS,
   participants: [user.id, ...recipientIds] // add this
-      }, { returning: 'minimal' });  )
+      }, { returning: 'minimal' });  //)
       // .select('id')
       // .single();
 
