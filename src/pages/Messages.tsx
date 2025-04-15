@@ -16,6 +16,7 @@ import { NewConversationButton } from '@/components/messages/NewConversationButt
 import MessageSuggestions from '@/components/messages/MessageSuggestions';
 import { useConversationList } from '@/hooks/useConversationList';
 import { useArchivedConversations } from '@/hooks/useArchivedConversations';
+import { useMessageSend } from '@/hooks/useMessageSend';
 
 const Messages = () => {
   const { conversationId } = useParams();
@@ -42,7 +43,8 @@ const Messages = () => {
     restoreConversation
   } = useArchivedConversations();
   
-  const { messages, loading: loadingMessages, sendMessage } = useConversationMessages(conversationId);
+  const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
+  const { sendMessage } = useMessageSend();
 
   // Load archived conversations when tab changes
   useEffect(() => {
