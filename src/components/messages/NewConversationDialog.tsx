@@ -94,9 +94,9 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle className="text-xl">Start a New Conversation</DialogTitle>
-          <p className="text-sm text-muted-foreground mt-1">
+          <DialogDescription className="text-sm text-muted-foreground mt-1">
             Find a user to start chatting with.
-          </p>
+          </DialogDescription>
         </DialogHeader>
         
         <div className="px-6 pb-2">
