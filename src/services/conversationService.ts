@@ -299,7 +299,7 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
       return existingConversationId;
     }
     let existing = `No existing conversation found, creating new one: User: ${userId} Other: ${otherUserId}`
-    console.log("No existing conversation found, creating new one");
+    console.log(existing);
     
     // If no existing conversation, create a new one
     const { data: otherUser, error: userError } = await supabase
