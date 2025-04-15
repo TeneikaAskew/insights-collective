@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageSquare, Send, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -25,25 +25,16 @@ const Messages = () => {
   const [activeTab, setActiveTab] = useState('inbox');
   const [messageContent, setMessageContent] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [localConversations, setLocalConversations] = useState([]);
 
   const { 
     conversations, 
     loading: loadingConversations, 
     sendMessage, 
     error: conversationsError,
-    restoreConversation,
-    refreshConversations
+    restoreConversation
   } = useConversations();
 
   const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
-
-  // Update local conversations whenever the main conversations change
-  useEffect(() => {
-    if (conversations) {
-      setLocalConversations(conversations);
-    }
-  }, [conversations]);
 
   useEffect(() => {
     if (conversationsError?.message?.includes('JWT')) {
@@ -56,22 +47,10 @@ const Messages = () => {
     }
   }, [conversationsError, toast, navigate]);
 
-  const handleArchiveConversation = async (id) => {
+  const handleArchiveConversation = async (id: string) => {
     try {
       await archiveConversation(id);
-      
-      // Update local state immediately
-      setLocalConversations(prev => 
-        prev.map(conv => 
-          conv.id === id ? { ...conv, archived: true } : conv
-        )
-      );
-      
       toast({ title: 'Conversation archived' });
-      
-      // Refresh conversations to ensure server state is synced
-      refreshConversations();
-      
       if (id === conversationId) {
         navigate('/messages');
       }
@@ -80,22 +59,10 @@ const Messages = () => {
     }
   };
 
-  const handleDeleteConversation = async (id) => {
+  const handleDeleteConversation = async (id: string) => {
     try {
       await deleteConversation(id);
-      
-      // Update local state immediately
-      setLocalConversations(prev => 
-        prev.map(conv => 
-          conv.id === id ? { ...conv, deleted_at: new Date().toISOString() } : conv
-        )
-      );
-      
       toast({ title: 'Conversation deleted' });
-      
-      // Refresh conversations to ensure server state is synced
-      refreshConversations();
-      
       if (id === conversationId) {
         navigate('/messages');
       }
@@ -104,21 +71,10 @@ const Messages = () => {
     }
   };
 
-  const handleRestoreConversation = async (id) => {
+  const handleRestoreConversation = async (id: string) => {
     try {
       await restoreConversation(id);
-      
-      // Update local state immediately
-      setLocalConversations(prev => 
-        prev.map(conv => 
-          conv.id === id ? { ...conv, archived: false } : conv
-        )
-      );
-      
       toast({ title: 'Conversation restored from archive' });
-      
-      // Refresh conversations to ensure server state is synced
-      refreshConversations();
     } catch (err) {
       toast({ 
         title: 'Error restoring conversation', 
@@ -141,45 +97,38 @@ const Messages = () => {
     }
   };
 
-  const handleSuggestedMessage = (message) => {
+  const handleSuggestedMessage = (message: string) => {
     setMessageContent(message);
   };
 
-  const filterConversations = useCallback((convs) => {
+  const filterConversations = (convs) => {
     if (!searchQuery) return convs;
 
     const searchLower = searchQuery.toLowerCase();
     return convs.filter(conv => {
-      // Search in subject/title
       if (conv.subject?.toLowerCase().includes(searchLower)) return true;
 
-      // Search in participant names
       const hasMatchingParticipant = conv.participants?.some(p =>
         (p.profile?.first_name || '').toLowerCase().includes(searchLower) ||
         (p.profile?.last_name || '').toLowerCase().includes(searchLower)
       );
       if (hasMatchingParticipant) return true;
 
-      // Search in last message
       if ((conv.last_message?.content || '').toLowerCase().includes(searchLower)) return true;
 
-      // Deep search in all messages if they're loaded
-      // This requires additional logic to fetch all messages for search
-      if (conv.id === conversationId && messages?.length > 0) {
-        return messages.some(msg => 
-          (msg.content || '').toLowerCase().includes(searchLower)
-        );
-      }
+      if (conv.messages?.some(msg => 
+        (msg.content || '').toLowerCase().includes(searchLower)
+      )) return true;
 
       return false;
     });
-  }, [searchQuery, conversationId, messages]);
+  };
 
   if (!isAuthenticated) {
-    return <LoginWall message="Sign in to access your messages and connect with instructors and classmates." visibleItems={0} totalItems={localConversations?.length ?? 0} />;
+    return <LoginWall message="Sign in to access your messages and connect with instructors and classmates." visibleItems={0} totalItems={conversations?.length ?? 0} />;
   }
 
-  const filteredConversations = filterConversations(localConversations || []);
+  const filteredConversations = filterConversations(conversations || []);
 
   return (
     <AppLayout>
@@ -278,7 +227,7 @@ const Messages = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-1 h-full">
                   <ConversationList
-                    conversations={filterConversations(localConversations?.filter(c => 
+                    conversations={filterConversations(conversations?.filter(c => 
                       c.last_message?.sender_id === user?.id && !c.archived && !c.deleted_at
                     ) || [])}
                     loading={loadingConversations}
@@ -345,7 +294,7 @@ const Messages = () => {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-1 h-full">
                   <ArchivedConversationsList
-                    conversations={filterConversations(localConversations || [])}
+                    conversations={filterConversations(conversations || [])}
                     loading={loadingConversations}
                     error={conversationsError}
                     onRestore={handleRestoreConversation}
