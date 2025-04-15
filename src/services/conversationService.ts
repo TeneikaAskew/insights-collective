@@ -123,7 +123,7 @@ export const createNewConversation = async (subject: string, recipientIds: strin
       }
     ])
     .select('id')
-    .single()
+    // .single()
 
     if (conversationError) {
       console.error('[createNewConversation] Error creating conversation:', conversationError);
