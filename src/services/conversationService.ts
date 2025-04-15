@@ -257,7 +257,7 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
       console.log("Found existing conversation:", existingConversationId);
       return existingConversationId;
     }
-    
+    let existing = `No existing conversation found, creating new one: User: ${userId} Other: ${otherUserId}`
     console.log("No existing conversation found, creating new one");
     
     // If no existing conversation, create a new one
