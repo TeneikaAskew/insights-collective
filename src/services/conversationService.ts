@@ -98,6 +98,8 @@ export const createNewConversation = async (subject: string, recipientIds: strin
     }
 
     console.log("[createNewConversation] Auth UID:", user.id, "Recipients:", recipientIds);
+    console.log('[Supabase Auth Session]', await supabase.auth.getSession());
+
 
   //   // First create the conversation with the current user as creator
   //   const { data: conversationData, error: conversationError } = await supabase
