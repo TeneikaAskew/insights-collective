@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageSquare, Send, Search } from 'lucide-react';
@@ -34,7 +35,7 @@ const Messages = () => {
     activeTab: hookActiveTab,
     setActiveTab: setHookActiveTab,
     restoreConversation
-  } = useConversationList();
+  } = useConversations();
 
   const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
 
