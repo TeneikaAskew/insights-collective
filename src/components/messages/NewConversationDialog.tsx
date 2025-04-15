@@ -57,6 +57,12 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       setIsCreating(true);
 
       console.log("User: ", user.id, "Selected user to message: ", selectedUser.id)
+      console.log("Auth UID:", authUser?.user?.id); // <- Must match userId!
+      console.log("Passed userId:", userId);
+      
+      if (authUser?.user?.id !== userId) {
+        throw new Error("Mismatch between auth.uid() and passed userId – RLS will fail.");
+}
       
       // Get or create conversation
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
