@@ -121,13 +121,13 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
                 <div
                   key={user.id}
                   className={`flex items-center gap-3 px-6 py-3 hover:bg-muted cursor-pointer ${
-                    selectedUser?.id === user.id ? 'bg-primary' : ''
+                    selectedUser?.id === user.id ? 'gray-400' : ''
                   }`}
                   onClick={() => handleSelectUser(user)}
                 >
                   <Avatar className="h-10 w-10">
                     <AvatarImage src={user.avatar_url || ''} alt={`${user.first_name} ${user.last_name}`} />
-                    <AvatarFallback className="gray-400 text-primary">
+                    <AvatarFallback className="bg-secondary text-primary">
                       {user.first_name?.[0] || ''}
                       {user.last_name?.[0] || ''}
                     </AvatarFallback>
