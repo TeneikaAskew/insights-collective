@@ -121,7 +121,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
                 <div
                   key={user.id}
                   className={`flex items-center gap-3 px-6 py-3 hover:bg-muted cursor-pointer ${
-                    selectedUser?.id === user.id ? 'bg-gray-200' : ''
+                    selectedUser?.id === user.id ? 'bg-primary/10' : ''
                   }`}
                   onClick={() => handleSelectUser(user)}
                 >
