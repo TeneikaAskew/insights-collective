@@ -273,10 +273,8 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
     }
     
     const subject = otherUser ? 
-      `Chat with ${otherUser.first_name} ${otherUser.last_name}` : 
+      `Creating new chat: User: ${userId} Other: ${otherUserId} // Chat with ${otherUser.first_name} ${otherUser.last_name}` : 
       'New conversation';
-    
-    console.log("Creating new conversation with subject:", subject, "User ID: ", userId, "Other ID: ", otherUserId);
     
     return await createNewConversation(userId, subject, [otherUserId]);
   } catch (error) {
