@@ -13,11 +13,14 @@ export function useConversationCreate() {
   const { toast } = useToast();
 
   const createConversation = async (subject: string, recipientIds: string[]) => {
+    console.log(user.id, subject, recipientIds)
     if (!user) return null;
     
     setCreating(true);
     try {
+      
       const conversationId = await createNewConversation(user.id, subject, recipientIds);
+      
       return conversationId;
     } catch (error) {
       console.error('Error creating conversation:', error);
