@@ -64,8 +64,8 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       
       // Send an initial message if needed
       if (conversationId) {
-        const initialMessage = `Hello ${selectedUser.first_name || ''}!`;
-        await sendConversationMessage(user.id, conversationId, initialMessage);
+        // const initialMessage = `Hello ${selectedUser.first_name || ''}!`;
+        // await sendConversationMessage(user.id, conversationId, initialMessage);
         
         // Close dialog and navigate to the conversation
         onOpenChange(false);
