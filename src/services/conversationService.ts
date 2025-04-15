@@ -99,17 +99,29 @@ export const createNewConversation = async (subject: string, recipientIds: strin
 
     console.log("[createNewConversation] Auth UID:", user.id, "Recipients:", recipientIds);
 
-    // First create the conversation with the current user as creator
+  //   // First create the conversation with the current user as creator
+  //   const { data: conversationData, error: conversationError } = await supabase
+  //     .from('conversations')
+  //     .insert({
+  //       subject,
+  //       is_group: recipientIds.length > 1,
+  //       created_by: user.id, // This must match auth.uid() for RLS,
+  // participants: [user.id, ...recipientIds] // add this
+  //     })
+  //     .select('id')
+  //     .single();
+
     const { data: conversationData, error: conversationError } = await supabase
-      .from('conversations')
-      .insert({
+    .from('conversations')
+    .insert([
+      {
         subject,
         is_group: recipientIds.length > 1,
-        created_by: user.id, // This must match auth.uid() for RLS,
-  participants: [user.id, ...recipientIds] // add this
-      })
-      .select('id')
-      .single();
+        created_by: user.id,
+      }
+    ])
+    .select('id')
+    .single()
 
     if (conversationError) {
       console.error('[createNewConversation] Error creating conversation:', conversationError);
