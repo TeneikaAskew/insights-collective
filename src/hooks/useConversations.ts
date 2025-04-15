@@ -7,15 +7,7 @@ import { useMessageSend } from './useMessageSend';
  * Combined hook for conversations functionality
  */
 export function useConversations() {
-  const { 
-    conversations, 
-    loading, 
-    error, 
-    activeTab, 
-    setActiveTab,
-    restoreConversation
-  } = useConversationList();
-  
+  const { conversations, loading, error } = useConversationList();
   const { createConversation } = useConversationCreate();
   const { sendMessage } = useMessageSend();
   
@@ -24,9 +16,6 @@ export function useConversations() {
     loading, 
     error,
     createConversation,
-    sendMessage,
-    activeTab,
-    setActiveTab,
-    restoreConversation
+    sendMessage
   };
 }
