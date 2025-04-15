@@ -282,3 +282,68 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
     throw error;
   }
 };
+
+export const fetchUserConversations = async (userId: string) => {
+  try {
+    if (!userId) {
+      console.error('fetchUserConversations called without userId');
+      return [];
+    }
+    
+    const { data: participantData, error: participantError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId);
+    
+    if (participantError) {
+      console.error('Error fetching participant data:', participantError);
+      throw participantError;
+    }
+    
+    if (!participantData || participantData.length === 0) {
+      return [];
+    }
+    
+    const conversationIds = participantData.map(p => p.conversation_id);
+    
+    const { data: conversationsData, error: conversationsError } = await supabase
+      .from('conversations')
+      .select(`
+        id,
+        subject,
+        is_group,
+        created_by,
+        updated_at,
+        created_at,
+        archived,
+        deleted_at,
+        participants:conversation_participants(
+          user_id,
+          profile:profiles(
+            first_name,
+            last_name,
+            avatar_url
+          )
+        ),
+        last_message:messages(
+          id,
+          sender_id,
+          content,
+          read,
+          created_at
+        )
+      `)
+      .in('id', conversationIds)
+      .order('updated_at', { ascending: false });
+    
+    if (conversationsError) {
+      console.error('Error fetching conversations:', conversationsError);
+      throw conversationsError;
+    }
+    
+    return conversationsData as Conversation[];
+  } catch (error) {
+    console.error('Error in fetchUserConversations:', error);
+    throw error;
+  }
+};
