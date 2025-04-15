@@ -26,13 +26,13 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
 
   if (error) {
     return (
-      <Alert variant="destructive" className="mb-4">
-        <AlertCircle className="h-4 w-4" />
-        <AlertTitle>Error loading conversations</AlertTitle>
-        <AlertDescription>
-          {error.message || 'Please try again later.'}
-        </AlertDescription>
-      </Alert>
+      // <Alert variant="destructive" className="mb-4">
+      //   <AlertCircle className="h-4 w-4" />
+      //   <AlertTitle>Error loading conversations</AlertTitle>
+      //   <AlertDescription>
+      //     {error.message || 'Please try again later.'}
+      //   </AlertDescription>
+      // </Alert>
     );
   }
 
