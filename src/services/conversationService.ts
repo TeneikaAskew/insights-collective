@@ -2,6 +2,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
 
+
+
+export const archiveConversation = async (conversationId: string) => {
+  const { error } = await supabase
+    .from('conversations')
+    .update({ archived: true })
+    .eq('id', conversationId);
+  if (error) throw error;
+};
+
+export const deleteConversation = async (conversationId: string) => {
+  const { error } = await supabase
+    .from('conversations')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', conversationId);
+  if (error) throw error;
+};
+
+
 /**
  * Fetches all conversations for a user
  */
