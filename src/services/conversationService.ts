@@ -272,7 +272,7 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
     }
     
     const subject = otherUser ? 
-      `Chat with ${otherUser.first_name} ${otherUser.last_name}` : 
+      `${otherUser.first_name} ${otherUser.last_name}` : 
       'New conversation';
     
     // Now just call our main function which handles authentication properly
