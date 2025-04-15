@@ -91,74 +91,6 @@ export const fetchUserConversations = async (userId: string) => {
 /**
  * Creates a new conversation
  */
-// export const createNewConversation = async (userId: string, subject: string, recipientIds: string[]) => {
-//   try {
-//     if (!userId) {
-//       throw new Error('User ID is required');
-//     }
-
-//     console.log("User ID: ", userId, "Recipients: ", recipientIds)
-    
-//     // Create conversation
-//     const { data: conversationData, error: conversationError } = await supabase
-//       .from('conversations')
-//       .insert({
-//         subject,
-//         is_group: recipientIds.length > 1,
-//         created_by: userId
-//       })
-//       .select('id')
-//       .single();
-    
-//     // const { data, error } = await supabase
-//     //   .from('conversations')
-//     //   .insert([
-//     //     {
-//     //       created_by: auth.id, // must match auth.uid()
-//     //       is_group: false,
-//     //       subject: null
-//     //     }
-//     //   ])
-//     //   .select('id');
-
-//     if (conversationError) {
-//       console.error('Error creating conversation:', conversationError);
-//       throw conversationError;
-//     }
-    
-//     if (!conversationData) {
-//       throw new Error('Failed to create conversation');
-//     }
-    
-//     // Add all recipients as participants
-//     const participantInserts = [
-//       // Include current user as participant
-//       {
-//         conversation_id: conversationData.id,
-//         user_id: userId
-//       },
-//       // Add all other recipients
-//       ...recipientIds.map(recipientId => ({
-//         conversation_id: conversationData.id,
-//         user_id: recipientId
-//       }))
-//     ];
-    
-//     const { error: participantsError } = await supabase
-//       .from('conversation_participants')
-//       .insert(participantInserts);
-      
-//     if (participantsError) {
-//       console.error('Error adding participants:', participantsError);
-//       throw participantsError;
-//     }
-    
-//     return conversationData.id;
-//   } catch (error) {
-//     console.error('Error creating conversation:', error);
-//     throw error;
-//   }
-// };
 export const createNewConversation = async (subject: string, recipientIds: string[]) => {
   try {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
@@ -166,37 +98,57 @@ export const createNewConversation = async (subject: string, recipientIds: strin
       throw new Error('User not authenticated');
     }
 
-    console.log("Auth UID:", user.id, "Recipients:", recipientIds);
+    console.log("[createNewConversation] Auth UID:", user.id, "Recipients:", recipientIds);
 
     const { data: conversationData, error: conversationError } = await supabase
       .from('conversations')
       .insert({
         subject,
         is_group: recipientIds.length > 1,
-        created_by: user.id, // 👈 Now this passes RLS!
+        created_by: user.id, // This must match auth.uid() for RLS
       })
       .select('id')
       .single();
 
-    if (conversationError) throw conversationError;
+    if (conversationError) {
+      console.error('[createNewConversation] Error creating conversation:', conversationError);
+      throw conversationError;
+    }
 
+    if (!conversationData) {
+      throw new Error('Failed to create conversation - no data returned');
+    }
+
+    console.log('[createNewConversation] Conversation created:', conversationData.id);
+    
+    // Add all recipients as participants
     const participantInserts = [
-      { conversation_id: conversationData.id, user_id: user.id },
-      ...recipientIds.map(id => ({
+      // Include current user as participant
+      {
         conversation_id: conversationData.id,
-        user_id: id,
+        user_id: user.id
+      },
+      // Add all other recipients
+      ...recipientIds.map(recipientId => ({
+        conversation_id: conversationData.id,
+        user_id: recipientId
       }))
     ];
+    
+    console.log('[createNewConversation] Adding participants:', participantInserts);
 
     const { error: participantsError } = await supabase
       .from('conversation_participants')
       .insert(participantInserts);
-
-    if (participantsError) throw participantsError;
-
+      
+    if (participantsError) {
+      console.error('[createNewConversation] Error adding participants:', participantsError);
+      throw participantsError;
+    }
+    
     return conversationData.id;
   } catch (error) {
-    console.error('Error creating conversation:', error);
+    console.error('[createNewConversation] Error:', error);
     throw error;
   }
 };
@@ -298,8 +250,7 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
       console.log("Found existing conversation:", existingConversationId);
       return existingConversationId;
     }
-    let existing = `No existing conversation found, creating new one: User: ${userId} Other: ${otherUserId}`
-    console.log(existing);
+    console.log(`No existing conversation found, creating new one: User: ${userId} Other: ${otherUserId}`);
     
     // If no existing conversation, create a new one
     const { data: otherUser, error: userError } = await supabase
@@ -314,10 +265,10 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
     }
     
     const subject = otherUser ? 
-      `Creating new chat: User: ${userId} Other: ${otherUserId} // Chat with ${otherUser.first_name} ${otherUser.last_name}` : 
+      `Chat with ${otherUser.first_name} ${otherUser.last_name}` : 
       'New conversation';
-    console.log(subject)
     
+    // Now just call our main function which handles authentication properly
     return await createNewConversation(subject, [otherUserId]);
   } catch (error) {
     console.error('Error in getOrCreateOneOnOneConversation:', error);
