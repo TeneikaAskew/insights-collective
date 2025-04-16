@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -17,7 +16,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Profile } from '@/types/supabase';
 import { useUsers } from '@/hooks/useUsers';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { createNewConversation, sendConversationMessage } from '@/services/conversationService';
+import { getOrCreateOneOnOneConversation } from '@/services/conversationService';
 
 interface NewConversationDialogProps {
   open: boolean;
@@ -56,24 +55,19 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
 
     try {
       setIsCreating(true);
-      console.log("Creating conversation with:", selectedUser.id);
+      console.log("Starting or finding conversation with:", selectedUser.id);
       
-      // Use createNewConversation directly - which handles auth internally
-      const subject = `${selectedUser.first_name} ${selectedUser.last_name}`;
-      const conversationId = await createNewConversation(subject, [selectedUser.id]);
+      // Use getOrCreateOneOnOneConversation to avoid duplicates
+      const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
       
-      // Send an initial message if needed
       if (conversationId) {
-        // const initialMessage = `Hello ${selectedUser.first_name || ''}!`;
-        // await sendConversationMessage(user.id, conversationId, initialMessage);
-        
         // Close dialog and navigate to the conversation
         onOpenChange(false);
         navigate(`/messages/${conversationId}`);
         
         toast({
           title: 'Success',
-          description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name} started.`,
+          description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name}.`,
         });
       }
     } catch (error) {
