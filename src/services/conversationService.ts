@@ -6,6 +6,84 @@ import { enrichProfileWithRoles } from '@/utils/profileUtils';
 /**
  * Fetches all conversations for a user
  */
+// export const fetchUserConversations = async (userId: string) => {
+//   try {
+//     if (!userId) {
+//       console.error('fetchUserConversations called without userId');
+//       return [];
+//     }
+    
+//     // First, get conversation IDs for the user
+//     const { data: participantData, error: participantError } = await supabase
+//       .from('conversation_participants')
+//       .select('conversation_id')
+//       .eq('user_id', userId);
+    
+//     if (participantError) {
+//       console.error('Error fetching participant data:', participantError);
+//       throw participantError;
+//     }
+    
+//     if (!participantData || participantData.length === 0) {
+//       return [];
+//     }
+    
+//     const conversationIds = participantData.map(p => p.conversation_id);
+    
+//     // Fetch conversations with participants and last message
+//     const { data: conversationsData, error: conversationsError } = await supabase
+//       .from('conversations')
+//       .select(`
+//         id,
+//         subject,
+//         is_group,
+//         created_by,
+//         updated_at,
+//         created_at,
+//         participants:conversation_participants(
+//           id,
+//           user_id,
+//           conversation_id,
+//           added_at,
+//           profile:profiles(
+//             id,
+//             first_name,
+//             last_name,
+//             avatar_url,
+//             role
+//           )
+//         ),
+//         last_message:messages(
+//           id,
+//           sender_id,
+//           content,
+//           read,
+//           created_at
+//         )
+//         `)
+//       .in('id', conversationIds)
+//       .order('updated_at', { ascending: false })
+//       .limit(20);
+    
+//     if (conversationsError) {
+//       console.error('Error fetching conversations:', conversationsError);
+//       throw conversationsError;
+//     }
+    
+//     // Transform the data to match our expected types
+//     return conversationsData.map(conversation => ({
+//       ...conversation,
+//       participants: conversation.participants.map(p => ({
+//         ...p,
+//         profile: p.profile ? enrichProfileWithRoles(p.profile) : undefined
+//       })),
+//       last_message: conversation.last_message[0] || null
+//     })) as Conversation[];
+//   } catch (error) {
+//     console.error('Error in fetchUserConversations:', error);
+//     throw error;
+//   }
+// };
 export const fetchUserConversations = async (userId: string) => {
   try {
     if (!userId) {
@@ -29,6 +107,7 @@ export const fetchUserConversations = async (userId: string) => {
     }
     
     const conversationIds = participantData.map(p => p.conversation_id);
+    console.log("Fetching conversations with IDs:", conversationIds);
     
     // Fetch conversations with participants and last message
     const { data: conversationsData, error: conversationsError } = await supabase
@@ -44,14 +123,7 @@ export const fetchUserConversations = async (userId: string) => {
           id,
           user_id,
           conversation_id,
-          added_at,
-          profile:profiles(
-            id,
-            first_name,
-            last_name,
-            avatar_url,
-            role
-          )
+          added_at
         ),
         last_message:messages(
           id,
@@ -60,31 +132,69 @@ export const fetchUserConversations = async (userId: string) => {
           read,
           created_at
         )
-        `)
+      `)
       .in('id', conversationIds)
-      .order('updated_at', { ascending: false })
-      .limit(20);
+      .order('updated_at', { ascending: false });
     
     if (conversationsError) {
       console.error('Error fetching conversations:', conversationsError);
       throw conversationsError;
     }
     
-    // Transform the data to match our expected types
-    return conversationsData.map(conversation => ({
-      ...conversation,
-      participants: conversation.participants.map(p => ({
-        ...p,
-        profile: p.profile ? enrichProfileWithRoles(p.profile) : undefined
-      })),
-      last_message: conversation.last_message[0] || null
-    })) as Conversation[];
+    // Now fetch profiles for all participants separately
+    const allParticipantUserIds = [];
+    for (const conversation of conversationsData) {
+      if (conversation.participants) {
+        for (const participant of conversation.participants) {
+          if (participant.user_id) {
+            allParticipantUserIds.push(participant.user_id);
+          }
+        }
+      }
+    }
+    
+    // Remove duplicates
+    const uniqueUserIds = [...new Set(allParticipantUserIds)];
+    console.log("Fetching profiles for user IDs:", uniqueUserIds);
+    
+    const { data: profilesData, error: profilesError } = await supabase
+      .from('profiles')
+      .select('*')
+      .in('id', uniqueUserIds);
+    
+    if (profilesError) {
+      console.error('Error fetching profiles:', profilesError);
+      throw profilesError;
+    }
+    
+    // Create a map of user_id -> profile for faster lookups
+    const profilesMap = {};
+    for (const profile of profilesData) {
+      profilesMap[profile.id] = enrichProfileWithRoles(profile);
+    }
+    
+    console.log("Profiles map:", profilesMap);
+    
+    // Now enhance each conversation with the profiles
+    const enhancedConversations = conversationsData.map(conversation => {
+      const enhancedParticipants = conversation.participants.map(participant => ({
+        ...participant,
+        profile: profilesMap[participant.user_id] || null
+      }));
+      
+      return {
+        ...conversation,
+        participants: enhancedParticipants,
+        last_message: conversation.last_message[0] || null
+      };
+    });
+    
+    return enhancedConversations;
   } catch (error) {
     console.error('Error in fetchUserConversations:', error);
     throw error;
   }
 };
-
 /**
  * Creates a new conversation
  */
