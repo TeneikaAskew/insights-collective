@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
@@ -17,8 +18,6 @@ export const fetchUserConversations = async (userId: string) => {
       .from('conversation_participants')
       .select('conversation_id')
       .eq('user_id', userId);
-
-    console.log("User ID: ", userId)
     
     if (participantError) {
       console.error('Error fetching participant data:', participantError);
@@ -30,7 +29,6 @@ export const fetchUserConversations = async (userId: string) => {
     }
     
     const conversationIds = participantData.map(p => p.conversation_id);
-    console.log("Conversations: ", conversationIds)
     
     // Fetch conversations with participants and last message
     const { data: conversationsData, error: conversationsError } = await supabase
@@ -98,8 +96,6 @@ export const createNewConversation = async (subject: string, recipientIds: strin
     }
 
     console.log("[createNewConversation] Auth UID:", user.id, "Recipients:", recipientIds);
-    console.log('[Supabase Auth Session]', await supabase.auth.getSession());
-
 
     // First create the conversation with the current user as creator
     const { data: conversationData, error: conversationError } = await supabase
@@ -107,14 +103,10 @@ export const createNewConversation = async (subject: string, recipientIds: strin
       .insert({
         subject,
         is_group: recipientIds.length > 1,
-        created_by: user.id, // This must match auth.uid() for RLS,
+        created_by: user.id,
       })
-      // , 
-              // { returning: 'representation' });//{ returning: 'minimal' });  //)
       .select('id')
       .single();
-
-
 
     if (conversationError) {
       console.error('[createNewConversation] Error creating conversation:', conversationError);
@@ -196,122 +188,53 @@ export const sendConversationMessage = async (userId: string, conversationId: st
     console.error('Error sending message:', error);
     throw error;
   }
-  fetchUserConversations(userId);
-};
-
-/**
- * Check if a one-on-one conversation already exists between two users
- */
-export const findExistingOneOnOneConversation = async (userId: string, otherUserId: string) => {
-  try {
-    // Get conversations where current user is a participant
-    const { data: userConversations, error: userError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', userId);
-      
-    if (userError) throw userError;
-    if (!userConversations || userConversations.length === 0) return null;
-    
-    const conversationIds = userConversations.map(c => c.conversation_id);
-    
-    // Find conversations where other user is also a participant
-    const { data: sharedConversations, error: sharedError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', otherUserId)
-      .in('conversation_id', conversationIds);
-      
-    if (sharedError) throw sharedError;
-    if (!sharedConversations || sharedConversations.length === 0) return null;
-    
-    const sharedIds = sharedConversations.map(c => c.conversation_id);
-    
-    // Find non-group conversations among shared conversations
-    const { data: nonGroupConvs, error: groupError } = await supabase
-      .from('conversations')
-      .select('id')
-      .in('id', sharedIds)
-      .eq('is_group', false);
-      
-    if (groupError) throw groupError;
-    if (!nonGroupConvs || nonGroupConvs.length === 0) return null;
-    
-    // Return the first matching conversation
-    return nonGroupConvs[0].id;
-  } catch (error) {
-    console.error('Error finding existing conversation:', error);
-    return null;
-  }
 };
 
 /**
  * Get or create a one-on-one conversation with another user
+ * Completely refactored to properly check for existing conversations
  */
 export const getOrCreateOneOnOneConversation = async (userId: string, otherUserId: string) => {
   try {
-    console.log("Checking for existing conversation between userId:", userId, "and otherUserId:", otherUserId);
+    console.log("Checking for existing conversation between", userId, "and", otherUserId);
     
-    // First, check if there's already a conversation between these users
-    // Get all conversations where current user is a participant
-    const { data: userConversations, error: userError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', userId);
-      
-    if (userError) {
-      console.error("Error fetching user conversations:", userError);
-      throw userError;
-    }
+    // First, check if there's a direct conversation between these two users
+    const { data: sharedConversationsData, error: sharedError } = await supabase
+      .from('conversations')
+      .select(`
+        id,
+        is_group,
+        participants:conversation_participants(user_id)
+      `)
+      .eq('is_group', false);
     
-    if (!userConversations || userConversations.length === 0) {
-      console.log("No existing conversations found for current user, creating new one");
-      return createNewConversationWithOtherUser(userId, otherUserId);
-    }
-    
-    const conversationIds = userConversations.map(p => p.conversation_id);
-    console.log("User is part of these conversations:", conversationIds);
-    
-    // Find conversations where the other user is also a participant
-    const { data: sharedConversations, error: sharedError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', otherUserId)
-      .in('conversation_id', conversationIds);
-      
     if (sharedError) {
-      console.error("Error finding shared conversations:", sharedError);
+      console.error("Error finding conversations:", sharedError);
       throw sharedError;
     }
     
-    if (!sharedConversations || sharedConversations.length === 0) {
-      console.log("No shared conversations found, creating new one");
-      return createNewConversationWithOtherUser(userId, otherUserId);
-    }
-    
-    const sharedIds = sharedConversations.map(p => p.conversation_id);
-    console.log("Shared conversation IDs:", sharedIds);
-    
-    // Get only non-group conversations from the shared IDs
-    const { data: nonGroupConvs, error: groupError } = await supabase
-      .from('conversations')
-      .select('id')
-      .in('id', sharedIds)
-      .eq('is_group', false);
+    if (sharedConversationsData && sharedConversationsData.length > 0) {
+      // Filter to find conversations that have EXACTLY these two users as participants
+      const matchingConversation = sharedConversationsData.find(conv => {
+        // Get unique user IDs from participants
+        const participantIds = conv.participants.map(p => p.user_id);
+        
+        // Check if there are exactly 2 participants and they match our users
+        return participantIds.length === 2 && 
+               participantIds.includes(userId) && 
+               participantIds.includes(otherUserId);
+      });
       
-    if (groupError) {
-      console.error("Error finding non-group conversations:", groupError);
-      throw groupError;
+      if (matchingConversation) {
+        console.log("Found existing conversation:", matchingConversation.id);
+        return matchingConversation.id;
+      }
     }
     
-    if (!nonGroupConvs || nonGroupConvs.length === 0) {
-      console.log("No non-group shared conversations found, creating new one");
-      return createNewConversationWithOtherUser(userId, otherUserId);
-    }
+    console.log("No existing conversation found, creating new one");
     
-    // Use the first existing conversation
-    console.log("Found existing conversation:", nonGroupConvs[0].id);
-    return nonGroupConvs[0].id;
+    // Create a new conversation with the other user
+    return await createNewConversationWithOtherUser(userId, otherUserId);
   } catch (error) {
     console.error("Error in getOrCreateOneOnOneConversation:", error);
     throw error;
@@ -324,7 +247,7 @@ const createNewConversationWithOtherUser = async (userId: string, otherUserId: s
     // Get the other user's name for the subject
     const { data: otherUser, error: userError } = await supabase
       .from('profiles')
-      .select('first_name, last_name')
+      .select('first_name, last_name, avatar_url')
       .eq('id', otherUserId)
       .single();
       
@@ -333,7 +256,7 @@ const createNewConversationWithOtherUser = async (userId: string, otherUserId: s
       throw userError;
     }
     
-    // If no profile is found, use a generic subject
+    // Use a descriptive subject based on the other user's name
     const subject = otherUser ? 
       `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || 'New conversation' : 
       'New conversation';

@@ -15,7 +15,7 @@ interface ConversationListProps {
   error?: any;
 }
 
-// Helper function to get user initials from profile - simplified and robust
+// Helper function to get user initials from profile
 const getUserInitials = (profile: any): string => {
   if (!profile || (!profile.first_name && !profile.last_name)) {
     return 'U';
@@ -27,14 +27,13 @@ const getUserInitials = (profile: any): string => {
   return (firstName.charAt(0) + (lastName ? lastName.charAt(0) : '')).toUpperCase();
 };
 
-// Helper function to get participant name - simplified and robust
+// Helper function to get participant name
 const getParticipantName = (participant: any): string => {
   if (!participant || !participant.profile) {
     return 'Unknown User';
   }
   
   const profile = participant.profile;
-  console.log(profile)
   const firstName = profile.first_name || '';
   const lastName = profile.last_name || '';
   
@@ -43,11 +42,6 @@ const getParticipantName = (participant: any): string => {
   }
   
   return `${firstName} ${lastName}`.trim();
-};
-
-// Helper function to find unique participant identifier
-const getParticipantIdentifier = (participant: any): string => {
-  return participant?.user_id || '';
 };
 
 const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error }) => {
@@ -185,15 +179,24 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
 
         // Calculate if there are any unread messages
         const unreadCount = conversation.last_message && 
-                            !conversation.last_message.read && 
-                            conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
+                           !conversation.last_message.read && 
+                           conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
 
-        // Prepare avatar data - ensure it's always available
+        // Get the other participant for display
         const otherParticipant = otherParticipants.length > 0 ? otherParticipants[0] : null;
-        const profile = otherParticipant?.profile || {};
-      console.log(profile.avatar_url)
-        const avatarUrl = profile.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${profile.first_name || 'User'}`;
+        
+        // Ensure profile exists
+        if (!otherParticipant || !otherParticipant.profile) {
+          console.error('Missing participant profile in conversation:', conversation.id);
+          return null;
+        }
+        
+        // Prepare avatar data
+        const profile = otherParticipant.profile;
         const initials = getUserInitials(profile);
+        
+        // Always use the real avatar URL if available, fallback to generated avatar
+        const avatarUrl = profile.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${profile.first_name || 'User'}`;
 
         return (
           <Link
@@ -218,7 +221,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
                         {otherParticipant && (
                           <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                            <AvatarImage src={avatarUrl} />
+                            <AvatarImage src={avatarUrl} alt={getParticipantName(otherParticipant)} />
                             <AvatarFallback className="bg-amber-200 text-amber-800">
                               {initials}
                             </AvatarFallback>
@@ -228,7 +231,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                     </div>
                   ) : (
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={avatarUrl} />
+                      <AvatarImage src={avatarUrl} alt={getParticipantName(otherParticipant)} />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
                         {initials}
                       </AvatarFallback>
