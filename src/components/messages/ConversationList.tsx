@@ -78,15 +78,14 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       acc.push(current);
       return acc;
     }
-
-    console.log("Other Participants original: ", otherParticipants = (current.participants || []));
     
     // For one-on-one conversations, identify by participant
     const otherParticipants = (current.participants || []).filter(
       (p: any) => p && p.user_id !== current.created_by
     );
 
-    console.log("Other Participants original: ", otherParticipants)
+    // console.log("Other Participants original: ", otherParticipants)
+    console.log("Other Participants original: ", (current.participants || []));
     
     // If no other participants, add it
     if (!otherParticipants.length) {
