@@ -16,8 +16,6 @@ export interface Conversation {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  archived?: boolean | null;
-  deleted_at?: string | null;
   participants?: ConversationParticipant[];
   last_message?: Message;
 }
@@ -61,6 +59,17 @@ export interface UserWithProfile {
     avatar_url?: string;
     name?: string;
   };
+}
+
+export interface ModuleContent {
+  id: string;
+  module_id: string;
+  type: 'text' | 'video' | 'image' | 'file';
+  content: string;
+  position: number;
+  uploaded_by: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export type Database = {
@@ -123,6 +132,38 @@ export type Database = {
           target_role: string | null;
           uploaded_at: string;
           updated_at: string;
+        };
+      };
+      modules: {
+        Row: {
+          id: string;
+          title: string;
+          description: string;
+          week: number;
+          course_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      module_content: {
+        Row: {
+          id: string;
+          module_id: string;
+          type: 'text' | 'video' | 'image' | 'file';
+          content: string;
+          position: number;
+          uploaded_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      course_assignments: {
+        Row: {
+          id: string;
+          user_id: string;
+          course_id: string;
+          role: string;
+          created_at: string;
         };
       };
     };
