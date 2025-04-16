@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +12,7 @@ import ModuleManager from '@/components/course/management/ModuleManager';
 import AIContentGenerator from '@/components/ai/AIContentGenerator';
 import { ArrowLeft, Save } from 'lucide-react';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
-import { CourseInstructorsTab } from '@/components/course/CourseInstructorsTab';
+import CourseInstructorsTab from '@/components/course/CourseInstructorsTab';
 
 const AdminCourseEdit = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -49,7 +48,6 @@ const AdminCourseEdit = () => {
         if (error) throw error;
         
         if (data) {
-          // Transform the data to match our frontend types
           const transformedCourse: Partial<Course> = {
             id: data.id,
             title: data.title,
@@ -91,7 +89,6 @@ const AdminCourseEdit = () => {
     try {
       setSaving(true);
       
-      // Transform frontend model back to database model for saving
       const dbCourse = {
         title: updatedCourse.title,
         description: updatedCourse.description,
@@ -114,7 +111,6 @@ const AdminCourseEdit = () => {
       
       if (error) throw error;
       
-      // Transform the response back to our frontend model
       const transformedData: Partial<Course> = {
         ...updatedCourse,
         id: data.id,

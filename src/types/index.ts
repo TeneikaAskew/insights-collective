@@ -24,6 +24,7 @@ export interface Course {
     firstName?: string;
     lastName?: string;
     email?: string;
+    avatar?: string;
   };
   enrollmentCount?: number;
   modules?: Module[];
