@@ -44,9 +44,14 @@ export const fetchUserConversations = async (userId: string) => {
       console.error('Error fetching other participants:', otherParticipantsError);
       throw otherParticipantsError;
     }
+
+    if (otherParticipants) {
+       console.log("Step 2: Other participants sample:", otherParticipants);
+        console.log("Step 2: Total other participants count:", otherParticipants.length);
+      throw otherParticipants;
+    }
     
-    console.log("Step 2: Other participants sample:", otherParticipants[0]);
-    console.log("Step 2: Total other participants count:", otherParticipants.length);
+   
     
     // Step 3: Extract all unique OTHER user IDs
     const otherUserIds = [];
