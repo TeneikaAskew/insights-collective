@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
@@ -18,6 +17,24 @@ interface ConversationListProps {
 const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error }) => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
+
+  // Helper function to get avatar URL from various possible locations
+  const getAvatarUrl = (participant: any) => {
+    // Check all possible paths for avatar URLs
+    return participant?.profile?.avatar_url || 
+           participant?.avatar_url || 
+           participant?.user_metadata?.avatar_url || 
+           '';
+  };
+
+  // Helper function to get initials consistently
+  const getInitials = (participant: any) => {
+    if (!participant?.profile?.first_name) return 'U';
+    return (
+      participant.profile.first_name.charAt(0) + 
+      (participant.profile.last_name?.charAt(0) || '')
+    ).toUpperCase();
+  };
 
   if (error) {
     return (
@@ -106,21 +123,23 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                   {conversation.is_group ? (
                     <div className="relative">
                       <Avatar className="h-10 w-10">
+                        <AvatarImage src="" />
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
                       </Avatar>
                       {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
                         <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
+                          <AvatarImage src={getAvatarUrl(otherParticipants[0])} />
                           <AvatarFallback className="bg-amber-200 text-amber-800">
-                            {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
+                            {getInitials(otherParticipants[0])}
                           </AvatarFallback>
                         </Avatar>
                       )}
                     </div>
                   ) : (
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
+                      <AvatarImage src={getAvatarUrl(otherParticipants[0])} />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
+                        {getInitials(otherParticipants[0])}
                       </AvatarFallback>
                     </Avatar>
                   )}
