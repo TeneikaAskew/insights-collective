@@ -56,9 +56,9 @@ const CourseManagementDashboard = () => {
           published: course.published,
           instructor: course.instructor ? {
             id: course.instructor.id,
-            name: `${course.instructor.first_name || ''} ${course.instructor.last_name || ''}`.trim(),
             firstName: course.instructor.first_name,
-            lastName: course.instructor.last_name
+            lastName: course.instructor.last_name,
+            name: `${course.instructor.first_name || ''} ${course.instructor.last_name || ''}`.trim(),
           } : null,
           createdAt: course.created_at,
           // Add other fields as needed
@@ -78,76 +78,87 @@ const CourseManagementDashboard = () => {
   );
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Courses</h1>
-          <p className="text-muted-foreground">Manage your courses here.</p>
+    <AppLayout>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Courses</h1>
+            <p className="text-muted-foreground">Manage your courses here.</p>
+          </div>
+          <Button onClick={() => navigate('/admin/courses/new')}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Course
+          </Button>
         </div>
-        <Button onClick={() => navigate('/admin/courses/new')}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Course
-        </Button>
-      </div>
 
-      <div>
-        <Input
-          placeholder="Search courses..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
+        <div>
+          <Input
+            placeholder="Search courses..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="max-w-sm"
+          />
+        </div>
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Level</TableHead>
-              <TableHead>Instructor</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredCourses.map((course) => (
-              <TableRow key={course.id}>
-                <TableCell>{course.title}</TableCell>
-                <TableCell>{course.category}</TableCell>
-                <TableCell>{course.level}</TableCell>
-                <TableCell>
-                  {course.instructor ? (
-                    <span>{course.instructor.firstName} {course.instructor.lastName}</span>
-                  ) : (
-                    <span className="text-muted-foreground">Unassigned</span>
-                  )}
-                </TableCell>
-                <TableCell>
-                  {course.published ? (
-                    <Badge>Published</Badge>
-                  ) : (
-                    <Badge variant="secondary">Draft</Badge>
-                  )}
-                </TableCell>
-                <TableCell>{new Date(course.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => navigate(`/admin/courses/${course.id}/edit`)}
-                  >
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit
-                  </Button>
-                </TableCell>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Level</TableHead>
+                <TableHead>Instructor</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {filteredCourses.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                    No courses found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredCourses.map((course) => (
+                  <TableRow key={course.id}>
+                    <TableCell>{course.title}</TableCell>
+                    <TableCell>{course.category}</TableCell>
+                    <TableCell>{course.level}</TableCell>
+                    <TableCell>
+                      {course.instructor ? (
+                        <span>{course.instructor.firstName} {course.instructor.lastName}</span>
+                      ) : (
+                        <span className="text-muted-foreground">Unassigned</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {course.published ? (
+                        <Badge>Published</Badge>
+                      ) : (
+                        <Badge variant="secondary">Draft</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>{new Date(course.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => navigate(`/admin/courses/${course.id}/edit`)}
+                      >
+                        <Pencil className="h-4 w-4 mr-2" />
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
-    </div>
+    </AppLayout>
   );
 };
 

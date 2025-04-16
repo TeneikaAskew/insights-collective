@@ -125,4 +125,17 @@ export interface Notification {
   // Add any other properties needed
 }
 
+export interface CourseInstructor {
+  userId: string;
+  courseId: string;
+  role: string;
+  profile?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+    avatarUrl?: string;
+  };
+}
+
 // Add any other interfaces needed by the application

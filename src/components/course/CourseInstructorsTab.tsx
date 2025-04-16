@@ -1,17 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -20,278 +9,279 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { UserWithProfile } from '@/types/supabase';
-import { Loader2, Plus, Trash2, UserPlus } from 'lucide-react';
-
-type Instructor = {
-  id: string;
-  name: string;
-  email?: string;
-  avatar?: string;
-  role: string;
-};
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Plus, Trash } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
+import { CourseInstructor } from '@/types';
 
 interface CourseInstructorsTabProps {
   courseId: string;
 }
 
-export const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
-  const [instructors, setInstructors] = useState<Instructor[]>([]);
-  const [availableUsers, setAvailableUsers] = useState<UserWithProfile[]>([]);
-  const [selectedUserId, setSelectedUserId] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [adding, setAdding] = useState(false);
+interface Profile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  avatarUrl?: string;
+}
+
+const CourseInstructorsTab = ({ courseId }: CourseInstructorsTabProps) => {
+  const [instructors, setInstructors] = useState<CourseInstructor[]>([]);
+  const [availableProfiles, setAvailableProfiles] = useState<Profile[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchCourseInstructors();
-    fetchAvailableUsers();
+    fetchInstructors();
+    fetchAvailableProfiles();
   }, [courseId]);
 
-  const fetchCourseInstructors = async () => {
+  const fetchInstructors = async () => {
     try {
-      setLoading(true);
       const { data, error } = await supabase
-        .from('course_assignments')
+        .from('course_instructors')
         .select(`
-          id,
-          role,
-          user_id,
-          profiles:profiles(
+          *,
+          profile:profiles(
             id,
             first_name,
             last_name,
             avatar_url,
-            email:users!auth.users(email)
+            email
           )
         `)
-        .eq('course_id', courseId)
-        .eq('role', 'instructor');
+        .eq('course_id', courseId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching instructors:', error);
+        return;
+      }
 
-      const instructorsList = data?.map(item => ({
-        id: item.user_id,
-        name: `${item.profiles.first_name || ''} ${item.profiles.last_name || ''}`.trim(),
-        avatar: item.profiles.avatar_url,
-        email: item.profiles.email?.[0]?.email,
-        role: item.role
-      })) || [];
+      const formattedInstructors = data.map((instructor): CourseInstructor => ({
+        userId: instructor.user_id,
+        courseId: instructor.course_id,
+        role: instructor.role,
+        profile: instructor.profile ? {
+          id: instructor.profile.id,
+          firstName: instructor.profile.first_name,
+          lastName: instructor.profile.last_name,
+          email: instructor.profile.email,
+          avatarUrl: instructor.profile.avatar_url,
+        } : undefined
+      }));
 
-      setInstructors(instructorsList);
+      setInstructors(formattedInstructors);
     } catch (error) {
       console.error('Error fetching instructors:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load course instructors',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
-  const fetchAvailableUsers = async () => {
+  const fetchAvailableProfiles = async () => {
     try {
-      const { data: profiles, error } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select(`
           id,
           first_name,
           last_name,
           avatar_url,
-          role,
-          email:users!auth.users(email)
-        `)
-        .or('role.eq.instructor,role.eq.admin');
+          email
+        `);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        return;
+      }
 
-      // Format the data
-      const users = profiles.map(profile => ({
+      const formattedProfiles = data.map((profile): Profile => ({
         id: profile.id,
-        name: `${profile.first_name || ''} ${profile.last_name || ''}`.trim(),
-        avatar: profile.avatar_url,
-        email: profile.email?.[0]?.email,
-        role: profile.role
-      })) as UserWithProfile[];
+        firstName: profile.first_name,
+        lastName: profile.last_name,
+        email: profile.email,
+        avatarUrl: profile.avatar_url,
+      }));
 
-      // Filter out users who are already instructors for this course
-      const filteredUsers = users.filter(
-        user => !instructors.some(instructor => instructor.id === user.id)
-      );
-
-      setAvailableUsers(filteredUsers);
+      setAvailableProfiles(formattedProfiles);
     } catch (error) {
-      console.error('Error fetching available users:', error);
+      console.error('Error fetching profiles:', error);
     }
   };
 
-  const handleAddInstructor = async () => {
-    if (!selectedUserId) return;
+  const addInstructor = async () => {
+    if (!selectedProfileId) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please select an instructor",
+      });
+      return;
+    }
 
     try {
-      setAdding(true);
       const { data, error } = await supabase
-        .from('course_assignments')
-        .insert({
-          course_id: courseId,
-          user_id: selectedUserId,
-          role: 'instructor'
-        })
+        .from('course_instructors')
+        .insert([
+          {
+            course_id: courseId,
+            user_id: selectedProfileId,
+            role: 'instructor',
+          },
+        ])
         .select();
 
-      if (error) throw error;
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to add instructor. They may already be assigned to this course.",
+        });
+        console.error('Error adding instructor:', error);
+        return;
+      }
 
       toast({
-        title: 'Success',
-        description: 'Instructor added to course',
+        title: "Success",
+        description: "Instructor added successfully",
       });
-
-      // Refresh the instructors list
-      fetchCourseInstructors();
-      setSelectedUserId('');
-      fetchAvailableUsers();
+      
+      setIsDialogOpen(false);
+      setSelectedProfileId('');
+      fetchInstructors();
     } catch (error) {
       console.error('Error adding instructor:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add instructor',
-        variant: 'destructive',
-      });
-    } finally {
-      setAdding(false);
     }
   };
 
-  const handleRemoveInstructor = async (userId: string) => {
+  const removeInstructor = async (userId: string) => {
     try {
       const { error } = await supabase
-        .from('course_assignments')
+        .from('course_instructors')
         .delete()
         .eq('course_id', courseId)
-        .eq('user_id', userId)
-        .eq('role', 'instructor');
+        .eq('user_id', userId);
 
-      if (error) throw error;
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to remove instructor",
+        });
+        console.error('Error removing instructor:', error);
+        return;
+      }
 
       toast({
-        title: 'Success',
-        description: 'Instructor removed from course',
+        title: "Success",
+        description: "Instructor removed successfully",
       });
-
-      // Refresh the instructors list
-      fetchCourseInstructors();
-      fetchAvailableUsers();
+      
+      fetchInstructors();
     } catch (error) {
       console.error('Error removing instructor:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to remove instructor',
-        variant: 'destructive',
-      });
     }
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Add Instructors</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-end gap-4">
-            <div className="flex-1">
-              <Select
-                value={selectedUserId}
-                onValueChange={setSelectedUserId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an instructor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableUsers.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.name} {user.email ? `(${user.email})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button 
-              onClick={handleAddInstructor} 
-              disabled={!selectedUserId || adding}
-            >
-              {adding ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                <>
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Add Instructor
-                </>
-              )}
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h3 className="text-lg font-medium">Course Instructors</h3>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Instructor
             </Button>
-          </div>
-        </CardContent>
-      </Card>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Instructor</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label htmlFor="instructor-select" className="text-sm font-medium">
+                  Select Instructor
+                </label>
+                <Select
+                  value={selectedProfileId}
+                  onValueChange={setSelectedProfileId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select an instructor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableProfiles.map((profile) => (
+                      <SelectItem key={profile.id} value={profile.id}>
+                        {profile.firstName} {profile.lastName}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={addInstructor}>Add Instructor</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Current Instructors</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : instructors.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No instructors have been assigned to this course yet.
-            </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Instructor</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+      <div className="border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {instructors.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4} className="text-center text-muted-foreground py-4">
+                  No instructors assigned to this course
+                </TableCell>
+              </TableRow>
+            ) : (
+              instructors.map((instructor) => (
+                <TableRow key={instructor.userId}>
+                  <TableCell>
+                    {instructor.profile?.firstName} {instructor.profile?.lastName}
+                  </TableCell>
+                  <TableCell>{instructor.profile?.email}</TableCell>
+                  <TableCell>{instructor.role}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeInstructor(instructor.userId)}
+                    >
+                      <Trash className="h-4 w-4 text-destructive" />
+                      <span className="sr-only">Remove</span>
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {instructors.map(instructor => (
-                  <TableRow key={instructor.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={instructor.avatar || undefined} alt={instructor.name} />
-                          <AvatarFallback>
-                            {instructor.name.charAt(0).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span>{instructor.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{instructor.email}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveInstructor(instructor.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Remove
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 };
+
+export default CourseInstructorsTab;
