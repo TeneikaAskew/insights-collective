@@ -67,6 +67,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const otherParticipants = participants.filter(
           (p: any) => p.user_id !== conversation.created_by
         );
+
+      console.log(participants)
+      console.log(otherParticipants)
         
         // Format the timestamp
         let timeAgo = '';
@@ -122,7 +125,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
+                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || ''}
                       </AvatarFallback>
                     </Avatar>
                   )}
