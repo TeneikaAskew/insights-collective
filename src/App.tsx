@@ -11,8 +11,7 @@ import AdminUsers from '@/pages/AdminUsers';
 import CourseEdit from '@/pages/CourseEdit';
 import CourseManageMaterials from '@/pages/CourseManageMaterials';
 import CourseInstructors from '@/pages/CourseInstructors';
-
-// Add other pages as needed...
+import AdminCourseEdit from '@/pages/AdminCourseEdit';
 
 function App() {
   return (
@@ -21,6 +20,7 @@ function App() {
         <Routes>
           {/* Admin routes */}
           <Route path="/admin/courses" element={<AdminCourses />} />
+          <Route path="/admin/courses/:courseId/edit" element={<AdminCourseEdit />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           
           {/* Course management routes */}

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -6,7 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Course } from '@/types';
-import { Upload } from 'lucide-react';
+import { Upload, Sparkles, Loader2 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface CourseEditModalProps {
   isOpen: boolean;
@@ -26,7 +28,9 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (course) {
@@ -76,6 +80,36 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
     onSave(courseData);
   };
 
+  const generateDescriptionWithAI = () => {
+    if (!formData.title) {
+      toast({
+        title: "Missing Information",
+        description: "Please provide a course title first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+
+    // Simulate AI generation with a timeout
+    setTimeout(() => {
+      const courseTitle = formData.title;
+      const courseLevel = formData.level || "Beginner";
+      const courseCategory = formData.category || "Data Science";
+
+      const generatedDescription = `This comprehensive ${courseLevel.toLowerCase()} course on ${courseTitle} provides students with a solid foundation in ${courseCategory}. Through hands-on projects and interactive lessons, participants will develop practical skills that can be immediately applied in professional settings. The curriculum covers fundamental concepts, advanced techniques, and industry best practices, preparing learners for real-world challenges and opportunities.`;
+
+      setFormData(prev => ({ ...prev, description: generatedDescription }));
+      setIsGenerating(false);
+
+      toast({
+        title: "Description Generated",
+        description: "AI has created a course description for you to edit",
+      });
+    }, 1500);
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-[600px]">
@@ -96,7 +130,29 @@ const CourseEditModal = ({ isOpen, onClose, onSave, course }: CourseEditModalPro
             </div>
             
             <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
+              <div className="flex justify-between items-center">
+                <Label htmlFor="description">Description</Label>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={generateDescriptionWithAI}
+                  disabled={isGenerating}
+                  className="h-8"
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-3 w-3" />
+                      Suggest with AI
+                    </>
+                  )}
+                </Button>
+              </div>
               <Textarea
                 id="description"
                 name="description"
