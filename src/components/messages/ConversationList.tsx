@@ -26,11 +26,31 @@ const ConversationList = ({ isArchived = false, onRestore }) => {
     const fetchConversations = async () => {
       setLoading(true);
       const filter = isArchived ? { archived: true } : { deleted_at: null, archived: false };
+      // const { data, error } = await supabase
+      //   .from('conversations')
+      //   .select('*, participants:conversation_participants(*, profile:profiles(*)), last_message:messages!last_message_id(*)')
+      //   .match(filter)
+      //   .order('updated_at', { ascending: false });
+
       const { data, error } = await supabase
         .from('conversations')
-        .select('*, participants:conversation_participants(*, profile:profiles(*)), last_message:messages!last_message_id(*)')
+        .select(`
+          *,
+          participants:conversation_participants(
+            *,
+            profile:profiles(*)
+          ),
+          last_message:messages(
+            id,
+            content,
+            read,
+            sender_id,
+            created_at
+          )
+        `)
         .match(filter)
         .order('updated_at', { ascending: false });
+
       if (error) setError(error);
       else setConversations(data || []);
       setLoading(false);
