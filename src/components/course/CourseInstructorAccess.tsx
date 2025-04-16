@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Pencil, Book, FileText } from 'lucide-react';
+import { Pencil, Book, FileText, Settings } from 'lucide-react';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 
 interface CourseInstructorAccessProps {

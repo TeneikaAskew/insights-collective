@@ -836,6 +836,7 @@ export type Database = {
       }
     }
     Enums: {
+      content_type: "text" | "video" | "file" | "quiz" | "assignment"
       module_content_type: "text" | "video" | "image"
       user_role: "admin" | "instructor" | "user"
     }
@@ -953,6 +954,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      content_type: ["text", "video", "file", "quiz", "assignment"],
       module_content_type: ["text", "video", "image"],
       user_role: ["admin", "instructor", "user"],
     },
