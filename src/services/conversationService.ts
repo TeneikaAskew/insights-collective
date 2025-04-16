@@ -38,7 +38,7 @@ export const fetchUserConversations = async (userId: string) => {
       .from('conversation_participants')
       .select('*')
       .in('conversation_id', conversationIds)
-      .neq('user_id', userId); // This ensures we only get OTHER participants, not the current user
+      // .neq('user_id', userId); // This ensures we only get OTHER participants, not the current user
     
     if (otherParticipantsError) {
       console.error('Error fetching other participants:', otherParticipantsError);
@@ -182,7 +182,239 @@ export const fetchUserConversations = async (userId: string) => {
     throw error;
   }
 };
+// export const fetchUserConversations = async (userId: string) => {
+//   try {
+//     if (!userId) {
+//       console.error('fetchUserConversations called without userId');
+//       return [];
+//     }
+    
+//     // First, get conversation IDs for the user
+//     const { data: participantData, error: participantError } = await supabase
+//       .from('conversation_participants')
+//       .select('conversation_id')
+//       .eq('user_id', userId);
+    
+//     if (participantError) {
+//       console.error('Error fetching participant data:', participantError);
+//       throw participantError;
+//     }
+    
+//     if (!participantData || participantData.length === 0) {
+//       return [];
+//     }
+    
+//     const conversationIds = participantData.map(p => p.conversation_id);
+//     console.log("Fetching conversations with IDs:", conversationIds);
+    
+//     // Fetch conversations with participants but WITHOUT nested profiles
+//     const { data: conversationsData, error: conversationsError } = await supabase
+//       .from('conversations')
+//       .select(`
+//         id,
+//         subject,
+//         is_group,
+//         created_by,
+//         updated_at,
+//         created_at,
+//         participants:conversation_participants(
+//           id,
+//           user_id,
+//           conversation_id,
+//           added_at
+//         ),
+//         last_message:messages(
+//           id,
+//           sender_id,
+//           content,
+//           read,
+//           created_at
+//         )
+//       `)
+//       .in('id', conversationIds)
+//       .order('updated_at', { ascending: false });
+    
+//     if (conversationsError) {
+//       console.error('Error fetching conversations:', conversationsError);
+//       throw conversationsError;
+//     }
+    
+//     // Collect ALL user IDs from participants for profile fetching
+//     const participantUserIds = new Set();
+//     for (const conversation of conversationsData) {
+//       if (conversation.participants) {
+//         for (const participant of conversation.participants) {
+//           if (participant.user_id) {
+//             participantUserIds.add(participant.user_id);
+//           }
+//         }
+//       }
+//     }
+    
+//     // Convert Set to Array to use with .in() query
+//     const userIdsArray = Array.from(participantUserIds);
+//     console.log("Fetching profiles for user IDs:", userIdsArray);
+    
+//     if (userIdsArray.length === 0) {
+//       console.warn("No participant user IDs found for profile fetching");
+//       return conversationsData;
+//     }
+    
+//     // Fetch all user profiles in a single query
+//     const { data: profilesData, error: profilesError } = await supabase
+//       .from('profiles')
+//       .select('*')
+//       .in('id', userIdsArray);
+    
+//     if (profilesError) {
+//       console.error('Error fetching profiles:', profilesError);
+//       throw profilesError;
+//     }
+    
+//     console.log("Fetched profiles:", profilesData);
+    
+//     // Create a map of user_id -> profile for faster lookups
+//     const profilesMap = {};
+//     for (const profile of profilesData) {
+//       profilesMap[profile.id] = enrichProfileWithRoles(profile);
+//     }
+    
+//     console.log("Profiles map:", profilesMap);
+    
+//     // Enhance participants with their profiles
+//     const enhancedConversations = conversationsData.map(conversation => {
+//       const enhancedParticipants = conversation.participants.map(participant => ({
+//         ...participant,
+//         profile: profilesMap[participant.user_id] || null
+//       }));
+      
+//       return {
+//         ...conversation,
+//         participants: enhancedParticipants,
+//         last_message: conversation.last_message && conversation.last_message.length > 0 
+//           ? conversation.last_message[0] 
+//           : null
+//       };
+//     });
+    
+//     return enhancedConversations;
+//   } catch (error) {
+//     console.error('Error in fetchUserConversations:', error);
+//     throw error;
+//   }
+// };
 
+// export const fetchUserConversations = async (userId: string) => {
+//   try {
+//     if (!userId) {
+//       console.error('fetchUserConversations called without userId');
+//       return [];
+//     }
+    
+//     // First, get conversation IDs for the user
+//     const { data: participantData, error: participantError } = await supabase
+//       .from('conversation_participants')
+//       .select('conversation_id')
+//       .eq('user_id', userId);
+    
+//     if (participantError) {
+//       console.error('Error fetching participant data:', participantError);
+//       throw participantError;
+//     }
+    
+//     if (!participantData || participantData.length === 0) {
+//       return [];
+//     }
+    
+//     const conversationIds = participantData.map(p => p.conversation_id);
+//     console.log("Fetching conversations with IDs:", conversationIds);
+    
+//     // Fetch conversations with participants and last message
+//     const { data: conversationsData, error: conversationsError } = await supabase
+//       .from('conversations')
+//       .select(`
+//         id,
+//         subject,
+//         is_group,
+//         created_by,
+//         updated_at,
+//         created_at,
+//         participants:conversation_participants(
+//           id,
+//           user_id,
+//           conversation_id,
+//           added_at
+//         ),
+//         last_message:messages(
+//           id,
+//           sender_id,
+//           content,
+//           read,
+//           created_at
+//         )
+//       `)
+//       .in('id', conversationIds)
+//       .order('updated_at', { ascending: false });
+    
+//     if (conversationsError) {
+//       console.error('Error fetching conversations:', conversationsError);
+//       throw conversationsError;
+//     }
+    
+//     // Now fetch profiles for all participants separately
+//     const allParticipantUserIds = [];
+//     for (const conversation of conversationsData) {
+//       if (conversation.participants) {
+//         for (const participant of conversation.participants) {
+//           if (participant.user_id) {
+//             allParticipantUserIds.push(participant.user_id);
+//           }
+//         }
+//       }
+//     }
+    
+//     // Remove duplicates
+//     const uniqueUserIds = [...new Set(allParticipantUserIds)];
+//     console.log("Fetching profiles for user IDs:", uniqueUserIds);
+    
+//     const { data: profilesData, error: profilesError } = await supabase
+//       .from('profiles')
+//       .select('*')
+//       .in('id', uniqueUserIds);
+    
+//     if (profilesError) {
+//       console.error('Error fetching profiles:', profilesError);
+//       throw profilesError;
+//     }
+    
+//     // Create a map of user_id -> profile for faster lookups
+//     const profilesMap = {};
+//     for (const profile of profilesData) {
+//       profilesMap[profile.id] = enrichProfileWithRoles(profile);
+//     }
+    
+//     console.log("Profiles map:", profilesMap);
+    
+//     // Now enhance each conversation with the profiles
+//     const enhancedConversations = conversationsData.map(conversation => {
+//       const enhancedParticipants = conversation.participants.map(participant => ({
+//         ...participant,
+//         profile: profilesMap[participant.user_id] || null
+//       }));
+      
+//       return {
+//         ...conversation,
+//         participants: enhancedParticipants,
+//         last_message: conversation.last_message[0] || null
+//       };
+//     });
+    
+//     return enhancedConversations;
+//   } catch (error) {
+//     console.error('Error in fetchUserConversations:', error);
+//     throw error;
+//   }
+// };
 /**
  * Creates a new conversation
  */
