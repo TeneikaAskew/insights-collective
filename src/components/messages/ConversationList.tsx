@@ -84,7 +84,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       (p: any) => p && p.user_id !== current.created_by
     );
 
-    console.log("Other Participants original: ", otherParticipants)
+    console.log("[/m/ConversationList] Other Participants original: ", otherParticipants)
     
     // If no other participants, add it
     if (!otherParticipants.length) {
@@ -171,8 +171,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const otherProfile = otherParticipants.length > 0 ? otherParticipants[0].profile : null;
         
         // Log the actual profile data to debug avatar issues
-        console.log(`[ConversationService] Conversation ${conversation.id} - otherProfile:`, otherProfile);
-        console.log(`[ConversationService] Conversation ${conversation.id} - avatar URL:`, otherProfile?.avatar_url);
+        console.log(`Conversation ${conversation.id} - otherProfile:`, otherProfile);
+        console.log(`Conversation ${conversation.id} - avatar URL:`, otherProfile?.avatar_url);
 
         return (
           <Link
