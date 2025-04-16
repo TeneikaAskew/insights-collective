@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
@@ -32,14 +31,10 @@ const getParticipantName = (participant: any): string => {
   if (!participant || !participant.profile) {
     return 'Unknown User';
   }
-
-
   
   const profile = participant.profile;
   const firstName = profile.first_name || '';
   const lastName = profile.last_name || '';
-  
-  console.log("Participant Profile: ", profile)
   
   if (!firstName && !lastName) {
     return 'Unknown User';
@@ -81,8 +76,6 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       </div>
     );
   }
-
-  console.log(conversations)
 
   if (!conversations || conversations.length === 0) {
     return (
@@ -191,18 +184,20 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         // Get the other participant for display
         const otherParticipant = otherParticipants.length > 0 ? otherParticipants[0] : null;
         
-        // Ensure profile exists
-        if (!otherParticipant || !otherParticipant.profile) {
-          console.error('Missing participant profile in conversation:', conversation.id);
-          return null;
+        // Get avatar data - handle case where profile might be missing
+        let avatarUrl = '';
+        let initials = 'U';
+        let participantName = 'Unknown User';
+        
+        if (otherParticipant && otherParticipant.profile) {
+          const profile = otherParticipant.profile;
+          initials = getUserInitials(profile);
+          participantName = getParticipantName(otherParticipant);
+          avatarUrl = profile.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${profile.first_name || 'User'}`;
+        } else {
+          // Fallback for missing profile
+          avatarUrl = `https://api.dicebear.com/6.x/avataaars/svg?seed=User${Math.floor(Math.random() * 1000)}`;
         }
-        
-        // Prepare avatar data
-        const profile = otherParticipant.profile;
-        const initials = getUserInitials(profile);
-        
-        // Always use the real avatar URL if available, fallback to generated avatar
-        const avatarUrl = profile.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${profile.first_name || 'User'}`;
 
         return (
           <Link
@@ -227,7 +222,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
                         {otherParticipant && (
                           <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                            <AvatarImage src={avatarUrl} alt={getParticipantName(otherParticipant)} />
+                            <AvatarImage src={avatarUrl} alt={participantName} />
                             <AvatarFallback className="bg-amber-200 text-amber-800">
                               {initials}
                             </AvatarFallback>
@@ -237,7 +232,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                     </div>
                   ) : (
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={avatarUrl} alt={getParticipantName(otherParticipant)} />
+                      <AvatarImage src={avatarUrl} alt={participantName} />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
                         {initials}
                       </AvatarFallback>
@@ -248,9 +243,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                       {conversation.subject || 
                         (conversation.is_group 
                           ? `Group (${participants.length} participants)` 
-                          : otherParticipant
-                            ? getParticipantName(otherParticipant)
-                            : 'Conversation'
+                          : (participantName || 'Conversation')
                         )
                       }
                     </p>

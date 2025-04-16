@@ -198,42 +198,70 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
   try {
     console.log("Checking for existing conversation between", userId, "and", otherUserId);
     
-    // First, check if there's a direct conversation between these two users
-    const { data: sharedConversationsData, error: sharedError } = await supabase
+    // Get all conversations where both users are participants
+    const { data: userParticipations, error: userError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId);
+    
+    if (userError) {
+      console.error("Error finding user conversations:", userError);
+      throw userError;
+    }
+    
+    if (!userParticipations || userParticipations.length === 0) {
+      console.log("User has no conversations, creating new one");
+      return await createNewConversationWithOtherUser(userId, otherUserId);
+    }
+    
+    const userConversationIds = userParticipations.map(p => p.conversation_id);
+    
+    // Find conversations where the other user is also a participant
+    const { data: otherUserParticipations, error: otherUserError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', otherUserId)
+      .in('conversation_id', userConversationIds);
+    
+    if (otherUserError) {
+      console.error("Error finding other user's participation:", otherUserError);
+      throw otherUserError;
+    }
+    
+    if (!otherUserParticipations || otherUserParticipations.length === 0) {
+      console.log("No shared conversations, creating new one");
+      return await createNewConversationWithOtherUser(userId, otherUserId);
+    }
+    
+    const sharedConversationIds = otherUserParticipations.map(p => p.conversation_id);
+    
+    // Get all shared conversations to check if they're direct (non-group) conversations
+    const { data: sharedConversations, error: sharedConvError } = await supabase
       .from('conversations')
-      .select(`
-        id,
-        is_group,
-        participants:conversation_participants(user_id)
-      `)
+      .select('id, is_group, participants:conversation_participants(user_id)')
+      .in('id', sharedConversationIds)
       .eq('is_group', false);
     
-    if (sharedError) {
-      console.error("Error finding conversations:", sharedError);
-      throw sharedError;
+    if (sharedConvError) {
+      console.error("Error finding shared conversations:", sharedConvError);
+      throw sharedConvError;
     }
     
-    if (sharedConversationsData && sharedConversationsData.length > 0) {
-      // Filter to find conversations that have EXACTLY these two users as participants
-      const matchingConversation = sharedConversationsData.find(conv => {
-        // Get unique user IDs from participants
-        const participantIds = conv.participants.map(p => p.user_id);
-        
-        // Check if there are exactly 2 participants and they match our users
-        return participantIds.length === 2 && 
-               participantIds.includes(userId) && 
-               participantIds.includes(otherUserId);
-      });
-      
-      if (matchingConversation) {
-        console.log("Found existing conversation:", matchingConversation.id);
-        return matchingConversation.id;
-      }
+    // Find a direct conversation with exactly 2 participants (these two users)
+    const directConversation = sharedConversations?.find(conv => {
+      // Check if this conversation has exactly 2 participants
+      return conv.participants && 
+             conv.participants.length === 2 && 
+             conv.participants.some(p => p.user_id === userId) &&
+             conv.participants.some(p => p.user_id === otherUserId);
+    });
+    
+    if (directConversation) {
+      console.log("Found existing direct conversation:", directConversation.id);
+      return directConversation.id;
     }
     
-    console.log("No existing conversation found, creating new one");
-    
-    // Create a new conversation with the other user
+    console.log("No suitable existing conversation found, creating new one");
     return await createNewConversationWithOtherUser(userId, otherUserId);
   } catch (error) {
     console.error("Error in getOrCreateOneOnOneConversation:", error);
