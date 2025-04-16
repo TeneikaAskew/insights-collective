@@ -23,8 +23,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
   const getAvatarUrl = (participant: any) => {
     // Check all possible paths for avatar URLs
     return participant?.profile?.avatar_url || 
-           participant?.avatar_url || 
-           participant?.user_metadata?.avatar_url || 
+           // participant?.avatar_url || 
+           // participant?.user_metadata?.avatar_url || 
            '';
   };
 
