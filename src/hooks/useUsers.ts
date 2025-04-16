@@ -39,7 +39,7 @@ export function useUsers(initialSearchQuery = '') {
         throw error;
       }
       
-      console.log('Fetched users:', data);
+      console.log('[useUsers] Fetched users:', data);
       
       // Ensure all profiles have the roles property
       const profilesWithRoles = data?.map(profile => ({
