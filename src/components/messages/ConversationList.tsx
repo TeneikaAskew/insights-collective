@@ -67,9 +67,6 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const otherParticipants = participants.filter(
           (p: any) => p.user_id !== conversation.created_by
         );
-
-      console.log(participants)
-      console.log(otherParticipants)
         
         // Format the timestamp
         let timeAgo = '';
@@ -88,14 +85,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const unreadCount = conversation.last_message && 
                            !conversation.last_message.read && 
                            conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
-// Add this before the return statement
-console.log("All participants:", participants);
-console.log("Other participants:", otherParticipants);
-if (otherParticipants.length > 0) {
-  console.log("First other participant:", otherParticipants[0]);
-  console.log("Profile:", otherParticipants[0]?.profile);
-  console.log("Avatar URL:", otherParticipants[0]?.profile?.avatar_url);
-}
+
         return (
           <Link
             key={conversation.id}
@@ -115,15 +105,14 @@ if (otherParticipants.length > 0) {
                   {conversation.is_group ? (
                     <div className="relative">
                       <Avatar className="h-10 w-10">
-                        {/* <AvatarImage src="" /> */}
-                        <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
+                        <AvatarImage src="" />
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
                       </Avatar>
                       {otherParticipants.length > 0 && (
                         <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
                           <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
                           <AvatarFallback className="bg-amber-200 text-amber-800">
-                            {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'Gr'}
+                            {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
                           </AvatarFallback>
                         </Avatar>
                       )}
@@ -132,11 +121,10 @@ if (otherParticipants.length > 0) {
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'In'}
+                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
                   )}
-
                   <div className="space-y-1">
                     <p className="font-medium line-clamp-1 text-gray-800">
                       {conversation.subject || 
