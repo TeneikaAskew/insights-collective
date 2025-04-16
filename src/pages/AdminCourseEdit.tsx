@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,7 +44,6 @@ const AdminCourseEdit = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
-  // Instructor management state
   const [instructors, setInstructors] = useState<any[]>([]);
   const [availableProfiles, setAvailableProfiles] = useState<any[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
@@ -113,7 +111,6 @@ const AdminCourseEdit = () => {
     fetchCourse();
   }, [courseId, toast]);
 
-  // Fetch instructors for the course
   useEffect(() => {
     if (!courseId || !isAdmin) return;
     
@@ -160,7 +157,6 @@ const AdminCourseEdit = () => {
     fetchInstructors();
   }, [courseId, isAdmin]);
 
-  // Fetch available profiles that can be assigned as instructors
   useEffect(() => {
     if (!isAdmin) return;
     
@@ -255,7 +251,6 @@ const AdminCourseEdit = () => {
     }
   };
 
-  // Instructor management functions
   const addInstructor = async () => {
     if (!selectedProfileId) {
       toast({
@@ -296,7 +291,6 @@ const AdminCourseEdit = () => {
       setIsDialogOpen(false);
       setSelectedProfileId('');
       
-      // Refresh instructors list
       const profile = availableProfiles.find(p => p.id === selectedProfileId);
       if (profile && data[0]) {
         setInstructors([...instructors, {
@@ -360,7 +354,7 @@ const AdminCourseEdit = () => {
 
   return (
     <AppLayout>
-      <div className="container max-w-full">
+      <div className="container max-w-full py-6">
         <div className="space-y-6">
           <div className="border-b pb-4">
             <div className="flex items-center gap-2 mb-4">
@@ -385,111 +379,113 @@ const AdminCourseEdit = () => {
           </div>
 
           <Tabs defaultValue="details" className="w-full">
-            <TabsList className="w-full max-w-none">
+            <TabsList className="w-full justify-start border-b">
               <TabsTrigger value="details" className="flex-1">Course Details</TabsTrigger>
               <TabsTrigger value="modules" className="flex-1">Modules & Content</TabsTrigger>
               {isAdmin && <TabsTrigger value="instructors" className="flex-1">Instructors</TabsTrigger>}
             </TabsList>
 
-            <TabsContent value="details" className="w-full">
-              {course && (
-                <CourseDetailsForm 
-                  course={course} 
-                  onSave={handleSave}
-                  loading={saving}
-                />
-              )}
-            </TabsContent>
+            <div className="mt-6 space-y-6">
+              <TabsContent value="details" className="w-full mt-0">
+                {course && (
+                  <CourseDetailsForm 
+                    course={course} 
+                    onSave={handleSave}
+                    loading={saving}
+                  />
+                )}
+              </TabsContent>
 
-            <TabsContent value="modules" className="w-full">
-              {courseId && <ModuleManager courseId={courseId} />}
-            </TabsContent>
+              <TabsContent value="modules" className="w-full mt-0">
+                {courseId && <ModuleManager courseId={courseId} />}
+              </TabsContent>
 
-            {isAdmin && (
-              <TabsContent value="instructors" className="w-full">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-lg font-medium">Course Instructors</h3>
-                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                      <DialogTrigger asChild>
-                        <Button>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Instructor
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>Add Instructor</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <label htmlFor="instructor-select" className="text-sm font-medium">
-                              Select Instructor
-                            </label>
-                            <Select
-                              value={selectedProfileId}
-                              onValueChange={setSelectedProfileId}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select an instructor" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {availableProfiles.map((profile) => (
-                                  <SelectItem key={profile.id} value={profile.id}>
-                                    {profile.firstName} {profile.lastName}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
+              {isAdmin && (
+                <TabsContent value="instructors" className="w-full mt-0">
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-lg font-medium">Course Instructors</h3>
+                      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                        <DialogTrigger asChild>
+                          <Button>
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Instructor
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Add Instructor</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <label htmlFor="instructor-select" className="text-sm font-medium">
+                                Select Instructor
+                              </label>
+                              <Select
+                                value={selectedProfileId}
+                                onValueChange={setSelectedProfileId}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select an instructor" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {availableProfiles.map((profile) => (
+                                    <SelectItem key={profile.id} value={profile.id}>
+                                      {profile.firstName} {profile.lastName}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button onClick={addInstructor}>Add Instructor</Button>
                           </div>
-                          <Button onClick={addInstructor}>Add Instructor</Button>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
 
-                  <div className="border rounded-md">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Role</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {instructors.length === 0 ? (
+                    <div className="border rounded-md">
+                      <Table>
+                        <TableHeader>
                           <TableRow>
-                            <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
-                              No instructors assigned to this course
-                            </TableCell>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Role</TableHead>
+                            <TableHead>Actions</TableHead>
                           </TableRow>
-                        ) : (
-                          instructors.map((instructor) => (
-                            <TableRow key={instructor.userId}>
-                              <TableCell>
-                                {instructor.profile?.firstName} {instructor.profile?.lastName}
-                              </TableCell>
-                              <TableCell>{instructor.role}</TableCell>
-                              <TableCell>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => removeInstructor(instructor.userId)}
-                                >
-                                  <Trash className="h-4 w-4 text-destructive" />
-                                  <span className="sr-only">Remove</span>
-                                </Button>
+                        </TableHeader>
+                        <TableBody>
+                          {instructors.length === 0 ? (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center text-muted-foreground py-4">
+                                No instructors assigned to this course
                               </TableCell>
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                          ) : (
+                            instructors.map((instructor) => (
+                              <TableRow key={instructor.userId}>
+                                <TableCell>
+                                  {instructor.profile?.firstName} {instructor.profile?.lastName}
+                                </TableCell>
+                                <TableCell>{instructor.role}</TableCell>
+                                <TableCell>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => removeInstructor(instructor.userId)}
+                                  >
+                                    <Trash className="h-4 w-4 text-destructive" />
+                                    <span className="sr-only">Remove</span>
+                                  </Button>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
                   </div>
-                </div>
-              </TabsContent>
-            )}
+                </TabsContent>
+              )}
+            </div>
           </Tabs>
         </div>
       </div>
