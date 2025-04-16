@@ -20,12 +20,21 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
   const navigate = useNavigate();
 
   // Helper function to get avatar URL from various possible locations
+  // const getAvatarUrl = (participant: any) => {
+  //   // Check all possible paths for avatar URLs
+  //   return participant?.profile?.avatar_url || 
+  //          // participant?.avatar_url || 
+  //          // participant?.user_metadata?.avatar_url || 
+  //          '';
+  // };
+  // Update getAvatarUrl function in ConversationList.tsx
   const getAvatarUrl = (participant: any) => {
-    // Check all possible paths for avatar URLs
-    return participant?.profile?.avatar_url || 
-           // participant?.avatar_url || 
-           // participant?.user_metadata?.avatar_url || 
-           '';
+    if (!participant) return '';
+    // The avatar is nested in the profile object
+    if (participant.profile && participant.profile.avatar_url) {
+      return participant.profile.avatar_url;
+    }
+    return '';
   };
 
   // Helper function to get initials consistently
