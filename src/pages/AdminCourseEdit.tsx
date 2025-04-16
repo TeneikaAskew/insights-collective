@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -385,7 +386,7 @@ const AdminCourseEdit = () => {
               {isAdmin && <TabsTrigger value="instructors" className="flex-1">Instructors</TabsTrigger>}
             </TabsList>
 
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 space-y-6 w-full">
               <TabsContent value="details" className="w-full mt-0">
                 {course && (
                   <CourseDetailsForm 
