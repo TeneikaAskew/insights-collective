@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -71,7 +72,6 @@ function App() {
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              {/* Note the important re-ordering here: AuthProvider must wrap PageVisibilityProvider */}
               <AuthProvider>
                 <PageVisibilityProvider>
                   <Routes>

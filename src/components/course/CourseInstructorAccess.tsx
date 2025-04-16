@@ -10,10 +10,15 @@ interface CourseInstructorAccessProps {
 }
 
 const CourseInstructorAccess = ({ courseId }: CourseInstructorAccessProps) => {
-  const { canEdit, isInstructor, loading } = useCoursePermissions(courseId);
+  const { canEdit, isInstructor, loading, isAdmin } = useCoursePermissions(courseId);
   const navigate = useNavigate();
   
-  if (loading || !isInstructor) {
+  if (loading) {
+    return null;
+  }
+
+  // Don't show if user is not an instructor or admin
+  if (!isInstructor && !isAdmin) {
     return null;
   }
   
