@@ -14,6 +14,42 @@ interface ConversationListProps {
   error?: any;
 }
 
+// Helper function to get user initials from profile
+const getUserInitials = (profile: any): string => {
+  if (!profile) return 'U';
+  
+  const firstName = profile.first_name || '';
+  const lastName = profile.last_name || '';
+  
+  if (!firstName && !lastName) return 'U';
+  
+  return (firstName.charAt(0) + (lastName ? lastName.charAt(0) : '')).toUpperCase();
+};
+
+// Helper function to get avatar URL or undefined
+const getAvatarUrl = (profile: any): string | undefined => {
+  if (!profile) return undefined;
+  return profile.avatar_url || undefined;
+};
+
+// Helper function to get participant name
+const getParticipantName = (participant: any): string => {
+  if (!participant || !participant.profile) return 'Unknown User';
+  
+  const profile = participant.profile;
+  const firstName = profile.first_name || '';
+  const lastName = profile.last_name || '';
+  
+  if (!firstName && !lastName) return 'Unknown User';
+  return `${firstName} ${lastName}`.trim();
+};
+
+// Helper function to find unique participant identifier
+const getParticipantIdentifier = (participant: any): string => {
+  if (!participant) return '';
+  return participant.user_id || '';
+};
+
 const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error }) => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
@@ -57,15 +93,72 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     );
   }
 
+  // Process conversations to remove duplicates based on participants
+  const processedConversations = conversations.reduce((acc: any[], current) => {
+    // Skip invalid conversations
+    if (!current) return acc;
+    
+    // For group conversations, always include them
+    if (current.is_group) {
+      acc.push(current);
+      return acc;
+    }
+    
+    // For one-on-one conversations, check if we already have a conversation with this person
+    const participants = current.participants || [];
+    const otherParticipants = participants.filter(
+      (p: any) => p && p.user_id !== current.created_by
+    );
+    
+    // If there are no other participants, just add it
+    if (!otherParticipants.length) {
+      acc.push(current);
+      return acc;
+    }
+    
+    // Get the ID of the other participant
+    const otherParticipantId = getParticipantIdentifier(otherParticipants[0]);
+    
+    // Check if we already have a conversation with this participant
+    const existingConvIndex = acc.findIndex((conv) => {
+      if (conv.is_group) return false;
+      
+      const convOtherParticipants = (conv.participants || []).filter(
+        (p: any) => p && p.user_id !== conv.created_by
+      );
+      
+      if (!convOtherParticipants.length) return false;
+      
+      return getParticipantIdentifier(convOtherParticipants[0]) === otherParticipantId;
+    });
+    
+    // If we already have a conversation with this participant, keep the most recent one
+    if (existingConvIndex !== -1) {
+      const existingConv = acc[existingConvIndex];
+      const existingDate = new Date(existingConv.updated_at || existingConv.created_at);
+      const currentDate = new Date(current.updated_at || current.created_at);
+      
+      if (currentDate > existingDate) {
+        // Replace with the more recent conversation
+        acc[existingConvIndex] = current;
+      }
+    } else {
+      // Add this new conversation
+      acc.push(current);
+    }
+    
+    return acc;
+  }, []);
+
   return (
     <div className="space-y-2 h-full overflow-auto">
-      {conversations.map((conversation) => {
+      {processedConversations.map((conversation) => {
         if (!conversation) return null;
         
         // Safely handle missing participants
         const participants = conversation.participants || [];
         const otherParticipants = participants.filter(
-          (p: any) => p.user_id !== conversation.created_by
+          (p: any) => p && p.user_id !== conversation.created_by
         );
         
         // Format the timestamp
@@ -86,15 +179,6 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                            !conversation.last_message.read && 
                            conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
 
-      // Add this before the return statement
-      console.log("All participants:", participants);
-      console.log("Other participants:", otherParticipants);
-      if (otherParticipants.length > 0) {
-        console.log("First other participant:", otherParticipants[0]);
-        console.log("Profile:", otherParticipants[0]?.profile);
-        console.log("Avatar URL:", otherParticipants[0]?.profile?.avatar_url);
-      }
-
         return (
           <Link
             key={conversation.id}
@@ -114,23 +198,26 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                   {conversation.is_group ? (
                     <div className="relative">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src="" />
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
+                        {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
+                          <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
+                            <AvatarImage src={getAvatarUrl(otherParticipants[0].profile)} />
+                            <AvatarFallback className="bg-amber-200 text-amber-800">
+                              {getUserInitials(otherParticipants[0].profile)}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
                       </Avatar>
-                      {otherParticipants.length > 0 && (
-                        <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                          <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
-                          <AvatarFallback className="bg-amber-200 text-amber-800">
-                            {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
                     </div>
                   ) : (
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
+                      {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
+                        <AvatarImage src={getAvatarUrl(otherParticipants[0].profile)} />
+                      )}
                       <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
+                        {otherParticipants.length > 0 && otherParticipants[0]?.profile 
+                          ? getUserInitials(otherParticipants[0].profile) 
+                          : 'U'}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -139,8 +226,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                       {conversation.subject || 
                         (conversation.is_group 
                           ? `Group (${participants.length} participants)` 
-                          : otherParticipants[0]?.profile?.first_name
-                            ? `${otherParticipants[0]?.profile?.first_name} ${otherParticipants[0]?.profile?.last_name || ''}`
+                          : otherParticipants.length > 0 && otherParticipants[0]?.profile
+                            ? getParticipantName(otherParticipants[0])
                             : 'Conversation'
                         )
                       }

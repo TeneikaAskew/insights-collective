@@ -1,4 +1,10 @@
 
 import { mockService } from './mock';
+import { mockConversations, getMockConversations, getMockMessages } from './mock/messages';
 
-export { mockService };
+export { 
+  mockService,
+  mockConversations,
+  getMockConversations,
+  getMockMessages
+};
