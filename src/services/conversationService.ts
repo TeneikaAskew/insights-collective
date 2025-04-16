@@ -85,7 +85,6 @@ import { enrichProfileWithRoles } from '@/utils/profileUtils';
 //   }
 // };
 
-
 export const fetchUserConversations = async (userId: string) => {
   try {
     if (!userId) {
@@ -93,7 +92,7 @@ export const fetchUserConversations = async (userId: string) => {
       return [];
     }
     
-    // First, get conversation IDs for the user
+    // Step 1: Get conversation IDs for the user
     const { data: participantData, error: participantError } = await supabase
       .from('conversation_participants')
       .select('conversation_id')
@@ -109,16 +108,12 @@ export const fetchUserConversations = async (userId: string) => {
     }
     
     const conversationIds = participantData.map(p => p.conversation_id);
-    console.log("Fetching conversations with IDs:", conversationIds);
+    console.log("Step 1: Got conversation IDs:", conversationIds);
     
-    // Get ALL participants for ALL these conversations
+    // Step 2: Get ALL participants for these conversations
     const { data: allParticipants, error: allParticipantsError } = await supabase
       .from('conversation_participants')
-      .select(`
-        id,
-        user_id,
-        conversation_id
-      `)
+      .select('*')
       .in('conversation_id', conversationIds);
     
     if (allParticipantsError) {
@@ -126,24 +121,36 @@ export const fetchUserConversations = async (userId: string) => {
       throw allParticipantsError;
     }
     
-    // Extract all unique user IDs
-    const allUserIds = [...new Set(allParticipants.map(p => p.user_id))];
-    console.log("All participant user IDs:", allUserIds);
+    console.log("Step 2: Participant data sample:", allParticipants[0]);
     
-    // Fetch profiles for ALL participants
+    // Step 3: Extract all unique user IDs
+    const allUserIds = [];
+    allParticipants.forEach(participant => {
+      if (participant.user_id) {
+        allUserIds.push(participant.user_id);
+      }
+    });
+    
+    const uniqueUserIds = [...new Set(allUserIds)];
+    console.log("Step 3: Found unique user IDs:", uniqueUserIds);
+    
+    // Step 4: Fetch profiles for ALL participants
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
-      .in('id', allUserIds);
+      .in('id', uniqueUserIds);
     
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError);
       throw profilesError;
     }
     
-    console.log("Fetched profiles:", profilesData);
+    console.log("Step 4: Fetched profiles count:", profilesData.length);
+    if (profilesData.length > 0) {
+      console.log("Profile sample:", profilesData[0]);
+    }
     
-    // Create a map for quick profile lookups
+    // Step 5: Create a map for quick profile lookups
     const profilesMap = {};
     profilesData.forEach(profile => {
       profilesMap[profile.id] = {
@@ -152,7 +159,9 @@ export const fetchUserConversations = async (userId: string) => {
       };
     });
     
-    // Now fetch complete conversation data
+    console.log("Step 5: Created profiles map with keys:", Object.keys(profilesMap));
+    
+    // Step 6: Fetch complete conversation data
     const { data: conversationsData, error: conversationsError } = await supabase
       .from('conversations')
       .select(`
@@ -184,13 +193,20 @@ export const fetchUserConversations = async (userId: string) => {
       throw conversationsError;
     }
     
-    // Enhance conversations with profile data
+    console.log("Step 6: Conversation sample participants:", 
+                conversationsData[0].participants);
+    
+    // Step 7: Enhance conversations with profile data
     const enhancedConversations = conversationsData.map(conversation => {
       // Add profile data to each participant
       const enhancedParticipants = (conversation.participants || []).map(participant => {
+        const profileData = profilesMap[participant.user_id];
+        console.log(`Mapping profile for user_id ${participant.user_id}:`, 
+                    profileData ? "Found" : "Not found");
+        
         return {
           ...participant,
-          profile: profilesMap[participant.user_id] || null
+          profile: profileData || null
         };
       });
       
@@ -201,6 +217,17 @@ export const fetchUserConversations = async (userId: string) => {
           ? conversation.last_message[0] 
           : null
       };
+    });
+    
+    // Log some enhanced conversation data for debugging
+    const firstConv = enhancedConversations[0];
+    console.log("First enhanced conversation:", {
+      id: firstConv.id,
+      participants: firstConv.participants.map(p => ({
+        user_id: p.user_id,
+        has_profile: !!p.profile,
+        profile_first_name: p.profile?.first_name
+      }))
     });
     
     return enhancedConversations;
