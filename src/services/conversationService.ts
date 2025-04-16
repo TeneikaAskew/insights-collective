@@ -111,27 +111,30 @@ export const fetchUserConversations = async (userId: string) => {
     const conversationIds = participantData.map(p => p.conversation_id);
     console.log("Fetching conversations with IDs:", conversationIds);
     
-    // Now fetch ALL participants for these conversations, not just the current user
-    const { data: allParticipantsData, error: allParticipantsError } = await supabase
+    // Get ALL participants for ALL these conversations
+    const { data: allParticipants, error: allParticipantsError } = await supabase
       .from('conversation_participants')
-      .select('user_id, conversation_id')
+      .select(`
+        id,
+        user_id,
+        conversation_id
+      `)
       .in('conversation_id', conversationIds);
-      
+    
     if (allParticipantsError) {
       console.error('Error fetching all participants:', allParticipantsError);
       throw allParticipantsError;
     }
     
-    // Extract all unique user IDs from all participants
-    const allUserIds = allParticipantsData.map(p => p.user_id);
-    const uniqueUserIds = [...new Set(allUserIds)];
-    console.log("All unique participant user IDs:", uniqueUserIds);
+    // Extract all unique user IDs
+    const allUserIds = [...new Set(allParticipants.map(p => p.user_id))];
+    console.log("All participant user IDs:", allUserIds);
     
-    // Fetch profiles for all participants
+    // Fetch profiles for ALL participants
     const { data: profilesData, error: profilesError } = await supabase
       .from('profiles')
       .select('*')
-      .in('id', uniqueUserIds);
+      .in('id', allUserIds);
     
     if (profilesError) {
       console.error('Error fetching profiles:', profilesError);
@@ -140,13 +143,16 @@ export const fetchUserConversations = async (userId: string) => {
     
     console.log("Fetched profiles:", profilesData);
     
-    // Create a profile lookup map
+    // Create a map for quick profile lookups
     const profilesMap = {};
-    for (const profile of profilesData) {
-      profilesMap[profile.id] = enrichProfileWithRoles(profile);
-    }
+    profilesData.forEach(profile => {
+      profilesMap[profile.id] = {
+        ...profile,
+        roles: profile.roles || (profile.role ? [profile.role, 'student'] : ['student'])
+      };
+    });
     
-    // Now fetch the complete conversation data
+    // Now fetch complete conversation data
     const { data: conversationsData, error: conversationsError } = await supabase
       .from('conversations')
       .select(`
@@ -178,9 +184,10 @@ export const fetchUserConversations = async (userId: string) => {
       throw conversationsError;
     }
     
-    // Enhance the conversations with profile data
+    // Enhance conversations with profile data
     const enhancedConversations = conversationsData.map(conversation => {
-      const enhancedParticipants = conversation.participants.map(participant => {
+      // Add profile data to each participant
+      const enhancedParticipants = (conversation.participants || []).map(participant => {
         return {
           ...participant,
           profile: profilesMap[participant.user_id] || null
@@ -202,7 +209,6 @@ export const fetchUserConversations = async (userId: string) => {
     throw error;
   }
 };
-
 
 // export const fetchUserConversations = async (userId: string) => {
 //   try {
