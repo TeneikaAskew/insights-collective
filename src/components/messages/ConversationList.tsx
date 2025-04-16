@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
@@ -18,7 +19,6 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
   const { conversationId } = useParams();
   const navigate = useNavigate();
 
-  console.log(otherParticipants[0])
   // Helper function to get avatar URL from various possible locations
   const getAvatarUrl = (participant: any) => {
     // Check all possible paths for avatar URLs
@@ -104,6 +104,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const unreadCount = conversation.last_message && 
                            !conversation.last_message.read && 
                            conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
+
+        console.log(otherParticipants[0]); // Moving console.log after otherParticipants is defined
 
         return (
           <Link

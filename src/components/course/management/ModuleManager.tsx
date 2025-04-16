@@ -1093,7 +1093,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
                               <AlertDialogAction 
-                                variant="destructive"
                                 onClick={() => handleDeleteModule(module.id)}
                               >
                                 Delete
@@ -1645,7 +1644,7 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label htmlFor="description">Description</Label>
-                <AIContentGenerator onGenerate={handleAIContentGenerated} />
+                <AIContentGenerator onContentGenerated={handleAIContentGenerated} />
               </div>
               <Textarea
                 id="description"
