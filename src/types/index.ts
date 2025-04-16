@@ -10,25 +10,33 @@ export interface Course {
   rating?: number;
   published?: boolean;
   imageUrl?: string;
-  
-  // Adding missing properties used across the application
-  instructor: User;
   thumbnail?: string;
-  enrollmentCount: number;
-  modules: Module[];
-  tags: string[];
-  duration: string;
   enrollmentStatus: string;
+  duration: string;
+  tags: string[];
   createdAt: string;
   updatedAt: string;
+  
+  // Adding missing properties used across the application
+  instructor?: {
+    id: string;
+    name?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  };
+  enrollmentCount?: number;
+  modules?: Module[];
 }
 
 // User interface
 export interface User {
   id: string;
-  name: string;
-  email: string;
-  role: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: string;
   enrolledCourses?: string[];
   avatar?: string;
   bio?: string;
@@ -42,10 +50,10 @@ export interface Module {
   title: string;
   description: string;
   week: number;
-  completionStatus: number;
-  lessons: Lesson[];
-  assignments: Assignment[];
-  quizzes: Quiz[];
+  completionStatus?: number;
+  lessons?: Lesson[];
+  assignments?: Assignment[];
+  quizzes?: Quiz[];
   // Add any other properties needed
 }
 

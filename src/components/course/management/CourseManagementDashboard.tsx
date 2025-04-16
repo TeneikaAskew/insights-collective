@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -43,7 +44,27 @@ const CourseManagementDashboard = () => {
           return;
         }
 
-        setCourses(data);
+        // Transform database fields (snake_case) to frontend model (camelCase)
+        const transformedCourses = data.map(course => ({
+          ...course,
+          id: course.id,
+          title: course.title,
+          description: course.description,
+          category: course.category,
+          level: course.level,
+          imageUrl: course.image_url,
+          published: course.published,
+          instructor: course.instructor ? {
+            id: course.instructor.id,
+            name: `${course.instructor.first_name || ''} ${course.instructor.last_name || ''}`.trim(),
+            firstName: course.instructor.first_name,
+            lastName: course.instructor.last_name
+          } : null,
+          createdAt: course.created_at,
+          // Add other fields as needed
+        }));
+
+        setCourses(transformedCourses);
       } catch (error) {
         console.error('Error fetching courses:', error);
       }
@@ -98,7 +119,7 @@ const CourseManagementDashboard = () => {
                 <TableCell>{course.level}</TableCell>
                 <TableCell>
                   {course.instructor ? (
-                    <span>{course.instructor.first_name} {course.instructor.last_name}</span>
+                    <span>{course.instructor.firstName} {course.instructor.lastName}</span>
                   ) : (
                     <span className="text-muted-foreground">Unassigned</span>
                   )}
@@ -110,7 +131,7 @@ const CourseManagementDashboard = () => {
                     <Badge variant="secondary">Draft</Badge>
                   )}
                 </TableCell>
-                <TableCell>{new Date(course.created_at).toLocaleDateString()}</TableCell>
+                <TableCell>{new Date(course.createdAt).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <Button
                     variant="ghost"

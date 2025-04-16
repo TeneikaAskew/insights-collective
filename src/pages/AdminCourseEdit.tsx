@@ -47,7 +47,31 @@ const AdminCourseEdit = () => {
           .single();
         
         if (error) throw error;
-        if (data) setCourse(data);
+        
+        if (data) {
+          // Transform the data to match our frontend types
+          const transformedCourse: Partial<Course> = {
+            id: data.id,
+            title: data.title,
+            description: data.description,
+            category: data.category,
+            level: data.level,
+            duration: data.duration,
+            tags: data.tags,
+            thumbnail: data.thumbnail,
+            imageUrl: data.image_url,
+            enrollmentStatus: data.enrollment_status,
+            published: data.published,
+            instructor: data.instructor ? {
+              id: data.instructor.id,
+              name: `${data.instructor.first_name || ''} ${data.instructor.last_name || ''}`.trim(),
+              firstName: data.instructor.first_name,
+              lastName: data.instructor.last_name
+            } : undefined
+          };
+          
+          setCourse(transformedCourse);
+        }
       } catch (error: any) {
         console.error('Error fetching course:', error);
         toast({
@@ -67,16 +91,47 @@ const AdminCourseEdit = () => {
     try {
       setSaving(true);
       
+      // Transform frontend model back to database model for saving
+      const dbCourse = {
+        title: updatedCourse.title,
+        description: updatedCourse.description,
+        category: updatedCourse.category,
+        level: updatedCourse.level,
+        duration: updatedCourse.duration,
+        tags: updatedCourse.tags,
+        thumbnail: updatedCourse.thumbnail,
+        image_url: updatedCourse.imageUrl,
+        enrollment_status: updatedCourse.enrollmentStatus,
+        published: updatedCourse.published,
+      };
+      
       const { data, error } = await supabase
         .from('courses')
-        .update(updatedCourse)
+        .update(dbCourse)
         .eq('id', courseId as string)
         .select()
         .single();
       
       if (error) throw error;
       
-      setCourse(data);
+      // Transform the response back to our frontend model
+      const transformedData: Partial<Course> = {
+        ...updatedCourse,
+        id: data.id,
+        title: data.title,
+        description: data.description,
+        category: data.category,
+        level: data.level,
+        duration: data.duration,
+        tags: data.tags,
+        thumbnail: data.thumbnail,
+        imageUrl: data.image_url,
+        enrollmentStatus: data.enrollment_status,
+        published: data.published
+      };
+      
+      setCourse(transformedData);
+      
       toast({
         title: 'Success',
         description: 'Course updated successfully',

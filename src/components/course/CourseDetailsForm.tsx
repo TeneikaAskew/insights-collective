@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
-import { Plus, Trash2, Upload } from 'lucide-react';
+import { Plus, Trash2, Upload, Save } from 'lucide-react'; // Added Save import
 import { Progress } from '@/components/ui/progress';
 import AIContentGenerator from '@/components/ai/AIContentGenerator';
 
@@ -52,7 +52,7 @@ export const CourseDetailsForm = ({ course, onSave, loading }: CourseDetailsForm
     }));
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'thumbnail' | 'image_url') => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'thumbnail' | 'imageUrl') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -211,10 +211,10 @@ export const CourseDetailsForm = ({ course, onSave, loading }: CourseDetailsForm
 
             <div className="space-y-4">
               <Label>Cover Image</Label>
-              {formData.image_url && (
+              {formData.imageUrl && (
                 <div className="relative w-full aspect-video rounded-md overflow-hidden bg-muted">
                   <img 
-                    src={formData.image_url} 
+                    src={formData.imageUrl} 
                     alt="Course cover" 
                     className="w-full h-full object-cover"
                   />
@@ -222,7 +222,7 @@ export const CourseDetailsForm = ({ course, onSave, loading }: CourseDetailsForm
                     variant="destructive"
                     size="sm"
                     className="absolute top-2 right-2"
-                    onClick={() => setFormData(prev => ({ ...prev, image_url: '' }))}
+                    onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -234,7 +234,7 @@ export const CourseDetailsForm = ({ course, onSave, loading }: CourseDetailsForm
                   accept="image/*"
                   className="hidden"
                   id="cover-upload"
-                  onChange={(e) => handleImageUpload(e, 'image_url')}
+                  onChange={(e) => handleImageUpload(e, 'imageUrl')}
                 />
                 <Button
                   type="button"
@@ -296,10 +296,10 @@ export const CourseDetailsForm = ({ course, onSave, loading }: CourseDetailsForm
           </div>
 
           <div className="space-y-4">
-            <Label htmlFor="enrollment_status">Enrollment Status</Label>
+            <Label htmlFor="enrollmentStatus">Enrollment Status</Label>
             <Select 
-              value={formData.enrollment_status || 'open'} 
-              onValueChange={(value) => handleSelectChange('enrollment_status', value)}
+              value={formData.enrollmentStatus || 'open'} 
+              onValueChange={(value) => handleSelectChange('enrollmentStatus', value)}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select enrollment status" />

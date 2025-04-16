@@ -313,10 +313,11 @@ const CourseManageMaterials = () => {
   
   const handleUpdateContent = async (contentId: string, updatedContent: any) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('module_content')
         .update(updatedContent)
-        .eq('id', contentId);
+        .eq('id', contentId)
+        .select();
       
       if (error) throw error;
       
@@ -329,7 +330,7 @@ const CourseManageMaterials = () => {
         description: 'Content updated successfully',
       });
       
-      return true;
+      return data ? data[0] : null;
     } catch (error) {
       console.error('Error updating content:', error);
       toast({
@@ -337,7 +338,7 @@ const CourseManageMaterials = () => {
         description: 'Failed to update content',
         variant: 'destructive',
       });
-      return false;
+      throw error;
     }
   };
   
