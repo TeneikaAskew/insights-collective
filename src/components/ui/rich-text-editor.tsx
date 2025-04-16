@@ -278,7 +278,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             style={{ minHeight }}
             onInput={handleEditorChange}
             dangerouslySetInnerHTML={{ __html: value }}
-            placeholder={placeholder}
+            // Remove the placeholder property and implement a custom placeholder solution
+            data-placeholder={placeholder}
           />
         </TabsContent>
         
@@ -295,5 +296,16 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     </div>
   );
 };
+
+// Add CSS for the custom placeholder
+const style = document.createElement('style');
+style.innerHTML = `
+  [contenteditable]:empty:before {
+    content: attr(data-placeholder);
+    color: #9ca3af;
+    pointer-events: none;
+  }
+`;
+document.head.appendChild(style);
 
 export default RichTextEditor;

@@ -54,6 +54,10 @@ interface ModuleContentEditorProps {
   onAddContent: (content: any) => Promise<any>;
   onUpdateContent: (contentId: string, updates: any) => Promise<boolean>;
   onDeleteContent: (contentId: string) => Promise<boolean>;
+  // Add the missing props
+  onActivate?: () => void;
+  onDeactivate?: () => void;
+  isActive?: boolean;
 }
 
 const ModuleContentEditor = ({
