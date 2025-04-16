@@ -172,9 +172,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const otherProfile = otherParticipants.length > 0 ? otherParticipants[0].profile : null;
         
         // Log the actual profile data to debug avatar issues
-        console.log("ConversationList - sortedConversations:", sortedConversations);
-        console.log("Other Participants original: ", otherParticipants)
-        console.log("Conversation Participants: ", current.participants)
+        console.log(`ConversationList - sortedConversations: ${sortedConversations}`);
+        console.log(`Other Participants original:  ${otherParticipants}`)
+        console.log(`Conversation Participants: ${current.participants}`)
         console.log(`Conversation ${conversation.id} - otherProfile:`, otherProfile);
         console.log(`Conversation ${conversation.id} - avatar URL:`, otherProfile?.avatar_url);
 
