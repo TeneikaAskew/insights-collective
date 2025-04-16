@@ -82,6 +82,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     );
   }
 
+  console.log(conversations)
+
   if (!conversations || conversations.length === 0) {
     return (
       <div className="text-center p-6 border rounded-md bg-amber-50 border-amber-200">
