@@ -43,6 +43,45 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
     setSelectedUser(user);
   };
 
+  // const handleStartConversation = async () => {
+  //   if (!selectedUser || !user) {
+  //     toast({
+  //       title: 'Error',
+  //       description: 'Please select a user to start a conversation with.',
+  //       variant: 'destructive',
+  //     });
+  //     return;
+  //   }
+
+  //   try {
+  //     setIsCreating(true);
+  //     console.log("Starting or finding conversation with:", selectedUser.id);
+      
+  //     // Use getOrCreateOneOnOneConversation to avoid duplicates
+  //     const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
+      
+  //     if (conversationId) {
+  //       // Close dialog and navigate to the conversation
+  //       onOpenChange(false);
+  //       navigate(`/messages/${conversationId}`);
+        
+  //       toast({
+  //         title: 'Success',
+  //         description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name}.`,
+  //       });
+  //     }
+  //   } catch (error) {
+  //     console.error('Error starting conversation:', error);
+  //     toast({
+  //       title: 'Error',
+  //       description: 'Failed to start conversation. Please try again.',
+  //       variant: 'destructive',
+  //     });
+  //   } finally {
+  //     setIsCreating(false);
+  //   }
+  // };
+
   const handleStartConversation = async () => {
     if (!selectedUser || !user) {
       toast({
@@ -52,12 +91,12 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       });
       return;
     }
-
+  
     try {
       setIsCreating(true);
-      console.log("Starting or finding conversation with:", selectedUser.id);
+      console.log("Getting or creating conversation with:", selectedUser.id);
       
-      // Use getOrCreateOneOnOneConversation to avoid duplicates
+      // Use getOrCreateOneOnOneConversation instead of createNewConversation
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
       
       if (conversationId) {
