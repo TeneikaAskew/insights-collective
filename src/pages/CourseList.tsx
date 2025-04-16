@@ -1,7 +1,7 @@
+
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import CourseCard from '@/components/common/CourseCard';
-import CourseInstructorAccess from '@/components/course/CourseInstructorAccess';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,7 +11,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Course } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
-import { useAuth } from '@/contexts/AuthContext';
 import EnrollmentBadge from '@/components/course/EnrollmentBadge';
 
 const CourseList = () => {
@@ -23,7 +22,6 @@ const CourseList = () => {
   const [levelFilter, setLevelFilter] = useState('all');
   const { toast } = useToast();
   const { navigateWithAuth } = useAuthenticatedNavigation();
-  const { user } = useAuth();
   
   const categories = [...new Set(courses.map(course => course.category))];
   const levels = [...new Set(courses.map(course => course.level))];
@@ -179,16 +177,10 @@ const CourseList = () => {
             ) : filteredCourses.length > 0 ? (
               <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredCourses.map((course) => (
-                  <div key={course.id} className="relative">
-                    <div 
-                      className="cursor-pointer" 
-                      onClick={() => handleCourseClick(course.id)}
-                    >
-                      <CourseCard key={course.id} course={course} />
-                    </div>
-                    <div className="mt-2 flex justify-between items-center">
+                  <div key={course.id} className="relative" onClick={() => handleCourseClick(course.id)}>
+                    <CourseCard key={course.id} course={course} />
+                    <div className="mt-2">
                       <EnrollmentBadge courseId={course.id} />
-                      {user && <CourseInstructorAccess courseId={course.id} compact={true} />}
                     </div>
                   </div>
                 ))}
