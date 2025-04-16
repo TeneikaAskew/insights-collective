@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -65,7 +64,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
   const [saving, setSaving] = useState(false);
   const [aiGenerating, setAiGenerating] = useState(false);
   
-  // Fetch modules for this course
   useEffect(() => {
     const fetchModules = async () => {
       setLoading(true);
@@ -80,7 +78,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
         setModules(modulesData || []);
         
         if (modulesData && modulesData.length > 0) {
-          // Fetch module content for the first module
           fetchModuleContent(modulesData[0].id);
           setExpandedModule(modulesData[0].id);
         }
@@ -101,7 +98,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
   
   const fetchModuleContent = async (moduleId: string) => {
     try {
-      // First get the module content from the module_content table
       const { data: contentData, error: contentError } = await supabase
         .from('module_content')
         .select('*')
@@ -110,11 +106,9 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
       
       if (contentError) throw contentError;
       
-      // Combine all text content for now (in a real app, you'd handle different content types separately)
       const combinedContent = contentData?.map(c => c.content).join('\n\n') || '';
       setCurrentContent(combinedContent);
       
-      // Get module attachments
       const { data: attachmentData, error: attachmentError } = await supabase
         .from('module_content')
         .select('*')
@@ -187,7 +181,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
     if (!moduleId) return;
     
     try {
-      // Delete module content first (due to foreign key constraints)
       const { error: contentError } = await supabase
         .from('module_content')
         .delete()
@@ -195,7 +188,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
       
       if (contentError) throw contentError;
       
-      // Then delete the module itself
       const { error } = await supabase
         .from('modules')
         .delete()
@@ -265,7 +257,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
     setSaving(true);
     
     try {
-      // First clear existing text content
       const { error: clearError } = await supabase
         .from('module_content')
         .delete()
@@ -274,7 +265,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
       
       if (clearError) throw clearError;
       
-      // Then add the new content
       const { data, error } = await supabase
         .from('module_content')
         .insert({
@@ -312,13 +302,11 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
     if (!file) return;
     
     try {
-      // Upload file to storage
       const result = await uploadFile(file, 'module-content', `courses/${courseId}/modules/${expandedModule}`);
       if (!result) {
         throw new Error('File upload failed');
       }
       
-      // Save file reference in the database
       const { data, error } = await supabase
         .from('module_content')
         .insert({
@@ -427,8 +415,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
   };
   
   const handleTextFormat = (format: string) => {
-    // This is a simplified implementation
-    // In a real app, you would use a rich text editor library
     const textarea = document.getElementById('module-content') as HTMLTextAreaElement;
     if (!textarea) return;
     
@@ -472,18 +458,14 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
   };
   
   const getRenderedContent = () => {
-    // This is a simplified markdown-to-HTML conversion
-    // In a real app, you would use a proper markdown renderer
     let html = currentContent;
     
-    // Convert basic markdown to HTML
     html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
     html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
     html = html.replace(/__(.*?)__/g, '<u>$1</u>');
     html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
     html = html.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" style="max-width: 100%;" />');
     
-    // Convert lists
     const listItems = html.split('\n').map(line => {
       if (line.match(/^- (.*)/)) {
         return `<li>${line.replace(/^- (.*)/, '$1')}</li>`;
@@ -520,7 +502,6 @@ const ModuleEditor = ({ courseId }: ModuleEditorProps) => {
       result += inOrderedList ? '</ol>' : '</ul>';
     }
     
-    // Split paragraphs
     html = html.replace(/\n\n/g, '</p><p>');
     
     return `<div class="prose prose-sm max-w-none">${result}</div>`;
