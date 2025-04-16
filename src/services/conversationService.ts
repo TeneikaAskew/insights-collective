@@ -46,7 +46,7 @@ export const fetchUserConversations = async (userId: string) => {
     }
 
     if (otherParticipants) {
-       console.log("Step 2: Other participants sample:", otherParticipants);
+       console.log("Step 2: Other participants sample:", otherParticipants[0:3]);
         console.log("Step 2: Total other participants count:", otherParticipants.length);
       throw otherParticipants;
     }
