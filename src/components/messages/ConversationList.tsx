@@ -6,10 +6,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, ArchiveRestore } from 'lucide-react';
+import { AlertCircle, ArchiveRestore, Archive, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { ConversationParticipant, Profile } from '@/types/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ConversationListProps {
   conversations: any[];
@@ -45,6 +47,70 @@ const ConversationList: React.FC<ConversationListProps> = ({
           description: "Failed to restore conversation",
         });
       }
+    }
+  };
+
+  const handleArchive = async (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await supabase
+        .from('conversations')
+        .update({ archived: true })
+        .eq('id', conversationId);
+      
+      // Force refresh of the conversations list
+      window.location.reload();
+      
+      toast({
+        description: "Conversation archived successfully",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        description: "Failed to archive conversation",
+      });
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, conversationId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const now = new Date().toISOString();
+      await supabase
+        .from('conversations')
+        .update({ deleted_at: now })
+        .eq('id', conversationId);
+      
+      // Force refresh of the conversations list
+      window.location.reload();
+      
+      toast({
+        description: "Conversation deleted successfully",
+      });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        description: "Failed to delete conversation",
+      });
+    }
+  };
+  
+  // Helper function to get participant initials
+  const getInitials = (profile: Profile | undefined): string => {
+    if (!profile) return 'U';
+    const firstName = profile.first_name || '';
+    const lastName = profile.last_name || '';
+    
+    if (firstName && lastName) {
+      return `${firstName[0]}${lastName[0]}`;
+    } else if (firstName) {
+      return firstName[0];
+    } else if (lastName) {
+      return lastName[0];
+    } else {
+      return 'U';
     }
   };
 
@@ -120,6 +186,36 @@ const ConversationList: React.FC<ConversationListProps> = ({
                           !conversation.last_message.read && 
                           conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
 
+        // Group avatar display handler
+        const renderGroupAvatar = () => (
+          <div className="relative flex flex-wrap w-10 h-10">
+            {otherParticipants.slice(0, 4).map((participant: ConversationParticipant, index: number) => (
+              <div 
+                key={participant.id} 
+                className={`${
+                  otherParticipants.length === 1 ? 'w-10 h-10' : 
+                  otherParticipants.length <= 2 ? 'w-8 h-8' : 'w-5 h-5'
+                } ${
+                  index === 0 && otherParticipants.length > 1 ? 'absolute top-0 left-0' :
+                  index === 1 && otherParticipants.length > 1 ? 'absolute top-0 right-0' :
+                  index === 2 && otherParticipants.length > 2 ? 'absolute bottom-0 left-0' :
+                  'absolute bottom-0 right-0'
+                }`}
+              >
+                <Avatar className="w-full h-full border border-white">
+                  <AvatarImage 
+                    src={participant?.profile?.avatar_url || ''} 
+                    alt={`${participant?.profile?.first_name || ''} ${participant?.profile?.last_name || ''}`}
+                  />
+                  <AvatarFallback className="bg-amber-100 text-amber-800 text-xs">
+                    {getInitials(participant?.profile)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            ))}
+          </div>
+        );
+
         return (
           <Link
             key={conversation.id}
@@ -132,29 +228,20 @@ const ConversationList: React.FC<ConversationListProps> = ({
             <Card
               className={`p-4 hover:bg-amber-50/50 cursor-pointer transition-colors ${
                 conversationId === conversation.id ? 'bg-amber-50 border-amber-200' : ''
-              }`}
+              } group`}
             >
               <div className="flex justify-between items-start gap-3">
                 <div className="flex gap-3">
                   {conversation.is_group ? (
-                    <div className="relative">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
-                      </Avatar>
-                      {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
-                        <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                          <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
-                          <AvatarFallback className="bg-amber-200 text-amber-800">
-                            {otherParticipants[0]?.profile?.first_name?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
+                    renderGroupAvatar()
                   ) : (
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
+                      <AvatarImage 
+                        src={otherParticipants[0]?.profile?.avatar_url || ''} 
+                        alt={`${otherParticipants[0]?.profile?.first_name || ''} ${otherParticipants[0]?.profile?.last_name || ''}`}
+                      />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants[0]?.profile?.first_name?.[0]}
+                        {getInitials(otherParticipants[0]?.profile)}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -165,7 +252,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
                           ? `Group (${participants.length} participants)` 
                           : otherParticipants[0]?.profile?.first_name
                             ? `${otherParticipants[0]?.profile?.first_name} ${otherParticipants[0]?.profile?.last_name || ''}`
-                            : ''
+                            : 'Unknown User'
                         )
                       }
                     </p>
@@ -181,16 +268,40 @@ const ConversationList: React.FC<ConversationListProps> = ({
                       {unreadCount}
                     </span>
                   )}
-                  {isArchived && onRestore && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleRestore(e, conversation.id)}
-                      className="p-2 h-8 w-8"
-                    >
-                      <ArchiveRestore className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <div className="flex opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isArchived ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleRestore(e, conversation.id)}
+                        className="p-1 h-7 w-7"
+                        title="Restore conversation"
+                      >
+                        <ArchiveRestore className="h-4 w-4" />
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleArchive(e, conversation.id)}
+                          className="p-1 h-7 w-7"
+                          title="Archive conversation"
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => handleDelete(e, conversation.id)}
+                          className="p-1 h-7 w-7 text-red-500 hover:text-red-700"
+                          title="Delete conversation"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </Card>

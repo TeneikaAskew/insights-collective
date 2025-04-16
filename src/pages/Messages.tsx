@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageSquare, Send, Search } from 'lucide-react';
+import { MessageSquare, Send, Search, Archive } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,10 +11,11 @@ import AppLayout from '@/components/layout/AppLayout';
 import LoginWall from '@/components/common/LoginWall';
 import ConversationList from '@/components/messages/ConversationList';
 import MessageThread from '@/components/messages/MessageThread';
-import { useConversations } from '@/hooks/useConversations';
 import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { NewConversationButton } from '@/components/messages/NewConversationButton';
 import MessageSuggestions from '@/components/messages/MessageSuggestions';
+import { useConversationList } from '@/hooks/useConversationList';
+import { useArchivedConversations } from '@/hooks/useArchivedConversations';
 
 const Messages = () => {
   const { conversationId } = useParams();
@@ -25,8 +26,30 @@ const Messages = () => {
   const [messageContent, setMessageContent] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   
-  const { conversations, loading: loadingConversations, sendMessage, error: conversationsError } = useConversations();
-  const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
+  // Use separate hooks for different conversation types
+  const { 
+    conversations, 
+    loading: loadingConversations, 
+    error: conversationsError,
+    refresh: refreshConversations
+  } = useConversationList();
+  
+  const {
+    archivedConversations,
+    loading: loadingArchived,
+    error: archivedError,
+    fetchArchivedConversations,
+    restoreConversation
+  } = useArchivedConversations();
+  
+  const { messages, loading: loadingMessages, sendMessage } = useConversationMessages(conversationId);
+
+  // Load archived conversations when tab changes
+  useEffect(() => {
+    if (activeTab === 'archived') {
+      fetchArchivedConversations();
+    }
+  }, [activeTab, fetchArchivedConversations]);
 
   // If we encounter an authentication error, show a toast and navigate to login
   useEffect(() => {
@@ -54,29 +77,113 @@ const Messages = () => {
     }
   };
 
+  const handleRestoreConversation = async (conversationId: string) => {
+    try {
+      await restoreConversation(conversationId);
+      await refreshConversations();
+      toast({
+        title: 'Conversation Restored',
+        description: 'The conversation has been moved back to your inbox',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Could not restore conversation',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleSuggestedMessage = (message: string) => {
     setMessageContent(message);
   };
 
-  const filteredConversations = conversations?.filter(conv => {
-    if (!searchQuery) return true;
+  // Search functionality for conversations
+  const getFilteredConversations = (convList: any[]) => {
+    if (!searchQuery || !convList) return convList;
     
     const searchLower = searchQuery.toLowerCase();
-    // Search by subject
-    if (conv.subject?.toLowerCase().includes(searchLower)) return true;
-    
-    // Search by participant names
-    const hasMatchingParticipant = conv.participants?.some(p => 
-      p.profile?.first_name?.toLowerCase().includes(searchLower) || 
-      p.profile?.last_name?.toLowerCase().includes(searchLower)
+    return convList.filter(conv => {
+      // Search by subject
+      if (conv.subject?.toLowerCase().includes(searchLower)) return true;
+      
+      // Search by participant names
+      const hasMatchingParticipant = conv.participants?.some(p => 
+        p.profile?.first_name?.toLowerCase().includes(searchLower) || 
+        p.profile?.last_name?.toLowerCase().includes(searchLower)
+      );
+      if (hasMatchingParticipant) return true;
+      
+      // Search in last message
+      if (conv.last_message?.content?.toLowerCase().includes(searchLower)) return true;
+      
+      return false;
+    });
+  };
+
+  const filteredConversations = getFilteredConversations(conversations);
+  const filteredSentConversations = getFilteredConversations(
+    conversations?.filter(c => c.last_message?.sender_id === user?.id)
+  );
+  const filteredArchivedConversations = getFilteredConversations(archivedConversations);
+
+  // Common message display component
+  const renderMessageArea = () => {
+    if (!conversationId) {
+      return (
+        <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
+          <div className="text-center p-6">
+            <MessageSquare className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2 text-gray-800">No conversation selected</h3>
+            <p className="text-gray-600 mb-4">
+              Select a conversation from the list or start a new one
+            </p>
+            <NewConversationButton />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
+        <div className="flex-1 overflow-y-auto">
+          <MessageThread messages={messages || []} loading={loadingMessages} />
+        </div>
+        
+        <MessageSuggestions
+          onSelectMessage={handleSuggestedMessage}
+          conversationId={conversationId}
+          messages={messages}
+        />
+        
+        <div className="p-4 border-t">
+          <div className="flex space-x-2">
+            <Input
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-1"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+            />
+            
+            <Button
+              onClick={handleSendMessage}
+              disabled={!messageContent.trim()}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Send
+            </Button>
+          </div>
+        </div>
+      </div>
     );
-    if (hasMatchingParticipant) return true;
-    
-    // Search in last message
-    if (conv.last_message?.content?.toLowerCase().includes(searchLower)) return true;
-    
-    return false;
-  });
+  };
 
   if (!isAuthenticated) {
     return <LoginWall 
@@ -99,6 +206,10 @@ const Messages = () => {
             <TabsList>
               <TabsTrigger value="inbox">Inbox</TabsTrigger>
               <TabsTrigger value="sent">Sent</TabsTrigger>
+              <TabsTrigger value="archived">
+                <Archive className="h-4 w-4 mr-2" />
+                Archived
+              </TabsTrigger>
             </TabsList>
             
             <TabsContent value="inbox" className="space-y-4">
@@ -121,56 +232,7 @@ const Messages = () => {
                   />
                 </div>
                 
-                {conversationId ? (
-                  <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
-                    <div className="flex-1 overflow-y-auto">
-                      <MessageThread messages={messages || []} loading={loadingMessages} />
-                    </div>
-                    
-                    <MessageSuggestions
-                      onSelectMessage={handleSuggestedMessage}
-                      conversationId={conversationId}
-                      messages={messages}
-                    />
-                    
-                    <div className="p-4 border-t">
-                      <div className="flex space-x-2">
-                        <Input
-                          value={messageContent}
-                          onChange={(e) => setMessageContent(e.target.value)}
-                          placeholder="Type your message..."
-                          className="flex-1"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                        />
-                        
-                        <Button
-                          onClick={handleSendMessage}
-                          disabled={!messageContent.trim()}
-                          className="bg-amber-600 hover:bg-amber-700"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Send
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
-                    <div className="text-center p-6">
-                      <MessageSquare className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2 text-gray-800">No conversation selected</h3>
-                      <p className="text-gray-600 mb-4">
-                        Select a conversation from the list or start a new one
-                      </p>
-                      <NewConversationButton />
-                    </div>
-                  </div>
-                )}
+                {renderMessageArea()}
               </div>
             </TabsContent>
             
@@ -185,22 +247,42 @@ const Messages = () => {
                 <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
               </div>
               
-              <div className="border rounded-md divide-y">
-                {activeTab === 'sent' && conversations?.filter(c => 
-                  c.last_message?.sender_id === user?.id
-                )?.length === 0 ? (
-                  <div className="p-6 text-center text-muted-foreground">
-                    No sent messages yet.
-                  </div>
-                ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1 h-full">
                   <ConversationList 
-                    conversations={conversations?.filter(c => 
-                      c.last_message?.sender_id === user?.id
-                    ) || []} 
+                    conversations={filteredSentConversations || []}
                     loading={loadingConversations}
                     error={conversationsError} 
                   />
-                )}
+                </div>
+                
+                {renderMessageArea()}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="archived" className="space-y-4">
+              <div className="relative">
+                <Input 
+                  placeholder="Search archived messages..." 
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="md:col-span-1 h-full">
+                  <ConversationList 
+                    conversations={filteredArchivedConversations || []} 
+                    loading={loadingArchived}
+                    error={archivedError}
+                    isArchived={true}
+                    onRestore={handleRestoreConversation}
+                  />
+                </div>
+                
+                {renderMessageArea()}
               </div>
             </TabsContent>
           </Tabs>
