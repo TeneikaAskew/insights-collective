@@ -37,6 +37,10 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     return '';
   };
 
+  // const getAvatarUrl = (participant: any) => {
+  //   return participant?.profile?.avatar_url || '';
+  // };
+
   // Helper function to get initials consistently
   const getInitials = (participant: any) => {
     if (!participant?.profile?.first_name) return 'U';
