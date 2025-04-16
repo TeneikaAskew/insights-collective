@@ -311,97 +311,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     fetchQuizzes();
   }, [activeModuleId, toast]);
   
-  const handleAddContent = async (content: any) => {
-    if (!activeModuleId) return null;
-    
-    try {
-      const { data, error } = await supabase
-        .from('module_content')
-        .insert(content)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      setModuleContents([...moduleContents, data]);
-      
-      toast({
-        title: 'Success',
-        description: 'Content added successfully',
-      });
-      
-      return data;
-    } catch (error: any) {
-      console.error('Error adding content:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to add content',
-        variant: 'destructive',
-      });
-      throw error;
-    }
-  };
-  
-  const handleUpdateContent = async (contentId: string, updates: any) => {
-    try {
-      const { data, error } = await supabase
-        .from('module_content')
-        .update(updates)
-        .eq('id', contentId)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      setModuleContents(moduleContents.map(content => 
-        content.id === contentId ? data : content
-      ));
-      
-      toast({
-        title: 'Success',
-        description: 'Content updated successfully',
-      });
-      
-      return data;
-    } catch (error: any) {
-      console.error('Error updating content:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to update content',
-        variant: 'destructive',
-      });
-      return null;
-    }
-  };
-  
-  const handleDeleteContent = async (contentId: string) => {
-    try {
-      const { error } = await supabase
-        .from('module_content')
-        .delete()
-        .eq('id', contentId);
-      
-      if (error) throw error;
-      
-      setModuleContents(moduleContents.filter(content => content.id !== contentId));
-      
-      toast({
-        title: 'Success',
-        description: 'Content deleted successfully',
-      });
-      
-      return true;
-    } catch (error: any) {
-      console.error('Error deleting content:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete content',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  };
-  
   const handleAIContentGenerated = (content: string) => {
     setEditingModule(prev => ({
       ...prev,
@@ -1644,7 +1553,10 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <Label htmlFor="description">Description</Label>
-                <AIContentGenerator onContentGenerated={handleAIContentGenerated} />
+                <AIContentGenerator 
+                  onContentGenerated={handleAIContentGenerated} 
+                  contextType="module"
+                />
               </div>
               <Textarea
                 id="description"
