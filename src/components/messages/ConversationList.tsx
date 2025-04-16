@@ -18,6 +18,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
   const { conversationId } = useParams();
   const navigate = useNavigate();
 
+  console.log(otherParticipants[0])
   // Helper function to get avatar URL from various possible locations
   const getAvatarUrl = (participant: any) => {
     // Check all possible paths for avatar URLs
