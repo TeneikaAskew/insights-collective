@@ -84,7 +84,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       (p: any) => p && p.user_id !== current.created_by
     );
 
-    console.log("Other Participants original: ", otherParticipants)
+    console.log("[/m/ConversationList] Other Participants original: ", otherParticipants)
     
     // If no other participants, add it
     if (!otherParticipants.length) {
@@ -136,7 +136,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     return dateB.getTime() - dateA.getTime();
   });
 
-  console.log("ConversationList - sortedConversations:", sortedConversations);
+  console.log("/m/ConversationList] ConversationList - sortedConversations:", sortedConversations);
 
   return (
     <div className="space-y-2 h-full overflow-auto">
