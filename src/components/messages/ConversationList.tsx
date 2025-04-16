@@ -85,7 +85,14 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const unreadCount = conversation.last_message && 
                            !conversation.last_message.read && 
                            conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
-
+        // Add this before the return statement
+        console.log("All participants:", participants);
+        console.log("Other participants:", otherParticipants);
+        if (otherParticipants.length > 0) {
+          console.log("First other participant:", otherParticipants[0]);
+          console.log("Profile:", otherParticipants[0]?.profile);
+          console.log("Avatar URL:", otherParticipants[0]?.profile?.avatar_url);
+        }
         return (
           <Link
             key={conversation.id}
