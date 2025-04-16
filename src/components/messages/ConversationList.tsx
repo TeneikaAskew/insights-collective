@@ -105,7 +105,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                   {conversation.is_group ? (
                     <div className="relative">
                       <Avatar className="h-10 w-10">
-                        <AvatarImage src="" />
+                        {/* <AvatarImage src="" /> */}
+                        <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
                       </Avatar>
                       {otherParticipants.length > 0 && (
