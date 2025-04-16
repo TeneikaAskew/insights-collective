@@ -20,7 +20,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
 
   // Helper function to get initials consistently - simplified
   const getInitials = (participant: any) => {
-    if (!participant?.profile?.first_name) return 'U';
+    // if (!participant?.profile?.first_name) return 'U';
     return (
       participant.profile.first_name.charAt(0) + 
       (participant.profile.last_name?.charAt(0) || '')
