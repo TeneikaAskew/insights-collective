@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Message, Profile } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,12 +14,8 @@ export function useConversationMessages(conversationId?: string) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
-  const channelRef = useRef<any>(null);
-  const isMountedRef = useRef<boolean>(true);
 
   useEffect(() => {
-    isMountedRef.current = true;
-    
     if (!conversationId || !user) {
       setMessages([]);
       setLoading(false);
@@ -53,9 +49,6 @@ export function useConversationMessages(conversationId?: string) {
 
         if (error) throw error;
 
-        // Ensure component is still mounted before updating state
-        if (!isMountedRef.current) return;
-
         // Process messages to ensure proper typing and enrich profiles
         const messagesWithProfiles = (data || []).map(message => ({
           ...message,
@@ -74,30 +67,20 @@ export function useConversationMessages(conversationId?: string) {
 
       } catch (error) {
         console.error('Error fetching messages:', error);
-        if (isMountedRef.current) {
-          toast({
-            title: 'Error',
-            description: 'Could not load messages. Please try again later.',
-            variant: 'destructive',
-          });
-        }
+        toast({
+          title: 'Error',
+          description: 'Could not load messages. Please try again later.',
+          variant: 'destructive',
+        });
       } finally {
-        if (isMountedRef.current) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
     fetchMessages();
 
-    // Cleanup old subscription if exists
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
-
     // Set up real-time listener for new messages
-    channelRef.current = supabase
+    const channel = supabase
       .channel(`messages-${conversationId}`)
       .on('postgres_changes', 
         {
@@ -108,8 +91,6 @@ export function useConversationMessages(conversationId?: string) {
         }, 
         async (payload) => {
           console.log('Received new message:', payload);
-          
-          if (!isMountedRef.current) return;
           
           try {
             // Fetch the sender profile for the new message
@@ -127,9 +108,7 @@ export function useConversationMessages(conversationId?: string) {
               };
               
               // Update messages state
-              if (isMountedRef.current) {
-                setMessages(prevMessages => [...prevMessages, newMessage]);
-              }
+              setMessages(prevMessages => [...prevMessages, newMessage]);
             } else {
               // Fall back to adding the message without sender data
               const newMessage: Message = {
@@ -141,10 +120,7 @@ export function useConversationMessages(conversationId?: string) {
                   roles: ['student'],
                 } as Profile
               };
-              
-              if (isMountedRef.current) {
-                setMessages(prevMessages => [...prevMessages, newMessage]);
-              }
+              setMessages(prevMessages => [...prevMessages, newMessage]);
             }
             
             // Mark message as read if it's not from the current user
@@ -164,11 +140,7 @@ export function useConversationMessages(conversationId?: string) {
       });
 
     return () => {
-      isMountedRef.current = false;
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      supabase.removeChannel(channel);
     };
   }, [conversationId, user, toast]);
 

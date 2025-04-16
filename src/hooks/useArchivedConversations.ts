@@ -1,13 +1,12 @@
 
 import { useState } from 'react';
-import { Conversation } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { enrichProfileWithRoles } from '@/utils/profileUtils';
+import { Conversation } from '@/types/supabase';
 
 export function useArchivedConversations() {
-  const [archivedConversations, setArchivedConversations] = useState<Conversation[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<any>(null);
   const { user } = useAuth();
@@ -28,7 +27,7 @@ export function useArchivedConversations() {
       if (participantError) throw participantError;
 
       if (!participantData || participantData.length === 0) {
-        setArchivedConversations([]);
+        setConversations([]);
         setLoading(false);
         return;
       }
@@ -52,11 +51,9 @@ export function useArchivedConversations() {
             conversation_id,
             added_at,
             profile:profiles(
-              id,
               first_name,
               last_name,
-              avatar_url,
-              role
+              avatar_url
             )
           ),
           last_message:messages(
@@ -69,7 +66,6 @@ export function useArchivedConversations() {
         `)
         .in('id', conversationIds)
         .eq('archived', true)
-        .is('deleted_at', null)
         .order('updated_at', { ascending: false });
 
       if (conversationsError) throw conversationsError;
@@ -77,14 +73,10 @@ export function useArchivedConversations() {
       // Transform and type the conversations data properly
       const typedConversations = conversationsData.map((conv: any) => ({
         ...conv,
-        participants: conv.participants.map((p: any) => ({
-          ...p,
-          profile: p.profile ? enrichProfileWithRoles(p.profile) : undefined
-        })),
         last_message: conv.last_message[0] || null
       })) as Conversation[];
 
-      setArchivedConversations(typedConversations);
+      setConversations(typedConversations);
     } catch (error) {
       console.error('Error fetching archived conversations:', error);
       setError(error);
@@ -107,8 +99,7 @@ export function useArchivedConversations() {
 
       if (error) throw error;
 
-      // Update local state by removing the restored conversation
-      setArchivedConversations(prev => prev.filter(c => c.id !== conversationId));
+      setConversations(prev => prev.filter(c => c.id !== conversationId));
 
       return true;
     } catch (error) {
@@ -118,7 +109,7 @@ export function useArchivedConversations() {
   };
 
   return {
-    archivedConversations,
+    archivedConversations: conversations,
     loading,
     error,
     fetchArchivedConversations,
