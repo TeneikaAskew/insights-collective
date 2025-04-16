@@ -78,6 +78,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       acc.push(current);
       return acc;
     }
+
+    console.log("Conversation Participants: ", current.participants)
     
     // For one-on-one conversations, identify by participant
     const otherParticipants = (current.participants || []).filter(
