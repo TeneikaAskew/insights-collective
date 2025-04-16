@@ -267,7 +267,7 @@ export const fetchUserConversations = async (userId: string) => {
       .from('conversation_participants')
       .select('*')
       .in('conversation_id', conversationIds)
-      .neq('user_id', userId); // This ensures we only get OTHER participants, not the current user
+      // .neq('user_id', userId); // This ensures we only get OTHER participants, not the current user
     
     if (otherParticipantsError) {
       console.error('Error fetching other participants:', otherParticipantsError);
