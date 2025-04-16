@@ -205,7 +205,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
               >
                 <Avatar className="w-full h-full border border-white">
                   <AvatarImage 
-                    src={participant.profile?.avatar_url || ''} 
+                    src={participant.profile?.avatar_url || ''}
                     alt={`${participant.profile?.first_name || ''} ${participant.profile?.last_name || ''}`}
                   />
                   <AvatarFallback className="bg-amber-100 text-amber-800 text-xs">

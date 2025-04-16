@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Message, Profile } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,6 +14,7 @@ export function useConversationMessages(conversationId?: string) {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const channelRef = useRef<any>(null);
 
   useEffect(() => {
     if (!conversationId || !user) {
@@ -79,8 +80,14 @@ export function useConversationMessages(conversationId?: string) {
 
     fetchMessages();
 
+    // Cleanup old subscription if exists
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
     // Set up real-time listener for new messages
-    const channel = supabase
+    channelRef.current = supabase
       .channel(`messages-${conversationId}`)
       .on('postgres_changes', 
         {
@@ -140,7 +147,10 @@ export function useConversationMessages(conversationId?: string) {
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [conversationId, user, toast]);
 
