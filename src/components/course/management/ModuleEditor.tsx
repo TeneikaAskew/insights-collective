@@ -1,12 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { Editor } from '@tiptap/react';
-import { useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Tabs,
@@ -43,7 +39,6 @@ const ModuleEditor = ({ moduleId }: ModuleEditorProps) => {
     }
   }, [error, toast]);
 
-  // Fix the issue with the onValueChange prop
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold">Module Content</h2>
@@ -53,7 +48,7 @@ const ModuleEditor = ({ moduleId }: ModuleEditorProps) => {
       
       <Tabs 
         defaultValue="edit" 
-        onValueChange={(value: string) => setActiveTab(value)}
+        onValueChange={(value) => setActiveTab(value)}
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-2">

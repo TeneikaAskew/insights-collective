@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, Save } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import CourseDetailsForm from '@/components/course/management/CourseDetailsForm';
-import ModuleEditor from '@/components/course/management/ModuleEditor';
+import ModuleManager from '@/components/course/management/ModuleManager';
 import InstructorAssignment from '@/components/course/management/InstructorAssignment';
 
 const CourseManagementPage = () => {
@@ -153,7 +153,7 @@ const CourseManagementPage = () => {
           </TabsContent>
           
           <TabsContent value="modules" className="pt-6">
-            <ModuleEditor courseId={courseId} />
+            <ModuleManager courseId={courseId} />
           </TabsContent>
           
           <TabsContent value="instructors" className="pt-6">
