@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Conversation } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
@@ -12,6 +12,7 @@ export function useConversationList() {
   const [error, setError] = useState<any>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const channelRef = useRef<any>(null);
 
   const loadConversations = async () => {
     if (!user) {
@@ -48,52 +49,58 @@ export function useConversationList() {
   useEffect(() => {
     loadConversations();
 
-    const channel = supabase
-      .channel('conversation-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversations',
-        },
-        (payload) => {
-          console.log('[useConversationList] Conversation change detected:', payload);
-          loadConversations();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'conversation_participants',
-          filter: `user_id=eq.${user?.id}`,
-        },
-        (payload) => {
-          console.log('[useConversationList] Participant change detected:', payload);
-          loadConversations();
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-        },
-        (payload) => {
-          console.log('[useConversationList] New message detected:', payload);
-          loadConversations();
-        }
-      )
-      .subscribe();
+    // Avoid creating multiple subscriptions
+    if (!channelRef.current && user) {
+      channelRef.current = supabase
+        .channel('conversation-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'conversations',
+          },
+          (payload) => {
+            console.log('[useConversationList] Conversation change detected:', payload);
+            loadConversations();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'conversation_participants',
+            filter: `user_id=eq.${user?.id}`,
+          },
+          (payload) => {
+            console.log('[useConversationList] Participant change detected:', payload);
+            loadConversations();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+          },
+          (payload) => {
+            console.log('[useConversationList] New message detected:', payload);
+            loadConversations();
+          }
+        )
+        .subscribe();
+    }
 
     return () => {
-      console.log('[useConversationList] Cleaning up channel...');
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        console.log('[useConversationList] Cleaning up channel...');
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
-  }, [user, toast]);
+  }, [user, toast]); // Optimize dependencies
 
   return {
     conversations,
