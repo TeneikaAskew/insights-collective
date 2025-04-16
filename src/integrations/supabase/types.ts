@@ -195,30 +195,24 @@ export type Database = {
       }
       conversations: {
         Row: {
-          archived: boolean | null
           created_at: string | null
           created_by: string | null
-          deleted_at: string | null
           id: string
           is_group: boolean | null
           subject: string | null
           updated_at: string | null
         }
         Insert: {
-          archived?: boolean | null
           created_at?: string | null
           created_by?: string | null
-          deleted_at?: string | null
           id?: string
           is_group?: boolean | null
           subject?: string | null
           updated_at?: string | null
         }
         Update: {
-          archived?: boolean | null
           created_at?: string | null
           created_by?: string | null
-          deleted_at?: string | null
           id?: string
           is_group?: boolean | null
           subject?: string | null
@@ -539,13 +533,6 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
