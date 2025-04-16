@@ -42,6 +42,8 @@ export const fetchUserConversations = async (userId: string) => {
         created_by,
         updated_at,
         created_at,
+        archived,
+        deleted_at,
         participants:conversation_participants(
           id,
           user_id,
@@ -64,6 +66,7 @@ export const fetchUserConversations = async (userId: string) => {
         )
         `)
       .in('id', conversationIds)
+      .is('deleted_at', null)
       .order('updated_at', { ascending: false })
       .limit(20);
     
@@ -73,14 +76,16 @@ export const fetchUserConversations = async (userId: string) => {
     }
     
     // Transform the data to match our expected types
-    return conversationsData.map(conversation => ({
+    const typedConversations = conversationsData.map(conversation => ({
       ...conversation,
-      participants: conversation.participants.map(p => ({
+      participants: conversation.participants.map((p: any) => ({
         ...p,
         profile: p.profile ? enrichProfileWithRoles(p.profile) : undefined
       })),
       last_message: conversation.last_message[0] || null
     })) as Conversation[];
+    
+    return typedConversations;
   } catch (error) {
     console.error('Error in fetchUserConversations:', error);
     throw error;
@@ -196,7 +201,6 @@ export const sendConversationMessage = async (userId: string, conversationId: st
     console.error('Error sending message:', error);
     throw error;
   }
-  fetchUserConversations(userId);
 };
 
 /**
