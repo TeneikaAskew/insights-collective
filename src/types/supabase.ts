@@ -1,4 +1,3 @@
-
 export interface Profile {
   id: string;
   first_name: string | null;
@@ -16,10 +15,11 @@ export interface Conversation {
   created_by: string | null;
   created_at: string;
   updated_at: string;
-  archived?: boolean | null;
-  deleted_at?: string | null;
   participants?: ConversationParticipant[];
   last_message?: Message;
+  archived?: boolean;
+  deleted_at?: string | null;
+  current_user_id?: string;
 }
 
 export interface ConversationParticipant {

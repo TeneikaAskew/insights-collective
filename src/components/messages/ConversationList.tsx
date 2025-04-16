@@ -1,50 +1,50 @@
 
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
-import { AlertCircle, ArchiveRestore } from 'lucide-react';
+import { AlertCircle, Archive, Trash, Users } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { Badge } from '@/components/ui/badge';
 
 interface ConversationListProps {
   conversations: any[];
   loading: boolean;
   error?: any;
-  isArchived?: boolean;
-  onRestore?: (conversationId: string) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+  onArchive?: (id: string) => Promise<void>;
 }
 
 const ConversationList: React.FC<ConversationListProps> = ({ 
   conversations = [], 
   loading, 
-  error,
-  isArchived = false,
-  onRestore 
+  error, 
+  onDelete, 
+  onArchive 
 }) => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const { toast } = useToast();
+  const { user } = useAuth();
 
-  const handleRestore = async (e: React.MouseEvent, conversationId: string) => {
-    e.preventDefault();
+  const handleClick = (id: string) => {
+    navigate(`/messages/${id}`);
+  };
+
+  const handleArchive = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (onRestore) {
-      try {
-        await onRestore(conversationId);
-        toast({
-          description: "Conversation restored successfully",
-        });
-      } catch (error) {
-        toast({
-          variant: "destructive",
-          description: "Failed to restore conversation",
-        });
-      }
+    if (onArchive) {
+      await onArchive(id);
+    }
+  };
+
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (onDelete) {
+      await onDelete(id);
     }
   };
 
@@ -78,123 +78,118 @@ const ConversationList: React.FC<ConversationListProps> = ({
     );
   }
 
-  if (!conversations || conversations.length === 0) {
+  // Filter out deleted and archived conversations
+  const activeConversations = conversations.filter(c => !c.deleted_at && !c.archived);
+  
+  if (activeConversations.length === 0) {
     return (
-      <div className="text-center p-6 border rounded-md bg-amber-50 border-amber-200">
-        <p className="text-amber-800 mb-2 font-medium">
-          {isArchived ? 'No archived conversations' : 'No conversations yet'}
-        </p>
-        <p className="text-sm text-amber-700">
-          {isArchived 
-            ? 'Archived conversations will appear here' 
-            : 'Start a new conversation to connect with instructors and classmates.'
-          }
-        </p>
+      <div className="text-center p-6 text-muted-foreground">
+        No conversations found
       </div>
     );
   }
 
   return (
-    <div className="space-y-2 h-full overflow-auto">
-      {conversations.map((conversation) => {
-        if (!conversation) return null;
+    <div className="space-y-2">
+      {activeConversations.map((conv) => {
+        const isActive = conversationId === conv.id;
+        const lastMessage = conv.last_message;
+        const unreadCount = conv.messages?.filter((msg: any) => 
+          !msg.read && msg.sender_id !== (conv.current_user_id || user?.id)
+        ).length || 0;
         
-        const participants = conversation.participants || [];
-        const otherParticipants = participants.filter(
-          (p: any) => p && p.user_id !== conversation.created_by
-        );
+        let displayName, avatarUrl;
         
-        let timeAgo = '';
-        try {
-          if (conversation.last_message?.created_at) {
-            timeAgo = formatDistanceToNow(new Date(conversation.last_message.created_at), { addSuffix: true });
-          } else if (conversation.updated_at) {
-            timeAgo = formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true });
+        if (conv.is_group) {
+          const participantCount = conv.participants?.length || 0;
+          displayName = `Group (${participantCount} participants)`;
+          // Use the first participant's avatar for group
+          const otherParticipant = conv.participants?.find((p: any) => 
+            p.user_id !== (conv.current_user_id || user?.id)
+          );
+          avatarUrl = otherParticipant?.profile?.avatar_url;
+        } else {
+          const participant = conv.participants?.find((p: any) => 
+            p.user_id !== (conv.current_user_id || user?.id)
+          );
+          if (participant?.profile) {
+            const firstName = participant.profile.first_name;
+            const lastName = participant.profile.last_name;
+            displayName = `${firstName} ${lastName}`.trim();
+            avatarUrl = participant.profile.avatar_url;
           }
-        } catch (error) {
-          console.error('Error formatting date:', error);
-          timeAgo = 'Recently';
         }
 
-        const unreadCount = conversation.last_message && 
-                          !conversation.last_message.read && 
-                          conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
-
         return (
-          <Link
-            key={conversation.id}
-            to={`/messages/${conversation.id}`}
-            onClick={(e) => {
-              e.preventDefault();
-              navigate(`/messages/${conversation.id}`);
-            }}
+          <Card
+            key={conv.id}
+            className={`p-3 cursor-pointer transition relative ${
+              isActive ? 'bg-muted' : unreadCount > 0 ? 'bg-blue-50 hover:bg-blue-100/80' : 'hover:bg-muted/50'
+            }`}
+            onClick={() => handleClick(conv.id)}
           >
-            <Card
-              className={`p-4 hover:bg-amber-50/50 cursor-pointer transition-colors ${
-                conversationId === conversation.id ? 'bg-amber-50 border-amber-200' : ''
-              }`}
-            >
-              <div className="flex justify-between items-start gap-3">
-                <div className="flex gap-3">
-                  {conversation.is_group ? (
-                    <div className="relative">
-                      <Avatar className="h-10 w-10">
-                        <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
-                      </Avatar>
-                      {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
-                        <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                          <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
-                          <AvatarFallback className="bg-amber-200 text-amber-800">
-                            {otherParticipants[0]?.profile?.first_name?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
-                  ) : (
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
-                      <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants[0]?.profile?.first_name?.[0]}
+            <div className="flex justify-between items-center">
+              <div className="flex gap-3 items-start">
+                {conv.is_group ? (
+                  <div className="relative">
+                    <Avatar>
+                      <AvatarImage src={avatarUrl} />
+                      <AvatarFallback>
+                        <Users className="h-4 w-4" />
                       </AvatarFallback>
                     </Avatar>
-                  )}
-                  <div className="space-y-1">
-                    <p className="font-medium line-clamp-1 text-gray-800">
-                      {conversation.subject || 
-                        (conversation.is_group 
-                          ? `Group (${participants.length} participants)` 
-                          : otherParticipants[0]?.profile?.first_name
-                            ? `${otherParticipants[0]?.profile?.first_name} ${otherParticipants[0]?.profile?.last_name || ''}`
-                            : ''
-                        )
-                      }
-                    </p>
-                    <p className="text-sm text-gray-600 line-clamp-1">
-                      {conversation.last_message?.content || 'Start a conversation'}
-                    </p>
                   </div>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span className="text-xs text-gray-500">{timeAgo}</span>
-                  {unreadCount > 0 && (
-                    <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5">
-                      {unreadCount}
+                ) : (
+                  <Avatar>
+                    <AvatarImage src={avatarUrl} />
+                    <AvatarFallback>
+                      {displayName?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                )}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`font-medium line-clamp-1 ${unreadCount > 0 ? 'font-semibold' : ''}`}>
+                      {displayName}
                     </span>
-                  )}
-                  {isArchived && onRestore && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => handleRestore(e, conversation.id)}
-                      className="p-2 h-8 w-8"
-                    >
-                      <ArchiveRestore className="h-4 w-4" />
-                    </Button>
-                  )}
+                    {unreadCount > 0 && (
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                        {unreadCount} new
+                      </Badge>
+                    )}
+                  </div>
+                  <p className={`text-sm line-clamp-1 ${
+                    unreadCount > 0 ? 'text-foreground font-medium' : 'text-muted-foreground'
+                  }`}>
+                    {lastMessage?.content || 'No messages yet'}
+                  </p>
                 </div>
               </div>
-            </Card>
-          </Link>
+
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={(e) => handleArchive(e, conv.id)}
+                  aria-label="Archive conversation"
+                >
+                  <Archive className="h-4 w-4" />
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  onClick={(e) => handleDelete(e, conv.id)}
+                  aria-label="Delete conversation"
+                >
+                  <Trash className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-1">
+              {formatDistanceToNow(new Date(conv.updated_at), { addSuffix: true })}
+            </p>
+          </Card>
         );
       })}
     </div>
