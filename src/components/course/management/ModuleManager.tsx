@@ -133,7 +133,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [moduleContents, setModuleContents] = useState<any[]>([]);
   
-  // State for lessons
   const [lessons, setLessons] = useState<Record<string, Lesson[]>>({});
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [editingLesson, setEditingLesson] = useState<Partial<Lesson>>({
@@ -145,7 +144,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
   });
   const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
   
-  // State for assignments
   const [assignments, setAssignments] = useState<Record<string, Assignment[]>>({});
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [editingAssignment, setEditingAssignment] = useState<Partial<Assignment>>({
@@ -156,7 +154,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
   });
   const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
   
-  // State for quizzes
   const [quizzes, setQuizzes] = useState<Record<string, Quiz[]>>({});
   const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
   const [editingQuiz, setEditingQuiz] = useState<Partial<Quiz>>({
@@ -232,7 +229,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     
     fetchModuleContents();
     
-    // Fetch lessons for the active module
     const fetchLessons = async () => {
       try {
         const { data, error } = await supabase
@@ -254,7 +250,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     
     fetchLessons();
     
-    // Fetch assignments for the active module
     const fetchAssignments = async () => {
       try {
         const { data, error } = await supabase
@@ -263,7 +258,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
           .eq('module_id', activeModuleId);
         
         if (error) {
-          // If the table doesn't exist yet, we'll create it
           if (error.code === '42P01') {
             console.log('Assignments table does not exist yet');
             setAssignments(prev => ({
@@ -286,7 +280,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     
     fetchAssignments();
     
-    // Fetch quizzes for the active module
     const fetchQuizzes = async () => {
       try {
         const { data, error } = await supabase
@@ -295,7 +288,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
           .eq('module_id', activeModuleId);
         
         if (error) {
-          // If the table doesn't exist yet, we'll create it
           if (error.code === '42P01') {
             console.log('Quizzes table does not exist yet');
             setQuizzes(prev => ({
@@ -319,7 +311,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     fetchQuizzes();
   }, [activeModuleId, toast]);
   
-  // Module Content handling
   const handleAddContent = async (content: any) => {
     if (!activeModuleId) return null;
     
@@ -411,7 +402,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     }
   };
   
-  // Module management functions
   const handleAIContentGenerated = (content: string) => {
     setEditingModule(prev => ({
       ...prev,
@@ -557,7 +547,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     }
   };
   
-  // Lesson management functions
   const handleAddLesson = (moduleId: string) => {
     setSelectedLesson(null);
     const currentLessons = lessons[moduleId] || [];
@@ -689,7 +678,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     }
   };
   
-  // Assignment management functions
   const handleAddAssignment = (moduleId: string) => {
     setSelectedAssignment(null);
     setEditingAssignment({
@@ -816,7 +804,6 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     }
   };
   
-  // Quiz management functions
   const handleAddQuiz = (moduleId: string) => {
     setSelectedQuiz(null);
     setEditingQuiz({
@@ -884,7 +871,7 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     if (!editingQuestion.text) return;
     
     const newQuestion: QuizQuestion = {
-      id: Date.now().toString(), // Temporary ID until saved to database
+      id: Date.now().toString(),
       text: editingQuestion.text,
       options: editingQuestion.options || ['', '', '', ''],
       correctOption: editingQuestion.correctOption || 0,
@@ -1100,3 +1087,606 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Module</AlertDialogTitle>
                               <AlertDialogDescription>
+                                Are you sure you want to delete this module? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                variant="destructive"
+                                onClick={() => handleDeleteModule(module.id)}
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 p-2">
+                      <Tabs defaultValue="lessons" className="w-full">
+                        <TabsList className="grid grid-cols-3 mb-4">
+                          <TabsTrigger value="lessons">
+                            <BookOpen className="h-4 w-4 mr-2" />
+                            Lessons
+                          </TabsTrigger>
+                          <TabsTrigger value="assignments">
+                            <ClipboardCheck className="h-4 w-4 mr-2" />
+                            Assignments
+                          </TabsTrigger>
+                          <TabsTrigger value="quizzes">
+                            <HelpCircle className="h-4 w-4 mr-2" />
+                            Quizzes
+                          </TabsTrigger>
+                        </TabsList>
+                        
+                        <TabsContent value="lessons" className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-semibold">Lessons</h4>
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddLesson(module.id)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add Lesson
+                            </Button>
+                          </div>
+                          
+                          {(lessons[module.id]?.length ?? 0) > 0 ? (
+                            <div className="space-y-3">
+                              {(lessons[module.id] || []).map((lesson) => (
+                                <Card key={lesson.id} className="overflow-hidden">
+                                  <div className="flex justify-between items-center p-4">
+                                    <div>
+                                      <h5 className="font-medium">{lesson.title}</h5>
+                                      <p className="text-sm text-muted-foreground">{lesson.description || 'No description'}</p>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleEditLesson(lesson)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-destructive"
+                                        onClick={() => handleDeleteLesson(lesson.id, module.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Card>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 bg-muted/20 rounded-md">
+                              <p className="text-sm text-muted-foreground">No lessons created yet</p>
+                            </div>
+                          )}
+                        </TabsContent>
+                        
+                        <TabsContent value="assignments" className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-semibold">Assignments</h4>
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddAssignment(module.id)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add Assignment
+                            </Button>
+                          </div>
+                          
+                          {(assignments[module.id]?.length ?? 0) > 0 ? (
+                            <div className="space-y-3">
+                              {(assignments[module.id] || []).map((assignment) => (
+                                <Card key={assignment.id} className="overflow-hidden">
+                                  <div className="flex justify-between items-center p-4">
+                                    <div>
+                                      <h5 className="font-medium">{assignment.title}</h5>
+                                      <p className="text-sm text-muted-foreground">{assignment.description || 'No description'}</p>
+                                      <div className="flex space-x-4 mt-2">
+                                        <span className="text-xs text-muted-foreground">Due: {assignment.due_date || 'Not set'}</span>
+                                        <span className="text-xs text-muted-foreground">Points: {assignment.points}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleEditAssignment(assignment)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-destructive"
+                                        onClick={() => handleDeleteAssignment(assignment.id, module.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Card>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 bg-muted/20 rounded-md">
+                              <p className="text-sm text-muted-foreground">No assignments created yet</p>
+                            </div>
+                          )}
+                        </TabsContent>
+                        
+                        <TabsContent value="quizzes" className="space-y-4">
+                          <div className="flex justify-between items-center">
+                            <h4 className="text-sm font-semibold">Quizzes</h4>
+                            <Button
+                              size="sm"
+                              onClick={() => handleAddQuiz(module.id)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Add Quiz
+                            </Button>
+                          </div>
+                          
+                          {(quizzes[module.id]?.length ?? 0) > 0 ? (
+                            <div className="space-y-3">
+                              {(quizzes[module.id] || []).map((quiz) => (
+                                <Card key={quiz.id} className="overflow-hidden">
+                                  <div className="flex justify-between items-center p-4">
+                                    <div>
+                                      <h5 className="font-medium">{quiz.title}</h5>
+                                      <p className="text-sm text-muted-foreground">{quiz.description || 'No description'}</p>
+                                      <div className="flex space-x-4 mt-2">
+                                        <span className="text-xs text-muted-foreground">Questions: {quiz.questions?.length || 0}</span>
+                                        <span className="text-xs text-muted-foreground">Time: {quiz.time_limit || 0} min</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleEditQuiz(quiz)}
+                                      >
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-destructive"
+                                        onClick={() => handleDeleteQuiz(quiz.id, module.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </Card>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="text-center py-6 bg-muted/20 rounded-md">
+                              <p className="text-sm text-muted-foreground">No quizzes created yet</p>
+                            </div>
+                          )}
+                        </TabsContent>
+                      </Tabs>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
+        </CardContent>
+      </Card>
+      
+      <Dialog open={isLessonModalOpen} onOpenChange={setIsLessonModalOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{selectedLesson ? 'Edit Lesson' : 'Add New Lesson'}</DialogTitle>
+            <DialogDescription>
+              {selectedLesson ? 'Update the lesson information.' : 'Create a new lesson for this module.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="lesson-title">Title</Label>
+              <Input
+                id="lesson-title"
+                name="title"
+                value={editingLesson.title || ''}
+                onChange={handleLessonChange}
+                placeholder="Enter lesson title"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="lesson-description">Description</Label>
+              <Textarea
+                id="lesson-description"
+                name="description"
+                value={editingLesson.description || ''}
+                onChange={handleLessonChange}
+                placeholder="Enter lesson description"
+                rows={3}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="lesson-content">Content</Label>
+              <Textarea
+                id="lesson-content"
+                name="content"
+                value={editingLesson.content || ''}
+                onChange={handleLessonChange}
+                placeholder="Enter lesson content"
+                rows={6}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="lesson-duration">Duration (e.g., "30 min")</Label>
+                <Input
+                  id="lesson-duration"
+                  name="duration"
+                  value={editingLesson.duration || ''}
+                  onChange={handleLessonChange}
+                  placeholder="e.g., 30 min"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="lesson-order">Order</Label>
+                <Input
+                  id="lesson-order"
+                  name="order_num"
+                  type="number"
+                  min="1"
+                  value={editingLesson.order_num || 1}
+                  onChange={handleLessonChange}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsLessonModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveLesson}>
+              {selectedLesson ? 'Update Lesson' : 'Create Lesson'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isAssignmentModalOpen} onOpenChange={setIsAssignmentModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedAssignment ? 'Edit Assignment' : 'Add New Assignment'}</DialogTitle>
+            <DialogDescription>
+              {selectedAssignment ? 'Update the assignment information.' : 'Create a new assignment for this module.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="assignment-title">Title</Label>
+              <Input
+                id="assignment-title"
+                name="title"
+                value={editingAssignment.title || ''}
+                onChange={handleAssignmentChange}
+                placeholder="Enter assignment title"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="assignment-description">Description</Label>
+              <Textarea
+                id="assignment-description"
+                name="description"
+                value={editingAssignment.description || ''}
+                onChange={handleAssignmentChange}
+                placeholder="Enter assignment description"
+                rows={4}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="assignment-due-date">Due Date</Label>
+                <Input
+                  id="assignment-due-date"
+                  name="due_date"
+                  type="date"
+                  value={editingAssignment.due_date || ''}
+                  onChange={handleAssignmentChange}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="assignment-points">Points</Label>
+                <Input
+                  id="assignment-points"
+                  name="points"
+                  type="number"
+                  min="0"
+                  value={editingAssignment.points || 0}
+                  onChange={handleAssignmentChange}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAssignmentModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveAssignment}>
+              {selectedAssignment ? 'Update Assignment' : 'Create Assignment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isQuizModalOpen} onOpenChange={setIsQuizModalOpen}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{selectedQuiz ? 'Edit Quiz' : 'Add New Quiz'}</DialogTitle>
+            <DialogDescription>
+              {selectedQuiz ? 'Update the quiz information and questions.' : 'Create a new quiz for this module.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="quiz-title">Title</Label>
+              <Input
+                id="quiz-title"
+                name="title"
+                value={editingQuiz.title || ''}
+                onChange={handleQuizChange}
+                placeholder="Enter quiz title"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="quiz-description">Description</Label>
+              <Textarea
+                id="quiz-description"
+                name="description"
+                value={editingQuiz.description || ''}
+                onChange={handleQuizChange}
+                placeholder="Enter quiz description"
+                rows={3}
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="quiz-time-limit">Time Limit (minutes)</Label>
+                <Input
+                  id="quiz-time-limit"
+                  name="time_limit"
+                  type="number"
+                  min="1"
+                  value={editingQuiz.time_limit || 30}
+                  onChange={handleQuizChange}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="quiz-passing-score">Passing Score (%)</Label>
+                <Input
+                  id="quiz-passing-score"
+                  name="passing_score"
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={editingQuiz.passing_score || 70}
+                  onChange={handleQuizChange}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="quiz-due-date">Due Date (optional)</Label>
+                <Input
+                  id="quiz-due-date"
+                  name="due_date"
+                  type="date"
+                  value={editingQuiz.due_date || ''}
+                  onChange={handleQuizChange}
+                />
+              </div>
+            </div>
+            
+            <div className="border-t pt-4">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="font-medium">Quiz Questions</h4>
+                <Badge variant="outline" className="ml-2">
+                  {editingQuiz.questions?.length || 0} Questions
+                </Badge>
+              </div>
+              
+              {(editingQuiz.questions?.length ?? 0) > 0 && (
+                <div className="space-y-4 mb-4">
+                  {editingQuiz.questions?.map((question, index) => (
+                    <Card key={question.id} className="p-4">
+                      <div className="flex justify-between mb-2">
+                        <h5 className="font-medium">Question {index + 1}</h5>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive"
+                          onClick={() => handleRemoveQuestion(question.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="mb-2">{question.text}</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {question.options.map((option, optIndex) => (
+                          <div 
+                            key={optIndex} 
+                            className={`p-2 border rounded-md ${
+                              optIndex === question.correctOption ? 'bg-green-50 border-green-300' : ''
+                            }`}
+                          >
+                            {optIndex === question.correctOption && (
+                              <Badge className="mb-1 bg-green-500">Correct</Badge>
+                            )}
+                            <p className="text-sm">{option}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              
+              <Card className="p-4">
+                <h5 className="font-medium mb-3">Add New Question</h5>
+                <div className="space-y-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="question-text">Question Text</Label>
+                    <Textarea
+                      id="question-text"
+                      name="text"
+                      value={editingQuestion.text || ''}
+                      onChange={handleQuestionChange}
+                      placeholder="Enter question text"
+                      rows={2}
+                    />
+                  </div>
+                  
+                  <div className="grid gap-2">
+                    <Label>Answer Options</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {editingQuestion.options?.map((option, index) => (
+                        <div key={index} className="flex space-x-2">
+                          <Input
+                            value={option}
+                            onChange={(e) => handleOptionChange(index, e.target.value)}
+                            placeholder={`Option ${index + 1}`}
+                            className={index === editingQuestion.correctOption ? 'border-green-500' : ''}
+                          />
+                          <Button
+                            type="button"
+                            variant={index === editingQuestion.correctOption ? 'default' : 'outline'}
+                            className="shrink-0 w-24"
+                            onClick={() => handleCorrectOptionChange(index)}
+                          >
+                            {index === editingQuestion.correctOption ? 'Correct' : 'Make Correct'}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="question-points">Points</Label>
+                      <Input
+                        id="question-points"
+                        name="points"
+                        type="number"
+                        min="1"
+                        value={editingQuestion.points || 10}
+                        onChange={handleQuestionChange}
+                      />
+                    </div>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    className="w-full mt-2"
+                    onClick={handleAddQuestion}
+                    disabled={!editingQuestion.text || editingQuestion.options?.some(o => !o)}
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Question
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsQuizModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveQuiz}
+              disabled={!editingQuiz.title || (editingQuiz.questions?.length || 0) < 1}
+            >
+              {selectedQuiz ? 'Update Quiz' : 'Create Quiz'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedModule ? 'Edit Module' : 'Add New Module'}</DialogTitle>
+            <DialogDescription>
+              {selectedModule
+                ? 'Update the module information.'
+                : 'Create a new module for your course.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Title</Label>
+              <Input
+                id="title"
+                name="title"
+                value={editingModule.title || ''}
+                onChange={handleChange}
+                placeholder="Enter module title"
+              />
+              {errors.title && (
+                <p className="text-destructive text-sm">{errors.title}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="description">Description</Label>
+                <AIContentGenerator onGenerate={handleAIContentGenerated} />
+              </div>
+              <Textarea
+                id="description"
+                name="description"
+                value={editingModule.description || ''}
+                onChange={handleChange}
+                placeholder="Enter module description"
+                rows={5}
+              />
+              {errors.description && (
+                <p className="text-destructive text-sm">{errors.description}</p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="week">Week Number</Label>
+              <Input
+                id="week"
+                name="week"
+                type="number"
+                min="1"
+                value={editingModule.week || 1}
+                onChange={handleChange}
+              />
+              {errors.week && (
+                <p className="text-destructive text-sm">{errors.week}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveModule}>
+              {selectedModule ? 'Update Module' : 'Create Module'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default ModuleManager;
