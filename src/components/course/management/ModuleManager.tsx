@@ -15,7 +15,8 @@ import {
   FilePlus, 
   ChevronRight, 
   ChevronDown,
-  MoveVertical 
+  MoveVertical,
+  Wand2 
 } from 'lucide-react';
 import {
   Accordion,
@@ -45,6 +46,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Progress } from '@/components/ui/progress';
 import ModuleContentEditor from './ModuleContentEditor';
+import AIContentGenerator from '@/components/ai/AIContentGenerator';
 
 interface ModuleManagerProps {
   courseId: string;
@@ -227,6 +229,13 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     }
   };
   
+  const handleAIContentGenerated = (content: string) => {
+    setEditingModule(prev => ({
+      ...prev,
+      description: content
+    }));
+  };
+  
   const handleAddModule = () => {
     setSelectedModule(null);
     setEditingModule({
@@ -395,177 +404,162 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     .sort((a, b) => a - b);
   
   return (
-    <>
+    <div className="space-y-4">
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <div className="space-y-1">
             <CardTitle>Course Modules</CardTitle>
             <CardDescription>
-              Organize your course into weekly modules.
+              Manage the modules and content for this course
             </CardDescription>
           </div>
-          {canEdit && (
-            <Button onClick={handleAddModule} className="bg-primary hover:bg-primary/90">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Module
-            </Button>
-          )}
+          <Button onClick={handleAddModule}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Module
+          </Button>
         </CardHeader>
         <CardContent>
-          {modules.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">
-              <p className="mb-4">No modules have been created yet.</p>
-              {canEdit && (
-                <Button onClick={handleAddModule}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Create Your First Module
-                </Button>
-              )}
+          {loading ? (
+            <div className="py-8 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary mx-auto"></div>
+              <p className="mt-2 text-sm text-muted-foreground">Loading modules...</p>
+            </div>
+          ) : modules.length === 0 ? (
+            <div className="py-8 text-center border rounded-md">
+              <p className="text-muted-foreground">No modules yet. Create your first module to get started.</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {sortedWeeks.map(week => (
-                <div key={week} className="border rounded-md overflow-hidden">
-                  <div className="bg-muted px-4 py-2 font-medium">
-                    Week {week}
-                  </div>
-                  <div className="p-2">
-                    <Accordion type="single" collapsible className="w-full">
-                      {modulesByWeek[week].map(module => (
-                        <AccordionItem key={module.id} value={module.id}>
-                          <AccordionTrigger className="px-4 hover:no-underline">
-                            <div className="flex items-center justify-between w-full pr-4">
-                              <span className="font-medium">{module.title}</span>
-                              {canEdit && activeModuleId !== module.id && (
-                                <div 
-                                  className="flex items-center space-x-2"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm"
-                                    onClick={() => handleEditModule(module)}
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                    <span className="sr-only">Edit</span>
-                                  </Button>
-                                  
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="sm"
-                                        className="text-destructive"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                        <span className="sr-only">Delete</span>
-                                      </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                      <AlertDialogHeader>
-                                        <AlertDialogTitle>Delete Module</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                          Are you sure you want to delete this module and all its content?
-                                          This action cannot be undone.
-                                        </AlertDialogDescription>
-                                      </AlertDialogHeader>
-                                      <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                        <AlertDialogAction
-                                          onClick={() => handleDeleteModule(module.id)}
-                                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        >
-                                          Delete
-                                        </AlertDialogAction>
-                                      </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
-                                </div>
-                              )}
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="px-4 pb-4">
-                            <div className="space-y-4">
-                              <p className="text-muted-foreground">
-                                {module.description}
-                              </p>
-                              <div className="border-t pt-4">
-                                <ModuleContentEditor 
-                                  moduleId={module.id}
-                                  contents={moduleContents}
-                                  onAddContent={handleAddContent}
-                                  onUpdateContent={handleUpdateContent}
-                                  onDeleteContent={handleDeleteContent}
-                                  onActivate={() => setActiveModuleId(module.id)}
-                                  onDeactivate={() => setActiveModuleId(null)}
-                                  isActive={activeModuleId === module.id}
-                                />
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </div>
-                </div>
+            <Accordion
+              type="single"
+              collapsible
+              className="w-full"
+              value={activeModuleId || undefined}
+              onValueChange={setActiveModuleId}
+            >
+              {modules.map((module) => (
+                <AccordionItem value={module.id} key={module.id}>
+                  <AccordionTrigger className="hover:bg-muted px-4 rounded-md">
+                    <div className="flex items-center justify-between w-full pr-4">
+                      <div className="flex items-center">
+                        <span className="text-muted-foreground mr-2">Week {module.week}:</span>
+                        <span>{module.title}</span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditModule(module);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Module</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete this module? This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction 
+                                onClick={() => handleDeleteModule(module.id)}
+                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-4 pb-4">
+                    <div className="space-y-4">
+                      <div className="pt-2">
+                        <h4 className="text-sm font-semibold">Description</h4>
+                        <p className="text-sm text-muted-foreground">{module.description}</p>
+                      </div>
+                      
+                      {activeModuleId === module.id && (
+                        <ModuleContentEditor 
+                          moduleId={module.id} 
+                          contents={moduleContents}
+                          onAddContent={handleAddContent}
+                          onUpdateContent={handleUpdateContent}
+                          onDeleteContent={handleDeleteContent}
+                        />
+                      )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
+            </Accordion>
           )}
         </CardContent>
       </Card>
       
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>
-              {selectedModule ? 'Edit Module' : 'Create Module'}
+              {selectedModule ? 'Edit Module' : 'Add Module'}
             </DialogTitle>
             <DialogDescription>
               {selectedModule 
-                ? 'Update the details of this module.' 
-                : 'Add a new module to your course.'}
+                ? 'Update the module details.' 
+                : 'Create a new module for this course.'}
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="title" className={errors.title ? 'text-destructive' : ''}>
-                Module Title
-              </Label>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="title">Module Title</Label>
               <Input
                 id="title"
                 name="title"
                 value={editingModule.title || ''}
                 onChange={handleChange}
-                placeholder="e.g., Introduction to the Course"
-                className={errors.title ? 'border-destructive' : ''}
+                placeholder="Introduction to the Course"
               />
               {errors.title && (
                 <p className="text-sm text-destructive">{errors.title}</p>
               )}
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="description" className={errors.description ? 'text-destructive' : ''}>
-                Description
-              </Label>
+            <div className="grid gap-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="description">Module Description</Label>
+                <AIContentGenerator 
+                  onContentGenerated={handleAIContentGenerated}
+                  contextType="module"
+                />
+              </div>
               <Textarea
                 id="description"
                 name="description"
                 value={editingModule.description || ''}
                 onChange={handleChange}
-                placeholder="Provide a description of this module..."
-                className={`min-h-[100px] ${errors.description ? 'border-destructive' : ''}`}
+                placeholder="Describe what students will learn in this module..."
+                rows={4}
               />
               {errors.description && (
                 <p className="text-sm text-destructive">{errors.description}</p>
               )}
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="week" className={errors.week ? 'text-destructive' : ''}>
-                Week Number
-              </Label>
+            <div className="grid gap-2">
+              <Label htmlFor="week">Week Number</Label>
               <Input
                 id="week"
                 name="week"
@@ -573,25 +567,23 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
                 min="1"
                 value={editingModule.week || 1}
                 onChange={handleChange}
-                className={errors.week ? 'border-destructive' : ''}
               />
               {errors.week && (
                 <p className="text-sm text-destructive">{errors.week}</p>
               )}
             </div>
           </div>
-          
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsModalOpen(false)}>
               Cancel
             </Button>
             <Button onClick={handleSaveModule}>
-              {selectedModule ? 'Update Module' : 'Create Module'}
+              {selectedModule ? 'Update Module' : 'Add Module'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 };
 

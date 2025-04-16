@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Pencil, Book, FileText, Settings } from 'lucide-react';
+import { Pencil, FileText, Users } from 'lucide-react';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 
 interface CourseInstructorAccessProps {
@@ -43,6 +43,18 @@ const CourseInstructorAccess = ({ courseId }: CourseInstructorAccessProps) => {
         <FileText className="h-4 w-4 mr-2" />
         Manage Materials
       </Button>
+
+      {isAdmin && (
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => navigate(`/admin/courses/${courseId}/instructors`)}
+          className="flex items-center"
+        >
+          <Users className="h-4 w-4 mr-2" />
+          Manage Instructors
+        </Button>
+      )}
     </div>
   );
 };

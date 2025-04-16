@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -53,6 +52,9 @@ import AdminGuard from "./components/admin/AdminGuard";
 import CourseManagementDashboard from '@/components/course/management/CourseManagementDashboard';
 import CourseEditor from '@/components/course/management/CourseEditor';
 import CourseManageMaterials from './pages/CourseManageMaterials';
+
+// Import the new AdminCourseEdit component
+import AdminCourseEdit from "./pages/AdminCourseEdit";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -110,16 +112,8 @@ function App() {
                         <CourseManagementDashboard />
                       </AdminGuard>
                     } />
-                    <Route path="/admin/courses/:courseId/edit" element={
-                      <AdminGuard>
-                        <CourseEditor />
-                      </AdminGuard>
-                    } />
-                    <Route path="/admin/courses/new" element={
-                      <AdminGuard>
-                        <CourseEditor />
-                      </AdminGuard>
-                    } />
+                    <Route path="/admin/courses/:courseId/edit" element={<AdminCourseEdit />} />
+                    <Route path="/admin/courses/new" element={<AdminCourseEdit />} />
                     <Route path="/admin/users" element={<AdminGuard><AdminUsers /></AdminGuard>} />
                     <Route path="/admin/enrollments" element={<AdminGuard><AdminEnrollments /></AdminGuard>} />
                     <Route path="/admin/certificates" element={<AdminGuard><AdminCertificates /></AdminGuard>} />
