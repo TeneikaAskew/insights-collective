@@ -116,7 +116,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                         <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
                           <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
                           <AvatarFallback className="bg-amber-200 text-amber-800">
-                            {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
+                            {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'Gr'}
                           </AvatarFallback>
                         </Avatar>
                       )}
@@ -125,7 +125,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                     <Avatar className="h-10 w-10">
                       <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || ''}
+                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'In'}
                       </AvatarFallback>
                     </Avatar>
                   )}
