@@ -1,4 +1,3 @@
-
 import { Profile } from "@/types/supabase";
 
 export const enrichProfileWithRoles = (profile: any): Profile => {
@@ -14,6 +13,8 @@ export const enrichProfileWithRoles = (profile: any): Profile => {
   
   return {
     ...profile,
-    roles
+    roles,
+    // Explicitly preserve the avatar_url to ensure it's not lost during transformation
+    avatar_url: profile.avatar_url || null
   };
 };
