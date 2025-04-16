@@ -1,3 +1,4 @@
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -15,8 +16,8 @@ import CourseInstructors from '@/pages/CourseInstructors';
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
+    <Router>
+      <AuthProvider>
         <Routes>
           {/* Admin routes */}
           <Route path="/admin/courses" element={<AdminCourses />} />
@@ -33,8 +34,8 @@ function App() {
           <Route path="*" element={<Navigate to="/admin/courses" replace />} />
         </Routes>
         <Toaster />
-      </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </Router>
   );
 }
 

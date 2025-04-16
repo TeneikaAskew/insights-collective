@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -99,7 +98,6 @@ export default function AdminCourses() {
     setPublishedFilter('all');
   };
 
-  // Extract unique categories for filter dropdown
   const uniqueCategories = Array.from(new Set(courses.map(course => course.category)));
 
   return (
@@ -219,7 +217,7 @@ export default function AdminCourses() {
                           <TableCell>{course.level}</TableCell>
                           <TableCell>
                             {course.instructor ? (
-                              `${course.instructor.first_name} ${course.instructor.last_name}`
+                              `${course.instructor.first_name || ''} ${course.instructor.last_name || ''}`
                             ) : (
                               <span className="text-muted-foreground italic">Unassigned</span>
                             )}
