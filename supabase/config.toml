@@ -1,5 +1,5 @@
 
-project_id = "your-project-id"
+project_id = "siuqvhscuiycvdrtiqsh"
 
 [api]
 enabled = true
@@ -8,24 +8,22 @@ schemas = ["public", "storage", "graphql_public"]
 
 [db]
 port = 54322
-shadow_port = 54320
-major_version = 15
 
 [realtime]
 enabled = true
 
 [storage]
 enabled = true
-file_size_limit = "50MiB"
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
 
-[studio]
-enabled = true
-port = 54323
-api_url = "http://localhost:54321"
+[functions]
+[functions.admin-users]
+verify_jwt = true
+
+[functions.generate-message]
+verify_jwt = true
 
 [functions.assistant-ai]
 verify_jwt = true

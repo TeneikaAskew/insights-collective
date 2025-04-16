@@ -1,163 +1,210 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.20.0'
 
+// CORS headers for browser requests
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Credentials': 'true',
-  'Access-Control-Max-Age': '86400'
-};
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests properly
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
-      status: 200,
-      headers: corsHeaders
-    });
+      status: 204,
+      headers: corsHeaders,
+    })
   }
 
   try {
-    // Get the authorization header from the request
-    const authHeader = req.headers.get('Authorization');
+    // Create a Supabase client with the Auth context of the logged-in user
+    const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
-      throw new Error('Missing Authorization header');
+      return new Response(JSON.stringify({ error: 'Not authorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    // Create a Supabase client with the auth header
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
-    // Parse the request body
-    const { action, userId, data } = await req.json();
+    // Create admin client with service role key
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Verify that the requesting user is an admin before proceeding
-    const adminClient = createClient(
-      supabaseUrl,
-      supabaseServiceKey,
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    
-    const { data: sessionData, error: sessionError } = await adminClient.auth.getSession();
-    
-    if (sessionError || !sessionData.session) {
-      throw new Error('Invalid session');
+    // Create client with user's token
+    const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: authHeader,
+        },
+      },
+    })
+
+    // Verify user has admin access
+    const {
+      data: { user },
+    } = await supabaseClient.auth.getUser()
+
+    if (!user) {
+      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
-    
-    const { data: userData, error: userError } = await adminClient
+
+    // Check if user is an admin
+    const { data: profileData, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('roles')
-      .eq('id', sessionData.session.user.id)
-      .single();
-    
-    if (userError || !userData || !userData.roles?.includes('admin')) {
-      throw new Error('Unauthorized - Admin access required');
+      .select('role')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || profileData?.role !== 'admin') {
+      console.error('User not admin or profile error:', profileError)
+      return new Response(JSON.stringify({ error: 'Insufficient permissions' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
-    // Handle different actions
-    let result = null;
-    
-    if (action === 'listUsers') {
-      // Get users with admin privilege
-      const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers();
-      
-      if (authError) throw authError;
-      
-      // Get profiles for additional data
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
-      
-      if (profilesError) throw profilesError;
-      
-      // Merge the data
-      const users = authUsers.users.map(user => {
-        const profile = profiles.find(p => p.id === user.id) || {};
-        return {
-          id: user.id,
-          email: user.email,
-          phone: user.phone,
-          created_at: user.created_at,
-          last_sign_in_at: user.last_sign_in_at,
-          providers: user.app_metadata?.providers || [],
-          first_name: profile.first_name || user.user_metadata?.first_name || '',
-          last_name: profile.last_name || user.user_metadata?.last_name || '',
-          avatar_url: profile.avatar_url,
-          bio: profile.bio,
-          role: profile.role || 'student',
-          roles: profile.roles || [profile.role || 'student'],
-          user_metadata: user.user_metadata
-        };
-      });
-      
-      result = { users };
-    } 
-    else if (action === 'updateUserRole') {
-      if (!userId || !data?.roles) {
-        throw new Error('Missing user ID or roles data');
-      }
-      
-      // Update the user's roles in the profiles table
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ 
-          roles: data.roles,
-          role: data.roles.includes('admin') ? 'admin' : 
-                data.roles.includes('instructor') ? 'instructor' : 'student'
+    // Get the action from the request body
+    const { action, userId, data: actionData } = await req.json()
+
+    switch (action) {
+      case 'listUsers': {
+        // Get all users using the admin client
+        const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
+        
+        if (authError) {
+          console.error('Error fetching auth users:', authError)
+          throw authError
+        }
+
+        // Get profiles data to merge with auth data
+        const { data: profiles, error: profilesError } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError)
+          throw profilesError
+        }
+
+        // Merge auth users with profile data
+        const users = authUsers.users.map((authUser) => {
+          const profile = profiles.find((p) => p.id === authUser.id) || {}
+          return {
+            ...authUser,
+            ...profile,
+          }
         })
-        .eq('id', userId);
-      
-      if (updateError) throw updateError;
-      
-      result = { success: true, message: 'User roles updated' };
-    } 
-    else if (action === 'deleteUser') {
-      if (!userId) {
-        throw new Error('Missing user ID');
+
+        return new Response(JSON.stringify({ users }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
       }
-      
-      // Delete the user using Supabase admin API
-      const { error: deleteError } = await supabase.auth.admin.deleteUser(userId);
-      
-      if (deleteError) throw deleteError;
-      
-      result = { success: true, message: 'User deleted' };
-    } 
-    else if (action === 'resetPassword') {
-      if (!data?.email) {
-        throw new Error('Missing email');
+
+      case 'updateUserRole': {
+        if (!userId || !actionData?.roles) {
+          return new Response(JSON.stringify({ error: 'User ID and roles are required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Determine the highest role for the role field
+        const highestRole = getHighestRole(actionData.roles)
+
+        // Update the user's profile
+        const { data, error } = await supabaseAdmin
+          .from('profiles')
+          .update({ 
+            role: highestRole,
+            roles: actionData.roles 
+          })
+          .eq('id', userId)
+          .select()
+          .single()
+
+        if (error) {
+          console.error('Error updating user role:', error)
+          throw error
+        }
+
+        return new Response(JSON.stringify({ data }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
       }
-      
-      // Send password reset email
-      const { error: resetError } = await supabase.auth.admin.sendPasswordResetEmail(data.email);
-      
-      if (resetError) throw resetError;
-      
-      result = { success: true, message: 'Password reset email sent' };
-    } 
-    else {
-      throw new Error(`Unknown action: ${action}`);
+
+      case 'deleteUser': {
+        if (!userId) {
+          return new Response(JSON.stringify({ error: 'User ID is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Delete the user - this will cascade to the profile due to foreign key constraints
+        const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
+
+        if (error) {
+          console.error('Error deleting user:', error)
+          throw error
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      case 'resetPassword': {
+        if (!actionData?.email) {
+          return new Response(JSON.stringify({ error: 'Email is required' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+
+        // Send password reset email
+        const { error } = await supabaseAdmin.auth.admin.sendPasswordResetEmail(actionData.email)
+
+        if (error) {
+          console.error('Error sending password reset:', error)
+          throw error
+        }
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      default: {
+        return new Response(JSON.stringify({ error: 'Unknown action' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
     }
-    
-    return new Response(
-      JSON.stringify(result),
-      { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    );
-  } 
-  catch (error) {
-    console.error('Error:', error.message);
-    
-    return new Response(
-      JSON.stringify({
-        error: error.message || 'An error occurred',
-      }),
-      { 
-        status: 400, 
-        headers: { 'Content-Type': 'application/json', ...corsHeaders } 
-      }
-    );
+  } catch (error) {
+    console.error('Edge function error:', error)
+    return new Response(JSON.stringify({ error: error.message || 'An error occurred' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
-});
+})
+
+// Helper function to determine highest role
+function getHighestRole(roles: string[] = ['student']): string {
+  if (roles.includes('admin')) return 'admin'
+  if (roles.includes('instructor')) return 'instructor'
+  return 'student'
+}

@@ -105,7 +105,10 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                            !conversation.last_message.read && 
                            conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
 
-        console.log(otherParticipants[0]); // Moving console.log after otherParticipants is defined
+        // Only log after otherParticipants is defined
+        if (otherParticipants && otherParticipants.length > 0) {
+          console.log(otherParticipants[0]);
+        }
 
         return (
           <Link

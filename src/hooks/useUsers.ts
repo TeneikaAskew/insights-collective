@@ -17,18 +17,19 @@ export function useUsers(initialSearchQuery = '') {
   const fetchUsers = useCallback(async (query?: string) => {
     setLoading(true);
     try {
+      console.log('Fetching users with query:', query);
       let supabaseQuery = supabase
         .from('profiles')
         .select('*');
       
-      // Exclude current user from results
+      // Exclude current user from results if specified
       if (currentUser?.id) {
         supabaseQuery = supabaseQuery.neq('id', currentUser.id);
       }
       
       if (query && query.length > 0) {
         // Use ilike for case-insensitive search on first and last names
-        supabaseQuery = supabaseQuery.or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%`);
+        supabaseQuery = supabaseQuery.or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`);
       }
       
       const { data, error } = await supabaseQuery;
@@ -37,6 +38,8 @@ export function useUsers(initialSearchQuery = '') {
         console.error("Error fetching users:", error);
         throw error;
       }
+      
+      console.log('Fetched users:', data);
       
       // Ensure all profiles have the roles property
       const profilesWithRoles = data?.map(profile => ({

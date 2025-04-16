@@ -16,6 +16,7 @@ type CourseAssignment = {
     first_name: string | null;
     last_name: string | null;
     avatar_url: string | null;
+    email?: string | null;
   };
 };
 
@@ -54,11 +55,13 @@ export function useCourseAssignments(courseId?: string) {
           .from('course_assignments')
           .select(`
             *,
-            profile:profiles(id, first_name, last_name, avatar_url)
+            profile:profiles(id, first_name, last_name, avatar_url, email)
           `)
           .eq('course_id', courseId);
         
         if (error) throw error;
+        
+        console.log('Fetched course assignments:', data);
         setAssignments(data || []);
       } catch (error: any) {
         console.error('Error fetching course assignments:', error);
@@ -91,6 +94,24 @@ export function useCourseAssignments(courseId?: string) {
     }
     
     try {
+      // First check if this assignment already exists
+      const { data: existingAssignment, error: checkError } = await supabase
+        .from('course_assignments')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('course_id', courseId)
+        .maybeSingle();
+        
+      if (checkError) throw checkError;
+      
+      if (existingAssignment) {
+        toast({
+          title: 'Info',
+          description: 'This user is already assigned to the course',
+        });
+        return existingAssignment;
+      }
+      
       const { data, error } = await supabase
         .from('course_assignments')
         .insert({
@@ -106,7 +127,7 @@ export function useCourseAssignments(courseId?: string) {
       // Fetch the profile info for the newly added instructor
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url')
+        .select('id, first_name, last_name, avatar_url, email')
         .eq('id', userId)
         .single();
       
@@ -180,8 +201,12 @@ export function useCourseAssignments(courseId?: string) {
   // Check if current user is assigned to this course
   const isUserAssigned = user ? assignments.some(a => a.user_id === user.id) : false;
   
+  // Get all instructors for this course
+  const instructors = assignments.filter(a => a.role === 'instructor' || a.role === 'admin');
+  
   return {
     assignments,
+    instructors,
     loading,
     error,
     addInstructor,
