@@ -61,17 +61,6 @@ export interface UserWithProfile {
   };
 }
 
-export interface ModuleContent {
-  id: string;
-  module_id: string;
-  type: 'text' | 'video' | 'image' | 'file';
-  content: string;
-  position: number;
-  uploaded_by: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export type Database = {
   public: {
     Tables: {
@@ -132,38 +121,6 @@ export type Database = {
           target_role: string | null;
           uploaded_at: string;
           updated_at: string;
-        };
-      };
-      modules: {
-        Row: {
-          id: string;
-          title: string;
-          description: string;
-          week: number;
-          course_id: string;
-          created_at: string;
-          updated_at: string;
-        };
-      };
-      module_content: {
-        Row: {
-          id: string;
-          module_id: string;
-          type: 'text' | 'video' | 'image' | 'file';
-          content: string;
-          position: number;
-          uploaded_by: string;
-          created_at: string;
-          updated_at: string;
-        };
-      };
-      course_assignments: {
-        Row: {
-          id: string;
-          user_id: string;
-          course_id: string;
-          role: string;
-          created_at: string;
         };
       };
     };
