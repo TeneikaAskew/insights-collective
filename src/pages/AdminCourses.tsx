@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -48,7 +47,6 @@ export default function AdminCourses() {
     deleteCourse 
   } = useCourses();
 
-  // Modified to navigate to the admin courses edit path instead of opening modal
   const handleEditCourse = (course: Course) => {
     navigate(`/admin/courses/${course.id}/edit`);
   };
