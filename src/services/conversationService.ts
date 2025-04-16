@@ -245,6 +245,38 @@ export const createNewConversation = async (subject: string, recipientIds: strin
   }
 };
 
+// Helper function to create a new conversation with another user
+const createNewConversationWithOtherUser = async (userId: string, otherUserId: string) => {
+  try {
+    // Get the other user's name for the subject
+    const { data: otherUser, error: userError } = await supabase
+      .from('profiles')
+      .select('first_name, last_name, avatar_url')
+      .eq('id', otherUserId)
+      .single();
+      
+    if (userError) {
+      console.error("Error fetching other user:", userError);
+      throw userError;
+    }
+    
+    // Use a descriptive subject based on the other user's name
+    const subject = otherUser ? 
+      `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || 'New conversation' : 
+      'New conversation';
+    
+    console.log("Creating new conversation with subject:", subject);
+    
+    // Create the conversation
+    return await createNewConversation(subject, [otherUserId]);
+  } catch (error) {
+    console.error("Error creating new conversation:", error);
+    throw error;
+  }
+};
+
+
+
 /**
  * Sends a message in a conversation
  */
@@ -363,32 +395,281 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
   }
 };
 
-// Helper function to create a new conversation with another user
-const createNewConversationWithOtherUser = async (userId: string, otherUserId: string) => {
+
+/**
+ * Mark a conversation as unread for a user
+ */
+export const markConversationAsUnread = async (conversationId: string, userId: string) => {
   try {
-    // Get the other user's name for the subject
-    const { data: otherUser, error: userError } = await supabase
-      .from('profiles')
-      .select('first_name, last_name, avatar_url')
-      .eq('id', otherUserId)
-      .single();
-      
-    if (userError) {
-      console.error("Error fetching other user:", userError);
-      throw userError;
+    if (!conversationId || !userId) {
+      throw new Error('Conversation ID and User ID are required');
     }
     
-    // Use a descriptive subject based on the other user's name
-    const subject = otherUser ? 
-      `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || 'New conversation' : 
-      'New conversation';
+    // Find the latest message in the conversation
+    const { data: messages, error: messagesError } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(1);
     
-    console.log("Creating new conversation with subject:", subject);
+    if (messagesError) {
+      console.error('Error fetching latest message:', messagesError);
+      throw messagesError;
+    }
     
-    // Create the conversation
-    return await createNewConversation(subject, [otherUserId]);
+    if (!messages || messages.length === 0) {
+      throw new Error('No messages found in this conversation');
+    }
+    
+    // Mark the latest message as unread
+    const { error: updateError } = await supabase
+      .from('messages')
+      .update({ read: false })
+      .eq('id', messages[0].id);
+    
+    if (updateError) {
+      console.error('Error marking message as unread:', updateError);
+      throw updateError;
+    }
+    
+    return true;
   } catch (error) {
-    console.error("Error creating new conversation:", error);
+    console.error('Error marking conversation as unread:', error);
+    throw error;
+  }
+};
+
+/**
+ * Archive a conversation for a user
+ * Uses the existing archived column
+ */
+export const archiveConversation = async (conversationId: string, userId: string) => {
+  try {
+    if (!conversationId || !userId) {
+      throw new Error('Conversation ID and User ID are required');
+    }
+    
+    // First check if the user is a participant
+    const { data: participant, error: participantError } = await supabase
+      .from('conversation_participants')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (participantError) {
+      console.error('Error checking user participation:', participantError);
+      throw participantError;
+    }
+    
+    if (!participant) {
+      throw new Error('You are not a participant in this conversation');
+    }
+    
+    // Update the archived flag for this user's participation
+    const { error: updateError } = await supabase
+      .from('conversation_participants')
+      .update({ archived: true })
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId);
+    
+    if (updateError) {
+      console.error('Error archiving conversation:', updateError);
+      throw updateError;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error archiving conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Unarchive a conversation for a user
+ */
+export const unarchiveConversation = async (conversationId: string, userId: string) => {
+  try {
+    if (!conversationId || !userId) {
+      throw new Error('Conversation ID and User ID are required');
+    }
+    
+    // Update the archived flag for this user's participation
+    const { error: updateError } = await supabase
+      .from('conversation_participants')
+      .update({ archived: false })
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId);
+    
+    if (updateError) {
+      console.error('Error unarchiving conversation:', updateError);
+      throw updateError;
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error unarchiving conversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete a conversation (soft delete) for a user
+ * Uses the existing deleted_at column
+ */
+export const deleteConversation = async (conversationId: string, userId: string) => {
+  try {
+    if (!conversationId || !userId) {
+      throw new Error('Conversation ID and User ID are required');
+    }
+    
+    // First check if the user is a participant
+    const { data: participant, error: participantError } = await supabase
+      .from('conversation_participants')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .maybeSingle();
+    
+    if (participantError) {
+      console.error('Error checking user participation:', participantError);
+      throw participantError;
+    }
+    
+    if (!participant) {
+      throw new Error('You are not a participant in this conversation');
+    }
+    
+    // Soft delete by setting deleted_at timestamp
+    const { error: updateError } = await supabase
+      .from('conversation_participants')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId);
+    
+    if (updateError) {
+      console.error('Error soft-deleting conversation:', updateError);
+      throw updateError;
+    }
+    
+    // Check if there are any remaining non-deleted participants
+    const { data: remainingParticipants, error: remainingError } = await supabase
+      .from('conversation_participants')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .is('deleted_at', null);
+    
+    if (remainingError) {
+      console.error('Error checking remaining participants:', remainingError);
+      throw remainingError;
+    }
+    
+    // If no participants remain, consider hard-deleting the conversation
+    // This is optional and depends on your data retention policy
+    if (!remainingParticipants || remainingParticipants.length === 0) {
+      // For safety, just soft-delete the conversation itself
+      await supabase
+        .from('conversations')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', conversationId);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    throw error;
+  }
+};
+
+
+
+
+/**
+ * Get only active (non-archived, non-deleted) conversations for a user
+ * This is a modified version of fetchUserConversations that applies filters
+ */
+export const fetchActiveUserConversations = async (userId: string) => {
+  try {
+    if (!userId) {
+      console.error('fetchActiveUserConversations called without userId');
+      return [];
+    }
+    
+    // Get conversation IDs for the user where not archived and not deleted
+    const { data: participantData, error: participantError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .eq('archived', false);
+    
+    if (participantError) {
+      console.error('Error fetching active participant data:', participantError);
+      throw participantError;
+    }
+    
+    if (!participantData || participantData.length === 0) {
+      return [];
+    }
+    
+    const conversationIds = participantData.map(p => p.conversation_id);
+    
+    // Continue with the rest of the conversation fetching logic as in fetchUserConversations
+    // This is just a reference to call your existing function with the filtered IDs
+    
+    // Call the main function with the filtered conversation IDs
+    // You'd need to modify your original function to accept an optional conversationIds parameter
+    // return fetchUserConversationsWithIds(userId, conversationIds);
+    
+    // Alternatively, you can implement the full logic here based on your fetchUserConversations function
+    // but with the filtered IDs
+    
+    // For now, let's just return the IDs for you to implement
+    return fetchUserConversations(userId).then(conversations => 
+      conversations.filter(c => conversationIds.includes(c.id))
+    );
+  } catch (error) {
+    console.error('Error in fetchActiveUserConversations:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get archived conversations for a user
+ */
+export const fetchArchivedUserConversations = async (userId: string) => {
+  try {
+    if (!userId) {
+      console.error('fetchArchivedUserConversations called without userId');
+      return [];
+    }
+    
+    // Get conversation IDs for the user where archived=true and not deleted
+    const { data: participantData, error: participantError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId)
+      .is('deleted_at', null)
+      .eq('archived', true);
+    
+    if (participantError) {
+      console.error('Error fetching archived participant data:', participantError);
+      throw participantError;
+    }
+    
+    if (!participantData || participantData.length === 0) {
+      return [];
+    }
+    
+    const conversationIds = participantData.map(p => p.conversation_id);
+    
+    // Return the filtered conversations
+    return fetchUserConversations(userId).then(conversations => 
+      conversations.filter(c => conversationIds.includes(c.id))
+    );
+  } catch (error) {
+    console.error('Error in fetchArchivedUserConversations:', error);
     throw error;
   }
 };
