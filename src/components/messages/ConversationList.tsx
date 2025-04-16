@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
@@ -14,40 +15,38 @@ interface ConversationListProps {
   error?: any;
 }
 
-// Helper function to get user initials from profile
+// Helper function to get user initials from profile - simplified and robust
 const getUserInitials = (profile: any): string => {
-  if (!profile) return 'U';
+  if (!profile || (!profile.first_name && !profile.last_name)) {
+    return 'U';
+  }
   
   const firstName = profile.first_name || '';
   const lastName = profile.last_name || '';
   
-  if (!firstName && !lastName) return 'U';
-  
   return (firstName.charAt(0) + (lastName ? lastName.charAt(0) : '')).toUpperCase();
 };
 
-// Helper function to get avatar URL or undefined
-const getAvatarUrl = (profile: any): string | undefined => {
-  if (!profile) return undefined;
-  return profile.avatar_url || undefined;
-};
-
-// Helper function to get participant name
+// Helper function to get participant name - simplified and robust
 const getParticipantName = (participant: any): string => {
-  if (!participant || !participant.profile) return 'Unknown User';
+  if (!participant || !participant.profile) {
+    return 'Unknown User';
+  }
   
   const profile = participant.profile;
   const firstName = profile.first_name || '';
   const lastName = profile.last_name || '';
   
-  if (!firstName && !lastName) return 'Unknown User';
+  if (!firstName && !lastName) {
+    return 'Unknown User';
+  }
+  
   return `${firstName} ${lastName}`.trim();
 };
 
 // Helper function to find unique participant identifier
 const getParticipantIdentifier = (participant: any): string => {
-  if (!participant) return '';
-  return participant.user_id || '';
+  return participant?.user_id || '';
 };
 
 const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error }) => {
@@ -93,8 +92,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     );
   }
 
-  // Process conversations to remove duplicates based on participants
-  const processedConversations = conversations.reduce((acc: any[], current) => {
+  // Improved deduplication logic for conversations with the same participants
+  const uniqueConversations = conversations.reduce((acc: any[], current) => {
     // Skip invalid conversations
     if (!current) return acc;
     
@@ -104,22 +103,21 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       return acc;
     }
     
-    // For one-on-one conversations, check if we already have a conversation with this person
-    const participants = current.participants || [];
-    const otherParticipants = participants.filter(
+    // For one-on-one conversations, identify by participant
+    const otherParticipants = (current.participants || []).filter(
       (p: any) => p && p.user_id !== current.created_by
     );
     
-    // If there are no other participants, just add it
+    // If no other participants, add it
     if (!otherParticipants.length) {
       acc.push(current);
       return acc;
     }
     
-    // Get the ID of the other participant
-    const otherParticipantId = getParticipantIdentifier(otherParticipants[0]);
+    // For each other participant, check if we have a conversation already
+    const otherParticipantIds = otherParticipants.map(p => p.user_id).sort().join(',');
     
-    // Check if we already have a conversation with this participant
+    // Find if this participant combination already exists in our accumulator
     const existingConvIndex = acc.findIndex((conv) => {
       if (conv.is_group) return false;
       
@@ -127,9 +125,12 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         (p: any) => p && p.user_id !== conv.created_by
       );
       
-      if (!convOtherParticipants.length) return false;
+      const convParticipantIds = convOtherParticipants
+        .map((p: any) => p.user_id)
+        .sort()
+        .join(',');
       
-      return getParticipantIdentifier(convOtherParticipants[0]) === otherParticipantId;
+      return convParticipantIds === otherParticipantIds;
     });
     
     // If we already have a conversation with this participant, keep the most recent one
@@ -149,13 +150,20 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     
     return acc;
   }, []);
+  
+  // Sort by most recent first
+  const sortedConversations = [...uniqueConversations].sort((a, b) => {
+    const dateA = new Date(a.updated_at || a.created_at);
+    const dateB = new Date(b.updated_at || b.created_at);
+    return dateB.getTime() - dateA.getTime();
+  });
 
   return (
     <div className="space-y-2 h-full overflow-auto">
-      {processedConversations.map((conversation) => {
+      {sortedConversations.map((conversation) => {
         if (!conversation) return null;
         
-        // Safely handle missing participants
+        // Safely handle participants
         const participants = conversation.participants || [];
         const otherParticipants = participants.filter(
           (p: any) => p && p.user_id !== conversation.created_by
@@ -176,8 +184,14 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
 
         // Calculate if there are any unread messages
         const unreadCount = conversation.last_message && 
-                           !conversation.last_message.read && 
-                           conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
+                            !conversation.last_message.read && 
+                            conversation.last_message.sender_id !== conversation.created_by ? 1 : 0;
+
+        // Prepare avatar data - ensure it's always available
+        const otherParticipant = otherParticipants.length > 0 ? otherParticipants[0] : null;
+        const profile = otherParticipant?.profile || {};
+        const avatarUrl = profile.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${profile.first_name || 'User'}`;
+        const initials = getUserInitials(profile);
 
         return (
           <Link
@@ -198,12 +212,13 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                   {conversation.is_group ? (
                     <div className="relative">
                       <Avatar className="h-10 w-10">
+                        <AvatarImage src={`https://api.dicebear.com/6.x/avataaars/svg?seed=Group`} />
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
-                        {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
+                        {otherParticipant && (
                           <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                            <AvatarImage src={getAvatarUrl(otherParticipants[0].profile)} />
+                            <AvatarImage src={avatarUrl} />
                             <AvatarFallback className="bg-amber-200 text-amber-800">
-                              {getUserInitials(otherParticipants[0].profile)}
+                              {initials}
                             </AvatarFallback>
                           </Avatar>
                         )}
@@ -211,13 +226,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                     </div>
                   ) : (
                     <Avatar className="h-10 w-10">
-                      {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
-                        <AvatarImage src={getAvatarUrl(otherParticipants[0].profile)} />
-                      )}
+                      <AvatarImage src={avatarUrl} />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants.length > 0 && otherParticipants[0]?.profile 
-                          ? getUserInitials(otherParticipants[0].profile) 
-                          : 'U'}
+                        {initials}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -226,8 +237,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                       {conversation.subject || 
                         (conversation.is_group 
                           ? `Group (${participants.length} participants)` 
-                          : otherParticipants.length > 0 && otherParticipants[0]?.profile
-                            ? getParticipantName(otherParticipants[0])
+                          : otherParticipant
+                            ? getParticipantName(otherParticipant)
                             : 'Conversation'
                         )
                       }

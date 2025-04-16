@@ -250,16 +250,78 @@ export const findExistingOneOnOneConversation = async (userId: string, otherUser
  */
 export const getOrCreateOneOnOneConversation = async (userId: string, otherUserId: string) => {
   try {
-    // First try to find existing conversation
-    const existingConversationId = await findExistingOneOnOneConversation(userId, otherUserId);
+    console.log("Checking for existing conversation between userId:", userId, "and otherUserId:", otherUserId);
     
-    if (existingConversationId) {
-      console.log("Found existing conversation:", existingConversationId);
-      return existingConversationId;
+    // First, check if there's already a conversation between these users
+    // Get all conversations where current user is a participant
+    const { data: userConversations, error: userError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', userId);
+      
+    if (userError) {
+      console.error("Error fetching user conversations:", userError);
+      throw userError;
     }
-    console.log(`No existing conversation found, creating new one: User: ${userId} Other: ${otherUserId}`);
     
-    // If no existing conversation, create a new one
+    if (!userConversations || userConversations.length === 0) {
+      console.log("No existing conversations found for current user, creating new one");
+      return createNewConversationWithOtherUser(userId, otherUserId);
+    }
+    
+    const conversationIds = userConversations.map(p => p.conversation_id);
+    console.log("User is part of these conversations:", conversationIds);
+    
+    // Find conversations where the other user is also a participant
+    const { data: sharedConversations, error: sharedError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', otherUserId)
+      .in('conversation_id', conversationIds);
+      
+    if (sharedError) {
+      console.error("Error finding shared conversations:", sharedError);
+      throw sharedError;
+    }
+    
+    if (!sharedConversations || sharedConversations.length === 0) {
+      console.log("No shared conversations found, creating new one");
+      return createNewConversationWithOtherUser(userId, otherUserId);
+    }
+    
+    const sharedIds = sharedConversations.map(p => p.conversation_id);
+    console.log("Shared conversation IDs:", sharedIds);
+    
+    // Get only non-group conversations from the shared IDs
+    const { data: nonGroupConvs, error: groupError } = await supabase
+      .from('conversations')
+      .select('id')
+      .in('id', sharedIds)
+      .eq('is_group', false);
+      
+    if (groupError) {
+      console.error("Error finding non-group conversations:", groupError);
+      throw groupError;
+    }
+    
+    if (!nonGroupConvs || nonGroupConvs.length === 0) {
+      console.log("No non-group shared conversations found, creating new one");
+      return createNewConversationWithOtherUser(userId, otherUserId);
+    }
+    
+    // Use the first existing conversation
+    console.log("Found existing conversation:", nonGroupConvs[0].id);
+    return nonGroupConvs[0].id;
+  } catch (error) {
+    console.error("Error in getOrCreateOneOnOneConversation:", error);
+    throw error;
+  }
+};
+
+// Helper function to create a new conversation with another user
+const createNewConversationWithOtherUser = async (userId: string, otherUserId: string) => {
+  try {
+    // Get the other user's name for the subject
     const { data: otherUser, error: userError } = await supabase
       .from('profiles')
       .select('first_name, last_name')
@@ -271,14 +333,17 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
       throw userError;
     }
     
+    // If no profile is found, use a generic subject
     const subject = otherUser ? 
-      `${otherUser.first_name} ${otherUser.last_name}` : 
+      `${otherUser.first_name || ''} ${otherUser.last_name || ''}`.trim() || 'New conversation' : 
       'New conversation';
     
-    // Now just call our main function which handles authentication properly
+    console.log("Creating new conversation with subject:", subject);
+    
+    // Create the conversation
     return await createNewConversation(subject, [otherUserId]);
   } catch (error) {
-    console.error('Error in getOrCreateOneOnOneConversation:', error);
+    console.error("Error creating new conversation:", error);
     throw error;
   }
 };

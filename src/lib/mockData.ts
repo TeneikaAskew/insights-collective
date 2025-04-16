@@ -1,10 +1,7 @@
 
+// Export only the supabase service, remove all mock data exports
 import { mockService } from './mock';
-import { mockConversations, getMockConversations, getMockMessages } from './mock/messages';
 
 export { 
-  mockService,
-  mockConversations,
-  getMockConversations,
-  getMockMessages
+  mockService
 };
