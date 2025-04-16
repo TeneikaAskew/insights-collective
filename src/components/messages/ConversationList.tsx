@@ -129,9 +129,6 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     
     return acc;
   }, []);
-
-  console.log("Other Participants original: ", otherParticipants)
-    console.log("Conversation Participants: ", current.participants)
   
   // Sort by most recent first
   const sortedConversations = [...uniqueConversations].sort((a, b) => {
@@ -141,6 +138,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
   });
 
   console.log("ConversationList - sortedConversations:", sortedConversations);
+  console.log("Other Participants original: ", otherParticipants)
+    console.log("Conversation Participants: ", current.participants)
 
   return (
     <div className="space-y-2 h-full overflow-auto">
