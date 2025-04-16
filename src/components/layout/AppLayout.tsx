@@ -4,18 +4,22 @@ import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
+import { useStoreRedirectPath } from '@/hooks/useStoreRedirectPath';
 
 type AppLayoutProps = {
   children: React.ReactNode;
 };
 
 const AppLayout = ({ children }: AppLayoutProps) => {
-  // Fixed: Use the correct property name from the hook
+  // Use authenticated navigation
   const { navigateWithAuth } = useAuthenticatedNavigation();
+  
+  // Use store redirect path to capture navigation
+  useStoreRedirectPath();
   
   return (
     <SidebarProvider>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen overflow-hidden w-full">
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <Navbar />
