@@ -34,6 +34,7 @@ const getParticipantName = (participant: any): string => {
   }
   
   const profile = participant.profile;
+  console.log(profile)
   const firstName = profile.first_name || '';
   const lastName = profile.last_name || '';
   
@@ -190,6 +191,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         // Prepare avatar data - ensure it's always available
         const otherParticipant = otherParticipants.length > 0 ? otherParticipants[0] : null;
         const profile = otherParticipant?.profile || {};
+      console.log(profile.avatar_url)
         const avatarUrl = profile.avatar_url || `https://api.dicebear.com/6.x/avataaars/svg?seed=${profile.first_name || 'User'}`;
         const initials = getUserInitials(profile);
 
