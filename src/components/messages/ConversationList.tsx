@@ -79,14 +79,13 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       return acc;
     }
 
-    console.log("Conversation Participants: ", current.participants)
+    
     
     // For one-on-one conversations, identify by participant
     const otherParticipants = (current.participants || []).filter(
       (p: any) => p && p.user_id !== current.created_by
     );
 
-    console.log("Other Participants original: ", otherParticipants)
     
     // If no other participants, add it
     if (!otherParticipants.length) {
@@ -130,6 +129,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     
     return acc;
   }, []);
+
+  console.log("Other Participants original: ", otherParticipants)
+    console.log("Conversation Participants: ", current.participants)
   
   // Sort by most recent first
   const sortedConversations = [...uniqueConversations].sort((a, b) => {
