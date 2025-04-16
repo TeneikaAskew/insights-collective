@@ -129,7 +129,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  {console.log({otherParticipants[0]})
+                  {console.log("otherParticipant profile:", otherParticipants[0]?.profile)}
+                  {console.log("avatar URL:", otherParticipants[0]?.profile?.avatar_url)}
                   <div className="space-y-1">
                     <p className="font-medium line-clamp-1 text-gray-800">
                       {conversation.subject || 
