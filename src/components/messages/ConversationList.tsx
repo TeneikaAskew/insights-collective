@@ -137,12 +137,10 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     return dateB.getTime() - dateA.getTime();
   });
 
-  console.log("ConversationList - sortedConversations:", sortedConversations);
-  console.log("Other Participants original: ", otherParticipants)
-    console.log("Conversation Participants: ", current.participants)
-
   return (
+    
     <div className="space-y-2 h-full overflow-auto">
+      
       {sortedConversations.map((conversation) => {
         if (!conversation) return null;
         
@@ -174,6 +172,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const otherProfile = otherParticipants.length > 0 ? otherParticipants[0].profile : null;
         
         // Log the actual profile data to debug avatar issues
+        console.log("ConversationList - sortedConversations:", sortedConversations);
+        console.log("Other Participants original: ", otherParticipants)
+        console.log("Conversation Participants: ", current.participants)
         console.log(`Conversation ${conversation.id} - otherProfile:`, otherProfile);
         console.log(`Conversation ${conversation.id} - avatar URL:`, otherProfile?.avatar_url);
 
