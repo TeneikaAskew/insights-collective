@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
@@ -18,18 +17,6 @@ interface ConversationListProps {
 const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error }) => {
   const { conversationId } = useParams();
   const navigate = useNavigate();
-
-  // Helper function to get initials with thorough null checks
-  const getInitials = (participant: any) => {
-    // Return default if participant or profile is undefined
-    if (!participant || !participant.profile) return 'U';
-    
-    // Return first letter of first name, and first letter of last name if it exists
-    return (
-      (participant.profile.first_name?.charAt(0) || '') + 
-      (participant.profile.last_name?.charAt(0) || '')
-    ).toUpperCase() || 'U'; // Default to 'U' if resulting string is empty
-  };
 
   if (error) {
     return (
@@ -78,7 +65,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         // Safely handle missing participants
         const participants = conversation.participants || [];
         const otherParticipants = participants.filter(
-          (p: any) => p && p.user_id !== conversation.created_by
+          (p: any) => p.user_id !== conversation.created_by
         );
         
         // Format the timestamp
@@ -121,20 +108,20 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                         <AvatarImage src="" />
                         <AvatarFallback className="bg-amber-100 text-amber-800">GP</AvatarFallback>
                       </Avatar>
-                      {otherParticipants.length > 0 && otherParticipants[0]?.profile && (
+                      {otherParticipants.length > 0 && (
                         <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                          <AvatarImage src={otherParticipants[0]?.profile?.avatar_url || ''} />
+                          <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
                           <AvatarFallback className="bg-amber-200 text-amber-800">
-                            {getInitials(otherParticipants[0])}
+                            {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
                           </AvatarFallback>
                         </Avatar>
                       )}
                     </div>
                   ) : (
                     <Avatar className="h-10 w-10">
-                      <AvatarImage src={otherParticipants[0]?.profile?.avatar_url || ''} />
+                      <AvatarImage src={otherParticipants[0]?.profile?.avatar_url} />
                       <AvatarFallback className="bg-amber-100 text-amber-800">
-                        {otherParticipants.length > 0 ? getInitials(otherParticipants[0]) : 'U'}
+                        {otherParticipants[0]?.profile?.first_name?.charAt(0) || 'U'}
                       </AvatarFallback>
                     </Avatar>
                   )}
@@ -144,7 +131,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
                         (conversation.is_group 
                           ? `Group (${participants.length} participants)` 
                           : otherParticipants[0]?.profile?.first_name
-                            ? `${otherParticipants[0]?.profile?.first_name || ''} ${otherParticipants[0]?.profile?.last_name || ''}`
+                            ? `${otherParticipants[0]?.profile?.first_name} ${otherParticipants[0]?.profile?.last_name || ''}`
                             : 'Conversation'
                         )
                       }
