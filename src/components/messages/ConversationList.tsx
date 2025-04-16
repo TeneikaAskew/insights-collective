@@ -86,6 +86,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     );
   }
 
+  console.log("All conversations: ", conversations)
+
   // Improved deduplication logic for conversations with the same participants
   const uniqueConversations = conversations.reduce((acc: any[], current) => {
     // Skip invalid conversations
@@ -96,11 +98,15 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       acc.push(current);
       return acc;
     }
+
+    console.log("Deduplicate conversations: " , uniqueConversations)
     
     // For one-on-one conversations, identify by participant
     const otherParticipants = (current.participants || []).filter(
       (p: any) => p && p.user_id !== current.created_by
     );
+
+    console.log("Other participants: ", otherParticipants)
     
     // If no other participants, add it
     if (!otherParticipants.length) {
