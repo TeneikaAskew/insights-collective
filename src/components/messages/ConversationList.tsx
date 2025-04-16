@@ -99,7 +99,7 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       return acc;
     }
 
-    console.log("Deduplicate conversations: " , uniqueConversations)
+    
     
     // For one-on-one conversations, identify by participant
     const otherParticipants = (current.participants || []).filter(
@@ -150,6 +150,9 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     
     return acc;
   }, []);
+
+
+  console.log("Deduplicate conversations: " , uniqueConversations)
   
   // Sort by most recent first
   const sortedConversations = [...uniqueConversations].sort((a, b) => {
