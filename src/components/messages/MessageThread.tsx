@@ -92,9 +92,7 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
                 {!isCurrentUser && (
                   <Avatar className="h-8 w-8 mr-2">
                     <AvatarImage src={message.sender?.avatar_url || ''} />
-                    <AvatarFallback className="bg-gray-200 text-gray-800">
-                      {getInitials(message)}
-                    </AvatarFallback>
+                    <AvatarFallback className="bg-gray-200 text-gray-800">{getInitials(message)}</AvatarFallback>
                   </Avatar>
                 )}
                 
@@ -116,9 +114,7 @@ const MessageThread: React.FC<MessageThreadProps> = ({ messages, loading }) => {
                 {isCurrentUser && (
                   <Avatar className="h-8 w-8 ml-2">
                     <AvatarImage src={user?.user_metadata?.avatar_url} />
-                    <AvatarFallback className="bg-amber-100 text-amber-800">
-                      {user?.email?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
+                    <AvatarFallback className="bg-amber-100 text-amber-800">{user?.email?.charAt(0).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 )}
               </div>
