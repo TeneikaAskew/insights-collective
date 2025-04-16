@@ -1,17 +1,4 @@
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  first_name?: string;
-  last_name?: string;
-  enrolledCourses?: string[];
-  avatar?: string;
-  bio?: string;
-  createdCourses?: string[];
-}
-
 // Course interface with all required properties
 export interface Course {
   id: string;
@@ -25,15 +12,28 @@ export interface Course {
   imageUrl?: string;
   
   // Adding missing properties used across the application
-  instructor?: User;
+  instructor: User;
   thumbnail?: string;
-  enrollmentCount?: number;
-  modules?: Module[];
-  tags?: string[];
-  duration?: string;
-  enrollmentStatus?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  enrollmentCount: number;
+  modules: Module[];
+  tags: string[];
+  duration: string;
+  enrollmentStatus: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// User interface
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  enrolledCourses?: string[];
+  avatar?: string;
+  bio?: string;
+  createdCourses?: string[];
+  // Add any other properties needed
 }
 
 // Module interface
@@ -42,10 +42,11 @@ export interface Module {
   title: string;
   description: string;
   week: number;
-  completionStatus?: number;
-  lessons?: Lesson[];
-  assignments?: Assignment[];
-  quizzes?: Quiz[];
+  completionStatus: number;
+  lessons: Lesson[];
+  assignments: Assignment[];
+  quizzes: Quiz[];
+  // Add any other properties needed
 }
 
 // Lesson interface
@@ -58,6 +59,7 @@ export interface Lesson {
   content: string;
   duration: string;
   completed?: boolean;
+  // Add any other properties needed
 }
 
 // Assignment interface
@@ -74,6 +76,7 @@ export interface Assignment {
     grade?: number;
     feedback?: string;
   };
+  // Add any other properties needed
 }
 
 // Quiz interface
@@ -88,6 +91,7 @@ export interface Quiz {
   dueDate?: string;
   status?: string;
   score?: number;
+  // Add any other properties needed
 }
 
 // QuizQuestion interface
@@ -97,6 +101,7 @@ export interface QuizQuestion {
   options: string[];
   correctOption: number;
   points?: number;
+  // Add any other properties needed
 }
 
 // Notification interface
@@ -109,4 +114,7 @@ export interface Notification {
   isRead: boolean;
   createdAt: string;
   link?: string;
+  // Add any other properties needed
 }
+
+// Add any other interfaces needed by the application

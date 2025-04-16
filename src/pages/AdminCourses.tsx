@@ -1,19 +1,18 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Edit, Trash2, Plus, FilterX, Users } from 'lucide-react';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import { Search, Edit, Trash2, Plus, FilterX } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { 
   AlertDialog, 
@@ -23,39 +22,106 @@ import {
   AlertDialogDescription, 
   AlertDialogFooter, 
   AlertDialogHeader, 
-  AlertDialogTitle 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 import CourseEditModal from '@/components/course/CourseEditModal';
-import { useCourses } from '@/hooks/useCourses';
-import { Course } from '@/types';
+
+const mockCourses = [
+  {
+    id: '1',
+    title: 'Introduction to Data Science',
+    description: 'A comprehensive beginner guide to data science fundamentals.',
+    category: 'Data Engineering',
+    level: 'Beginner',
+    students: 145,
+    rating: 4.7,
+    published: true,
+  },
+  {
+    id: '2',
+    title: 'Machine Learning Fundamentals',
+    description: 'Learn the core concepts and algorithms of machine learning.',
+    category: 'AI/ML',
+    level: 'Intermediate',
+    students: 98,
+    rating: 4.5,
+    published: true,
+  },
+  {
+    id: '3',
+    title: 'Advanced SQL for Data Analysis',
+    description: 'Master complex SQL queries for data analytics.',
+    category: 'Analytics',
+    level: 'Advanced',
+    students: 72,
+    rating: 4.6,
+    published: false,
+  },
+  {
+    id: '4',
+    title: 'Data Visualization with Python',
+    description: 'Create compelling visualizations using Python libraries.',
+    category: 'Analytics',
+    level: 'Intermediate',
+    students: 112,
+    rating: 4.8,
+    published: true,
+  },
+  {
+    id: '5',
+    title: 'Big Data Processing with Spark',
+    description: 'Learn how to process large datasets efficiently with Apache Spark.',
+    category: 'Data Engineering',
+    level: 'Advanced',
+    students: 65,
+    rating: 4.4,
+    published: true,
+  },
+  {
+    id: '6',
+    title: 'Business Intelligence with Power BI',
+    description: 'Create interactive reports and dashboards with Power BI.',
+    category: 'Business Intelligence',
+    level: 'Beginner',
+    students: 88,
+    rating: 4.3,
+    published: true,
+  },
+  {
+    id: '7',
+    title: 'Deep Learning Fundamentals',
+    description: 'Introduction to neural networks and deep learning concepts.',
+    category: 'AI/ML',
+    level: 'Intermediate',
+    students: 55,
+    rating: 4.9,
+    published: false,
+  },
+];
 
 export default function AdminCourses() {
+  const [courses, setCourses] = useState(mockCourses);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [publishedFilter, setPublishedFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [courseToEdit, setCourseToEdit] = useState<Partial<Course> | null>(null);
-  const [courseToDelete, setCourseToDelete] = useState<string | null>(null);
-  
-  const navigate = useNavigate();
-  const { 
-    courses, 
-    loading, 
-    createCourse, 
-    updateCourse, 
-    deleteCourse 
-  } = useCourses();
+  const [courseToEdit, setCourseToEdit] = useState<any>(null);
+  const { toast } = useToast();
 
-  const handleEditCourse = (course: Course) => {
-    navigate(`/admin/courses/${course.id}/edit`);
+  const handleEditCourse = (course: any) => {
+    setCourseToEdit(course);
+    setIsModalOpen(true);
   };
 
-  const handleDeleteCourse = async () => {
-    if (courseToDelete) {
-      await deleteCourse(courseToDelete);
-      setCourseToDelete(null);
-    }
+  const handleDeleteCourse = (id: string) => {
+    setCourses(courses.filter(course => course.id !== id));
+    toast({
+      title: 'Course Deleted',
+      description: 'The course has been successfully removed.',
+    });
   };
 
   const handleAddCourse = () => {
@@ -63,23 +129,35 @@ export default function AdminCourses() {
     setIsModalOpen(true);
   };
 
-  const handleSaveCourse = async (course: Partial<Course>) => {
+  const handleSaveCourse = (course: any) => {
     if (course.id) {
-      await updateCourse(course.id, course);
+      setCourses(courses.map(c => c.id === course.id ? { ...c, ...course } : c));
+      toast({
+        title: 'Course Updated',
+        description: 'The course has been successfully updated.',
+      });
     } else {
-      await createCourse(course);
+      const newCourse = {
+        ...course,
+        id: Date.now().toString(),
+        students: 0,
+        rating: 0,
+        published: false,
+        imageUrl: course.imageUrl || 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=MnwxfDB8MXxyYW5kb218MHx8fHx8fHx8MTY4MTY5ODY2OA&ixlib=rb-4.0.3&q=80&utm_campaign=api-credit&utm_medium=referral&utm_source=unsplash_source&w=1080'
+      };
+      setCourses([...courses, newCourse]);
+      toast({
+        title: 'Course Added',
+        description: 'The course has been successfully added.',
+      });
     }
     setIsModalOpen(false);
-  };
-
-  const handleManageInstructors = (courseId: string) => {
-    navigate(`/courses/${courseId}/instructors`);
   };
 
   const filteredCourses = courses.filter((course) => {
     const matchesSearch = 
       course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (course.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
+      course.description.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesCategory = categoryFilter === 'all' || course.category === categoryFilter;
     
@@ -97,8 +175,6 @@ export default function AdminCourses() {
     setPublishedFilter('all');
   };
 
-  const uniqueCategories = Array.from(new Set(courses.map(course => course.category)));
-
   return (
     <AppLayout>
       <div className="space-y-8">
@@ -109,7 +185,7 @@ export default function AdminCourses() {
               Create, edit, and manage your educational courses.
             </p>
           </div>
-          <Button onClick={handleAddCourse} className="bg-primary hover:bg-primary/90">
+          <Button onClick={handleAddCourse} className="bg-insightBlue hover:bg-insightBlue/90">
             <Plus className="mr-2 h-4 w-4" /> Add Course
           </Button>
         </div>
@@ -146,9 +222,10 @@ export default function AdminCourses() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
-                    {uniqueCategories.map(category => (
-                      <SelectItem key={category} value={category}>{category}</SelectItem>
-                    ))}
+                    <SelectItem value="AI/ML">AI/ML</SelectItem>
+                    <SelectItem value="Analytics">Analytics</SelectItem>
+                    <SelectItem value="Data Engineering">Data Engineering</SelectItem>
+                    <SelectItem value="Business Intelligence">Business Intelligence</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={publishedFilter} onValueChange={setPublishedFilter}>
@@ -183,21 +260,14 @@ export default function AdminCourses() {
                       <TableHead>Course</TableHead>
                       <TableHead>Category</TableHead>
                       <TableHead>Level</TableHead>
-                      <TableHead>Instructor</TableHead>
+                      <TableHead>Students</TableHead>
+                      <TableHead>Rating</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {loading ? (
-                      <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
-                          <div className="flex justify-center">
-                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredCourses.length > 0 ? (
+                    {filteredCourses.length > 0 ? (
                       filteredCourses.map((course) => (
                         <TableRow key={course.id}>
                           <TableCell className="font-medium">
@@ -214,13 +284,8 @@ export default function AdminCourses() {
                             </Badge>
                           </TableCell>
                           <TableCell>{course.level}</TableCell>
-                          <TableCell>
-                            {course.instructor ? (
-                              `${course.instructor.first_name || course.instructor.name || ''} ${course.instructor.last_name || ''}`
-                            ) : (
-                              <span className="text-muted-foreground italic">Unassigned</span>
-                            )}
-                          </TableCell>
+                          <TableCell>{course.students}</TableCell>
+                          <TableCell>{course.rating.toFixed(1)}</TableCell>
                           <TableCell>
                             <Badge variant={course.published ? "default" : "secondary"}>
                               {course.published ? "Published" : "Draft"}
@@ -252,28 +317,35 @@ export default function AdminCourses() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => navigate(`/courses/${course.id}`)}>
-                                  View Course
-                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleEditCourse(course)}>
                                   <Edit className="mr-2 h-4 w-4" />
                                   Edit
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleManageInstructors(course.id)}>
-                                  <Users className="mr-2 h-4 w-4" />
-                                  Manage Instructors
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem 
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                    setCourseToDelete(course.id);
-                                  }} 
-                                  className="text-destructive focus:text-destructive"
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete
+                                    </DropdownMenuItem>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        This will permanently delete the course "{course.title}". This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleDeleteCourse(course.id)}
+                                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      >
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -281,7 +353,7 @@ export default function AdminCourses() {
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
+                        <TableCell colSpan={7} className="h-24 text-center">
                           No courses found.
                         </TableCell>
                       </TableRow>
@@ -293,26 +365,6 @@ export default function AdminCourses() {
           </CardContent>
         </Card>
       </div>
-
-      <AlertDialog open={!!courseToDelete} onOpenChange={(open) => !open && setCourseToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the course. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteCourse}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AppLayout>
   );
 }

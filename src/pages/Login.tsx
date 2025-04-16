@@ -37,14 +37,6 @@ const Login = () => {
   useEffect(() => {
     console.log('[Login] Mounted');
     console.log('[Login] redirectParam:', redirectParam);
-    
-    // Store current location as potential redirect
-    if (location.pathname && !isAuthenticated) {
-      const storedPath = localStorage.getItem('redirectAfterLogin');
-      if (!storedPath && location.pathname !== '/login') {
-        localStorage.setItem('redirectAfterLogin', location.pathname);
-      }
-    }
   }, []);
 
   useEffect(() => {
