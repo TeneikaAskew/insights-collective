@@ -78,6 +78,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       acc.push(current);
       return acc;
     }
+
+    console.log("Other Participants original: ", otherParticipants = (current.participants || []));
     
     // For one-on-one conversations, identify by participant
     const otherParticipants = (current.participants || []).filter(
@@ -171,8 +173,8 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
         const otherProfile = otherParticipants.length > 0 ? otherParticipants[0].profile : null;
         
         // Log the actual profile data to debug avatar issues
-        console.log(`[/m/ConversationList] Conversation ${conversation.id} - otherProfile:`, otherProfile);
-        console.log(`[/m/ConversationList] Conversation ${conversation.id} - avatar URL:`, otherProfile?.avatar_url);
+        console.log(`Conversation ${conversation.id} - otherProfile:`, otherProfile);
+        console.log(`Conversation ${conversation.id} - avatar URL:`, otherProfile?.avatar_url);
 
         return (
           <Link
