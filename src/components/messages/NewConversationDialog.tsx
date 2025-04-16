@@ -59,7 +59,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       console.log("Creating conversation with:", selectedUser.id);
       
       // Use createNewConversation directly - which handles auth internally
-      const subject = `Chat with ${selectedUser.first_name} ${selectedUser.last_name}`;
+      const subject = `${selectedUser.first_name} ${selectedUser.last_name}`;
       const conversationId = await createNewConversation(subject, [selectedUser.id]);
       
       // Send an initial message if needed
