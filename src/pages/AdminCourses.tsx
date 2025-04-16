@@ -7,13 +7,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Search, Edit, Trash2, Plus, FilterX, Users } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
 import { 
   AlertDialog, 
@@ -23,7 +23,7 @@ import {
   AlertDialogDescription, 
   AlertDialogFooter, 
   AlertDialogHeader, 
-  AlertDialogTitle
+  AlertDialogTitle 
 } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import CourseEditModal from '@/components/course/CourseEditModal';
@@ -217,7 +217,7 @@ export default function AdminCourses() {
                           <TableCell>{course.level}</TableCell>
                           <TableCell>
                             {course.instructor ? (
-                              `${course.instructor.first_name || ''} ${course.instructor.last_name || ''}`
+                              `${course.instructor.first_name || course.instructor.name || ''} ${course.instructor.last_name || ''}`
                             ) : (
                               <span className="text-muted-foreground italic">Unassigned</span>
                             )}
