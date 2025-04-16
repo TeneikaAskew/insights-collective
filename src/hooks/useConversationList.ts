@@ -13,8 +13,17 @@ export function useConversationList() {
   const { user } = useAuth();
   const { toast } = useToast();
   const channelRef = useRef<any>(null);
+  const lastFetchTimeRef = useRef<number>(0);
+  const isMountedRef = useRef<boolean>(true);
 
   const loadConversations = async () => {
+    // Throttle fetches to prevent excessive API calls
+    const now = Date.now();
+    if (now - lastFetchTimeRef.current < 1000) {
+      return; // Don't fetch more than once per second
+    }
+    lastFetchTimeRef.current = now;
+
     if (!user) {
       console.log('[useConversationList] No user found, skipping load.');
       setLoading(false);
@@ -26,6 +35,10 @@ export function useConversationList() {
     setError(null);
     try {
       const conversationsData = await fetchUserConversations(user.id);
+      
+      // Ensure component is still mounted before updating state
+      if (!isMountedRef.current) return;
+      
       console.log('[useConversationList] Conversations fetched:', conversationsData);
       // Filter out archived and deleted conversations
       const activeConversations = conversationsData.filter(
@@ -34,6 +47,10 @@ export function useConversationList() {
       setConversations(activeConversations);
     } catch (error) {
       console.error('[useConversationList] Error loading conversations:', error);
+      
+      // Ensure component is still mounted before updating state
+      if (!isMountedRef.current) return;
+      
       setError(error);
       toast({
         title: 'Error',
@@ -41,18 +58,30 @@ export function useConversationList() {
         variant: 'destructive',
       });
     } finally {
+      // Ensure component is still mounted before updating state
+      if (!isMountedRef.current) return;
+      
       setLoading(false);
       console.log('[useConversationList] Finished loading');
     }
   };
 
   useEffect(() => {
-    loadConversations();
+    isMountedRef.current = true;
+    
+    // Only load conversations and set up subscriptions if user exists
+    if (user?.id) {
+      loadConversations();
 
-    // Avoid creating multiple subscriptions
-    if (!channelRef.current && user) {
+      // Clean up existing channel before creating a new one
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+
+      // Create a single channel with multiple listeners
       channelRef.current = supabase
-        .channel('conversation-changes')
+        .channel(`conversation-changes-${user.id}`)
         .on(
           'postgres_changes',
           {
@@ -71,7 +100,7 @@ export function useConversationList() {
             event: '*',
             schema: 'public',
             table: 'conversation_participants',
-            filter: `user_id=eq.${user?.id}`,
+            filter: `user_id=eq.${user.id}`,
           },
           (payload) => {
             console.log('[useConversationList] Participant change detected:', payload);
@@ -90,17 +119,21 @@ export function useConversationList() {
             loadConversations();
           }
         )
-        .subscribe();
+        .subscribe((status) => {
+          console.log(`[useConversationList] Channel subscription status: ${status}`);
+        });
     }
 
     return () => {
+      isMountedRef.current = false;
+      
       if (channelRef.current) {
         console.log('[useConversationList] Cleaning up channel...');
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
     };
-  }, [user, toast]); // Optimize dependencies
+  }, [user?.id]); // Only recreate subscription when user ID changes, not on every render
 
   return {
     conversations,

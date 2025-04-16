@@ -15,8 +15,11 @@ export function useConversationMessages(conversationId?: string) {
   const { user } = useAuth();
   const { toast } = useToast();
   const channelRef = useRef<any>(null);
+  const isMountedRef = useRef<boolean>(true);
 
   useEffect(() => {
+    isMountedRef.current = true;
+    
     if (!conversationId || !user) {
       setMessages([]);
       setLoading(false);
@@ -50,6 +53,9 @@ export function useConversationMessages(conversationId?: string) {
 
         if (error) throw error;
 
+        // Ensure component is still mounted before updating state
+        if (!isMountedRef.current) return;
+
         // Process messages to ensure proper typing and enrich profiles
         const messagesWithProfiles = (data || []).map(message => ({
           ...message,
@@ -68,13 +74,17 @@ export function useConversationMessages(conversationId?: string) {
 
       } catch (error) {
         console.error('Error fetching messages:', error);
-        toast({
-          title: 'Error',
-          description: 'Could not load messages. Please try again later.',
-          variant: 'destructive',
-        });
+        if (isMountedRef.current) {
+          toast({
+            title: 'Error',
+            description: 'Could not load messages. Please try again later.',
+            variant: 'destructive',
+          });
+        }
       } finally {
-        setLoading(false);
+        if (isMountedRef.current) {
+          setLoading(false);
+        }
       }
     };
 
@@ -99,6 +109,8 @@ export function useConversationMessages(conversationId?: string) {
         async (payload) => {
           console.log('Received new message:', payload);
           
+          if (!isMountedRef.current) return;
+          
           try {
             // Fetch the sender profile for the new message
             const { data: senderData, error: senderError } = await supabase
@@ -115,7 +127,9 @@ export function useConversationMessages(conversationId?: string) {
               };
               
               // Update messages state
-              setMessages(prevMessages => [...prevMessages, newMessage]);
+              if (isMountedRef.current) {
+                setMessages(prevMessages => [...prevMessages, newMessage]);
+              }
             } else {
               // Fall back to adding the message without sender data
               const newMessage: Message = {
@@ -127,7 +141,10 @@ export function useConversationMessages(conversationId?: string) {
                   roles: ['student'],
                 } as Profile
               };
-              setMessages(prevMessages => [...prevMessages, newMessage]);
+              
+              if (isMountedRef.current) {
+                setMessages(prevMessages => [...prevMessages, newMessage]);
+              }
             }
             
             // Mark message as read if it's not from the current user
@@ -147,6 +164,7 @@ export function useConversationMessages(conversationId?: string) {
       });
 
     return () => {
+      isMountedRef.current = false;
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
