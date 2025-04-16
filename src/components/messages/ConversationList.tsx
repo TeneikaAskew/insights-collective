@@ -32,10 +32,14 @@ const getParticipantName = (participant: any): string => {
   if (!participant || !participant.profile) {
     return 'Unknown User';
   }
+
+
   
   const profile = participant.profile;
   const firstName = profile.first_name || '';
   const lastName = profile.last_name || '';
+  
+  console.log("Participant Profile: ", profile)
   
   if (!firstName && !lastName) {
     return 'Unknown User';
