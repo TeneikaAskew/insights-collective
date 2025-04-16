@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,8 +15,11 @@ import {
   FilePlus, 
   ChevronRight, 
   ChevronDown,
-  MoveVertical,
-  Wand2 
+  FileText,
+  BookOpen,
+  ClipboardCheck,
+  HelpCircle,
+  Save
 } from 'lucide-react';
 import {
   Accordion,
@@ -44,9 +47,16 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import ModuleContentEditor from './ModuleContentEditor';
 import AIContentGenerator from '@/components/ai/AIContentGenerator';
+import { Badge } from '@/components/ui/badge';
 
 interface ModuleManagerProps {
   courseId: string;
@@ -60,6 +70,50 @@ interface Module {
   course_id: string;
   created_at: string;
   updated_at: string;
+}
+
+interface Lesson {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  duration: string;
+  order_num: number;
+  module_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface Assignment {
+  id: string;
+  title: string;
+  description: string;
+  due_date: string;
+  points: number;
+  module_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface QuizQuestion {
+  id: string;
+  text: string;
+  options: string[];
+  correctOption: number;
+  points: number;
+}
+
+interface Quiz {
+  id: string;
+  title: string;
+  description: string;
+  module_id: string;
+  questions: QuizQuestion[];
+  time_limit?: number;
+  passing_score?: number;
+  due_date?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
@@ -78,6 +132,47 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [activeModuleId, setActiveModuleId] = useState<string | null>(null);
   const [moduleContents, setModuleContents] = useState<any[]>([]);
+  
+  // State for lessons
+  const [lessons, setLessons] = useState<Record<string, Lesson[]>>({});
+  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [editingLesson, setEditingLesson] = useState<Partial<Lesson>>({
+    title: '',
+    description: '',
+    content: '',
+    duration: '',
+    order_num: 1
+  });
+  const [isLessonModalOpen, setIsLessonModalOpen] = useState(false);
+  
+  // State for assignments
+  const [assignments, setAssignments] = useState<Record<string, Assignment[]>>({});
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<Partial<Assignment>>({
+    title: '',
+    description: '',
+    due_date: '',
+    points: 100
+  });
+  const [isAssignmentModalOpen, setIsAssignmentModalOpen] = useState(false);
+  
+  // State for quizzes
+  const [quizzes, setQuizzes] = useState<Record<string, Quiz[]>>({});
+  const [selectedQuiz, setSelectedQuiz] = useState<Quiz | null>(null);
+  const [editingQuiz, setEditingQuiz] = useState<Partial<Quiz>>({
+    title: '',
+    description: '',
+    questions: [],
+    time_limit: 30,
+    passing_score: 70
+  });
+  const [isQuizModalOpen, setIsQuizModalOpen] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<Partial<QuizQuestion>>({
+    text: '',
+    options: ['', '', '', ''],
+    correctOption: 0,
+    points: 10
+  });
   
   useEffect(() => {
     if (!courseId) return;
@@ -136,8 +231,95 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     };
     
     fetchModuleContents();
+    
+    // Fetch lessons for the active module
+    const fetchLessons = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('lessons')
+          .select('*')
+          .eq('module_id', activeModuleId)
+          .order('order_num', { ascending: true });
+        
+        if (error) throw error;
+        
+        setLessons(prev => ({
+          ...prev,
+          [activeModuleId]: data || []
+        }));
+      } catch (error) {
+        console.error('Error fetching lessons:', error);
+      }
+    };
+    
+    fetchLessons();
+    
+    // Fetch assignments for the active module
+    const fetchAssignments = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('assignments')
+          .select('*')
+          .eq('module_id', activeModuleId);
+        
+        if (error) {
+          // If the table doesn't exist yet, we'll create it
+          if (error.code === '42P01') {
+            console.log('Assignments table does not exist yet');
+            setAssignments(prev => ({
+              ...prev,
+              [activeModuleId]: []
+            }));
+            return;
+          }
+          throw error;
+        }
+        
+        setAssignments(prev => ({
+          ...prev,
+          [activeModuleId]: data || []
+        }));
+      } catch (error) {
+        console.error('Error fetching assignments:', error);
+      }
+    };
+    
+    fetchAssignments();
+    
+    // Fetch quizzes for the active module
+    const fetchQuizzes = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('quizzes')
+          .select('*')
+          .eq('module_id', activeModuleId);
+        
+        if (error) {
+          // If the table doesn't exist yet, we'll create it
+          if (error.code === '42P01') {
+            console.log('Quizzes table does not exist yet');
+            setQuizzes(prev => ({
+              ...prev,
+              [activeModuleId]: []
+            }));
+            return;
+          }
+          throw error;
+        }
+        
+        setQuizzes(prev => ({
+          ...prev,
+          [activeModuleId]: data || []
+        }));
+      } catch (error) {
+        console.error('Error fetching quizzes:', error);
+      }
+    };
+    
+    fetchQuizzes();
   }, [activeModuleId, toast]);
   
+  // Module Content handling
   const handleAddContent = async (content: any) => {
     if (!activeModuleId) return null;
     
@@ -229,6 +411,7 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     }
   };
   
+  // Module management functions
   const handleAIContentGenerated = (content: string) => {
     setEditingModule(prev => ({
       ...prev,
@@ -374,6 +557,453 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     }
   };
   
+  // Lesson management functions
+  const handleAddLesson = (moduleId: string) => {
+    setSelectedLesson(null);
+    const currentLessons = lessons[moduleId] || [];
+    setEditingLesson({
+      title: '',
+      description: '',
+      content: '',
+      duration: '',
+      order_num: currentLessons.length + 1,
+      module_id: moduleId
+    });
+    setIsLessonModalOpen(true);
+  };
+  
+  const handleEditLesson = (lesson: Lesson) => {
+    setSelectedLesson(lesson);
+    setEditingLesson({
+      title: lesson.title,
+      description: lesson.description,
+      content: lesson.content,
+      duration: lesson.duration,
+      order_num: lesson.order_num,
+      module_id: lesson.module_id
+    });
+    setIsLessonModalOpen(true);
+  };
+  
+  const handleLessonChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditingLesson(prev => ({
+      ...prev,
+      [name]: name === 'order_num' ? parseInt(value) || 1 : value
+    }));
+  };
+  
+  const handleSaveLesson = async () => {
+    if (!editingLesson.title?.trim() || !editingLesson.module_id) return;
+    
+    try {
+      if (selectedLesson) {
+        const { data, error } = await supabase
+          .from('lessons')
+          .update({
+            title: editingLesson.title,
+            description: editingLesson.description,
+            content: editingLesson.content,
+            duration: editingLesson.duration,
+            order_num: editingLesson.order_num
+          })
+          .eq('id', selectedLesson.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        setLessons(prev => ({
+          ...prev,
+          [editingLesson.module_id as string]: (prev[editingLesson.module_id as string] || [])
+            .map(l => l.id === selectedLesson.id ? data : l)
+        }));
+        
+        toast({
+          title: 'Success',
+          description: 'Lesson updated successfully',
+        });
+      } else {
+        const { data, error } = await supabase
+          .from('lessons')
+          .insert({
+            title: editingLesson.title,
+            description: editingLesson.description,
+            content: editingLesson.content,
+            duration: editingLesson.duration,
+            order_num: editingLesson.order_num,
+            module_id: editingLesson.module_id
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        setLessons(prev => ({
+          ...prev,
+          [editingLesson.module_id as string]: [...(prev[editingLesson.module_id as string] || []), data]
+        }));
+        
+        toast({
+          title: 'Success',
+          description: 'Lesson created successfully',
+        });
+      }
+      
+      setIsLessonModalOpen(false);
+    } catch (error: any) {
+      console.error('Error saving lesson:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save lesson',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  const handleDeleteLesson = async (lessonId: string, moduleId: string) => {
+    try {
+      const { error } = await supabase
+        .from('lessons')
+        .delete()
+        .eq('id', lessonId);
+      
+      if (error) throw error;
+      
+      setLessons(prev => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).filter(l => l.id !== lessonId)
+      }));
+      
+      toast({
+        title: 'Success',
+        description: 'Lesson deleted successfully',
+      });
+    } catch (error: any) {
+      console.error('Error deleting lesson:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save lesson',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  // Assignment management functions
+  const handleAddAssignment = (moduleId: string) => {
+    setSelectedAssignment(null);
+    setEditingAssignment({
+      title: '',
+      description: '',
+      due_date: '',
+      points: 100,
+      module_id: moduleId
+    });
+    setIsAssignmentModalOpen(true);
+  };
+  
+  const handleEditAssignment = (assignment: Assignment) => {
+    setSelectedAssignment(assignment);
+    setEditingAssignment({
+      title: assignment.title,
+      description: assignment.description,
+      due_date: assignment.due_date,
+      points: assignment.points,
+      module_id: assignment.module_id
+    });
+    setIsAssignmentModalOpen(true);
+  };
+  
+  const handleAssignmentChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditingAssignment(prev => ({
+      ...prev,
+      [name]: name === 'points' ? parseInt(value) || 0 : value
+    }));
+  };
+  
+  const handleSaveAssignment = async () => {
+    if (!editingAssignment.title?.trim() || !editingAssignment.module_id) return;
+    
+    try {
+      if (selectedAssignment) {
+        const { data, error } = await supabase
+          .from('assignments')
+          .update({
+            title: editingAssignment.title,
+            description: editingAssignment.description,
+            due_date: editingAssignment.due_date,
+            points: editingAssignment.points
+          })
+          .eq('id', selectedAssignment.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        setAssignments(prev => ({
+          ...prev,
+          [editingAssignment.module_id as string]: (prev[editingAssignment.module_id as string] || [])
+            .map(a => a.id === selectedAssignment.id ? data : a)
+        }));
+        
+        toast({
+          title: 'Success',
+          description: 'Assignment updated successfully',
+        });
+      } else {
+        const { data, error } = await supabase
+          .from('assignments')
+          .insert({
+            title: editingAssignment.title,
+            description: editingAssignment.description,
+            due_date: editingAssignment.due_date,
+            points: editingAssignment.points,
+            module_id: editingAssignment.module_id
+          })
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        setAssignments(prev => ({
+          ...prev,
+          [editingAssignment.module_id as string]: [...(prev[editingAssignment.module_id as string] || []), data]
+        }));
+        
+        toast({
+          title: 'Success',
+          description: 'Assignment created successfully',
+        });
+      }
+      
+      setIsAssignmentModalOpen(false);
+    } catch (error: any) {
+      console.error('Error saving assignment:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save assignment',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  const handleDeleteAssignment = async (assignmentId: string, moduleId: string) => {
+    try {
+      const { error } = await supabase
+        .from('assignments')
+        .delete()
+        .eq('id', assignmentId);
+      
+      if (error) throw error;
+      
+      setAssignments(prev => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).filter(a => a.id !== assignmentId)
+      }));
+      
+      toast({
+        title: 'Success',
+        description: 'Assignment deleted successfully',
+      });
+    } catch (error: any) {
+      console.error('Error deleting assignment:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete assignment',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  // Quiz management functions
+  const handleAddQuiz = (moduleId: string) => {
+    setSelectedQuiz(null);
+    setEditingQuiz({
+      title: '',
+      description: '',
+      questions: [],
+      time_limit: 30,
+      passing_score: 70,
+      module_id: moduleId
+    });
+    setEditingQuestion({
+      text: '',
+      options: ['', '', '', ''],
+      correctOption: 0,
+      points: 10
+    });
+    setIsQuizModalOpen(true);
+  };
+  
+  const handleEditQuiz = (quiz: Quiz) => {
+    setSelectedQuiz(quiz);
+    setEditingQuiz({
+      title: quiz.title,
+      description: quiz.description,
+      questions: quiz.questions || [],
+      time_limit: quiz.time_limit,
+      passing_score: quiz.passing_score,
+      due_date: quiz.due_date,
+      module_id: quiz.module_id
+    });
+    setIsQuizModalOpen(true);
+  };
+  
+  const handleQuizChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditingQuiz(prev => ({
+      ...prev,
+      [name]: ['time_limit', 'passing_score'].includes(name) ? parseInt(value) || 0 : value
+    }));
+  };
+  
+  const handleQuestionChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setEditingQuestion(prev => ({
+      ...prev,
+      [name]: name === 'points' ? parseInt(value) || 0 : value
+    }));
+  };
+  
+  const handleOptionChange = (index: number, value: string) => {
+    setEditingQuestion(prev => ({
+      ...prev,
+      options: prev.options?.map((opt, i) => i === index ? value : opt) || []
+    }));
+  };
+  
+  const handleCorrectOptionChange = (index: number) => {
+    setEditingQuestion(prev => ({
+      ...prev,
+      correctOption: index
+    }));
+  };
+  
+  const handleAddQuestion = () => {
+    if (!editingQuestion.text) return;
+    
+    const newQuestion: QuizQuestion = {
+      id: Date.now().toString(), // Temporary ID until saved to database
+      text: editingQuestion.text,
+      options: editingQuestion.options || ['', '', '', ''],
+      correctOption: editingQuestion.correctOption || 0,
+      points: editingQuestion.points || 10
+    };
+    
+    setEditingQuiz(prev => ({
+      ...prev,
+      questions: [...(prev.questions || []), newQuestion]
+    }));
+    
+    setEditingQuestion({
+      text: '',
+      options: ['', '', '', ''],
+      correctOption: 0,
+      points: 10
+    });
+  };
+  
+  const handleRemoveQuestion = (questionId: string) => {
+    setEditingQuiz(prev => ({
+      ...prev,
+      questions: (prev.questions || []).filter(q => q.id !== questionId)
+    }));
+  };
+  
+  const handleSaveQuiz = async () => {
+    if (!editingQuiz.title?.trim() || !editingQuiz.module_id || !(editingQuiz.questions?.length > 0)) return;
+    
+    try {
+      const quizData = {
+        title: editingQuiz.title,
+        description: editingQuiz.description,
+        questions: editingQuiz.questions,
+        time_limit: editingQuiz.time_limit,
+        passing_score: editingQuiz.passing_score,
+        due_date: editingQuiz.due_date,
+        module_id: editingQuiz.module_id
+      };
+      
+      if (selectedQuiz) {
+        const { data, error } = await supabase
+          .from('quizzes')
+          .update(quizData)
+          .eq('id', selectedQuiz.id)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        setQuizzes(prev => ({
+          ...prev,
+          [editingQuiz.module_id as string]: (prev[editingQuiz.module_id as string] || [])
+            .map(q => q.id === selectedQuiz.id ? data : q)
+        }));
+        
+        toast({
+          title: 'Success',
+          description: 'Quiz updated successfully',
+        });
+      } else {
+        const { data, error } = await supabase
+          .from('quizzes')
+          .insert(quizData)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        setQuizzes(prev => ({
+          ...prev,
+          [editingQuiz.module_id as string]: [...(prev[editingQuiz.module_id as string] || []), data]
+        }));
+        
+        toast({
+          title: 'Success',
+          description: 'Quiz created successfully',
+        });
+      }
+      
+      setIsQuizModalOpen(false);
+    } catch (error: any) {
+      console.error('Error saving quiz:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to save quiz',
+        variant: 'destructive',
+      });
+    }
+  };
+  
+  const handleDeleteQuiz = async (quizId: string, moduleId: string) => {
+    try {
+      const { error } = await supabase
+        .from('quizzes')
+        .delete()
+        .eq('id', quizId);
+      
+      if (error) throw error;
+      
+      setQuizzes(prev => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).filter(q => q.id !== quizId)
+      }));
+      
+      toast({
+        title: 'Success',
+        description: 'Quiz deleted successfully',
+      });
+    } catch (error: any) {
+      console.error('Error deleting quiz:', error);
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete quiz',
+        variant: 'destructive',
+      });
+    }
+  };
+  
   if (loading) {
     return (
       <Card>
@@ -404,7 +1034,7 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
     .sort((a, b) => a - b);
   
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 container mx-auto px-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <div className="space-y-1">
@@ -470,121 +1100,3 @@ const ModuleManager: React.FC<ModuleManagerProps> = ({ courseId }) => {
                             <AlertDialogHeader>
                               <AlertDialogTitle>Delete Module</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Are you sure you want to delete this module? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction 
-                                onClick={() => handleDeleteModule(module.id)}
-                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              >
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4">
-                    <div className="space-y-4">
-                      <div className="pt-2">
-                        <h4 className="text-sm font-semibold">Description</h4>
-                        <p className="text-sm text-muted-foreground">{module.description}</p>
-                      </div>
-                      
-                      {activeModuleId === module.id && (
-                        <ModuleContentEditor 
-                          moduleId={module.id} 
-                          contents={moduleContents}
-                          onAddContent={handleAddContent}
-                          onUpdateContent={handleUpdateContent}
-                          onDeleteContent={handleDeleteContent}
-                        />
-                      )}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          )}
-        </CardContent>
-      </Card>
-      
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
-          <DialogHeader>
-            <DialogTitle>
-              {selectedModule ? 'Edit Module' : 'Add Module'}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedModule 
-                ? 'Update the module details.' 
-                : 'Create a new module for this course.'}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="title">Module Title</Label>
-              <Input
-                id="title"
-                name="title"
-                value={editingModule.title || ''}
-                onChange={handleChange}
-                placeholder="Introduction to the Course"
-              />
-              {errors.title && (
-                <p className="text-sm text-destructive">{errors.title}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <div className="flex justify-between items-center">
-                <Label htmlFor="description">Module Description</Label>
-                <AIContentGenerator 
-                  onContentGenerated={handleAIContentGenerated}
-                  contextType="module"
-                />
-              </div>
-              <Textarea
-                id="description"
-                name="description"
-                value={editingModule.description || ''}
-                onChange={handleChange}
-                placeholder="Describe what students will learn in this module..."
-                rows={4}
-              />
-              {errors.description && (
-                <p className="text-sm text-destructive">{errors.description}</p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="week">Week Number</Label>
-              <Input
-                id="week"
-                name="week"
-                type="number"
-                min="1"
-                value={editingModule.week || 1}
-                onChange={handleChange}
-              />
-              {errors.week && (
-                <p className="text-sm text-destructive">{errors.week}</p>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveModule}>
-              {selectedModule ? 'Update Module' : 'Add Module'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};
-
-export default ModuleManager;
