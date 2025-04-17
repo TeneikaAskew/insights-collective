@@ -72,15 +72,15 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
   
     // 6) Remove known noise patterns
     const noisyPatterns = [
-      /Resume Grade Explanation:\*?.*/gi,
-      /Brief Explanation of the Resume Grade:\*?.*/gi,
-      /Three Specific Improvement Themes:\*?.*/gi,
-      /Quantifiable Results:\*?.*/gi,
-      /IStronger Action Verbs:k:.*/gi,
-      /Specific Improvement Themes:\*?.*/gi,
-      /Concise Language:\*?.*/gi,
-      /Professional Elevator Pitch:\*?.*/gi,
-      /Resume Grade and Explanation:\*?.*/gi
+      // /Resume Grade Explanation:\*?.*/gi,
+      // /Brief Explanation of the Resume Grade:\*?.*/gi,
+      // /Three Specific Improvement Themes:\*?.*/gi,
+      // /Quantifiable Results:\*?.*/gi,
+      // /IStronger Action Verbs:k:.*/gi,
+      // /Specific Improvement Themes:\*?.*/gi,
+      // /Concise Language:\*?.*/gi,
+      // /Professional Elevator Pitch:\*?.*/gi,
+      // /Resume Grade and Explanation:\*?.*/gi
     ];
     for (const pattern of noisyPatterns) {
       text = text.replace(pattern, '');
