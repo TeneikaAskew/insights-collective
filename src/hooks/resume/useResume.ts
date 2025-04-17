@@ -302,57 +302,151 @@ export const useResume = () => {
   };
 
   // Delete resume from storage and database
-  const deleteResume = async (): Promise<boolean> => {
-    if (!user || !resume) return false;
+  // const deleteResume = async (): Promise<boolean> => {
+  //   if (!user || !resume) return false;
 
+  //   try {
+  //     try {
+  //       const storageResult = await deleteResumeFile(user.id, resume.file_path);
+  //       if (!storageResult) {
+  //         console.warn('Could not delete file from storage, continuing with database deletion');
+  //       }
+  //     } catch (storageError) {
+  //       console.warn('Error deleting from storage, continuing with database deletion:', storageError);
+  //     }
+      
+  //     // Delete record from database
+  //     const { error: dbError } = await supabase
+  //       .from('resumes')
+  //       .delete()
+  //       .eq('id', resume.id);
+      
+  //     if (dbError) {
+  //       console.error('Error deleting resume record:', dbError);
+  //       throw new Error('Failed to delete resume information from database');
+  //     }
+      
+  //     // Clear the resume state
+  //     setResume(null);
+      
+  //     // Also clear any cached analysis data
+  //     localStorage.removeItem(`resume_analysis_${user.id}`);
+  //     localStorage.removeItem(`resume_text_${user.id}`);
+      
+  //     toast({
+  //       title: 'Success',
+  //       description: 'Resume deleted successfully.',
+  //     });
+      
+  //     // Refresh to get the next most recent resume if one exists
+  //     await fetchResume();
+      
+  //     return true;
+  //   } catch (error) {
+  //     console.error('Error deleting resume:', error);
+  //     toast({
+  //       title: 'Delete Failed',
+  //       description: error.message || 'Failed to delete resume.',
+  //       variant: 'destructive',
+  //     });
+  //     return false;
+  //   }
+  // };
+// Delete resume from storage and database
+  const deleteResume = async (): Promise<boolean> => {
+    if (!user || !resume) {
+      console.error("Cannot delete: missing user or resume");
+      return false;
+    }
+  
     try {
+      console.log(`=== RESUME DELETION STARTED ===`);
+      console.log(`Resume ID: ${resume.id}`);
+      console.log(`User ID: ${user.id}`);
+      console.log(`File path: ${resume.file_path}`);
+      
+      // First, clear local storage caches associated with this resume
+      console.log(`Clearing localStorage cache for user ${user.id}...`);
+      localStorage.removeItem(`resume_analysis_${user.id}`);
+      localStorage.removeItem(`resume_text_${user.id}`);
+      localStorage.removeItem(`resume_data_${user.id}`);
+  
+      // Also clear any URL cache
+      signedUrlCacheRef.current.clear();
+      console.log(`Cleared URL cache`);
+  
+      // First try to delete the file from storage
       try {
+        console.log(`Attempting to delete file from storage: ${resume.file_path}`);
         const storageResult = await deleteResumeFile(user.id, resume.file_path);
         if (!storageResult) {
-          console.warn('Could not delete file from storage, continuing with database deletion');
+          console.warn(`Could not delete file from storage: ${resume.file_path}`);
+        } else {
+          console.log(`Successfully deleted file from storage: ${resume.file_path}`);
         }
       } catch (storageError) {
-        console.warn('Error deleting from storage, continuing with database deletion:', storageError);
+        console.warn(`Error deleting file from storage: ${resume.file_path}`, storageError);
       }
       
-      // Delete record from database
-      const { error: dbError } = await supabase
+      // Delete record from database using ID rather than user_id
+      console.log(`Deleting resume with ID: ${resume.id} from database...`);
+      const { data, error: dbError } = await supabase
         .from('resumes')
         .delete()
-        .eq('id', resume.id);
+        .eq('id', resume.id)
+        .select();
       
       if (dbError) {
-        console.error('Error deleting resume record:', dbError);
-        throw new Error('Failed to delete resume information from database');
+        console.error(`Database error deleting resume ID ${resume.id}:`, dbError);
+        throw new Error(`Failed to delete resume from database: ${dbError.message}`);
       }
+      
+      console.log(`Database response:`, data);
+      console.log(`Successfully deleted resume record from database. Resume ID: ${resume.id}`);
       
       // Clear the resume state
       setResume(null);
+      console.log(`Reset resume state to null`);
       
-      // Also clear any cached analysis data
-      localStorage.removeItem(`resume_analysis_${user.id}`);
-      localStorage.removeItem(`resume_text_${user.id}`);
+      // Reset fetching flags to allow refetching
+      hasFetchedResume.current = false;
+      hasFetchedUrlRef.current = false;
       
       toast({
         title: 'Success',
         description: 'Resume deleted successfully.',
       });
       
+      console.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
+      
       // Refresh to get the next most recent resume if one exists
+      console.log(`Fetching next most recent resume if available...`);
       await fetchResume();
       
       return true;
     } catch (error) {
-      console.error('Error deleting resume:', error);
+      console.error(`=== RESUME DELETION FAILED ===`);
+      console.error('Error details:', error);
+      
       toast({
         title: 'Delete Failed',
         description: error.message || 'Failed to delete resume.',
         variant: 'destructive',
       });
+      
+      // Even on error, let's still clear localStorage and attempt to refresh
+      try {
+        localStorage.removeItem(`resume_analysis_${user.id}`);
+        localStorage.removeItem(`resume_text_${user.id}`);
+        hasFetchedResume.current = false;
+        await fetchResume();
+      } catch (cleanupError) {
+        console.error('Error during cleanup after failed deletion:', cleanupError);
+      }
+      
       return false;
     }
   };
-
   return {
     resume,
     loading,
