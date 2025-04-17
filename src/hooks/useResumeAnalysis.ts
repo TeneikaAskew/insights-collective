@@ -222,6 +222,34 @@ const CAREER_KEYWORDS = {
   ]
 };
 
+// // Helper function to count keywords in resume text
+// const countKeywordsInResume = (resumeText: string, keywordList: string[]): number => {
+//   if (!resumeText) return 0;
+  
+//   // Convert text to lowercase for case-insensitive matching
+//   const lowerText = resumeText.toLowerCase();
+  
+//   // Count occurrences of each keyword
+//   let count = 0;
+  
+//   for (const keyword of keywordList) {
+//     // Create regex to find whole word/phrase matches
+//     // This helps avoid counting substrings within other words
+//     const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+//     const matches = lowerText.match(regex);
+    
+//     if (matches) {
+//       count += matches.length;
+//     }
+//   }
+  
+//   return count;
+// };
+// Helper function to escape special regex characters
+const escapeRegExp = (string: string): string => {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+};
+
 // Helper function to count keywords in resume text
 const countKeywordsInResume = (resumeText: string, keywordList: string[]): number => {
   if (!resumeText) return 0;
@@ -233,13 +261,23 @@ const countKeywordsInResume = (resumeText: string, keywordList: string[]): numbe
   let count = 0;
   
   for (const keyword of keywordList) {
-    // Create regex to find whole word/phrase matches
-    // This helps avoid counting substrings within other words
-    const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
-    const matches = lowerText.match(regex);
-    
-    if (matches) {
-      count += matches.length;
+    try {
+      // Escape special regex characters in the keyword
+      const escapedKeyword = escapeRegExp(keyword);
+      
+      // Create regex to find whole word/phrase matches
+      // This helps avoid counting substrings within other words
+      const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'gi');
+      const matches = lowerText.match(regex);
+      
+      if (matches) {
+        count += matches.length;
+        // Optional: log matched keywords for debugging
+        // console.log(`Found ${matches.length} matches for '${keyword}'`);
+      }
+    } catch (error) {
+      // If there's an error with a specific keyword, log it and continue
+      console.warn(`Error matching keyword '${keyword}': ${error.message}`);
     }
   }
   
