@@ -516,6 +516,21 @@ const deleteResume = async (): Promise<boolean> => {
   try {
     console.log(`=== RESUME DELETION STARTED ===`);
     console.log(`User ID: ${user.id}`);
+
+
+    // In your deleteResume function, replace the storage deletion part with:
+    try {
+      console.log(`Attempting to delete all files for user: ${user.id}`);
+      const storageResult = await deleteAllUserFiles(user.id);
+      if (!storageResult) {
+        console.warn(`Could not delete all files from storage for user: ${user.id}, continuing...`);
+      } else {
+        console.log(`Successfully deleted all files from storage for user: ${user.id}`);
+      }
+    } catch (storageError) {
+      console.warn(`Error deleting files from storage: ${storageError}`);
+      // Continue with database deletion regardless
+    }
     
     // STEP 1: Clear all localStorage caches for this user FIRST
     // This is critical to prevent the app from reloading cached data
@@ -603,6 +618,56 @@ const deleteResume = async (): Promise<boolean> => {
       window.location.href = window.location.pathname + "?t=" + Date.now();
     }, 1500);
     
+    return false;
+  }
+};
+
+  // Add this function to your storage hook
+export const deleteAllUserFiles = async (userId: string): Promise<boolean> => {
+  if (!userId) {
+    console.error("Missing userId for bulk deletion");
+    return false;
+  }
+
+  try {
+    console.log(`Listing all files for user: ${userId}`);
+    
+    // First, list all files in the user's folder
+    const { data: listData, error: listError } = await supabase
+      .storage
+      .from('resumes')
+      .list(userId);
+    
+    if (listError) {
+      console.warn(`Error listing files: ${listError.message}`);
+      return false;
+    }
+    
+    if (!listData || listData.length === 0) {
+      console.log(`No files found for user: ${userId}`);
+      return true; // Nothing to delete
+    }
+    
+    console.log(`Found ${listData.length} files to delete`);
+    
+    // Create paths for all files
+    const filePaths = listData.map(item => `${userId}/${item.name}`);
+    
+    // Delete all files in one call
+    const { error: deleteError } = await supabase
+      .storage
+      .from('resumes')
+      .remove(filePaths);
+    
+    if (deleteError) {
+      console.error(`Error deleting files: ${deleteError.message}`);
+      return false;
+    }
+    
+    console.log(`Successfully deleted ${filePaths.length} files for user: ${userId}`);
+    return true;
+  } catch (error) {
+    console.error(`Unexpected error deleting files: ${error.message}`);
     return false;
   }
 };
