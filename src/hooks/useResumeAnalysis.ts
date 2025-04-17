@@ -267,7 +267,7 @@ const countKeywordsInResume = (resumeText: string, keywordList: string[]): numbe
       
       // Create regex to find whole word/phrase matches
       // This helps avoid counting substrings within other words
-      const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'gi');
+      const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'g');
       const matches = lowerText.match(regex);
       
       if (matches) {
