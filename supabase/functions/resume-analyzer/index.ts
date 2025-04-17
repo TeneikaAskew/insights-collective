@@ -8,7 +8,6 @@ import { serveBulletImprover } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 
-// import { corsHeaders } from "./utils.ts";
 // Fixed CORS headers implementation
 const corsHeaders = (req: Request) => {
   const origin = req.headers.get('origin') || '*';
@@ -21,9 +20,16 @@ const corsHeaders = (req: Request) => {
   };
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Environment variables with fallbacks to prevent undefined errors
+const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+let supabase;
+
+try {
+  supabase = createClient(supabaseUrl, supabaseKey);
+} catch (error) {
+  console.error("Failed to create Supabase client:", error);
+}
 
 const bulletCache = new Map<string, string[]>();
 const roastCache = new Map<string, string>();
@@ -31,6 +37,14 @@ const roastCache = new Map<string, string>();
 // ––– Helpers –––
 
 async function getResumeRoast(resumeText: string, userId?: string) {
+  // Early return for empty resume text
+  if (!resumeText) {
+    return {
+      roast:
+        "I need to see your resume first to provide specific feedback. Please upload your resume so I can analyze it and give you targeted advice on how to improve it."
+    };
+  }
+  
   const cacheKey = userId
     ? `user:${userId}:roast`
     : `temp:${resumeText.substring(0, 100)}:roast`;
@@ -38,16 +52,16 @@ async function getResumeRoast(resumeText: string, userId?: string) {
   if (roastCache.has(cacheKey)) {
     return { roast: roastCache.get(cacheKey)! };
   }
-  if (!resumeText) {
-    return {
-      roast:
-        "I need to see your resume first to provide specific feedback. Please upload your resume so I can analyze it and give you targeted advice on how to improve it."
-    };
-  }
 
   try {
     const groqApiKey = Deno.env.get("GROQ");
-    if (!groqApiKey) throw new Error("GROQ API key not found");
+    if (!groqApiKey) {
+      console.warn("GROQ API key not found, using fallback roast");
+      return {
+        roast:
+          "Your resume needs more specific accomplishments and metrics. The language is too generic and doesn't highlight your unique value. Try quantifying your achievements and using more powerful action verbs."
+      };
+    }
 
     const prompt = `
 I'm looking at this resume text:
@@ -82,6 +96,7 @@ Be specific and provide actionable advice. Format your response with no markdown
 
     if (!res.ok) {
       const err = await res.json();
+      console.error("GROQ API error details:", err);
       throw new Error(err.error?.message || "Unknown GROQ API error");
     }
     const payload = await res.json();
@@ -93,12 +108,16 @@ Be specific and provide actionable advice. Format your response with no markdown
 
     roastCache.set(cacheKey, cleanRoast);
 
-    if (userId) {
-      const { error } = await supabase
-        .from("resumes")
-        .update({ initial_assessment: cleanRoast })
-        .eq("user_id", userId);
-      if (error) console.error("Error storing assessment:", error);
+    if (userId && supabase) {
+      try {
+        const { error } = await supabase
+          .from("resumes")
+          .update({ initial_assessment: cleanRoast })
+          .eq("user_id", userId);
+        if (error) console.error("Error storing assessment:", error);
+      } catch (dbError) {
+        console.error("Supabase error:", dbError);
+      }
     }
 
     return { roast: cleanRoast };
@@ -112,32 +131,40 @@ Be specific and provide actionable advice. Format your response with no markdown
 }
 
 async function analyzeResume(resumeText: string, userId?: string) {
+  // Default response for error handling
+  const defaultResponse = {
+    bullets: [] as any[],
+    resume_average: 25,
+    resume_percent: 50,
+    letter_grade: "C",
+    themes: ["Please upload a resume with text content"],
+    elevator_pitch:
+      "We couldn't find any text to analyze. Please upload a valid resume document.",
+    explanation:
+      "We couldn't find any text to analyze. Make sure your document contains readable text content."
+  };
+
   // 1️⃣ Fetch or default resume text
-  if (userId) {
-    const { data: existing, error: fetchErr } = await supabase
-      .from("resumes")
-      .select("id, text")
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (!fetchErr && existing?.text && !resumeText) {
-      resumeText = existing.text;
+  if (userId && supabase) {
+    try {
+      const { data: existing, error: fetchErr } = await supabase
+        .from("resumes")
+        .select("id, text")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!fetchErr && existing?.text && !resumeText) {
+        resumeText = existing.text;
+      }
+    } catch (error) {
+      console.error("Error fetching resume:", error);
     }
   }
+  
   if (!resumeText) {
-    return {
-      bullets: [] as any[],
-      resume_average: 25,
-      resume_percent: 50,
-      letter_grade: "C",
-      themes: ["Please upload a resume with text content"],
-      elevator_pitch:
-        "We couldn't find any text to analyze. Please upload a valid resume document.",
-      explanation:
-        "We couldn't find any text to analyze. Make sure your document contains readable text content."
-    };
+    return defaultResponse;
   }
 
-  // 2️⃣ Roast
+  // 2️⃣ Roast (don't await to speed up response time)
   if (userId) {
     getResumeRoast(resumeText, userId).catch((e) =>
       console.error("Roast error:", e)
@@ -157,83 +184,84 @@ async function analyzeResume(resumeText: string, userId?: string) {
       if (userId && bullets.length) {
         bulletCache.set(`user:${userId}:bullets`, bullets);
       }
-    } catch {
-      return {
-        bullets: [] as any[],
-        resume_average: 0,
-        resume_percent: 50,
-        letter_grade: "C",
-        themes: ["Format your resume with clear bullet points"],
-        elevator_pitch:
-          "Unable to extract bullet points. Please format your resume accordingly.",
-        explanation:
-          "Your resume needs bullet points for our analysis tool to work effectively."
-      };
+    } catch (error) {
+      console.error("Error extracting bullets:", error);
+      return defaultResponse;
     }
   }
 
   // 4️⃣ Score & rewrite
-  const analyzed = await Promise.all(
-    bullets.map(async (b) => {
-      const wb = analyzeWordBalance(b);
-      const xyz = xyzCheck(b);
-      const total = wb.word_balance_score + xyz.xyz_total;
-      const rewritten = await rewriteBullet(b, { xyz_scores: xyz });
-      const tips = await generateTips(b, {
-        xyz_scores: xyz,
-        word_balance_score: wb.word_balance_score
-      });
-      return {
-        original: b,
-        word_balance: wb,
-        xyz_scores: xyz,
-        bullet_total: total,
-        rewritten,
-        tips
-      };
-    })
-  );
-
-  const avg =
-    analyzed.length > 0
-      ? analyzed.reduce((sum, x) => sum + x.bullet_total, 0) / analyzed.length
-      : 25;
-  const percent = Math.min(Math.max((avg / 45) * 100, 30), 100);
-  let grade = getLetterGrade(percent);
-  if (grade === "F") grade = "D";
-
-  const themes = generateThemes(analyzed);
-
-  let analysis = {
-    bullets: analyzed,
-    resume_average: avg,
-    resume_percent: percent,
-    letter_grade: grade,
-    themes,
-    elevator_pitch:
-      "Experienced professional with a track record of delivering results and driving business outcomes.",
-    explanation: `Your resume received a ${grade} (${percent}%), indicating ${
-      grade >= "C" ? "reasonable" : "significant"
-    } room for improvement.`
-  };
-
-  // 5️⃣ Groq enhancement
   try {
-    analysis = await enhanceWithGroq(resumeText, analysis);
-  } catch {
-    /* ignore */
-  }
+    const analyzed = await Promise.all(
+      bullets.map(async (b) => {
+        const wb = analyzeWordBalance(b);
+        const xyz = xyzCheck(b);
+        const total = wb.word_balance_score + xyz.xyz_total;
+        const rewritten = await rewriteBullet(b, { xyz_scores: xyz });
+        const tips = await generateTips(b, {
+          xyz_scores: xyz,
+          word_balance_score: wb.word_balance_score
+        });
+        return {
+          original: b,
+          word_balance: wb,
+          xyz_scores: xyz,
+          bullet_total: total,
+          rewritten,
+          tips
+        };
+      })
+    );
 
-  // 6️⃣ Store back in DB
-  if (userId) {
-    const { error } = await supabase
-      .from("resumes")
-      .update({ analysis, updated_at: new Date().toISOString() })
-      .eq("user_id", userId);
-    if (error) console.error("Error storing analysis:", error);
-  }
+    const avg =
+      analyzed.length > 0
+        ? analyzed.reduce((sum, x) => sum + x.bullet_total, 0) / analyzed.length
+        : 25;
+    const percent = Math.min(Math.max((avg / 45) * 100, 30), 100);
+    let grade = getLetterGrade(percent);
+    if (grade === "F") grade = "D";
 
-  return analysis;
+    const themes = generateThemes(analyzed);
+
+    let analysis = {
+      bullets: analyzed,
+      resume_average: avg,
+      resume_percent: percent,
+      letter_grade: grade,
+      themes,
+      elevator_pitch:
+        "Experienced professional with a track record of delivering results and driving business outcomes.",
+      explanation: `Your resume received a ${grade} (${percent}%), indicating ${
+        grade >= "C" ? "reasonable" : "significant"
+      } room for improvement.`
+    };
+
+    // 5️⃣ Groq enhancement - wrapped in try/catch to prevent failures
+    try {
+      analysis = await enhanceWithGroq(resumeText, analysis);
+    } catch (error) {
+      console.error("Error enhancing with Groq:", error);
+      /* continue without enhancement */
+    }
+
+    // 6️⃣ Store back in DB
+    if (userId && supabase) {
+      try {
+        const { error } = await supabase
+          .from("resumes")
+          .update({ analysis, updated_at: new Date().toISOString() })
+          .eq("user_id", userId);
+        if (error) console.error("Error storing analysis:", error);
+      } catch (dbError) {
+        console.error("Supabase error updating analysis:", dbError);
+      }
+    }
+
+    return analysis;
+  } catch (error) {
+    console.error("Error analyzing resume:", error);
+    return defaultResponse;
+  }
 }
 
 // ––– Edge Function entrypoint –––
@@ -255,45 +283,406 @@ serve(async (req: Request) => {
 
   try {
     const url = new URL(req.url);
-    const path = url.pathname.split("/").pop();
+    const path = url.pathname.split("/").pop() || "";
 
     // Sentence detector
     if (path === "detect-sentences") {
-      const { text } = await req.json();
+      let body;
+      try {
+        body = await req.json();
+      } catch (error) {
+        console.error("Error parsing request JSON:", error);
+        return new Response(
+          JSON.stringify({ error: "Invalid JSON in request body" }),
+          { status: 400, headers }
+        );
+      }
+      
+      const { text } = body;
       if (!text) {
         return new Response(
           JSON.stringify({ error: "Missing text" }),
           { status: 400, headers }
         );
       }
-      const sentences = await detectSentences(text);
-      return new Response(JSON.stringify({ sentences }), { headers });
+      
+      try {
+        const sentences = await detectSentences(text);
+        return new Response(JSON.stringify({ sentences }), { headers });
+      } catch (error) {
+        console.error("Error detecting sentences:", error);
+        return new Response(
+          JSON.stringify({ error: "Failed to detect sentences", details: (error as Error).message }),
+          { status: 500, headers }
+        );
+      }
     }
 
     // Bullet improver
     if (path === "improve-bullet") {
-      return await serveBulletImprover()(req);
+      try {
+        return await serveBulletImprover()(req);
+      } catch (error) {
+        console.error("Error in bullet improver:", error);
+        return new Response(
+          JSON.stringify({ error: "Bullet improver failed", details: (error as Error).message }),
+          { status: 500, headers }
+        );
+      }
     }
 
     // Resume analyzer / roast
-    const { action, resumeText, userId } = await req.json();
+    let body;
+    try {
+      body = await req.json();
+    } catch (error) {
+      console.error("Error parsing request JSON for resume analysis:", error);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body" }),
+        { status: 400, headers }
+      );
+    }
+    
+    const { action, resumeText, userId } = body;
 
     if (action === "get-roast") {
-      const roast = await getResumeRoast(resumeText, userId);
-      return new Response(JSON.stringify(roast), { headers });
+      try {
+        const roast = await getResumeRoast(resumeText, userId);
+        return new Response(JSON.stringify(roast), { headers });
+      } catch (error) {
+        console.error("Error getting roast:", error);
+        return new Response(
+          JSON.stringify({ 
+            roast: "Failed to generate roast. Please try again later.",
+            error: (error as Error).message 
+          }),
+          { headers }
+        );
+      }
     }
 
     // Full analysis
-    const analysis = await analyzeResume(resumeText, userId);
-    return new Response(JSON.stringify(analysis), { headers });
+    try {
+      const analysis = await analyzeResume(resumeText, userId);
+      return new Response(JSON.stringify(analysis), { headers });
+    } catch (error) {
+      console.error("Error analyzing resume:", error);
+      return new Response(
+        JSON.stringify({ 
+          error: (error as Error).message || "Unknown error",
+          message: "Failed to analyze resume. Please try again later." 
+        }),
+        { status: 500, headers }
+      );
+    }
   } catch (err) {
-    console.error("Error:", err);
+    console.error("Unhandled error:", err);
     return new Response(
-      JSON.stringify({ error: (err as Error).message || "Unknown error" }),
+      JSON.stringify({ 
+        error: (err as Error).message || "Unknown error",
+        message: "An unexpected error occurred. Please try again later."
+      }),
       { status: 500, headers }
     );
   }
 });
+
+// import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
+// import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
+// import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions.ts";
+// import { getLetterGrade } from "./gradeHelper.ts";
+// import { enhanceWithGroq } from "./aiEnhancer.ts";
+// import { serveBulletImprover } from "./bulletImprover.ts";
+// import { detectSentences } from "./sentenceDetector.ts";
+// import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
+
+// // import { corsHeaders } from "./utils.ts";
+// // Fixed CORS headers implementation
+// const corsHeaders = (req: Request) => {
+//   const origin = req.headers.get('origin') || '*';
+//   return {
+//     'Access-Control-Allow-Origin': origin,
+//     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+//     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+//     'Access-Control-Max-Age': '86400',
+//     'Access-Control-Allow-Credentials': 'true'
+//   };
+// };
+
+// const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+// const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+// const supabase = createClient(supabaseUrl, supabaseKey);
+
+// const bulletCache = new Map<string, string[]>();
+// const roastCache = new Map<string, string>();
+
+// // ––– Helpers –––
+
+// async function getResumeRoast(resumeText: string, userId?: string) {
+//   const cacheKey = userId
+//     ? `user:${userId}:roast`
+//     : `temp:${resumeText.substring(0, 100)}:roast`;
+
+//   if (roastCache.has(cacheKey)) {
+//     return { roast: roastCache.get(cacheKey)! };
+//   }
+//   if (!resumeText) {
+//     return {
+//       roast:
+//         "I need to see your resume first to provide specific feedback. Please upload your resume so I can analyze it and give you targeted advice on how to improve it."
+//     };
+//   }
+
+//   try {
+//     const groqApiKey = Deno.env.get("GROQ");
+//     if (!groqApiKey) throw new Error("GROQ API key not found");
+
+//     const prompt = `
+// I'm looking at this resume text:
+
+// ${resumeText.substring(0, 4000)}
+
+// Now, I need a full-on resume roast. Don't sugarcoat it — tell me what's holding this back. Why am I not getting callbacks, referrals, or interviews? Tear it apart like a hiring manager who's had one too many resumes land on their desk. Be blunt. What's outdated, what's weak, what's missing, what makes you roll your eyes, and what makes you scroll past me? Give me the real — and then tell me how to fix it so I actually start landing opportunities.
+
+// Be specific and provide actionable advice. Format your response with no markdown, just clean text. Keep it to 3-4 paragraphs maximum.
+//     `;
+
+//     const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+//       method: "POST",
+//       headers: {
+//         "Authorization": `Bearer ${groqApiKey}`,
+//         "Content-Type": "application/json"
+//       },
+//       body: JSON.stringify({
+//         model: "llama3-70b-8192",
+//         messages: [
+//           {
+//             role: "system",
+//             content:
+//               "You are a brutally honest resume critic. Your job is to point out the real issues in a resume without sugarcoating, then provide actionable advice."
+//           },
+//           { role: "user", content: prompt }
+//         ],
+//         temperature: 0.7,
+//         max_tokens: 750
+//       })
+//     });
+
+//     if (!res.ok) {
+//       const err = await res.json();
+//       throw new Error(err.error?.message || "Unknown GROQ API error");
+//     }
+//     const payload = await res.json();
+//     const roastText = payload.choices[0].message.content.trim();
+//     const cleanRoast = roastText
+//       .replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, "")
+//       .replace(/^[–\-\*\s]*|:/g, "")
+//       .trim();
+
+//     roastCache.set(cacheKey, cleanRoast);
+
+//     if (userId) {
+//       const { error } = await supabase
+//         .from("resumes")
+//         .update({ initial_assessment: cleanRoast })
+//         .eq("user_id", userId);
+//       if (error) console.error("Error storing assessment:", error);
+//     }
+
+//     return { roast: cleanRoast };
+//   } catch (e) {
+//     console.error("GROQ error:", e);
+//     return {
+//       roast:
+//         "Your resume needs more specific accomplishments and metrics. The language is too generic and doesn't highlight your unique value. Try quantifying your achievements and using more powerful action verbs. Also, make sure your resume is tailored for each specific role you apply for rather than using a one-size-fits-all approach."
+//     };
+//   }
+// }
+
+// async function analyzeResume(resumeText: string, userId?: string) {
+//   // 1️⃣ Fetch or default resume text
+//   if (userId) {
+//     const { data: existing, error: fetchErr } = await supabase
+//       .from("resumes")
+//       .select("id, text")
+//       .eq("user_id", userId)
+//       .maybeSingle();
+//     if (!fetchErr && existing?.text && !resumeText) {
+//       resumeText = existing.text;
+//     }
+//   }
+//   if (!resumeText) {
+//     return {
+//       bullets: [] as any[],
+//       resume_average: 25,
+//       resume_percent: 50,
+//       letter_grade: "C",
+//       themes: ["Please upload a resume with text content"],
+//       elevator_pitch:
+//         "We couldn't find any text to analyze. Please upload a valid resume document.",
+//       explanation:
+//         "We couldn't find any text to analyze. Make sure your document contains readable text content."
+//     };
+//   }
+
+//   // 2️⃣ Roast
+//   if (userId) {
+//     getResumeRoast(resumeText, userId).catch((e) =>
+//       console.error("Roast error:", e)
+//     );
+//   }
+
+//   // 3️⃣ Bullets
+//   let bullets: string[] =
+//     userId && bulletCache.has(`user:${userId}:bullets`)
+//       ? bulletCache.get(`user:${userId}:bullets`)!
+//       : [];
+
+//   if (bullets.length === 0) {
+//     try {
+//       bullets = await extractBulletPoints(resumeText);
+//       if (!bullets.length) bullets = fallbackExtractBullets(resumeText);
+//       if (userId && bullets.length) {
+//         bulletCache.set(`user:${userId}:bullets`, bullets);
+//       }
+//     } catch {
+//       return {
+//         bullets: [] as any[],
+//         resume_average: 0,
+//         resume_percent: 50,
+//         letter_grade: "C",
+//         themes: ["Format your resume with clear bullet points"],
+//         elevator_pitch:
+//           "Unable to extract bullet points. Please format your resume accordingly.",
+//         explanation:
+//           "Your resume needs bullet points for our analysis tool to work effectively."
+//       };
+//     }
+//   }
+
+//   // 4️⃣ Score & rewrite
+//   const analyzed = await Promise.all(
+//     bullets.map(async (b) => {
+//       const wb = analyzeWordBalance(b);
+//       const xyz = xyzCheck(b);
+//       const total = wb.word_balance_score + xyz.xyz_total;
+//       const rewritten = await rewriteBullet(b, { xyz_scores: xyz });
+//       const tips = await generateTips(b, {
+//         xyz_scores: xyz,
+//         word_balance_score: wb.word_balance_score
+//       });
+//       return {
+//         original: b,
+//         word_balance: wb,
+//         xyz_scores: xyz,
+//         bullet_total: total,
+//         rewritten,
+//         tips
+//       };
+//     })
+//   );
+
+//   const avg =
+//     analyzed.length > 0
+//       ? analyzed.reduce((sum, x) => sum + x.bullet_total, 0) / analyzed.length
+//       : 25;
+//   const percent = Math.min(Math.max((avg / 45) * 100, 30), 100);
+//   let grade = getLetterGrade(percent);
+//   if (grade === "F") grade = "D";
+
+//   const themes = generateThemes(analyzed);
+
+//   let analysis = {
+//     bullets: analyzed,
+//     resume_average: avg,
+//     resume_percent: percent,
+//     letter_grade: grade,
+//     themes,
+//     elevator_pitch:
+//       "Experienced professional with a track record of delivering results and driving business outcomes.",
+//     explanation: `Your resume received a ${grade} (${percent}%), indicating ${
+//       grade >= "C" ? "reasonable" : "significant"
+//     } room for improvement.`
+//   };
+
+//   // 5️⃣ Groq enhancement
+//   try {
+//     analysis = await enhanceWithGroq(resumeText, analysis);
+//   } catch {
+//     /* ignore */
+//   }
+
+//   // 6️⃣ Store back in DB
+//   if (userId) {
+//     const { error } = await supabase
+//       .from("resumes")
+//       .update({ analysis, updated_at: new Date().toISOString() })
+//       .eq("user_id", userId);
+//     if (error) console.error("Error storing analysis:", error);
+//   }
+
+//   return analysis;
+// }
+
+// // ––– Edge Function entrypoint –––
+
+// serve(async (req: Request) => {
+//   // 1) CORS preflight
+//   if (req.method === "OPTIONS") {
+//     return new Response(null, {
+//       status: 204,
+//       headers: corsHeaders(req)
+//     });
+//   }
+
+//   // 2) Shared headers for JSON replies
+//   const headers = {
+//     "Content-Type": "application/json",
+//     ...corsHeaders(req)
+//   };
+
+//   try {
+//     const url = new URL(req.url);
+//     const path = url.pathname.split("/").pop();
+
+//     // Sentence detector
+//     if (path === "detect-sentences") {
+//       const { text } = await req.json();
+//       if (!text) {
+//         return new Response(
+//           JSON.stringify({ error: "Missing text" }),
+//           { status: 400, headers }
+//         );
+//       }
+//       const sentences = await detectSentences(text);
+//       return new Response(JSON.stringify({ sentences }), { headers });
+//     }
+
+//     // Bullet improver
+//     if (path === "improve-bullet") {
+//       return await serveBulletImprover()(req);
+//     }
+
+//     // Resume analyzer / roast
+//     const { action, resumeText, userId } = await req.json();
+
+//     if (action === "get-roast") {
+//       const roast = await getResumeRoast(resumeText, userId);
+//       return new Response(JSON.stringify(roast), { headers });
+//     }
+
+//     // Full analysis
+//     const analysis = await analyzeResume(resumeText, userId);
+//     return new Response(JSON.stringify(analysis), { headers });
+//   } catch (err) {
+//     console.error("Error:", err);
+//     return new Response(
+//       JSON.stringify({ error: (err as Error).message || "Unknown error" }),
+//       { status: 500, headers }
+//     );
+//   }
+// });
 
 // import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
