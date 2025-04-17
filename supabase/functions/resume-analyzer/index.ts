@@ -8,7 +8,7 @@ import { enhanceWithGroq } from "./aiEnhancer.ts";
 import { serveBulletImprover } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
-import { corsHeaders } from "./utils.ts";
+// import { corsHeaders } from "./utils.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
@@ -20,7 +20,9 @@ const roastCache = new Map();
 export { detectSentences };
 export { serveBulletImprover };
 
-export const corsHeaders = {
+// export 
+  
+const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
