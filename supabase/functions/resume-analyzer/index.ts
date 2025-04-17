@@ -246,7 +246,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
       return {
         bullets: [],
         resume_average: 0,
-        resume_percent: 50,
+        resume_percent: 0,
         letter_grade: "",
         themes: ["We couldn't detect formatted bullet points in your resume. "],
         elevator_pitch: "We couldn't detect formatted bullet points in your resume. For a complete analysis, consider organizing your experience in clear bullet points.",
