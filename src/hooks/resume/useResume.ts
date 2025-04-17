@@ -170,6 +170,162 @@ export const useResume = () => {
   };
 
   // Upload resume file to Supabase storage and record in database
+  // const uploadResume = async (file: File): Promise<boolean> => {
+  //   if (!user) {
+  //     toast({
+  //       title: 'Authentication required',
+  //       description: 'Please log in to upload a resume.',
+  //       variant: 'destructive',
+  //     });
+  //     return false;
+  //   }
+
+  //   try {
+  //     setUploading(true);
+      
+  //     // Check if table exists
+  //     const tableExists = await checkResumesTableExists();
+  //     if (!tableExists) {
+  //       toast({
+  //         title: 'Setup Required',
+  //         description: 'Resume system is not properly configured. Please contact support.',
+  //         variant: 'destructive',
+  //       });
+  //       return false;
+  //     }
+      
+  //     // Extract text from file for analysis
+  //     let fileText = '';
+  //     try {
+  //       fileText = await extractTextFromFile(file);
+  //       console.log("Successfully extracted text, length:", fileText.length);
+  //     } catch (extractError) {
+  //       console.warn('Could not extract text from file:', extractError);
+  //       try {
+  //         // Fallback to basic text extraction
+  //         const textReader = new FileReader();
+  //         textReader.readAsText(file);
+  //         fileText = await new Promise((resolve) => {
+  //           textReader.onload = () => resolve(textReader.result as string);
+  //         });
+  //         console.log("Used fallback text extraction, length:", fileText.length);
+  //       } catch (err) {
+  //         console.warn('Fallback text extraction also failed:', err);
+  //         // Continue with empty text - at least we can store the file
+  //         fileText = 'Text extraction failed. Please try again with a different file format.';
+  //       }
+  //     }
+      
+  //     // Upload file to storage
+  //     const uploadResult = await uploadResumeFile(file, user.id);
+      
+  //     if (!uploadResult.success) {
+  //       throw new Error('Failed to upload resume file to storage');
+  //     }
+      
+  //     // Check if user already has a resume record
+  //     const { data: existingResume, error: fetchError } = await supabase
+  //       .from('resumes')
+  //       .select('id')
+  //       .eq('user_id', user.id)
+  //       .maybeSingle();
+      
+  //     if (fetchError && fetchError.code !== 'PGRST116') {
+  //       console.error('Error checking for existing resume:', fetchError);
+  //       throw new Error('Failed to check for existing resume');
+  //     }
+      
+  //     // let saveResult;
+      
+  //     if (existingResume?.id) {
+  //       // console.log("Updating existing resume record");
+  //       console.log("Deleting existing resume record");
+
+  //        // Delete the old file from storage if it exists
+  //     if (existingResume.file_path) {
+  //       try {
+  //         await deleteResumeFile(user.id, existingResume.file_path);
+  //       } catch (storageError) {
+  //         console.warn('Error deleting old file from storage:', storageError);
+  //         // Continue with database deletion even if storage deletion fails
+  //       }
+  //     }
+      
+  //     // Delete the record from the database
+  //     const { error: deleteError } = await supabase
+  //       .from('resumes')
+  //       .delete()
+  //       .eq('id', existingResume.id);
+      
+  //     if (deleteError) {
+  //       console.error('Error deleting resume record:', deleteError);
+  //       throw new Error('Failed to delete existing resume');
+  //     }
+      
+  //     // Clear any cached analysis data
+  //     localStorage.removeItem(`resume_analysis_${user.id}`);
+  //     localStorage.removeItem(`resume_text_${user.id}`);
+  //   }
+  //     //   // Update existing record
+  //     //   saveResult = await supabase
+  //     //     .from('resumes')
+  //     //     .update({
+  //     //       file_path: uploadResult.filePath,
+  //     //       text: fileText,
+  //     //       updated_at: new Date().toISOString()
+  //     //     })
+  //     //     .eq('id', existingResume.id);
+  //     // } else {
+  //     //   console.log("Creating new resume record");
+  //     //   // Insert new record
+  //     //   saveResult = await supabase
+  //     //     .from('resumes')
+  //     //     .insert({
+  //     //       user_id: user.id,
+  //     //       file_path: uploadResult.filePath,
+  //     //       text: fileText,
+  //     //       uploaded_at: new Date().toISOString(),
+  //     //       updated_at: new Date().toISOString()
+  //     //     });
+  //     // }
+  //     // Insert new record
+  //     console.log("Creating new resume record");
+  //     const saveResult = await supabase
+  //       .from('resumes')
+  //       .insert({
+  //         user_id: user.id,
+  //         file_path: uploadResult.filePath,
+  //         text: fileText,
+  //         uploaded_at: new Date().toISOString(),
+  //         updated_at: new Date().toISOString()
+  //       });
+      
+  //     if (saveResult.error) {
+  //       console.error('Error saving resume record:', saveResult.error);
+  //       throw new Error('Failed to save resume information to database');
+  //     }
+      
+  //     // Refresh resume data
+  //     await fetchResume();
+      
+  //     toast({
+  //       title: 'Success',
+  //       description: 'Resume uploaded successfully.',
+  //     });
+      
+  //     return true;
+  //   } catch (error) {
+  //     console.error('Error uploading resume:', error);
+  //     toast({
+  //       title: 'Upload Failed',
+  //       description: error.message || 'Failed to upload resume.',
+  //       variant: 'destructive',
+  //     });
+  //     return false;
+  //   } finally {
+  //     setUploading(false);
+  //   }
+  // };
   const uploadResume = async (file: File): Promise<boolean> => {
     if (!user) {
       toast({
@@ -179,7 +335,7 @@ export const useResume = () => {
       });
       return false;
     }
-
+  
     try {
       setUploading(true);
       
@@ -226,7 +382,7 @@ export const useResume = () => {
       // Check if user already has a resume record
       const { data: existingResume, error: fetchError } = await supabase
         .from('resumes')
-        .select('id')
+        .select('id, file_path')
         .eq('user_id', user.id)
         .maybeSingle();
       
@@ -235,75 +391,67 @@ export const useResume = () => {
         throw new Error('Failed to check for existing resume');
       }
       
-      // let saveResult;
-      
+      // Handle existing resume case
       if (existingResume?.id) {
-        // console.log("Updating existing resume record");
-        console.log("Deleting existing resume record");
-
-         // Delete the old file from storage if it exists
-      if (existingResume.file_path) {
-        try {
-          await deleteResumeFile(user.id, existingResume.file_path);
-        } catch (storageError) {
-          console.warn('Error deleting old file from storage:', storageError);
-          // Continue with database deletion even if storage deletion fails
+        console.log("Updating existing resume record");
+        
+        // Delete the old file from storage if it exists and is different from the new one
+        if (existingResume.file_path && existingResume.file_path !== uploadResult.filePath) {
+          try {
+            await deleteResumeFile(user.id, existingResume.file_path);
+            console.log("Deleted old resume file from storage");
+          } catch (storageError) {
+            console.warn('Error deleting old file from storage:', storageError);
+            // Continue with database update even if storage deletion fails
+          }
         }
+        
+        // Update the existing record instead of deleting and reinserting
+        // Reset all analysis-related fields to null to ensure fresh analysis
+        const { error: updateError } = await supabase
+          .from('resumes')
+          .update({
+            file_path: uploadResult.filePath,
+            text: fileText,
+            updated_at: new Date().toISOString(),
+            uploaded_at: new Date().toISOString(),
+            analysis: null,
+            career_alignment_score: null,
+            target_role: null,
+            initial_assessment: null
+          })
+          .eq('id', existingResume.id);
+        
+        if (updateError) {
+          console.error('Error updating resume record:', updateError);
+          throw new Error('Failed to update resume information in database');
+        }
+        
+        console.log("Successfully updated existing resume record");
+      } else {
+        // Insert new record if no existing resume
+        console.log("Creating new resume record");
+        const { error: insertError } = await supabase
+          .from('resumes')
+          .insert({
+            user_id: user.id,
+            file_path: uploadResult.filePath,
+            text: fileText,
+            uploaded_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        
+        if (insertError) {
+          console.error('Error saving resume record:', insertError);
+          throw new Error('Failed to save resume information to database');
+        }
+        
+        console.log("Successfully created new resume record");
       }
       
-      // Delete the record from the database
-      const { error: deleteError } = await supabase
-        .from('resumes')
-        .delete()
-        .eq('id', existingResume.id);
-      
-      if (deleteError) {
-        console.error('Error deleting resume record:', deleteError);
-        throw new Error('Failed to delete existing resume');
-      }
-      
-      // Clear any cached analysis data
+      // Clear any cached analysis data since we have a new resume
       localStorage.removeItem(`resume_analysis_${user.id}`);
       localStorage.removeItem(`resume_text_${user.id}`);
-    }
-      //   // Update existing record
-      //   saveResult = await supabase
-      //     .from('resumes')
-      //     .update({
-      //       file_path: uploadResult.filePath,
-      //       text: fileText,
-      //       updated_at: new Date().toISOString()
-      //     })
-      //     .eq('id', existingResume.id);
-      // } else {
-      //   console.log("Creating new resume record");
-      //   // Insert new record
-      //   saveResult = await supabase
-      //     .from('resumes')
-      //     .insert({
-      //       user_id: user.id,
-      //       file_path: uploadResult.filePath,
-      //       text: fileText,
-      //       uploaded_at: new Date().toISOString(),
-      //       updated_at: new Date().toISOString()
-      //     });
-      // }
-      // Insert new record
-      console.log("Creating new resume record");
-      const saveResult = await supabase
-        .from('resumes')
-        .insert({
-          user_id: user.id,
-          file_path: uploadResult.filePath,
-          text: fileText,
-          uploaded_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-      
-      if (saveResult.error) {
-        console.error('Error saving resume record:', saveResult.error);
-        throw new Error('Failed to save resume information to database');
-      }
       
       // Refresh resume data
       await fetchResume();
@@ -326,7 +474,6 @@ export const useResume = () => {
       setUploading(false);
     }
   };
-
   // Delete resume from storage and database
   const deleteResume = async (): Promise<boolean> => {
     if (!user || !resume) return false;
