@@ -1,3 +1,4 @@
+
 export const industryWords = [
     /* Core data & analytics */
     "data","analytics","analysis","bi","intelligence","insights","sql","nosql","python","r","scala","java","julia","sas","matlab","stata",

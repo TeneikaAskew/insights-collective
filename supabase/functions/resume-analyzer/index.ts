@@ -1,7 +1,8 @@
+
 // Add this at the top of the file
 console.log('Resume analyzer function hit');
 
-import { serve } from 'std/server';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { safeJsonParse, handleApiError, corsHeaders, handleOptions } from './utils.ts';
 import { extractBulletPoints, fallbackExtractBullets } from './bulletExtractor.ts';
 import { analyzeWordBalance, xyzCheck } from './bulletAnalysis.ts';
