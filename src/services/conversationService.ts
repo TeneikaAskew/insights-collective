@@ -182,158 +182,13 @@ import { enrichProfileWithRoles } from '@/utils/profileUtils';
 /**
  * Fetches user conversations with filtering for active conversations
  */
-// export const fetchUserConversations = async (userId: string) => {
-//   try {
-//     if (!userId) {
-//       console.error('fetchUserConversations called without userId');
-//       return [];
-//     }
-//     console.log("Current User: ", userId)
-//     // Step 1: Get conversation IDs for the user
-//     const { data: participantData, error: participantError } = await supabase
-//       .from('conversation_participants')
-//       .select('conversation_id')
-//       .eq('user_id', userId);
-    
-//     if (participantError) {
-//       console.error('Error fetching participant data:', participantError);
-//       throw participantError;
-//     }
-    
-//     if (!participantData || participantData.length === 0) {
-//       return [];
-//     }
-    
-//     const conversationIds = participantData.map(p => p.conversation_id);
-    
-//     // Step 2: Get ALL participants for these conversations who are NOT the current user
-//     const { data: otherParticipants, error: otherParticipantsError } = await supabase
-//       .from('conversation_participants')
-//       .select('*')
-//       .in('conversation_id', conversationIds)
-//       .neq('user_id', userId);
-    
-//     if (otherParticipantsError) {
-//       console.error('Error fetching other participants:', otherParticipantsError);
-//       throw otherParticipantsError;
-//     }
-    
-//     // Step 3: Extract all unique OTHER user IDs
-//     const otherUserIds = [];
-//     otherParticipants.forEach(participant => {
-//       if (participant.user_id) {
-//         otherUserIds.push(participant.user_id);
-//       }
-//     });
-    
-//     const uniqueOtherUserIds = [...new Set(otherUserIds)];
-    
-//     // Step 4: Fetch profiles for all OTHER participants
-//     let profilesData = [];
-//     if (uniqueOtherUserIds.length > 0) {
-//       const { data, error: profilesError } = await supabase
-//         .from('profiles')
-//         .select('*')
-//         .in('id', uniqueOtherUserIds);
-      
-//       if (profilesError) {
-//         console.error('Error fetching profiles:', profilesError);
-//         throw profilesError;
-//       }
-      
-//       profilesData = data || [];
-//     }
-    
-//     // Step 5: Create a map for quick profile lookups
-//     const profilesMap = {};
-//     profilesData.forEach(profile => {
-//       profilesMap[profile.id] = {
-//         ...profile,
-//         roles: profile.roles || (profile.role ? [profile.role, 'student'] : ['student'])
-//       };
-//     });
-    
-//     // Step 6: Now fetch complete conversation data WITH FILTERING for active conversations
-//     // Important: Added filter for non-archived and non-deleted conversations
-//     const { data: conversationsData, error: conversationsError } = await supabase
-//       .from('conversations')
-//       .select(`
-//         id,
-//         subject,
-//         is_group,
-//         created_by,
-//         updated_at,
-//         created_at,
-//         archived,
-//         deleted_at,
-//         participants:conversation_participants(
-//           id,
-//           user_id,
-//           conversation_id,
-//           added_at
-//         ),
-//         last_message:messages(
-//           id,
-//           sender_id,
-//           content,
-//           read,
-//           created_at
-//         )
-//       `)
-//       .in('id', conversationIds)
-//       .is('deleted_at', null)  // Only get non-deleted conversations
-//       .eq('archived', false)   // Only get non-archived conversations
-//       .order('updated_at', { ascending: false });
-    
-//     if (conversationsError) {
-//       console.error('Error fetching conversations:', conversationsError);
-//       throw conversationsError;
-//     }
-    
-//     // Step 7: Enhance conversations with profile data
-//     const enhancedConversations = [];
-    
-//     for (const conversation of conversationsData) {
-//       // Add profile data to each participant
-//       const enhancedParticipants = (conversation.participants || []).map(participant => {
-//         // Only look up profiles for other users (not the current user)
-//         const profile = participant.user_id !== userId 
-//           ? profilesMap[participant.user_id] 
-//           : null;
-        
-//         return {
-//           ...participant,
-//           profile
-//         };
-//       });
-      
-//       enhancedConversations.push({
-//         ...conversation,
-//         participants: enhancedParticipants,
-//         last_message: conversation.last_message && conversation.last_message.length > 0 
-//           ? conversation.last_message[0] 
-//           : null
-//       });
-//     }
-    
-//     return enhancedConversations;
-//   } catch (error) {
-//     console.error('Error in fetchUserConversations:', error);
-//     throw error;
-//   }
-// };
-
-/**
- * Fetches user conversations with filtering for active conversations
- */
 export const fetchUserConversations = async (userId: string) => {
   try {
     if (!userId) {
       console.error('fetchUserConversations called without userId');
       return [];
     }
-    console.log("fetchUserConversations - Current User: ", userId);
-    
+    console.log("Current User: ", userId)
     // Step 1: Get conversation IDs for the user
     const { data: participantData, error: participantError } = await supabase
       .from('conversation_participants')
@@ -346,46 +201,60 @@ export const fetchUserConversations = async (userId: string) => {
     }
     
     if (!participantData || participantData.length === 0) {
-      console.log('No conversations found for this user');
       return [];
     }
     
     const conversationIds = participantData.map(p => p.conversation_id);
-    console.log("Conversation IDs for user:", conversationIds);
     
-    // Step 6: Now fetch complete conversation data WITHOUT filtering for debugging
-    // This will help us see ALL conversations to understand the issue
-    const { data: allConversations, error: allConversationsError } = await supabase
-      .from('conversations')
-      .select(`
-        id,
-        subject,
-        is_group,
-        created_by,
-        updated_at,
-        created_at,
-        archived,
-        deleted_at,
-        participants:conversation_participants(
-          id,
-          user_id,
-          conversation_id,
-          added_at
-        ),
-        last_message:messages(
-          id,
-          sender_id,
-          content,
-          read,
-          created_at
-        )
-      `)
-      .in('id', conversationIds)
-      .order('updated_at', { ascending: false });
+    // Step 2: Get ALL participants for these conversations who are NOT the current user
+    const { data: otherParticipants, error: otherParticipantsError } = await supabase
+      .from('conversation_participants')
+      .select('*')
+      .in('conversation_id', conversationIds)
+      .neq('user_id', userId);
     
-    console.log('All conversations (before filtering):', allConversations);
+    if (otherParticipantsError) {
+      console.error('Error fetching other participants:', otherParticipantsError);
+      throw otherParticipantsError;
+    }
     
-    // Now fetch with proper filtering
+    // Step 3: Extract all unique OTHER user IDs
+    const otherUserIds = [];
+    otherParticipants.forEach(participant => {
+      if (participant.user_id) {
+        otherUserIds.push(participant.user_id);
+      }
+    });
+    
+    const uniqueOtherUserIds = [...new Set(otherUserIds)];
+    
+    // Step 4: Fetch profiles for all OTHER participants
+    let profilesData = [];
+    if (uniqueOtherUserIds.length > 0) {
+      const { data, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', uniqueOtherUserIds);
+      
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        throw profilesError;
+      }
+      
+      profilesData = data || [];
+    }
+    
+    // Step 5: Create a map for quick profile lookups
+    const profilesMap = {};
+    profilesData.forEach(profile => {
+      profilesMap[profile.id] = {
+        ...profile,
+        roles: profile.roles || (profile.role ? [profile.role, 'student'] : ['student'])
+      };
+    });
+    
+    // Step 6: Now fetch complete conversation data WITH FILTERING for active conversations
+    // Important: Added filter for non-archived and non-deleted conversations
     const { data: conversationsData, error: conversationsError } = await supabase
       .from('conversations')
       .select(`
@@ -412,24 +281,40 @@ export const fetchUserConversations = async (userId: string) => {
         )
       `)
       .in('id', conversationIds)
-      .is('deleted_at', null)   // Only get non-deleted conversations
-      .eq('archived', false)    // Only get non-archived conversations
+      .is('deleted_at', null)  // Only get non-deleted conversations
+      .eq('archived', false)   // Only get non-archived conversations
       .order('updated_at', { ascending: false });
-    
-    console.log('Filtered conversations (inbox only):', conversationsData);
     
     if (conversationsError) {
       console.error('Error fetching conversations:', conversationsError);
       throw conversationsError;
     }
     
-    // Process and return the filtered conversations
-    const enhancedConversations = conversationsData.map(conversation => ({
-      ...conversation,
-      last_message: conversation.last_message && conversation.last_message.length > 0 
-        ? conversation.last_message[0] 
-        : null
-    }));
+    // Step 7: Enhance conversations with profile data
+    const enhancedConversations = [];
+    
+    for (const conversation of conversationsData) {
+      // Add profile data to each participant
+      const enhancedParticipants = (conversation.participants || []).map(participant => {
+        // Only look up profiles for other users (not the current user)
+        const profile = participant.user_id !== userId 
+          ? profilesMap[participant.user_id] 
+          : null;
+        
+        return {
+          ...participant,
+          profile
+        };
+      });
+      
+      enhancedConversations.push({
+        ...conversation,
+        participants: enhancedParticipants,
+        last_message: conversation.last_message && conversation.last_message.length > 0 
+          ? conversation.last_message[0] 
+          : null
+      });
+    }
     
     return enhancedConversations;
   } catch (error) {
@@ -1061,86 +946,6 @@ export const deleteConversation = async (conversationId: string, userId: string)
 /**
  * Get archived conversations for a user
  */
-// export const fetchArchivedUserConversations = async (userId: string) => {
-//   try {
-//     if (!userId) {
-//       console.error('fetchArchivedUserConversations called without userId');
-//       return [];
-//     }
-    
-//     // Get conversation IDs for the user where not deleted
-//     const { data: participantData, error: participantError } = await supabase
-//       .from('conversation_participants')
-//       .select('conversation_id')
-//       .eq('user_id', userId);
-    
-//     if (participantError) {
-//       console.error('Error fetching participant data:', participantError);
-//       throw participantError;
-//     }
-    
-//     if (!participantData || participantData.length === 0) {
-//       return [];
-//     }
-    
-//     const conversationIds = participantData.map(p => p.conversation_id);
-    
-//     // Get all archived conversations that the user is a part of
-//     const { data: archivedConversations, error: conversationsError } = await supabase
-//       .from('conversations')
-//       .select(`
-//         id,
-//         subject,
-//         is_group,
-//         created_by,
-//         updated_at,
-//         created_at,
-//         participants:conversation_participants(
-//           id,
-//           user_id,
-//           conversation_id,
-//           added_at
-//         ),
-//         last_message:messages(
-//           id,
-//           sender_id,
-//           content,
-//           read,
-//           created_at
-//         )
-//       `)
-//       .in('id', conversationIds)
-//       .eq('archived', true)
-//       .is('deleted_at', null);
-    
-//     if (conversationsError) {
-//       console.error('Error fetching archived conversations:', conversationsError);
-//       throw conversationsError;
-//     }
-    
-//     if (!archivedConversations || archivedConversations.length === 0) {
-//       return [];
-//     }
-    
-//     // Process the archived conversations similar to fetchUserConversations
-//     // This is a simplified version since we're just returning the archived conversations
-//     const enhancedConversations = archivedConversations.map(conversation => ({
-//       ...conversation,
-//       last_message: conversation.last_message && conversation.last_message.length > 0 
-//         ? conversation.last_message[0] 
-//         : null
-//     }));
-    
-//     return enhancedConversations;
-//   } catch (error) {
-//     console.error('Error in fetchArchivedUserConversations:', error);
-//     throw error;
-//   }
-// };
-
-/**
- * Get archived conversations for a user
- */
 export const fetchArchivedUserConversations = async (userId: string) => {
   try {
     if (!userId) {
@@ -1148,9 +953,7 @@ export const fetchArchivedUserConversations = async (userId: string) => {
       return [];
     }
     
-    console.log('fetchArchivedUserConversations - Current User:', userId);
-    
-    // Get conversation IDs for the user
+    // Get conversation IDs for the user where not deleted
     const { data: participantData, error: participantError } = await supabase
       .from('conversation_participants')
       .select('conversation_id')
@@ -1162,12 +965,10 @@ export const fetchArchivedUserConversations = async (userId: string) => {
     }
     
     if (!participantData || participantData.length === 0) {
-      console.log('No conversations found for this user');
       return [];
     }
     
     const conversationIds = participantData.map(p => p.conversation_id);
-    console.log('Conversation IDs for user:', conversationIds);
     
     // Get all archived conversations that the user is a part of
     const { data: archivedConversations, error: conversationsError } = await supabase
@@ -1179,8 +980,6 @@ export const fetchArchivedUserConversations = async (userId: string) => {
         created_by,
         updated_at,
         created_at,
-        archived,
-        deleted_at,
         participants:conversation_participants(
           id,
           user_id,
@@ -1199,19 +998,17 @@ export const fetchArchivedUserConversations = async (userId: string) => {
       .eq('archived', true)
       .is('deleted_at', null);
     
-    console.log('Archived conversations query result:', archivedConversations);
-    
     if (conversationsError) {
       console.error('Error fetching archived conversations:', conversationsError);
       throw conversationsError;
     }
     
     if (!archivedConversations || archivedConversations.length === 0) {
-      console.log('No archived conversations found');
       return [];
     }
     
-    // Process the archived conversations
+    // Process the archived conversations similar to fetchUserConversations
+    // This is a simplified version since we're just returning the archived conversations
     const enhancedConversations = archivedConversations.map(conversation => ({
       ...conversation,
       last_message: conversation.last_message && conversation.last_message.length > 0 
