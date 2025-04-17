@@ -277,7 +277,7 @@ export function useResumeAnalysis() {
       
       return false;
     } finally {
-      setIsLoadingResults: false
+      // setIsLoadingResults: false
       setIsAnalyzing(false);
     }
   };
