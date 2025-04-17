@@ -27,7 +27,7 @@ export function handleApiError(error: any, defaultMessage = "An unexpected error
 export function corsHeaders(req: Request): Record<string,string> {
   const origin = req.headers.get("Origin") || "";
   return {
-    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Origin": '*',
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey, x-client-info",
     // only include credentials if you actually send cookies or a bearer JWT from the browser:
@@ -36,3 +36,7 @@ export function corsHeaders(req: Request): Record<string,string> {
   };
 }
 
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
