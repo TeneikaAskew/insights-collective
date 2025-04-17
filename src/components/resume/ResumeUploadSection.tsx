@@ -213,4 +213,4 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
   );
 };
 
-export ResumeUploadSection;
+export default ResumeUploadSection;
