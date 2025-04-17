@@ -169,8 +169,6 @@ async function analyzeResume(resumeText: string, userId?: string) {
           .select('id, text')
           .eq('user_id', userId)
           .maybeSingle();
-
-        console.log("Resume: ", existingResume)
         
         if (fetchError) {
           console.error("Error fetching existing resume:", fetchError);
@@ -212,93 +210,53 @@ async function analyzeResume(resumeText: string, userId?: string) {
     }
     
     let bulletPoints = [];
-    // Modify the bulletPoints extraction section in analyzeResume function
     
-    try {
-      // Add logging to see what's happening
-      console.log("Attempting primary bullet extraction");
-      bulletPoints = await extractBulletPoints(resumeText);
-      console.log(`Primary extraction result: ${bulletPoints.length} bullets found`);
-      
-      if (!bulletPoints || bulletPoints.length === 0) {
-        console.log("Primary bullet extraction returned no bullets, using fallback");
-        bulletPoints = fallbackExtractBullets(resumeText);
-        console.log(`Fallback extraction result: ${bulletPoints.length} bullets found`);
-      }
-      
-      if (userId && bulletPoints.length > 0) {
-        bulletCache.set(`user:${userId}:bullets`, bulletPoints);
-        console.log(`Cached ${bulletPoints.length} bullets for user:${userId}`);
-      }
-    } catch (extractError) {
-      console.error("Error extracting bullets:", extractError);
-      // Don't immediately return - instead attempt fallback extraction
+    if (userId && bulletCache.has(`user:${userId}:bullets`)) {
+      console.log("Using cached bullets for user:", userId);
+      bulletPoints = bulletCache.get(`user:${userId}:bullets`);
+    } else {
       try {
-        console.log("Extraction error occurred, attempting fallback extraction");
-        bulletPoints = fallbackExtractBullets(resumeText);
-        console.log(`Fallback extraction after error: ${bulletPoints.length} bullets found`);
-      } catch (fallbackError) {
-        console.error("Fallback extraction also failed:", fallbackError);
-        // Now we can return the error
+        bulletPoints = await extractBulletPoints(resumeText);
+        
+        if (!bulletPoints || bulletPoints.length === 0) {
+          console.log("Primary bullet extraction failed, using fallback");
+          bulletPoints = fallbackExtractBullets(resumeText);
+        }
+        
+        if (userId && bulletPoints.length > 0) {
+          bulletCache.set(`user:${userId}:bullets`, bulletPoints);
+          console.log(`Cached ${bulletPoints.length} bullets for user:${userId}`);
+        }
+      } catch (extractError) {
+        console.error("Error extracting bullets:", extractError);
         return {
           bullets: [],
           resume_average: 0,
-          resume_percent: 0,
-          letter_grade: "",
-          themes: ["We couldn't detect formatted bullet points in your resume."],
-          elevator_pitch: "We couldn't detect formatted bullet points in your resume. Please format your resume with clear bullet points for analysis.",
+          resume_percent: 50,
+          letter_grade: "C",
+          themes: ["Try reorganizing your resume into clear bullet points for better analysis"],
+          elevator_pitch: "Unable to extract bullet points from your resume. Please format your resume with clear bullet points for analysis.",
           explanation: "Your resume needs to be formatted with clear bullet points for our analysis tool to work effectively. Each bullet should start with an action verb and describe a specific achievement."
         };
       }
     }
-    
-    // if (userId && bulletCache.has(`user:${userId}:bullets`)) {
-    //   console.log("Using cached bullets for user:", userId);
-    //   bulletPoints = bulletCache.get(`user:${userId}:bullets`);
-    // } else {
-    //   try {
-    //     bulletPoints = await extractBulletPoints(resumeText);
-        
-    //     if (!bulletPoints || bulletPoints.length === 0) {
-    //       console.log("Primary bullet extraction failed, using fallback");
-    //       bulletPoints = fallbackExtractBullets(resumeText);
-    //     }
-        
-    //     if (userId && bulletPoints.length > 0) {
-    //       bulletCache.set(`user:${userId}:bullets`, bulletPoints);
-    //       console.log(`Cached ${bulletPoints.length} bullets for user:${userId}`);
-    //     }
-    //   } catch (extractError) {
-    //     console.error("Error extracting bullets:", extractError);
-    //     return {
-    //       bullets: [],
-    //       resume_average: 0,
-    //       resume_percent: 0,
-    //       letter_grade: "",
-    //       themes: ["We couldn't detect formatted bullet points in your resume."],
-    //       elevator_pitch: "We couldn't detect formatted bullet points in your resume. . Please format your resume with clear bullet points for analysis.",
-    //       explanation: "Your resume needs to be formatted with clear bullet points for our analysis tool to work effectively. Each bullet should start with an action verb and describe a specific achievement."
-    //     };
-    //   }
-    // }
     
     if (bulletPoints.length === 0) {
       console.warn("No bullet points found in resume after all extraction attempts");
       return {
         bullets: [],
         resume_average: 0,
-        resume_percent: 0,
-        letter_grade: "",
-        themes: ["We couldn't detect formatted bullet points in your resume. "],
+        resume_percent: 50,
+        letter_grade: "C",
+        themes: ["Format your resume with clear bullet points", "Start each bullet with an action verb", "Include measurable achievements"],
         elevator_pitch: "We couldn't detect formatted bullet points in your resume. For a complete analysis, consider organizing your experience in clear bullet points.",
         explanation: "Your resume needs to be formatted with clear bullet points for our analysis tool to work effectively. Each bullet should start with an action verb and describe a specific achievement."
       };
     }
     
     try {
-      // const analyzedBullets = await Promise.all(bulletPoints.map(async bullet => {
+      const analyzedBullets = await Promise.all(bulletPoints.map(async bullet => {
         try {
-          
           const wordBalance = analyzeWordBalance(bullet);
           
           const xyzScores = xyzCheck(bullet);
@@ -341,69 +299,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
           };
         }
       }));
-    
-      const analyzedBullets = await Promise.all(bulletPoints.map(async (bullet, index) => {
-        try {
-          // Create a timeout promise
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error(`Timeout analyzing bullet ${index+1}`)), 5000); // 5 second timeout
-          });
-          
-          // Race the analysis against the timeout
-          const analysis = await Promise.race([
-            (async () => {
-              const wordBalance = analyzeWordBalance(bullet);
-              const xyzScores = xyzCheck(bullet);
-              const bulletTotal = wordBalance.word_balance_score + xyzScores.xyz_total;
-              
-              // Add simpler fallbacks for these API calls
-              let rewritten = bullet;
-              let tips = "Consider adding metrics and starting with stronger action verbs.";
-              
-              try {
-                rewritten = await rewriteBullet(bullet, { xyz_scores: xyzScores });
-                tips = await generateTips(bullet, { xyz_scores: xyzScores, word_balance_score: wordBalance.word_balance_score });
-              } catch (apiError) {
-                console.error(`API error for bullet ${index+1}:`, apiError);
-              }
-              
-              return {
-                original: bullet,
-                word_balance: {
-                  industry_pct: wordBalance.industry_pct,
-                  common_pct: wordBalance.common_pct,
-                  action_pct: wordBalance.action_pct,
-                  metric_pct: wordBalance.metric_pct
-                },
-                word_balance_score: wordBalance.word_balance_score,
-                xyz_scores: {
-                  hard_soft: xyzScores.hard_soft,
-                  action_words: xyzScores.action_words,
-                  measurable_results: xyzScores.measurable_results,
-                  clarity_focus: xyzScores.clarity_focus
-                },
-                bullet_total: bulletTotal,
-                rewritten,
-                tips
-              };
-            })(),
-            timeoutPromise
-          ]);
-          
-          return analysis;
-        } catch (bulletError) {
-          console.error(`Error analyzing bullet ${index+1}:`, bulletError);
-          return {
-            original: bullet,
-            word_balance: { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
-            word_balance_score: 5,
-            xyz_scores: { hard_soft: 0, action_words: 0, measurable_results: 0, clarity_focus: 0 },
-            bullet_total: 10,
-            rewritten: bullet,
-            tips: "We had trouble analyzing this bullet. Consider rephrasing it with more action verbs and specific metrics."
-          };
-        }
-      }));
+      
       const totalScore = analyzedBullets.reduce((sum, bullet) => sum + bullet.bullet_total, 0);
       const resumeAverage = analyzedBullets.length > 0 ? totalScore / analyzedBullets.length : 25;
       
@@ -478,9 +374,9 @@ async function analyzeResume(resumeText: string, userId?: string) {
       console.error("Error during analysis:", analysisError);
       return {
         bullets: [],
-        resume_average: X,
-        resume_percent: X,
-        letter_grade: "X",
+        resume_average: 25,
+        resume_percent: 50,
+        letter_grade: "C",
         themes: ["Error during analysis, please try again"],
         elevator_pitch: "We encountered an issue analyzing your resume. For best results, ensure your resume uses clear bullet points with action verbs and metrics.",
         explanation: "Our analysis tool had difficulty processing your resume. For better results, format your experiences as bullet points starting with action verbs and include specific achievements with metrics."

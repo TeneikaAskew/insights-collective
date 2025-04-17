@@ -146,15 +146,8 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
       }
       
       const data = await response.json();
-      console.log("GROQ API response status:", response.status);
-      console.log("GROQ API response data:", JSON.stringify(data).substring(0, 200) + "...");
-      const aiResponse = data.choices[0]?.message?.content;
-      if (!aiResponse) {
-        console.error("No content in GROQ API response");
-        throw new Error("No content in GROQ API response");
-      }
-      console.log("AI Response length:", aiResponse.length);
-      console.log("AI Response preview:", aiResponse.substring(0, 200) + "...");
+      const aiResponse = data.choices[0].message.content;
+      console.log("AI Response: ", aiResponse)
       
       // Parse AI response - simple approach, in production would use more robust parsing
       const sections = formatResponse(aiResponse).split(/\d+\.\s+/);
