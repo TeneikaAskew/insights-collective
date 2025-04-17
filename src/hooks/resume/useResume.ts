@@ -588,10 +588,10 @@ export const useResume = () => {
       
       // STEP 4: Force a hard page reload to completely reset the application
       // The setTimeout ensures the toast message is seen before reload
-      setTimeout(() => {
-        console.log("Forcing page reload...");
-        window.location.href = window.location.pathname + "?t=" + Date.now();
-      }, 1000);
+      // setTimeout(() => {
+      //   console.log("Forcing page reload...");
+      //   window.location.href = window.location.pathname + "?t=" + Date.now();
+      // }, 1000);
       
       return true;
     } catch (error) {
