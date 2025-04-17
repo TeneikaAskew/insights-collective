@@ -352,10 +352,87 @@ export function useResumeAnalysis() {
     return updatedAnalysis;
   };
 
+  // // Calculate career alignments based on resume analysis
+  // const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
+  //   if (!analysisData) return;
+
+  //   // Get the user's quiz results from localStorage if available
+  //   const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
+  //   const quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
+    
+  //   // Sort paths with quiz top path first if available
+  //   const sortedPaths = quizTopPath 
+  //     ? [quizTopPath, ...careerPaths.filter(p => p !== quizTopPath)]
+  //     : careerPaths;
+    
+  //   // Calculate alignment scores
+  //   const alignments: CareerAlignment[] = sortedPaths.slice(0, 3).map(path => {
+  //     // Base alignment on resume grade and path-specific factors
+  //     const basePercentage = analysisData.resume_percent || 0;
+  //     let pathMultiplier = 1.0;
+      
+  //     // Adjust alignment based on path-specific keywords found - using optional chaining for safety
+  //     switch(path) {
+  //       case 'AI/ML':
+  //         pathMultiplier = analysisData.ai_ml_keywords_count ? 1 + (analysisData.ai_ml_keywords_count / 100) : 0.85;
+  //         break;
+  //       case 'Analytics':
+  //         pathMultiplier = analysisData.analytics_keywords_count ? 1 + (analysisData.analytics_keywords_count / 100) : 0.9;
+  //         break;
+  //       case 'Data Engineering':
+  //         pathMultiplier = analysisData.data_engineering_keywords_count ? 1 + (analysisData.data_engineering_keywords_count / 100) : 0.8;
+  //         break;
+  //       case 'Business Intelligence':
+  //         pathMultiplier = analysisData.bi_keywords_count ? 1 + (analysisData.bi_keywords_count / 100) : 0.75;
+  //         break;
+  //     }
+      
+  //     // If specific keyword counts aren't available, use resume skills/keywords to estimate
+  //     if (!analysisData.ai_ml_keywords_count && !analysisData.analytics_keywords_count && 
+  //         !analysisData.data_engineering_keywords_count && !analysisData.bi_keywords_count) {
+        
+  //       // Try to analyze the resume text if it's available
+  //       const resumeText = localStorage.getItem(`resume_text_${user?.id}`);
+  //       if (resumeText) {
+  //         const updatedAnalysis = analyzeKeywordsInResume(resumeText, analysisData);
+          
+  //         // Use the updated keyword counts if available
+  //         switch(path) {
+  //           case 'AI/ML':
+  //             pathMultiplier = updatedAnalysis.ai_ml_keywords_count ? 1 + (updatedAnalysis.ai_ml_keywords_count / 100) : 0.85;
+  //             break;
+  //           case 'Analytics':
+  //             pathMultiplier = updatedAnalysis.analytics_keywords_count ? 1 + (updatedAnalysis.analytics_keywords_count / 100) : 0.9;
+  //             break;
+  //           case 'Data Engineering':
+  //             pathMultiplier = updatedAnalysis.data_engineering_keywords_count ? 1 + (updatedAnalysis.data_engineering_keywords_count / 100) : 0.8;
+  //             break;
+  //           case 'Business Intelligence':
+  //             pathMultiplier = updatedAnalysis.bi_keywords_count ? 1 + (updatedAnalysis.bi_keywords_count / 100) : 0.75;
+  //             break;
+  //         }
+  //       } else {
+  //         // If no resume text is available, use a random factor as before
+  //         const randomFactor = 0.7 + (Math.random() * 0.6); // Between 0.7 and 1.3
+  //         pathMultiplier = randomFactor;
+  //       }
+  //     }
+      
+  //     // Calculate alignment percentage (capped at 100%)
+  //     const percentage = Math.min(Math.round(basePercentage * pathMultiplier), 100);
+      
+  //     // Generate description
+  //     const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
+      
+  //     return { path, percentage, description };
+  //   });
+    
+  //   setCareerAlignments(alignments);
+  // };
   // Calculate career alignments based on resume analysis
   const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
     if (!analysisData) return;
-
+  
     // Get the user's quiz results from localStorage if available
     const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
     const quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
@@ -365,61 +442,47 @@ export function useResumeAnalysis() {
       ? [quizTopPath, ...careerPaths.filter(p => p !== quizTopPath)]
       : careerPaths;
     
-    // Calculate alignment scores
+    // Calculate alignment scores with improved formula
     const alignments: CareerAlignment[] = sortedPaths.slice(0, 3).map(path => {
-      // Base alignment on resume grade and path-specific factors
+      // Base alignment on resume grade
       const basePercentage = analysisData.resume_percent || 0;
-      let pathMultiplier = 1.0;
       
-      // Adjust alignment based on path-specific keywords found - using optional chaining for safety
+      // Get keyword count for the current path
+      let keywordCount = 0;
       switch(path) {
         case 'AI/ML':
-          pathMultiplier = analysisData.ai_ml_keywords_count ? 1 + (analysisData.ai_ml_keywords_count / 100) : 0.85;
+          keywordCount = analysisData.ai_ml_keywords_count || 0;
           break;
         case 'Analytics':
-          pathMultiplier = analysisData.analytics_keywords_count ? 1 + (analysisData.analytics_keywords_count / 100) : 0.9;
+          keywordCount = analysisData.analytics_keywords_count || 0;
           break;
         case 'Data Engineering':
-          pathMultiplier = analysisData.data_engineering_keywords_count ? 1 + (analysisData.data_engineering_keywords_count / 100) : 0.8;
+          keywordCount = analysisData.data_engineering_keywords_count || 0;
           break;
         case 'Business Intelligence':
-          pathMultiplier = analysisData.bi_keywords_count ? 1 + (analysisData.bi_keywords_count / 100) : 0.75;
+          keywordCount = analysisData.bi_keywords_count || 0;
           break;
       }
       
-      // If specific keyword counts aren't available, use resume skills/keywords to estimate
-      if (!analysisData.ai_ml_keywords_count && !analysisData.analytics_keywords_count && 
-          !analysisData.data_engineering_keywords_count && !analysisData.bi_keywords_count) {
-        
-        // Try to analyze the resume text if it's available
-        const resumeText = localStorage.getItem(`resume_text_${user?.id}`);
-        if (resumeText) {
-          const updatedAnalysis = analyzeKeywordsInResume(resumeText, analysisData);
-          
-          // Use the updated keyword counts if available
-          switch(path) {
-            case 'AI/ML':
-              pathMultiplier = updatedAnalysis.ai_ml_keywords_count ? 1 + (updatedAnalysis.ai_ml_keywords_count / 100) : 0.85;
-              break;
-            case 'Analytics':
-              pathMultiplier = updatedAnalysis.analytics_keywords_count ? 1 + (updatedAnalysis.analytics_keywords_count / 100) : 0.9;
-              break;
-            case 'Data Engineering':
-              pathMultiplier = updatedAnalysis.data_engineering_keywords_count ? 1 + (updatedAnalysis.data_engineering_keywords_count / 100) : 0.8;
-              break;
-            case 'Business Intelligence':
-              pathMultiplier = updatedAnalysis.bi_keywords_count ? 1 + (updatedAnalysis.bi_keywords_count / 100) : 0.75;
-              break;
-          }
-        } else {
-          // If no resume text is available, use a random factor as before
-          const randomFactor = 0.7 + (Math.random() * 0.6); // Between 0.7 and 1.3
-          pathMultiplier = randomFactor;
-        }
+      // IMPROVED FORMULA: Give more weight to keyword matches
+      // Start with base percentage and add bonus points for keywords
+      // For example: A resume with 50% base score and 79 analytics keywords
+      // would get 50% + min(30, 79/3) = 50% + 26.3% = 76.3%
+      
+      // Calculate keyword bonus (up to 30%)
+      const keywordBonus = Math.min(30, keywordCount / 3);
+      
+      // Calculate total alignment (base + keyword bonus), capped at 95%
+      // Reserve the last 5% for perfect alignment
+      let alignmentPercentage = Math.min(95, basePercentage + keywordBonus);
+      
+      // If this is the recommended path from the quiz, give a small extra boost
+      if (path === quizTopPath) {
+        alignmentPercentage = Math.min(95, alignmentPercentage + 5);
       }
       
-      // Calculate alignment percentage (capped at 100%)
-      const percentage = Math.min(Math.round(basePercentage * pathMultiplier), 100);
+      // Round to nearest whole number
+      const percentage = Math.round(alignmentPercentage);
       
       // Generate description
       const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
@@ -429,7 +492,6 @@ export function useResumeAnalysis() {
     
     setCareerAlignments(alignments);
   };
-
   // Fetch the resume assessment (roast) and store it in the database
   const fetchAndStoreAssessment = async (resumeText: string, userId: string) => {
     try {
