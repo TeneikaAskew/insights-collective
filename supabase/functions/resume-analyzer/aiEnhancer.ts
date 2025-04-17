@@ -13,6 +13,8 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
     const truncatedResume = resumeText.length > maxResumeLength ? 
       resumeText.substring(0, maxResumeLength) + "..." : 
       resumeText;
+
+    console.log("Truncated Resume: ", truncatedResume)
     
     
     // For bullet analysis, just send a summary of the scores and most critical bullets
@@ -29,6 +31,7 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
         issues: b.tips ? b.tips.substring(0, 150) : "" // First 150 chars of tips
       };
     });
+    console.log("Bullet Summary: ", bulletSummary)
     
     // Prepare a condensed version of the analysis to send to GROQ
     const condensedAnalysis = {
@@ -39,6 +42,9 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
       strong_bullets: topBullets.length > 0 ? topBullets.map((b: any) => b.original.substring(0, 100)).join("\n") : "",
       weak_bullets: bottomBullets.length > 0 ? bottomBullets.map((b: any) => b.original.substring(0, 100)).join("\n") : "",
     };
+
+    console.log( "Condensed Analysis:",JSON.stringify(condensedAnalysis, null, 2));
+
 
     /**
    * Cleans up the raw LLM output into properly formatted Markdown
@@ -139,27 +145,34 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
       
       const data = await response.json();
       const aiResponse = data.choices[0].message.content;
+      console.log("AI Response: ", aiResponse)
       
       // Parse AI response - simple approach, in production would use more robust parsing
       const sections = formatResponse(aiResponse).split(/\d+\.\s+/);
+      console.log("Sections after formatting: ", sections)
       
       if (sections.length >= 4) {
         // Extract elevator pitch from section 1 (after the split)
         const elevatorPitch = sections[1].trim();
+        console.log("Elevator Pitch: ", elevatorPitch)
         
         // Extract themes - assuming they're in section 2, split by newlines or bullet points
         const themeText = sections[2].trim();
         const themeMatches = themeText.match(/[^.!?]+[.!?]+/g) || [];
         const themes = themeMatches.map(t => t.trim()).filter(t => t.length > 10);
+        console.log("Themes: ", themes)
         
         // Extract explanation from section 3
         const explanation = sections[3].trim();
+        console.log("Explanation: ", explanation)
         
         // Update the analysis with AI-generated content
         const enhancedAnalysis = { ...analysis }; // Create a copy to avoid mutation
         if (elevatorPitch) enhancedAnalysis.elevator_pitch = elevatorPitch;
         if (themes.length > 0) enhancedAnalysis.themes = themes.slice(0, 3);
         if (explanation) enhancedAnalysis.explanation = explanation;
+
+        console.log("Enhanced Analysis: ", enhancedAnalysis)
         
         return enhancedAnalysis;
       }
