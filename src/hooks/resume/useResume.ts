@@ -633,9 +633,9 @@ export const useResume = () => {
       hasFetchedResume.current = false;
       
       // Force reload even after error, with a query param to bypass cache
-      setTimeout(() => {
-        window.location.href = window.location.pathname + "?t=" + Date.now();
-      }, 1500);
+      // setTimeout(() => {
+      //   window.location.href = window.location.pathname + "?t=" + Date.now();
+      // }, 1500);
       
       return false;
     }
