@@ -235,7 +235,7 @@ export const useResume = () => {
         throw new Error('Failed to check for existing resume');
       }
       
-      // let saveResult;
+      let saveResult;
       
       if (existingResume?.id) {
         // console.log("Updating existing resume record");
