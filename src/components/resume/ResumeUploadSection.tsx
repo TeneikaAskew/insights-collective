@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { FileUp, File, DownloadCloud, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,7 +19,6 @@ interface ResumeUploadSectionProps {
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDownload: () => void;
   pdfDataUrl: string | null;
-  fileInputRef?: React.RefObject<HTMLInputElement>; // Add optional fileInputRef prop
 }
 
 const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
@@ -33,7 +33,6 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
   handleFileChange,
   handleDownload,
   pdfDataUrl,
-  fileInputRef, // accept this prop now
 }) => {
   // State to track file errors
   const [fileError, setFileError] = useState<string | null>(null);
@@ -44,44 +43,11 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
       setFileError(null);
     }
   }, [resumeFile]);
-  
-  // Track whether we've already handled this file
-  const [handledFileRef, setHandledFileRef] = useState<string | null>(null);
-  
-  // State to track processing status
-  const [processingStatus, setProcessingStatus] = useState<string | null>(null);
-  
-  // Update status based on props
-  useEffect(() => {
-    if (uploading) {
-      setProcessingStatus("Uploading...");
-    } else if (isAnalyzing) {
-      setProcessingStatus("Analyzing...");
-    } else {
-      setProcessingStatus(null);
-    }
-  }, [uploading, isAnalyzing]);
-  
-  // Automatically trigger upload when a file is selected
-  useEffect(() => {
-    if (resumeFile && !uploading && !isAnalyzing) {
-      // Generate a unique reference for this file
-      const fileRef = `${resumeFile.name}-${resumeFile.size}-${resumeFile.lastModified}`;
-      
-      // Only upload if we haven't handled this exact file already
-      if (fileRef !== handledFileRef) {
-        setHandledFileRef(fileRef);
-        // Set initial status
-        setProcessingStatus("Uploading...");
-        handleUpload();
-      }
-    }
-  }, [resumeFile, uploading, isAnalyzing, handleUpload, handledFileRef]);
 
   // Display file preview based on file type
   const renderFilePreview = () => {
     // For PDF files
-    if (resume?.file_url && !resumeFile) {
+    if (resume?.file_url) {
       try {
         // If we have a stored resume with a URL
         return (
@@ -104,9 +70,9 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
     }
     
     // For local preview of newly selected files
-    if (pdfDataUrl && resumeFile) {
+    if (pdfDataUrl) {
       // Check if it's a PDF
-      if (resumeFile.type === 'application/pdf') {
+      if (resumeFile?.type === 'application/pdf') {
         return (
           <iframe 
             src={pdfDataUrl}
@@ -118,7 +84,7 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
       }
       
       // For DOCX, we can't preview directly, show a placeholder
-      if (resumeFile.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      if (resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         return (
           <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-accent/10">
             <File className="h-12 w-12 text-muted-foreground mb-2" />
@@ -129,16 +95,6 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
       }
     }
     
-    // If processing, show a loading state
-    if (uploading || isAnalyzing) {
-      return (
-        <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-accent/10">
-          <div className="animate-spin h-12 w-12 border-2 border-primary border-t-transparent rounded-full mb-4"></div>
-          <p className="text-muted-foreground">{uploading ? "Uploading..." : "Analyzing..."}</p>
-        </div>
-      );
-    }
-    
     // If no file uploaded yet
     return (
       <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
@@ -146,15 +102,6 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
       </div>
     );
   };
-
-  // Get status message
-  const getStatusMessage = () => {
-    if (uploading) return "Uploading...";
-    if (isAnalyzing) return "Analyzing...";
-    return null;
-  };
-
-  const statusMessage = getStatusMessage();
 
   return (
     <Card>
@@ -173,19 +120,8 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
             </AlertDescription>
           </Alert>
         )}
-        
-        {processingStatus && (
-          <Alert className="mb-4 bg-primary/10 border-primary">
-            <div className="flex items-center space-x-2">
-              <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full"></div>
-              <AlertDescription>
-                {processingStatus}
-              </AlertDescription>
-            </div>
-          </Alert>
-        )}
       
-        {loading && !uploading && !isAnalyzing ? (
+        {loading ? (
           <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-10 text-center">
             <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
             <p className="text-muted-foreground">Loading your resume...</p>
@@ -222,11 +158,11 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
               </div>
               <div className="flex gap-2">
                 {resume && resume.file_url && (
-                  <Button variant="outline" size="icon" onClick={handleDownload} disabled={uploading || isAnalyzing}>
+                  <Button variant="outline" size="icon" onClick={handleDownload}>
                     <DownloadCloud className="h-4 w-4" />
                   </Button>
                 )}
-                <Button variant="outline" size="icon" onClick={handleDelete} disabled={uploading || isAnalyzing}>
+                <Button variant="outline" size="icon" onClick={handleDelete}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -243,7 +179,19 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
         )}
       </CardContent>
       <CardFooter>
-        {!resumeFile && resume && !uploading && !isAnalyzing && (
+        {resumeFile && (
+          <Button 
+            onClick={handleUpload} 
+            disabled={!resumeFile || uploading || isAnalyzing} 
+            className="w-full"
+          >
+            {uploading || isAnalyzing ? 
+              (isAnalyzing ? 'Analyzing...' : 'Uploading...') : 
+              'Upload & Analyze Resume'}
+          </Button>
+        )}
+        
+        {!resumeFile && resume && (
           <div className="w-full flex justify-between">
             <Button variant="outline" onClick={handleDelete}>
               Delete Resume
@@ -265,4 +213,4 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
   );
 };
 
-export default ResumeUploadSection;
+export ResumeUploadSection;
