@@ -7,7 +7,19 @@ import { enhanceWithGroq } from "./aiEnhancer.ts";
 import { serveBulletImprover } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
-import { corsHeaders } from "./utils.ts";
+
+// import { corsHeaders } from "./utils.ts";
+// Fixed CORS headers implementation
+const corsHeaders = (req: Request) => {
+  const origin = req.headers.get('origin') || '*';
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+    'Access-Control-Max-Age': '86400',
+    'Access-Control-Allow-Credentials': 'true'
+  };
+};
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
