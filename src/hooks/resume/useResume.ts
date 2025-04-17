@@ -301,57 +301,168 @@ export const useResume = () => {
     }
   };
   
-// Delete resume from storage and database
+// // Delete resume from storage and database
+//   const deleteResume = async (): Promise<boolean> => {
+//     if (!user || !resume) {
+//       console.error("Cannot delete: missing user or resume");
+//       return false;
+//     }
+  
+//     try {
+//       console.log(`=== RESUME DELETION STARTED ===`);
+//       console.log(`Resume ID: ${resume.id}`);
+//       console.log(`User ID: ${user.id}`);
+//       console.log(`File path: ${resume.file_path}`);
+      
+//       // First, clear local storage caches associated with this resume
+//       console.log(`Clearing localStorage cache for user ${user.id}...`);
+//       localStorage.removeItem(`resume_analysis_${user.id}`);
+//       localStorage.removeItem(`resume_text_${user.id}`);
+//       localStorage.removeItem(`resume_data_${user.id}`);
+  
+//       // Also clear any URL cache
+//       signedUrlCacheRef.current.clear();
+//       console.log(`Cleared URL cache`);
+  
+//       // First try to delete the file from storage
+//       try {
+//         console.log(`Attempting to delete file from storage: ${resume.file_path}`);
+//         const storageResult = await deleteResumeFile(user.id, resume.file_path);
+//         if (!storageResult) {
+//           console.warn(`Could not delete file from storage: ${resume.file_path}`);
+//         } else {
+//           console.log(`Successfully deleted file from storage: ${resume.file_path}`);
+//         }
+//       } catch (storageError) {
+//         console.warn(`Error deleting file from storage: ${resume.file_path}`, storageError);
+//       }
+      
+//       // Delete record from database using ID rather than user_id
+//       console.log(`Deleting resume with ID: ${resume.id} from database...`);
+//       const { data, error: dbError } = await supabase
+//         .from('resumes')
+//         .delete()
+//         .eq('id', resume.id)
+//         .select();
+      
+//       if (dbError) {
+//         console.error(`Database error deleting resume ID ${resume.id}:`, dbError);
+//         throw new Error(`Failed to delete resume from database: ${dbError.message}`);
+//       }
+      
+//       console.log(`Database response:`, data);
+//       console.log(`Successfully deleted resume record from database. Resume ID: ${resume.id}`);
+      
+//       // Clear the resume state
+//       setResume(null);
+//       console.log(`Reset resume state to null`);
+      
+//       // Reset fetching flags to allow refetching
+//       hasFetchedResume.current = false;
+//       hasFetchedUrlRef.current = false;
+      
+//       toast({
+//         title: 'Success',
+//         description: 'Resume deleted successfully.',
+//       });
+      
+//       console.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
+      
+//       // Refresh to get the next most recent resume if one exists
+//       console.log(`Fetching next most recent resume if available...`);
+//       await fetchResume();
+      
+//       return true;
+//     } catch (error) {
+//       console.error(`=== RESUME DELETION FAILED ===`);
+//       console.error('Error details:', error);
+      
+//       toast({
+//         title: 'Delete Failed',
+//         description: error.message || 'Failed to delete resume.',
+//         variant: 'destructive',
+//       });
+      
+//       // Even on error, let's still clear localStorage and attempt to refresh
+//       try {
+//         localStorage.removeItem(`resume_analysis_${user.id}`);
+//         localStorage.removeItem(`resume_text_${user.id}`);
+//         hasFetchedResume.current = false;
+//         await fetchResume();
+//       } catch (cleanupError) {
+//         console.error('Error during cleanup after failed deletion:', cleanupError);
+//       }
+      
+//       return false;
+//     }
+//   };
+  // Delete ALL resume records for a user, not just the current one
   const deleteResume = async (): Promise<boolean> => {
-    if (!user || !resume) {
-      console.error("Cannot delete: missing user or resume");
+    if (!user) {
+      console.error("Cannot delete: missing user");
       return false;
     }
   
     try {
       console.log(`=== RESUME DELETION STARTED ===`);
-      console.log(`Resume ID: ${resume.id}`);
       console.log(`User ID: ${user.id}`);
-      console.log(`File path: ${resume.file_path}`);
       
-      // First, clear local storage caches associated with this resume
+      // Clear all localStorage caches for this user
       console.log(`Clearing localStorage cache for user ${user.id}...`);
       localStorage.removeItem(`resume_analysis_${user.id}`);
       localStorage.removeItem(`resume_text_${user.id}`);
       localStorage.removeItem(`resume_data_${user.id}`);
-  
-      // Also clear any URL cache
+      
+      // Clear URL cache
       signedUrlCacheRef.current.clear();
       console.log(`Cleared URL cache`);
-  
-      // First try to delete the file from storage
-      try {
-        console.log(`Attempting to delete file from storage: ${resume.file_path}`);
-        const storageResult = await deleteResumeFile(user.id, resume.file_path);
-        if (!storageResult) {
-          console.warn(`Could not delete file from storage: ${resume.file_path}`);
-        } else {
-          console.log(`Successfully deleted file from storage: ${resume.file_path}`);
-        }
-      } catch (storageError) {
-        console.warn(`Error deleting file from storage: ${resume.file_path}`, storageError);
+      
+      // First, get all resume records for this user
+      console.log(`Fetching all resume records for user: ${user.id}`);
+      const { data: resumeRecords, error: fetchError } = await supabase
+        .from('resumes')
+        .select('id, file_path')
+        .eq('user_id', user.id);
+      
+      if (fetchError) {
+        console.error(`Error fetching resume records:`, fetchError);
+        throw new Error(`Failed to fetch resume records: ${fetchError.message}`);
       }
       
-      // Delete record from database using ID rather than user_id
-      console.log(`Deleting resume with ID: ${resume.id} from database...`);
-      const { data, error: dbError } = await supabase
+      console.log(`Found ${resumeRecords?.length || 0} resume records to delete`);
+      
+      // Try to delete each file from storage
+      if (resumeRecords && resumeRecords.length > 0) {
+        for (const record of resumeRecords) {
+          try {
+            console.log(`Attempting to delete file from storage: ${record.file_path}`);
+            const storageResult = await deleteResumeFile(user.id, record.file_path);
+            if (!storageResult) {
+              console.warn(`Could not delete file from storage: ${record.file_path}, continuing...`);
+            } else {
+              console.log(`Successfully deleted file from storage: ${record.file_path}`);
+            }
+          } catch (storageError) {
+            console.warn(`Error deleting file from storage: ${record.file_path}, continuing...`, storageError);
+          }
+        }
+      }
+      
+      // Delete ALL records from database for this user
+      console.log(`Deleting ALL resume records for user: ${user.id}`);
+      const { data: deletedData, error: dbError } = await supabase
         .from('resumes')
         .delete()
-        .eq('id', resume.id)
+        .eq('user_id', user.id)
         .select();
       
       if (dbError) {
-        console.error(`Database error deleting resume ID ${resume.id}:`, dbError);
-        throw new Error(`Failed to delete resume from database: ${dbError.message}`);
+        console.error(`Database error deleting resumes for user ${user.id}:`, dbError);
+        throw new Error(`Failed to delete resume records from database: ${dbError.message}`);
       }
       
-      console.log(`Database response:`, data);
-      console.log(`Successfully deleted resume record from database. Resume ID: ${resume.id}`);
+      console.log(`Database response:`, deletedData);
+      console.log(`Successfully deleted ${deletedData?.length || 0} resume records from database`);
       
       // Clear the resume state
       setResume(null);
@@ -363,14 +474,13 @@ export const useResume = () => {
       
       toast({
         title: 'Success',
-        description: 'Resume deleted successfully.',
+        description: `Successfully deleted ${deletedData?.length || 0} resume records.`,
       });
       
       console.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
       
-      // Refresh to get the next most recent resume if one exists
-      console.log(`Fetching next most recent resume if available...`);
-      await fetchResume();
+      // Reload the page to reset the UI completely
+      window.location.reload();
       
       return true;
     } catch (error) {
@@ -383,12 +493,12 @@ export const useResume = () => {
         variant: 'destructive',
       });
       
-      // Even on error, let's still clear localStorage and attempt to refresh
+      // Even on error, let's still clear localStorage and reset state
       try {
         localStorage.removeItem(`resume_analysis_${user.id}`);
         localStorage.removeItem(`resume_text_${user.id}`);
+        setResume(null);
         hasFetchedResume.current = false;
-        await fetchResume();
       } catch (cleanupError) {
         console.error('Error during cleanup after failed deletion:', cleanupError);
       }
@@ -396,6 +506,8 @@ export const useResume = () => {
       return false;
     }
   };
+
+  
   return {
     resume,
     loading,
