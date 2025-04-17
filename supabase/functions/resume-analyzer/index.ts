@@ -20,6 +20,11 @@ const roastCache = new Map();
 export { detectSentences };
 export { serveBulletImprover };
 
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 export function serveSentenceDetector() {
   return async (req: Request) => {
     // Handle CORS preflight requests
