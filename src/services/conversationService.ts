@@ -395,7 +395,6 @@ export const getOrCreateOneOnOneConversation = async (userId: string, otherUserI
   }
 };
 
-
 /**
  * Mark a conversation as unread for a user
  */
@@ -582,59 +581,6 @@ export const deleteConversation = async (conversationId: string, userId: string)
   }
 };
 
-
-
-
-/**
- * Get only active (non-archived, non-deleted) conversations for a user
- * This is a modified version of fetchUserConversations that applies filters
- */
-export const fetchActiveUserConversations = async (userId: string) => {
-  try {
-    if (!userId) {
-      console.error('fetchActiveUserConversations called without userId');
-      return [];
-    }
-    
-    // Get conversation IDs for the user where not archived and not deleted
-    const { data: participantData, error: participantError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', userId)
-      .is('deleted_at', null)
-      .eq('archived', false);
-    
-    if (participantError) {
-      console.error('Error fetching active participant data:', participantError);
-      throw participantError;
-    }
-    
-    if (!participantData || participantData.length === 0) {
-      return [];
-    }
-    
-    const conversationIds = participantData.map(p => p.conversation_id);
-    
-    // Continue with the rest of the conversation fetching logic as in fetchUserConversations
-    // This is just a reference to call your existing function with the filtered IDs
-    
-    // Call the main function with the filtered conversation IDs
-    // You'd need to modify your original function to accept an optional conversationIds parameter
-    // return fetchUserConversationsWithIds(userId, conversationIds);
-    
-    // Alternatively, you can implement the full logic here based on your fetchUserConversations function
-    // but with the filtered IDs
-    
-    // For now, let's just return the IDs for you to implement
-    return fetchUserConversations(userId).then(conversations => 
-      conversations.filter(c => conversationIds.includes(c.id))
-    );
-  } catch (error) {
-    console.error('Error in fetchActiveUserConversations:', error);
-    throw error;
-  }
-};
-
 /**
  * Get archived conversations for a user
  */
@@ -664,7 +610,9 @@ export const fetchArchivedUserConversations = async (userId: string) => {
     
     const conversationIds = participantData.map(p => p.conversation_id);
     
-    // Return the filtered conversations
+    // Fetch full conversation data using your existing function
+    // This assumes your fetchUserConversations can be reused
+    // You may need to modify this part based on your actual implementation
     return fetchUserConversations(userId).then(conversations => 
       conversations.filter(c => conversationIds.includes(c.id))
     );
