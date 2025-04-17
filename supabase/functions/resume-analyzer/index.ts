@@ -234,8 +234,8 @@ async function analyzeResume(resumeText: string, userId?: string) {
           resume_average: 0,
           resume_percent: 0,
           letter_grade: "",
-          themes: ["Try reorganizing your resume into clear bullet points for better analysis"],
-          elevator_pitch: "Unable to extract bullet points from your resume. Please format your resume with clear bullet points for analysis.",
+          themes: ["We couldn't detect formatted bullet points in your resume."],
+          elevator_pitch: "We couldn't detect formatted bullet points in your resume. . Please format your resume with clear bullet points for analysis.",
           explanation: "Your resume needs to be formatted with clear bullet points for our analysis tool to work effectively. Each bullet should start with an action verb and describe a specific achievement."
         };
       }
