@@ -114,9 +114,9 @@ export async function enhanceWithGroq(resumeText: string, analysis: any): Promis
               role: 'system',
               content: `You are an expert resume analyst. Based on the provided resume text and basic analysis, 
               provide three key outputs:
-              1. A professional elevator pitch (max 2 sentences)
-              2. Three specific improvement themes (one sentence each)
-              3. A brief explanation of the resume grade (max 2 sentences)
+              1. A professional elevator pitch (max 2 sentences) based on the resume text
+              2. Three specific improvement themes (one sentence each) based on the resume text
+              3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
               
               Be specific, professional, and concise. Focus on actionable advice.`
             },
