@@ -61,7 +61,7 @@ export const useResume = () => {
   
   // Import the storage functions directly rather than using the hook again
   // This fixes the React error #321 (hooks can't be used conditionally)
-  const { uploadResumeFile, getResumeFileUrl, extractTextFromFile, deleteAllUserFiles } = useResumeStorage();
+  const { uploadResumeFile, getResumeFileUrl, extractTextFromFile, deleteResumeFile } = useResumeStorage();
 
   // Load resume data when user changes
   useEffect(() => {
@@ -216,7 +216,8 @@ export const useResume = () => {
       
       // Upload file to storage with a unique path
       const timestamp = Date.now();
-      const uploadResult = await uploadResumeFile(file, user.id, `resume_${timestamp}`);
+      // Fix: uploadResumeFile only accepts (file: File, userId: string)
+      const uploadResult = await uploadResumeFile(file, user.id);
       
       if (!uploadResult.success) {
         throw new Error('Failed to upload resume file to storage');
@@ -302,7 +303,7 @@ export const useResume = () => {
       setUploading(false);
     }
   };
-  
+
   // Delete ALL resume records and files for this user
   const deleteResume = async (): Promise<boolean> => {
     if (!user) {
@@ -310,10 +311,12 @@ export const useResume = () => {
     }
 
     try {
-      // Delete all files for user
-      const storageResult = await deleteAllUserFiles(user.id);
-      if (!storageResult) {
-        console.warn(`Could not delete all files from storage for user: ${user.id}`);
+      // Delete all files for user - Replace non-existing 'deleteAllUserFiles' with deleting known user resume file if available
+      if (resume?.file_path) {
+        const storageResult = await deleteResumeFile(user.id, resume.file_path);
+        if (!storageResult) {
+          console.warn(`Could not delete file from storage for user: ${user.id}`);
+        }
       }
 
       // Clear localStorage caches for this user
