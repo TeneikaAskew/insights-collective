@@ -397,6 +397,116 @@ export const useResume = () => {
 //     }
 //   };
   // Delete ALL resume records for a user, not just the current one
+  // const deleteResume = async (): Promise<boolean> => {
+  //   if (!user) {
+  //     console.error("Cannot delete: missing user");
+  //     return false;
+  //   }
+  
+  //   try {
+  //     console.log(`=== RESUME DELETION STARTED ===`);
+  //     console.log(`User ID: ${user.id}`);
+      
+  //     // Clear all localStorage caches for this user
+  //     console.log(`Clearing localStorage cache for user ${user.id}...`);
+  //     localStorage.removeItem(`resume_analysis_${user.id}`);
+  //     localStorage.removeItem(`resume_text_${user.id}`);
+  //     localStorage.removeItem(`resume_data_${user.id}`);
+      
+  //     // Clear URL cache
+  //     signedUrlCacheRef.current.clear();
+  //     console.log(`Cleared URL cache`);
+      
+  //     // First, get all resume records for this user
+  //     console.log(`Fetching all resume records for user: ${user.id}`);
+  //     const { data: resumeRecords, error: fetchError } = await supabase
+  //       .from('resumes')
+  //       .select('id, file_path')
+  //       .eq('user_id', user.id);
+      
+  //     if (fetchError) {
+  //       console.error(`Error fetching resume records:`, fetchError);
+  //       throw new Error(`Failed to fetch resume records: ${fetchError.message}`);
+  //     }
+      
+  //     console.log(`Found ${resumeRecords?.length || 0} resume records to delete`);
+      
+  //     // Try to delete each file from storage
+  //     if (resumeRecords && resumeRecords.length > 0) {
+  //       for (const record of resumeRecords) {
+  //         try {
+  //           console.log(`Attempting to delete file from storage: ${record.file_path}`);
+  //           const storageResult = await deleteResumeFile(user.id, record.file_path);
+  //           if (!storageResult) {
+  //             console.warn(`Could not delete file from storage: ${record.file_path}, continuing...`);
+  //           } else {
+  //             console.log(`Successfully deleted file from storage: ${record.file_path}`);
+  //           }
+  //         } catch (storageError) {
+  //           console.warn(`Error deleting file from storage: ${record.file_path}, continuing...`, storageError);
+  //         }
+  //       }
+  //     }
+      
+  //     // Delete ALL records from database for this user
+  //     console.log(`Deleting ALL resume records for user: ${user.id}`);
+  //     const { data: deletedData, error: dbError } = await supabase
+  //       .from('resumes')
+  //       .delete()
+  //       .eq('user_id', user.id)
+  //       .select();
+      
+  //     if (dbError) {
+  //       console.error(`Database error deleting resumes for user ${user.id}:`, dbError);
+  //       throw new Error(`Failed to delete resume records from database: ${dbError.message}`);
+  //     }
+      
+  //     console.log(`Database response:`, deletedData);
+  //     console.log(`Successfully deleted ${deletedData?.length || 0} resume records from database`);
+      
+  //     // Clear the resume state
+  //     setResume(null);
+  //     console.log(`Reset resume state to null`);
+      
+  //     // Reset fetching flags to allow refetching
+  //     hasFetchedResume.current = false;
+  //     hasFetchedUrlRef.current = false;
+      
+  //     toast({
+  //       title: 'Success',
+  //       description: `Successfully deleted ${deletedData?.length || 0} resume records.`,
+  //     });
+      
+  //     console.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
+      
+  //     // Reload the page to reset the UI completely
+  //     window.location.reload();
+      
+  //     return true;
+  //   } catch (error) {
+  //     console.error(`=== RESUME DELETION FAILED ===`);
+  //     console.error('Error details:', error);
+      
+  //     toast({
+  //       title: 'Delete Failed',
+  //       description: error.message || 'Failed to delete resume.',
+  //       variant: 'destructive',
+  //     });
+      
+  //     // Even on error, let's still clear localStorage and reset state
+  //     try {
+  //       localStorage.removeItem(`resume_analysis_${user.id}`);
+  //       localStorage.removeItem(`resume_text_${user.id}`);
+  //       setResume(null);
+  //       hasFetchedResume.current = false;
+  //     } catch (cleanupError) {
+  //       console.error('Error during cleanup after failed deletion:', cleanupError);
+  //     }
+      
+  //     return false;
+  //   }
+  // };
+  // Delete ALL resume records for a user with forced reset
   const deleteResume = async (): Promise<boolean> => {
     if (!user) {
       console.error("Cannot delete: missing user");
@@ -406,81 +516,101 @@ export const useResume = () => {
     try {
       console.log(`=== RESUME DELETION STARTED ===`);
       console.log(`User ID: ${user.id}`);
-      
-      // Clear all localStorage caches for this user
-      console.log(`Clearing localStorage cache for user ${user.id}...`);
-      localStorage.removeItem(`resume_analysis_${user.id}`);
-      localStorage.removeItem(`resume_text_${user.id}`);
-      localStorage.removeItem(`resume_data_${user.id}`);
-      
-      // Clear URL cache
-      signedUrlCacheRef.current.clear();
-      console.log(`Cleared URL cache`);
-      
-      // First, get all resume records for this user
-      console.log(`Fetching all resume records for user: ${user.id}`);
-      const { data: resumeRecords, error: fetchError } = await supabase
-        .from('resumes')
-        .select('id, file_path')
-        .eq('user_id', user.id);
-      
-      if (fetchError) {
-        console.error(`Error fetching resume records:`, fetchError);
-        throw new Error(`Failed to fetch resume records: ${fetchError.message}`);
+  
+  
+      // In your deleteResume function, replace the storage deletion part with:
+      try {
+        console.log(`Attempting to delete all files for user: ${user.id}`);
+        const storageResult = await deleteAllUserFiles(user.id);
+        if (!storageResult) {
+          console.warn(`Could not delete all files from storage for user: ${user.id}, continuing...`);
+        } else {
+          console.log(`Successfully deleted all files from storage for user: ${user.id}`);
+        }
+      } catch (storageError) {
+        console.warn(`Error deleting files from storage: ${storageError}`);
+        // Continue with database deletion regardless
       }
       
-      console.log(`Found ${resumeRecords?.length || 0} resume records to delete`);
+      // STEP 1: Clear all localStorage caches for this user FIRST
+      // This is critical to prevent the app from reloading cached data
+      console.log(`Clearing localStorage cache for user ${user.id}...`);
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes(user.id) || key.includes('resume')) {
+          console.log(`Removing localStorage item: ${key}`);
+          localStorage.removeItem(key);
+        }
+      });
       
-      // Try to delete each file from storage
-      if (resumeRecords && resumeRecords.length > 0) {
-        for (const record of resumeRecords) {
-          try {
-            console.log(`Attempting to delete file from storage: ${record.file_path}`);
-            const storageResult = await deleteResumeFile(user.id, record.file_path);
-            if (!storageResult) {
-              console.warn(`Could not delete file from storage: ${record.file_path}, continuing...`);
-            } else {
-              console.log(`Successfully deleted file from storage: ${record.file_path}`);
-            }
-          } catch (storageError) {
-            console.warn(`Error deleting file from storage: ${record.file_path}, continuing...`, storageError);
-          }
+      // Clear URL cache
+      if (signedUrlCacheRef.current) {
+        signedUrlCacheRef.current.clear();
+        console.log(`Cleared URL cache`);
+      }
+      
+      // STEP 2: Execute database deletion directly with SQL for maximum reliability
+      console.log(`Executing direct SQL deletion for user: ${user.id}`);
+
+      // now perform it via Supabase:
+      const { data: deletedRows, error: deleteError } = await supabase
+        .from("resumes")
+        .delete()
+        .eq("user_id", user.id)
+        .select();    // .select() returns the deleted rows
+      
+      if (deleteError) {
+        console.error("Error deleting resume records:", deleteError);
+        throw deleteError;
+      }
+      
+      console.log(
+        `Deleted ${deletedRows.length} resume record(s) for user ${user.id}`,
+        deletedRows
+      );
+
+      
+      const { data: deletedData, error: sqlError } = await supabase.rpc('delete_all_user_resumes', { 
+        user_id_param: user.id 
+      });
+      
+      if (sqlError) {
+        console.error(`SQL error deleting resumes:`, sqlError);
+        // Fall back to regular delete if RPC fails
+        console.log(`Falling back to regular delete query...`);
+        const { error: dbError } = await supabase
+          .from('resumes')
+          .delete()
+          .eq('user_id', user.id);
+        
+        if (dbError) {
+          console.error(`Database error deleting resumes:`, dbError);
+          throw new Error(`Failed to delete resume records: ${dbError.message}`);
         }
       }
       
-      // Delete ALL records from database for this user
-      console.log(`Deleting ALL resume records for user: ${user.id}`);
-      const { data: deletedData, error: dbError } = await supabase
-        .from('resumes')
-        .delete()
-        .eq('user_id', user.id)
-        .select();
+      console.log(`Database records deleted successfully`);
       
-      if (dbError) {
-        console.error(`Database error deleting resumes for user ${user.id}:`, dbError);
-        throw new Error(`Failed to delete resume records from database: ${dbError.message}`);
-      }
-      
-      console.log(`Database response:`, deletedData);
-      console.log(`Successfully deleted ${deletedData?.length || 0} resume records from database`);
-      
-      // Clear the resume state
+      // STEP 3: Reset all state and refs
       setResume(null);
       console.log(`Reset resume state to null`);
       
-      // Reset fetching flags to allow refetching
+      // Reset all ref flags to force re-fetching
       hasFetchedResume.current = false;
       hasFetchedUrlRef.current = false;
       
       toast({
         title: 'Success',
-        description: `Successfully deleted ${deletedData?.length || 0} resume records.`,
+        description: 'All resume records deleted successfully.',
       });
       
       console.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
       
-      // Reload the page to reset the UI completely
-      window.location.reload();
+      // STEP 4: Force a hard page reload to completely reset the application
+      // The setTimeout ensures the toast message is seen before reload
+      // setTimeout(() => {
+      //   console.log("Forcing page reload...");
+      //   window.location.href = window.location.pathname + "?t=" + Date.now();
+      // }, 1000);
       
       return true;
     } catch (error) {
@@ -493,16 +623,70 @@ export const useResume = () => {
         variant: 'destructive',
       });
       
-      // Even on error, let's still clear localStorage and reset state
-      try {
-        localStorage.removeItem(`resume_analysis_${user.id}`);
-        localStorage.removeItem(`resume_text_${user.id}`);
-        setResume(null);
-        hasFetchedResume.current = false;
-      } catch (cleanupError) {
-        console.error('Error during cleanup after failed deletion:', cleanupError);
+      // Still clear localStorage and reset state even on error
+      Object.keys(localStorage).forEach(key => {
+        if (key.includes(user.id) || key.includes('resume')) {
+          localStorage.removeItem(key);
+        }
+      });
+      setResume(null);
+      hasFetchedResume.current = false;
+      
+      // Force reload even after error, with a query param to bypass cache
+      // setTimeout(() => {
+      //   window.location.href = window.location.pathname + "?t=" + Date.now();
+      // }, 1500);
+      
+      return false;
+    }
+  };
+  
+    // Add this function to your storage hook
+  export const deleteAllUserFiles = async (userId: string): Promise<boolean> => {
+    if (!userId) {
+      console.error("Missing userId for bulk deletion");
+      return false;
+    }
+  
+    try {
+      console.log(`Listing all files for user: ${userId}`);
+      
+      // First, list all files in the user's folder
+      const { data: listData, error: listError } = await supabase
+        .storage
+        .from('resumes')
+        .list(userId);
+      
+      if (listError) {
+        console.warn(`Error listing files: ${listError.message}`);
+        return false;
       }
       
+      if (!listData || listData.length === 0) {
+        console.log(`No files found for user: ${userId}`);
+        return true; // Nothing to delete
+      }
+      
+      console.log(`Found ${listData.length} files to delete`);
+      
+      // Create paths for all files
+      const filePaths = listData.map(item => `${userId}/${item.name}`);
+      
+      // Delete all files in one call
+      const { error: deleteError } = await supabase
+        .storage
+        .from('resumes')
+        .remove(filePaths);
+      
+      if (deleteError) {
+        console.error(`Error deleting files: ${deleteError.message}`);
+        return false;
+      }
+      
+      console.log(`Successfully deleted ${filePaths.length} files for user: ${userId}`);
+      return true;
+    } catch (error) {
+      console.error(`Unexpected error deleting files: ${error.message}`);
       return false;
     }
   };
