@@ -550,6 +550,25 @@ export const useResume = () => {
       
       // STEP 2: Execute database deletion directly with SQL for maximum reliability
       console.log(`Executing direct SQL deletion for user: ${user.id}`);
+
+      // now perform it via Supabase:
+      const { data: deletedRows, error: deleteError } = await supabase
+        .from("resumes")
+        .delete()
+        .eq("user_id", user.id)
+        .select();    // .select() returns the deleted rows
+      
+      if (deleteError) {
+        console.error("Error deleting resume records:", deleteError);
+        throw deleteError;
+      }
+      
+      console.log(
+        `Deleted ${deletedRows.length} resume record(s) for user ${user.id}`,
+        deletedRows
+      );
+
+      
       const { data: deletedData, error: sqlError } = await supabase.rpc('delete_all_user_resumes', { 
         user_id_param: user.id 
       });
