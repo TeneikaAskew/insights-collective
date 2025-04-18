@@ -150,7 +150,35 @@ const Resume = () => {
     setStorageError(null);
 
     const ok = await uploadResume(resumeFile)
-    if (!ok) return
+    if (!ok) {
+      // Upload failed, reset state
+      resetLocalState()
+      return
+    }
+
+    f (resume?.text) {
+      try {
+        await analyzeResume(resume.text)
+        setHasLoadedAnalysis(true)
+      } catch (analysisError) {
+        console.error('Analysis error:', analysisError)
+        toast({
+          title: 'Analysis Failed',
+          description: 'Resume was uploaded but analysis failed. You can try again.',
+          variant: 'destructive',
+        })
+      }
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    resetLocalState()
+    // Show error toast
+    toast({
+        title: 'Upload Failed',
+        description: 'Could not upload resume. Please try again.',
+        variant: 'destructive',
+    })
+  }
   
     // force a refetch so resume.text is populated
     // await refreshResume()
