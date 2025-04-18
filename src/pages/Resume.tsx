@@ -14,7 +14,7 @@ import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCa
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
-const [isDeleting, setIsDeleting] = useState(false)
+
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -29,6 +29,7 @@ const Resume = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false)
 
   useEffect(() => {
     let isMounted = true;
@@ -138,29 +139,40 @@ const Resume = () => {
     
     setHasLoadedAnalysis(false);
     setStorageError(null);
-    
-    try {
-      const ok = await uploadResume(resumeFile);
-      if (ok) {
-        try {
-          // await analyzeResume(extractedText);
-          await analyzeResume(resume.text!);
-          setHasLoadedAnalysis(true);
-        } catch (error) {
-          console.error('Error analyzing resume:', error);
-          toast({
-            title: 'Analysis Error',
-            description: 'Resume was uploaded but analysis failed. You can try again later.',
-            variant: 'destructive',
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error uploading resume:', error);
-      if (error.message?.includes('bucket') || error.message?.includes('storage')) {
-        setStorageError("Resume storage is not properly configured. Please contact support.");
-      }
-    }
+
+    const ok = await uploadResume(resumeFile)
+    if (!ok) return
+  
+    // force a refetch so resume.text is populated
+    // await refreshResume()
+  
+    // if (resume?.text) {
+    //   await analyzeResume(resume.text)
+    //   setHasLoadedAnalysis(true)
+    // }    
+    // try {
+    //   const ok = await uploadResume(resumeFile);
+    //   if (!ok) return
+    //   if (ok) {
+    //     try {
+    //       // await analyzeResume(extractedText);
+    //       await analyzeResume(resume.text!);
+    //       setHasLoadedAnalysis(true);
+    //     } catch (error) {
+    //       console.error('Error analyzing resume:', error);
+    //       toast({
+    //         title: 'Analysis Error',
+    //         description: 'Resume was uploaded but analysis failed. You can try again later.',
+    //         variant: 'destructive',
+    //       });
+    //     }
+    //   }
+    // } catch (error) {
+    //   console.error('Error uploading resume:', error);
+    //   if (error.message?.includes('bucket') || error.message?.includes('storage')) {
+    //     setStorageError("Resume storage is not properly configured. Please contact support.");
+    //   }
+    // }
   };
 
   const handleDelete = async () => {
