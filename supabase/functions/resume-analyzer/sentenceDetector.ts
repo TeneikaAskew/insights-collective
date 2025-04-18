@@ -1,4 +1,3 @@
-
 import { safeJsonParse, handleApiError } from './utils.ts';
 
 // Function to detect sentences from resume text
@@ -46,28 +45,35 @@ export async function detectSentences(text: string): Promise<string[]> {
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '[]';
     
-    // Parse the JSON array - look for array in content or just parse content directly
+    // Parse the JSON array - robust fallback logic
     let sentencesArray: string[] = [];
     try {
-      // First try to parse the whole content as JSON array
+      // Try parsing full content as JSON array
       sentencesArray = safeJsonParse(content, []);
-      
-      // If not an array or empty, try to find a JSON array within the content
+
+      // If empty or invalid, extract first JSON array block
       if (!Array.isArray(sentencesArray) || sentencesArray.length === 0) {
-        const arrayMatch = content.match(/\[.*\]/s);
-        if (arrayMatch) {
-          sentencesArray = safeJsonParse(arrayMatch[0], []);
+        const firstArray = content.match(/\[[\s\S]*?\]/);
+        if (firstArray) {
+          sentencesArray = safeJsonParse(firstArray[0], []);
         }
       }
     } catch (e) {
-      console.error("Error parsing GROQ response:", e);
-      throw new Error("Failed to parse sentence extraction result");
+      console.warn("Failed to JSON-parse AI output, attempting crude split:", e);
+      // Last-ditch: split by newline
+      sentencesArray = content
+        .split(/\r?\n/)  
+        .map(s => s.trim())
+        .filter(s => s.length > 15 && !s.startsWith('- '));
     }
 
-    // Filter and clean up sentences
-    return sentencesArray
-      .filter(s => typeof s === 'string' && s.trim().length > 15)
-      .map(s => s.trim());
+    // Dedupe and final filter
+    return Array.from(new Set(
+      sentencesArray
+        .filter(s => typeof s === 'string' && s.trim().length > 15)
+        .map(s => s.trim())
+    ));
+
   } catch (error) {
     console.error("Error in sentence detection:", error);
     throw error;
