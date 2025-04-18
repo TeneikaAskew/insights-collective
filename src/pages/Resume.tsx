@@ -27,9 +27,100 @@ const Resume = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false); // Add this line
+  const [isDeleting, setIsDeleting] = useState(false);
 
-  // Rest of your existing code...
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadInitialData = async () => {
+      if (initialLoadComplete || !user) return;
+      
+      try {
+        console.log("Initial data load started");
+        setStorageError(null);
+        await refreshResume();
+        setInitialLoadComplete(true);
+      } catch (err) {
+        console.error("Error in initial data load:", err);
+        if (err.message?.includes('bucket') || err.message?.includes('storage')) {
+          setStorageError("Resume storage is not properly configured. Please contact support.");
+        }
+      }
+    };
+    
+    loadInitialData();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [user, initialLoadComplete, refreshResume]);
+
+  useEffect(() => {
+    if (resume?.analysis && !analysis && !hasLoadedAnalysis && user) {
+      try {
+        console.log("Loading analysis from resume object:", resume.analysis);
+        setAnalysis(resume.analysis);
+        setHasLoadedAnalysis(true);
+      } catch (err) {
+        console.error("Error setting analysis from resume:", err);
+      }
+    }
+  }, [resume, analysis, setAnalysis, hasLoadedAnalysis, user]);
+
+  useEffect(() => {
+    if (!resumeFile) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => setPdfDataUrl(e.target?.result as string);
+    reader.readAsDataURL(resumeFile);
+
+    (async () => {
+      try {
+        const text = await extractTextFromFile(resumeFile);
+        setExtractedText(text);
+      } catch (err) {
+        console.error(err);
+        toast({
+          title: 'Extraction failed',
+          description: 'Could not extract text from your resume.',
+          variant: 'destructive',
+        });
+      }
+    })();
+  }, [resumeFile, toast]);
+
+  useEffect(() => {
+    if (resume?.text && !analysis && !isAnalyzing && !hasLoadedAnalysis && initialLoadComplete) {
+      console.log("Analyzing existing resume text");
+      analyzeResume(resume.text)
+        .then(success => {
+          if (success) {
+            setHasLoadedAnalysis(true);
+          }
+        })
+        .catch(err => {
+          console.error("Error analyzing resume:", err);
+        });
+    }
+  }, [resume, analysis, analyzeResume, isAnalyzing, hasLoadedAnalysis, initialLoadComplete]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (
+      file.type === 'application/pdf' ||
+      file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ) {
+      setResumeFile(file);
+      setHasLoadedAnalysis(false);
+    } else {
+      toast({
+        title: 'Invalid type',
+        description: 'Only PDF or DOCX allowed.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleUpload = async () => {
     if (!resumeFile || !extractedText) {
@@ -48,7 +139,7 @@ const Resume = () => {
       const ok = await uploadResume(resumeFile);
       if (ok) {
         try {
-          // Use the locally extracted text rather than waiting for server text
+          // Use the locally extracted text which is more reliable
           await analyzeResume(extractedText);
           setHasLoadedAnalysis(true);
           
@@ -74,7 +165,7 @@ const Resume = () => {
   };
 
   const handleDelete = async () => {
-    setIsDeleting(true); // Add this line
+    setIsDeleting(true);
     try {
       // First reset local state
       setResumeFile(null);
@@ -83,7 +174,7 @@ const Resume = () => {
       setShowCareerChat(false);
       setAnalysis(null);
       setHasLoadedAnalysis(false);
-      setInitialLoadComplete(false); // Add this line
+      setInitialLoadComplete(false);
       
       // Then delete from server
       if (resume) await deleteResume();
@@ -106,11 +197,45 @@ const Resume = () => {
         variant: 'destructive',
       });
     } finally {
-      setIsDeleting(false); // Add this line
+      setIsDeleting(false);
     }
   };
 
-  // Rest of your existing code...
+  const handleDownload = () => {
+    if (resume?.file_url) window.open(resume.file_url, '_blank');
+  };
+
+  const handleStartCareerChat = () => setShowCareerChat(true);
+
+  const handleRefreshData = async () => {
+    setIsRefreshing(true);
+    setHasLoadedAnalysis(false);
+    setStorageError(null);
+    
+    try {
+      await refreshResume();
+      toast({
+        title: 'Refreshed',
+        description: 'Resume data has been refreshed.',
+      });
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+      if (error.message?.includes('bucket') || error.message?.includes('storage')) {
+        setStorageError("Resume storage is not properly configured. Please contact support.");
+      }
+      toast({
+        title: 'Refresh Failed',
+        description: 'Could not refresh resume data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  if (!isAuthenticated) return <ResumeLoginWall />;
+
+  const loading = resumeLoading || isAnalyzing || isRefreshing;
 
   return (
     <AppLayout>
@@ -124,11 +249,35 @@ const Resume = () => {
           </Button>
         </div>
 
-        {/* Rest of your existing JSX */}
+        {storageError && (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Storage Error</AlertTitle>
+            <AlertDescription>
+              {storageError}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {careerAlignments && careerAlignments.length > 0 && (
+          <div className="space-y-2">
+            {careerAlignments.map((alignment, index) => (
+              <Alert key={index} className={`${
+                index === 0 
+                  ? "bg-accent/20 border border-accent" 
+                  : "bg-slate-50 border border-slate-200"
+              }`}>
+                <AlertDescription>
+                  {alignment.description}
+                </AlertDescription>
+              </Alert>
+            ))}
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-6">
           <ResumeUploadSection
-            deleting={isDeleting} // Add this prop
+            deleting={isDeleting}
             resumeFile={resumeFile}
             setResumeFile={setResumeFile}
             resume={resume}
@@ -142,10 +291,33 @@ const Resume = () => {
             pdfDataUrl={pdfDataUrl}
           />
 
-          {/* Rest of your existing JSX */}
+          <ResumeAnalysisSection
+            loading={loading}
+            isAnalyzing={isAnalyzing}
+            analysis={analysis}
+            resume={resume}
+            handleStartCareerChat={handleStartCareerChat}
+            handleFileChange={handleFileChange}
+          />
         </div>
 
-        {/* Rest of your existing JSX */}
+        {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
+
+        <details open className="border rounded-md bg-white shadow-sm">
+          <summary className="cursor-pointer px-4 py-2 font-medium">
+            Resume Bullet Analysis
+          </summary>
+          <div className="p-4">
+            {analysis?.bullets && analysis.bullets.length > 0 ? (
+              <BulletPointsAnalysisCard bullets={analysis.bullets} />
+            ) : (
+              <p className="text-gray-500">
+                No bullet‑point analysis available. Upload and analyze your resume
+                to see detailed feedback.
+              </p>
+            )}
+          </div>
+        </details>
       </div>
     </AppLayout>
   );
