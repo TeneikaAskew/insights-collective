@@ -251,6 +251,7 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
       </CardContent>
       <CardFooter>
         {!resumeFile && resume && !uploading && !isAnalyzing && (
+          <div className="w-full flex justify-end space-x-2">
             <input 
               type="file" 
               accept=".pdf,.docx" 
