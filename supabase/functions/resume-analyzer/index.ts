@@ -310,7 +310,7 @@ serve(async (req)=>{
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
   console.log("URL: ", url, " Path: ", path)
-  // const { text, userId } = await req.json();
+  const { text, userId } = await req.json();
   console.log("Logged in user:", userId, " Text: ", text); //or is it resumeText
 
 
