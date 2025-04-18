@@ -250,8 +250,6 @@ export const useResume = () => {
         description: 'All resume records deleted successfully.',
       });
       
-      // tell any other bits of the app to clear their analysis too
-      window.dispatchEvent(new Event('resumeDeleted'));
       
       // Verify the record was created and wait for it to be available
       const verifyNewRecord = async (): Promise<boolean> => {
@@ -610,6 +608,10 @@ export const useResume = () => {
         title: 'Success',
         description: 'All resume records deleted successfully.',
       });
+
+      
+      // tell any other bits of the app to clear their analysis too
+      window.dispatchEvent(new Event('resumeDeleted'));
       
       console.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
       
