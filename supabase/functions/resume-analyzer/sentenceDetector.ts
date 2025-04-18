@@ -414,6 +414,20 @@ async function saveSentencesToUserLatestResume(userId: string, sentences: string
       console.error('saveSentencesToUserLatestResume: Database update error:', updateError);
       throw updateError;
     }
+
+    // Add this right after the update operation in sentenceDetector.ts
+    const { data: verifyData, error: verifyError } = await supabase
+      .from('resumes')
+      .select('sentences, sentences_updated_at')
+      .eq('id', resumeId)
+      .single();
+    
+    console.log('Verification after update:');
+    console.log('  Data exists:', !!verifyData);
+    console.log('  Sentences exists:', !!verifyData?.sentences);
+    console.log('  Sentences count:', verifyData?.sentences?.length || 0);
+    console.log('  Updated timestamp:', verifyData?.sentences_updated_at);
+    console.log('  Verify error:', verifyError);
     
     const endTime = Date.now();
     console.log(`saveSentencesToUserLatestResume: Successfully saved ${sentences.length} sentences to resume ${resumeId}`);
