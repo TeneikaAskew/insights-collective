@@ -219,7 +219,9 @@ export function useResumeStorage() {
   const { toast } = useToast();
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
 
-  const uploadResumeFile = async (file: File, userId: string): Promise<UploadResult> => {
+  // const uploadResumeFile = async (file: File, userId: string): Promise<UploadResult> => {
+  const uploadResult = await uploadResumeFile(file, user.id)
+
     if (!userId) {
       toast({
         title: "Authentication required",

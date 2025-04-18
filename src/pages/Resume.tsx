@@ -124,10 +124,13 @@ const Resume = () => {
   };
 
   const handleUpload = async () => {
-    if (!resumeFile || !extractedText) {
+    if (!resumeFile) {
+    // if (!resumeFile || !extractedText) {
       toast({
         title: 'Wait',
-        description: 'Still extracting text or no file selected.',
+        
+        description: 'No file selected.',
+        // description: 'Still extracting text or no file selected.',
         variant: 'destructive',
       });
       return;
@@ -140,7 +143,8 @@ const Resume = () => {
       const ok = await uploadResume(resumeFile);
       if (ok) {
         try {
-          await analyzeResume(extractedText);
+          // await analyzeResume(extractedText);
+          await analyzeResume(resume.text!);
           setHasLoadedAnalysis(true);
         } catch (error) {
           console.error('Error analyzing resume:', error);
