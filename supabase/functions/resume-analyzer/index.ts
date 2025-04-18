@@ -56,6 +56,7 @@ export async function detectSentences(text: string, userId?: string): Promise<st
     
     // Robust parsing logic after receiving response
     const sentences = extractSentencesFromResponse(content);
+    console.log(userId, '\n', sentences)
     
     // Save to database if userId is provided
     if (userId) {
