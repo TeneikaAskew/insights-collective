@@ -80,7 +80,7 @@ function extractSentencesFromResponse(content: string): string[] {
     try {
       const parsedArray = JSON.parse(content.trim());
       if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-        console.log('detectSentences: direct JSON parse successful', parsedArray);
+        console.log('detectSentences: direct JSON parse successful - Sentences:', parsedArray);
         sentences = parsedArray;
       }
     } catch (e) {
