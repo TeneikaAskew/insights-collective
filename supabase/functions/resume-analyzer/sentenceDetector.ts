@@ -252,6 +252,8 @@ export function extractSentencesFromResponse(content) {
   console.log(`extractSentencesFromResponse: Post-cleanup sentence count: ${result.length}`);
   return result;
 }
+
+
 // Helper function to clean and deduplicate the extracted sentences
 function cleanAndDeduplicate(sentences) {
   console.log(`cleanAndDeduplicate: Starting cleanup of ${sentences.length} sentences`);
@@ -291,6 +293,7 @@ function cleanAndDeduplicate(sentences) {
   console.log(`cleanAndDeduplicate: Final unique sentence count: ${result.length}`);
   return result;
 }
+
 // Save extracted sentences to the most recent resume record of the user in DB
 export async function saveSentencesToDatabase(userId, sentences) {
   console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);

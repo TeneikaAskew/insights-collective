@@ -93,16 +93,16 @@ async function processBatch(bullets, apiKey) {
   try {
     // Prepare the prompt for GROQ
     const systemPrompt = `You are a professional resume bullet point improver. Your job is to:
-1. Rewrite each given bullet point to be more impactful
-2. Start with strong action verbs
-3. Include quantifiable metrics where possible
-4. Ensure clarity and conciseness (20-25 words max)
-5. Incorporate relevant technical or leadership skills
-
-IMPORTANT: Return your response as a JSON array of objects. Each object must have these properties:
-- id: The ID of the original bullet (preserve this exactly)
-- rewritten: The improved bullet point text
-- tips: Specific tips for further improving this bullet point (2-3 sentences max)`;
+        1. Rewrite each given bullet point to be more impactful
+        2. Start with strong action verbs
+        3. Include quantifiable metrics where possible
+        4. Ensure clarity and conciseness (20-25 words max)
+        5. Incorporate relevant technical or leadership skills
+        
+        IMPORTANT: Return your response as a JSON array of objects. Each object must have these properties:
+        - id: The ID of the original bullet (preserve this exactly)
+        - rewritten: The improved bullet point text
+        - tips: Specific tips for further improving this bullet point (2-3 sentences max)`;
     // Build user prompt with all bullets in the batch
     let userPrompt = "Improve the following resume bullet points:\n\n";
     bullets.forEach((bullet, index)=>{

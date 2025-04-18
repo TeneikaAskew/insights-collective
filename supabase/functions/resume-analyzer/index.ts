@@ -289,27 +289,27 @@ serve(async (req)=>{
     return await serveSentenceDetector()(req);
   }
   if (path === 'improve-bullet') {
-    return await serveBulletImprover()(req);
+    // return await serveBulletImprover()(req);
   }
   try {
     console.log(`Getting resume roast for ${userId1 || 'anonymous'}`);
-    const { action, resumeText, userId: userId1 } = await req.json();
-    if (action === 'get-roast') {
-      const roastData = await getResumeRoast(resumeText, userId1);
-      return new Response(JSON.stringify(roastData), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      });
-    }
+    // const { action, resumeText, userId: userId1 } = await req.json();
+    // if (action === 'get-roast') {
+    //   const roastData = await getResumeRoast(resumeText, userId1);
+    //   return new Response(JSON.stringify(roastData), {
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //       ...corsHeaders
+    //     }
+    //   });
+    // }
     console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
-    const analysis = await analyzeResume(resumeText, userId1);
-    return new Response(JSON.stringify(analysis), {
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
+    // const analysis = await analyzeResume(resumeText, userId1);
+    // return new Response(JSON.stringify(analysis), {
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     ...corsHeaders
+    //   }
     });
   } catch (error) {
     console.error('Error processing request:', error);
