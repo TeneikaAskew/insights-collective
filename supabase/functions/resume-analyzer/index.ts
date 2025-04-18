@@ -11,14 +11,6 @@ import { detectSentences } from "./sentenceDetector.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 import { corsHeaders } from "./utils.ts";
 
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
-const { data: { user } } = await supabase.auth.getUser();
-console.log("Logged in as: ", user);
-const userId = user?.id;
-
 const bulletCache = new Map<string, string[]>();
 const roastCache = new Map<string, string>();
 
@@ -33,6 +25,26 @@ export function serveSentenceDetector() {
     }
 
     try {
+
+      // Initialize Supabase client
+      const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+      const supabase = createClient(supabaseUrl, supabaseKey);
+      let userId = null;
+      try {
+        const { data } = await supabase.auth.getUser();
+        const user = data?.user;
+        if (user) {
+          console.log("Logged in as:", user.id);
+          userId = user.id;
+        } else {
+          console.log("No authenticated user");
+        }
+      } catch (authError) {
+        console.log("Auth error or no user:", authError);
+        // Continue without user - this function can work without authentication
+      }
+      
       const { text, userId } = await req.json();
       if (!text || typeof text !== 'string') {
         return new Response(
