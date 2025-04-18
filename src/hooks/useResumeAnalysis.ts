@@ -292,8 +292,9 @@ export function useResumeAnalysis() {
   const { user } = useAuth();
   const hasLoadedAnalysis = useRef(false);
 
-  useEffect(() => {
 
+  // 1) clear on delete
+  useEffect(() => {
     const clear = () => {
       setAnalysis(null);
       setCareerAlignments([]);
@@ -305,36 +306,34 @@ export function useResumeAnalysis() {
     window.addEventListener('resumeDeleted', clear);
     return () => window.removeEventListener('resumeDeleted', clear);
   }, [user]);
-  
-    if (user && !hasLoadedAnalysis.current) {
-      hasLoadedAnalysis.current = true;
 
-      const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-      console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
+  // 2) initial load of saved analysis
+  useEffect(() => {
+    if (!user || hasLoadedAnalysis.current) return;
+    hasLoadedAnalysis.current = true;
 
-      if (savedAnalysis) {
-        try {
-          const parsedAnalysis = JSON.parse(savedAnalysis);
-          setAnalysis(parsedAnalysis);
-          calculateCareerAlignments(parsedAnalysis);
-        } catch (error) {
-          console.error('Error parsing saved analysis:', error);
-        }
+    const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+    console.log(
+      "Loading analysis from localStorage:",
+      savedAnalysis ? "Found" : "Not found"
+    );
+    if (savedAnalysis) {
+      try {
+        const parsedAnalysis = JSON.parse(savedAnalysis);
+        setAnalysis(parsedAnalysis);
+        calculateCareerAlignments(parsedAnalysis);
+      } catch (error) {
+        console.error("Error parsing saved analysis:", error);
       }
+    }
 
-      
-      
-      // Also try to load the resume text for keyword analysis
-      const resumeText = localStorage.getItem(`resume_text_${user.id}`);
-      if (resumeText && savedAnalysis) {
-        try {
-          const parsedAnalysis = JSON.parse(savedAnalysis);
-          
-          // Perform keyword analysis on the resume text
-          analyzeKeywordsInResume(resumeText, parsedAnalysis);
-        } catch (error) {
-          console.error('Error analyzing keywords in resume:', error);
-        }
+    const resumeText = localStorage.getItem(`resume_text_${user.id}`);
+    if (resumeText && savedAnalysis) {
+      try {
+        const parsedAnalysis = JSON.parse(savedAnalysis);
+        analyzeKeywordsInResume(resumeText, parsedAnalysis);
+      } catch (error) {
+        console.error("Error analyzing keywords in resume:", error);
       }
     }
   }, [user]);
