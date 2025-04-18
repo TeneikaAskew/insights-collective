@@ -1,3 +1,4 @@
+console.log('Resume scoring and feedback function hit');
 // Use GROQ API to enhance analysis with AI
 export async function enhanceWithGroq(resumeText, analysis) {
   try {
