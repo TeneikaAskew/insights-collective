@@ -150,6 +150,7 @@ async function getResumeRoast(resumeText, userId) {
 // Main resume analysis logic
 async function analyzeResume(resumeText, userId) {
   let text = resumeText;
+  console.log("Text", text)
   try {
     if (userId) {
       console.log("Run analyze resume for user: ", userId)
