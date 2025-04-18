@@ -178,16 +178,20 @@ const Resume = () => {
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      // if (resume) await deleteResume();
-      // setResumeFile(null);
-      // setPdfDataUrl(null);
-      // setExtractedText(null);
-      // setShowCareerChat(false);
-      // setAnalysis(null);
-      // setHasLoadedAnalysis(false);
-      // 1) delete server‑side
+
       await deleteResume()
-  
+      // if (resume) await deleteResume();
+      setResumeFile(null);
+      setPdfDataUrl(null);
+      setExtractedText(null);
+      setShowCareerChat(false);
+      setAnalysis(null);
+      setHasLoadedAnalysis(false);
+      // 1) delete server‑side
+      
+   // 3) Wait a moment to ensure all listeners have processed the deletion event
+   `` await new Promise(resolve => setTimeout(resolve, 500))
+    
       // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
       await refreshResume()
   
