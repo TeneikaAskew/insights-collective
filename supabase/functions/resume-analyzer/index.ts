@@ -167,8 +167,7 @@ async function analyzeResume(resumeText, userId) {
       }
     }
     if (!text) throw new Error('No resume text provided');
-    // Roast
-    if (userId) await getResumeRoast(text, userId);
+
     // Bullets
     let bulletPoints = [];
     if (userId && bulletCache.has(`user:${userId}:bullets`)) {
@@ -270,8 +269,12 @@ async function analyzeResume(resumeText, userId) {
         updated_at: new Date().toISOString()
       }).eq('user_id', userId);
       console.log('Successfully updated resume analysis in database');
-    }
+    }    
+
+    getResumeRoast(text, userId).catch(err => console.error('Roast failed:', err));
+    
     return enhanced;
+    
   } catch (err) {
     console.error('Error analyzing resume:', err);
     return {
