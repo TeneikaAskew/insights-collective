@@ -353,8 +353,8 @@ async function saveSentencesToUserLatestResume(userId: string, sentences: string
   
   try {
     // Get Supabase credentials from environment
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseKey = Deno.env.get('SUPABASE_KEY');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
     if (!supabaseUrl || !supabaseKey) {
       console.error('saveSentencesToUserLatestResume: Missing Supabase credentials');
