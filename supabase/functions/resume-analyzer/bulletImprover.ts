@@ -1,5 +1,52 @@
 import { corsHeaders } from './utils.ts';
 
+
+// Service handler for batch bullet improvement
+export function serveBulletImprover() {
+  return async (req: Request) => {
+    try {
+      const data = await req.json();
+      
+      if (!data.bullets || !Array.isArray(data.bullets) || data.bullets.length === 0) {
+        return new Response(
+          JSON.stringify({ error: "Missing or invalid bullets array" }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      // Validate each bullet has an ID and original text
+      const invalidBullet = data.bullets.find(
+        (b: any) => !b.id || !b.original || typeof b.original !== 'string'
+      );
+      
+      if (invalidBullet) {
+        return new Response(
+          JSON.stringify({ 
+            error: "Each bullet must have an id and original text",
+            invalidBullet
+          }),
+          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+        );
+      }
+
+      const improved = await improveBulletsBatch(data);
+      
+      return new Response(
+        JSON.stringify(improved),
+        { headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    } catch (error) {
+      console.error("Error in batch bullet improver service:", error);
+      return new Response(
+        JSON.stringify({ 
+          error: error.message || "Failed to improve bullets in batch",
+        }),
+        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+  };
+}
+
 // Batch improve bullet points with GROQ
 export async function improveBulletsBatch(data: {
   bullets: Array<{
@@ -315,59 +362,14 @@ function validateAndMapResults(
   return validatedResults;
 }
 
-// Service handler for batch bullet improvement
-export function serveBulletImprover() {
-  return async (req: Request) => {
-    try {
-      const data = await req.json();
-      
-      if (!data.bullets || !Array.isArray(data.bullets) || data.bullets.length === 0) {
-        return new Response(
-          JSON.stringify({ error: "Missing or invalid bullets array" }),
-          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
-      }
-
-      // Validate each bullet has an ID and original text
-      const invalidBullet = data.bullets.find(
-        (b: any) => !b.id || !b.original || typeof b.original !== 'string'
-      );
-      
-      if (invalidBullet) {
-        return new Response(
-          JSON.stringify({ 
-            error: "Each bullet must have an id and original text",
-            invalidBullet
-          }),
-          { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
-        );
-      }
-
-      const improved = await improveBulletsBatch(data);
-      
-      return new Response(
-        JSON.stringify(improved),
-        { headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    } catch (error) {
-      console.error("Error in batch bullet improver service:", error);
-      return new Response(
-        JSON.stringify({ 
-          error: error.message || "Failed to improve bullets in batch",
-        }),
-        { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
-      );
-    }
-  };
-}
 
 // For backward compatibility with single bullet improvement
 export async function improveBullet(data: {
-  original: string;
-  xyz_scores?: any;
-  word_balance_score?: number;
-  word_balance?: any;
-}): Promise<{ rewritten: string; tips: string }> {
+    original: string;
+    xyz_scores?: any;
+    word_balance_score?: number;
+    word_balance?: any;
+  }): Promise<{ rewritten: string; tips: string }> {
   const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
   
   // Generate a random ID for the single bullet

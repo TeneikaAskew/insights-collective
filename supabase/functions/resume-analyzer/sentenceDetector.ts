@@ -447,7 +447,6 @@ async function saveSentencesToUserLatestResume(userId: string, sentences: string
   }
 }
 
-
 // Update the function signature to accept userId
 export async function extractAndSaveSentences(text: string, userId: string): Promise<string[]> {
   console.log(`extractAndSaveSentences: Starting for userId=${userId} with text length=${text.length}`);
