@@ -252,8 +252,10 @@ async function analyzeResume(resumeText, userId) {
       explanation: `Your resume received a ${grade} grade (${percent}%).`
     };
     let enhanced;
+    console.log("Text: ", text, " Basic Analysis: ", basic)
     try {
       enhanced = await enhanceWithGroq(text, basic);
+      console.log("Enhanced Scoring: ", enhanced)
     } catch {
       enhanced = basic;
     }
