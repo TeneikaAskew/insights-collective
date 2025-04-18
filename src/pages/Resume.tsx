@@ -30,6 +30,15 @@ const Resume = () => {
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false)
+  const resetLocalState = () => {
+    setResumeFile(null)
+    setPdfDataUrl(null)
+    setExtractedText(null)
+    setShowCareerChat(false)
+    setAnalysis(null)
+    setHasLoadedAnalysis(false)
+    setInitialLoadComplete(false)
+  }
 
   useEffect(() => {
     let isMounted = true;
@@ -181,27 +190,22 @@ const Resume = () => {
 
       await deleteResume()
       // if (resume) await deleteResume();
-      setResumeFile(null);
-      setPdfDataUrl(null);
-      setExtractedText(null);
-      setShowCareerChat(false);
-      setAnalysis(null);
-      setHasLoadedAnalysis(false);
+      resetLocalState()
       // 1) delete server‑side
       
    // 3) Wait a moment to ensure all listeners have processed the deletion event
-   `` await new Promise(resolve => setTimeout(resolve, 500))
+   `` await new Promise(resolve => setTimeout(resolve, 500));
     
       // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
-      await refreshResume()
+      await refreshResume();
   
       // 3) clear all local UI bits
-      setResumeFile(null)
-      setPdfDataUrl(null)
-      setExtractedText(null)
-      setShowCareerChat(false)
-      setAnalysis(null)
-      setHasLoadedAnalysis(false)
+      // setResumeFile(null)
+      // setPdfDataUrl(null)
+      // setExtractedText(null)
+      // setShowCareerChat(false)
+      // setAnalysis(null)
+      // setHasLoadedAnalysis(false)
   
       toast({ title: 'Deleted', description: 'Your resume is gone.' })
       
