@@ -74,6 +74,21 @@ export const useResume = () => {
     }
   }, [user]);
 
+    useEffect(() => {
+    const onDelete = () => {
+      // clear out everything so that we don’t immediately
+      // try to re‑load the old values
+      signedUrlCacheRef.current.clear()
+      hasFetchedUrlRef.current = false
+      hasFetchedResume.current = false
+      setResume(null)
+      setLoading(false)
+      fetchResume()  
+    }
+    window.addEventListener('resumeDeleted', onDelete)
+    return () => window.removeEventListener('resumeDeleted', onDelete)
+  }, [])
+
   // Fetch resume data from Supabase - always get the latest record
   const fetchResume = async () => {
     if (!user) return;
