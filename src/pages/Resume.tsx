@@ -210,7 +210,7 @@ const Resume = () => {
       toast({ title: 'Deleted', description: 'Your resume is gone.' })
       
     } catch (error) {
-      console.error('Error in handleDelete:', error);
+      console.error('Error in handleDelete:', error)
       toast({
         title: 'Delete Failed',
         description: 'Could not delete resume. Please try again.',
