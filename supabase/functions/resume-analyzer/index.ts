@@ -266,35 +266,93 @@ async function analyzeResume(resumeText, userId1) {
       explanation: `Error: ${err.message}`
     };
   }
-}
+// }
+// // HTTP server entrypoint
+// serve(async (req)=>{
+//   if (req.method === 'OPTIONS') {
+//     return new Response(null, {
+//       status: 200,
+//       headers: corsHeaders
+//     });
+//   }
+//   const url = new URL(req.url);
+//   const path = url.pathname.split('/').pop();
+//   if (path === 'detect-sentences') {
+//     return await serveSentenceDetector()(req);
+//   }
+//   if (path === 'improve-bullet') {
+//     return await serveBulletImprover()(req);
+//   }
+//   try {
+//     const { action, resumeText, userId: userId1 } = await req.json();
+//     if (action === 'get-roast') {
+//       const roastData = await getResumeRoast(resumeText, userId1);
+//       return new Response(JSON.stringify(roastData), {
+//         headers: {
+//           'Content-Type': 'application/json',
+//           ...corsHeaders
+//         }
+//       });
+//     }
+//     console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
+//     const analysis = await analyzeResume(resumeText, userId1);
+//     return new Response(JSON.stringify(analysis), {
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Error processing request:', error);
+//     return new Response(JSON.stringify({
+//       error: error.message,
+//       bullets: []
+//     }), {
+//       status: 500,
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+//       }
+//     });
+//   }
+// });
 // HTTP server entrypoint
-serve(async (req)=>{
+serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
       headers: corsHeaders
     });
   }
+
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
+  
+  // Handle specific paths first
   if (path === 'detect-sentences') {
     return await serveSentenceDetector()(req);
   }
   if (path === 'improve-bullet') {
     return await serveBulletImprover()(req);
   }
+  
   try {
     const { action, resumeText, userId: userId1 } = await req.json();
-    // if (action === 'get-roast') {
-    //   const roastData = await getResumeRoast(resumeText, userId1);
-    //   return new Response(JSON.stringify(roastData), {
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //       ...corsHeaders
-    //     }
-    //   });
-    // }
+    
+    // Handle the main resume processing cases - analyze first, then get-roast
     console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
+    
+    if (action === 'get-roast') {
+      const roastData = await getResumeRoast(resumeText, userId1);
+      return new Response(JSON.stringify(roastData), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+    
+    // Default action is to analyze the resume
     const analysis = await analyzeResume(resumeText, userId1);
     return new Response(JSON.stringify(analysis), {
       headers: {
