@@ -223,31 +223,6 @@ const handleDelete = async () => {
   }
 };
 
-      
-  //     // Add a small delay to ensure state updates
-  //     await new Promise(resolve => setTimeout(resolve, 1000));
-      
-  //     toast({
-  //       title: 'Deleted',
-  //       description: 'Your resume has been deleted.',
-  //     });
-
-  //     // Force a complete reset
-  //     window.location.reload();
-  //   } catch (error) {
-  //     console.error('Error in handleDelete:', error);
-  //     toast({
-  //       title: 'Delete Failed',
-  //       description: 'Could not completely delete resume. Try refreshing the page.',
-  //       variant: 'destructive',
-  //     });
-      
-  //     // Force reload even after error
-  //     window.location.reload();
-  //   } finally {
-  //     setIsDeleting(false);
-  //   }
-  // };
 
   const handleDownload = () => {
     if (resume?.file_url) window.open(resume.file_url, '_blank');
