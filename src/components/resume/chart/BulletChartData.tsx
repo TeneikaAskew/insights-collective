@@ -33,7 +33,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   // Format data for the chart with colors matching the brand theme
   const data = [
     {
-      name: 'Hard & Soft Skills',
+      name: 'Skills',
       value: xyz_scores.hard_soft || 0,
       fill: 'var(--color-hard-soft)',
       category: BULLET_CATEGORIES.HARD_SOFT,
@@ -41,7 +41,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       percent: 0
     },
     {
-      name: 'Action Words',
+      name: 'Action Verbs',
       value: xyz_scores.action_words || 0,
       fill: 'var(--color-action)',
       category: BULLET_CATEGORIES.ACTION,
@@ -49,7 +49,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       percent: 0
     },
     {
-      name: 'Measurable Results',
+      name: 'Measurable Impact',
       value: xyz_scores.measurable_results || 0,
       fill: 'var(--color-measurable)',
       category: BULLET_CATEGORIES.MEASURABLE,
