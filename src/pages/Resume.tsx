@@ -178,28 +178,32 @@ const Resume = () => {
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-      // if (resume) await deleteResume();
-      // setResumeFile(null);
-      // setPdfDataUrl(null);
-      // setExtractedText(null);
-      // setShowCareerChat(false);
-      // setAnalysis(null);
-      // setHasLoadedAnalysis(false);
+
       // 1) delete server‑side
       await deleteResume()
-  
+
+      setResumeFile(null);
+      setPdfDataUrl(null);
+      setExtractedText(null);
+      setShowCareerChat(false);
+      setAnalysis(null);
+      setHasLoadedAnalysis(false);
+      setInitialLoadComplete(false)
+      
+      toast({ title: 'Deleted', description: 'Your resume is gone.' })
+      
       // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
       await refreshResume()
   
       // 3) clear all local UI bits
-      setResumeFile(null)
-      setPdfDataUrl(null)
-      setExtractedText(null)
-      setShowCareerChat(false)
-      setAnalysis(null)
-      setHasLoadedAnalysis(false)
+      // setResumeFile(null)
+      // setPdfDataUrl(null)
+      // setExtractedText(null)
+      // setShowCareerChat(false)
+      // setAnalysis(null)
+      // setHasLoadedAnalysis(false)
   
-      toast({ title: 'Deleted', description: 'Your resume is gone.' })
+      
       
     } catch (error) {
       console.error('Error in handleDelete:', error);
