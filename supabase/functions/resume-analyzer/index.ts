@@ -144,7 +144,7 @@ async function analyzeResume(resumeText, userId1) {
       if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
       if (bulletPoints.length > 0 && userId1) {
         bulletCache.set(`user:${userId1}:bullets`, bulletPoints);
-        await saveSentencesToDatabase(userId1, bulletPoints);
+      // await saveSentencesToDatabase(userId1, bulletPoints);
       }
     }
     if (bulletPoints.length === 0) {

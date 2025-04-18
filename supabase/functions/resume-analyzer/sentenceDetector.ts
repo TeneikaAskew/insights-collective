@@ -292,7 +292,7 @@ function cleanAndDeduplicate(sentences) {
   return result;
 }
 // Save extracted sentences to the most recent resume record of the user in DB
-async function saveSentencesToDatabase(userId, sentences) {
+export async function saveSentencesToDatabase(userId, sentences) {
   console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
   const startTime = Date.now();
   // Initialize Supabase client inside the function with service role key
