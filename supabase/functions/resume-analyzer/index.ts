@@ -33,7 +33,7 @@ export function serveSentenceDetector() {
     }
 
     try {
-      const { text } = await req.json();
+      const { text, userId } = await req.json();
       
       if (!text || typeof text !== 'string') {
         return new Response(
