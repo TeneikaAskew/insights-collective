@@ -188,16 +188,16 @@ const Resume = () => {
     setIsDeleting(true)
     try {
 
-      await deleteResume();
+      await deleteResume()
       // if (resume) await deleteResume();
       resetLocalState()
       // 1) delete server‑side
       
      // 3) Wait a moment to ensure all listeners have processed the deletion event
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 500))
     
       // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
-      await refreshResume();
+      await refreshResume()
   
       // 3) clear all local UI bits
       // setResumeFile(null)
@@ -207,7 +207,7 @@ const Resume = () => {
       // setAnalysis(null)
       // setHasLoadedAnalysis(false)
   
-      toast({ title: 'Deleted', description: 'Your resume is gone.' });
+      toast({ title: 'Deleted', description: 'Your resume is gone.' })
       
     } catch (error) {
       console.error('Error in handleDelete:', error);
