@@ -49,7 +49,7 @@ export async function detectSentences(text: string): Promise<string[]> {
     
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '';
-    console.log('detectSentences: raw content from API=', content.slice(0, 200));
+    console.log('detectSentences: raw content from API=', content);
     
     // Improved parsing logic
     let sentencesArray: string[] = [];
