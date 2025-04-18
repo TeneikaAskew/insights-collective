@@ -188,7 +188,7 @@ const Resume = () => {
     setIsDeleting(true)
     try {
 
-      await deleteResume()
+      await deleteResume();
       // if (resume) await deleteResume();
       resetLocalState();
       // 1) delete server‑side
@@ -207,7 +207,7 @@ const Resume = () => {
       // setAnalysis(null)
       // setHasLoadedAnalysis(false)
   
-      toast({ title: 'Deleted', description: 'Your resume is gone.' })
+      toast({ title: 'Deleted', description: 'Your resume is gone.' });
       
     } catch (error) {
       console.error('Error in handleDelete:', error);
