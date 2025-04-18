@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -27,25 +28,6 @@ const Resume = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [shouldUploadAfterExtraction, setShouldUploadAfterExtraction] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // Force a complete reset of all application state
-  const resetAllState = () => {
-    // clear the actual file picker
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    setResumeFile(null);
-    setPdfDataUrl(null);
-    setExtractedText(null);
-    setShowCareerChat(false);
-    setAnalysis(null);
-    setHasLoadedAnalysis(false);
-    setInitialLoadComplete(false);
-    setShouldUploadAfterExtraction(false);
-    localStorage.removeItem(`resume_analysis_${user?.id}`);
-    localStorage.removeItem(`resume_text_${user?.id}`);
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -85,7 +67,6 @@ const Resume = () => {
     }
   }, [resume, analysis, setAnalysis, hasLoadedAnalysis, user]);
 
-  // Effect to extract text when file is selected
   useEffect(() => {
     if (!resumeFile) return;
 
@@ -95,19 +76,10 @@ const Resume = () => {
 
     (async () => {
       try {
-        console.log("Starting text extraction for:", resumeFile.name);
         const text = await extractTextFromFile(resumeFile);
         setExtractedText(text);
-        console.log("Text extraction complete, length:", text.length);
-        
-        // If we flagged to upload after extraction, do it now
-        if (shouldUploadAfterExtraction && !isDeleting) {
-          console.log("Auto-triggering upload after text extraction");
-          setShouldUploadAfterExtraction(false);
-          handleUpload();
-        }
       } catch (err) {
-        console.error("Text extraction error:", err);
+        console.error(err);
         toast({
           title: 'Extraction failed',
           description: 'Could not extract text from your resume.',
@@ -115,9 +87,8 @@ const Resume = () => {
         });
       }
     })();
-  }, [resumeFile, shouldUploadAfterExtraction, isDeleting, toast]);
+  }, [resumeFile, toast]);
 
-  // Effect to analyze existing resume text
   useEffect(() => {
     if (resume?.text && !analysis && !isAnalyzing && !hasLoadedAnalysis && initialLoadComplete) {
       console.log("Analyzing existing resume text");
@@ -133,7 +104,6 @@ const Resume = () => {
     }
   }, [resume, analysis, analyzeResume, isAnalyzing, hasLoadedAnalysis, initialLoadComplete]);
 
-  // Handle file selection
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -141,12 +111,8 @@ const Resume = () => {
       file.type === 'application/pdf' ||
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
     ) {
-      console.log("File selected:", file.name);
       setResumeFile(file);
       setHasLoadedAnalysis(false);
-      
-      // Flag to trigger upload after extraction completes
-      setShouldUploadAfterExtraction(true);
     } else {
       toast({
         title: 'Invalid type',
@@ -156,7 +122,6 @@ const Resume = () => {
     }
   };
 
-  // Handle manual upload button click
   const handleUpload = async () => {
     if (!resumeFile || !extractedText) {
       toast({
@@ -167,25 +132,15 @@ const Resume = () => {
       return;
     }
     
-    console.log("Starting upload process for:", resumeFile.name);
     setHasLoadedAnalysis(false);
     setStorageError(null);
     
     try {
-      console.log("Uploading file to server...");
       const ok = await uploadResume(resumeFile);
       if (ok) {
-        console.log("Upload successful, analyzing text...");
         try {
-          // Use the locally extracted text which is more reliable
           await analyzeResume(extractedText);
           setHasLoadedAnalysis(true);
-          
-          console.log("Analysis complete!");
-          toast({
-            title: 'Success',
-            description: 'Resume uploaded and analyzed successfully.',
-          });
         } catch (error) {
           console.error('Error analyzing resume:', error);
           toast({
@@ -203,26 +158,24 @@ const Resume = () => {
     }
   };
 
-  // Handle resume deletion
-const handleDelete = async () => {
-  setIsDeleting(true);
-  try {
-    resetAllState();
-    console.log("Local state reset, deleting from server…");
-    if (resume) await deleteResume();
-    await refreshResume();
-    toast({ title: 'Deleted', description: 'Your resume has been cleared.' });
-  } catch (error) {
-    toast({
-      title: 'Delete Failed',
-      description: 'Could not delete — please try again.',
-      variant: 'destructive',
-    });
-  } finally {
-    setIsDeleting(false);
-  }
-};
-
+  const handleDelete = async () => {
+    try {
+      if (resume) await deleteResume();
+      setResumeFile(null);
+      setPdfDataUrl(null);
+      setExtractedText(null);
+      setShowCareerChat(false);
+      setAnalysis(null);
+      setHasLoadedAnalysis(false);
+    } catch (error) {
+      console.error('Error in handleDelete:', error);
+      toast({
+        title: 'Delete Failed',
+        description: 'Could not delete resume. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const handleDownload = () => {
     if (resume?.file_url) window.open(resume.file_url, '_blank');
@@ -300,8 +253,6 @@ const handleDelete = async () => {
 
         <div className="grid md:grid-cols-2 gap-6">
           <ResumeUploadSection
-            fileInputRef={fileInputRef}
-            deleting={isDeleting}
             resumeFile={resumeFile}
             setResumeFile={setResumeFile}
             resume={resume}
@@ -310,13 +261,9 @@ const handleDelete = async () => {
             isAnalyzing={isAnalyzing}
             handleUpload={handleUpload}
             handleDelete={handleDelete}
-            {/* handleFileChange={handleFileChange} */}
+            handleFileChange={handleFileChange}
             handleDownload={handleDownload}
             pdfDataUrl={pdfDataUrl}
-            handleFileChange={e => {
-              handleFileChange(e);
-              // ensure any queued ref is reset
-            }}
           />
 
           <ResumeAnalysisSection
@@ -340,7 +287,7 @@ const handleDelete = async () => {
               <BulletPointsAnalysisCard bullets={analysis.bullets} />
             ) : (
               <p className="text-gray-500">
-                No bullet-point analysis available. Upload and analyze your resume
+                No bullet‑point analysis available. Upload and analyze your resume
                 to see detailed feedback.
               </p>
             )}
