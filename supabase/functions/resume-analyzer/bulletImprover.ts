@@ -161,8 +161,7 @@ async function processBatch(bullets, apiKey) {
           // 1) First try your robust sentence extractor
       let parsedResults = [];
       try {
-        const jsonOnly = extractSentencesFromResponse(content);
-        parsedResults = jsonOnly.map(str => JSON.parse(str));
+        parsedResults = parseGroqJsonResponse(content, bullets);
       } catch (ex) {
         console.warn('extractSentencesFromResponse failed, falling back to JSON‑array parse');
       }
@@ -171,7 +170,8 @@ async function processBatch(bullets, apiKey) {
       // 2) If that didn’t yield anything, fall back to your existing parser
       if (parsedResults.length === 0) {
         try {
-          parsedResults = parseGroqJsonResponse(content, bullets);
+          const jsonOnly = extractSentencesFromResponse(content);
+          parsedResults = jsonOnly.map(str => JSON.parse(str));
         }
         catch (ex) {
           console.warn('parseGroqJsonResponse also failed, falling back to identity map');
