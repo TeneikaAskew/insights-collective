@@ -15,7 +15,15 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
-
+const resetLocalState = () => {
+  setResumeFile(null)
+  setPdfDataUrl(null)
+  setExtractedText(null)
+  setShowCareerChat(false)
+  setAnalysis(null)
+  setHasLoadedAnalysis(false)
+  setInitialLoadComplete(false)
+}
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -140,8 +148,39 @@ const Resume = () => {
     setHasLoadedAnalysis(false);
     setStorageError(null);
 
+    // const ok = await uploadResume(resumeFile)
+    // if (!ok) return
+    try {
     const ok = await uploadResume(resumeFile)
-    if (!ok) return
+    if (!ok) {
+      // Upload failed, reset state
+      resetLocalState()
+      return
+    }
+    
+    // Force a refetch to get the updated resume
+    await refreshResume()
+      // If resume was successfully uploaded, try to analyze it
+    if (resume?.text) {
+      try {
+        await analyzeResume(resume.text)
+        setHasLoadedAnalysis(true)
+      } catch (analysisError) {
+        console.error('Analysis error:', analysisError)
+        toast({
+          title: 'Analysis Failed',
+          description: 'Resume was uploaded but analysis failed. You can try again.',
+          variant: 'destructive',
+        })
+      }
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    resetLocalState()
+    // Show error toast
+  }
+}
+
   
     // force a refetch so resume.text is populated
     // await refreshResume()
@@ -173,25 +212,24 @@ const Resume = () => {
     //     setStorageError("Resume storage is not properly configured. Please contact support.");
     //   }
     // }
-  };
+  // };
 
   const handleDelete = async () => {
     setIsDeleting(true)
     try {
-
+      // if (resume) await deleteResume();
+      // setResumeFile(null);
+      // setPdfDataUrl(null);
+      // setExtractedText(null);
+      // setShowCareerChat(false);
+      // setAnalysis(null);
+      // setHasLoadedAnalysis(false);
       // 1) delete server‑side
       await deleteResume()
-
-      setResumeFile(null);
-      setPdfDataUrl(null);
-      setExtractedText(null);
-      setShowCareerChat(false);
-      setAnalysis(null);
-      setHasLoadedAnalysis(false);
-      setInitialLoadComplete(false)
+      resetLocalState()
       
       toast({ title: 'Deleted', description: 'Your resume is gone.' })
-      
+  
       // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
       await refreshResume()
   
@@ -203,7 +241,6 @@ const Resume = () => {
       // setAnalysis(null)
       // setHasLoadedAnalysis(false)
   
-      
       
     } catch (error) {
       console.error('Error in handleDelete:', error);
