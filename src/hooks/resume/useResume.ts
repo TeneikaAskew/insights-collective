@@ -244,6 +244,14 @@ export const useResume = () => {
       // Clear any cached analysis data since we have a new resume
       localStorage.removeItem(`resume_analysis_${user.id}`);
       localStorage.removeItem(`resume_text_${user.id}`);
+      localStorage.removeItem(`resume_data_${user.id}`);
+      toast({
+        title: 'Success',
+        description: 'All resume records deleted successfully.',
+      });
+      
+      // tell any other bits of the app to clear their analysis too
+      window.dispatchEvent(new Event('resumeDeleted'));
       
       // Verify the record was created and wait for it to be available
       const verifyNewRecord = async (): Promise<boolean> => {

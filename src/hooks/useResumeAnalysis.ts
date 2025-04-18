@@ -293,6 +293,19 @@ export function useResumeAnalysis() {
   const hasLoadedAnalysis = useRef(false);
 
   useEffect(() => {
+
+    const clear = () => {
+      setAnalysis(null);
+      setCareerAlignments([]);
+      if (user) {
+        localStorage.removeItem(`resume_analysis_${user.id}`);
+        localStorage.removeItem(`resume_text_${user.id}`);
+      }
+    };
+    window.addEventListener('resumeDeleted', clear);
+    return () => window.removeEventListener('resumeDeleted', clear);
+  }, [user]);
+  
     if (user && !hasLoadedAnalysis.current) {
       hasLoadedAnalysis.current = true;
 
@@ -308,6 +321,8 @@ export function useResumeAnalysis() {
           console.error('Error parsing saved analysis:', error);
         }
       }
+
+      
       
       // Also try to load the resume text for keyword analysis
       const resumeText = localStorage.getItem(`resume_text_${user.id}`);
