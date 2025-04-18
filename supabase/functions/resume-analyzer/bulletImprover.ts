@@ -315,6 +315,44 @@ function validateAndMapResults(
   return validatedResults;
 }
 
+// For backward compatibility with single bullet improvement
+export async function improveBullet(data: {
+  original: string;
+  xyz_scores?: any;
+  word_balance_score?: number;
+  word_balance?: any;
+}): Promise<{ rewritten: string; tips: string }> {
+  const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
+  
+  // Generate a random ID for the single bullet
+  const id = `single_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  
+  // Use the batch function with a single bullet
+  const results = await improveBulletsBatch({
+    bullets: [{
+      id,
+      original,
+      xyz_scores,
+      word_balance_score,
+      word_balance
+    }],
+    batchSize: 1
+  });
+  
+  // Return the first result in the format expected by the original function
+  const result = results[0] || {
+    id,
+    original,
+    rewritten: original,
+    tips: "Try adding specific metrics and starting with a strong action verb."
+  };
+  
+  return {
+    rewritten: result.rewritten,
+    tips: result.tips
+  };
+}
+
 // Service handler for batch bullet improvement
 export function serveBulletImprover() {
   return async (req: Request) => {
@@ -361,43 +399,7 @@ export function serveBulletImprover() {
   };
 }
 
-// For backward compatibility with single bullet improvement
-export async function improveBullet(data: {
-  original: string;
-  xyz_scores?: any;
-  word_balance_score?: number;
-  word_balance?: any;
-}): Promise<{ rewritten: string; tips: string }> {
-  const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
-  
-  // Generate a random ID for the single bullet
-  const id = `single_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-  
-  // Use the batch function with a single bullet
-  const results = await improveBulletsBatch({
-    bullets: [{
-      id,
-      original,
-      xyz_scores,
-      word_balance_score,
-      word_balance
-    }],
-    batchSize: 1
-  });
-  
-  // Return the first result in the format expected by the original function
-  const result = results[0] || {
-    id,
-    original,
-    rewritten: original,
-    tips: "Try adding specific metrics and starting with a strong action verb."
-  };
-  
-  return {
-    rewritten: result.rewritten,
-    tips: result.tips
-  };
-}
+
 // import { corsHeaders } from './utils.ts';
 
 // // Improve bullet points with GROQ
