@@ -96,16 +96,33 @@ const Resume = () => {
     (async () => {
       try {
         console.log("Starting text extraction for:", resumeFile.name);
-        const text = await extractTextFromFile(resumeFile);
-        setExtractedText(text);
-        console.log("Text extraction complete, length:", text.length);
+        // const text = await extractTextFromFile(resumeFile);
+        // setExtractedText(text);
+        // console.log("Text extraction complete, length:", text.length);
         
-        // If we flagged to upload after extraction, do it now
-        if (shouldUploadAfterExtraction && !isDeleting) {
-          console.log("Auto-triggering upload after text extraction");
-          setShouldUploadAfterExtraction(false);
-          handleUpload();
-        }
+        // // If we flagged to upload after extraction, do it now
+        // if (shouldUploadAfterExtraction && !isDeleting) {
+        //   console.log("Auto-triggering upload after text extraction");
+        //   setShouldUploadAfterExtraction(false);
+        //   handleUpload();
+        // }
+        const text = await extractTextFromFile(resumeFile);
+           setExtractedText(text);
+    
+           if (shouldUploadAfterExtraction && !isDeleting) {
+             console.log("Uploading & analyzing with freshly extracted text…");
+             setShouldUploadAfterExtraction(false);
+    
+             // 1) upload
+             const ok = await uploadResume(resumeFile);
+             if (!ok) throw new Error("Upload failed");
+    
+             // 2) analyze using the `text` we just got
+             await analyzeResume(text);
+             setHasLoadedAnalysis(true);
+    
+             toast({ title: 'Success', description: 'Resume uploaded and analyzed!' });
+           }
       } catch (err) {
         console.error("Text extraction error:", err);
         toast({
