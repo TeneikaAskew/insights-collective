@@ -53,6 +53,18 @@ export function serveSentenceDetector() {
           ...corsHeaders
         }
       });
+
+      if (userId1) {
+        await saveSentencesToDatabase(userId1, sentences)
+      // await supabase.from('resumes').update({
+      //   sentences: sentences,
+      //   sentences_updated_at: new Date().toISOString()
+      // }).eq('user_id', userId1);
+      console.log('Sentences stored in database for user:', userId1);
+    }
+
+      
+      
     } catch (error) {
       console.error('Error in sentence detector service:', error);
       return new Response(JSON.stringify({
