@@ -1,5 +1,5 @@
 console.log('Sentence Detection function hit');
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 import { safeJsonParse, handleApiError } from './utils.ts';
 
 // This function sets up Supabase client with service role key credentials from env
