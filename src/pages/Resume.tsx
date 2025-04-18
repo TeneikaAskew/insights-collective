@@ -190,7 +190,7 @@ const Resume = () => {
 
       await deleteResume()
       // if (resume) await deleteResume();
-      resetLocalState()
+      resetLocalState();
       // 1) delete server‑side
       
    // 3) Wait a moment to ensure all listeners have processed the deletion event
