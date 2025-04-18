@@ -21,124 +21,124 @@ const roastCache = new Map();
 export { detectSentences };
 export { serveBulletImprover };
 
-// // Sentence detector endpoint
-// export function serveSentenceDetector() {
-//   return async (req)=>{
-//     if (req.method === 'OPTIONS') {
-//       return new Response(null, {
-//         status: 200,
-//         headers: corsHeaders
-//       });
-//     }
-//     try {
-//       const { text, userId: userId1 } = await req.json();
-//       if (!text || typeof text !== 'string') {
-//         return new Response(JSON.stringify({
-//           error: 'Missing or invalid text parameter'
-//         }), {
-//           status: 400,
-//           headers: {
-//             'Content-Type': 'application/json',
-//             ...corsHeaders
-//           }
-//         });
-//       }
-//       // Extract sentences
-//       const sentences = await detectSentences(text, userId1);
-//       console.log("User: ", userId1, "Sentences: ", sentences);
-//       return new Response(JSON.stringify({
-//         sentences
-//       }), {
-//         headers: {
-//           'Content-Type': 'application/json',
-//           ...corsHeaders
-//         }
-//       });
+// Sentence detector endpoint
+export function serveSentenceDetector() {
+  return async (req)=>{
+    if (req.method === 'OPTIONS') {
+      return new Response(null, {
+        status: 200,
+        headers: corsHeaders
+      });
+    }
+    try {
+      const { text, userId: userId1 } = await req.json();
+      if (!text || typeof text !== 'string') {
+        return new Response(JSON.stringify({
+          error: 'Missing or invalid text parameter'
+        }), {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+          }
+        });
+      }
+      // Extract sentences
+      const sentences = await detectSentences(text, userId1);
+      console.log("User: ", userId1, "Sentences: ", sentences);
+      return new Response(JSON.stringify({
+        sentences
+      }), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
 
-//       if (userId1) {
-//         await saveSentencesToDatabase(userId1, sentences)
-//       // await supabase.from('resumes').update({
-//       //   sentences: sentences,
-//       //   sentences_updated_at: new Date().toISOString()
-//       // }).eq('user_id', userId1);
-//       console.log('Sentences stored in database for user:', userId1);
-//     }
+      if (userId1) {
+        await saveSentencesToDatabase(userId1, sentences)
+      // await supabase.from('resumes').update({
+      //   sentences: sentences,
+      //   sentences_updated_at: new Date().toISOString()
+      // }).eq('user_id', userId1);
+      console.log('Sentences stored in database for user:', userId1);
+    }
 
       
       
-//     } catch (error) {
-//       console.error('Error in sentence detector service:', error);
-//       return new Response(JSON.stringify({
-//         error: error.message || 'Failed to detect sentences'
-//       }), {
-//         status: 500,
-//         headers: {
-//           'Content-Type': 'application/json',
-//           ...corsHeaders
-//         }
-//       });
-//     }
-//   };
-// }
-// // Generate a resume roast and store it
-// async function getResumeRoast(resumeText, userId1) {
-//   const cacheKey = userId1 ? `user:${userId1}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
-//   if (roastCache.has(cacheKey)) {
-//     console.log('Using cached roast');
-//     return {
-//       roast: roastCache.get(cacheKey)
-//     };
-//   }
-//   if (!resumeText) {
-//     return {
-//       roast: 'I need to see your resume first to provide specific feedback. Please upload your resume so I can analyze it and give you targeted advice on how to improve it.'
-//     };
-//   }
-//   try {
-//     const groqApiKey = Deno.env.get('GROQ');
-//     if (!groqApiKey) throw new Error('GROQ API key not found');
-//     const prompt = `I'm looking at this resume text:        
-//         ${resumeText.substring(0, 4000)}        
-//         Now, I need a full-on resume roast. Don't sugarcoat it — tell me what's holding this back. Why am I not getting callbacks, referrals, or interviews? Tear it apart like a hiring manager who's had one too many resumes land on their desk. Be blunt. What's outdated, what's weak, what's missing, what makes you roll your eyes, and what makes you scroll past me? Give me the real — and then tell me how to fix it so I actually start landing opportunities.
-//         Be specific and provide actionable advice. Format your response with no markdown, just clean text. Keep it to 3-4 paragraphs maximum.`
-//       ; 
-//     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-//       method: 'POST',
-//       headers: {
-//         Authorization: `Bearer ${groqApiKey}`,
-//         'Content-Type': 'application/json'
-//       },
-//       body: JSON.stringify({
-//         model: 'llama3-70b-8192',
-//         messages: [  
-//           { role: "system", content: "You are a brutally honest resume critic. Your job is to point out the real issues in a resume without sugarcoating, then provide actionable advice." },
-//           { role: "user", content: prompt }
-//                   ],
-//         temperature: 0.7,
-//         max_tokens: 750
-//       })
-//     });
-//     if (!resp.ok) throw new Error('GROQ API error');
-//     const result = await resp.json();
-//     const roastText = result.choices[0].message.content.trim();
-//     const cleanRoast = roastText.replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, '').replace(/^[–\-*\s]*|:/g, '').trim();
-//     roastCache.set(cacheKey, cleanRoast);
-//     if (userId1) {
-//       await supabase.from('resumes').update({
-//         initial_assessment: cleanRoast
-//       }).eq('user_id', userId1);
-//       console.log('Assessment stored in database for user:', userId1);
-//     }
-//     return {
-//       roast: cleanRoast
-//     };
-//   } catch (err) {
-//     console.error('Error getting resume roast:', err);
-//     return {
-//       roast: 'Your resume needs more specific accomplishments and metrics.'
-//     };
-//   }
-// }
+    } catch (error) {
+      console.error('Error in sentence detector service:', error);
+      return new Response(JSON.stringify({
+        error: error.message || 'Failed to detect sentences'
+      }), {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+  };
+}
+// Generate a resume roast and store it
+async function getResumeRoast(resumeText, userId1) {
+  const cacheKey = userId1 ? `user:${userId1}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
+  if (roastCache.has(cacheKey)) {
+    console.log('Using cached roast');
+    return {
+      roast: roastCache.get(cacheKey)
+    };
+  }
+  if (!resumeText) {
+    return {
+      roast: 'I need to see your resume first to provide specific feedback. Please upload your resume so I can analyze it and give you targeted advice on how to improve it.'
+    };
+  }
+  try {
+    const groqApiKey = Deno.env.get('GROQ');
+    if (!groqApiKey) throw new Error('GROQ API key not found');
+    const prompt = `I'm looking at this resume text:        
+        ${resumeText.substring(0, 4000)}        
+        Now, I need a full-on resume roast. Don't sugarcoat it — tell me what's holding this back. Why am I not getting callbacks, referrals, or interviews? Tear it apart like a hiring manager who's had one too many resumes land on their desk. Be blunt. What's outdated, what's weak, what's missing, what makes you roll your eyes, and what makes you scroll past me? Give me the real — and then tell me how to fix it so I actually start landing opportunities.
+        Be specific and provide actionable advice. Format your response with no markdown, just clean text. Keep it to 3-4 paragraphs maximum.`
+      ; 
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'llama3-70b-8192',
+        messages: [  
+          { role: "system", content: "You are a brutally honest resume critic. Your job is to point out the real issues in a resume without sugarcoating, then provide actionable advice." },
+          { role: "user", content: prompt }
+                  ],
+        temperature: 0.7,
+        max_tokens: 750
+      })
+    });
+    if (!resp.ok) throw new Error('GROQ API error');
+    const result = await resp.json();
+    const roastText = result.choices[0].message.content.trim();
+    const cleanRoast = roastText.replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, '').replace(/^[–\-*\s]*|:/g, '').trim();
+    roastCache.set(cacheKey, cleanRoast);
+    if (userId1) {
+      await supabase.from('resumes').update({
+        initial_assessment: cleanRoast
+      }).eq('user_id', userId1);
+      console.log('Assessment stored in database for user:', userId1);
+    }
+    return {
+      roast: cleanRoast
+    };
+  } catch (err) {
+    console.error('Error getting resume roast:', err);
+    return {
+      roast: 'Your resume needs more specific accomplishments and metrics.'
+    };
+  }
+}
 
 
 // Main resume analysis logic
@@ -173,7 +173,7 @@ async function analyzeResume(resumeText, userId1) {
       if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
       if (bulletPoints.length > 0 && userId1) {
         bulletCache.set(`user:${userId1}:bullets`, bulletPoints);
-      // await saveSentencesToDatabase(userId1, bulletPoints);
+      await saveSentencesToDatabase(userId1, bulletPoints);
       }
     }
     if (bulletPoints.length === 0) {
@@ -273,84 +273,27 @@ async function analyzeResume(resumeText, userId1) {
       explanation: `Error: ${err.message}`
     };
   }
-// }
-// // HTTP server entrypoint
-// serve(async (req)=>{
-//   if (req.method === 'OPTIONS') {
-//     return new Response(null, {
-//       status: 200,
-//       headers: corsHeaders
-//     });
-//   }
-//   const url = new URL(req.url);
-//   const path = url.pathname.split('/').pop();
-//   if (path === 'detect-sentences') {
-//     return await serveSentenceDetector()(req);
-//   }
-//   if (path === 'improve-bullet') {
-//     return await serveBulletImprover()(req);
-//   }
-//   try {
-//     const { action, resumeText, userId: userId1 } = await req.json();
-//     if (action === 'get-roast') {
-//       const roastData = await getResumeRoast(resumeText, userId1);
-//       return new Response(JSON.stringify(roastData), {
-//         headers: {
-//           'Content-Type': 'application/json',
-//           ...corsHeaders
-//         }
-//       });
-//     }
-//     console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
-//     const analysis = await analyzeResume(resumeText, userId1);
-//     return new Response(JSON.stringify(analysis), {
-//       headers: {
-//         'Content-Type': 'application/json',
-//         ...corsHeaders
-//       }
-//     });
-//   } catch (error) {
-//     console.error('Error processing request:', error);
-//     return new Response(JSON.stringify({
-//       error: error.message,
-//       bullets: []
-//     }), {
-//       status: 500,
-//       headers: {
-//         'Content-Type': 'application/json',
-//         ...corsHeaders
-//       }
-//     });
-//   }
-// });
-
-  
+}
 // HTTP server entrypoint
-serve(async (req) => {
+serve(async (req)=>{
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
       headers: corsHeaders
     });
   }
-
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
-  
-  // Handle specific paths first
+  console.log(`Getting sentences for ${userId1 || 'anonymous'}`);
   if (path === 'detect-sentences') {
     return await serveSentenceDetector()(req);
   }
   if (path === 'improve-bullet') {
     return await serveBulletImprover()(req);
   }
-  
   try {
+    console.log(`Getting resume roast for ${userId1 || 'anonymous'}`);
     const { action, resumeText, userId: userId1 } = await req.json();
-    
-    // Handle the main resume processing cases - analyze first, then get-roast
-    console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
-    
     if (action === 'get-roast') {
       const roastData = await getResumeRoast(resumeText, userId1);
       return new Response(JSON.stringify(roastData), {
@@ -360,8 +303,7 @@ serve(async (req) => {
         }
       });
     }
-    
-    // Default action is to analyze the resume
+    console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
     const analysis = await analyzeResume(resumeText, userId1);
     return new Response(JSON.stringify(analysis), {
       headers: {
@@ -383,3 +325,63 @@ serve(async (req) => {
     });
   }
 });
+
+  
+// // HTTP server entrypoint
+// serve(async (req) => {
+//   if (req.method === 'OPTIONS') {
+//     return new Response(null, {
+//       status: 200,
+//       headers: corsHeaders
+//     });
+//   }
+
+//   const url = new URL(req.url);
+//   const path = url.pathname.split('/').pop();
+  
+//   // Handle specific paths first
+//   if (path === 'detect-sentences') {
+//     return await serveSentenceDetector()(req);
+//   }
+//   if (path === 'improve-bullet') {
+//     return await serveBulletImprover()(req);
+//   }
+  
+//   try {
+//     const { action, resumeText, userId: userId1 } = await req.json();
+    
+//     // Handle the main resume processing cases - analyze first, then get-roast
+//     console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
+    
+//     if (action === 'get-roast') {
+//       const roastData = await getResumeRoast(resumeText, userId1);
+//       return new Response(JSON.stringify(roastData), {
+//         headers: {
+//           'Content-Type': 'application/json',
+//           ...corsHeaders
+//         }
+//       });
+//     }
+    
+//     // Default action is to analyze the resume
+//     const analysis = await analyzeResume(resumeText, userId1);
+//     return new Response(JSON.stringify(analysis), {
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Error processing request:', error);
+//     return new Response(JSON.stringify({
+//       error: error.message,
+//       bullets: []
+//     }), {
+//       status: 500,
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+//       }
+//     });
+//   }
+// });
