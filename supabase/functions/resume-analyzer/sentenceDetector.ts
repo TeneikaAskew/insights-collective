@@ -109,7 +109,7 @@ export async function detectSentences(text, userId) {
   }
 }
 // Helper function to extract sentences from the response with multiple fallback strategies
-export function extractSentencesFromResponse(content) {
+function extractSentencesFromResponse(content) {
   console.log('extractSentencesFromResponse: Starting extraction');
   let sentences = [];
   // Try multiple extraction methods, from most structured to least
