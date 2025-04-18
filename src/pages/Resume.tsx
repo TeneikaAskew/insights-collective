@@ -133,53 +133,112 @@ const Resume = () => {
     }
   };
 
-  const handleUpload = async () => {
-    if (!resumeFile) {
-    // if (!resumeFile || !extractedText) {
-      toast({
-        title: 'Wait',
+  // const handleUpload = async () => {
+  //   if (!resumeFile) {
+  //   // if (!resumeFile || !extractedText) {
+  //     toast({
+  //       title: 'Wait',
         
-        description: 'No file selected.',
-        // description: 'Still extracting text or no file selected.',
+  //       description: 'No file selected.',
+  //       // description: 'Still extracting text or no file selected.',
+  //       variant: 'destructive',
+  //     });
+  //     return;
+  //   }
+    
+  //   setHasLoadedAnalysis(false);
+  //   setStorageError(null);
+
+  //   const ok = await uploadResume(resumeFile)
+  //   if (!ok) {
+  //     // Upload failed, reset state
+  //     resetLocalState()
+  //     return
+  //   }
+
+  //   f (resume?.text) {
+  //     try {
+  //       await analyzeResume(resume.text)
+  //       setHasLoadedAnalysis(true)
+  //     } catch (analysisError) {
+  //       console.error('Analysis error:', analysisError)
+  //       toast({
+  //         title: 'Analysis Failed',
+  //         description: 'Resume was uploaded but analysis failed. You can try again.',
+  //         variant: 'destructive',
+  //       })
+  //     }
+  //   }
+  // } catch (error) {
+  //   console.error('Upload error:', error)
+  //   resetLocalState()
+  //   // Show error toast
+  //   toast({
+  //       title: 'Upload Failed',
+  //       description: 'Could not upload resume. Please try again.',
+  //       variant: 'destructive',
+  //   })
+  // }
+const handleUpload = async () => {
+  if (!resumeFile) {
+    toast({
+      title: 'Wait',
+      description: 'No file selected.',
+      variant: 'destructive',
+    });
+    return;
+  }
+  
+  setHasLoadedAnalysis(false);
+  setStorageError(null);
+  
+  try {
+    // 1. Upload the resume
+    const uploadOk = await uploadResume(resumeFile);
+    if (!uploadOk) {
+      toast({
+        title: 'Upload Failed',
+        description: 'Could not upload resume. Please try again.',
         variant: 'destructive',
       });
       return;
     }
     
-    setHasLoadedAnalysis(false);
-    setStorageError(null);
-
-    const ok = await uploadResume(resumeFile)
-    if (!ok) {
-      // Upload failed, reset state
-      resetLocalState()
-      return
+    // 2. Force a refresh to get the latest resume data
+    await refreshResume();
+    
+    // 3. Verify we have resume text before analyzing
+    if (!resume?.text) {
+      console.log("Resume uploaded but text not available. Waiting for text extraction...");
+      toast({
+        title: 'Processing',
+        description: 'Resume uploaded. Text extraction in progress...',
+      });
+      
+      // Optional: Could add a retry mechanism here to wait for text
+      return;
     }
-
-    f (resume?.text) {
-      try {
-        await analyzeResume(resume.text)
-        setHasLoadedAnalysis(true)
-      } catch (analysisError) {
-        console.error('Analysis error:', analysisError)
-        toast({
-          title: 'Analysis Failed',
-          description: 'Resume was uploaded but analysis failed. You can try again.',
-          variant: 'destructive',
-        })
-      }
-    }
-  } catch (error) {
-    console.error('Upload error:', error)
-    resetLocalState()
-    // Show error toast
+    
+    // 4. Analyze the resume
+    console.log("Analyzing resume text:", resume.text.substring(0, 100) + "...");
+    await analyzeResume(resume.text);
+    setHasLoadedAnalysis(true);
+    
     toast({
-        title: 'Upload Failed',
-        description: 'Could not upload resume. Please try again.',
-        variant: 'destructive',
-    })
+      title: 'Success',
+      description: 'Resume uploaded and analyzed successfully.',
+    });
+  } catch (error) {
+    console.error('Error in handleUpload:', error);
+    toast({
+      title: 'Process Failed',
+      description: 'An error occurred during upload or analysis. Please try again.',
+      variant: 'destructive',
+    });
+    
+    // Don't reset state on error - keep the file if it was uploaded
   }
-  
+};  
     // force a refetch so resume.text is populated
     // await refreshResume()
   
@@ -212,42 +271,79 @@ const Resume = () => {
     // }
   };
 
-  const handleDelete = async () => {
-    setIsDeleting(true)
-    try {
 
-      await deleteResume()
-      // if (resume) await deleteResume();
-      resetLocalState()
-      // 1) delete server‑side
-      
-     // 3) Wait a moment to ensure all listeners have processed the deletion event
-      await new Promise(resolve => setTimeout(resolve, 500))
+const handleDelete = async () => {
+  setIsDeleting(true);
+  try {
+    await deleteResume().catch(err => {
+      // Continue even if there's an error deleting
+      console.log("Delete error (continuing anyway):", err.message);
+    });
     
-      // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
-      await refreshResume()
-  
-      // 3) clear all local UI bits
-      // setResumeFile(null)
-      // setPdfDataUrl(null)
-      // setExtractedText(null)
-      // setShowCareerChat(false)
-      // setAnalysis(null)
-      // setHasLoadedAnalysis(false)
-  
-      toast({ title: 'Deleted', description: 'Your resume is gone.' })
+    // Always reset state regardless of delete success
+    // setResumeFile(null);
+    // setPdfDataUrl(null);
+    // setExtractedText(null);
+    // setShowCareerChat(false);
+    // setAnalysis(null);
+    // setHasLoadedAnalysis(false);
+    // setInitialLoadComplete(false); // Reset loading flag
+
+    resetLocalState()
+    
+    toast({ title: 'Reset', description: 'Resume data has been cleared.' });
+    
+    // Force a refresh of the component state
+    await refreshResume();
+  } catch (error) {
+    console.error('Error in handleDelete:', error);
+    toast({
+      title: 'Reset Failed',
+      description: 'Could not fully reset resume data. Try refreshing the page.',
+      variant: 'destructive',
+    });
+  } finally {
+    setIsDeleting(false);
+  }
+};
+
+
+  // const handleDelete = async () => {
+  //   setIsDeleting(true)
+  //   try {
+
+  //     await deleteResume()
+  //     // if (resume) await deleteResume();
+  //     resetLocalState()
+  //     // 1) delete server‑side
       
-    } catch (error) {
-      console.error('Error in handleDelete:', error)
-      toast({
-        title: 'Delete Failed',
-        description: 'Could not delete resume. Please try again.',
-        variant: 'destructive',
-    })
-      } finally {
-        setIsDeleting(false)
-      }
-    }
+  //    // 3) Wait a moment to ensure all listeners have processed the deletion event
+  //     await new Promise(resolve => setTimeout(resolve, 500))
+    
+  //     // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
+  //     await refreshResume()
+  
+  //     // 3) clear all local UI bits
+  //     // setResumeFile(null)
+  //     // setPdfDataUrl(null)
+  //     // setExtractedText(null)
+  //     // setShowCareerChat(false)
+  //     // setAnalysis(null)
+  //     // setHasLoadedAnalysis(false)
+  
+  //     toast({ title: 'Deleted', description: 'Your resume is gone.' })
+      
+  //   } catch (error) {
+  //     console.error('Error in handleDelete:', error)
+  //     toast({
+  //       title: 'Delete Failed',
+  //       description: 'Could not delete resume. Please try again.',
+  //       variant: 'destructive',
+  //   })
+  //     } finally {
+  //       setIsDeleting(false)
+  //     }
+  //   }
 
   const handleDownload = () => {
     if (resume?.file_url) window.open(resume.file_url, '_blank');
