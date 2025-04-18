@@ -7,6 +7,7 @@ import type { Resume } from '@/hooks/resume/useResume';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface ResumeUploadSectionProps {
+  fileInputRef: React.RefObject<HTMLInputElement>;
   resumeFile: File | null;
   setResumeFile: (file: File | null) => void;
   resume: Resume | null;
@@ -22,6 +23,7 @@ interface ResumeUploadSectionProps {
 }
 
 const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
+  fileInputRef,
   resumeFile,
   setResumeFile,
   resume,
