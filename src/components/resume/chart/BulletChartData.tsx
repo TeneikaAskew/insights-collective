@@ -33,7 +33,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   // Format data for the chart with colors matching the brand theme
   const data = [
     {
-      name: 'Skills',
+      name: 'Skills (Hard & Soft)',
       value: xyz_scores.hard_soft || 0,
       fill: 'var(--color-hard-soft)',
       category: BULLET_CATEGORIES.HARD_SOFT,
