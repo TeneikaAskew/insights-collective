@@ -316,7 +316,7 @@ function validateAndMapResults(
 }
 
 // Service handler for batch bullet improvement
-export function serveBatchBulletImprover() {
+export function serveBulletImprover() {
   return async (req: Request) => {
     try {
       const data = await req.json();
