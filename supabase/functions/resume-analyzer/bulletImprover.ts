@@ -1,4 +1,6 @@
 import { corsHeaders } from './utils.ts';
+import { extractSentencesFromResponse } from './sentenceDetector.ts';
+
 // Service handler for batch bullet improvement
 export function serveBulletImprover() {
   return async (req)=>{
@@ -142,20 +144,64 @@ IMPORTANT: Return your response as a JSON array of objects. Each object must hav
     }
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '[]';
-    // Parse the response using robust methods from detectSentences
-    const parsedResults = parseGroqJsonResponse(content, bullets);
-    return parsedResults;
-  } catch (error) {
+  //   // Parse the response using robust methods from detectSentences
+  //   const parsedResults = parseGroqJsonResponse(content, bullets);
+  //   return parsedResults;
+  // } catch (error) {
+  //   console.error("Error processing batch:", error);
+  //   // Return originals with basic tips on error
+  //   return bullets.map((bullet)=>({
+  //       id: bullet.id,
+  //       original: bullet.original,
+  //       rewritten: bullet.original,
+  //       tips: "Service error. Try adding specific metrics and starting with a strong action verb."
+  //     }));
+  // }
+          // 1) First try your robust sentence extractor
+      let parsedResults = [];
+      try {
+        const jsonOnly = extractSentencesFromResponse(content);
+        parsedResults = jsonOnly.map(str => JSON.parse(str));
+      } catch (ex) {
+        console.warn('extractSentencesFromResponse failed, falling back to JSON‑array parse');
+      }
+    
+      
+      // 2) If that didn’t yield anything, fall back to your existing parser
+      if (parsedResults.length === 0) {
+        try {
+          parsedResults = parseGroqJsonResponse(content, bullets);
+        }
+        catch (ex) {
+          console.warn('parseGroqJsonResponse also failed, falling back to identity map');
+        }
+      }
+      
+      // 3) Last resort: return the originals mapped back
+      if (parsedResults.length === 0) {
+        parsedResults = bullets.map(bullet => ({
+          id: bullet.id,
+          original: bullet.original,
+          rewritten: bullet.original,
+          tips: "Service error. Try adding specific metrics and starting with a strong action verb."
+        }));
+      }
+      
+      return parsedResults;
+
+     } catch (error) {
     console.error("Error processing batch:", error);
-    // Return originals with basic tips on error
-    return bullets.map((bullet)=>({
-        id: bullet.id,
-        original: bullet.original,
-        rewritten: bullet.original,
-        tips: "Service error. Try adding specific metrics and starting with a strong action verb."
-      }));
+    // In an absolute failure, at least don’t crash—return your identity map again
+    return bullets.map(b => ({
+      id: b.id,
+      original: b.original,
+      rewritten: b.original,
+      tips: "Service error. Try adding specific metrics and starting with a strong action verb."
+    }));
   }
 }
+}
+  
 // Robust JSON parsing for GROQ responses
 function parseGroqJsonResponse(content, originalBullets) {
   console.log('Parsing GROQ response, content length:', content.length);
