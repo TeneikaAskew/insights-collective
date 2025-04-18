@@ -15,15 +15,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
-const resetLocalState = () => {
-  setResumeFile(null)
-  setPdfDataUrl(null)
-  setExtractedText(null)
-  setShowCareerChat(false)
-  setAnalysis(null)
-  setHasLoadedAnalysis(false)
-  setInitialLoadComplete(false)
-}
+
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -38,6 +30,15 @@ const Resume = () => {
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false)
+  const resetLocalState = () => {
+  setResumeFile(null)
+  setPdfDataUrl(null)
+  setExtractedText(null)
+  setShowCareerChat(false)
+  setAnalysis(null)
+  setHasLoadedAnalysis(false)
+  setInitialLoadComplete(false)
+}
 
   useEffect(() => {
     let isMounted = true;
