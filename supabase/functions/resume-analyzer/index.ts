@@ -183,6 +183,7 @@ async function analyzeResume(resumeText, userId) {
         await saveSentencesToDatabase(userId, bulletPoints);
       }
     }
+    console.log("1")
     if (bulletPoints.length === 0) {
       return {
         bullets: [],
@@ -196,6 +197,7 @@ async function analyzeResume(resumeText, userId) {
         explanation: 'Please organize your experience in clear bullet points.'
       };
     }
+    console.log("2")
     const analyzed = await Promise.all(bulletPoints.map(async (bullet) => {
       try {
         const wb = analyzeWordBalance(bullet);
@@ -216,6 +218,7 @@ async function analyzeResume(resumeText, userId) {
           rewritten,
           tips
         };
+        console.log("3")
       } catch (_) {
         return {
           original: bullet,
@@ -237,6 +240,7 @@ async function analyzeResume(resumeText, userId) {
         };
       }
     }));
+    console.log("4")
     const totalScore = analyzed.reduce((sum, b) => sum + b.bullet_total, 0);
     const avg = totalScore / analyzed.length;
     const percent = Math.max(Math.min(parseFloat((avg / 45 * 100).toFixed(1)), 100), 30);

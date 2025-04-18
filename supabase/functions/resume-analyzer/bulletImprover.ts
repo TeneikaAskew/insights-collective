@@ -52,42 +52,117 @@ export function serveBulletImprover() {
     }
   };
 }
-// Batch improve bullet points with GROQ
-export async function improveBulletsBatch(data) {
-  try {
-    const GROQ_API_KEY = Deno.env.get('GROQ');
-    if (!GROQ_API_KEY) {
-      console.warn("GROQ API key not found, falling back to basic bullet improvements");
-      throw new Error("GROQ API key not configured");
-    }
-    const { bullets, batchSize = 5 } = data;
-    // Process in batches to avoid token limits
-    const results = [];
-    const batches = [];
-    // Split into batches
-    for(let i = 0; i < bullets.length; i += batchSize){
-      batches.push(bullets.slice(i, i + batchSize));
-    }
-    console.log(`Processing ${bullets.length} bullets in ${batches.length} batches`);
-    // Process each batch
-    for(let i = 0; i < batches.length; i++){
-      const batch = batches[i];
-      console.log(`Processing batch ${i + 1}/${batches.length} with ${batch.length} bullets`);
-      const batchResults = await processBatch(batch, GROQ_API_KEY);
-      results.push(...batchResults);
-    }
-    return results;
-  } catch (error) {
-    console.error("Error in batch bullet improvement:", error);
-    // Return originals with basic tips
-    return data.bullets.map((bullet)=>({
-        id: bullet.id,
-        original: bullet.original,
-        rewritten: bullet.original,
-        tips: "Try adding specific metrics and starting with a strong action verb."
-      }));
+
+// // Batch improve bullet points with GROQ
+// export async function improveBulletsBatch(data) {
+//   try {
+//     const GROQ_API_KEY = Deno.env.get('GROQ');
+//     if (!GROQ_API_KEY) {
+//       console.warn("GROQ API key not found, falling back to basic bullet improvements");
+//       throw new Error("GROQ API key not configured");
+//     }
+//     const { bullets, batchSize = 5 } = data;
+//     // Process in batches to avoid token limits
+//     const results = [];
+//     const batches = [];
+//     // Split into batches
+//     for(let i = 0; i < bullets.length; i += batchSize){
+//       batches.push(bullets.slice(i, i + batchSize));
+//     }
+//     console.log(`Processing ${bullets.length} bullets in ${batches.length} batches`);
+//     // Process each batch
+//     for(let i = 0; i < batches.length; i++){
+//       const batch = batches[i];
+//       console.log(`Processing batch ${i + 1}/${batches.length} with ${batch.length} bullets`);
+//       const batchResults = await processBatch(batch, GROQ_API_KEY);
+//       results.push(...batchResults);
+//     }
+//     return results;
+//   } catch (error) {
+//     console.error("Error in batch bullet improvement:", error);
+//     // Return originals with basic tips
+//     return data.bullets.map((bullet)=>({
+//         id: bullet.id,
+//         original: bullet.original,
+//         rewritten: bullet.original,
+//         tips: "Try adding specific metrics and starting with a strong action verb."
+//       }));
+//   }
+// }
+// / Improved implementation for bullet point processing
+export async function improveBullet(data) {
+  const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
+  
+  // Store the single bullet request in a queue for batching
+  // This is a simple in-memory approach - could be enhanced with a proper queue system
+  if (!globalThis.bulletQueue) {
+    globalThis.bulletQueue = [];
   }
+  
+  // Generate a random ID for the single bullet
+  const id = `single_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+  
+  // Add this bullet to the queue
+  globalThis.bulletQueue.push({
+    id,
+    original,
+    xyz_scores,
+    word_balance_score,
+    word_balance
+  });
+  
+  // Process in batch if we have enough bullets or after a delay
+  let result;
+  if (globalThis.bulletQueue.length >= 5) {
+    // We have enough bullets to process as a batch
+    const bullets = [...globalThis.bulletQueue]; // Create a copy
+    globalThis.bulletQueue = []; // Reset the queue
+    
+    // Now process these bullets as a batch
+    const results = await improveBulletsBatch({
+      bullets,
+      batchSize: bullets.length
+    });
+    
+    // Find our result from the batch results
+    result = results.find(r => r.id === id) || {
+      id,
+      original,
+      rewritten: original,
+      tips: "Try adding specific metrics and starting with a strong action verb."
+    };
+  } else {
+    // We don't have enough bullets yet, so process this one normally
+    // but keep track of it in our queue for future batching
+    const results = await improveBulletsBatch({
+      bullets: [
+        {
+          id,
+          original,
+          xyz_scores,
+          word_balance_score,
+          word_balance
+        }
+      ],
+      batchSize: 1
+    });
+    
+    result = results[0] || {
+      id,
+      original,
+      rewritten: original,
+      tips: "Try adding specific metrics and starting with a strong action verb."
+    };
+  }
+  
+  // Return the result in the format expected by the original function
+  return {
+    rewritten: result.rewritten,
+    tips: result.tips
+  };
 }
+
+
 // Process a single batch of bullets
 async function processBatch(bullets, apiKey) {
   try {
@@ -574,33 +649,132 @@ function validateAndMapResults(parsedResults, originalBullets) {
   });
   return validatedResults;
 }
-// For backward compatibility with single bullet improvement
-export async function improveBullet(data) {
+
+// Alternative implementation with a timeout-based batch processor
+// This could be more sophisticated with a proper queue and worker system
+export async function improveBulletWithBatching(data) {
   const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
+  
+  // Initialize the queue and processing state if not exists
+  if (!globalThis.bulletQueue) {
+    globalThis.bulletQueue = [];
+    globalThis.processingBatch = false;
+    globalThis.pendingResults = new Map();
+  }
+  
   // Generate a random ID for the single bullet
   const id = `single_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-  // Use the batch function with a single bullet
-  const results = await improveBulletsBatch({
-    bullets: [
-      {
-        id,
-        original,
-        xyz_scores,
-        word_balance_score,
-        word_balance
-      }
-    ],
-    batchSize: 1
+  
+  // Create a promise that will be resolved when the result is ready
+  const resultPromise = new Promise((resolve) => {
+    globalThis.pendingResults.set(id, resolve);
   });
-  // Return the first result in the format expected by the original function
-  const result = results[0] || {
+  
+  // Add this bullet to the queue
+  globalThis.bulletQueue.push({
     id,
     original,
-    rewritten: original,
-    tips: "Try adding specific metrics and starting with a strong action verb."
-  };
+    xyz_scores,
+    word_balance_score,
+    word_balance,
+  });
+  
+  // Start the batch processor if it's not already running
+  if (!globalThis.processingBatch) {
+    processBatchQueue();
+  }
+  
+  // Wait for the result to be ready
+  const resolvedResult = await resultPromise;
   return {
-    rewritten: result.rewritten,
-    tips: result.tips
+    rewritten: resolvedResult.rewritten,
+    tips: resolvedResult.tips
   };
 }
+
+// Process the batch queue
+async function processBatchQueue() {
+  globalThis.processingBatch = true;
+  
+  try {
+    // Process bullets in batches of 5 (or whatever the queue size is if < 5)
+    while (globalThis.bulletQueue.length > 0) {
+      const batchSize = Math.min(5, globalThis.bulletQueue.length);
+      const bullets = globalThis.bulletQueue.splice(0, batchSize);
+      
+      console.log(`Processing batch of ${bullets.length} bullets`);
+      
+      // Process this batch
+      const results = await improveBulletsBatch({
+        bullets,
+        batchSize
+      });
+      
+      // Resolve promises for each bullet in the batch
+      for (const result of results) {
+        const resolve = globalThis.pendingResults.get(result.id);
+        if (resolve) {
+          resolve(result);
+          globalThis.pendingResults.delete(result.id);
+        }
+      }
+      
+      // Wait for a short time to avoid hitting rate limits
+      if (globalThis.bulletQueue.length > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+  } catch (error) {
+    console.error("Error processing batch queue:", error);
+    
+    // Resolve all pending promises with a default result
+    for (const [id, resolve] of globalThis.pendingResults.entries()) {
+      const bullet = globalThis.bulletQueue.find(b => b.id === id);
+      if (bullet) {
+        resolve({
+          id,
+          original: bullet.original,
+          rewritten: bullet.original,
+          tips: "Service error. Try adding specific metrics and starting with a strong action verb."
+        });
+      }
+      globalThis.pendingResults.delete(id);
+    }
+    
+    // Clear the queue
+    globalThis.bulletQueue = [];
+  } finally {
+    globalThis.processingBatch = false;
+  }
+}
+
+// // For backward compatibility with single bullet improvement
+// export async function improveBullet(data) {
+//   const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
+//   // Generate a random ID for the single bullet
+//   const id = `single_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+//   // Use the batch function with a single bullet
+//   const results = await improveBulletsBatch({
+//     bullets: [
+//       {
+//         id,
+//         original,
+//         xyz_scores,
+//         word_balance_score,
+//         word_balance
+//       }
+//     ],
+//     batchSize: 1
+//   });
+//   // Return the first result in the format expected by the original function
+//   const result = results[0] || {
+//     id,
+//     original,
+//     rewritten: original,
+//     tips: "Try adding specific metrics and starting with a strong action verb."
+//   };
+//   return {
+//     rewritten: result.rewritten,
+//     tips: result.tips
+//   };
+// }
