@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +19,6 @@ const Resume = () => {
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null); // New ref for the file input
   const { resume, loading: resumeLoading, uploading, uploadResume, deleteResume, refreshResume } = useResume();
   const { analysis, isAnalyzing, analyzeResume, careerAlignments, setAnalysis } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
@@ -37,10 +36,12 @@ const Resume = () => {
       if (initialLoadComplete || !user) return;
       
       try {
+        console.log("Initial data load started");
         setStorageError(null);
         await refreshResume();
         setInitialLoadComplete(true);
       } catch (err) {
+        console.error("Error in initial data load:", err);
         if (err.message?.includes('bucket') || err.message?.includes('storage')) {
           setStorageError("Resume storage is not properly configured. Please contact support.");
         }
@@ -57,6 +58,7 @@ const Resume = () => {
   useEffect(() => {
     if (resume?.analysis && !analysis && !hasLoadedAnalysis && user) {
       try {
+        console.log("Loading analysis from resume object:", resume.analysis);
         setAnalysis(resume.analysis);
         setHasLoadedAnalysis(true);
       } catch (err) {
@@ -77,6 +79,7 @@ const Resume = () => {
         const text = await extractTextFromFile(resumeFile);
         setExtractedText(text);
       } catch (err) {
+        console.error(err);
         toast({
           title: 'Extraction failed',
           description: 'Could not extract text from your resume.',
@@ -88,9 +91,12 @@ const Resume = () => {
 
   useEffect(() => {
     if (resume?.text && !analysis && !isAnalyzing && !hasLoadedAnalysis && initialLoadComplete) {
+      console.log("Analyzing existing resume text");
       analyzeResume(resume.text)
         .then(success => {
-          if (success) setHasLoadedAnalysis(true);
+          if (success) {
+            setHasLoadedAnalysis(true);
+          }
         })
         .catch(err => {
           console.error("Error analyzing resume:", err);
@@ -132,18 +138,11 @@ const Resume = () => {
     try {
       const ok = await uploadResume(resumeFile);
       if (ok) {
-        // Clear file input immediately after successful upload
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        setResumeFile(null);
-        setPdfDataUrl(null);
-        setExtractedText(null);
-
         try {
           await analyzeResume(extractedText);
           setHasLoadedAnalysis(true);
         } catch (error) {
+          console.error('Error analyzing resume:', error);
           toast({
             title: 'Analysis Error',
             description: 'Resume was uploaded but analysis failed. You can try again later.',
@@ -152,6 +151,7 @@ const Resume = () => {
         }
       }
     } catch (error) {
+      console.error('Error uploading resume:', error);
       if (error.message?.includes('bucket') || error.message?.includes('storage')) {
         setStorageError("Resume storage is not properly configured. Please contact support.");
       }
@@ -160,22 +160,15 @@ const Resume = () => {
 
   const handleDelete = async () => {
     try {
-      const success = await deleteResume();
-      if (success) {
-        // reset UI states
-        setResumeFile(null);
-        setPdfDataUrl(null);
-        setExtractedText(null);
-        setShowCareerChat(false);
-        setAnalysis(null);
-        setHasLoadedAnalysis(false);
-
-        // Clear file input ref value too
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      }
+      if (resume) await deleteResume();
+      setResumeFile(null);
+      setPdfDataUrl(null);
+      setExtractedText(null);
+      setShowCareerChat(false);
+      setAnalysis(null);
+      setHasLoadedAnalysis(false);
     } catch (error) {
+      console.error('Error in handleDelete:', error);
       toast({
         title: 'Delete Failed',
         description: 'Could not delete resume. Please try again.',
@@ -202,6 +195,7 @@ const Resume = () => {
         description: 'Resume data has been refreshed.',
       });
     } catch (error) {
+      console.error('Error refreshing data:', error);
       if (error.message?.includes('bucket') || error.message?.includes('storage')) {
         setStorageError("Resume storage is not properly configured. Please contact support.");
       }
@@ -270,7 +264,6 @@ const Resume = () => {
             handleFileChange={handleFileChange}
             handleDownload={handleDownload}
             pdfDataUrl={pdfDataUrl}
-            fileInputRef={fileInputRef} // Send ref to ResumeUploadSection for input clearing
           />
 
           <ResumeAnalysisSection
@@ -306,4 +299,3 @@ const Resume = () => {
 };
 
 export default Resume;
-
