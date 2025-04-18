@@ -301,9 +301,16 @@ export async function saveSentencesToDatabase(userId, sentences) {
     // Find the most recent resume for this user
     console.log(`saveSentencesToUserLatestResume: Querying for most recent resume for user ${userId}`);
     const queryStartTime = Date.now();
-    const { data: recentResumes, error: queryError } = await supabase.from('resumes').select('id, updated_at').eq('user_id', userId).order('updated_at', {
-      ascending: false
-    }).limit(1);
+    const { data: recentResume, error: queryError } = await supabase
+      .from('resumes')
+      .select('id, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single()
+    // const { data: recentResumes, error: queryError } = await supabase.from('resumes').select('id, updated_at').eq('user_id', userId).order('updated_at', {
+    //   ascending: false
+    // }).limit(1);
     const queryEndTime = Date.now();
     console.log(`saveSentencesToUserLatestResume: Query completed in ${queryEndTime - queryStartTime}ms`);
     if (queryError) {
@@ -350,6 +357,8 @@ export async function saveSentencesToDatabase(userId, sentences) {
     throw error;
   }
 }
+
+
 // Update the function signature to accept userId
 export async function extractAndSaveSentences(text, userId) {
   console.log(`extractAndSaveSentences: Starting for userId=${userId} with text length=${text.length}`);
