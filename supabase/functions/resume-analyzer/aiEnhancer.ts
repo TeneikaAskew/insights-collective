@@ -42,7 +42,7 @@ export async function enhanceWithGroq(resumeText, analysis) {
     console.log("Condensed Analysis:", JSON.stringify(condensedAnalysis, null, 2));
     /**
    * Cleans up the raw LLM output into properly formatted Markdown
-   // */ function formatResponse(raw) {
+    // function formatResponse(raw) {
    //    if (!raw) return '';
    //    let text = raw;
    //    console.log("Before formatting: ", raw);
