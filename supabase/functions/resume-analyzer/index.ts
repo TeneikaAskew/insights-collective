@@ -283,20 +283,25 @@ serve(async (req) => {
   const path = url.pathname.split("/").pop();
 
   if (path === "detect-sentences") {
-    // clone so we can peek at the JSON without consuming the original body
-    const { userId } = await req.clone().json();
+    // pull the body once
+    const { text, userId } = await req.json();
+
     console.log("Logged in user:", userId);
 
-    // now hand the original `req` (with its body intact) to the detector
-    return await serveSentenceDetector()(req);
+    // run your detector and log the result
+    const sentences = await detectSentences(text, userId);
+    console.log("serveSentenceDetector returned:", sentences);
+
+    return new Response(
+      JSON.stringify({ sentences }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      },
+    );
   }
 
-  // (you can do the same trick for improve-bullet when you wire it up)
-
-  return new Response("Not Found", {
-    status: 404,
-    headers: corsHeaders,
-  });
+  return new Response("Not Found", { status: 404, headers: corsHeaders });
 });
 
 
