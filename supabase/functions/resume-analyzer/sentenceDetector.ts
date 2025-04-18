@@ -1,8 +1,9 @@
 console.log('Sentence Detection function hit');
 import { safeJsonParse, handleApiError } from './utils.ts';
+import { createClient } from '@supabase/supabase-js';
 
-// Function to detect sentences from resume text
-export async function detectSentences(text: string): Promise<string[]> {
+// Function to detect sentences from resume text and save to database
+export async function detectSentences(text: string, resumeId?: string): Promise<string[]> {
   console.log('detectSentences: input text length=', text.length);
   try {
     const GROQ_API_KEY = Deno.env.get('GROQ');
@@ -54,7 +55,14 @@ export async function detectSentences(text: string): Promise<string[]> {
     console.log('detectSentences: raw content from API=', content.slice(0, 100) + '...');
     
     // Robust parsing logic after receiving response
-    return extractSentencesFromResponse(content);
+    const sentences = extractSentencesFromResponse(content);
+    
+    // Save to database if resumeId is provided
+    if (resumeId) {
+      await saveSentencesToDatabase(resumeId, sentences);
+    }
+    
+    return sentences;
   } catch (error) {
     console.error('detectSentences: error in sentence detection:', error.message);
     throw error;
@@ -207,110 +215,45 @@ function cleanAndDeduplicate(sentences: string[]): string[] {
   console.log('detectSentences: final result count=', result.length);
   return result;
 }
-    
-//     console.log(`detectSentences: API response status=`, response.status);
-//     if (!response.ok) {
-//       const errorText = await response.text();
-//       console.error('detectSentences: GROQ API error:', errorText);
-//       throw new Error(`GROQ API error: ${response.status}`);
-//     }
-    
-//     const data = await response.json();
-//     const content = data.choices?.[0]?.message?.content || '';
-//     console.log('detectSentences: raw content from API=', content);
-    
-//     // Improved parsing logic
-//     let sentencesArray: string[] = [];
-    
-//     // Strategy 1: Direct JSON parse
-//     try {
-//       sentencesArray = JSON.parse(content);
-//       console.log('detectSentences: direct parse successful, count=', sentencesArray.length);
-//       if (Array.isArray(sentencesArray) && sentencesArray.length > 0) {
-//         // If we get here, parsing worked
-//         return processFinalSentences(sentencesArray);
-//       }
-//     } catch (e) {
-//       console.warn('detectSentences: direct JSON.parse failed:', e.message);
-//     }
-    
-//     // Strategy 2: Find complete JSON array pattern
-//     try {
-//       const jsonMatch = content.match(/\[\s*".*"\s*(?:,\s*".*"\s*)*\]/s);
-//       if (jsonMatch) {
-//         sentencesArray = JSON.parse(jsonMatch[0]);
-//         console.log('detectSentences: pattern match parse successful, count=', sentencesArray.length);
-//         if (Array.isArray(sentencesArray) && sentencesArray.length > 0) {
-//           return processFinalSentences(sentencesArray);
-//         }
-//       }
-//     } catch (e) {
-//       console.warn('detectSentences: pattern match parse failed:', e.message);
-//     }
-    
-//     // Strategy 3: Extract content between brackets and parse
-//     try {
-//       const bracketMatch = content.match(/\[([\s\S]*)\]/);
-//       if (bracketMatch) {
-//         // Add the brackets back for valid JSON
-//         const jsonStr = `[${bracketMatch[1]}]`;
-//         sentencesArray = JSON.parse(jsonStr);
-//         console.log('detectSentences: bracket extraction parse successful, count=', sentencesArray.length);
-//         if (Array.isArray(sentencesArray) && sentencesArray.length > 0) {
-//           return processFinalSentences(sentencesArray);
-//         }
-//       }
-//     } catch (e) {
-//       console.warn('detectSentences: bracket extraction parse failed:', e.message);
-//     }
-    
-//     // Strategy 4: Try line-by-line parsing for quoted items
-//     const lines = content.split(/\r?\n/);
-//     const items: string[] = [];
-    
-//     for (const line of lines) {
-//       // Look for quoted strings
-//       const matches = line.match(/"([^"]+)"/g);
-//       if (matches) {
-//         for (const match of matches) {
-//           try {
-//             // Parse each quoted string
-//             const parsed = JSON.parse(match);
-//             if (typeof parsed === 'string' && parsed.length > 15) {
-//               items.push(parsed);
-//             }
-//           } catch (e) {
-//             // Skip parsing errors
-//           }
-//         }
-//       }
-//     }
-    
-//     if (items.length > 0) {
-//       console.log('detectSentences: line-by-line parsing successful, count=', items.length);
-//       return processFinalSentences(items);
-//     }
-    
-//     // Last-ditch fallback: crude splitting by newlines
-//     console.warn('detectSentences: falling back to crude splitting');
-//     sentencesArray = content
-//       .split(/\r?\n/)
-//       .map(s => s.trim())
-//       .filter(s => s.length > 15 && !s.startsWith('- '));
-    
-//     return processFinalSentences(sentencesArray);
-//   } catch (error) {
-//     console.error('detectSentences: error in sentence detection:', error.message);
-//     throw error;
-//   }
-// }
 
-// // Helper function to dedupe and clean up the final array
-// function processFinalSentences(sentences: string[]): string[] {
-//   const unique = Array.from(new Set(sentences))
-//     .filter(s => typeof s === 'string' && s.trim().length > 15)
-//     .map(s => s.trim().replace(/^["']|["']$/g, '')); // Remove quotes at start/end
-  
-//   console.log('detectSentences: final unique count=', unique.length);
-//   return unique;
-// }
+// Helper function to save sentences to the database
+async function saveSentencesToDatabase(resumeId: string, sentences: string[]): Promise<void> {
+  try {
+    console.log(`saveSentencesToDatabase: Saving ${sentences.length} sentences for resume ${resumeId}`);
+    
+    // Get Supabase credentials from environment
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase credentials not configured');
+    }
+    
+    // Initialize Supabase client
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Update the resume record with sentences
+    const { error } = await supabase
+      .from('resumes')
+      .update({ 
+        sentences: sentences,
+        sentences_updated_at: new Date().toISOString()
+      })
+      .eq('id', resumeId);
+    
+    if (error) {
+      console.error('saveSentencesToDatabase: Error updating resume:', error);
+      throw error;
+    }
+    
+    console.log(`saveSentencesToDatabase: Successfully saved sentences for resume ${resumeId}`);
+  } catch (error) {
+    console.error('saveSentencesToDatabase: Error saving to database:', error.message);
+    throw error;
+  }
+}
+
+// Update the function signature to accept resumeId
+export async function extractAndSaveSentences(text: string, resumeId: string): Promise<string[]> {
+  return detectSentences(text, resumeId);
+}
