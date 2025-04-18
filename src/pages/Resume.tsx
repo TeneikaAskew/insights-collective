@@ -42,22 +42,69 @@ const Resume = () => {
   };
 
   // Utility function to wait for resume text to be available
-  const waitForResumeText = async (maxRetries = 5, delayMs = 1000): Promise<string> => {
-    for (let i = 0; i < maxRetries; i++) {
-      await refreshResume();
+  // const waitForResumeText = async (maxRetries = 5, delayMs = 1000): Promise<string> => {
+  //   for (let i = 0; i < maxRetries; i++) {
+  //     await refreshResume();
       
-      if (resume?.text) {
-        console.log(`Got resume text after ${i+1} retries`);
-        return resume.text;
-      }
+  //     if (resume?.text) {
+  //       console.log(`Got resume text after ${i+1} retries`);
+  //       return resume.text;
+  //     }
       
-      console.log(`Waiting for resume text (retry ${i+1}/${maxRetries})...`);
-      await new Promise(r => setTimeout(r, delayMs));
+  //     console.log(`Waiting for resume text (retry ${i+1}/${maxRetries})...`);
+  //     await new Promise(r => setTimeout(r, delayMs));
+  //   }
+    
+  //   throw new Error("Resume text not available after multiple retries");
+  // };
+// Update the waitForResumeText function to check the resume object more intelligently
+const waitForResumeText = async (maxRetries = 5, delayMs = 1000): Promise<string> => {
+  let resumeId = resume?.id;
+  
+  for (let i = 0; i < maxRetries; i++) {
+    console.log(`Attempt ${i+1}/${maxRetries} to get resume text`);
+    
+    // If we have a resume with text already, use it
+    if (resume?.text) {
+      console.log(`Found text in existing resume object (${resume.text.length} chars)`);
+      return resume.text;
     }
     
-    throw new Error("Resume text not available after multiple retries");
-  };
-
+    // Explicitly check if extractedText is available from the file (use this as fallback)
+    if (extractedText) {
+      console.log(`Using locally extracted text (${extractedText.length} chars)`);
+      return extractedText;
+    }
+    
+    // Force a refresh to try to get updated data
+    await refreshResume();
+    
+    // After refresh, if we have a new resume with a different ID, use its text
+    if (resume?.id && resume.id !== resumeId) {
+      resumeId = resume.id;
+      console.log(`Resume ID changed to ${resumeId}`);
+    }
+    
+    // Wait before next attempt if we haven't found text yet
+    if (!resume?.text && !extractedText) {
+      console.log(`No resume text found yet, waiting ${delayMs}ms before retry ${i+2}/${maxRetries}...`);
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+  }
+  
+  // Last fallback - if we have extractedText by now, use it
+  if (extractedText) {
+    console.log(`Falling back to locally extracted text after retries (${extractedText.length} chars)`);
+    return extractedText;
+  }
+  
+  // If we have a resume but no text, warn but give a more detailed error
+  if (resume?.id) {
+    console.error(`Resume exists (ID: ${resume.id}) but no text is available`);
+  }
+  
+  throw new Error("Resume text not available after multiple retries");
+};
   // Initial data load when component mounts
   useEffect(() => {
     let isMounted = true;
@@ -179,66 +226,136 @@ const Resume = () => {
   };
 
   // Handle resume upload
-  const handleUpload = async () => {
-    if (!resumeFile) {
+  // const handleUpload = async () => {
+  //   if (!resumeFile) {
+  //     toast({
+  //       title: 'Wait',
+  //       description: 'No file selected.',
+  //       variant: 'destructive',
+  //     });
+  //     return;
+  //   }
+    
+  //   setHasLoadedAnalysis(false);
+  //   setStorageError(null);
+    
+  //   try {
+  //     // Step 1: Upload the resume
+  //     console.log("Uploading resume file:", resumeFile.name);
+  //     const uploadOk = await uploadResume(resumeFile);
+  //     if (!uploadOk) {
+  //       toast({
+  //         title: 'Upload Failed',
+  //         description: 'Could not upload resume. Please try again.',
+  //         variant: 'destructive',
+  //       });
+  //       return;
+  //     }
+      
+  //     // Step 2: Wait for text to be available with retries
+  //     console.log("Waiting for resume text to be available...");
+  //     let resumeText;
+  //     try {
+  //       resumeText = await waitForResumeText(5, 1000);
+  //     } catch (textError) {
+  //       console.error('Text extraction error:', textError);
+  //       toast({
+  //         title: 'Processing Issue',
+  //         description: 'Resume uploaded but text extraction failed. Please try again or refresh the page.',
+  //         variant: 'destructive',
+  //       });
+  //       return;
+  //     }
+      
+  //     // Step 3: Analyze the resume text
+  //     console.log("Analyzing resume text:", resumeText.substring(0, 100) + "...");
+  //     await analyzeResume(resumeText);
+  //     setHasLoadedAnalysis(true);
+      
+  //     toast({
+  //       title: 'Success',
+  //       description: 'Resume uploaded and analyzed successfully.',
+  //     });
+  //   } catch (error) {
+  //     console.error('Error in handleUpload:', error);
+  //     toast({
+  //       title: 'Process Failed',
+  //       description: 'An error occurred during upload or analysis. Please try again.',
+  //       variant: 'destructive',
+  //     });
+  //   }
+  // };
+const handleUpload = async () => {
+  if (!resumeFile) {
+    toast({
+      title: 'Wait',
+      description: 'No file selected.',
+      variant: 'destructive',
+    });
+    return;
+  }
+  
+  setHasLoadedAnalysis(false);
+  setStorageError(null);
+  
+  try {
+    // Step 1: Upload the resume
+    console.log("Uploading resume file:", resumeFile.name);
+    const uploadOk = await uploadResume(resumeFile);
+    if (!uploadOk) {
       toast({
-        title: 'Wait',
-        description: 'No file selected.',
+        title: 'Upload Failed',
+        description: 'Could not upload resume. Please try again.',
         variant: 'destructive',
       });
       return;
     }
     
-    setHasLoadedAnalysis(false);
-    setStorageError(null);
+    // Step 2: Try to get text from any available source
+    let textToAnalyze: string | null = null;
     
+    // First try to get it from the database record
     try {
-      // Step 1: Upload the resume
-      console.log("Uploading resume file:", resumeFile.name);
-      const uploadOk = await uploadResume(resumeFile);
-      if (!uploadOk) {
-        toast({
-          title: 'Upload Failed',
-          description: 'Could not upload resume. Please try again.',
-          variant: 'destructive',
-        });
-        return;
+      textToAnalyze = await waitForResumeText(3, 1000);
+    } catch (textError) {
+      console.log('Could not get text from database, checking local extraction:', textError);
+      
+      // Fallback to locally extracted text if available
+      if (extractedText) {
+        console.log(`Using locally extracted text (${extractedText.length} chars)`);
+        textToAnalyze = extractedText;
       }
-      
-      // Step 2: Wait for text to be available with retries
-      console.log("Waiting for resume text to be available...");
-      let resumeText;
-      try {
-        resumeText = await waitForResumeText(5, 1000);
-      } catch (textError) {
-        console.error('Text extraction error:', textError);
-        toast({
-          title: 'Processing Issue',
-          description: 'Resume uploaded but text extraction failed. Please try again or refresh the page.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      
-      // Step 3: Analyze the resume text
-      console.log("Analyzing resume text:", resumeText.substring(0, 100) + "...");
-      await analyzeResume(resumeText);
-      setHasLoadedAnalysis(true);
-      
+    }
+    
+    // If we still don't have text, show error
+    if (!textToAnalyze) {
+      console.error('No text available for analysis from any source');
       toast({
-        title: 'Success',
-        description: 'Resume uploaded and analyzed successfully.',
-      });
-    } catch (error) {
-      console.error('Error in handleUpload:', error);
-      toast({
-        title: 'Process Failed',
-        description: 'An error occurred during upload or analysis. Please try again.',
+        title: 'Processing Issue',
+        description: 'Could not extract text from resume. Please try again or try another file format.',
         variant: 'destructive',
       });
+      return;
     }
-  };
-
+    
+    // Step 3: Analyze the resume text
+    console.log(`Analyzing resume text (${textToAnalyze.length} chars): ${textToAnalyze.substring(0, 100)}...`);
+    await analyzeResume(textToAnalyze);
+    setHasLoadedAnalysis(true);
+    
+    toast({
+      title: 'Success',
+      description: 'Resume uploaded and analyzed successfully.',
+    });
+  } catch (error) {
+    console.error('Error in handleUpload:', error);
+    toast({
+      title: 'Process Failed',
+      description: 'An error occurred during upload or analysis. Please try again.',
+      variant: 'destructive',
+    });
+  }
+};
   // Handle resume deletion
   const handleDelete = async () => {
     setIsDeleting(true);
