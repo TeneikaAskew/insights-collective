@@ -229,7 +229,8 @@ export const useResume = () => {
       
       // Upload file to storage with a unique path
       const timestamp = Date.now();
-      const uploadResult = await uploadResumeFile(file, user.id, `resume_${timestamp}`);
+      // const uploadResult = await uploadResumeFile(file, user.id, `resume_${timestamp}`);
+      const uploadResult = await uploadResumeFile(file, user.id);
       
       if (!uploadResult.success) {
         throw new Error('Failed to upload resume file to storage');
