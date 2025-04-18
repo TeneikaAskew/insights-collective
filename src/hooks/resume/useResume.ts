@@ -22,7 +22,14 @@ export interface Resume {
   analysis?: any;
   initial_assessment?: string;
 }
-
+const resetResumeState = () => {
+  setResume(null);
+  setLoading(false);
+  setUploading(false);
+  hasFetchedResume.current = false;
+  hasFetchedUrlRef.current = false;
+  signedUrlCacheRef.current.clear();
+};
 // Helper function to check if the resumes table exists
 const checkResumesTableExists = async () => {
   try {
@@ -679,6 +686,7 @@ export const useResume = () => {
     uploading,
     uploadResume,
     deleteResume,
-    refreshResume: fetchResume
+    refreshResume: fetchResume,
+    resetResumeState 
   };
 };
