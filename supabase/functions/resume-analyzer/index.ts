@@ -20,7 +20,8 @@ const bulletCache = new Map();
 const roastCache = new Map();
 export { detectSentences };
 export { serveBulletImprover };
-// Sentence detector endpoint
+
+// // Sentence detector endpoint
 // export function serveSentenceDetector() {
 //   return async (req)=>{
 //     if (req.method === 'OPTIONS') {
@@ -79,8 +80,7 @@ export { serveBulletImprover };
 //     }
 //   };
 // }
-
-// Generate a resume roast and store it
+// // Generate a resume roast and store it
 // async function getResumeRoast(resumeText, userId1) {
 //   const cacheKey = userId1 ? `user:${userId1}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
 //   if (roastCache.has(cacheKey)) {
@@ -139,6 +139,7 @@ export { serveBulletImprover };
 //     };
 //   }
 // }
+
 
 // Main resume analysis logic
 async function analyzeResume(resumeText, userId1) {
