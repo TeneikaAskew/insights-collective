@@ -146,6 +146,7 @@ async function analyzeResume(resumeText, userId) {
   let text = resumeText;
   try {
     if (userId) {
+      console.log("Run analyze resume for user: ", userId)
       // const { data: existing, error: fetchError } = await supabase.from('resumes').select('id,text').eq('user_id', userId).maybeSingle();
       const { data: existing, error: fetchError } = await supabase
         .from('resumes')
