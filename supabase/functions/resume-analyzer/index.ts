@@ -78,17 +78,13 @@ async function getResumeRoast(resumeText, userId1) {
   }
   if (!resumeText) {
     return {
-      roast: 'I need to see your resume first to provide specific feedback. Please upload your resume so I can analyze it and give you targeted advice on how to improve it.'
+      roast: 'I need to see your resume first to provide specific feedback.'
     };
   }
   try {
     const groqApiKey = Deno.env.get('GROQ');
     if (!groqApiKey) throw new Error('GROQ API key not found');
-    const prompt = `I'm looking at this resume text:        
-        ${resumeText.substring(0, 4000)}        
-        Now, I need a full-on resume roast. Don't sugarcoat it — tell me what's holding this back. Why am I not getting callbacks, referrals, or interviews? Tear it apart like a hiring manager who's had one too many resumes land on their desk. Be blunt. What's outdated, what's weak, what's missing, what makes you roll your eyes, and what makes you scroll past me? Give me the real — and then tell me how to fix it so I actually start landing opportunities.
-        Be specific and provide actionable advice. Format your response with no markdown, just clean text. Keep it to 3-4 paragraphs maximum.`
-      ; 
+    const prompt = `...`; // truncated for brevity
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -97,10 +93,7 @@ async function getResumeRoast(resumeText, userId1) {
       },
       body: JSON.stringify({
         model: 'llama3-70b-8192',
-        messages: [  
-          { role: "system", content: "You are a brutally honest resume critic. Your job is to point out the real issues in a resume without sugarcoating, then provide actionable advice." },
-          { role: "user", content: prompt }
-                  ],
+        messages: [],
         temperature: 0.7,
         max_tokens: 750
       })
