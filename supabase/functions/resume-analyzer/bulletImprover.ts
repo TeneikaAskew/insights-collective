@@ -144,6 +144,7 @@ async function processBatch(bullets, apiKey) {
     }
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '[]';
+    console.log("GROQ Improved Bullets: ", content)
   //   // Parse the response using robust methods from detectSentences
   //   const parsedResults = parseGroqJsonResponse(content, bullets);
   //   return parsedResults;
@@ -202,14 +203,98 @@ async function processBatch(bullets, apiKey) {
 }
 
   
+// // Robust JSON parsing for GROQ responses
+// function parseGroqJsonResponse(content, originalBullets) {
+//   console.log('Parsing GROQ response, content length:', content.length);
+//   // Get a preview of the content for logging
+//   const contentPreview = content.length > 200 ? content.substring(0, 200) + '...' : content;
+//   console.log('Content preview:', contentPreview);
+//   // Try multiple parsing strategies
+//   // Strategy 1: Direct JSON parse
+//   try {
+//     const parsedResults = JSON.parse(content.trim());
+//     if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+//       console.log('Direct JSON parse successful, count:', parsedResults.length);
+//       // Ensure all bullets have the necessary properties
+//       const validatedResults = validateAndMapResults(parsedResults, originalBullets);
+//       return validatedResults;
+//     }
+//   } catch (e) {
+//     console.warn('Direct JSON parse failed:', e.message);
+//   }
+//   // Strategy 2: Find and extract JSON array
+//   try {
+//     const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
+//     if (arrayMatch) {
+//       const parsedResults = JSON.parse(arrayMatch[0]);
+//       if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+//         console.log('JSON array extraction successful, count:', parsedResults.length);
+//         const validatedResults = validateAndMapResults(parsedResults, originalBullets);
+//         return validatedResults;
+//       }
+//     }
+//   } catch (e) {
+//     console.warn('JSON array extraction failed:', e.message);
+//   }
+//   // Strategy 3: Extract individual objects
+//   try {
+//     const objects = [];
+//     const objectPattern = /\{\s*"id"\s*:\s*"([^"]*)"\s*,\s*"rewritten"\s*:\s*"([^"]*)"\s*,\s*"tips"\s*:\s*"([^"]*)"\s*\}/g;
+//     let match;
+//     while((match = objectPattern.exec(content)) !== null){
+//       objects.push({
+//         id: match[1],
+//         rewritten: match[2],
+//         tips: match[3]
+//       });
+//     }
+//     if (objects.length > 0) {
+//       console.log('Individual object extraction successful, count:', objects.length);
+//       const validatedResults = validateAndMapResults(objects, originalBullets);
+//       return validatedResults;
+//     }
+//   } catch (e) {
+//     console.warn('Individual object extraction failed:', e.message);
+//   }
+//   // Fallback: Return originals with default tips
+//   console.warn('All parsing strategies failed, using original bullets');
+//   return originalBullets.map((bullet)=>({
+//       id: bullet.id,
+//       original: bullet.original,
+//       rewritten: bullet.original,
+//       tips: "Try adding specific metrics and starting with a strong action verb."
+//     }));
+// }
+// // Validate and map parsed results to ensure all required properties
+
+
 // Robust JSON parsing for GROQ responses
 function parseGroqJsonResponse(content, originalBullets) {
   console.log('Parsing GROQ response, content length:', content.length);
   // Get a preview of the content for logging
   const contentPreview = content.length > 200 ? content.substring(0, 200) + '...' : content;
   console.log('Content preview:', contentPreview);
+  
   // Try multiple parsing strategies
-  // Strategy 1: Direct JSON parse
+  // Strategy 1: Look for JSON array after any text prefixes
+  try {
+    // Find the first "[" character (start of a JSON array)
+    const jsonStartIndex = content.indexOf('[');
+    if (jsonStartIndex >= 0) {
+      // Extract from this point to the end of the content
+      const possibleJson = content.substring(jsonStartIndex);
+      const parsedResults = JSON.parse(possibleJson.trim());
+      if (Array.isArray(parsedResults) && parsedResults.length > 0) {
+        console.log('JSON array extraction successful, count:', parsedResults.length);
+        const validatedResults = validateAndMapResults(parsedResults, originalBullets);
+        return validatedResults;
+      }
+    }
+  } catch (e) {
+    console.warn('JSON array extraction failed:', e.message);
+  }
+  
+  // Strategy 2: Direct JSON parse (less likely to work if there's prefix text)
   try {
     const parsedResults = JSON.parse(content.trim());
     if (Array.isArray(parsedResults) && parsedResults.length > 0) {
@@ -221,21 +306,23 @@ function parseGroqJsonResponse(content, originalBullets) {
   } catch (e) {
     console.warn('Direct JSON parse failed:', e.message);
   }
-  // Strategy 2: Find and extract JSON array
+  
+  // Strategy 3: Find and extract JSON array with regex
   try {
     const arrayMatch = content.match(/\[\s*\{[\s\S]*\}\s*\]/);
     if (arrayMatch) {
       const parsedResults = JSON.parse(arrayMatch[0]);
       if (Array.isArray(parsedResults) && parsedResults.length > 0) {
-        console.log('JSON array extraction successful, count:', parsedResults.length);
+        console.log('Regex JSON array extraction successful, count:', parsedResults.length);
         const validatedResults = validateAndMapResults(parsedResults, originalBullets);
         return validatedResults;
       }
     }
   } catch (e) {
-    console.warn('JSON array extraction failed:', e.message);
+    console.warn('Regex JSON array extraction failed:', e.message);
   }
-  // Strategy 3: Extract individual objects
+  
+  // Strategy 4: Extract individual objects
   try {
     const objects = [];
     const objectPattern = /\{\s*"id"\s*:\s*"([^"]*)"\s*,\s*"rewritten"\s*:\s*"([^"]*)"\s*,\s*"tips"\s*:\s*"([^"]*)"\s*\}/g;
@@ -255,16 +342,18 @@ function parseGroqJsonResponse(content, originalBullets) {
   } catch (e) {
     console.warn('Individual object extraction failed:', e.message);
   }
+  
   // Fallback: Return originals with default tips
   console.warn('All parsing strategies failed, using original bullets');
-  return originalBullets.map((bullet)=>({
-      id: bullet.id,
-      original: bullet.original,
-      rewritten: bullet.original,
-      tips: "Try adding specific metrics and starting with a strong action verb."
-    }));
+  return originalBullets.map((bullet) => ({
+    id: bullet.id || `fallback_${Date.now()}_${Math.floor(Math.random() * 100)}`,
+    original: bullet.original,
+    rewritten: bullet.original,
+    tips: "Try adding specific metrics and starting with a strong action verb."
+  }));
 }
-// Validate and map parsed results to ensure all required properties
+
+
 function validateAndMapResults(parsedResults, originalBullets) {
   // Create a map of original bullets by ID for quick lookup
   const originalBulletMap = new Map(originalBullets.map((bullet)=>[
