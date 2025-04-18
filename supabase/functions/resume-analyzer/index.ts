@@ -259,7 +259,7 @@ async function saveSentencesToUserLatestResume(userId: string, sentences: string
     console.log(`saveSentencesToUserLatestResume: Found most recent resume ${resumeId}`);
     
     // Update the resume record with sentences
-    const { error: updateError } = await supabase
+    const { data: sentenceUpload, error: updateError } = await supabase
       .from('resumes')
       .update({ 
         sentences: sentences,
@@ -267,7 +267,7 @@ async function saveSentencesToUserLatestResume(userId: string, sentences: string
       })
       .eq('id', resumeId);
       
-    console.log("Update result:", result);
+    console.log("Update result:", sentenceUpload);
     
     if (updateError) {
       console.error('saveSentencesToUserLatestResume: Error updating resume:', updateError);
