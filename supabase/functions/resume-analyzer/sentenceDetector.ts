@@ -65,7 +65,7 @@ export async function detectSentences(text: string, userId?: string): Promise<st
     
     // Log a small preview of the response
     console.log(`detectSentences: raw content from API (${content.length} chars) preview=`, 
-      content.length > 100 ? content.slice(0, 100) + '...' : content);
+    content.length > 100 ? content.slice(0, 100) + '...' : content);
     
     // Robust parsing logic after receiving response
     console.log('detectSentences: Starting sentence extraction from response');
