@@ -5,6 +5,8 @@ const { data: { user } } = await supabase.auth.getUser();
 console.log("Logged in as: ", user)
 const userId = user?.id;
 
+
+
 // Function to detect sentences from resume text and save to database
 export async function detectSentences(text: string, userId?: string): Promise<string[]> {
   const startTime = Date.now();
@@ -444,6 +446,7 @@ async function saveSentencesToUserLatestResume(userId: string, sentences: string
     throw error;
   }
 }
+
 
 // Update the function signature to accept userId
 export async function extractAndSaveSentences(text: string, userId: string): Promise<string[]> {
