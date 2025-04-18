@@ -311,7 +311,7 @@ serve(async (req)=>{
     //     'Content-Type': 'application/json',
     //     ...corsHeaders
     //   }
-    });
+    // });
   } catch (error) {
     console.error('Error processing request:', error);
     return new Response(JSON.stringify({
