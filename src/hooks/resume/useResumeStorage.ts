@@ -300,7 +300,7 @@ export function useResumeStorage() {
   };
 
       // Add this function to your storage hook
-  export const deleteAllUserFiles = async (userId: string): Promise<boolean> => {
+  export async function deleteAllUserFiles = async (userId: string): Promise<boolean> => {
     if (!userId) {
       console.error("Missing userId for bulk deletion");
       return false;
