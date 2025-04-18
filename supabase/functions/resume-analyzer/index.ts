@@ -1,5 +1,5 @@
 // Add this at the top of the file
-console.log('Resume analyzer function hit', userId);
+console.log('Resume analyzer function hit);
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -10,6 +10,14 @@ import { serveBulletImprover } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 import { corsHeaders } from "./utils.ts";
+
+
+const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const supabase = createClient(supabaseUrl, supabaseKey);
+const { data: { user } } = await supabase.auth.getUser();
+console.log("Logged in as: ", user);
+const userId = user?.id;
 
 const bulletCache = new Map<string, string[]>();
 const roastCache = new Map<string, string>();
