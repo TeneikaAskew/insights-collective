@@ -1,3 +1,16 @@
+console.log('Sentence Detection function hit');
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+// This function sets up Supabase client with service role key credentials from env
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('getSupabaseClient: Missing Supabase credentials in environment variables!');
+    throw new Error('Missing Supabase credentials');
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
+
 // Add this function to implement retry logic with exponential backoff
 async function callGroqWithRetry(processedText, GROQ_API_KEY, maxRetries = 3) {
   let retryCount = 0;
@@ -196,18 +209,7 @@ export async function detectSentences(text, userId) {
   }
 }
 
-// console.log('Sentence Detection function hit');
-// import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-// // This function sets up Supabase client with service role key credentials from env
-// function getSupabaseClient() {
-//   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-//   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-//   if (!supabaseUrl || !supabaseKey) {
-//     console.error('getSupabaseClient: Missing Supabase credentials in environment variables!');
-//     throw new Error('Missing Supabase credentials');
-//   }
-//   return createClient(supabaseUrl, supabaseKey);
-// }
+
 // // Function to detect sentences from resume text and save to database
 // export async function detectSentences(text, userId) {
 //   const startTime = Date.now();
@@ -307,272 +309,273 @@ export async function detectSentences(text, userId) {
 //   }
 // }
 
-// // Helper function to extract sentences from the response with multiple fallback strategies
-// export function extractSentencesFromResponse(content) {
-//   console.log('extractSentencesFromResponse: Starting extraction');
-//   let sentences = [];
-//   // Try multiple extraction methods, from most structured to least
-//   // Method 1: Try direct JSON parsing if it looks like a JSON array
-//   console.log('extractSentencesFromResponse: Trying Method 1 - Direct JSON parsing');
-//   console.log(`extractSentencesFromResponse: Content starts with '[': ${content.trim().startsWith('[')}, ends with ']': ${content.trim().endsWith(']')}`);
-//   if (content.trim().startsWith('[') && content.trim().endsWith(']')) {
-//     try {
-//       const parsedArray = JSON.parse(content.trim());
-//       if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-//         console.log(`extractSentencesFromResponse: Method 1 successful - parsed ${parsedArray.length} items`);
-//         sentences = parsedArray;
-//       } else {
-//         console.log('extractSentencesFromResponse: Method 1 parsed successfully but result is not a valid array or is empty');
-//       }
-//     } catch (e) {
-//       console.log(`extractSentencesFromResponse: Method 1 failed - ${e.message}`);
-//     // Continue to next method if this fails
-//     }
-//   } else {
-//     console.log('extractSentencesFromResponse: Method 1 skipped - content does not start/end with brackets');
-//   }
-//   // Method 2: Extract JSON array if embedded in text
-//   if (sentences.length === 0) {
-//     console.log('extractSentencesFromResponse: Trying Method 2 - JSON array extraction');
-//     console.log(`extractSentencesFromResponse: Content includes '[': ${content.includes('[')}, includes ']': ${content.includes(']')}`);
-//     if (content.includes('[') && content.includes(']')) {
-//       try {
-//         const jsonMatch = content.match(/\[\s*[\s\S]*\]/);
-//         if (jsonMatch) {
-//           console.log(`extractSentencesFromResponse: Method 2 - found potential JSON: ${jsonMatch[0].substring(0, 50)}...`);
-//           const parsedArray = JSON.parse(jsonMatch[0]);
-//           if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-//             console.log(`extractSentencesFromResponse: Method 2 successful - parsed ${parsedArray.length} items`);
-//             sentences = parsedArray;
-//           } else {
-//             console.log('extractSentencesFromResponse: Method 2 parsed successfully but result is not a valid array or is empty');
-//           }
-//         } else {
-//           console.log('extractSentencesFromResponse: Method 2 - no JSON array pattern found');
-//         }
-//       } catch (e) {
-//         console.log(`extractSentencesFromResponse: Method 2 failed - ${e.message}`);
-//       // Continue to next method
-//       }
-//     } else {
-//       console.log('extractSentencesFromResponse: Method 2 skipped - content does not include brackets');
-//     }
-//   }
-//   // Method 3: Fix malformed JSON with double quotes issue
-//   if (sentences.length === 0) {
-//     console.log('extractSentencesFromResponse: Trying Method 3 - Fixing double quotes issue');
-//     console.log(`extractSentencesFromResponse: Content includes '""': ${content.includes('""')}`);
-//     if (content.includes('""')) {
-//       try {
-//         // Replace double quotes with single quotes and try to parse
-//         console.log('extractSentencesFromResponse: Method 3 - applying quote fixes to content');
-//         const fixedContent = content.replace(/\[\s*\n?/g, '[').replace(/\s*\n?\]/g, ']').replace(/""/g, '"').replace(/",\s*(?=\])/g, '"');
-//         console.log(`extractSentencesFromResponse: Method 3 - fixed content preview: ${fixedContent.substring(0, 50)}...`);
-//         // Try to extract array with fixed quotes
-//         const jsonMatch = fixedContent.match(/\[\s*[\s\S]*\]/);
-//         if (jsonMatch) {
-//           console.log(`extractSentencesFromResponse: Method 3 - found potential JSON after fixing: ${jsonMatch[0].substring(0, 50)}...`);
-//           const parsedArray = JSON.parse(jsonMatch[0]);
-//           if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-//             console.log(`extractSentencesFromResponse: Method 3 successful - parsed ${parsedArray.length} items`);
-//             sentences = parsedArray;
-//           } else {
-//             console.log('extractSentencesFromResponse: Method 3 parsed successfully but result is not a valid array or is empty');
-//           }
-//         } else {
-//           console.log('extractSentencesFromResponse: Method 3 - no JSON array pattern found after fixing');
-//         }
-//       } catch (e) {
-//         console.log(`extractSentencesFromResponse: Method 3 failed - ${e.message}`);
-//       // Continue to next method
-//       }
-//     } else {
-//       console.log('extractSentencesFromResponse: Method 3 skipped - content does not include double quotes');
-//     }
-//   }
-//   // Method 4: Extract quoted strings individually
-//   if (sentences.length === 0) {
-//     console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
-//     const items = [];
-//     const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
-//     let match;
-//     let matchCount = 0;
-//     while((match = pattern.exec(content)) !== null){
-//       matchCount++;
-//       if (match[1] && match[1].trim().length > 15) {
-//         items.push(match[1].trim());
-//       }
-//     }
-//     console.log(`extractSentencesFromResponse: Method 4 - found ${matchCount} regex matches, ${items.length} valid items`);
-//     if (items.length > 0) {
-//       console.log('extractSentencesFromResponse: Method 4 successful');
-//       sentences = items;
-//     } else {
-//       console.log('extractSentencesFromResponse: Method 4 failed - no valid items found');
-//     }
-//   }
-//   // Method 5: Handle doubly quoted strings (""text"") which appeared in the logs
-//   if (sentences.length === 0) {
-//     console.log('extractSentencesFromResponse: Trying Method 5 - Double-quote pattern extraction');
-//     const items = [];
-//     // This regex looks for patterns like ""text""
-//     const doubleQuotePattern = /""([^"]*)""(?:,|$)/g;
-//     let match;
-//     let matchCount = 0;
-//     while((match = doubleQuotePattern.exec(content)) !== null){
-//       matchCount++;
-//       if (match[1] && match[1].trim().length > 15) {
-//         items.push(match[1].trim());
-//       }
-//     }
-//     console.log(`extractSentencesFromResponse: Method 5 - found ${matchCount} double-quote matches, ${items.length} valid items`);
-//     if (items.length > 0) {
-//       console.log('extractSentencesFromResponse: Method 5 successful');
-//       sentences = items;
-//     } else {
-//       console.log('extractSentencesFromResponse: Method 5 failed - no valid items found');
-//     }
-//   }
-//   // Method 6: Last resort - extract by lines
-//   if (sentences.length === 0) {
-//     console.log('extractSentencesFromResponse: Trying Method 6 - Line-by-line extraction (last resort)');
-//     const lines = content.split(/\r?\n/);
-//     console.log(`extractSentencesFromResponse: Method 6 - content split into ${lines.length} lines`);
-//     sentences = lines.map((line)=>line.trim()).filter((line)=>{
-//       // Filter criteria for likely bullet points
-//       const isValid = line.length > 15 && !line.startsWith('[') && !line.startsWith(']') && !line.includes('```');
-//       return isValid;
-//     });
-//     console.log(`extractSentencesFromResponse: Method 6 - found ${sentences.length} valid lines`);
-//   }
-//   // Final cleanup and deduplication
-//   console.log(`extractSentencesFromResponse: Pre-cleanup sentence count: ${sentences.length}`);
-//   const result = cleanAndDeduplicate(sentences);
-//   console.log(`extractSentencesFromResponse: Post-cleanup sentence count: ${result.length}`);
-//   return result;
-// }
+// Helper function to extract sentences from the response with multiple fallback strategies
+export function extractSentencesFromResponse(content) {
+  console.log('extractSentencesFromResponse: Starting extraction');
+  let sentences = [];
+  // Try multiple extraction methods, from most structured to least
+  // Method 1: Try direct JSON parsing if it looks like a JSON array
+  console.log('extractSentencesFromResponse: Trying Method 1 - Direct JSON parsing');
+  console.log(`extractSentencesFromResponse: Content starts with '[': ${content.trim().startsWith('[')}, ends with ']': ${content.trim().endsWith(']')}`);
+  if (content.trim().startsWith('[') && content.trim().endsWith(']')) {
+    try {
+      const parsedArray = JSON.parse(content.trim());
+      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+        console.log(`extractSentencesFromResponse: Method 1 successful - parsed ${parsedArray.length} items`);
+        sentences = parsedArray;
+      } else {
+        console.log('extractSentencesFromResponse: Method 1 parsed successfully but result is not a valid array or is empty');
+      }
+    } catch (e) {
+      console.log(`extractSentencesFromResponse: Method 1 failed - ${e.message}`);
+    // Continue to next method if this fails
+    }
+  } else {
+    console.log('extractSentencesFromResponse: Method 1 skipped - content does not start/end with brackets');
+  }
+  // Method 2: Extract JSON array if embedded in text
+  if (sentences.length === 0) {
+    console.log('extractSentencesFromResponse: Trying Method 2 - JSON array extraction');
+    console.log(`extractSentencesFromResponse: Content includes '[': ${content.includes('[')}, includes ']': ${content.includes(']')}`);
+    if (content.includes('[') && content.includes(']')) {
+      try {
+        const jsonMatch = content.match(/\[\s*[\s\S]*\]/);
+        if (jsonMatch) {
+          console.log(`extractSentencesFromResponse: Method 2 - found potential JSON: ${jsonMatch[0].substring(0, 50)}...`);
+          const parsedArray = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+            console.log(`extractSentencesFromResponse: Method 2 successful - parsed ${parsedArray.length} items`);
+            sentences = parsedArray;
+          } else {
+            console.log('extractSentencesFromResponse: Method 2 parsed successfully but result is not a valid array or is empty');
+          }
+        } else {
+          console.log('extractSentencesFromResponse: Method 2 - no JSON array pattern found');
+        }
+      } catch (e) {
+        console.log(`extractSentencesFromResponse: Method 2 failed - ${e.message}`);
+      // Continue to next method
+      }
+    } else {
+      console.log('extractSentencesFromResponse: Method 2 skipped - content does not include brackets');
+    }
+  }
+  // Method 3: Fix malformed JSON with double quotes issue
+  if (sentences.length === 0) {
+    console.log('extractSentencesFromResponse: Trying Method 3 - Fixing double quotes issue');
+    console.log(`extractSentencesFromResponse: Content includes '""': ${content.includes('""')}`);
+    if (content.includes('""')) {
+      try {
+        // Replace double quotes with single quotes and try to parse
+        console.log('extractSentencesFromResponse: Method 3 - applying quote fixes to content');
+        const fixedContent = content.replace(/\[\s*\n?/g, '[').replace(/\s*\n?\]/g, ']').replace(/""/g, '"').replace(/",\s*(?=\])/g, '"');
+        console.log(`extractSentencesFromResponse: Method 3 - fixed content preview: ${fixedContent.substring(0, 50)}...`);
+        // Try to extract array with fixed quotes
+        const jsonMatch = fixedContent.match(/\[\s*[\s\S]*\]/);
+        if (jsonMatch) {
+          console.log(`extractSentencesFromResponse: Method 3 - found potential JSON after fixing: ${jsonMatch[0].substring(0, 50)}...`);
+          const parsedArray = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+            console.log(`extractSentencesFromResponse: Method 3 successful - parsed ${parsedArray.length} items`);
+            sentences = parsedArray;
+          } else {
+            console.log('extractSentencesFromResponse: Method 3 parsed successfully but result is not a valid array or is empty');
+          }
+        } else {
+          console.log('extractSentencesFromResponse: Method 3 - no JSON array pattern found after fixing');
+        }
+      } catch (e) {
+        console.log(`extractSentencesFromResponse: Method 3 failed - ${e.message}`);
+      // Continue to next method
+      }
+    } else {
+      console.log('extractSentencesFromResponse: Method 3 skipped - content does not include double quotes');
+    }
+  }
+  // Method 4: Extract quoted strings individually
+  if (sentences.length === 0) {
+    console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
+    const items = [];
+    const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+    let match;
+    let matchCount = 0;
+    while((match = pattern.exec(content)) !== null){
+      matchCount++;
+      if (match[1] && match[1].trim().length > 15) {
+        items.push(match[1].trim());
+      }
+    }
+    console.log(`extractSentencesFromResponse: Method 4 - found ${matchCount} regex matches, ${items.length} valid items`);
+    if (items.length > 0) {
+      console.log('extractSentencesFromResponse: Method 4 successful');
+      sentences = items;
+    } else {
+      console.log('extractSentencesFromResponse: Method 4 failed - no valid items found');
+    }
+  }
+  // Method 5: Handle doubly quoted strings (""text"") which appeared in the logs
+  if (sentences.length === 0) {
+    console.log('extractSentencesFromResponse: Trying Method 5 - Double-quote pattern extraction');
+    const items = [];
+    // This regex looks for patterns like ""text""
+    const doubleQuotePattern = /""([^"]*)""(?:,|$)/g;
+    let match;
+    let matchCount = 0;
+    while((match = doubleQuotePattern.exec(content)) !== null){
+      matchCount++;
+      if (match[1] && match[1].trim().length > 15) {
+        items.push(match[1].trim());
+      }
+    }
+    console.log(`extractSentencesFromResponse: Method 5 - found ${matchCount} double-quote matches, ${items.length} valid items`);
+    if (items.length > 0) {
+      console.log('extractSentencesFromResponse: Method 5 successful');
+      sentences = items;
+    } else {
+      console.log('extractSentencesFromResponse: Method 5 failed - no valid items found');
+    }
+  }
+  // Method 6: Last resort - extract by lines
+  if (sentences.length === 0) {
+    console.log('extractSentencesFromResponse: Trying Method 6 - Line-by-line extraction (last resort)');
+    const lines = content.split(/\r?\n/);
+    console.log(`extractSentencesFromResponse: Method 6 - content split into ${lines.length} lines`);
+    sentences = lines.map((line)=>line.trim()).filter((line)=>{
+      // Filter criteria for likely bullet points
+      const isValid = line.length > 15 && !line.startsWith('[') && !line.startsWith(']') && !line.includes('```');
+      return isValid;
+    });
+    console.log(`extractSentencesFromResponse: Method 6 - found ${sentences.length} valid lines`);
+  }
+  // Final cleanup and deduplication
+  console.log(`extractSentencesFromResponse: Pre-cleanup sentence count: ${sentences.length}`);
+  const result = cleanAndDeduplicate(sentences);
+  console.log(`extractSentencesFromResponse: Post-cleanup sentence count: ${result.length}`);
+  return result;
+}
 
 
-// // Helper function to clean and deduplicate the extracted sentences
-// function cleanAndDeduplicate(sentences) {
-//   console.log(`cleanAndDeduplicate: Starting cleanup of ${sentences.length} sentences`);
-//   const uniqueMap = new Map();
-//   let cleanedCount = 0;
-//   let droppedCount = 0;
-//   let duplicateCount = 0;
-//   sentences.forEach((sentence, index)=>{
-//     if (typeof sentence === 'string') {
-//       // Clean the sentence
-//       let cleaned = sentence.trim().replace(/^["']+|["']+$/g, '') // Remove surrounding quotes
-//       .replace(/\\"/g, '"') // Unescape quotes
-//       .replace(/\s+/g, ' '); // Normalize whitespace
-//       cleanedCount++;
-//       // Store in map if it meets length criteria
-//       if (cleaned.length > 15) {
-//         // Use lowercase for deduplication key, but preserve original case
-//         const key = cleaned.toLowerCase();
-//         if (!uniqueMap.has(key)) {
-//           uniqueMap.set(key, cleaned);
-//         } else {
-//           duplicateCount++;
-//           if (index < 5) {
-//             console.log(`cleanAndDeduplicate: Duplicate found (sample): "${cleaned.substring(0, 50)}..."`);
-//           }
-//         }
-//       } else {
-//         droppedCount++;
-//         if (index < 5) {
-//           console.log(`cleanAndDeduplicate: Sentence too short (sample): "${cleaned}"`);
-//         }
-//       }
-//     }
-//   });
-//   const result = Array.from(uniqueMap.values());
-//   console.log(`cleanAndDeduplicate: Cleaned ${cleanedCount}, dropped ${droppedCount} (too short), found ${duplicateCount} duplicates`);
-//   console.log(`cleanAndDeduplicate: Final unique sentence count: ${result.length}`);
-//   return result;
-// }
+// Helper function to clean and deduplicate the extracted sentences
+function cleanAndDeduplicate(sentences) {
+  console.log(`cleanAndDeduplicate: Starting cleanup of ${sentences.length} sentences`);
+  const uniqueMap = new Map();
+  let cleanedCount = 0;
+  let droppedCount = 0;
+  let duplicateCount = 0;
+  sentences.forEach((sentence, index)=>{
+    if (typeof sentence === 'string') {
+      // Clean the sentence
+      let cleaned = sentence.trim().replace(/^["']+|["']+$/g, '') // Remove surrounding quotes
+      .replace(/\\"/g, '"') // Unescape quotes
+      .replace(/\s+/g, ' '); // Normalize whitespace
+      cleanedCount++;
+      // Store in map if it meets length criteria
+      if (cleaned.length > 15) {
+        // Use lowercase for deduplication key, but preserve original case
+        const key = cleaned.toLowerCase();
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, cleaned);
+        } else {
+          duplicateCount++;
+          if (index < 5) {
+            console.log(`cleanAndDeduplicate: Duplicate found (sample): "${cleaned.substring(0, 50)}..."`);
+          }
+        }
+      } else {
+        droppedCount++;
+        if (index < 5) {
+          console.log(`cleanAndDeduplicate: Sentence too short (sample): "${cleaned}"`);
+        }
+      }
+    }
+  });
+  const result = Array.from(uniqueMap.values());
+  console.log(`cleanAndDeduplicate: Cleaned ${cleanedCount}, dropped ${droppedCount} (too short), found ${duplicateCount} duplicates`);
+  console.log(`cleanAndDeduplicate: Final unique sentence count: ${result.length}`);
+  return result;
+}
 
-// // Save extracted sentences to the most recent resume record of the user in DB
-// export async function saveSentencesToDatabase(userId, sentences) {
-//   console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
-//   const startTime = Date.now();
-//   // Initialize Supabase client inside the function with service role key
-//   const supabase = getSupabaseClient();
-//   try {
-//     // Find the most recent resume for this user
-//     console.log(`saveSentencesToUserLatestResume: Querying for most recent resume for user ${userId}`);
-//     const queryStartTime = Date.now();
-//     const { data: recentResume, error: queryError } = await supabase
-//       .from('resumes')
-//       .select('id, updated_at')
-//       .eq('user_id', userId)
-//       .order('updated_at', { ascending: false })
-//       .limit(1)
-//       .single()
-//     // const { data: recentResumes, error: queryError } = await supabase.from('resumes').select('id, updated_at').eq('user_id', userId).order('updated_at', {
-//     //   ascending: false
-//     // }).limit(1);
-//     const queryEndTime = Date.now();
-//     console.log(`saveSentencesToUserLatestResume: Query completed in ${queryEndTime - queryStartTime}ms`);
-//     if (queryError) {
-//       console.error('saveSentencesToUserLatestResume: Database query error:', queryError);
-//       throw queryError;
-//     }
-//     if (!recentResumes || recentResumes.length === 0) {
-//       console.error(`saveSentencesToUserLatestResume: No resumes found for user ${userId}`);
-//       throw new Error(`No resumes found for user ${userId}`);
-//     }
-//     const resumeId = recentResumes[0].id;
-//     const resumeUpdatedAt = recentResumes[0].updated_at;
-//     console.log(`saveSentencesToUserLatestResume: Found most recent resume ${resumeId} (last updated: ${resumeUpdatedAt})`);
-//     // Update the resume record with sentences and current timestamp
-//     console.log(`saveSentencesToUserLatestResume: Updating resume ${resumeId} with ${sentences.length} sentences`);
-//     const updateStartTime = Date.now();
-//     const { error: updateError } = await supabase.from('resumes').update({
-//       sentences: sentences,
-//       sentences_updated_at: new Date().toISOString()
-//     }).eq('id', resumeId);
-//     const updateEndTime = Date.now();
-//     console.log(`saveSentencesToUserLatestResume: Update completed in ${updateEndTime - updateStartTime}ms`);
-//     if (updateError) {
-//       console.error('saveSentencesToUserLatestResume: Database update error:', updateError);
-//       throw updateError;
-//     }
-//     // Verification after update
-//     const { data: verifyData, error: verifyError } = await supabase.from('resumes').select('sentences, sentences_updated_at').eq('id', resumeId).single();
-//     console.log('Verification after update:');
-//     console.log('  Data exists:', !!verifyData);
-//     console.log('  Sentences exists:', !!verifyData?.sentences);
-//     console.log('  Sentences count:', verifyData?.sentences?.length || 0);
-//     console.log('  Updated timestamp:', verifyData?.sentences_updated_at);
-//     console.log('  Verify error:', verifyError);
-//     const endTime = Date.now();
-//     console.log(`saveSentencesToUserLatestResume: Successfully saved ${sentences.length} sentences to resume ${resumeId}`);
-//     console.log(`saveSentencesToUserLatestResume: Total function execution time: ${endTime - startTime}ms`);
-//   } catch (error) {
-//     const errorTime = Date.now() - startTime;
-//     console.error(`saveSentencesToUserLatestResume: Error after ${errorTime}ms:`, error.message);
-//     if (error.stack) {
-//       console.error('saveSentencesToUserLatestResume: Error stack:', error.stack);
-//     }
-//     throw error;
-//   }
-// }
+// Save extracted sentences to the most recent resume record of the user in DB
+export async function saveSentencesToDatabase(userId, sentences) {
+  console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
+  const startTime = Date.now();
+  // Initialize Supabase client inside the function with service role key
+  const supabase = getSupabaseClient();
+  try {
+    // Find the most recent resume for this user
+    console.log(`saveSentencesToUserLatestResume: Querying for most recent resume for user ${userId}`);
+    const queryStartTime = Date.now();
+    const { data: recentResume, error: queryError } = await supabase
+      .from('resumes')
+      .select('id, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single()
+    // const { data: recentResumes, error: queryError } = await supabase.from('resumes').select('id, updated_at').eq('user_id', userId).order('updated_at', {
+    //   ascending: false
+    // }).limit(1);
+    const queryEndTime = Date.now();
+    console.log(`saveSentencesToUserLatestResume: Query completed in ${queryEndTime - queryStartTime}ms`);
+    if (queryError) {
+      console.error('saveSentencesToUserLatestResume: Database query error:', queryError);
+      throw queryError;
+    }
+    if (!recentResumes || recentResumes.length === 0) {
+      console.error(`saveSentencesToUserLatestResume: No resumes found for user ${userId}`);
+      throw new Error(`No resumes found for user ${userId}`);
+    }
+    const resumeId = recentResumes[0].id;
+    const resumeUpdatedAt = recentResumes[0].updated_at;
+    console.log(`saveSentencesToUserLatestResume: Found most recent resume ${resumeId} (last updated: ${resumeUpdatedAt})`);
+    // Update the resume record with sentences and current timestamp
+    console.log(`saveSentencesToUserLatestResume: Updating resume ${resumeId} with ${sentences.length} sentences`);
+    const updateStartTime = Date.now();
+    const { error: updateError } = await supabase.from('resumes').update({
+      sentences: sentences,
+      sentences_updated_at: new Date().toISOString()
+    }).eq('id', resumeId);
+    const updateEndTime = Date.now();
+    console.log(`saveSentencesToUserLatestResume: Update completed in ${updateEndTime - updateStartTime}ms`);
+    if (updateError) {
+      console.error('saveSentencesToUserLatestResume: Database update error:', updateError);
+      throw updateError;
+    }
+    // Verification after update
+    const { data: verifyData, error: verifyError } = await supabase.from('resumes').select('sentences, sentences_updated_at').eq('id', resumeId).single();
+    console.log('Verification after update:');
+    console.log('  Data exists:', !!verifyData);
+    console.log('  Sentences exists:', !!verifyData?.sentences);
+    console.log('  Sentences count:', verifyData?.sentences?.length || 0);
+    console.log('  Updated timestamp:', verifyData?.sentences_updated_at);
+    console.log('  Verify error:', verifyError);
+    const endTime = Date.now();
+    console.log(`saveSentencesToUserLatestResume: Successfully saved ${sentences.length} sentences to resume ${resumeId}`);
+    console.log(`saveSentencesToUserLatestResume: Total function execution time: ${endTime - startTime}ms`);
+  } catch (error) {
+    const errorTime = Date.now() - startTime;
+    console.error(`saveSentencesToUserLatestResume: Error after ${errorTime}ms:`, error.message);
+    if (error.stack) {
+      console.error('saveSentencesToUserLatestResume: Error stack:', error.stack);
+    }
+    throw error;
+  }
+}
 
 
-// // Update the function signature to accept userId
-// export async function extractAndSaveSentences(text, userId) {
-//   console.log(`extractAndSaveSentences: Starting for userId=${userId} with text length=${text.length}`);
-//   const startTime = Date.now();
-//   try {
-//     const sentences = await detectSentences(text, userId);
-//     const endTime = Date.now();
-//     console.log(`extractAndSaveSentences: Completed in ${endTime - startTime}ms, extracted ${sentences.length} sentences`);
-//     return sentences;
-//   } catch (error) {
-//     const errorTime = Date.now() - startTime;
-//     console.error(`extractAndSaveSentences: Error after ${errorTime}ms:`, error.message);
-//     throw error;
-//   }
-// }
+// Update the function signature to accept userId
+export async function extractAndSaveSentences(text, userId) {
+  console.log(`extractAndSaveSentences: Starting for userId=${userId} with text length=${text.length}`);
+  const startTime = Date.now();
+  try {
+    const sentences = await detectSentences(text, userId);
+    const endTime = Date.now();
+    console.log(`extractAndSaveSentences: Completed in ${endTime - startTime}ms, extracted ${sentences.length} sentences`);
+    return sentences;
+  } catch (error) {
+    const errorTime = Date.now() - startTime;
+    console.error(`extractAndSaveSentences: Error after ${errorTime}ms:`, error.message);
+    throw error;
+  }
+}
+
