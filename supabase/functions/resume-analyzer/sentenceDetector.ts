@@ -1,6 +1,11 @@
 console.log('Sentence Detection function hit');
 import { safeJsonParse, handleApiError } from './utils.ts';
 import { createClient } from '@supabase/supabase-js';
+const { data: { user } } = await supabase.auth.getUser();
+console.log("Logged in as: ", user)
+const userId = user?.id;
+
+
 
 // Function to detect sentences from resume text and save to database
 export async function detectSentences(text: string, userId?: string): Promise<string[]> {
@@ -89,21 +94,21 @@ export async function detectSentences(text: string, userId?: string): Promise<st
       }
     }
     
-    // // Save to database if userId is provided
-    // if (userId) {
-    //   console.log(`detectSentences: Saving sentences to database for userId=${userId}`);
-    //   const dbStartTime = Date.now();
+    // Save to database if userId is provided
+    if (userId) {
+      console.log(`detectSentences: Saving sentences to database for userId=${userId}`);
+      const dbStartTime = Date.now();
       
-    //   try {
-    //     await saveSentencesToUserLatestResume(userId, sentences);
+      try {
+        await saveSentencesToUserLatestResume(userId, sentences);
         
-    //     const dbEndTime = Date.now();
-    //     console.log(`detectSentences: Database save completed in ${dbEndTime - dbStartTime}ms`);
-    //   } catch (dbError) {
-    //     console.error('detectSentences: Database save failed:', dbError);
-    //     console.log('detectSentences: Continuing to return sentences despite database error');
-    //   }
-    // }
+        const dbEndTime = Date.now();
+        console.log(`detectSentences: Database save completed in ${dbEndTime - dbStartTime}ms`);
+      } catch (dbError) {
+        console.error('detectSentences: Database save failed:', dbError);
+        console.log('detectSentences: Continuing to return sentences despite database error');
+      }
+    }
     
     const endTime = Date.now();
     console.log(`detectSentences: Function completed in ${endTime - startTime}ms`);
@@ -347,100 +352,101 @@ function cleanAndDeduplicate(sentences: string[]): string[] {
 }
 
 // Helper function to find the most recent resume for a user and save sentences to it
-// async function saveSentencesToUserLatestResume(userId: string, sentences: string[]): Promise<void> {
-//   console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
-//   const startTime = Date.now();
+async function saveSentencesToUserLatestResume(userId: string, sentences: string[]): Promise<void> {
+  console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
+  const startTime = Date.now();
   
-//   try {
-//     // Get Supabase credentials from environment
-//     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-//     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  try {
+    // Get Supabase credentials from environment
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
-//     if (!supabaseUrl || !supabaseKey) {
-//       console.error('saveSentencesToUserLatestResume: Missing Supabase credentials');
-//       throw new Error('Supabase credentials not configured');
-//     }
+    if (!supabaseUrl || !supabaseKey) {
+      console.error('saveSentencesToUserLatestResume: Missing Supabase credentials');
+      throw new Error('Supabase credentials not configured');
+    }
     
-//     console.log('saveSentencesToUserLatestResume: Initializing Supabase client');
-//     // Initialize Supabase client
-//     const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log('saveSentencesToUserLatestResume: Initializing Supabase client');
+    // Initialize Supabase client
+    const supabase = createClient(supabaseUrl, supabaseKey);
     
-//     // Find the most recent resume for this user
-//     console.log(`saveSentencesToUserLatestResume: Querying for most recent resume for user ${userId}`);
-//     const queryStartTime = Date.now();
+    // Find the most recent resume for this user
+    console.log(`saveSentencesToUserLatestResume: Querying for most recent resume for user ${userId}`);
+    const queryStartTime = Date.now();
     
-//     const { data: recentResumes, error: queryError } = await supabase
-//       .from('resumes')
-//       .select('id, updated_at')
-//       .eq('user_id', userId)
-//       .order('updated_at', { ascending: false })
-//       .limit(1);
+    const { data: recentResumes, error: queryError } = await supabase
+      .from('resumes')
+      .select('id, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1);
     
-//     const queryEndTime = Date.now();
-//     console.log(`saveSentencesToUserLatestResume: Query completed in ${queryEndTime - queryStartTime}ms`);
+    const queryEndTime = Date.now();
+    console.log(`saveSentencesToUserLatestResume: Query completed in ${queryEndTime - queryStartTime}ms`);
     
-//     if (queryError) {
-//       console.error('saveSentencesToUserLatestResume: Database query error:', queryError);
-//       throw queryError;
-//     }
+    if (queryError) {
+      console.error('saveSentencesToUserLatestResume: Database query error:', queryError);
+      throw queryError;
+    }
     
-//     console.log(`saveSentencesToUserLatestResume: Query returned ${recentResumes ? recentResumes.length : 0} results`);
+    console.log(`saveSentencesToUserLatestResume: Query returned ${recentResumes ? recentResumes.length : 0} results`);
     
-//     if (!recentResumes || recentResumes.length === 0) {
-//       console.error(`saveSentencesToUserLatestResume: No resumes found for user ${userId}`);
-//       throw new Error(`No resumes found for user ${userId}`);
-//     }
+    if (!recentResumes || recentResumes.length === 0) {
+      console.error(`saveSentencesToUserLatestResume: No resumes found for user ${userId}`);
+      throw new Error(`No resumes found for user ${userId}`);
+    }
     
-//     const resumeId = recentResumes[0].id;
-//     const resumeUpdatedAt = recentResumes[0].updated_at;
-//     console.log(`saveSentencesToUserLatestResume: Found most recent resume ${resumeId} (last updated: ${resumeUpdatedAt})`);
+    const resumeId = recentResumes[0].id;
+    const resumeUpdatedAt = recentResumes[0].updated_at;
+    console.log(`saveSentencesToUserLatestResume: Found most recent resume ${resumeId} (last updated: ${resumeUpdatedAt})`);
     
-//     // Update the resume record with sentences
-//     console.log(`saveSentencesToUserLatestResume: Updating resume ${resumeId} with ${sentences.length} sentences`);
-//     const updateStartTime = Date.now();
+    // Update the resume record with sentences
+    console.log(`saveSentencesToUserLatestResume: Updating resume ${resumeId} with ${sentences.length} sentences`);
+    const updateStartTime = Date.now();
     
-//     const { error: updateError } = await supabase
-//       .from('resumes')
-//       .update({ 
-//         sentences: sentences,
-//         sentences_updated_at: new Date().toISOString()
-//       })
-//       .eq('id', resumeId);
+    const { error: updateError } = await supabase
+      .from('resumes')
+      .update({ 
+        sentences: sentences,
+        sentences_updated_at: new Date().toISOString()
+      })
+      .eq('id', resumeId);
     
-//     const updateEndTime = Date.now();
-//     console.log(`saveSentencesToUserLatestResume: Update completed in ${updateEndTime - updateStartTime}ms`);
+    const updateEndTime = Date.now();
+    console.log(`saveSentencesToUserLatestResume: Update completed in ${updateEndTime - updateStartTime}ms`);
     
-//     if (updateError) {
-//       console.error('saveSentencesToUserLatestResume: Database update error:', updateError);
-//       throw updateError;
-//     }
+    if (updateError) {
+      console.error('saveSentencesToUserLatestResume: Database update error:', updateError);
+      throw updateError;
+    }
 
-//     // Add this right after the update operation in sentenceDetector.ts
-//     const { data: verifyData, error: verifyError } = await supabase
-//       .from('resumes')
-//       .select('sentences, sentences_updated_at')
-//       .eq('id', resumeId)
-//       .single();
+    // Add this right after the update operation in sentenceDetector.ts
+    const { data: verifyData, error: verifyError } = await supabase
+      .from('resumes')
+      .select('sentences, sentences_updated_at')
+      .eq('id', resumeId)
+      .single();
     
-//     console.log('Verification after update:');
-//     console.log('  Data exists:', !!verifyData);
-//     console.log('  Sentences exists:', !!verifyData?.sentences);
-//     console.log('  Sentences count:', verifyData?.sentences?.length || 0);
-//     console.log('  Updated timestamp:', verifyData?.sentences_updated_at);
-//     console.log('  Verify error:', verifyError);
+    console.log('Verification after update:');
+    console.log('  Data exists:', !!verifyData);
+    console.log('  Sentences exists:', !!verifyData?.sentences);
+    console.log('  Sentences count:', verifyData?.sentences?.length || 0);
+    console.log('  Updated timestamp:', verifyData?.sentences_updated_at);
+    console.log('  Verify error:', verifyError);
     
-//     const endTime = Date.now();
-//     console.log(`saveSentencesToUserLatestResume: Successfully saved ${sentences.length} sentences to resume ${resumeId}`);
-//     console.log(`saveSentencesToUserLatestResume: Total function execution time: ${endTime - startTime}ms`);
-//   } catch (error) {
-//     const errorTime = Date.now() - startTime;
-//     console.error(`saveSentencesToUserLatestResume: Error after ${errorTime}ms:`, error.message);
-//     if (error.stack) {
-//       console.error('saveSentencesToUserLatestResume: Error stack:', error.stack);
-//     }
-//     throw error;
-//   }
-// }
+    const endTime = Date.now();
+    console.log(`saveSentencesToUserLatestResume: Successfully saved ${sentences.length} sentences to resume ${resumeId}`);
+    console.log(`saveSentencesToUserLatestResume: Total function execution time: ${endTime - startTime}ms`);
+  } catch (error) {
+    const errorTime = Date.now() - startTime;
+    console.error(`saveSentencesToUserLatestResume: Error after ${errorTime}ms:`, error.message);
+    if (error.stack) {
+      console.error('saveSentencesToUserLatestResume: Error stack:', error.stack);
+    }
+    throw error;
+  }
+}
+
 
 // Update the function signature to accept userId
 export async function extractAndSaveSentences(text: string, userId: string): Promise<string[]> {
@@ -460,4 +466,3 @@ export async function extractAndSaveSentences(text: string, userId: string): Pro
     throw error;
   }
 }
-
