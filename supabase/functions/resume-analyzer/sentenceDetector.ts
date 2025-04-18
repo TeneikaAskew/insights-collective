@@ -109,7 +109,7 @@ export async function detectSentences(text, userId) {
   }
 }
 // Helper function to extract sentences from the response with multiple fallback strategies
-function extractSentencesFromResponse(content) {
+export function extractSentencesFromResponse(content) {
   console.log('extractSentencesFromResponse: Starting extraction');
   let sentences = [];
   // Try multiple extraction methods, from most structured to least
@@ -292,7 +292,7 @@ function cleanAndDeduplicate(sentences) {
   return result;
 }
 // Save extracted sentences to the most recent resume record of the user in DB
-async function saveSentencesToDatabase(userId, sentences) {
+export async function saveSentencesToDatabase(userId, sentences) {
   console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
   const startTime = Date.now();
   // Initialize Supabase client inside the function with service role key
