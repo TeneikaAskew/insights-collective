@@ -20,7 +20,6 @@ const userId = user?.id;
 
 const bulletCache = new Map<string, string[]>();
 const roastCache = new Map<string, string>();
-console.log("bullet cache: ",bulletCache)
 
 export { detectSentences };
 export { serveBulletImprover };
