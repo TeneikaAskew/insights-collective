@@ -1,24 +1,22 @@
-
 import React from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { BulletDonutChart, DistributionBar } from './chart/ChartComponents';
 import { prepareBulletChartData, BULLET_CATEGORIES } from './chart/BulletChartData';
-
 interface BulletPointChartProps {
   bullet: BulletAnalysis;
 }
-
 const BulletPointChart: React.FC<BulletPointChartProps> = ({
   bullet
 }) => {
   // Safety check - if bullet is null or undefined, render nothing
   if (!bullet) return null;
-  
-  // Get formatted chart data
-  const { dataWithPercent, bullet_total } = prepareBulletChartData(bullet);
 
-  return (
-    <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
+  // Get formatted chart data
+  const {
+    dataWithPercent,
+    bullet_total
+  } = prepareBulletChartData(bullet);
+  return <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
       <style>{`
         :root {
           --color-hard-soft: #1E40AF; /* Primary blue for Hard & Soft Skills */
@@ -29,7 +27,7 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
       `}</style>
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-1">
-          <h3 className="text-md font-semibold text-center mb-4">Bullet Anatomy</h3>
+          <h3 className="text-md font-semibold text-center mb-4">Anatomy of a Bullet Point</h3>
           <BulletDonutChart data={dataWithPercent} totalScore={bullet_total} />
         </div>
         
@@ -43,14 +41,10 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
           </div>
           
           <div className="space-y-4">
-            {dataWithPercent.map((item, index) => (
-              <DistributionBar key={`distribution-${item.name}-${index}`} item={item} />
-            ))}
+            {dataWithPercent.map((item, index) => <DistributionBar key={`distribution-${item.name}-${index}`} item={item} />)}
           </div>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default BulletPointChart;
