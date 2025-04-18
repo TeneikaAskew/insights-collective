@@ -13,10 +13,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
-const { data: { user } } = await supabase.auth.getUser();
-console.log("Logged in as: ", user);
-const userId = user?.id;
-const bulletCache = new Map();
 const roastCache = new Map();
 export { detectSentences };
 export { serveBulletImprover };
@@ -32,6 +28,7 @@ export function serveSentenceDetector() {
     }
     try {
       const { text, userId: userId } = await req.json();
+      console.log(userId, " - User to get sentences")
       if (!text || typeof text !== 'string') {
         return new Response(JSON.stringify({
           error: 'Missing or invalid text parameter'
@@ -283,6 +280,9 @@ serve(async (req)=>{
       headers: corsHeaders
     });
   }
+
+  const { userId, bullets } = await req.json();
+  console.log("Logged in user: ", userId)
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
   console.log(`Getting sentences for ${userId || 'anonymous'}`);
