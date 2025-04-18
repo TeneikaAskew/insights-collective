@@ -18,7 +18,7 @@ export { detectSentences };
 export { serveBulletImprover };
 
 // Sentence detector endpoint
-export function serveSentenceDetector() {
+export function serveSentenceDetector(resumeText, userId)) {
   return async (req)=>{
     if (req.method === 'OPTIONS') {
       return new Response(null, {
@@ -41,7 +41,7 @@ export function serveSentenceDetector() {
         });
       }
       // Extract sentences
-      const sentences = await detectSentences(text, userId);
+      const sentences = await detectSentences(resumeText, userId);
       console.log("User: ", userId, "Sentences: ", sentences);
       return new Response(JSON.stringify({
         sentences
@@ -315,7 +315,7 @@ serve(async (req)=>{
 
   
   if (path === 'detect-sentences') {
-    return await serveSentenceDetector()(req);
+    return await serveSentenceDetector(resumeText, userId))(req);
   }
   if (path === 'improve-bullet') {
     return await serveBulletImprover()(req);
