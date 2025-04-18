@@ -80,15 +80,13 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   };
   return <Card>
       <CardHeader>
-        <CardTitle className="text-center">Resume Bullet Analysis</CardTitle>
-        <CardDescription className="text-center">
-          Comprehensive breakdown of your resume bullet points with improvement suggestions
-        </CardDescription>
+        <CardTitle className="text-center">Storytelling Analysis</CardTitle>
+        <CardDescription className="text-center">Every bullet on your resume should tell a story, this ia a breakdown of your resume bullet points with improvement suggestions to enhance that story.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Bullet selection with wider dropdown */}
         <div>
-          <label className="block text-sm font-medium mb-2">Select bullet point to analyze:</label>
+          <label className="block text-sm font-medium mb-2">Select a bullet point:</label>
           <select className="w-full border rounded p-2 text-ellipsis overflow-hidden" value={selectedBulletIndex} onChange={e => {
           setSelectedBulletIndex(parseInt(e.target.value));
           setEditedBullet(null); // Reset edited bullet when selection changes
