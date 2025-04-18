@@ -133,52 +133,7 @@ const Resume = () => {
     }
   };
 
-  // const handleUpload = async () => {
-  //   if (!resumeFile) {
-  //   // if (!resumeFile || !extractedText) {
-  //     toast({
-  //       title: 'Wait',
-        
-  //       description: 'No file selected.',
-  //       // description: 'Still extracting text or no file selected.',
-  //       variant: 'destructive',
-  //     });
-  //     return;
-  //   }
-    
-  //   setHasLoadedAnalysis(false);
-  //   setStorageError(null);
 
-  //   const ok = await uploadResume(resumeFile)
-  //   if (!ok) {
-  //     // Upload failed, reset state
-  //     resetLocalState()
-  //     return
-  //   }
-
-  //   f (resume?.text) {
-  //     try {
-  //       await analyzeResume(resume.text)
-  //       setHasLoadedAnalysis(true)
-  //     } catch (analysisError) {
-  //       console.error('Analysis error:', analysisError)
-  //       toast({
-  //         title: 'Analysis Failed',
-  //         description: 'Resume was uploaded but analysis failed. You can try again.',
-  //         variant: 'destructive',
-  //       })
-  //     }
-  //   }
-  // } catch (error) {
-  //   console.error('Upload error:', error)
-  //   resetLocalState()
-  //   // Show error toast
-  //   toast({
-  //       title: 'Upload Failed',
-  //       description: 'Could not upload resume. Please try again.',
-  //       variant: 'destructive',
-  //   })
-  // }
 const handleUpload = async () => {
   if (!resumeFile) {
     toast({
@@ -239,37 +194,6 @@ const handleUpload = async () => {
     // Don't reset state on error - keep the file if it was uploaded
   }
 };  
-    // force a refetch so resume.text is populated
-    // await refreshResume()
-  
-    // if (resume?.text) {
-    //   await analyzeResume(resume.text)
-    //   setHasLoadedAnalysis(true)
-    // }    
-    // try {
-    //   const ok = await uploadResume(resumeFile);
-    //   if (!ok) return
-    //   if (ok) {
-    //     try {
-    //       // await analyzeResume(extractedText);
-    //       await analyzeResume(resume.text!);
-    //       setHasLoadedAnalysis(true);
-    //     } catch (error) {
-    //       console.error('Error analyzing resume:', error);
-    //       toast({
-    //         title: 'Analysis Error',
-    //         description: 'Resume was uploaded but analysis failed. You can try again later.',
-    //         variant: 'destructive',
-    //       });
-    //     }
-    //   }
-    // } catch (error) {
-    //   console.error('Error uploading resume:', error);
-    //   if (error.message?.includes('bucket') || error.message?.includes('storage')) {
-    //     setStorageError("Resume storage is not properly configured. Please contact support.");
-    //   }
-    // }
-  };
 
 
 const handleDelete = async () => {
@@ -307,43 +231,6 @@ const handleDelete = async () => {
   }
 };
 
-
-  // const handleDelete = async () => {
-  //   setIsDeleting(true)
-  //   try {
-
-  //     await deleteResume()
-  //     // if (resume) await deleteResume();
-  //     resetLocalState()
-  //     // 1) delete server‑side
-      
-  //    // 3) Wait a moment to ensure all listeners have processed the deletion event
-  //     await new Promise(resolve => setTimeout(resolve, 500))
-    
-  //     // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
-  //     await refreshResume()
-  
-  //     // 3) clear all local UI bits
-  //     // setResumeFile(null)
-  //     // setPdfDataUrl(null)
-  //     // setExtractedText(null)
-  //     // setShowCareerChat(false)
-  //     // setAnalysis(null)
-  //     // setHasLoadedAnalysis(false)
-  
-  //     toast({ title: 'Deleted', description: 'Your resume is gone.' })
-      
-  //   } catch (error) {
-  //     console.error('Error in handleDelete:', error)
-  //     toast({
-  //       title: 'Delete Failed',
-  //       description: 'Could not delete resume. Please try again.',
-  //       variant: 'destructive',
-  //   })
-  //     } finally {
-  //       setIsDeleting(false)
-  //     }
-  //   }
 
   const handleDownload = () => {
     if (resume?.file_url) window.open(resume.file_url, '_blank');
