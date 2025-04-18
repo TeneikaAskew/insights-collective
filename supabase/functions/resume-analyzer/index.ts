@@ -18,7 +18,7 @@ export { detectSentences };
 export { serveBulletImprover };
 
 // Sentence detector endpoint
-export function serveSentenceDetector(resumeText, userId)) {
+export function serveSentenceDetector(resumeText, userId) {
   return async (req)=>{
     if (req.method === 'OPTIONS') {
       return new Response(null, {
@@ -315,7 +315,7 @@ serve(async (req)=>{
 
   
   if (path === 'detect-sentences') {
-    return await serveSentenceDetector(resumeText, userId))(req);
+    return await serveSentenceDetector(resumeText, userId)(req);
   }
   if (path === 'improve-bullet') {
     return await serveBulletImprover()(req);
