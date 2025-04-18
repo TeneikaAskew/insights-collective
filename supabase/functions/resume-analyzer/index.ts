@@ -58,6 +58,71 @@ export function serveSentenceDetector() {
   };
 }
 
+async function saveSentencesToDatabase(userId: string, sentences: string[]) {
+  if (!userId || !sentences || sentences.length === 0) {
+    console.log("Not saving sentences: Missing userId or no sentences to save");
+    return;
+  }
+  
+  try {
+    console.log(`Saving ${sentences.length} sentences for user ${userId}`);
+    
+    // Find the user's most recent resume
+    const { data: resumeRecord, error: findError } = await supabase
+      .from('resumes')
+      .select('id')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .single();
+      
+    if (findError) {
+      console.error("Error finding resume record:", findError);
+      return;
+    }
+    
+    // Update the resume with the sentences
+    const { error: updateError } = await supabase
+      .from('resumes')
+      .update({
+        sentences: sentences,
+        sentences_updated_at: new Date().toISOString()
+      })
+      .eq('id', resumeRecord.id);
+      
+    if (updateError) {
+      console.error("Error updating sentences:", updateError);
+      return;
+    }
+    
+    // Verify the update
+    const { data: verifyData, error: verifyError } = await supabase
+      .from('resumes')
+      .select('sentences, sentences_updated_at')
+      .eq('id', resumeRecord.id)
+      .single();
+      
+    console.log("Sentences saved to database:", {
+      success: !!verifyData && Array.isArray(verifyData.sentences),
+      count: verifyData?.sentences?.length || 0,
+      updated_at: verifyData?.sentences_updated_at
+    });
+    
+  } catch (error) {
+    console.error("Error saving sentences to database:", error);
+  }
+}
+
+// Then in your main analyzeResume function, add this after extracting bullets:
+if (userId && bulletPoints.length > 0) {
+  // Save to cache
+  bulletCache.set(`user:${userId}:bullets`, bulletPoints);
+  console.log(`Cached ${bulletPoints.length} bullets for user:${userId}`);
+  
+  // Also save to database
+  await saveSentencesToDatabase(userId, bulletPoints);
+}
+
 async function getResumeRoast(resumeText: string, userId?: string) {
   try {
     const cacheKey = userId ? `user:${userId}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
