@@ -3,7 +3,7 @@ import { safeJsonParse, handleApiError } from './utils.ts';
 import { createClient } from '@supabase/supabase-js';
 
 // Function to detect sentences from resume text and save to database
-export async function detectSentences(text: string, resumeId?: string): Promise<string[]> {
+export async function detectSentences(text: string, userId?: string): Promise<string[]> {
   console.log('detectSentences: input text length=', text.length);
   try {
     const GROQ_API_KEY = Deno.env.get('GROQ');
@@ -57,9 +57,9 @@ export async function detectSentences(text: string, resumeId?: string): Promise<
     // Robust parsing logic after receiving response
     const sentences = extractSentencesFromResponse(content);
     
-    // Save to database if resumeId is provided
-    if (resumeId) {
-      await saveSentencesToDatabase(resumeId, sentences);
+    // Save to database if userId is provided
+    if (userId) {
+      await saveSentencesToUserLatestResume(userId, sentences);
     }
     
     return sentences;
@@ -216,10 +216,10 @@ function cleanAndDeduplicate(sentences: string[]): string[] {
   return result;
 }
 
-// Helper function to save sentences to the database
-async function saveSentencesToDatabase(resumeId: string, sentences: string[]): Promise<void> {
+// Helper function to find the most recent resume for a user and save sentences to it
+async function saveSentencesToUserLatestResume(userId: string, sentences: string[]): Promise<void> {
   try {
-    console.log(`saveSentencesToDatabase: Saving ${sentences.length} sentences for resume ${resumeId}`);
+    console.log(`saveSentencesToUserLatestResume: Finding most recent resume for user ${userId}`);
     
     // Get Supabase credentials from environment
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -232,28 +232,49 @@ async function saveSentencesToDatabase(resumeId: string, sentences: string[]): P
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseKey);
     
+    // Find the most recent resume for this user
+    const { data: recentResumes, error: queryError } = await supabase
+      .from('resumes')
+      .select('id, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    
+    if (queryError) {
+      console.error('saveSentencesToUserLatestResume: Error finding recent resume:', queryError);
+      throw queryError;
+    }
+    
+    if (!recentResumes || recentResumes.length === 0) {
+      console.error(`saveSentencesToUserLatestResume: No resumes found for user ${userId}`);
+      throw new Error(`No resumes found for user ${userId}`);
+    }
+    
+    const resumeRecord = recentResumes[0];
+    console.log(`saveSentencesToUserLatestResume: Found most recent resume with id ${resumeRecord.id}`);
+    
     // Update the resume record with sentences
-    const { error } = await supabase
+    const { error: updateError } = await supabase
       .from('resumes')
       .update({ 
         sentences: sentences,
         sentences_updated_at: new Date().toISOString()
       })
-      .eq('id', resumeId);
+      .eq('id', resumeRecord.id);
     
-    if (error) {
-      console.error('saveSentencesToDatabase: Error updating resume:', error);
-      throw error;
+    if (updateError) {
+      console.error('saveSentencesToUserLatestResume: Error updating resume:', updateError);
+      throw updateError;
     }
     
-    console.log(`saveSentencesToDatabase: Successfully saved sentences for resume ${resumeId}`);
+    console.log(`saveSentencesToUserLatestResume: Successfully saved ${sentences.length} sentences to resume ${resumeRecord.id}`);
   } catch (error) {
-    console.error('saveSentencesToDatabase: Error saving to database:', error.message);
+    console.error('saveSentencesToUserLatestResume: Error saving to database:', error.message);
     throw error;
   }
 }
 
-// Update the function signature to accept resumeId
-export async function extractAndSaveSentences(text: string, resumeId: string): Promise<string[]> {
-  return detectSentences(text, resumeId);
+// Convenience function to extract and save sentences
+export async function extractAndSaveSentences(text: string, userId: string): Promise<string[]> {
+  return detectSentences(text, userId);
 }
