@@ -193,7 +193,7 @@ const Resume = () => {
       resetLocalState();
       // 1) delete server‑side
       
-   // 3) Wait a moment to ensure all listeners have processed the deletion event
+     // 3) Wait a moment to ensure all listeners have processed the deletion event
       await new Promise(resolve => setTimeout(resolve, 500));
     
       // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
