@@ -109,7 +109,7 @@ export async function detectSentences(text, userId) {
   }
 }
 // Helper function to extract sentences from the response with multiple fallback strategies
-export function extractSentencesFromResponse(content) {
+function extractSentencesFromResponse(content) {
   console.log('extractSentencesFromResponse: Starting extraction');
   let sentences = [];
   // Try multiple extraction methods, from most structured to least
@@ -292,7 +292,7 @@ function cleanAndDeduplicate(sentences) {
   return result;
 }
 // Save extracted sentences to the most recent resume record of the user in DB
-export async function saveSentencesToDatabase(userId, sentences) {
+async function saveSentencesToDatabase(userId, sentences) {
   console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
   const startTime = Date.now();
   // Initialize Supabase client inside the function with service role key
@@ -301,16 +301,9 @@ export async function saveSentencesToDatabase(userId, sentences) {
     // Find the most recent resume for this user
     console.log(`saveSentencesToUserLatestResume: Querying for most recent resume for user ${userId}`);
     const queryStartTime = Date.now();
-    const { data: recentResume, error: queryError } = await supabase
-      .from('resumes')
-      .select('id, updated_at')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single()
-    // const { data: recentResumes, error: queryError } = await supabase.from('resumes').select('id, updated_at').eq('user_id', userId).order('updated_at', {
-    //   ascending: false
-    // }).limit(1);
+    const { data: recentResumes, error: queryError } = await supabase.from('resumes').select('id, updated_at').eq('user_id', userId).order('updated_at', {
+      ascending: false
+    }).limit(1);
     const queryEndTime = Date.now();
     console.log(`saveSentencesToUserLatestResume: Query completed in ${queryEndTime - queryStartTime}ms`);
     if (queryError) {
@@ -357,8 +350,6 @@ export async function saveSentencesToDatabase(userId, sentences) {
     throw error;
   }
 }
-
-
 // Update the function signature to accept userId
 export async function extractAndSaveSentences(text, userId) {
   console.log(`extractAndSaveSentences: Starting for userId=${userId} with text length=${text.length}`);
