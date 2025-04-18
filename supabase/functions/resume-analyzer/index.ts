@@ -11,13 +11,6 @@ import { detectSentences } from "./sentenceDetector.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 import { corsHeaders } from "./utils.ts";
 
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const { data: { user } } = await supabase.auth.getUser();
-const supabase = createClient(supabaseUrl, supabaseKey);
-console.log("Logged in as: ", user)
-const userId = user?.id;
-
 const bulletCache = new Map<string, string[]>();
 const roastCache = new Map<string, string>();
 
