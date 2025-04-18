@@ -1,3 +1,4 @@
+console.log('Sentence Detection Begins');
 import { safeJsonParse, handleApiError } from './utils.ts';
 
 // Function to detect sentences from resume text\ nexport async function detectSentences(text: string): Promise<string[]> {
