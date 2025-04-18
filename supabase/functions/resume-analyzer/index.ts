@@ -271,7 +271,8 @@ async function analyzeResume(resumeText, userId) {
       console.log('Successfully updated resume analysis in database');
     }    
 
-    getResumeRoast(text, userId).catch(err => console.error('Roast failed:', err));
+    if (userId) await getResumeRoast(text, userId);
+    // getResumeRoast(text, userId).catch(err => console.error('Roast failed:', err));
     
     return enhanced;
     
