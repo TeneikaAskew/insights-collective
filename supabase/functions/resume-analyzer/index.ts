@@ -39,11 +39,13 @@ export function serveSentenceDetector() {
 
       // Extract sentences
       const sentences = await detectSentences(text);
+      console.log("User: ", userId, "Sentences: ", sentences)
 
       // Optionally save sentences to DB
       if (userId && sentences.length > 0) {
         await saveSentencesToDatabase(userId, sentences);
       }
+      
 
       return new Response(
         JSON.stringify({ sentences }),
