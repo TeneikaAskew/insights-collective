@@ -31,7 +31,7 @@ export function serveSentenceDetector() {
       });
     }
     try {
-      const { text, userId: userId1 } = await req.json();
+      const { text, userId: userId } = await req.json();
       if (!text || typeof text !== 'string') {
         return new Response(JSON.stringify({
           error: 'Missing or invalid text parameter'
@@ -44,8 +44,8 @@ export function serveSentenceDetector() {
         });
       }
       // Extract sentences
-      const sentences = await detectSentences(text, userId1);
-      console.log("User: ", userId1, "Sentences: ", sentences);
+      const sentences = await detectSentences(text, userId);
+      console.log("User: ", userId, "Sentences: ", sentences);
       return new Response(JSON.stringify({
         sentences
       }), {
@@ -55,13 +55,13 @@ export function serveSentenceDetector() {
         }
       });
 
-      if (userId1) {
-        await saveSentencesToDatabase(userId1, sentences)
+      if (userId) {
+        await saveSentencesToDatabase(userId, sentences)
       // await supabase.from('resumes').update({
       //   sentences: sentences,
       //   sentences_updated_at: new Date().toISOString()
-      // }).eq('user_id', userId1);
-      console.log('Sentences stored in database for user:', userId1);
+      // }).eq('user_id', userId);
+      console.log('Sentences stored in database for user:', userId);
     }
 
       
@@ -81,8 +81,8 @@ export function serveSentenceDetector() {
   };
 }
 // Generate a resume roast and store it
-async function getResumeRoast(resumeText, userId1) {
-  const cacheKey = userId1 ? `user:${userId1}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
+async function getResumeRoast(resumeText, userId) {
+  const cacheKey = userId ? `user:${userId}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
   if (roastCache.has(cacheKey)) {
     console.log('Using cached roast');
     return {
@@ -123,11 +123,11 @@ async function getResumeRoast(resumeText, userId1) {
     const roastText = result.choices[0].message.content.trim();
     const cleanRoast = roastText.replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, '').replace(/^[–\-*\s]*|:/g, '').trim();
     roastCache.set(cacheKey, cleanRoast);
-    if (userId1) {
+    if (userId) {
       await supabase.from('resumes').update({
         initial_assessment: cleanRoast
-      }).eq('user_id', userId1);
-      console.log('Assessment stored in database for user:', userId1);
+      }).eq('user_id', userId);
+      console.log('Assessment stored in database for user:', userId);
     }
     return {
       roast: cleanRoast
@@ -142,15 +142,15 @@ async function getResumeRoast(resumeText, userId1) {
 
 
 // Main resume analysis logic
-async function analyzeResume(resumeText, userId1) {
+async function analyzeResume(resumeText, userId) {
   let text = resumeText;
   try {
-    if (userId1) {
-      // const { data: existing, error: fetchError } = await supabase.from('resumes').select('id,text').eq('user_id', userId1).maybeSingle();
+    if (userId) {
+      // const { data: existing, error: fetchError } = await supabase.from('resumes').select('id,text').eq('user_id', userId).maybeSingle();
       const { data: existing, error: fetchError } = await supabase
         .from('resumes')
         .select('id,text')
-        .eq('user_id', userId1)
+        .eq('user_id', userId)
         .order('uploaded_at', { ascending: false })  // Order by upload date, newest first
         .limit(1)  // Only get the most recent record
         .maybeSingle();
@@ -161,19 +161,19 @@ async function analyzeResume(resumeText, userId1) {
     }
     if (!text) throw new Error('No resume text provided');
     // Roast
-    if (userId1) await getResumeRoast(text, userId1);
+    if (userId) await getResumeRoast(text, userId);
     // Bullets
     let bulletPoints = [];
-    if (userId1 && bulletCache.has(`user:${userId1}:bullets`)) {
-      console.log('Using cached bullets for user:', userId1);
-      bulletPoints = bulletCache.get(`user:${userId1}:bullets`);
+    if (userId && bulletCache.has(`user:${userId}:bullets`)) {
+      console.log('Using cached bullets for user:', userId);
+      bulletPoints = bulletCache.get(`user:${userId}:bullets`);
     } else {
       bulletPoints = await extractBulletPoints(text);
       console.log('Bullet Points:', bulletPoints.length);
       if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
-      if (bulletPoints.length > 0 && userId1) {
-        bulletCache.set(`user:${userId1}:bullets`, bulletPoints);
-      await saveSentencesToDatabase(userId1, bulletPoints);
+      if (bulletPoints.length > 0 && userId) {
+        bulletCache.set(`user:${userId}:bullets`, bulletPoints);
+      await saveSentencesToDatabase(userId, bulletPoints);
       }
     }
     if (bulletPoints.length === 0) {
@@ -251,11 +251,11 @@ async function analyzeResume(resumeText, userId1) {
     } catch  {
       enhanced = basic;
     }
-    if (userId1) {
+    if (userId) {
       await supabase.from('resumes').update({
         analysis: enhanced,
         updated_at: new Date().toISOString()
-      }).eq('user_id', userId1);
+      }).eq('user_id', userId);
       console.log('Successfully updated resume analysis in database');
     }
     return enhanced;
@@ -285,7 +285,7 @@ serve(async (req)=>{
   }
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
-  console.log(`Getting sentences for ${userId1 || 'anonymous'}`);
+  console.log(`Getting sentences for ${userId || 'anonymous'}`);
   if (path === 'detect-sentences') {
     return await serveSentenceDetector()(req);
   }
@@ -293,10 +293,10 @@ serve(async (req)=>{
     // return await serveBulletImprover()(req);
   }
   try {
-    console.log(`Getting resume roast for ${userId1 || 'anonymous'}`);
-    // const { action, resumeText, userId: userId1 } = await req.json();
+    console.log(`Getting resume roast for ${userId || 'anonymous'}`);
+    // const { action, resumeText, userId: userId } = await req.json();
     // if (action === 'get-roast') {
-    //   const roastData = await getResumeRoast(resumeText, userId1);
+    //   const roastData = await getResumeRoast(resumeText, userId);
     //   return new Response(JSON.stringify(roastData), {
     //     headers: {
     //       'Content-Type': 'application/json',
@@ -304,8 +304,8 @@ serve(async (req)=>{
     //     }
     //   });
     // }
-    console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
-    // const analysis = await analyzeResume(resumeText, userId1);
+    console.log(`Analyzing resume for ${userId || 'anonymous'}`);
+    // const analysis = await analyzeResume(resumeText, userId);
     // return new Response(JSON.stringify(analysis), {
     //   headers: {
     //     'Content-Type': 'application/json',
@@ -349,13 +349,13 @@ serve(async (req)=>{
 //   }
   
 //   try {
-//     const { action, resumeText, userId: userId1 } = await req.json();
+//     const { action, resumeText, userId: userId } = await req.json();
     
 //     // Handle the main resume processing cases - analyze first, then get-roast
-//     console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
+//     console.log(`Analyzing resume for ${userId || 'anonymous'}`);
     
 //     if (action === 'get-roast') {
-//       const roastData = await getResumeRoast(resumeText, userId1);
+//       const roastData = await getResumeRoast(resumeText, userId);
 //       return new Response(JSON.stringify(roastData), {
 //         headers: {
 //           'Content-Type': 'application/json',
@@ -365,7 +365,7 @@ serve(async (req)=>{
 //     }
     
 //     // Default action is to analyze the resume
-//     const analysis = await analyzeResume(resumeText, userId1);
+//     const analysis = await analyzeResume(resumeText, userId);
 //     return new Response(JSON.stringify(analysis), {
 //       headers: {
 //         'Content-Type': 'application/json',
