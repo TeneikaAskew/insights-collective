@@ -6,7 +6,7 @@ import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
 import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
-import { improveBullet } from "./bulletImprover.ts";
+import { serveBulletImprover } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
 import { corsHeaders } from "./utils.ts";
@@ -20,6 +20,7 @@ const userId = user?.id;
 
 const bulletCache = new Map<string, string[]>();
 const roastCache = new Map<string, string>();
+console.log("bullet cache: ",bulletCache)
 
 export { detectSentences };
 export { serveBulletImprover };
