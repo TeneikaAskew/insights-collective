@@ -61,46 +61,84 @@ if (!globalThis.bulletBatchQueue) {
   globalThis.processingInterval = null;
 }
 
-// For main batch processing requests (multiple bullets)
-export async function improveBulletsBatch(data) {
-  try {
-    const GROQ_API_KEY = Deno.env.get('GROQ');
-    if (!GROQ_API_KEY) {
-      console.warn("GROQ API key not found, falling back to basic bullet improvements");
-      throw new Error("GROQ API key not configured");
-    }
-    const { bullets, batchSize = 5 } = data;
-    // Process in batches to avoid token limits
-    const results = [];
-    const batches = [];
-    // Split into batches
-    for (let i = 0; i < bullets.length; i += batchSize) {
-      batches.push(bullets.slice(i, i + batchSize));
-    }
-    console.log(`Processing ${bullets.length} bullets in ${batches.length} batches`);
-    // Process each batch
-    for (let i = 0; i < batches.length; i++) {
-      const batch = batches[i];
-      console.log(`Processing batch ${i + 1}/${batches.length} with ${batch.length} bullets`);
-      // Wait between batches to avoid rate limiting
-      if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-      const batchResults = await processBatch(batch, GROQ_API_KEY);
-      results.push(...batchResults);
-    }
-    return results;
-  } catch (error) {
-    console.error("Error in batch bullet improvement:", error);
-    // Return originals with basic tips
-    return data.bullets.map((bullet) => ({
-      id: bullet.id,
-      original: bullet.original,
-      rewritten: bullet.original,
-      tips: "Try adding specific metrics and starting with a strong action verb."
-    }));
+
+// // For main batch processing requests (multiple bullets)
+// export async function improveBulletsBatch(data) {
+//   try {
+//     const GROQ_API_KEY = Deno.env.get('GROQ');
+//     if (!GROQ_API_KEY) {
+//       console.warn("GROQ API key not found, falling back to basic bullet improvements");
+//       throw new Error("GROQ API key not configured");
+//     }
+//     const { bullets, batchSize = 5 } = data;
+//     // Process in batches to avoid token limits
+//     const results = [];
+//     const batches = [];
+//     // Split into batches
+//     for (let i = 0; i < bullets.length; i += batchSize) {
+//       batches.push(bullets.slice(i, i + batchSize));
+//     }
+//     console.log(`Processing ${bullets.length} bullets in ${batches.length} batches`);
+//     // Process each batch
+//     for (let i = 0; i < batches.length; i++) {
+//       const batch = batches[i];
+//       console.log(`Processing batch ${i + 1}/${batches.length} with ${batch.length} bullets`);
+//       // Wait between batches to avoid rate limiting
+//       if (i > 0) {
+//         await new Promise(resolve => setTimeout(resolve, 2000));
+//       }
+//       const batchResults = await processBatch(batch, GROQ_API_KEY);
+//       results.push(...batchResults);
+//     }
+//     return results;
+//   } catch (error) {
+//     console.error("Error in batch bullet improvement:", error);
+//     // Return originals with basic tips
+//     return data.bullets.map((bullet) => ({
+//       id: bullet.id,
+//       original: bullet.original,
+//       rewritten: bullet.original,
+//       tips: "Try adding specific metrics and starting with a strong action verb."
+//     }));
+//   }
+// }
+
+
+/**
+ * Top‐level batch processor: splits bullets into batches, processes sequentially,
+ * and aggregates results. Honors configurable batch size and adds backoff between.
+ */
+export async function improveBulletsBatch(
+  data: { bullets: any[]; batchSize?: number }
+): Promise<Array<{ id: string; rewritten: string; tips: string }>> {
+  const GROQ_API_KEY = Deno.env.get('GROQ');
+  if (!GROQ_API_KEY) {
+    console.warn('No GROQ key, returning originals');
+    return data.bullets.map((b) => ({ id: b.id, rewritten: b.original, tips: 'No API key configured.' }));
   }
+
+  const size = data.batchSize ?? getBatchSize();
+  const chunks = chunkArray(data.bullets, size);
+  console.log(`Splitting ${data.bullets.length} bullets into ${chunks.length} batches of up to ${size}`);
+
+  const allResults: any[] = [];
+  for (let i = 0; i < chunks.length; i++) {
+    if (i > 0) await new Promise((r) => setTimeout(r, 2000));
+    console.log(`Processing batch ${i+1}/${chunks.length}`);
+    try {
+      const batchRes = await processBatch(chunks[i], GROQ_API_KEY);
+      allResults.push(...batchRes);
+    } catch (e) {
+      console.error('Batch failed:', e);
+      // fallback: identity map for that chunk
+      const fallback = chunks[i].map((b) => ({ id: b.id, rewritten: b.original, tips: 'Failed—please retry.' }));
+      allResults.push(...fallback);
+    }
+  }
+
+  return allResults;
 }
+
 
 // Single bullet improvement API - adds to queue
 export async function improveBullet(data) {
@@ -241,106 +279,234 @@ async function processBatchQueue() {
 }
 
 // Process a single batch of bullets
-async function processBatch(bullets, apiKey) {
-  try {
-    // Prepare the prompt for GROQ
-    const systemPrompt = `You are a professional resume bullet point improver. Your job is to:
-        1. Rewrite each given bullet point to be more impactful
-        2. Start with strong action verbs
-        3. Include quantifiable metrics where possible
-        4. Ensure clarity and conciseness (20-25 words max)
-        5. Incorporate relevant technical or leadership skills
+// async function processBatch(bullets, apiKey) {
+//   try {
+//     // Prepare the prompt for GROQ
+//     const systemPrompt = `You are a professional resume bullet point improver. Your job is to:
+//         1. Rewrite each given bullet point to be more impactful
+//         2. Start with strong action verbs
+//         3. Include quantifiable metrics where possible
+//         4. Ensure clarity and conciseness (20-25 words max)
+//         5. Incorporate relevant technical or leadership skills
         
-        IMPORTANT: Return your response as a JSON array of objects. Each object must have these properties:
-        - id: The ID of the original bullet (preserve this exactly)
-        - rewritten: The improved bullet point text
-        - tips: Specific tips for further improving this bullet point (2-3 sentences max)`;
-    // Build user prompt with all bullets in the batch
-    let userPrompt = "Improve the following resume bullet points:\n\n";
-    bullets.forEach((bullet, index) => {
-      const scores = JSON.stringify({
-        xyz_scores: bullet.xyz_scores || {},
-        word_balance_score: bullet.word_balance_score || 0,
-        word_balance: bullet.word_balance || {}
-      });
-      userPrompt += `[${index + 1}] ID: ${bullet.id}\nOriginal: "${bullet.original}"\nScores: ${scores}\n\n`;
-    });
-    userPrompt += "Return a JSON array of objects with id, rewritten, and tips properties.";
+//         IMPORTANT: Return your response as a JSON array of objects. Each object must have these properties:
+//         - id: The ID of the original bullet (preserve this exactly)
+//         - rewritten: The improved bullet point text
+//         - tips: Specific tips for further improving this bullet point (2-3 sentences max)`;
+//     // Build user prompt with all bullets in the batch
+//     let userPrompt = "Improve the following resume bullet points:\n\n";
+//     bullets.forEach((bullet, index) => {
+//       const scores = JSON.stringify({
+//         xyz_scores: bullet.xyz_scores || {},
+//         word_balance_score: bullet.word_balance_score || 0,
+//         word_balance: bullet.word_balance || {}
+//       });
+//       userPrompt += `[${index + 1}] ID: ${bullet.id}\nOriginal: "${bullet.original}"\nScores: ${scores}\n\n`;
+//     });
+//     userPrompt += "Return a JSON array of objects with id, rewritten, and tips properties.";
     
-    // Call GROQ API
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+//     // Call GROQ API
+//     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+//       method: 'POST',
+//       headers: {
+//         'Authorization': `Bearer ${apiKey}`,
+//         'Content-Type': 'application/json'
+//       },
+//       body: JSON.stringify({
+//         model: 'llama3-8b-8192',
+//         messages: [
+//           {
+//             role: 'system',
+//             content: systemPrompt
+//           },
+//           {
+//             role: 'user',
+//             content: userPrompt
+//           }
+//         ],
+//         temperature: 0.3,
+//         max_tokens: Math.min(2048, 512 * bullets.length) // Scale with batch size
+//       })
+//     });
+    
+//     if (!response.ok) {
+//       const errorText = await response.text();
+//       console.error('GROQ API error:', errorText);
+//       throw new Error(`GROQ API error: ${response.status}`);
+//     }
+    
+//     const data = await response.json();
+//     const content = data.choices?.[0]?.message?.content || '[]';
+//     console.log("GROQ Improved Bullets: ", content);
+    
+//     // 1) First try robust sentence extractor
+//     let parsedResults = [];
+//     try {
+//       parsedResults = parseGroqJsonResponse(content, bullets);
+//     } catch (ex) {
+//       console.warn('extractSentencesFromResponse failed, falling back to JSON‑array parse');
+//     }
+    
+//     // 2) If that didn't yield anything, fall back to existing parser
+//     if (parsedResults.length === 0) {
+//       try {
+//         const jsonOnly = extractSentencesFromResponse(content);
+//         parsedResults = jsonOnly.map((str) => JSON.parse(str));
+//       } catch (ex) {
+//         console.warn('parseGroqJsonResponse also failed, falling back to identity map');
+//       }
+//     }
+    
+//     // 3) Last resort: return the originals mapped back
+//     if (parsedResults.length === 0) {
+//       parsedResults = bullets.map((bullet) => ({
+//         id: bullet.id,
+//         original: bullet.original,
+//         rewritten: bullet.original,
+//         tips: "Service error. Try adding specific metrics and starting with a strong action verb."
+//       }));
+//     }
+    
+//     return parsedResults;
+//   } catch (error) {
+//     console.error("Error processing batch:", error);
+//     // In an absolute failure, at least don't crash—return identity map again
+//     return bullets.map((b) => ({
+//       id: b.id,
+//       original: b.original,
+//       rewritten: b.original,
+//       tips: "Service error. Try adding specific metrics and starting with a strong action verb."
+//     }));
+//   }
+// }
+
+
+/**
+ * Process a single batch of bullets against GROQ API, with robust JSON parsing.
+ */
+export async function processBatch(
+  bullets: Array<{ id: string; original: string; xyz_scores?: any; word_balance_score?: number; word_balance?: any }>,
+  apiKey: string
+): Promise<Array<{ id: string; rewritten: string; tips: string }>> {
+  const systemPrompt = `You are a professional resume bullet point improver. Your job is to:
+1. Rewrite each given bullet point to be more impactful
+2. Start with strong action verbs
+3. Include quantifiable metrics where possible
+4. Ensure clarity and conciseness (20-25 words max)
+5. Incorporate relevant technical or leadership skills
+
+IMPORTANT: Return ONLY a JSON array of objects with { id, rewritten, tips }.`;
+
+  // build user prompt
+  let userPrompt = 'Improve the following resume bullet points:';
+  bullets.forEach((b, i) => {
+    userPrompt += `\n\n[${i + 1}] ID: ${b.id}\nOriginal: "${b.original}"`;
+  });
+
+  const body = JSON.stringify({
+    model: 'llama3-8b-8192',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.3,
+    max_tokens: Math.min(2048, 512 * bullets.length),
+  });
+
+  const res = await fetchWithRetry(
+    'https://api.groq.com/openai/v1/chat/completions',
+    {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        model: 'llama3-8b-8192',
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: userPrompt
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: Math.min(2048, 512 * bullets.length) // Scale with batch size
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('GROQ API error:', errorText);
-      throw new Error(`GROQ API error: ${response.status}`);
+      headers: { 'Authorization': `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body,
     }
-    
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '[]';
-    console.log("GROQ Improved Bullets: ", content);
-    
-    // 1) First try robust sentence extractor
-    let parsedResults = [];
+  );
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error('GROQ API error:', errText);
+    throw new Error(`GROQ API error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  const content = data.choices?.[0]?.message?.content || '[]';
+  console.log('GROQ response:', content.substring(0, 200));
+
+  // try robust parsing strategies
+  let parsed: any[] = [];
+  try {
+    parsed = parseGroqJsonResponse(content, bullets);
+  } catch {
     try {
-      parsedResults = parseGroqJsonResponse(content, bullets);
-    } catch (ex) {
-      console.warn('extractSentencesFromResponse failed, falling back to JSON‑array parse');
+      const arr = extractSentencesFromResponse(content);
+      parsed = arr.map((s) => JSON.parse(s));
+    } catch (e) {
+      console.warn('Both parsers failed, defaulting to identity map');
     }
-    
-    // 2) If that didn't yield anything, fall back to existing parser
-    if (parsedResults.length === 0) {
-      try {
-        const jsonOnly = extractSentencesFromResponse(content);
-        parsedResults = jsonOnly.map((str) => JSON.parse(str));
-      } catch (ex) {
-        console.warn('parseGroqJsonResponse also failed, falling back to identity map');
-      }
+  }
+
+  if (!parsed.length) {
+    return bullets.map((b) => ({ id: b.id, rewritten: b.original, tips: 'Service error—please retry.' }));
+  }
+
+  return parsed;
+}
+
+/**
+ * Helper that wraps fetch and retries on 429 response with exponential backoff.
+ */
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  maxRetries = 5,
+  initialDelay = 1000
+): Promise<Response> {
+  let attempt = 0;
+  let delay = initialDelay;
+
+  while (true) {
+    const res = await fetch(url, options);
+    if (res.status !== 429) {
+      return res;
     }
-    
-    // 3) Last resort: return the originals mapped back
-    if (parsedResults.length === 0) {
-      parsedResults = bullets.map((bullet) => ({
-        id: bullet.id,
-        original: bullet.original,
-        rewritten: bullet.original,
-        tips: "Service error. Try adding specific metrics and starting with a strong action verb."
-      }));
+
+    if (attempt >= maxRetries) {
+      throw new Error(`Rate limit exceeded after ${maxRetries + 1} attempts`);
     }
-    
-    return parsedResults;
-  } catch (error) {
-    console.error("Error processing batch:", error);
-    // In an absolute failure, at least don't crash—return identity map again
-    return bullets.map((b) => ({
-      id: b.id,
-      original: b.original,
-      rewritten: b.original,
-      tips: "Service error. Try adding specific metrics and starting with a strong action verb."
-    }));
+
+    // honor Retry-After header if present
+    const retryAfter = res.headers.get('Retry-After');
+    const wait = retryAfter ? parseInt(retryAfter, 10) * 1000 : delay;
+
+    console.warn(`429 received, retrying in ${wait}ms (attempt ${attempt + 1}/${maxRetries})`);
+    await new Promise((r) => setTimeout(r, wait));
+
+    attempt++;
+    delay *= 2;
   }
 }
+
+/**
+ * Batch‐size configurable via BULLET_BATCH_SIZE env var.
+ */
+const DEFAULT_BATCH_SIZE = 5;
+function getBatchSize(): number {
+  const val = Deno.env.get('BULLET_BATCH_SIZE');
+  const n = val ? parseInt(val, 10) : DEFAULT_BATCH_SIZE;
+  return Number.isFinite(n) && n > 0 ? n : DEFAULT_BATCH_SIZE;
+}
+
+/**
+ * Split an array into chunks of size n.
+ */
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+
 
 // Robust JSON parsing for GROQ responses
 function parseGroqJsonResponse(content, originalBullets) {
