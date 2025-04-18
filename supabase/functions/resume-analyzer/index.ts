@@ -77,6 +77,9 @@ export function serveSentenceDetector() {
     }
   };
 }
+
+
+
 // Generate a resume roast and store it
 async function getResumeRoast(resumeText, userId) {
   const cacheKey = userId ? `user:${userId}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
@@ -272,37 +275,54 @@ async function analyzeResume(resumeText, userId) {
   }
 }
 
-
+console.log("🧪  Sentence–detector test server listening on http://localhost:8000");
 
 serve(async (req) => {
+  const url = new URL(req.url);
+
+  // CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  const url = new URL(req.url);
-  const path = url.pathname.split("/").pop();
-
-  if (path === "detect-sentences") {
-    // pull the body once
-    const { text, userId } = await req.json();
-
-    console.log("Logged in user:", userId);
-
-    // run your detector and log the result
-    const sentences = await detectSentences(text, userId);
-    console.log("serveSentenceDetector returned:", sentences);
-
-    return new Response(
-      JSON.stringify({ sentences }),
-      {
-        status: 200,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
-      },
-    );
+  // Only handle /detect-sentences
+  if (url.pathname === "/detect-sentences") {
+    // will log userId and sentences internally
+    return await serveSentenceDetector()(req);
   }
 
   return new Response("Not Found", { status: 404, headers: corsHeaders });
 });
+
+// serve(async (req) => {
+//   if (req.method === "OPTIONS") {
+//     return new Response(null, { status: 200, headers: corsHeaders });
+//   }
+
+//   const url = new URL(req.url);
+//   const path = url.pathname.split("/").pop();
+
+//   if (path === "detect-sentences") {
+//     // pull the body once
+//     const { text, userId } = await req.json();
+
+//     console.log("Logged in user:", userId);
+
+//     // run your detector and log the result
+//     const sentences = await detectSentences(text, userId);
+//     console.log("serveSentenceDetector returned:", sentences);
+
+//     return new Response(
+//       JSON.stringify({ sentences }),
+//       {
+//         status: 200,
+//         headers: { "Content-Type": "application/json", ...corsHeaders },
+//       },
+//     );
+//   }
+
+//   return new Response("Not Found", { status: 404, headers: corsHeaders });
+// });
 
 
 // // HTTP server entrypoint
