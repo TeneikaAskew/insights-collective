@@ -652,7 +652,7 @@ function validateAndMapResults(parsedResults, originalBullets) {
 
 // Alternative implementation with a timeout-based batch processor
 // This could be more sophisticated with a proper queue and worker system
-export async function improveBulletWithBatching(data) {
+export async function improveBulletsBatch(data) {
   const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
   
   // Initialize the queue and processing state if not exists
