@@ -1,6 +1,5 @@
 import { corsHeaders } from './utils.ts';
 import { extractSentencesFromResponse } from './sentenceDetector.ts';
-
 // Service handler for batch bullet improvement
 export function serveBulletImprover() {
   return async (req)=>{
@@ -52,7 +51,6 @@ export function serveBulletImprover() {
     }
   };
 }
-
 // This is the main batch processing function that should be included
 export async function improveBulletsBatch(data) {
   try {
@@ -97,31 +95,25 @@ export async function improveBulletsBatchWithQueue(data) {
     globalThis.processingBatch = false;
     globalThis.pendingResults = new Map();
   }
-  
   const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
-  
   // Generate a random ID for the single bullet
   const id = `single_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
-  
   // Create a promise that will be resolved when the result is ready
-  const resultPromise = new Promise((resolve) => {
+  const resultPromise = new Promise((resolve)=>{
     globalThis.pendingResults.set(id, resolve);
   });
-  
   // Add this bullet to the queue
   globalThis.bulletQueue.push({
     id,
     original,
     xyz_scores,
     word_balance_score,
-    word_balance,
+    word_balance
   });
-  
   // Start the batch processor if it's not already running
   if (!globalThis.processingBatch) {
     processBatchQueue();
   }
-  
   // Wait for the result to be ready
   const resolvedResult = await resultPromise;
   return {
@@ -129,63 +121,53 @@ export async function improveBulletsBatchWithQueue(data) {
     tips: resolvedResult.tips
   };
 }
-
 // Update improveBullet to use the new function
 export async function improveBullet(data) {
   const { original, xyz_scores = {}, word_balance_score = 0, word_balance = {} } = data;
-  
   // Use the renamed function
   const result = await improveBulletsBatchWithQueue({
     original,
-    xyz_scores, 
-    word_balance_score, 
+    xyz_scores,
+    word_balance_score,
     word_balance
   });
-  
   return {
     rewritten: result.rewritten,
     tips: result.tips
   };
 }
-
 // Process the batch queue
 async function processBatchQueue() {
   globalThis.processingBatch = true;
-  
   try {
     // Process bullets in batches of 5 (or whatever the queue size is if < 5)
-    while (globalThis.bulletQueue.length > 0) {
+    while(globalThis.bulletQueue.length > 0){
       const batchSize = Math.min(5, globalThis.bulletQueue.length);
       const bullets = globalThis.bulletQueue.splice(0, batchSize);
-      
       console.log(`Processing batch of ${bullets.length} bullets`);
-      
       // Process this batch - use the original improveBulletsBatch function
       const results = await improveBulletsBatch({
         bullets,
         batchSize
       });
-      
       // Resolve promises for each bullet in the batch
-      for (const result of results) {
+      for (const result of results){
         const resolve = globalThis.pendingResults.get(result.id);
         if (resolve) {
           resolve(result);
           globalThis.pendingResults.delete(result.id);
         }
       }
-      
       // Wait for a short time to avoid hitting rate limits
       if (globalThis.bulletQueue.length > 0) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise((resolve)=>setTimeout(resolve, 1000));
       }
     }
   } catch (error) {
     console.error("Error processing batch queue:", error);
-    
     // Resolve all pending promises with a default result
-    for (const [id, resolve] of globalThis.pendingResults.entries()) {
-      const bullet = globalThis.bulletQueue.find(b => b.id === id);
+    for (const [id, resolve] of globalThis.pendingResults.entries()){
+      const bullet = globalThis.bulletQueue.find((b)=>b.id === id);
       if (bullet) {
         resolve({
           id,
@@ -196,14 +178,12 @@ async function processBatchQueue() {
       }
       globalThis.pendingResults.delete(id);
     }
-    
     // Clear the queue
     globalThis.bulletQueue = [];
-  } finally {
+  } finally{
     globalThis.processingBatch = false;
   }
 }
-
 // Process a single batch of bullets
 async function processBatch(bullets, apiKey) {
   try {
@@ -260,8 +240,7 @@ async function processBatch(bullets, apiKey) {
     }
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '[]';
-    console.log("GROQ Improved Bullets: ", content)
-    
+    console.log("GROQ Improved Bullets: ", content);
     // 1) First try robust sentence extractor
     let parsedResults = [];
     try {
@@ -269,50 +248,42 @@ async function processBatch(bullets, apiKey) {
     } catch (ex) {
       console.warn('extractSentencesFromResponse failed, falling back to JSON‑array parse');
     }
-  
-    
     // 2) If that didn't yield anything, fall back to existing parser
     if (parsedResults.length === 0) {
       try {
         const jsonOnly = extractSentencesFromResponse(content);
-        parsedResults = jsonOnly.map(str => JSON.parse(str));
-      }
-      catch (ex) {
+        parsedResults = jsonOnly.map((str)=>JSON.parse(str));
+      } catch (ex) {
         console.warn('parseGroqJsonResponse also failed, falling back to identity map');
       }
     }
-    
     // 3) Last resort: return the originals mapped back
     if (parsedResults.length === 0) {
-      parsedResults = bullets.map(bullet => ({
-        id: bullet.id,
-        original: bullet.original,
-        rewritten: bullet.original,
-        tips: "Service error. Try adding specific metrics and starting with a strong action verb."
-      }));
+      parsedResults = bullets.map((bullet)=>({
+          id: bullet.id,
+          original: bullet.original,
+          rewritten: bullet.original,
+          tips: "Service error. Try adding specific metrics and starting with a strong action verb."
+        }));
     }
-    
     return parsedResults;
-
   } catch (error) {
     console.error("Error processing batch:", error);
     // In an absolute failure, at least don't crash—return identity map again
-    return bullets.map(b => ({
-      id: b.id,
-      original: b.original,
-      rewritten: b.original,
-      tips: "Service error. Try adding specific metrics and starting with a strong action verb."
-    }));
+    return bullets.map((b)=>({
+        id: b.id,
+        original: b.original,
+        rewritten: b.original,
+        tips: "Service error. Try adding specific metrics and starting with a strong action verb."
+      }));
   }
 }
-
 // Robust JSON parsing for GROQ responses
 function parseGroqJsonResponse(content, originalBullets) {
   console.log('Parsing GROQ response, content length:', content.length);
   // Get a preview of the content for logging
   const contentPreview = content.length > 200 ? content.substring(0, 200) + '...' : content;
   console.log('Content preview:', contentPreview);
-  
   // Try multiple parsing strategies
   // Strategy 1: Look for JSON array after any text prefixes and properly bound it
   try {
@@ -322,22 +293,18 @@ function parseGroqJsonResponse(content, originalBullets) {
       // Find the matching closing bracket
       let bracketCount = 1;
       let jsonEndIndex = -1;
-      
-      for (let i = jsonStartIndex + 1; i < content.length; i++) {
+      for(let i = jsonStartIndex + 1; i < content.length; i++){
         if (content[i] === '[') bracketCount++;
         if (content[i] === ']') bracketCount--;
-        
         if (bracketCount === 0) {
           jsonEndIndex = i + 1; // Include the closing bracket
           break;
         }
       }
-      
       if (jsonEndIndex > 0) {
         // Extract only the JSON array from start to end
         const jsonArrayText = content.substring(jsonStartIndex, jsonEndIndex);
         console.log('Extracted JSON array text length:', jsonArrayText.length);
-        
         const parsedResults = JSON.parse(jsonArrayText);
         if (Array.isArray(parsedResults) && parsedResults.length > 0) {
           console.log('Bounded JSON array extraction successful, count:', parsedResults.length);
@@ -349,7 +316,6 @@ function parseGroqJsonResponse(content, originalBullets) {
   } catch (e) {
     console.warn('Bounded JSON array extraction failed:', e.message);
   }
-  
   // Strategy 2: Direct JSON parse (less likely to work if there's prefix text)
   try {
     const parsedResults = JSON.parse(content.trim());
@@ -362,7 +328,6 @@ function parseGroqJsonResponse(content, originalBullets) {
   } catch (e) {
     console.warn('Direct JSON parse failed:', e.message);
   }
-  
   // Strategy 3: Find and extract JSON array with regex, being careful with the boundaries
   try {
     // This regex tries to find a complete JSON array with proper balancing
@@ -374,25 +339,21 @@ function parseGroqJsonResponse(content, originalBullets) {
       let isValid = true;
       let bracketCount = 0;
       let curlyCount = 0;
-      
-      for (let i = 0; i < matchedText.length; i++) {
+      for(let i = 0; i < matchedText.length; i++){
         if (matchedText[i] === '[') bracketCount++;
         if (matchedText[i] === ']') bracketCount--;
         if (matchedText[i] === '{') curlyCount++;
         if (matchedText[i] === '}') curlyCount--;
-        
         // If counts go negative, it's not balanced
         if (bracketCount < 0 || curlyCount < 0) {
           isValid = false;
           break;
         }
       }
-      
       // If counts aren't zero at the end, it's not balanced
       if (bracketCount !== 0 || curlyCount !== 0) {
         isValid = false;
       }
-      
       if (isValid) {
         const parsedResults = JSON.parse(matchedText);
         if (Array.isArray(parsedResults) && parsedResults.length > 0) {
@@ -407,7 +368,6 @@ function parseGroqJsonResponse(content, originalBullets) {
   } catch (e) {
     console.warn('Regex JSON array extraction failed:', e.message);
   }
-  
   // Strategy 4: Extract individual objects
   try {
     const objects = [];
@@ -428,19 +388,16 @@ function parseGroqJsonResponse(content, originalBullets) {
   } catch (e) {
     console.warn('Individual object extraction failed:', e.message);
   }
-  
   // Strategy 5: Try to parse individual objects with more robust pattern matching
   try {
     // Log the entire content for debug purposes when all other strategies fail
     console.log('Attempting last resort parsing. Content sample:', content.substring(0, Math.min(300, content.length)));
-    
     // Try to manually extract JSON objects one by one
     const lines = content.split('\n');
     let inJsonObject = false;
     let currentObject = '';
     const jsonObjects = [];
-    
-    for (const line of lines) {
+    for (const line of lines){
       if (line.includes('{') && !inJsonObject) {
         inJsonObject = true;
         currentObject = line;
@@ -448,7 +405,6 @@ function parseGroqJsonResponse(content, originalBullets) {
         currentObject += '\n' + line;
         if (line.includes('}')) {
           inJsonObject = false;
-          
           // Try to extract just the JSON object part
           const objectMatch = currentObject.match(/\{[\s\S]*\}/);
           if (objectMatch) {
@@ -459,12 +415,10 @@ function parseGroqJsonResponse(content, originalBullets) {
               console.warn('Failed to parse extracted object:', innerErr.message);
             }
           }
-          
           currentObject = '';
         }
       }
     }
-    
     if (jsonObjects.length > 0) {
       console.log('Line-by-line object extraction successful, count:', jsonObjects.length);
       const validatedResults = validateAndMapResults(jsonObjects, originalBullets);
@@ -473,17 +427,15 @@ function parseGroqJsonResponse(content, originalBullets) {
   } catch (e) {
     console.warn('Line-by-line object extraction failed:', e.message);
   }
-  
   // Fallback: Return originals with default tips
   console.warn('All parsing strategies failed, using original bullets');
-  return originalBullets.map((bullet) => ({
-    id: bullet.id || `fallback_${Date.now()}_${Math.floor(Math.random() * 100)}`,
-    original: bullet.original,
-    rewritten: bullet.original,
-    tips: "Try adding specific metrics and starting with a strong action verb."
-  }));
+  return originalBullets.map((bullet)=>({
+      id: bullet.id || `fallback_${Date.now()}_${Math.floor(Math.random() * 100)}`,
+      original: bullet.original,
+      rewritten: bullet.original,
+      tips: "Try adding specific metrics and starting with a strong action verb."
+    }));
 }
-
 function validateAndMapResults(parsedResults, originalBullets) {
   // Create a map of original bullets by ID for quick lookup
   const originalBulletMap = new Map(originalBullets.map((bullet)=>[
@@ -528,43 +480,6 @@ function validateAndMapResults(parsedResults, originalBullets) {
   return validatedResults;
 }
 
-// NOTE: You'll need to implement the improveBulletsBatch function 
-// This was commented out in your original code
-export async function improveBulletsBatch(data) {
-  try {
-    const GROQ_API_KEY = Deno.env.get('GROQ');
-    if (!GROQ_API_KEY) {
-      console.warn("GROQ API key not found, falling back to basic bullet improvements");
-      throw new Error("GROQ API key not configured");
-    }
-    const { bullets, batchSize = 5 } = data;
-    // Process in batches to avoid token limits
-    const results = [];
-    const batches = [];
-    // Split into batches
-    for(let i = 0; i < bullets.length; i += batchSize){
-      batches.push(bullets.slice(i, i + batchSize));
-    }
-    console.log(`Processing ${bullets.length} bullets in ${batches.length} batches`);
-    // Process each batch
-    for(let i = 0; i < batches.length; i++){
-      const batch = batches[i];
-      console.log(`Processing batch ${i + 1}/${batches.length} with ${batch.length} bullets`);
-      const batchResults = await processBatch(batch, GROQ_API_KEY);
-      results.push(...batchResults);
-    }
-    return results;
-  } catch (error) {
-    console.error("Error in batch bullet improvement:", error);
-    // Return originals with basic tips
-    return data.bullets.map((bullet)=>({
-        id: bullet.id,
-        original: bullet.original,
-        rewritten: bullet.original,
-        tips: "Try adding specific metrics and starting with a strong action verb."
-      }));
-  }
-}
 
 // import { corsHeaders } from './utils.ts';
 // import { extractSentencesFromResponse } from './sentenceDetector.ts';
