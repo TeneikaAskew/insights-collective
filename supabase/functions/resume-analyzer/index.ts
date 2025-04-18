@@ -146,7 +146,14 @@ async function analyzeResume(resumeText, userId1) {
   let text = resumeText;
   try {
     if (userId1) {
-      const { data: existing, error: fetchError } = await supabase.from('resumes').select('id,text').eq('user_id', userId1).maybeSingle();
+      // const { data: existing, error: fetchError } = await supabase.from('resumes').select('id,text').eq('user_id', userId1).maybeSingle();
+      const { data: existing, error: fetchError } = await supabase
+        .from('resumes')
+        .select('id,text')
+        .eq('user_id', userId1)
+        .order('uploaded_at', { ascending: false })  // Order by upload date, newest first
+        .limit(1)  // Only get the most recent record
+        .maybeSingle();
       if (fetchError) console.error(fetchError);
       if (existing?.id) {
         if (!text) text = existing.text;
@@ -316,6 +323,8 @@ async function analyzeResume(resumeText, userId1) {
 //     });
 //   }
 // });
+
+  
 // HTTP server entrypoint
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
