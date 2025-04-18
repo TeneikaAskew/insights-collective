@@ -272,60 +272,88 @@ async function analyzeResume(resumeText, userId) {
   }
 }
 
-// HTTP server entrypoint
-serve(async (req)=>{
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders
-    });
+
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  const { userId, bullets } = await req.json();
-  console.log("Logged in user: ", userId)
   const url = new URL(req.url);
-  const path = url.pathname.split('/').pop();
-  console.log(`Getting sentences for ${userId || 'anonymous'}`);
-  if (path === 'detect-sentences') {
+  const path = url.pathname.split("/").pop();
+
+  if (path === "detect-sentences") {
+    // clone so we can peek at the JSON without consuming the original body
+    const { userId } = await req.clone().json();
+    console.log("Logged in user:", userId);
+
+    // now hand the original `req` (with its body intact) to the detector
     return await serveSentenceDetector()(req);
   }
-  if (path === 'improve-bullet') {
-    // return await serveBulletImprover()(req);
-  }
-  try {
-    console.log(`Getting resume roast for ${userId || 'anonymous'}`);
-    // const { action, resumeText, userId: userId } = await req.json();
-    // if (action === 'get-roast') {
-    //   const roastData = await getResumeRoast(resumeText, userId);
-    //   return new Response(JSON.stringify(roastData), {
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //       ...corsHeaders
-    //     }
-    //   });
-    // }
-    console.log(`Analyzing resume for ${userId || 'anonymous'}`);
-    // const analysis = await analyzeResume(resumeText, userId);
-    // return new Response(JSON.stringify(analysis), {
-    //   headers: {
-    //     'Content-Type': 'application/json',
-    //     ...corsHeaders
-    //   }
-    // });
-  } catch (error) {
-    console.error('Error processing request:', error);
-    return new Response(JSON.stringify({
-      error: error.message,
-      bullets: []
-    }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    });
-  }
+
+  // (you can do the same trick for improve-bullet when you wire it up)
+
+  return new Response("Not Found", {
+    status: 404,
+    headers: corsHeaders,
+  });
 });
+
+
+// // HTTP server entrypoint
+// serve(async (req)=>{
+//   if (req.method === 'OPTIONS') {
+//     return new Response(null, {
+//       status: 200,
+//       headers: corsHeaders
+//     });
+//   }
+
+//   const { userId, bullets } = await req.json();
+//   console.log("Logged in user: ", userId)
+//   const url = new URL(req.url);
+//   const path = url.pathname.split('/').pop();
+//   console.log(`Getting sentences for ${userId || 'anonymous'}`);
+//   if (path === 'detect-sentences') {
+//     return await serveSentenceDetector()(req);
+//   }
+//   if (path === 'improve-bullet') {
+//     return await serveBulletImprover()(req);
+//   }
+//   try {
+//     console.log(`Getting resume roast for ${userId || 'anonymous'}`);
+//     const { action, resumeText, userId: userId } = await req.json();
+//     if (action === 'get-roast') {
+//       const roastData = await getResumeRoast(resumeText, userId);
+//       return new Response(JSON.stringify(roastData), {
+//         headers: {
+//           'Content-Type': 'application/json',
+//           ...corsHeaders
+//         }
+//       });
+//     }
+//     console.log(`Analyzing resume for ${userId || 'anonymous'}`);
+//     const analysis = await analyzeResume(resumeText, userId);
+//     return new Response(JSON.stringify(analysis), {
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+//       }
+//     });
+//   } catch (error) {
+//     console.error('Error processing request:', error);
+//     return new Response(JSON.stringify({
+//       error: error.message,
+//       bullets: []
+//     }), {
+//       status: 500,
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+//       }
+//     });
+//   }
+// });
 
   
 // // HTTP server entrypoint
