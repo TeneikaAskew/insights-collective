@@ -88,7 +88,7 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
         // If we have a stored resume with a URL
         return (
           <iframe 
-            src={`${resume.file_url}#toolbar=0&navpanes=0`}
+            src={`${resume.file_url}?ts=${Date.now()#toolbar=0&navpanes=0`}
             className="w-full aspect-[8.5/11] border rounded-md"
             title="Resume preview"
             onError={() => setFileError("Could not load resume preview. The file may be inaccessible.")}
