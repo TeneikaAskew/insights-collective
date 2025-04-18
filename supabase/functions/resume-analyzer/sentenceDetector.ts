@@ -12,6 +12,7 @@ export async function detectSentences(text: string): Promise<string[]> {
     // Prepare text - truncate if too long to avoid token limits
     const maxChars = 12000; // Safety limit
     const processedText = text.length > maxChars ? text.substring(0, maxChars) : text;
+    console.log("detectSentences: processedText length=", processedText.length);
     
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -36,46 +37,53 @@ export async function detectSentences(text: string): Promise<string[]> {
       })
     });
 
+    console.log("detectSentences: API responded with status", response.status);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("GROQ API error:", errorText);
+      console.error("detectSentences: GROQ API error response body=", errorText);
       throw new Error(`GROQ API error: ${response.status}`);
     }
 
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content || '[]';
+    console.log("detectSentences: raw content from API=", content);
     
-    // Parse the JSON array - robust fallback logic
+    // Parse JSON array from content
     let sentencesArray: string[] = [];
     try {
-      // Try parsing full content as JSON array
+      // First pass
       sentencesArray = safeJsonParse(content, []);
+      console.log("detectSentences: parsed sentencesArray=", sentencesArray);
 
-      // If empty or invalid, extract first JSON array block
-      if (!Array.isArray(sentencesArray) || sentencesArray.length === 0) {
-        const firstArray = content.match(/\[[\s\S]*?\]/);
-        if (firstArray) {
-          sentencesArray = safeJsonParse(firstArray[0], []);
+      // Fallback: extract any JSON array substring
+      if ((!Array.isArray(sentencesArray) || sentencesArray.length === 0) && content.includes('[')) {
+        console.log("detectSentences: trying array fallback regex");
+        const inside = content.match(/\[([\s\S]*)\]/);
+        if (inside) {
+          sentencesArray = safeJsonParse(inside[0], []);
+          console.log("detectSentences: after fallback parse=", sentencesArray);
         }
       }
     } catch (e) {
-      console.warn("Failed to JSON-parse AI output, attempting crude split:", e);
-      // Last-ditch: split by newline
+      console.warn("detectSentences: Failed to parse JSON, error=", e);
+      console.log("detectSentences: falling back to crude split of content");
       sentencesArray = content
-        .split(/\r?\n/)  
+        .split(/\r?\n/)
         .map(s => s.trim())
         .filter(s => s.length > 15 && !s.startsWith('- '));
+      console.log("detectSentences: crude split result=", sentencesArray);
     }
 
-    // Dedupe and final filter
-    return Array.from(new Set(
+    // Dedupe, filter and trim
+    const unique = Array.from(new Set(
       sentencesArray
         .filter(s => typeof s === 'string' && s.trim().length > 15)
         .map(s => s.trim())
     ));
-
+    console.log("detectSentences: final unique sentences=", unique);
+    return unique;
   } catch (error) {
-    console.error("Error in sentence detection:", error);
+    console.error("detectSentences: error=", error);
     throw error;
   }
 }
