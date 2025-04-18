@@ -42,6 +42,8 @@ export async function enhanceWithGroq(resumeText, analysis) {
     console.log("Condensed Analysis:", JSON.stringify(condensedAnalysis, null, 2));
     /**
    * Cleans up the raw LLM output into properly formatted Markdown
+
+   
     // function formatResponse(raw) {
    //    if (!raw) return '';
    //    let text = raw;
@@ -84,6 +86,7 @@ export async function enhanceWithGroq(resumeText, analysis) {
    //    // 10) Trim trailing spaces and outer whitespace
    //    return text.split('\n').map((line)=>line.trimEnd()).join('\n').trim();
    //  }
+    
       function formatResponse(raw) {
         if (!raw) return '';
         let text = raw;
