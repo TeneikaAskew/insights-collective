@@ -159,24 +159,43 @@ const handleUpload = async () => {
       return;
     }
     
-    // 2. Force a refresh to get the latest resume data
-    await refreshResume();
+    // // 2. Force a refresh to get the latest resume data
+    // await refreshResume();
     
-    // 3. Verify we have resume text before analyzing
-    if (!resume?.text) {
-      console.log("Resume uploaded but text not available. Waiting for text extraction...");
-      toast({
-        title: 'Processing',
-        description: 'Resume uploaded. Text extraction in progress...',
-      });
+    // // 3. Verify we have resume text before analyzing
+    // if (!resume?.text) {
+    //   console.log("Resume uploaded but text not available. Waiting for text extraction...");
+    //   toast({
+    //     title: 'Processing',
+    //     description: 'Resume uploaded. Text extraction in progress...',
+    //   });
       
-      // Optional: Could add a retry mechanism here to wait for text
+    //   // Optional: Could add a retry mechanism here to wait for text
+    //   return;
+    // }
+    // In the handleUpload function, replace steps 2-3 with:
+    
+    // 2. Wait for text to be available
+    let resumeText;
+    try {
+      resumeText = await waitForResumeText();
+    } catch (textError) {
+      console.error('Text extraction error:', textError);
+      toast({
+        title: 'Processing Issue',
+        description: 'Resume uploaded but text extraction failed. Please try again.',
+        variant: 'destructive',
+      });
       return;
     }
     
-    // 4. Analyze the resume
-    console.log("Analyzing resume text:", resume.text.substring(0, 100) + "...");
-    await analyzeResume(resume.text);
+    // 3. Analyze the resume with the extracted text
+    console.log("Analyzing resume text:", resumeText.substring(0, 100) + "...");
+    await analyzeResume(resumeText);
+    
+    // // 4. Analyze the resume
+    // console.log("Analyzing resume text:", resume.text.substring(0, 100) + "...");
+    // await analyzeResume(resume.text);
     setHasLoadedAnalysis(true);
     
     toast({
