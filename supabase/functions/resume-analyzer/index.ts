@@ -217,6 +217,7 @@ async function analyzeResume(resumeText: string, userId?: string) {
     } else {
       try {
         bulletPoints = await extractBulletPoints(resumeText);
+        console.log("Bullet Points: ", bulletPoints)
         
         if (!bulletPoints || bulletPoints.length === 0) {
           console.log("Primary bullet extraction failed, using fallback");
