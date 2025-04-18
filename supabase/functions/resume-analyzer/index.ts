@@ -279,6 +279,7 @@ console.log("🧪  Sentence–detector test server listening on http://localhost
 
 serve(async (req) => {
   const url = new URL(req.url);
+  console.log("URL: ", url)
 
   // CORS preflight
   if (req.method === "OPTIONS") {
@@ -286,6 +287,7 @@ serve(async (req) => {
   }
 
   // Only handle /detect-sentences
+  
   if (url.pathname === "/detect-sentences") {
     // will log userId and sentences internally
     return await serveSentenceDetector()(req);
