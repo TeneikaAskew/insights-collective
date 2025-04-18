@@ -329,26 +329,27 @@ serve(async (req) => {
       }));
     }
 
-    // Handle actions
-    if (action === 'get-roast') {
-      const roastData = await getResumeRoast(resolvedText, resolvedUserId);
-      return new Response(JSON.stringify(roastData), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      });
-    }
-    
-    // Default to resume analysis
+     // Default to resume analysis
     console.log(`Analyzing resume for ${resolvedUserId || 'anonymous'}`);
     const analysis = await analyzeResume(resolvedText, resolvedUserId);
     return new Response(JSON.stringify(analysis), {
       headers: {
         'Content-Type': 'application/json',
         ...corsHeaders
-      }
-    });
+   
+        }
+      });
+    }
+    
+    // Handle resume roast
+    if (action === 'get-roast') {
+        const roastData = await getResumeRoast(resolvedText, resolvedUserId);
+        return new Response(JSON.stringify(roastData), {
+          headers: {
+            'Content-Type': 'application/json',
+            ...corsHeaders
+        }
+      });
   } catch (error) {
     console.error('Error processing request:', error);
     return new Response(JSON.stringify({
