@@ -231,6 +231,11 @@ async function saveSentencesToUserLatestResume(userId: string, sentences: string
     
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl, supabaseKey);
+    console.log(`Sentences data size: ${JSON.stringify(sentences).length} bytes`);
+    console.log("Update data:", {
+      sentences: sentences ? `Array(${sentences.length})` : 'null',
+      sentences_updated_at: new Date().toISOString()
+    });
     
     // Find the most recent resume for this user
     const { data: recentResumes, error: queryError } = await supabase
@@ -261,6 +266,8 @@ async function saveSentencesToUserLatestResume(userId: string, sentences: string
         sentences_updated_at: new Date().toISOString()
       })
       .eq('id', resumeId);
+      
+    console.log("Update result:", result);
     
     if (updateError) {
       console.error('saveSentencesToUserLatestResume: Error updating resume:', updateError);
