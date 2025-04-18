@@ -274,6 +274,7 @@ async function analyzeResume(resumeText, userId1) {
     };
   }
 }
+
 // HTTP server entrypoint
 serve(async (req)=>{
   if (req.method === 'OPTIONS') {
