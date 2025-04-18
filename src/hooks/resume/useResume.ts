@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useResumeStorage, deleteResumeFile, deleteAllUserFiles } from './useResumeStorage';
+import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
 
 // Create cache outside of hook
 const signedUrlCache = new Map<string, string>();
@@ -641,7 +641,55 @@ export const useResume = () => {
     }
   };
   
-
+    // Add this function to your storage hook
+  export const deleteAllUserFiles = async (userId: string): Promise<boolean> => {
+    if (!userId) {
+      console.error("Missing userId for bulk deletion");
+      return false;
+    }
+  
+    try {
+      console.log(`Listing all files for user: ${userId}`);
+      
+      // First, list all files in the user's folder
+      const { data: listData, error: listError } = await supabase
+        .storage
+        .from('resumes')
+        .list(userId);
+      
+      if (listError) {
+        console.warn(`Error listing files: ${listError.message}`);
+        return false;
+      }
+      
+      if (!listData || listData.length === 0) {
+        console.log(`No files found for user: ${userId}`);
+        return true; // Nothing to delete
+      }
+      
+      console.log(`Found ${listData.length} files to delete`);
+      
+      // Create paths for all files
+      const filePaths = listData.map(item => `${userId}/${item.name}`);
+      
+      // Delete all files in one call
+      const { error: deleteError } = await supabase
+        .storage
+        .from('resumes')
+        .remove(filePaths);
+      
+      if (deleteError) {
+        console.error(`Error deleting files: ${deleteError.message}`);
+        return false;
+      }
+      
+      console.log(`Successfully deleted ${filePaths.length} files for user: ${userId}`);
+      return true;
+    } catch (error) {
+      console.error(`Unexpected error deleting files: ${error.message}`);
+      return false;
+    }
+  };
 
   
   return {
