@@ -13,7 +13,10 @@ import { corsHeaders } from "./utils.ts";
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const { data: { user } } = await supabase.auth.getUser();
 const supabase = createClient(supabaseUrl, supabaseKey);
+console.log("Logged in as: ", user)
+const userId = user?.id;
 
 const bulletCache = new Map<string, string[]>();
 const roastCache = new Map<string, string>();
@@ -38,14 +41,8 @@ export function serveSentenceDetector() {
       }
 
       // Extract sentences
-      const sentences = await detectSentences(text);
+      const sentences = await detectSentences(text, userId);
       console.log("User: ", userId, "Sentences: ", sentences)
-
-      // Optionally save sentences to DB
-      if (userId && sentences.length > 0) {
-        await saveSentencesToDatabase(userId, sentences);
-      }
-      
 
       return new Response(
         JSON.stringify({ sentences }),
@@ -59,38 +56,6 @@ export function serveSentenceDetector() {
       );
     }
   };
-}
-
-// Save extracted sentences into Supabase
-async function saveSentencesToDatabase(userId: string, sentences: string[]) {
-  console.log(`Saving ${sentences.length} sentences for user ${userId}`);
-  try {
-    const { data: resumeRecord, error: findError } = await supabase
-      .from('resumes')
-      .select('id')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (findError || !resumeRecord?.id) {
-      console.error('Error finding resume record:', findError);
-      return;
-    }
-
-    const { error: updateError } = await supabase
-      .from('resumes')
-      .update({ sentences, sentences_updated_at: new Date().toISOString() })
-      .eq('id', resumeRecord.id);
-
-    if (updateError) {
-      console.error('Error updating sentences:', updateError);
-    } else {
-      console.log(`Sentences saved to database for resume ${resumeRecord.id}`);
-    }
-  } catch (err) {
-    console.error('Error saving sentences to database:', err);
-  }
 }
 
 // Generate a resume roast and store it
