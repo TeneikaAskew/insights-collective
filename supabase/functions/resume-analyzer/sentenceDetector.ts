@@ -1,8 +1,7 @@
-console.log('Sentence Detection Begins');
 import { safeJsonParse, handleApiError } from './utils.ts';
 
-// Function to detect sentences from resume text\ nexport async function detectSentences(text: string): Promise<string[]> {
-  console.log('detectSentences: input text length=', text.length);
+// Function to detect sentences from resume text
+export async function detectSentences(text: string): Promise<string[]> {
   try {
     const GROQ_API_KEY = Deno.env.get('GROQ');
     if (!GROQ_API_KEY) {
@@ -10,10 +9,11 @@ import { safeJsonParse, handleApiError } from './utils.ts';
       throw new Error("GROQ API key not configured");
     }
 
-    const maxChars = 12000;
+    // Prepare text - truncate if too long to avoid token limits
+    const maxChars = 12000; // Safety limit
     const processedText = text.length > maxChars ? text.substring(0, maxChars) : text;
-    console.log('detectSentences: processedText length=', processedText.length);
-
+    console.log("detectSentences: processedText length=", processedText.length);
+    
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -25,7 +25,7 @@ import { safeJsonParse, handleApiError } from './utils.ts';
         messages: [
           {
             role: 'system',
-            content: 'You are a sentence extraction expert. Identify resume bullet points and return them as a JSON array.'
+            content: 'You are a sentence extraction expert. Identify resume bullet points from the provided text and return them as a JSON array. Focus on action-oriented sentences describing achievements, responsibilities, and experiences. Filter out headers, dates, personal info, and other non-achievement text. Return only a JSON array of strings with no additional text.'
           },
           {
             role: 'user',
@@ -37,64 +37,53 @@ import { safeJsonParse, handleApiError } from './utils.ts';
       })
     });
 
-    console.log(`detectSentences: API responded with status ${response.status}`);
+    console.log("detectSentences: API responded with status", response.status);
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("detectSentences: GROQ API error:", errorText);
+      console.error("detectSentences: GROQ API error response body=", errorText);
       throw new Error(`GROQ API error: ${response.status}`);
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || '';
-    console.log('detectSentences: raw content from API=', content.slice(0, 200));
-
+    const content = data.choices?.[0]?.message?.content || '[]';
+    console.log("detectSentences: raw content from API=", content);
+    
+    // Parse JSON array from content
     let sentencesArray: string[] = [];
-    let parsed = false;
-
-    // Attempt direct JSON parse
     try {
+      // First pass
       sentencesArray = safeJsonParse(content, []);
-      console.log('detectSentences: parsed JSON array=', sentencesArray.length);
-      parsed = Array.isArray(sentencesArray) && sentencesArray.length > 0;
-    } catch (e) {
-      console.warn('detectSentences: direct JSON.parse failed:', e.message);
-    }
+      console.log("detectSentences: parsed sentencesArray=", sentencesArray);
 
-    // Fallback: extract first [...] block
-    if (!parsed && content.includes('[')) {
-      console.log('detectSentences: trying bracket fallback');
-      const match = content.match(/\[([\s\S]*)\]/);
-      if (match) {
-        try {
-          sentencesArray = safeJsonParse(match[0], []);
-          console.log('detectSentences: bracket fallback parsed=', sentencesArray.length);
-          parsed = sentencesArray.length > 0;
-        } catch (e) {
-          console.warn('detectSentences: bracket fallback parse failed:', e.message);
+      // Fallback: extract any JSON array substring
+      if ((!Array.isArray(sentencesArray) || sentencesArray.length === 0) && content.includes('[')) {
+        console.log("detectSentences: trying array fallback regex");
+        const inside = content.match(/\[([\s\S]*)\]/);
+        if (inside) {
+          sentencesArray = safeJsonParse(inside[0], []);
+          console.log("detectSentences: after fallback parse=", sentencesArray);
         }
       }
-    }
-
-    // Last‑ditch crude split
-    if (!parsed) {
-      console.warn('detectSentences: last‑ditch splitting');
+    } catch (e) {
+      console.warn("detectSentences: Failed to parse JSON, error=", e);
+      console.log("detectSentences: falling back to crude split of content");
       sentencesArray = content
-        .split(/\r?\n/)        
+        .split(/\r?\n/)
         .map(s => s.trim())
         .filter(s => s.length > 15 && !s.startsWith('- '));
-      console.log('detectSentences: crude split count=', sentencesArray.length);
+      console.log("detectSentences: crude split result=", sentencesArray);
     }
 
-    // Deduplicate and final filter
-    const unique = Array.from(new Set(sentencesArray))
-      .filter(s => typeof s === 'string' && s.trim().length > 15)
-      .map(s => s.trim());
-
-    console.log('detectSentences: final unique sentences=', unique.length);
+    // Dedupe, filter and trim
+    const unique = Array.from(new Set(
+      sentencesArray
+        .filter(s => typeof s === 'string' && s.trim().length > 15)
+        .map(s => s.trim())
+    ));
+    console.log("detectSentences: final unique sentences=", unique);
     return unique;
-
   } catch (error) {
-    console.error('detectSentences: error in sentence detection:', error.message);
+    console.error("detectSentences: error=", error);
     throw error;
   }
 }
