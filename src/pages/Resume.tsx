@@ -14,6 +14,7 @@ import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCa
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+const [isDeleting, setIsDeleting] = useState(false)
 
 const Resume = () => {
   const { user, isAuthenticated } = useAuth();
@@ -159,23 +160,42 @@ const Resume = () => {
   };
 
   const handleDelete = async () => {
+    setIsDeleting(true)
     try {
-      if (resume) await deleteResume();
-      setResumeFile(null);
-      setPdfDataUrl(null);
-      setExtractedText(null);
-      setShowCareerChat(false);
-      setAnalysis(null);
-      setHasLoadedAnalysis(false);
+      // if (resume) await deleteResume();
+      // setResumeFile(null);
+      // setPdfDataUrl(null);
+      // setExtractedText(null);
+      // setShowCareerChat(false);
+      // setAnalysis(null);
+      // setHasLoadedAnalysis(false);
+      // 1) delete server‑side
+      await deleteResume()
+  
+      // 2) re-fetch (now empty) so your hook clears out resumeLoading/uploading
+      await refreshResume()
+  
+      // 3) clear all local UI bits
+      setResumeFile(null)
+      setPdfDataUrl(null)
+      setExtractedText(null)
+      setShowCareerChat(false)
+      setAnalysis(null)
+      setHasLoadedAnalysis(false)
+  
+      toast({ title: 'Deleted', description: 'Your resume is gone.' })
+      
     } catch (error) {
       console.error('Error in handleDelete:', error);
       toast({
         title: 'Delete Failed',
         description: 'Could not delete resume. Please try again.',
         variant: 'destructive',
-      });
+    })
+      } finally {
+        setIsDeleting(false)
+      }
     }
-  };
 
   const handleDownload = () => {
     if (resume?.file_url) window.open(resume.file_url, '_blank');
@@ -253,6 +273,7 @@ const Resume = () => {
 
         <div className="grid md:grid-cols-2 gap-6">
           <ResumeUploadSection
+            deleting={isDeleting}
             resumeFile={resumeFile}
             setResumeFile={setResumeFile}
             resume={resume}

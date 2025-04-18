@@ -18,6 +18,7 @@ interface ResumeUploadSectionProps {
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDownload: () => void;
   pdfDataUrl: string | null;
+  deleting: boolean;
 }
 
 const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
@@ -32,6 +33,7 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
   handleFileChange,
   handleDownload,
   pdfDataUrl,
+  deleting,
 }) => {
   // State to track file errors
   const [fileError, setFileError] = useState<string | null>(null);
@@ -220,12 +222,19 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
               </div>
               <div className="flex gap-2">
                 {resume && resume.file_url && (
-                  <Button variant="outline" size="icon" onClick={handleDownload} disabled={uploading || isAnalyzing}>
+                  <Button variant="outline" size="icon" onClick={handleDownload} disabled={uploading || isAnalyzing || deleting}>
                     <DownloadCloud className="h-4 w-4" />
                   </Button>
                 )}
-                <Button variant="outline" size="icon" onClick={handleDelete} disabled={uploading || isAnalyzing}>
-                  <Trash2 className="h-4 w-4" />
+                <Button variant="outline" size="icon" onClick={handleDelete} disabled={uploading || isAnalyzing || deleting}>
+                  {deleting  ? (
+                      <div className="flex items-center space-x-1">
+                        <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+                        <span className="sr-only">Deleting…</span>
+                      </div>
+                    )
+                    : <Trash2 className="h-4 w-4" />
+                  }
                 </Button>
               </div>
             </div>
