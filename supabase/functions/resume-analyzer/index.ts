@@ -285,15 +285,15 @@ serve(async (req)=>{
   }
   try {
     const { action, resumeText, userId: userId1 } = await req.json();
-    if (action === 'get-roast') {
-      const roastData = await getResumeRoast(resumeText, userId1);
-      return new Response(JSON.stringify(roastData), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      });
-    }
+    // if (action === 'get-roast') {
+    //   const roastData = await getResumeRoast(resumeText, userId1);
+    //   return new Response(JSON.stringify(roastData), {
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //       ...corsHeaders
+    //     }
+    //   });
+    // }
     console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
     const analysis = await analyzeResume(resumeText, userId1);
     return new Response(JSON.stringify(analysis), {
