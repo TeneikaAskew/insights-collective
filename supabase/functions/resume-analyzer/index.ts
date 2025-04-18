@@ -275,171 +275,81 @@ async function analyzeResume(resumeText, userId) {
   }
 }
 
-console.log("🧪  Sentence–detector test server listening on http://localhost:8000");
-
-serve(async (req) => {
-  const url = new URL(req.url);
-  const { text, userId } = await req.json();
-  console.log("Logged in user:", userId, " Text: ", text);
-  console.log("URL: ", url)
-
-  // CORS preflight
-  if (req.method === "OPTIONS") {
-    return new Response(null, { status: 200, headers: corsHeaders });
-  }
-
-  // Only handle /detect-sentences
-  
-  if (url.pathname === "/detect-sentences") {
-    // will log userId and sentences internally
-    return await serveSentenceDetector()(req);
-  }
-
-  return new Response("Not Found", { status: 404, headers: corsHeaders });
-});
+// console.log("🧪  Sentence–detector test server listening on http://localhost:8000");
 
 // serve(async (req) => {
+//   const url = new URL(req.url);
+//   const { text, userId } = await req.json();
+//   console.log("Logged in user:", userId, " Text: ", text);
+//   console.log("URL: ", url)
+
+//   // CORS preflight
 //   if (req.method === "OPTIONS") {
 //     return new Response(null, { status: 200, headers: corsHeaders });
 //   }
 
-//   const url = new URL(req.url);
-//   const path = url.pathname.split("/").pop();
-
-//   if (path === "detect-sentences") {
-//     // pull the body once
-//     const { text, userId } = await req.json();
-
-//     console.log("Logged in user:", userId);
-
-//     // run your detector and log the result
-//     const sentences = await detectSentences(text, userId);
-//     console.log("serveSentenceDetector returned:", sentences);
-
-//     return new Response(
-//       JSON.stringify({ sentences }),
-//       {
-//         status: 200,
-//         headers: { "Content-Type": "application/json", ...corsHeaders },
-//       },
-//     );
+//   // Only handle /detect-sentences
+  
+//   if (url.pathname === "/detect-sentences") {
+//     // will log userId and sentences internally
+//     return await serveSentenceDetector()(req);
 //   }
 
 //   return new Response("Not Found", { status: 404, headers: corsHeaders });
 // });
 
+// HTTP server entrypoint
+serve(async (req)=>{
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders
+    });
+  }
+  const url = new URL(req.url);
+  const path = url.pathname.split('/').pop();
+  console.log("URL: ", url, " Path: ", path)
+  // const { text, userId } = await req.json();
+  console.log("Logged in user:", userId, " Text: ", text); //or is it resumeText
 
-// // HTTP server entrypoint
-// serve(async (req)=>{
-//   if (req.method === 'OPTIONS') {
-//     return new Response(null, {
-//       status: 200,
-//       headers: corsHeaders
-//     });
-//   }
-
-//   const { userId, bullets } = await req.json();
-//   console.log("Logged in user: ", userId)
-//   const url = new URL(req.url);
-//   const path = url.pathname.split('/').pop();
-//   console.log(`Getting sentences for ${userId || 'anonymous'}`);
-//   if (path === 'detect-sentences') {
-//     return await serveSentenceDetector()(req);
-//   }
-//   if (path === 'improve-bullet') {
-//     return await serveBulletImprover()(req);
-//   }
-//   try {
-//     console.log(`Getting resume roast for ${userId || 'anonymous'}`);
-//     const { action, resumeText, userId: userId } = await req.json();
-//     if (action === 'get-roast') {
-//       const roastData = await getResumeRoast(resumeText, userId);
-//       return new Response(JSON.stringify(roastData), {
-//         headers: {
-//           'Content-Type': 'application/json',
-//           ...corsHeaders
-//         }
-//       });
-//     }
-//     console.log(`Analyzing resume for ${userId || 'anonymous'}`);
-//     const analysis = await analyzeResume(resumeText, userId);
-//     return new Response(JSON.stringify(analysis), {
-//       headers: {
-//         'Content-Type': 'application/json',
-//         ...corsHeaders
-//       }
-//     });
-//   } catch (error) {
-//     console.error('Error processing request:', error);
-//     return new Response(JSON.stringify({
-//       error: error.message,
-//       bullets: []
-//     }), {
-//       status: 500,
-//       headers: {
-//         'Content-Type': 'application/json',
-//         ...corsHeaders
-//       }
-//     });
-//   }
-// });
 
   
-// // HTTP server entrypoint
-// serve(async (req) => {
-//   if (req.method === 'OPTIONS') {
-//     return new Response(null, {
-//       status: 200,
-//       headers: corsHeaders
-//     });
-//   }
-
-//   const url = new URL(req.url);
-//   const path = url.pathname.split('/').pop();
-  
-//   // Handle specific paths first
-//   if (path === 'detect-sentences') {
-//     return await serveSentenceDetector()(req);
-//   }
-//   if (path === 'improve-bullet') {
-//     return await serveBulletImprover()(req);
-//   }
-  
-//   try {
-//     const { action, resumeText, userId: userId } = await req.json();
-    
-//     // Handle the main resume processing cases - analyze first, then get-roast
-//     console.log(`Analyzing resume for ${userId || 'anonymous'}`);
-    
-//     if (action === 'get-roast') {
-//       const roastData = await getResumeRoast(resumeText, userId);
-//       return new Response(JSON.stringify(roastData), {
-//         headers: {
-//           'Content-Type': 'application/json',
-//           ...corsHeaders
-//         }
-//       });
-//     }
-    
-//     // Default action is to analyze the resume
-//     const analysis = await analyzeResume(resumeText, userId);
-//     return new Response(JSON.stringify(analysis), {
-//       headers: {
-//         'Content-Type': 'application/json',
-//         ...corsHeaders
-//       }
-//     });
-//   } catch (error) {
-//     console.error('Error processing request:', error);
-//     return new Response(JSON.stringify({
-//       error: error.message,
-//       bullets: []
-//     }), {
-//       status: 500,
-//       headers: {
-//         'Content-Type': 'application/json',
-//         ...corsHeaders
-//       }
-//     });
-//   }
-// });
+  if (path === 'detect-sentences') {
+    return await serveSentenceDetector()(req);
+  }
+  if (path === 'improve-bullet') {
+    return await serveBulletImprover()(req);
+  }
+  try {
+    const { action, resumeText, userId: userId1 } = await req.json();
+    if (action === 'get-roast') {
+      const roastData = await getResumeRoast(resumeText, userId1);
+      return new Response(JSON.stringify(roastData), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+    console.log(`Analyzing resume for ${userId1 || 'anonymous'}`);
+    const analysis = await analyzeResume(resumeText, userId1);
+    return new Response(JSON.stringify(analysis), {
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  } catch (error) {
+    console.error('Error processing request:', error);
+    return new Response(JSON.stringify({
+      error: error.message,
+      bullets: []
+    }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        ...corsHeaders
+      }
+    });
+  }
+});
