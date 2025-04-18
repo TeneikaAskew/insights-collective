@@ -583,6 +583,10 @@ export const useResume = () => {
         console.error("Error deleting resume records:", deleteError);
         throw deleteError;
       }
+
+      if (deletedRows.length === 0) {
+        throw new Error("No resume found to delete")
+      }
       
       console.log(
         `Deleted ${deletedRows.length} resume record(s) for user ${user.id}`,
