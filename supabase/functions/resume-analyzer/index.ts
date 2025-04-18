@@ -279,6 +279,8 @@ console.log("🧪  Sentence–detector test server listening on http://localhost
 
 serve(async (req) => {
   const url = new URL(req.url);
+  const { text, userId } = await req.json();
+  console.log("Logged in user:", userId, " Text: ", text);
   console.log("URL: ", url)
 
   // CORS preflight
