@@ -14,7 +14,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const supabase = createClient(supabaseUrl, supabaseKey);
 const roastCache = new Map();
-const bulletCache = new Map(); // Added missing declaration
+const bulletCache = new Map();
 export { detectSentences };
 export { serveBulletImprover };
 
