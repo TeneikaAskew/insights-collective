@@ -189,7 +189,6 @@ async function analyzeResume(resumeText, userId) {
       if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
       if (bulletPoints.length > 0 && userId) {
         bulletCache.set(`user:${userId}:bullets`, bulletPoints);
-        await saveSentencesToDatabase(userId, bulletPoints);
       }
     }
     console.log("1")
