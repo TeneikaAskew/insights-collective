@@ -1,5 +1,7 @@
 console.log('Sentence Detection function hit');
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+const bulletCache = new Map(); // Cache for storing bullet points by user ID
+
 // This function sets up Supabase client with service role key credentials from env
 function getSupabaseClient() {
   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -11,8 +13,28 @@ function getSupabaseClient() {
   return createClient(supabaseUrl, supabaseKey);
 }
 
+
+export function getSentencesFromCache(userId) {
+  if (!userId) return null;
+  
+  console.log(`getSentencesFromCache: Checking cache for userId=${userId}`);
+  const cachedSentences = bulletCache.get(`user:${userId}:bullets`);
+  console.log(`getSentencesFromCache: Cache ${cachedSentences ? 'hit' : 'miss'} for userId=${userId}`);
+  
+  return cachedSentences || null;
+}
+
 // Modified detectSentences function to use the retry logic
 export async function detectSentences(text, userId) {
+  // First check if we have cached sentences for this user
+  if (userId) {
+    const cachedSentences = getSentencesFromCache(userId);
+    if (cachedSentences && cachedSentences.length > 0) {
+      console.log(`detectSentences: Using ${cachedSentences.length} cached sentences for userId=${userId}`);
+      console.log(`Current cache size: ${bulletCache.size} entries`);
+      return cachedSentences;
+    }
+  }
   const startTime = Date.now();
   console.log(`detectSentences: Starting extraction [${new Date().toISOString()}]`);
   console.log('detectSentences: input text length=', text.length);
@@ -94,6 +116,19 @@ export async function detectSentences(text, userId) {
       console.log(`detectSentences: Saving sentences to database for userId=${userId}`);
       const dbStartTime = Date.now();
       try {
+        // Save to cache if userId is provided
+        try {
+            if (userId && sentences.length > 0) {
+              console.log(`detectSentences: Saving sentences to cache for userId=${userId}`);
+              bulletCache.set(`user:${userId}:bullets`, sentences);
+              console.log(`detectSentences: Successfully saved ${sentences.length} sentences to cache for userId=${userId}`);
+              console.log(`New cache size: ${bulletCache.size} entries`);
+          }
+        } catch (cacheError) {
+          console.error('detectSentences: Cache save failed:', cacheError);
+          console.log('detectSentences: Continuing to database save despite cache error');
+        }
+        
         await saveSentencesToDatabase(userId, sentences);
         const dbEndTime = Date.now();
         console.log(`detectSentences: Database save completed in ${dbEndTime - dbStartTime}ms`);
