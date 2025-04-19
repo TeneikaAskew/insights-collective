@@ -324,16 +324,7 @@ serve(async (req) => {
         headers: req.headers
       }));
     }
-    
-    if (path === 'improve-bullet') {
-      return await serveBulletImprover()(new Request(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: JSON.stringify(requestData)
-      }));
-    }
-
-     // Default to resume analysis
+    // Default to resume analysis
     console.log(`Analyzing resume for ${resolvedUserId || 'anonymous'}`);
     const analysis = await analyzeResume(resolvedText, resolvedUserId);
     return new Response(JSON.stringify(analysis), {
@@ -354,7 +345,14 @@ serve(async (req) => {
             ...corsHeaders
         }
       });
-  } catch (error) {
+  }
+    if (path === 'improve-bullet') {
+      return await serveBulletImprover()(new Request(req.url, {
+        method: req.method,
+        headers: req.headers,
+        body: JSON.stringify(requestData)
+      }));
+    } catch (error) {
     console.error('Error processing request:', error);
     return new Response(JSON.stringify({
       error: error.message,
