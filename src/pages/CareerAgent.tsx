@@ -50,11 +50,12 @@ interface SkillInterestData {
   goals: string;
 }
 
+// Fix the type error: constrain repeatType with string literal
 const typingVariant: Variants = {
   initial: { opacity: 0 },
   animate: {
     opacity: 1,
-    transition: { repeat: Infinity, repeatType: "loop", duration: 1 },
+    transition: { repeat: Infinity, repeatType: "loop" as const, duration: 1 },
   },
   exit: { opacity: 0 },
 };
@@ -346,5 +347,3 @@ const CareerAgent: React.FC = () => {
 };
 
 export default CareerAgent;
-
-
