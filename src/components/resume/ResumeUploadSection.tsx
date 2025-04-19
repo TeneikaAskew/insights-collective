@@ -70,19 +70,6 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
     }
     
     // For local preview of newly selected files
-    // if (pdfDataUrl) {
-    //   // Check if it's a PDF
-    //   if (resumeFile?.type === 'application/pdf') {
-    //     return (
-    //       <iframe 
-    //         src={pdfDataUrl}
-    //         className="w-full aspect-[8.5/11] border rounded-md"
-    //         title="Resume preview"
-    //         onError={() => setFileError("Could not load PDF preview")}
-    //       />
-    //     );
-    //   }
-    // For local preview of newly selected files
     if (pdfDataUrl) {
       // Check if it's a PDF
       if (resumeFile?.type === 'application/pdf') {
@@ -91,12 +78,25 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
             src={pdfDataUrl}
             className="w-full aspect-[8.5/11] border rounded-md"
             title="Resume preview"
-            // Add sandbox attribute to restrict iframe capabilities
-            sandbox="allow-same-origin"
             onError={() => setFileError("Could not load PDF preview")}
           />
         );
       }
+    // // For local preview of newly selected files
+    // if (pdfDataUrl) {
+    //   // Check if it's a PDF
+    //   if (resumeFile?.type === 'application/pdf') {
+    //     return (
+    //       <iframe 
+    //         src={pdfDataUrl}
+    //         className="w-full aspect-[8.5/11] border rounded-md"
+    //         title="Resume preview"
+    //         // Add sandbox attribute to restrict iframe capabilities
+    //         sandbox="allow-same-origin"
+    //         onError={() => setFileError("Could not load PDF preview")}
+    //       />
+    //     );
+    //   }
       
       // For DOCX, we can't preview directly, show a placeholder
       if (resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
