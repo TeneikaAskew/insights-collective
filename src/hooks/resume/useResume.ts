@@ -367,11 +367,18 @@ export const useResume = () => {
       }
       
       // Delete record from database using ID rather than user_id
-      console.log(`Deleting resume with ID: ${resume.id} from database...`);
+      // console.log(`Deleting resume with ID: ${resume.id} from database...`);
+      // const { data, error: dbError } = await supabase
+      //   .from('resumes')
+      //   .delete()
+      //   .eq('id', resume.id)
+      //   .select();
+
+      console.log(`Deleting all resumes for user ID: ${user.id} from database...`);
       const { data, error: dbError } = await supabase
         .from('resumes')
         .delete()
-        .eq('id', resume.id)
+        .eq('user_id', user.id)  // Changed from 'id' to 'user_id'
         .select();
       
       if (dbError) {
