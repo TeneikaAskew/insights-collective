@@ -378,7 +378,7 @@ export const useResume = () => {
       const { data, error: dbError } = await supabase
         .from('resumes')
         .delete()
-        .eq('user_id', user.id)  // Changed from 'id' to 'user_id'
+        .eq('user_id', user.id)  // Changed to delete all resume records
         .select();
       
       if (dbError) {
