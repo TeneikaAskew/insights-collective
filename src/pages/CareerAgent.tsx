@@ -1,49 +1,37 @@
 
-import React, { useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import React, { useState, useEffect, useRef, ChangeEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-// Placeholders for components that would need to be created
-const CareerRecommendationCard = ({ role }: { role: string }) => (
-  <Card className="w-full max-w-md mx-auto bg-amber-50 shadow-md">
-    <CardHeader>
-      <CardTitle className="text-2xl text-amber-600">{role}</CardTitle>
-      <CardDescription>
-        This is a recommended career based on your skills and interests.
-      </CardDescription>
-    </CardHeader>
-    <CardContent>
-      <p>
-        A brief description of this role and why it fits your skills.
-      </p>
-    </CardContent>
-    <CardFooter>
-      <Button size="sm" variant="outline">Explore Role</Button>
-    </CardFooter>
-  </Card>
-);
-
-const RoadmapStep = ({ step, active }: { step: string; active: boolean }) => (
-  <div
-    className={`p-4 mb-3 rounded-lg border transition-colors ${
-      active ? "border-amber-500 bg-amber-100" : "border-gray-200 bg-white"
-    }`}
-  >
-    <p className="font-semibold">{step}</p>
-  </div>
-);
+import { Input } from "@/components/ui/input";
+import { useStorageUpload } from "@/hooks/useStorageUpload";
 
 const stepTitles = [
   "Skill & Interest Assessment",
+  "Resume Upload",
   "Career Recommendation",
-  "Suggested Roadmap",
   "Personalized Dashboard",
+];
+
+const assessmentQuestions = [
+  {
+    id: "skills",
+    label: "Skills",
+    placeholder: "E.g., JavaScript, Data Analysis, UX Design",
+  },
+  {
+    id: "interests",
+    label: "Interests",
+    placeholder: "E.g., Machine Learning, Frontend Development",
+  },
+  {
+    id: "goals",
+    label: "Career Goals",
+    placeholder: "E.g., Become a Team Lead, Work in AI",
+  },
 ];
 
 const dummyCareers = ["Software Engineer", "Data Scientist", "UX Designer"];
@@ -62,30 +50,134 @@ interface SkillInterestData {
   goals: string;
 }
 
+const typingVariant = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1, transition: { repeat: Infinity, repeatType: "loop", duration: 1 } },
+  exit: { opacity: 0 },
+};
+
+const messageVariant = {
+  hidden: { opacity: 0, x: 50 },
+  visible: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -50 },
+};
+
 const CareerAgent: React.FC = () => {
   const [step, setStep] = useState(0);
-  const [progress, setProgress] = useState(0);
   const [skillInterestData, setSkillInterestData] = useState<SkillInterestData>({
     skills: "",
     interests: "",
     goals: "",
   });
+  const [messages, setMessages] = useState<string[]>([
+    "Welcome to the Career Pathway Agent! Let's start by assessing your skills and interests.",
+  ]);
+  const [inputValues, setInputValues] = useState<Partial<SkillInterestData>>({});
+  const [inputValue, setInputValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [showInsights, setShowInsights] = useState(false);
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [uploadedFileInfo, setUploadedFileInfo] = useState<any>(null);
 
-  // For demo, recommendations shown in step 1
-  // Roadmap shown in step 2
-  // Dashboard shown in step 3
+  const { uploadFile, uploading, progress: uploadProgress } = useStorageUpload();
 
-  const nextStep = () => {
-    if (step < stepTitles.length - 1) {
-      setStep(step + 1);
-      setProgress(((step + 1) / (stepTitles.length - 1)) * 100);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const currentQuestionId = assessmentQuestions[Object.keys(inputValues).length]?.id;
+
+  useEffect(() => {
+    // Scroll to bottom on messages update
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isTyping]);
+
+  useEffect(() => {
+    // Update progress based on step
+    setProgress(((step) / (stepTitles.length - 1)) * 100);
+  }, [step]);
+
+  const handleInputChange = (field: keyof SkillInterestData, value: string) => {
+    setInputValues((prev) => ({ ...prev, [field]: value }));
+    setInputValue(value);
+  };
+
+  const handleNext = async () => {
+    if (step === 0) {
+      // For skillInterest step, check if all are filled
+      const allFilled = assessmentQuestions.every((q) => inputValues[q.id as keyof SkillInterestData]?.trim().length! > 0);
+      if (!allFilled) return;
+
+      // Add messages sequentially with typing animation
+      for (const q of assessmentQuestions) {
+        setIsTyping(true);
+        await new Promise((r) => setTimeout(r, 800));
+        setMessages((prev) => [...prev, `${q.label}: ${inputValues[q.id as keyof SkillInterestData]}`]);
+        setIsTyping(false);
+        await new Promise((r) => setTimeout(r, 200));
+      }
+
+      setStep(1);
+      setInputValue("");
+      setInputValues({});
+    } else if (step === 1) {
+      // Resume upload step
+      if (!resumeFile) return;
+      // Upload file via supabase storage
+      setIsTyping(true);
+      setMessages((prev) => [...prev, "Uploading your resume..."]);
+      const uploadResult = await uploadFile(resumeFile, "resumes", "");
+      setIsTyping(false);
+      if (uploadResult) {
+        setUploadedFileInfo(uploadResult);
+        setMessages((prev) => [...prev, "Resume uploaded successfully!"]);
+        setStep(2);
+      } else {
+        setMessages((prev) => [...prev, "Failed to upload resume. Please try again."]);
+      }
+      setInputValue("");
+    } else if (step === 2) {
+      // Show career recommendations
+      setMessages((prev) => [
+        ...prev,
+        "Based on your inputs, here are some career recommendations:",
+        ...dummyCareers.map((career) => `- ${career}`),
+      ]);
+      setStep(3);
+      setShowInsights(true);
+      setInputValue("");
+    } else if (step === 3) {
+      // Final dashboard step - no next step, disable next button
+      // Could reset or do nothing
     }
   };
 
-  const prevStep = () => {
-    if (step > 0) {
-      setStep(step - 1);
-      setProgress(((step - 1) / (stepTitles.length - 1)) * 100);
+  const handlePrev = () => {
+    if (step === 0) return;
+    if (step === 1) {
+      setStep(0);
+      setMessages((prev) => prev.slice(0, assessmentQuestions.length + 1)); // Remove resume step messages
+    } else if (step === 2) {
+      setStep(1);
+      setMessages((prev) => prev.slice(0, assessmentQuestions.length + 3)); // Remove recommendation messages
+    } else if (step === 3) {
+      setStep(2);
+      setShowInsights(false);
+      setMessages((prev) => prev.slice(0, assessmentQuestions.length + dummyCareers.length + 3));
+    }
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      if ((step === 0 && inputValue.trim() && currentQuestionId) || (step === 1 && resumeFile)) {
+        handleNext();
+      }
+    }
+  };
+
+  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setResumeFile(e.target.files[0]);
     }
   };
 
@@ -98,153 +190,152 @@ const CareerAgent: React.FC = () => {
 
       <Progress value={progress} className="mb-8" />
 
-      <AnimatePresence mode="wait" initial={false}>
-        {step === 0 && (
-          <motion.div
-            key="assessment"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>{stepTitles[0]}</CardTitle>
-                <CardDescription>Tell us about your skills, interests, and career goals.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="skills">Skills</Label>
-                  <Textarea
-                    id="skills"
-                    placeholder="E.g., JavaScript, Data Analysis, UX Design"
-                    value={skillInterestData.skills}
-                    onChange={(e) => setSkillInterestData({...skillInterestData, skills: e.target.value})}
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="interests">Interests</Label>
-                  <Textarea
-                    id="interests"
-                    placeholder="E.g., Machine Learning, Frontend Development"
-                    value={skillInterestData.interests}
-                    onChange={(e) => setSkillInterestData({...skillInterestData, interests: e.target.value})}
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="goals">Career Goals</Label>
-                  <Textarea
-                    id="goals"
-                    placeholder="E.g., Become a Team Lead, Work in AI"
-                    value={skillInterestData.goals}
-                    onChange={(e) => setSkillInterestData({...skillInterestData, goals: e.target.value})}
-                    rows={3}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+      <div className="flex-1 overflow-y-auto space-y-4 max-h-[60vh] mb-8 p-4 border rounded-md bg-slate-50 dark:bg-slate-800">
+        <AnimatePresence initial={false} mode="popLayout">
+          {messages.map((msg, index) => (
+            <motion.div
+              key={index}
+              variants={messageVariant}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="p-3 rounded-lg bg-amber-50 text-amber-900 max-w-prose break-words shadow-sm"
+            >
+              {msg}
+            </motion.div>
+          ))}
+          {isTyping && (
+            <motion.div
+              className="p-3 rounded-lg bg-amber-200 text-amber-900 max-w-prose shadow-inner"
+              variants={typingVariant}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+            >
+              Typing...
+            </motion.div>
+          )}
+          <div ref={messagesEndRef} />
+        </AnimatePresence>
+      </div>
 
-        {step === 1 && (
-          <motion.div
-            key="recommendations"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>{stepTitles[1]}</CardTitle>
-                <CardDescription>Based on your inputs, we recommend these careers:</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {dummyCareers.map((role) => (
-                  <CareerRecommendationCard key={role} role={role} />
-                ))}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+      {/* Step UI */}
+      {step === 0 && (
+        <div className="space-y-4">
+          {assessmentQuestions
+            .filter((q) => !inputValues.hasOwnProperty(q.id))
+            .slice(0, 1)
+            .map((question) => (
+              <div key={question.id}>
+                <Label htmlFor={question.id}>{question.label}</Label>
+                <Textarea
+                  id={question.id}
+                  placeholder={question.placeholder}
+                  value={inputValue}
+                  onChange={(e) => handleInputChange(question.id as keyof SkillInterestData, e.target.value)}
+                  rows={3}
+                  onKeyDown={handleInputKeyDown}
+                  className="resize-none"
+                  autoFocus
+                />
+              </div>
+            ))}
+        </div>
+      )}
 
-        {step === 2 && (
-          <motion.div
-            key="roadmap"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Card>
-              <CardHeader>
-                <CardTitle>{stepTitles[2]}</CardTitle>
-                <CardDescription>Your suggested roadmap to reach your career goals:</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {dummyRoadmapSteps.map((stepLabel, idx) => (
-                  <RoadmapStep key={idx} step={stepLabel} active={true} />
-                ))}
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
+      {step === 1 && (
+        <Card className="p-6 bg-amber-50 shadow-md">
+          <CardHeader>
+            <CardTitle>Upload Your Resume</CardTitle>
+            <CardDescription>
+              Please upload your resume document (PDF or DOCX).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Input type="file" accept=".pdf,.docx" onChange={onFileChange} />
+            {uploading && (
+              <Progress value={uploadProgress} className="mt-4" />
+            )}
+            {uploadedFileInfo && (
+              <p className="mt-2 text-sm text-green-800">
+                Uploaded: {uploadedFileInfo.fileName}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
-        {step === 3 && (
-          <motion.div
-            key="dashboard"
-            initial={{ opacity: 0, x: 50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -50 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6"
-          >
-            <Card className="p-6">
-              <CardHeader>
-                <CardTitle>{stepTitles[3]}</CardTitle>
-                <CardDescription>Your personalized dashboard overview.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="mb-4 font-semibold">
-                  Welcome to your career dashboard! Here's your next action list.
-                </p>
-                <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-                  <li>Complete your profile</li>
-                  <li>Review recommended career paths</li>
-                  <li>Start applying for internships</li>
-                  <li>Schedule a mentorship session</li>
-                </ul>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {step === 2 && (
+        <Card className="p-6 bg-amber-50 shadow-md space-y-4">
+          <CardHeader>
+            <CardTitle>{stepTitles[2]}</CardTitle>
+            <CardDescription>Based on your inputs, we recommend these careers:</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {dummyCareers.map((career) => (
+              <Card key={career} className="bg-amber-100 p-4 shadow rounded-md">
+                <CardTitle className="text-amber-700">{career}</CardTitle>
+                <CardDescription>
+                  This is a recommended career based on your skills and interests.
+                </CardDescription>
+                <CardFooter>
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => alert(`Explore ${career}`)}
+                  >
+                    Explore Role
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
+      {step === 3 && showInsights && (
+        <Card className="p-6 bg-amber-50 shadow-md space-y-4">
+          <CardHeader>
+            <CardTitle>{stepTitles[3]}</CardTitle>
+            <CardDescription>Your personalized dashboard overview.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-4 font-semibold">
+              Welcome to your career dashboard! Here's your next action list.
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
+              <li>Complete your profile</li>
+              <li>Review recommended career paths</li>
+              <li>Start applying for internships</li>
+              <li>Schedule a mentorship session</li>
+            </ul>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Navigation Buttons */}
       <div className="flex justify-between mt-8 space-x-4">
         <Button
           variant="outline"
-          onClick={prevStep}
-          disabled={step === 0}
+          onClick={handlePrev}
+          disabled={step === 0 || uploading}
           aria-label="Previous step"
         >
-          <ChevronLeft className="mr-2 h-4 w-4" />
           Previous
         </Button>
         <Button
-          onClick={nextStep}
+          onClick={handleNext}
           disabled={
             (step === 0 &&
-              (!skillInterestData.skills.trim() ||
-                !skillInterestData.interests.trim() ||
-                !skillInterestData.goals.trim())) ||
-            step === stepTitles.length - 1
+              !assessmentQuestions.every((q) => inputValues[q.id as keyof SkillInterestData]?.trim().length)
+            ) ||
+            (step === 1 && !resumeFile) ||
+            uploading ||
+            step === stepTitles.length -1
           }
           aria-label="Next step"
         >
-          Next
-          <ChevronRight className="ml-2 h-4 w-4" />
+          {step === stepTitles.length - 2 ? "Show Recommendations" : "Next"}
         </Button>
       </div>
     </div>
@@ -252,3 +343,4 @@ const CareerAgent: React.FC = () => {
 };
 
 export default CareerAgent;
+
