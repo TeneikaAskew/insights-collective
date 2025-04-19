@@ -19,7 +19,9 @@ const AppLayout = ({ children }: AppLayoutProps) => {
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <Navbar />
-          <main className="flex-1 overflow-auto p-4">
+          {/* <main className="flex-1 overflow-auto p-4"> */}
+          <main className={`flex-1 overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
+            
             {children}
           </main>
           <footer className="p-4 border-t text-center text-sm text-gray-500">
