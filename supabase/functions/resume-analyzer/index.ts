@@ -302,7 +302,80 @@ async function analyzeResume(resumeText, userId) {
   }
 }
 
-// HTTP server entrypoint
+// // HTTP server entrypoint
+// serve(async (req) => {
+//   // Handle CORS preflight requests
+//   if (req.method === 'OPTIONS') {
+//     return new Response(null, {
+//       status: 200,
+//       headers: corsHeaders
+//     });
+//   }
+
+//   const url = new URL(req.url);
+//   const path = url.pathname.split('/').pop();
+//   console.log("URL: ", url, " Path: ", path);
+
+//   try {
+//     // Read the request body ONCE and store it
+//     const requestData = await req.json();
+//     const { action, resumeText, text, userId } = requestData;
+    
+//     // Use either resumeText or text parameter, whichever is provided
+//     const resolvedText = resumeText || text;
+//     const resolvedUserId = userId;
+    
+//     console.log("Logged in user:", resolvedUserId, " Text length:", resolvedText ? resolvedText.length : 0);
+
+//     // Handle specific paths
+//     if (path === 'detect-sentences') {
+//       return await serveSentenceDetector(resolvedText, resolvedUserId)(new Request(req.url, {
+//         method: req.method,
+//         headers: req.headers
+//       }));
+//     }
+//     // Default to resume analysis
+//     console.log(`Analyzing resume for ${resolvedUserId || 'anonymous'}`);
+//     const analysis = await analyzeResume(resolvedText, resolvedUserId);
+//     return new Response(JSON.stringify(analysis), {
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+   
+//         }
+//       });
+//     }
+    
+//     // Handle resume roast
+//     if (action === 'get-roast') {
+//         const roastData = await getResumeRoast(resolvedText, resolvedUserId);
+//         return new Response(JSON.stringify(roastData), {
+//           headers: {
+//             'Content-Type': 'application/json',
+//             ...corsHeaders
+//         }
+//       });
+//   }
+//     if (path === 'improve-bullet') {
+//       return await serveBulletImprover()(new Request(req.url, {
+//         method: req.method,
+//         headers: req.headers,
+//         body: JSON.stringify(requestData)
+//       }));
+//     } catch (error) {
+//     console.error('Error processing request:', error);
+//     return new Response(JSON.stringify({
+//       error: error.message,
+//       bullets: []
+//     }), {
+//       status: 500,
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+//       }
+//     });
+//   }
+// });
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -334,6 +407,26 @@ serve(async (req) => {
         headers: req.headers
       }));
     }
+    
+    // Handle resume roast
+    if (action === 'get-roast') {
+      const roastData = await getResumeRoast(resolvedText, resolvedUserId);
+      return new Response(JSON.stringify(roastData), {
+        headers: {
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        }
+      });
+    }
+    
+    if (path === 'improve-bullet') {
+      return await serveBulletImprover()(new Request(req.url, {
+        method: req.method,
+        headers: req.headers,
+        body: JSON.stringify(requestData)
+      }));
+    }
+    
     // Default to resume analysis
     console.log(`Analyzing resume for ${resolvedUserId || 'anonymous'}`);
     const analysis = await analyzeResume(resolvedText, resolvedUserId);
@@ -341,28 +434,10 @@ serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
         ...corsHeaders
-   
-        }
-      });
-    }
+      }
+    });
     
-    // Handle resume roast
-    if (action === 'get-roast') {
-        const roastData = await getResumeRoast(resolvedText, resolvedUserId);
-        return new Response(JSON.stringify(roastData), {
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-        }
-      });
-  }
-    if (path === 'improve-bullet') {
-      return await serveBulletImprover()(new Request(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: JSON.stringify(requestData)
-      }));
-    } catch (error) {
+  } catch (error) {
     console.error('Error processing request:', error);
     return new Response(JSON.stringify({
       error: error.message,
@@ -376,7 +451,6 @@ serve(async (req) => {
     });
   }
 });
-
 // // Add this at the top of the file
 // console.log('Resume analyzer function hit');
 // import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
