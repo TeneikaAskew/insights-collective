@@ -8,24 +8,76 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useResume } from "@/hooks/resume/useResume";
 import { supabase } from "@/integrations/supabase/client";
 
+// Updated full 13 assessment questions as requested
 const assessmentQuestions = [
   {
-    id: "skills",
-    label: "Skills",
-    placeholder: "E.g., JavaScript, Data Analysis, UX Design",
+    id: "q1",
+    label: "Interest in Career Assessment",
+    placeholder: "Choose the statement that best describes your interest in taking a career assessment?",
   },
   {
-    id: "interests",
-    label: "Interests",
-    placeholder: "E.g., Machine Learning, Frontend Development",
+    id: "q2",
+    label: "Ideal Next Job",
+    placeholder: "So if you woke up tomorrow in your ideal next job, what would that look like?",
   },
   {
-    id: "goals",
-    label: "Career Goals",
-    placeholder: "E.g., Become a Team Lead, Work in AI",
+    id: "q3",
+    label: "Future Vision",
+    placeholder: "Fast forward 5 years, where do you see yourself?",
+  },
+  {
+    id: "q4",
+    label: "Desired Role",
+    placeholder: "What role would you really want to be in?",
+  },
+  {
+    id: "q5",
+    label: "Seniority Level",
+    placeholder: "How senior would this role be?",
+  },
+  {
+    id: "q6",
+    label: "Career Pivot",
+    placeholder: "Are you thinking about a career pivot? What role would make better use of your talents?",
+  },
+  {
+    id: "q7",
+    label: "Strengths",
+    placeholder: "What would you say are the strengths that set you apart?",
+  },
+  {
+    id: "q8",
+    label: "Weaknesses",
+    placeholder: "What are some skills or abilities that should not feature prominently in your next role?",
+  },
+  {
+    id: "q9",
+    label: "Career Obstacles",
+    placeholder: "What do you see as the biggest obstacle to moving ahead in your career?",
+  },
+  {
+    id: "q10",
+    label: "Past Role Insights",
+    placeholder: "What makes work exciting and satisfying? What makes it boring or frustrating?",
+  },
+  {
+    id: "q11",
+    label: "Self-Reflection",
+    placeholder: "What aspect of your personality is your biggest positive? What has hindered your success?",
+  },
+  {
+    id: "q12",
+    label: "Top Career Priorities",
+    placeholder: "What are your top priorities in your career at this time?",
+  },
+  {
+    id: "q13",
+    label: "Work Engagement",
+    placeholder: "When you get lost in your work, what are you working on? Activities you'd like to do more?",
   },
 ];
 
+// Dummy career recommendations
 const dummyCareers: string[] = [
   "Data Scientist",
   "Frontend Engineer",
@@ -63,7 +115,8 @@ const CareerAgent: React.FC = () => {
 
   useEffect(() => {
     if (isAuthenticated && !sessionId) {
-      setSessionId(uuidv4());
+      const newSessionId = uuidv4();
+      setSessionId(newSessionId);
       setMessages([
         {
           id: "m1",
@@ -71,7 +124,7 @@ const CareerAgent: React.FC = () => {
           text: "Welcome to your Career Pathway Agent! Let's start by assessing your skills and interests.",
         },
         {
-          id: "m2",
+          id: "bot_0",
           sender: "bot",
           text: `First question: ${assessmentQuestions[0].label}. ${assessmentQuestions[0].placeholder}`,
         },
@@ -90,8 +143,6 @@ const CareerAgent: React.FC = () => {
   }
 
   const handleSubmit = async () => {
-    const currentQuestion = assessmentQuestions[questionIndex];
-
     if (questionIndex < assessmentQuestions.length) {
       if (!inputValue.trim()) return;
 
@@ -103,6 +154,8 @@ const CareerAgent: React.FC = () => {
 
       setMessages((prev) => [...prev, userMessage]);
       setIsTyping(true);
+
+      const currentQuestion = assessmentQuestions[questionIndex];
 
       setAnswers((prev) => ({ ...prev, [currentQuestion.id]: inputValue.trim() }));
 
@@ -123,11 +176,11 @@ const CareerAgent: React.FC = () => {
 
       setTimeout(() => {
         setIsTyping(false);
-        setQuestionIndex(questionIndex + 1);
+        const nextIndex = questionIndex + 1;
+        setQuestionIndex(nextIndex);
 
-        if (questionIndex + 1 < assessmentQuestions.length) {
-          const nextQ = assessmentQuestions[questionIndex + 1];
-
+        if (nextIndex < assessmentQuestions.length) {
+          const nextQ = assessmentQuestions[nextIndex];
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
