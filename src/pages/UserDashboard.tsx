@@ -2,7 +2,6 @@
 import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Timeline } from "@/components/ui/timeline"; // Placeholder: you can create this later or replace with a div
 import { ChevronRight } from "lucide-react";
 
 const careerGoals = [
@@ -93,3 +92,4 @@ const UserDashboard: React.FC = () => {
 };
 
 export default UserDashboard;
+
