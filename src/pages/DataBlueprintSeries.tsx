@@ -92,8 +92,8 @@ const blueprintEntries = [
 
 const DataBlueprintSeries = () => {
   return (
-    <AppLayout>
-      <div className="container mx-auto max-w-5xl py-8">
+    <AppLayout fullWidth>
+      <div className="container mx-auto max-w-5xl py-8 max-w-full">
         {/* Header Section */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold mb-4">The Data Blueprint Series</h1>
