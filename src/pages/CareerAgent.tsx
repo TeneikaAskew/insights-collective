@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, ChangeEvent } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
@@ -50,13 +50,16 @@ interface SkillInterestData {
   goals: string;
 }
 
-const typingVariant = {
+const typingVariant: Variants = {
   initial: { opacity: 0 },
-  animate: { opacity: 1, transition: { repeat: Infinity, repeatType: "loop", duration: 1 } },
+  animate: {
+    opacity: 1,
+    transition: { repeat: Infinity, repeatType: "loop", duration: 1 },
+  },
   exit: { opacity: 0 },
 };
 
-const messageVariant = {
+const messageVariant: Variants = {
   hidden: { opacity: 0, x: 50 },
   visible: { opacity: 1, x: 0 },
   exit: { opacity: 0, x: -50 },
@@ -343,4 +346,5 @@ const CareerAgent: React.FC = () => {
 };
 
 export default CareerAgent;
+
 
