@@ -89,6 +89,7 @@ export function serveSentenceDetector(resumeText, userId) {
 
 // Generate a resume roast and store it
 async function getResumeRoast(resumeText, userId) {
+  console.log("Resume Roast function hit")
   const cacheKey = userId ? `user:${userId}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
   if (roastCache.has(cacheKey)) {
     console.log('Using cached roast');
