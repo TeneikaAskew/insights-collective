@@ -56,7 +56,7 @@ const AppSidebar = () => {
       title: "Role Explorer",
       url: "/role-explorer",
       icon: Gamepad,
-      active: location.pathname === '/role-explorer',
+      active: location.pathname === '/role-explorer' || location.pathname.startsWith('/role-explorer/'),
     },
     {
       title: "Events",

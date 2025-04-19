@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +28,6 @@ type Role = {
   education: string;
 };
 
-// Placeholder data (can be expanded later)
 const industries: Industry[] = [
   {
     id: "finance",
@@ -152,7 +150,6 @@ const industries: Industry[] = [
   },
 ];
 
-// Breadcrumb item type
 type BreadcrumbItem = {
   label: string;
   level: "industries" | "domains" | "roles" | "details";
@@ -164,7 +161,6 @@ const RoleExplorer: React.FC = () => {
   const [currentDomainId, setCurrentDomainId] = useState<string | null>(null);
   const [currentRoleId, setCurrentRoleId] = useState<string | null>(null);
 
-  // Helpers for getting current selections
   const currentIndustry = currentIndustryId
     ? industries.find((ind) => ind.id === currentIndustryId) ?? null
     : null;
@@ -175,7 +171,6 @@ const RoleExplorer: React.FC = () => {
     ? currentDomain.roles.find((role) => role.id === currentRoleId) ?? null
     : null;
 
-  // Breadcrumb trail generation
   const breadcrumbItems: BreadcrumbItem[] = [
     { label: "Industries", level: "industries" },
   ];
@@ -189,7 +184,6 @@ const RoleExplorer: React.FC = () => {
     breadcrumbItems.push({ label: currentRole.title, level: "details", id: currentRole.id });
   }
 
-  // Handlers for breadcrumb clicks: navigate to level & reset deeper levels
   function handleBreadcrumbClick(level: BreadcrumbItem["level"]) {
     if (level === "industries") {
       setCurrentIndustryId(null);
@@ -203,7 +197,6 @@ const RoleExplorer: React.FC = () => {
     }
   }
 
-  // Back button handler: same as breadcrumb except safer for UI
   function handleBack() {
     if (currentRoleId) {
       setCurrentRoleId(null);
@@ -214,7 +207,6 @@ const RoleExplorer: React.FC = () => {
     }
   }
 
-  // Card for clicking on an item (industry/domain/role)
   const ExplorerCard = ({
     title,
     description,
@@ -242,7 +234,6 @@ const RoleExplorer: React.FC = () => {
     </button>
   );
 
-  // Badge list for skills
   const SkillBadges = ({ skills }: { skills: string[] }) => (
     <div className="flex flex-wrap gap-2 mt-4">
       {skills.map((skill) => (
@@ -253,9 +244,14 @@ const RoleExplorer: React.FC = () => {
     </div>
   );
 
-  // Role details panel
   const RoleDetails = ({ role }: { role: Role }) => (
-    <div className="bg-white shadow-lg rounded-lg p-6 max-w-4xl mx-auto w-full space-y-6 transition-transform animate-enter">
+    <div
+      key={role.id}
+      className="bg-white shadow-lg rounded-lg p-6 max-w-4xl mx-auto w-full space-y-6 transition-transform duration-300 ease-out animate-enter"
+      tabIndex={0}
+      aria-live="polite"
+      aria-label={`Details about ${role.title}`}
+    >
       <h2 className="text-3xl font-bold">{role.title}</h2>
       <p className="text-muted-foreground text-lg">{role.shortDescription}</p>
 
@@ -299,46 +295,72 @@ const RoleExplorer: React.FC = () => {
     </div>
   );
 
-  // Visual roles list when a role is selected
-  // Shows all roles in the selected domain with highlight on selected role
-
   const RolesList = () => {
     if (!currentDomain) return null;
 
     return (
-      <section aria-label={`All roles in ${currentDomain.name}`} className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      <section
+        aria-label={`All roles in ${currentDomain.name}`}
+        className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 cursor-pointer select-none"
+      >
         {currentDomain.roles.map((role) => {
           const isSelected = role.id === currentRoleId;
           return (
-            <ExplorerCard
+            <button
               key={role.id}
-              title={role.title}
-              description={role.shortDescription}
-              colorClass={isSelected ? `border-4 border-primary bg-${currentDomain.color}-50` : `bg-${currentDomain.color}-50 hover:bg-${currentDomain.color}-100 focus:bg-${currentDomain.color}-200`}
               onClick={() => setCurrentRoleId(role.id)}
+              className={`group rounded-lg p-5 shadow-lg border-4 transition-transform
+                ${
+                  isSelected
+                    ? "border-primary bg-white scale-105 shadow-primary-500"
+                    : "border-transparent bg-gray-50 hover:border-primary hover:bg-white hover:scale-105 focus:border-primary focus:bg-white focus:scale-105"
+                }
+                flex flex-col min-h-[140px] justify-between text-left`}
+              aria-current={isSelected ? "true" : undefined}
+              type="button"
             >
-              <SkillBadges skills={role.technicalSkills.slice(0, 3)} />
-            </ExplorerCard>
+              <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
+                {role.title}
+              </h3>
+              <p className="text-sm text-muted-foreground line-clamp-3 mb-2">
+                {role.shortDescription}
+              </p>
+              <div>
+                <Badge variant="outline" className="text-xs mr-1 mb-1 cursor-default select-none">
+                  {currentDomain.name}
+                </Badge>
+                <Badge variant="outline" className="text-xs cursor-default select-none">
+                  Role Preview
+                </Badge>
+              </div>
+            </button>
           );
         })}
       </section>
     );
   };
 
-  // Main render
-
   return (
     <main className="max-w-6xl mx-auto p-4 min-h-screen flex flex-col">
-      {/* Breadcrumb navigation */}
       <nav aria-label="Breadcrumb" className="mb-4 select-none">
         <ol className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
           {breadcrumbItems.map((item, idx) => {
             const isLast = idx === breadcrumbItems.length - 1;
             return (
               <li key={idx} className="flex items-center">
-                {idx > 0 && <ChevronRight className="w-4 h-4 mx-1 text-muted-foreground" aria-hidden="true" />}
+                {idx > 0 && (
+                  <ChevronRight
+                    className="w-4 h-4 mx-1 text-muted-foreground"
+                    aria-hidden="true"
+                  />
+                )}
                 {isLast ? (
-                  <span aria-current="page" className="font-semibold text-primary">{item.label}</span>
+                  <span
+                    aria-current="page"
+                    className="font-semibold text-primary"
+                  >
+                    {item.label}
+                  </span>
                 ) : (
                   <button
                     onClick={() => handleBreadcrumbClick(item.level)}
@@ -355,7 +377,6 @@ const RoleExplorer: React.FC = () => {
         </ol>
       </nav>
 
-      {/* Back button for hierarchical navigation */}
       {(currentIndustryId || currentDomainId || currentRoleId) && (
         <Button
           variant="ghost"
@@ -369,8 +390,10 @@ const RoleExplorer: React.FC = () => {
       )}
 
       {!currentIndustryId && (
-        // Show industries
-        <section aria-label="Industries" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <section
+          aria-label="Industries"
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
+        >
           {industries.map((industry) => (
             <ExplorerCard
               key={industry.id}
@@ -383,8 +406,10 @@ const RoleExplorer: React.FC = () => {
       )}
 
       {currentIndustry && !currentDomainId && !currentRoleId && (
-        // Show domains within the selected industry
-        <section aria-label={`Domains in ${currentIndustry.name}`} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <section
+          aria-label={`Domains in ${currentIndustry.name}`}
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
+        >
           {currentIndustry.domains.map((domain) => (
             <ExplorerCard
               key={domain.id}
@@ -392,7 +417,10 @@ const RoleExplorer: React.FC = () => {
               colorClass={`bg-${domain.color}-100 hover:bg-${domain.color}-200 focus:bg-${domain.color}-300`}
               onClick={() => setCurrentDomainId(domain.id)}
             >
-              <Badge variant="outline" className={`text-${domain.color}-600 border-${domain.color}-600 cursor-default`}>
+              <Badge
+                variant="outline"
+                className={`text-${domain.color}-600 border-${domain.color}-600 cursor-default`}
+              >
                 {domain.name}
               </Badge>
               <p className="sr-only">{`Explore roles in ${domain.name} domain`}</p>
@@ -401,13 +429,9 @@ const RoleExplorer: React.FC = () => {
         </section>
       )}
 
-      {currentIndustry && currentDomain && !currentRoleId && (
-        // Show all roles in the domain visually, letting user select a role to see details
-        <RolesList />
-      )}
+      {currentIndustry && currentDomain && !currentRoleId && <RolesList />}
 
       {currentRole && <RoleDetails role={currentRole} />}
-
     </main>
   );
 };
