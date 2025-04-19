@@ -134,7 +134,7 @@ async function getResumeRoast(resumeText, userId) {
       await supabase.from('resumes').update({
         initial_assessment: cleanRoast
       }).eq('user_id', userId);
-      console.log('Assessment stored in database for user:', userId);
+      console.log('Roast/Assessment stored in database for user:', userId);
     }
     return {
       roast: cleanRoast
@@ -147,13 +147,16 @@ async function getResumeRoast(resumeText, userId) {
   }
 }
 
+    
 // Main resume analysis logic
 async function analyzeResume(resumeText, userId) {
   let text = resumeText;
-  console.log("Text", text)
+  console.log("Provided text:", text ? `${text.length} characters` : "none");
+  
   try {
-    if (userId) {
-      console.log("Run analyze resume for user: ", userId)
+    // Check if we need to fetch from database (only if resumeText is null/empty)
+    if (!text && userId) {
+      console.log("No text provided, attempting to fetch from database for user:", userId);
       const { data: existing, error: fetchError } = await supabase
         .from('resumes')
         .select('id,text')
@@ -161,13 +164,20 @@ async function analyzeResume(resumeText, userId) {
         .order('uploaded_at', { ascending: false })  // Order by upload date, newest first
         .limit(1)  // Only get the most recent record
         .maybeSingle();
-      if (fetchError) console.error(fetchError);
-      if (existing?.id) {
-        if (!text) text = existing.text;
+      
+      if (fetchError) console.error("Error fetching text from database:", fetchError);
+      
+      if (existing?.id && existing?.text) {
+        text = existing.text;
+        console.log("Successfully retrieved text from database, length:", text.length);
+      } else {
+        console.log("No text found in database for user:", userId);
       }
     }
-    if (!text) throw new Error('No resume text provided');
-
+    
+    // Final check if we have text to analyze
+    if (!text) throw new Error('No resume text provided or found in database');
+    
     // Bullets
     let bulletPoints = [];
     if (userId && bulletCache.has(`user:${userId}:bullets`)) {
