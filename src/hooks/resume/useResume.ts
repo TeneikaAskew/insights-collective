@@ -166,7 +166,7 @@ export const useResume = () => {
   };
 
   // Upload resume file to Supabase storage and ALWAYS create a new record
-  const uploadResume = async (file: File): Promise<boolean> => {
+  const uploadResume = async (file: File, preExtractedText?: string): Promise<boolean> => {
     if (!user) {
       toast({
         title: 'Authentication required',
@@ -190,28 +190,54 @@ export const useResume = () => {
         return false;
       }
       
-      // Extract text from file for analysis
-      let fileText = '';
-      try {
-        fileText = await extractTextFromFile(file);
-        console.log("Successfully extracted text, length:", fileText.length);
-      } catch (extractError) {
-        console.warn('Could not extract text from file:', extractError);
-        try {
-          // Fallback to basic text extraction
-          const textReader = new FileReader();
-          textReader.readAsText(file);
-          fileText = await new Promise((resolve) => {
-            textReader.onload = () => resolve(textReader.result as string);
-          });
-          console.log("Used fallback text extraction, length:", fileText.length);
-        } catch (err) {
-          console.warn('Fallback text extraction also failed:', err);
-          // Continue with empty text - at least we can store the file
-          fileText = 'Text extraction failed. Please try again with a different file format.';
+      // // Extract text from file for analysis
+      // let fileText = '';
+      // try {
+      //   fileText = await extractTextFromFile(file);
+      //   console.log("Successfully extracted text, length:", fileText.length);
+      // } catch (extractError) {
+      //   console.warn('Could not extract text from file:', extractError);
+      //   try {
+      //     // Fallback to basic text extraction
+      //     const textReader = new FileReader();
+      //     textReader.readAsText(file);
+      //     fileText = await new Promise((resolve) => {
+      //       textReader.onload = () => resolve(textReader.result as string);
+      //     });
+      //     console.log("Used fallback text extraction, length:", fileText.length);
+      //   } catch (err) {
+      //     console.warn('Fallback text extraction also failed:', err);
+      //     // Continue with empty text - at least we can store the file
+      //     fileText = 'Text extraction failed. Please try again with a different file format.';
+      //   }
+      // }
+        // Extract text from file for analysis (only if not provided)
+        let fileText = preExtractedText || '';
+        
+        if (!fileText) {
+          try {
+            console.log("No pre-extracted text provided, extracting now...");
+            fileText = await extractTextFromFile(file);
+            console.log("Successfully extracted text, length:", fileText.length);
+          } catch (extractError) {
+            console.warn('Could not extract text from file:', extractError);
+            try {
+              // Fallback to basic text extraction
+              const textReader = new FileReader();
+              textReader.readAsText(file);
+              fileText = await new Promise((resolve) => {
+                textReader.onload = () => resolve(textReader.result as string);
+              });
+              console.log("Used fallback text extraction, length:", fileText.length);
+            } catch (err) {
+              console.warn('Fallback text extraction also failed:', err);
+              // Continue with empty text - at least we can store the file
+              fileText = 'Text extraction failed. Please try again with a different file format.';
+            }
+          }
+        } else {
+          console.log("Using pre-extracted text, length:", fileText.length);
         }
-      }
-      
       // Upload file to storage with a unique path
       const timestamp = Date.now();
       const uploadResult = await uploadResumeFile(file, user.id);

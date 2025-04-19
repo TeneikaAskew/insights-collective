@@ -159,7 +159,7 @@ const Resume = () => {
     setHasLoadedAnalysis(false);
     setStorageError(null);
     try {
-      const ok = await uploadResume(resumeFile);
+      const ok = await uploadResume(resumeFile, extractedText));
       if (ok) {
         try {
           await analyzeResume(extractedText);
