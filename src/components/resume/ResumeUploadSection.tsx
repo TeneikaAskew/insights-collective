@@ -2,10 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { FileUp, File, DownloadCloud, Trash2, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import type { Resume } from '@/hooks/resume/useResume';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Document, Page, pdfjs } from 'react-pdf';
+
+// Set workerSrc for react-pdf (use CDN)
+pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
 
 interface ResumeUploadSectionProps {
   resumeFile: File | null;
@@ -34,70 +38,58 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
   handleDownload,
   pdfDataUrl,
 }) => {
-  // State to track file errors
   const [fileError, setFileError] = useState<string | null>(null);
+  const [numPages, setNumPages] = useState<number>(0);
 
-  // Clear file error when a new file is selected
   useEffect(() => {
     if (resumeFile) {
       setFileError(null);
     }
   }, [resumeFile]);
 
-  // Display file preview based on file type
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+  };
+
   const renderFilePreview = () => {
-    // For PDF files
-    if (resume?.file_url) {
-      try {
-        // If we have a stored resume with a URL
-        return (
-          <iframe 
-            src={`${resume.file_url}#toolbar=0&navpanes=0`}
-            className="w-full aspect-[8.5/11] border rounded-md"
-            title="Resume preview"
-            onError={() => setFileError("Could not load resume preview. The file may be inaccessible.")}
-          />
-        );
-      } catch (error) {
-        console.error("Error rendering resume preview:", error);
-        return (
-          <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-red-50">
-            <AlertCircle className="h-12 w-12 text-red-500 mb-2" />
-            <p className="text-red-500">Error loading preview</p>
-          </div>
-        );
-      }
+    // If we have a stored resume with a URL and it's a PDF, use react-pdf to render preview
+    if (resume?.file_url && resume?.file_name?.toLowerCase().endsWith('.pdf')) {
+      return (
+        <div className="w-full aspect-[8.5/11] border rounded-md overflow-auto bg-white">
+          <Document
+            file={resume.file_url}
+            onLoadSuccess={onDocumentLoadSuccess}
+            loading={<p className="p-4 text-center text-muted-foreground">Loading document preview...</p>}
+            options={{ cMapUrl: 'cmaps/', cMapPacked: true }}
+          >
+            {Array.from(new Array(numPages), (_el, index) => (
+              <Page key={`page_${index + 1}`} pageNumber={index + 1} width={600} />
+            ))}
+          </Document>
+        </div>
+      );
     }
-    
+
     // For local preview of newly selected files
     if (pdfDataUrl) {
       // Check if it's a PDF
       if (resumeFile?.type === 'application/pdf') {
         return (
-          <iframe 
-            src={pdfDataUrl}
-            className="w-full aspect-[8.5/11] border rounded-md"
-            title="Resume preview"
-            onError={() => setFileError("Could not load PDF preview")}
-          />
+          <div className="w-full aspect-[8.5/11] border rounded-md overflow-auto bg-white">
+            <Document
+              file={pdfDataUrl}
+              onLoadSuccess={onDocumentLoadSuccess}
+              loading={<p className="p-4 text-center text-muted-foreground">Loading document preview...</p>}
+              options={{ cMapUrl: 'cmaps/', cMapPacked: true }}
+            >
+              {Array.from(new Array(numPages), (_el, index) => (
+                <Page key={`page_${index + 1}`} pageNumber={index + 1} width={600} />
+              ))}
+            </Document>
+          </div>
         );
       }
-    // // For local preview of newly selected files
-    // if (pdfDataUrl) {
-    //   // Check if it's a PDF
-    //   if (resumeFile?.type === 'application/pdf') {
-    //     return (
-    //       <iframe 
-    //         src={pdfDataUrl}
-    //         className="w-full aspect-[8.5/11] border rounded-md"
-    //         title="Resume preview"
-    //         // Add sandbox attribute to restrict iframe capabilities
-    //         sandbox="allow-same-origin"
-    //         onError={() => setFileError("Could not load PDF preview")}
-    //       />
-    //     );
-    //   }
-      
+
       // For DOCX, we can't preview directly, show a placeholder
       if (resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
         return (
@@ -109,8 +101,8 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
         );
       }
     }
-    
-    // If no file uploaded yet
+
+    // Fallback if no preview available
     return (
       <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
         <p className="text-muted-foreground">No file uploaded</p>
@@ -135,7 +127,7 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
             </AlertDescription>
           </Alert>
         )}
-      
+
         {loading ? (
           <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-10 text-center">
             <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -182,12 +174,12 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
                 </Button>
               </div>
             </div>
-            
+
             <div className="mt-4 pt-4 border-t">
               <p className="text-sm text-muted-foreground mb-2">
                 Resume preview
               </p>
-              
+
               {renderFilePreview()}
             </div>
           </div>
@@ -205,7 +197,7 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
               'Upload & Analyze Resume'}
           </Button>
         )}
-        
+
         {!resumeFile && resume && (
           <div className="w-full flex justify-between">
             <Button variant="outline" onClick={handleDelete}>
