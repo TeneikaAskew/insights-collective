@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, ChangeEvent } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -34,23 +33,12 @@ const assessmentQuestions = [
   },
 ];
 
-const dummyCareers = ["Software Engineer", "Data Scientist", "UX Designer"];
-
-const dummyRoadmapSteps = [
-  "Learn fundamentals of programming",
-  "Build personal projects",
-  "Contribute to open source",
-  "Apply to internships",
-  "Secure a full-time role",
-];
-
 interface SkillInterestData {
   skills: string;
   interests: string;
   goals: string;
 }
 
-// Fix the type error: constrain repeatType with string literal
 const typingVariant: Variants = {
   initial: { opacity: 0 },
   animate: {
@@ -91,12 +79,10 @@ const CareerAgent: React.FC = () => {
   const currentQuestionId = assessmentQuestions[Object.keys(inputValues).length]?.id;
 
   useEffect(() => {
-    // Scroll to bottom on messages update
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
   useEffect(() => {
-    // Update progress based on step
     setProgress(((step) / (stepTitles.length - 1)) * 100);
   }, [step]);
 
@@ -107,11 +93,9 @@ const CareerAgent: React.FC = () => {
 
   const handleNext = async () => {
     if (step === 0) {
-      // For skillInterest step, check if all are filled
       const allFilled = assessmentQuestions.every((q) => inputValues[q.id as keyof SkillInterestData]?.trim().length! > 0);
       if (!allFilled) return;
 
-      // Add messages sequentially with typing animation
       for (const q of assessmentQuestions) {
         setIsTyping(true);
         await new Promise((r) => setTimeout(r, 800));
@@ -124,9 +108,7 @@ const CareerAgent: React.FC = () => {
       setInputValue("");
       setInputValues({});
     } else if (step === 1) {
-      // Resume upload step
       if (!resumeFile) return;
-      // Upload file via supabase storage
       setIsTyping(true);
       setMessages((prev) => [...prev, "Uploading your resume..."]);
       const uploadResult = await uploadFile(resumeFile, "resumes", "");
@@ -140,7 +122,6 @@ const CareerAgent: React.FC = () => {
       }
       setInputValue("");
     } else if (step === 2) {
-      // Show career recommendations
       setMessages((prev) => [
         ...prev,
         "Based on your inputs, here are some career recommendations:",
@@ -150,8 +131,7 @@ const CareerAgent: React.FC = () => {
       setShowInsights(true);
       setInputValue("");
     } else if (step === 3) {
-      // Final dashboard step - no next step, disable next button
-      // Could reset or do nothing
+      setMessages((prev) => prev.slice(0, assessmentQuestions.length + dummyCareers.length + 3));
     }
   };
 
@@ -159,10 +139,10 @@ const CareerAgent: React.FC = () => {
     if (step === 0) return;
     if (step === 1) {
       setStep(0);
-      setMessages((prev) => prev.slice(0, assessmentQuestions.length + 1)); // Remove resume step messages
+      setMessages((prev) => prev.slice(0, assessmentQuestions.length + 1));
     } else if (step === 2) {
       setStep(1);
-      setMessages((prev) => prev.slice(0, assessmentQuestions.length + 3)); // Remove recommendation messages
+      setMessages((prev) => prev.slice(0, assessmentQuestions.length + 3));
     } else if (step === 3) {
       setStep(2);
       setShowInsights(false);
@@ -223,7 +203,6 @@ const CareerAgent: React.FC = () => {
         </AnimatePresence>
       </div>
 
-      {/* Step UI */}
       {step === 0 && (
         <div className="space-y-4">
           {assessmentQuestions
@@ -317,7 +296,6 @@ const CareerAgent: React.FC = () => {
         </Card>
       )}
 
-      {/* Navigation Buttons */}
       <div className="flex justify-between mt-8 space-x-4">
         <Button
           variant="outline"

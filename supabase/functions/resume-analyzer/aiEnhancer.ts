@@ -26,7 +26,7 @@ export async function enhanceWithGroq(resumeText, analysis) {
       return {
         text: b.original.substring(0, 100),
         score: b.bullet_total,
-        issues: (b.tips && typeof b.tips === 'string') ? b.tips.substring(0, 150) : "" //issues: b.tips ? b.tips.substring(0, 150) : "" // First 150 chars of tips
+        issues: (b.tips && typeof b.tips === 'string') ? b.tips.substring(0, 150) : "" // First 150 chars of tips
       };
     });
     console.log("Bullet Summary: ", bulletSummary);
@@ -40,123 +40,73 @@ export async function enhanceWithGroq(resumeText, analysis) {
       weak_bullets: bottomBullets.length > 0 ? bottomBullets.map((b)=>b.original.substring(0, 100)).join("\n") : ""
     };
     console.log("Condensed Analysis:", JSON.stringify(condensedAnalysis, null, 2));
-    /**
-   * Cleans up the raw LLM output into properly formatted Markdown
-
-   
-    // function formatResponse(raw) {
-   //    if (!raw) return '';
-   //    let text = raw;
-   //    console.log("Before formatting: ", raw);
-   //    // 1) Fix unbalanced bold markers: **…* or *…** → **…**
-   //    text = text.replace(/\*\*(.+?)\*/g, '**$1**');
-   //    text = text.replace(/\*(.+?)\*\*/g, '**$1**');
-   //    // 2) Convert leading "* " or "+ " into "- " bullets
-   //    text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
-   //    // 3) Convert numbered lists into bullet points
-   //    text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
-   //    // 4) Ensure bold-only lines become headers
-   //    text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
-   //    // 5) Remove noisy markdown-like labels (flexible pattern)
-   //    text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
-   //    // 6) Remove known noise patterns
-   //    const noisyPatterns = [
-   //      /Resume Grade Explanation:\*?.*/gi,
-   //      /Brief Explanation of the Resume Grade:\*?.*/gi,
-   //      /Three Specific Improvement Themes:\*?.*/gi,
-   //      /Quantifiable Results:\*?.*/gi,
-   //      /IStronger Action Verbs:k:.*/gi,
-   //      /Specific Improvement Themes:\*?.*/gi,
-   //      /Concise Language:\*?.*/gi,
-   //      /Professional Elevator Pitch:\*?.*/gi,
-   //      /Resume Grade and Explanation:\*?.*/gi
-   //    ];
-   //    for (const pattern of noisyPatterns){
-   //      text = text.replace(pattern, '');
-   //    }
-   //    // 7) Remove markdown-like noise lines
-   //    text = text.replace(/^##\s*\*/gm, '');
-   //    text = text.replace(/-\s*\*+[A-Za-z\s]+:\*+/g, '-');
-   //    text = text.replace(/\*+[A-Za-z\s]+:\*+/g, '');
-   //    // 8) Remove floating bold/italic markers (e.g., **, ***, etc.)
-   //    text = text.replace(/(?<=\s|^)\*{2,}(?=\s|$)/g, '');
-   //    text = text.replace(/(?<=\s|^)_+(?=\s|$)/g, '');
-   //    // 9) Collapse 3+ blank lines → 2
-   //    text = text.replace(/\n{3,}/g, '\n\n');
-   //    // 10) Trim trailing spaces and outer whitespace
-   //    return text.split('\n').map((line)=>line.trimEnd()).join('\n').trim();
-   //  }
     
-      function formatResponse(raw) {
-        if (!raw) return '';
-        let text = raw;
-        console.log("Before formatting: ", raw);
-        
-        // 1) Fix unbalanced bold markers: **…* or *…** → **…**
-        text = text.replace(/\*\*(.+?)\*/g, '**$1**');
-        text = text.replace(/\*(.+?)\*\*/g, '**$1**');
-        
-        // 2) Convert leading "* " or "+ " into "- " bullets
-        text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
-        
-        // 3) Convert numbered lists into bullet points
-        text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
-        
-        // 4) Ensure bold-only lines become headers
-        text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
-        
-        // 5) Remove noisy markdown-like labels (flexible pattern)
-        text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
-        
-        // 6) Remove known noise patterns - CONSOLIDATED with section patterns
-        const noisyPatterns = [
-          // Original noise patterns
-          /Resume Grade Explanation:\*?.*/gi,
-          /Brief Explanation of the Resume Grade:\*?.*/gi,
-          /Three Specific Improvement Themes:\*?.*/gi,
-          /Quantifiable Results:\*?.*/gi,
-          /IStronger Action Verbs:k:.*/gi,
-          /Specific Improvement Themes:\*?.*/gi,
-          /Concise Language:\*?.*/gi,
-          /Professional Elevator Pitch:\*?.*/gi,
-          /Resume Grade and Explanation:\*?.*/gi,
-          
-          // Added consolidated section patterns
-          /\*?Professional Elevator Pitch[^:]*:\*?/gi,
-          /\*?Resume Grade[^:]*:\*?/gi,
-          /\*?Three Specific Improvement Themes[^:]*:?\*?/gi,
-          /\*?Detailed Explanation:\*?/gi,
-          /\*?Key Improvement Themes:\*?/gi,
-          
-          // General section pattern with max sentences
-          /\*?([A-Za-z\s]+)\s*\(max\s*\d+\s*sentences?\):\*?/gi
-        ];
-        
-        for (const pattern of noisyPatterns) {
-          text = text.replace(pattern, '');
-        }
-        
-        // 7) Remove markdown-like noise lines
-        text = text.replace(/^##\s*\*/gm, '');
-        text = text.replace(/-\s*\*+[A-Za-z\s]+:\*+/g, '-');
-        text = text.replace(/\*+[A-Za-z\s]+:\*+/g, '');
-        
-        // 8) Remove floating bold/italic markers (e.g., **, ***, etc.)
-        text = text.replace(/(?<=\s|^)\*{2,}(?=\s|$)/g, '');
-        text = text.replace(/(?<=\s|^)_+(?=\s|$)/g, '');
-        
-        // 9) Clean up bullet points with special formatting
-        text = text.replace(/^-\s*\*?([A-Za-z\s]+\*?:)\s*(.*?)$/gm, '- $2');
-        
-        // 10) Clean up asterisks around text
-        text = text.replace(/\*([^*]+)\*/g, '$1');
-        
-        // 11) Collapse 3+ blank lines → 2
-        text = text.replace(/\n{3,}/g, '\n\n');
-        
-        // 12) Trim trailing spaces and outer whitespace
-        return text.split('\n').map((line) => line.trimEnd()).join('\n').trim();
+    // Clean up the raw LLM output into properly formatted Markdown
+    function formatResponse(raw) {
+      if (!raw) return '';
+      let text = raw;
+      console.log("Before formatting: ", raw);
+      
+      // 1) Fix unbalanced bold markers: **…* or *…** → **…**
+      text = text.replace(/\*\*(.+?)\*/g, '**$1**');
+      text = text.replace(/\*(.+?)\*\*/g, '**$1**');
+      
+      // 2) Convert leading "* " or "+ " into "- " bullets
+      text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
+      
+      // 3) Convert numbered lists into bullet points
+      text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
+      
+      // 4) Ensure bold-only lines become headers
+      text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
+      
+      // 5) Remove noisy markdown-like labels (flexible pattern)
+      text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
+      
+      // 6) Remove known noise patterns - CONSOLIDATED with section patterns
+      const noisyPatterns = [
+        /Resume Grade Explanation:\*?.*/gi,
+        /Brief Explanation of the Resume Grade:\*?.*/gi,
+        /Three Specific Improvement Themes:\*?.*/gi,
+        /Quantifiable Results:\*?.*/gi,
+        /IStronger Action Verbs:k:.*/gi,
+        /Specific Improvement Themes:\*?.*/gi,
+        /Concise Language:\*?.*/gi,
+        /Professional Elevator Pitch:\*?.*/gi,
+        /Resume Grade and Explanation:\*?.*/gi,
+        /\*?Professional Elevator Pitch[^:]*:\*?/gi,
+        /\*?Resume Grade[^:]*:\*?/gi,
+        /\*?Three Specific Improvement Themes[^:]*:?\*?/gi,
+        /\*?Detailed Explanation:\*?/gi,
+        /\*?Key Improvement Themes:\*?/gi,
+        /\*?([A-Za-z\s]+)\s*\(max\s*\d+\s*sentences?\):\*?/gi
+      ];
+      
+      for (const pattern of noisyPatterns) {
+        text = text.replace(pattern, '');
       }
+      
+      // 7) Remove markdown-like noise lines
+      text = text.replace(/^##\s*\*/gm, '');
+      text = text.replace(/-\s*\*+[A-Za-z\s]+:\*+/g, '-');
+      text = text.replace(/\*+[A-Za-z\s]+:\*+/g, '');
+      
+      // 8) Remove floating bold/italic markers (e.g., **, ***, etc.)
+      text = text.replace(/(?<=\s|^)\*{2,}(?=\s|$)/g, '');
+      text = text.replace(/(?<=\s|^)_+(?=\s|$)/g, '');
+      
+      // 9) Clean up bullet points with special formatting
+      text = text.replace(/^-\s*\*?([A-Za-z\s]+\*?:)\s*(.*?)$/gm, '- $2');
+      
+      // 10) Clean up asterisks around text
+      text = text.replace(/\*([^*]+)\*/g, '$1');
+      
+      // 11) Collapse 3+ blank lines → 2
+      text = text.replace(/\n{3,}/g, '\n\n');
+      
+      // 12) Trim trailing spaces and outer whitespace
+      return text.split('\n').map((line) => line.trimEnd()).join('\n').trim();
+    }
     // Call the GROQ API with timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
