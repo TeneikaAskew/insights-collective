@@ -177,11 +177,6 @@ async function analyzeResume(resumeText, userId) {
     
     // Final check if we have text to analyze
     if (!text) throw new Error('No resume text provided or found in database');
-
-
-    if (userId) await getResumeRoast(text, userId);
-    // getResumeRoast(text, userId).catch(err => console.error('Roast failed:', err));
-
     
     // Bullets
     let bulletPoints = [];
@@ -211,7 +206,7 @@ async function analyzeResume(resumeText, userId) {
         explanation: 'Please organize your experience in clear bullet points.'
       };
     }
-    console.log("Starting Resume Bullet Analysis")
+    console.log("2")
     const analyzed = await Promise.all(bulletPoints.map(async (bullet) => {
       try {
         const wb = analyzeWordBalance(bullet);
@@ -286,6 +281,8 @@ async function analyzeResume(resumeText, userId) {
       console.log('Successfully updated resume analysis in database');
     }    
 
+    if (userId) await getResumeRoast(text, userId);
+    // getResumeRoast(text, userId).catch(err => console.error('Roast failed:', err));
     
     return enhanced;
     

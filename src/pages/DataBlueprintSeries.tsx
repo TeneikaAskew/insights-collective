@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -91,8 +92,9 @@ const blueprintEntries = [
 
 const DataBlueprintSeries = () => {
   return (
-    <AppLayout fullWidth>
-      <div className="container mx-auto py-8">
+    <AppLayout>
+      <div className="container mx-auto max-w-5xl py-8">
+        {/* Header Section */}
         <div className="mb-12 text-center">
           <h1 className="text-4xl font-bold mb-4">The Data Blueprint Series</h1>
           <h2 className="text-2xl text-muted-foreground mb-8">
@@ -113,6 +115,7 @@ const DataBlueprintSeries = () => {
           </div>
         </div>
 
+        {/* Featured Entries Section */}
         <div className="mb-16">
           <div className="flex items-center mb-6">
             <BookOpen className="h-6 w-6 mr-2 text-primary" />
@@ -144,6 +147,7 @@ const DataBlueprintSeries = () => {
           </div>
         </div>
 
+        {/* What's Next Section */}
         <div className="mb-16 bg-secondary/20 p-6 rounded-lg">
           <h2 className="text-2xl font-bold mb-4">🧠 What's Next?</h2>
           <p className="text-lg mb-4">You'll also explore:</p>
@@ -157,6 +161,7 @@ const DataBlueprintSeries = () => {
           </ul>
         </div>
 
+        {/* CTA Section */}
         <div className="text-center bg-primary/10 p-8 rounded-lg">
           <h2 className="text-2xl font-bold mb-4">Ready to accelerate your data career?</h2>
           <p className="text-lg mb-6">
