@@ -76,25 +76,56 @@ const Resume = () => {
       }
     }
   }, [resume, analysis, setAnalysis, hasLoadedAnalysis, user]);
-  useEffect(() => {
-    if (!resumeFile) return;
-    const reader = new FileReader();
-    reader.onload = e => setPdfDataUrl(e.target?.result as string);
-    reader.readAsDataURL(resumeFile);
-    (async () => {
-      try {
-        const text = await extractTextFromFile(resumeFile);
-        setExtractedText(text);
-      } catch (err) {
-        console.error(err);
-        toast({
-          title: 'Extraction failed',
-          description: 'Could not extract text from your resume.',
-          variant: 'destructive'
-        });
-      }
-    })();
-  }, [resumeFile, toast]);
+  
+  // useEffect(() => {
+  //   if (!resumeFile) return;
+  //   const reader = new FileReader();
+  //   reader.onload = e => setPdfDataUrl(e.target?.result as string);
+  //   reader.readAsDataURL(resumeFile);
+  //   (async () => {
+  //     try {
+  //       const text = await extractTextFromFile(resumeFile);
+  //       setExtractedText(text);
+  //     } catch (err) {
+  //       console.error(err);
+  //       toast({
+  //         title: 'Extraction failed',
+  //         description: 'Could not extract text from your resume.',
+  //         variant: 'destructive'
+  //       });
+  //     }
+  //   })();
+  // }, [resumeFile, toast]);
+
+  
+// First useEffect for file handling
+useEffect(() => {
+  if (!resumeFile) return;
+  
+  // Create a Blob URL instead of using FileReader and Data URL
+  const url = URL.createObjectURL(resumeFile);
+  setPdfDataUrl(url);
+  
+  // Extract text from the file
+  (async () => {
+    try {
+      const text = await extractTextFromFile(resumeFile);
+      setExtractedText(text);
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: 'Extraction failed',
+        description: 'Could not extract text from your resume.',
+        variant: 'destructive'
+      });
+    }
+  })();
+  
+  // Clean up the Blob URL when component unmounts or file changes
+  return () => {
+    URL.revokeObjectURL(url);
+  };
+}, [resumeFile, toast]);
   useEffect(() => {
     if (resume?.text && !analysis && !isAnalyzing && !hasLoadedAnalysis && initialLoadComplete) {
       console.log("Analyzing existing resume text");
