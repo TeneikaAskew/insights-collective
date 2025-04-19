@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -55,7 +56,7 @@ import CourseManageMaterials from './pages/CourseManageMaterials';
 
 // Import the new AdminCourseEdit component
 import AdminCourseEdit from "./pages/AdminCourseEdit";
-import RoleExplorer from "./pages/RoleExplorer";
+import CareerAgent from "./pages/CareerAgent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -130,13 +131,13 @@ function App() {
                         <CourseManageMaterials />
                       </PageVisibilityGuard>
                     } />
-                    
-                    {/* Add Route for Role Explorer - No auth, public access */}
-                    <Route
-                      path="/role-explorer"
-                      element={<RoleExplorer />}
-                    />
-                    
+
+                    {/* Add Route for Career Agent - public access */}
+                    <Route path="/career-agent" element={<CareerAgent />} />
+
+                    {/* Removed Role Explorer route */}
+                    {/* <Route path="/role-explorer" element={<RoleExplorer />} /> */}
+
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                   {/* Temporarily removed ChatBot to fix console errors */}
@@ -151,3 +152,4 @@ function App() {
 }
 
 export default App;
+

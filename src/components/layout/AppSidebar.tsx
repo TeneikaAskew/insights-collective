@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Github, Twitter, Gamepad } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -53,10 +53,10 @@ const AppSidebar = () => {
       active: location.pathname === '/explore-data-careers',
     },
     {
-      title: "Role Explorer",
-      url: "/role-explorer",
-      icon: Gamepad,
-      active: location.pathname === '/role-explorer' || location.pathname.startsWith('/role-explorer/'),
+      title: "Career Agent",
+      url: "/career-agent",
+      icon: Bot,
+      active: location.pathname === '/career-agent',
     },
     {
       title: "Events",
@@ -233,8 +233,6 @@ const AppSidebar = () => {
                 ))}
                 
                 {isInstructor && !isAdmin && (
-                  // Here we'd show instructor-specific menu items
-                  // This section will be populated as instructor features are built
                   <SidebarMenuItem>
                     <SidebarMenuButton 
                       asChild
