@@ -8,7 +8,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useResume } from "@/hooks/resume/useResume";
 import { supabase } from "@/integrations/supabase/client";
 
-// The questions to ask user
 const assessmentQuestions = [
   {
     id: "skills",
@@ -27,7 +26,6 @@ const assessmentQuestions = [
   },
 ];
 
-// Dummy career recommendations for example
 const dummyCareers: string[] = [
   "Data Scientist",
   "Frontend Engineer",
@@ -37,9 +35,11 @@ const dummyCareers: string[] = [
   "Business Analyst",
 ];
 
+type SenderType = "system" | "user" | "bot";
+
 type Message = {
   id: string;
-  sender: "system" | "user" | "bot";
+  sender: SenderType;
   text: string;
 };
 
@@ -47,39 +47,23 @@ const CareerAgent: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
   const { resume, uploadResume, loading: resumeLoading, uploading } = useResume();
 
-  // A unique session id per assessment session for storing answers
   const [sessionId, setSessionId] = useState<string | null>(null);
-
-  // Chat messages state
   const [messages, setMessages] = useState<Message[]>([]);
-
-  // Current question index
   const [questionIndex, setQuestionIndex] = useState<number>(0);
-
-  // Current input value for user typing
   const [inputValue, setInputValue] = useState("");
-
-  // User answers stored locally for rendering recommendations later
   const [answers, setAnswers] = useState<Record<string, string>>({});
-
-  // Upload resume file state for upload step
   const [resumeFile, setResumeFile] = React.useState<File | null>(null);
-
-  // Typing indicator state
   const [isTyping, setIsTyping] = useState(false);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom on message update
   useEffect(() => {
     scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // Initialize session on mount when authenticated
   useEffect(() => {
     if (isAuthenticated && !sessionId) {
       setSessionId(uuidv4());
-      // Start conversation with welcome message and first question
       setMessages([
         {
           id: "m1",
@@ -98,19 +82,19 @@ const CareerAgent: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen justify-center items-center">
-        <p className="text-lg text-center text-muted-foreground">Please log in to access the Career Pathway Agent.</p>
+        <p className="text-lg text-center text-muted-foreground">
+          Please log in to access the Career Pathway Agent.
+        </p>
       </div>
     );
   }
 
-  // Handle user submit for each question or resume upload
   const handleSubmit = async () => {
     const currentQuestion = assessmentQuestions[questionIndex];
+
     if (questionIndex < assessmentQuestions.length) {
-      // User submitting a textual answer
       if (!inputValue.trim()) return;
 
-      // Add user message
       const userMessage: Message = {
         id: `user_${Date.now()}`,
         sender: "user",
@@ -120,10 +104,8 @@ const CareerAgent: React.FC = () => {
       setMessages((prev) => [...prev, userMessage]);
       setIsTyping(true);
 
-      // Persist answer in local answers state
       setAnswers((prev) => ({ ...prev, [currentQuestion.id]: inputValue.trim() }));
 
-      // Persist answer to Supabase career_assessments table
       try {
         if (sessionId && user) {
           await supabase.from("career_assessments").insert({
@@ -139,7 +121,6 @@ const CareerAgent: React.FC = () => {
 
       setInputValue("");
 
-      // Simulate bot typing delay
       setTimeout(() => {
         setIsTyping(false);
         setQuestionIndex(questionIndex + 1);
@@ -154,7 +135,6 @@ const CareerAgent: React.FC = () => {
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
-          // After last question, offer to upload resume or get recommendations
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
@@ -164,7 +144,6 @@ const CareerAgent: React.FC = () => {
         }
       }, 1200);
     } else if (questionIndex === assessmentQuestions.length) {
-      // User submit for resume upload step: trigger upload if file selected
       if (!resumeFile) return;
 
       setIsTyping(true);
@@ -185,7 +164,7 @@ const CareerAgent: React.FC = () => {
             text: "Resume uploaded successfully! Based on your inputs, here are some career recommendations:",
           };
 
-          const careerMessages = dummyCareers.map((career) => ({
+          const careerMessages: Message[] = dummyCareers.map((career) => ({
             id: `career_${career}_${Date.now()}`,
             sender: "bot",
             text: `• ${career} - This is a recommended career based on your skills and interests.`,
@@ -214,7 +193,6 @@ const CareerAgent: React.FC = () => {
         setResumeFile(null);
       }
     } else if (questionIndex === assessmentQuestions.length + 1) {
-      // Final step showing personalized dashboard insights message
       const botMessage: Message = {
         id: `bot_${Date.now()}`,
         sender: "bot",
@@ -228,7 +206,6 @@ const CareerAgent: React.FC = () => {
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      // Only allow submit if input is not empty or for upload step ignore input
       if (questionIndex < assessmentQuestions.length) {
         if (inputValue.trim()) {
           void handleSubmit();
@@ -237,7 +214,6 @@ const CareerAgent: React.FC = () => {
     }
   };
 
-  // Handle file selection for resume upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setResumeFile(e.target.files[0]);
@@ -325,3 +301,4 @@ const CareerAgent: React.FC = () => {
 };
 
 export default CareerAgent;
+
