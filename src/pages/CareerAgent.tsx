@@ -1,20 +1,14 @@
-import React, { useState, useEffect, useRef, ChangeEvent } from "react";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+
+import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { useStorageUpload } from "@/hooks/useStorageUpload";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useResume } from "@/hooks/resume/useResume";
+import { supabase } from "@/integrations/supabase/client";
 
-const stepTitles = [
-  "Skill & Interest Assessment",
-  "Resume Upload",
-  "Career Recommendation",
-  "Personalized Dashboard",
-];
-
+// The questions to ask user
 const assessmentQuestions = [
   {
     id: "skills",
@@ -33,6 +27,7 @@ const assessmentQuestions = [
   },
 ];
 
+// Dummy career recommendations for example
 const dummyCareers: string[] = [
   "Data Scientist",
   "Frontend Engineer",
@@ -42,292 +37,288 @@ const dummyCareers: string[] = [
   "Business Analyst",
 ];
 
-interface SkillInterestData {
-  skills: string;
-  interests: string;
-  goals: string;
-}
-
-const typingVariant: Variants = {
-  initial: { opacity: 0 },
-  animate: {
-    opacity: 1,
-    transition: { repeat: Infinity, repeatType: "loop" as const, duration: 1 },
-  },
-  exit: { opacity: 0 },
-};
-
-const messageVariant: Variants = {
-  hidden: { opacity: 0, x: 50 },
-  visible: { opacity: 1, x: 0 },
-  exit: { opacity: 0, x: -50 },
+type Message = {
+  id: string;
+  sender: "system" | "user" | "bot";
+  text: string;
 };
 
 const CareerAgent: React.FC = () => {
-  const [step, setStep] = useState(0);
-  const [skillInterestData, setSkillInterestData] = useState<SkillInterestData>({
-    skills: "",
-    interests: "",
-    goals: "",
-  });
-  const [messages, setMessages] = useState<string[]>([
-    "Welcome to the Career Pathway Agent! Let's start by assessing your skills and interests.",
-  ]);
-  const [inputValues, setInputValues] = useState<Partial<SkillInterestData>>({});
+  const { user, isAuthenticated } = useAuth();
+  const { resume, uploadResume, loading: resumeLoading, uploading } = useResume();
+
+  // A unique session id per assessment session for storing answers
+  const [sessionId, setSessionId] = useState<string | null>(null);
+
+  // Chat messages state
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  // Current question index
+  const [questionIndex, setQuestionIndex] = useState<number>(0);
+
+  // Current input value for user typing
   const [inputValue, setInputValue] = useState("");
+
+  // User answers stored locally for rendering recommendations later
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+
+  // Upload resume file state for upload step
+  const [resumeFile, setResumeFile] = React.useState<File | null>(null);
+
+  // Typing indicator state
   const [isTyping, setIsTyping] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [showInsights, setShowInsights] = useState(false);
-  const [resumeFile, setResumeFile] = useState<File | null>(null);
-  const [uploadedFileInfo, setUploadedFileInfo] = useState<any>(null);
 
-  const { uploadFile, uploading, progress: uploadProgress } = useStorageUpload();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const currentQuestionId = assessmentQuestions[Object.keys(inputValues).length]?.id;
-
+  // Scroll to bottom on message update
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
+  // Initialize session on mount when authenticated
   useEffect(() => {
-    setProgress(((step) / (stepTitles.length - 1)) * 100);
-  }, [step]);
-
-  const handleInputChange = (field: keyof SkillInterestData, value: string) => {
-    setInputValues((prev) => ({ ...prev, [field]: value }));
-    setInputValue(value);
-  };
-
-  const handleNext = async () => {
-    if (step === 0) {
-      const allFilled = assessmentQuestions.every((q) => inputValues[q.id as keyof SkillInterestData]?.trim().length! > 0);
-      if (!allFilled) return;
-
-      for (const q of assessmentQuestions) {
-        setIsTyping(true);
-        await new Promise((r) => setTimeout(r, 800));
-        setMessages((prev) => [...prev, `${q.label}: ${inputValues[q.id as keyof SkillInterestData]}`]);
-        setIsTyping(false);
-        await new Promise((r) => setTimeout(r, 200));
-      }
-
-      setStep(1);
-      setInputValue("");
-      setInputValues({});
-    } else if (step === 1) {
-      if (!resumeFile) return;
-      setIsTyping(true);
-      setMessages((prev) => [...prev, "Uploading your resume..."]);
-      const uploadResult = await uploadFile(resumeFile, "resumes", "");
-      setIsTyping(false);
-      if (uploadResult) {
-        setUploadedFileInfo(uploadResult);
-        setMessages((prev) => [...prev, "Resume uploaded successfully!"]);
-        setStep(2);
-      } else {
-        setMessages((prev) => [...prev, "Failed to upload resume. Please try again."]);
-      }
-      setInputValue("");
-    } else if (step === 2) {
-      setMessages((prev) => [
-        ...prev,
-        "Based on your inputs, here are some career recommendations:",
-        ...dummyCareers.map((career) => `- ${career}`),
+    if (isAuthenticated && !sessionId) {
+      setSessionId(uuidv4());
+      // Start conversation with welcome message and first question
+      setMessages([
+        {
+          id: "m1",
+          sender: "system",
+          text: "Welcome to your Career Pathway Agent! Let's start by assessing your skills and interests.",
+        },
+        {
+          id: "m2",
+          sender: "bot",
+          text: `First question: ${assessmentQuestions[0].label}. ${assessmentQuestions[0].placeholder}`,
+        },
       ]);
-      setStep(3);
-      setShowInsights(true);
+    }
+  }, [isAuthenticated, sessionId]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen justify-center items-center">
+        <p className="text-lg text-center text-muted-foreground">Please log in to access the Career Pathway Agent.</p>
+      </div>
+    );
+  }
+
+  // Handle user submit for each question or resume upload
+  const handleSubmit = async () => {
+    const currentQuestion = assessmentQuestions[questionIndex];
+    if (questionIndex < assessmentQuestions.length) {
+      // User submitting a textual answer
+      if (!inputValue.trim()) return;
+
+      // Add user message
+      const userMessage: Message = {
+        id: `user_${Date.now()}`,
+        sender: "user",
+        text: inputValue.trim(),
+      };
+
+      setMessages((prev) => [...prev, userMessage]);
+      setIsTyping(true);
+
+      // Persist answer in local answers state
+      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: inputValue.trim() }));
+
+      // Persist answer to Supabase career_assessments table
+      try {
+        if (sessionId && user) {
+          await supabase.from("career_assessments").insert({
+            user_id: user.id,
+            session_id: sessionId,
+            question: currentQuestion.id,
+            answer: inputValue.trim(),
+          });
+        }
+      } catch (error) {
+        console.error("Error saving assessment answer:", error);
+      }
+
       setInputValue("");
-    } else if (step === 3) {
-      setMessages((prev) => prev.slice(0, assessmentQuestions.length + dummyCareers.length + 3));
+
+      // Simulate bot typing delay
+      setTimeout(() => {
+        setIsTyping(false);
+        setQuestionIndex(questionIndex + 1);
+
+        if (questionIndex + 1 < assessmentQuestions.length) {
+          const nextQ = assessmentQuestions[questionIndex + 1];
+
+          const botMessage: Message = {
+            id: `bot_${Date.now()}`,
+            sender: "bot",
+            text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
+          };
+          setMessages((prev) => [...prev, botMessage]);
+        } else {
+          // After last question, offer to upload resume or get recommendations
+          const botMessage: Message = {
+            id: `bot_${Date.now()}`,
+            sender: "bot",
+            text: "Thank you for your answers! Please upload your resume to help us provide career recommendations.",
+          };
+          setMessages((prev) => [...prev, botMessage]);
+        }
+      }, 1200);
+    } else if (questionIndex === assessmentQuestions.length) {
+      // User submit for resume upload step: trigger upload if file selected
+      if (!resumeFile) return;
+
+      setIsTyping(true);
+
+      const userMessage: Message = {
+        id: `user_${Date.now()}`,
+        sender: "user",
+        text: `Uploaded resume file: ${resumeFile.name}`,
+      };
+      setMessages((prev) => [...prev, userMessage]);
+
+      try {
+        const uploadSuccess = await uploadResume(resumeFile);
+        if (uploadSuccess) {
+          const botMessage: Message = {
+            id: `bot_${Date.now()}`,
+            sender: "bot",
+            text: "Resume uploaded successfully! Based on your inputs, here are some career recommendations:",
+          };
+
+          const careerMessages = dummyCareers.map((career) => ({
+            id: `career_${career}_${Date.now()}`,
+            sender: "bot",
+            text: `• ${career} - This is a recommended career based on your skills and interests.`,
+          }));
+
+          setMessages((prev) => [...prev, botMessage, ...careerMessages]);
+          setQuestionIndex(questionIndex + 1);
+        } else {
+          const botMessage: Message = {
+            id: `bot_${Date.now()}`,
+            sender: "bot",
+            text: "Failed to upload resume. Please try again.",
+          };
+          setMessages((prev) => [...prev, botMessage]);
+        }
+      } catch (error) {
+        console.error("Error uploading resume:", error);
+        const botMessage: Message = {
+          id: `bot_${Date.now()}`,
+          sender: "bot",
+          text: "An error occurred uploading your resume. Please try again later.",
+        };
+        setMessages((prev) => [...prev, botMessage]);
+      } finally {
+        setIsTyping(false);
+        setResumeFile(null);
+      }
+    } else if (questionIndex === assessmentQuestions.length + 1) {
+      // Final step showing personalized dashboard insights message
+      const botMessage: Message = {
+        id: `bot_${Date.now()}`,
+        sender: "bot",
+        text: "Welcome to your personalized dashboard overview! Here's your next action list:\n- Complete your profile\n- Review recommended career paths\n- Start applying for internships\n- Schedule a mentorship session",
+      };
+      setMessages((prev) => [...prev, botMessage]);
+      setQuestionIndex(questionIndex + 1);
     }
   };
 
-  const handlePrev = () => {
-    if (step === 0) return;
-    if (step === 1) {
-      setStep(0);
-      setMessages((prev) => prev.slice(0, assessmentQuestions.length + 1));
-    } else if (step === 2) {
-      setStep(1);
-      setMessages((prev) => prev.slice(0, assessmentQuestions.length + 3));
-    } else if (step === 3) {
-      setStep(2);
-      setShowInsights(false);
-      setMessages((prev) => prev.slice(0, assessmentQuestions.length + dummyCareers.length + 3));
-    }
-  };
-
-  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
       e.preventDefault();
-      if ((step === 0 && inputValue.trim() && currentQuestionId) || (step === 1 && resumeFile)) {
-        handleNext();
+      // Only allow submit if input is not empty or for upload step ignore input
+      if (questionIndex < assessmentQuestions.length) {
+        if (inputValue.trim()) {
+          void handleSubmit();
+        }
       }
     }
   };
 
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  // Handle file selection for resume upload
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setResumeFile(e.target.files[0]);
     }
   };
 
   return (
-    <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen">
-      <h1 className="text-4xl font-bold text-amber-600 mb-4">Career Pathway Agent</h1>
-      <p className="mb-6 text-muted-foreground max-w-xl">
-        Let’s guide your career step-by-step with personalized recommendations.
-      </p>
+    <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen bg-white rounded-lg shadow-md">
+      <h1 className="text-4xl font-bold text-amber-600 mb-6">Career Pathway Agent</h1>
 
-      <Progress value={progress} className="mb-8" />
-
-      <div className="flex-1 overflow-y-auto space-y-4 max-h-[60vh] mb-8 p-4 border rounded-md bg-slate-50 dark:bg-slate-800">
-        <AnimatePresence initial={false} mode="popLayout">
-          {messages.map((msg, index) => (
-            <motion.div
-              key={index}
-              variants={messageVariant}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="p-3 rounded-lg bg-amber-50 text-amber-900 max-w-prose break-words shadow-sm"
-            >
-              {msg}
-            </motion.div>
-          ))}
-          {isTyping && (
-            <motion.div
-              className="p-3 rounded-lg bg-amber-200 text-amber-900 max-w-prose shadow-inner"
-              variants={typingVariant}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-            >
-              Typing...
-            </motion.div>
-          )}
-          <div ref={messagesEndRef} />
-        </AnimatePresence>
+      <div
+        ref={scrollAreaRef}
+        className="flex-1 overflow-y-auto space-y-4 max-h-[60vh] mb-6 p-4 border rounded-md bg-amber-50"
+        role="log"
+        aria-live="polite"
+      >
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`max-w-[80%] p-4 rounded-lg shadow-sm break-words whitespace-pre-wrap ${
+              msg.sender === "user"
+                ? "bg-primary text-primary-foreground self-end"
+                : "bg-amber-100 text-amber-900 self-start"
+            }`}
+          >
+            {msg.text}
+          </div>
+        ))}
+        {isTyping && (
+          <div className="max-w-[80%] p-4 rounded-lg shadow-inner bg-amber-200 text-amber-900 self-start">
+            Typing...
+          </div>
+        )}
       </div>
 
-      {step === 0 && (
-        <div className="space-y-4">
-          {assessmentQuestions
-            .filter((q) => !inputValues.hasOwnProperty(q.id))
-            .slice(0, 1)
-            .map((question) => (
-              <div key={question.id}>
-                <Label htmlFor={question.id}>{question.label}</Label>
-                <Textarea
-                  id={question.id}
-                  placeholder={question.placeholder}
-                  value={inputValue}
-                  onChange={(e) => handleInputChange(question.id as keyof SkillInterestData, e.target.value)}
-                  rows={3}
-                  onKeyDown={handleInputKeyDown}
-                  className="resize-none"
-                  autoFocus
+      <div className="flex items-center space-x-4">
+        {(questionIndex < assessmentQuestions.length || questionIndex === assessmentQuestions.length) && (
+          <>
+            {questionIndex < assessmentQuestions.length && (
+              <Input
+                type="text"
+                placeholder={assessmentQuestions[questionIndex].placeholder}
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                autoFocus
+                disabled={isTyping}
+                className="flex-grow"
+              />
+            )}
+            {questionIndex === assessmentQuestions.length && (
+              <div className="flex flex-col flex-grow space-y-2">
+                <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
+                <input
+                  type="file"
+                  accept=".pdf,.docx"
+                  onChange={handleFileChange}
+                  disabled={isTyping || uploading}
+                  className="block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-white file:hover:bg-primary/90 cursor-pointer"
                 />
               </div>
-            ))}
-        </div>
-      )}
-
-      {step === 1 && (
-        <Card className="p-6 bg-amber-50 shadow-md">
-          <CardHeader>
-            <CardTitle>Upload Your Resume</CardTitle>
-            <CardDescription>
-              Please upload your resume document (PDF or DOCX).
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Input type="file" accept=".pdf,.docx" onChange={onFileChange} />
-            {uploading && (
-              <Progress value={uploadProgress} className="mt-4" />
             )}
-            {uploadedFileInfo && (
-              <p className="mt-2 text-sm text-green-800">
-                Uploaded: {uploadedFileInfo.fileName}
-              </p>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 2 && (
-        <Card className="p-6 bg-amber-50 shadow-md space-y-4">
-          <CardHeader>
-            <CardTitle>{stepTitles[2]}</CardTitle>
-            <CardDescription>Based on your inputs, we recommend these careers:</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {dummyCareers.map((career) => (
-              <Card key={career} className="bg-amber-100 p-4 shadow rounded-md">
-                <CardTitle className="text-amber-700">{career}</CardTitle>
-                <CardDescription>
-                  This is a recommended career based on your skills and interests.
-                </CardDescription>
-                <CardFooter>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => alert(`Explore ${career}`)}
-                  >
-                    Explore Role
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 3 && showInsights && (
-        <Card className="p-6 bg-amber-50 shadow-md space-y-4">
-          <CardHeader>
-            <CardTitle>{stepTitles[3]}</CardTitle>
-            <CardDescription>Your personalized dashboard overview.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="mb-4 font-semibold">
-              Welcome to your career dashboard! Here's your next action list.
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-              <li>Complete your profile</li>
-              <li>Review recommended career paths</li>
-              <li>Start applying for internships</li>
-              <li>Schedule a mentorship session</li>
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex justify-between mt-8 space-x-4">
-        <Button
-          variant="outline"
-          onClick={handlePrev}
-          disabled={step === 0 || uploading}
-          aria-label="Previous step"
-        >
-          Previous
-        </Button>
-        <Button
-          onClick={handleNext}
-          disabled={
-            (step === 0 &&
-              !assessmentQuestions.every((q) => inputValues[q.id as keyof SkillInterestData]?.trim().length)
-            ) ||
-            (step === 1 && !resumeFile) ||
-            uploading ||
-            step === stepTitles.length -1
-          }
-          aria-label="Next step"
-        >
-          {step === stepTitles.length - 2 ? "Show Recommendations" : "Next"}
-        </Button>
+            <Button
+              onClick={() => {
+                void handleSubmit();
+              }}
+              disabled={
+                isTyping ||
+                (questionIndex < assessmentQuestions.length && inputValue.trim() === "") ||
+                (questionIndex === assessmentQuestions.length && !resumeFile)
+              }
+            >
+              Send
+            </Button>
+          </>
+        )}
+        {questionIndex > assessmentQuestions.length && (
+          <Button onClick={() => void handleSubmit()} disabled={isTyping}>
+            Next
+          </Button>
+        )}
       </div>
     </div>
   );
