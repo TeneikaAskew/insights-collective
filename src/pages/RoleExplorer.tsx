@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -208,7 +207,6 @@ const RoleExplorer: React.FC = () => {
     }
   }
 
-  // Visual interactive graph component to render roles and their connections
   const RoleGraph = ({
     domain,
     selectedRoleId,
@@ -218,7 +216,6 @@ const RoleExplorer: React.FC = () => {
     selectedRoleId: string | null;
     onSelectRole: (id: string) => void;
   }) => {
-    // Simple circular layout for roles in the domain
     const radius = 120;
     const centerX = 150;
     const centerY = 150;
@@ -234,7 +231,6 @@ const RoleExplorer: React.FC = () => {
         tabIndex={0}
         className="mx-auto"
       >
-        {/* Lines connecting roles */}
         {roles.map((fromRole, i) => {
           const fromAngle = i * angleStep;
           const fromX = centerX + radius * Math.cos(fromAngle);
@@ -246,7 +242,6 @@ const RoleExplorer: React.FC = () => {
             const toX = centerX + radius * Math.cos(toAngle);
             const toY = centerY + radius * Math.sin(toAngle);
 
-            // We connect roles visually here (full mesh for simplicity)
             return (
               <line
                 key={`${fromRole.id}-${toRole.id}`}
@@ -254,14 +249,13 @@ const RoleExplorer: React.FC = () => {
                 y1={fromY}
                 x2={toX}
                 y2={toY}
-                stroke="#cbd5e1" // Tailwind slate-300 color
+                stroke="#cbd5e1"
                 strokeWidth={0.5}
               />
             );
           });
         })}
 
-        {/* Role nodes */}
         {roles.map((role, index) => {
           const angle = index * angleStep;
           const x = centerX + radius * Math.cos(angle);
@@ -287,15 +281,15 @@ const RoleExplorer: React.FC = () => {
                 cx={x}
                 cy={y}
                 r={isSelected ? 18 : 14}
-                fill={isSelected ? "#4f46e5" : "#93c5fd"} // indigo-600 and blue-300
-                stroke={isSelected ? "#3730a3" : "#2563eb"} // indigo-900 and blue-600
+                fill={isSelected ? "#4f46e5" : "#93c5fd"}
+                stroke={isSelected ? "#3730a3" : "#2563eb"}
                 strokeWidth={isSelected ? 3 : 2}
               />
               <text
                 x={x}
                 y={y + 4}
                 textAnchor="middle"
-                fill={isSelected ? "white" : "#1e40af"} // blue-900
+                fill={isSelected ? "white" : "#1e40af"}
                 fontWeight={isSelected ? "bold" : "normal"}
                 fontSize={isSelected ? 14 : 11}
                 pointerEvents="none"
@@ -369,6 +363,39 @@ const RoleExplorer: React.FC = () => {
       </section>
     </div>
   );
+
+  const RolesList = () => {
+    if (!currentDomain) return null;
+    return (
+      <section
+        aria-label={`Roles in ${currentDomain.name}`}
+        className="mt-6 max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
+      >
+        {currentDomain.roles.map((role) => {
+          const isSelected = role.id === currentRoleId;
+          return (
+            <button
+              key={role.id}
+              onClick={() => setCurrentRoleId(role.id)}
+              className={`focus:outline-none rounded-lg p-4 shadow-md border border-transparent transition-colors w-full text-left  bg-white ${
+                isSelected ? "border-primary ring-2 ring-primary" : "hover:border-primary"
+              }`}
+              aria-label={`View details for ${role.title}`}
+              type="button"
+              aria-pressed={isSelected}
+            >
+              <h4 className="text-lg font-semibold mb-1">{role.title}</h4>
+              <p className="text-sm text-muted-foreground">
+                {role.shortDescription.length > 80
+                  ? role.shortDescription.slice(0, 77) + "…"
+                  : role.shortDescription}
+              </p>
+            </button>
+          );
+        })}
+      </section>
+    );
+  };
 
   return (
     <main className="max-w-6xl mx-auto p-4 min-h-screen flex flex-col">
