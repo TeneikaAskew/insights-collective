@@ -169,7 +169,7 @@ async function analyzeResume(resumeText, userId) {
       bulletPoints = bulletCache.get(`user:${userId}:bullets`);
     } else {
       bulletPoints = await extractBulletPoints(text);
-      console.log('Bullet Points:', bulletPoints.length);
+      console.log('Extracted Bullet Points for Roast:', bulletPoints.length);
       if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
       if (bulletPoints.length > 0 && userId) {
         bulletCache.set(`user:${userId}:bullets`, bulletPoints);
