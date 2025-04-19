@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Home } from "lucide-react";
+
+import React, { useState, useEffect, useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -12,7 +13,7 @@ type Industry = {
 type Domain = {
   id: string;
   name: string;
-  color: string; // Tailwind color class suffix, e.g., "emerald"
+  color: string;
   roles: Role[];
 };
 
@@ -207,32 +208,106 @@ const RoleExplorer: React.FC = () => {
     }
   }
 
-  const ExplorerCard = ({
-    title,
-    description,
-    colorClass = "bg-gray-100",
-    onClick,
-    children,
+  // Visual interactive graph component to render roles and their connections
+  const RoleGraph = ({
+    domain,
+    selectedRoleId,
+    onSelectRole,
   }: {
-    title: string;
-    description?: string;
-    colorClass?: string;
-    onClick: () => void;
-    children?: React.ReactNode;
-  }) => (
-    <button
-      onClick={onClick}
-      className={`focus:outline-none group rounded-lg p-5 shadow-md border border-transparent hover:border-primary transition-colors w-full text-left flex flex-col min-h-[120px] justify-between ${colorClass}`}
-      aria-label={`Explore ${title}`}
-      type="button"
-    >
-      <h3 className="text-lg font-semibold mb-1 group-hover:text-primary transition-colors">{title}</h3>
-      {description && (
-        <p className="text-sm text-muted-foreground line-clamp-3">{description}</p>
-      )}
-      {children}
-    </button>
-  );
+    domain: Domain;
+    selectedRoleId: string | null;
+    onSelectRole: (id: string) => void;
+  }) => {
+    // Simple circular layout for roles in the domain
+    const radius = 120;
+    const centerX = 150;
+    const centerY = 150;
+    const roles = domain.roles;
+    const angleStep = (2 * Math.PI) / roles.length;
+
+    return (
+      <svg
+        width={300}
+        height={300}
+        role="img"
+        aria-label={`Interactive role graph for domain ${domain.name}`}
+        tabIndex={0}
+        className="mx-auto"
+      >
+        {/* Lines connecting roles */}
+        {roles.map((fromRole, i) => {
+          const fromAngle = i * angleStep;
+          const fromX = centerX + radius * Math.cos(fromAngle);
+          const fromY = centerY + radius * Math.sin(fromAngle);
+
+          return roles.map((toRole, j) => {
+            if (i === j) return null;
+            const toAngle = j * angleStep;
+            const toX = centerX + radius * Math.cos(toAngle);
+            const toY = centerY + radius * Math.sin(toAngle);
+
+            // We connect roles visually here (full mesh for simplicity)
+            return (
+              <line
+                key={`${fromRole.id}-${toRole.id}`}
+                x1={fromX}
+                y1={fromY}
+                x2={toX}
+                y2={toY}
+                stroke="#cbd5e1" // Tailwind slate-300 color
+                strokeWidth={0.5}
+              />
+            );
+          });
+        })}
+
+        {/* Role nodes */}
+        {roles.map((role, index) => {
+          const angle = index * angleStep;
+          const x = centerX + radius * Math.cos(angle);
+          const y = centerY + radius * Math.sin(angle);
+          const isSelected = role.id === selectedRoleId;
+
+          return (
+            <g
+              key={role.id}
+              tabIndex={0}
+              role="button"
+              aria-pressed={isSelected}
+              aria-label={role.title}
+              className="cursor-pointer focus:outline-none"
+              onClick={() => onSelectRole(role.id)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  onSelectRole(role.id);
+                }
+              }}
+            >
+              <circle
+                cx={x}
+                cy={y}
+                r={isSelected ? 18 : 14}
+                fill={isSelected ? "#4f46e5" : "#93c5fd"} // indigo-600 and blue-300
+                stroke={isSelected ? "#3730a3" : "#2563eb"} // indigo-900 and blue-600
+                strokeWidth={isSelected ? 3 : 2}
+              />
+              <text
+                x={x}
+                y={y + 4}
+                textAnchor="middle"
+                fill={isSelected ? "white" : "#1e40af"} // blue-900
+                fontWeight={isSelected ? "bold" : "normal"}
+                fontSize={isSelected ? 14 : 11}
+                pointerEvents="none"
+              >
+                {role.title.length > 12 ? role.title.slice(0, 11) + "…" : role.title}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    );
+  };
 
   const SkillBadges = ({ skills }: { skills: string[] }) => (
     <div className="flex flex-wrap gap-2 mt-4">
@@ -295,51 +370,6 @@ const RoleExplorer: React.FC = () => {
     </div>
   );
 
-  const RolesList = () => {
-    if (!currentDomain) return null;
-
-    return (
-      <section
-        aria-label={`All roles in ${currentDomain.name}`}
-        className="mt-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 cursor-pointer select-none"
-      >
-        {currentDomain.roles.map((role) => {
-          const isSelected = role.id === currentRoleId;
-          return (
-            <button
-              key={role.id}
-              onClick={() => setCurrentRoleId(role.id)}
-              className={`group rounded-lg p-5 shadow-lg border-4 transition-transform
-                ${
-                  isSelected
-                    ? "border-primary bg-white scale-105 shadow-primary-500"
-                    : "border-transparent bg-gray-50 hover:border-primary hover:bg-white hover:scale-105 focus:border-primary focus:bg-white focus:scale-105"
-                }
-                flex flex-col min-h-[140px] justify-between text-left`}
-              aria-current={isSelected ? "true" : undefined}
-              type="button"
-            >
-              <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
-                {role.title}
-              </h3>
-              <p className="text-sm text-muted-foreground line-clamp-3 mb-2">
-                {role.shortDescription}
-              </p>
-              <div>
-                <Badge variant="outline" className="text-xs mr-1 mb-1 cursor-default select-none">
-                  {currentDomain.name}
-                </Badge>
-                <Badge variant="outline" className="text-xs cursor-default select-none">
-                  Role Preview
-                </Badge>
-              </div>
-            </button>
-          );
-        })}
-      </section>
-    );
-  };
-
   return (
     <main className="max-w-6xl mx-auto p-4 min-h-screen flex flex-col">
       <nav aria-label="Breadcrumb" className="mb-4 select-none">
@@ -395,12 +425,15 @@ const RoleExplorer: React.FC = () => {
           className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
         >
           {industries.map((industry) => (
-            <ExplorerCard
+            <button
               key={industry.id}
-              title={industry.name}
-              colorClass="bg-white hover:bg-primary/10 focus:bg-primary/20"
               onClick={() => setCurrentIndustryId(industry.id)}
-            />
+              className="focus:outline-none group rounded-lg p-5 shadow-md border border-transparent hover:border-primary transition-colors w-full text-left flex flex-col min-h-[120px] justify-between bg-white hover:bg-primary/10 focus:bg-primary/20"
+              aria-label={`Explore ${industry.name}`}
+              type="button"
+            >
+              <h3 className="text-lg font-semibold mb-1 group-hover:text-primary transition-colors">{industry.name}</h3>
+            </button>
           ))}
         </section>
       )}
@@ -411,12 +444,14 @@ const RoleExplorer: React.FC = () => {
           className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
         >
           {currentIndustry.domains.map((domain) => (
-            <ExplorerCard
+            <button
               key={domain.id}
-              title={domain.name}
-              colorClass={`bg-${domain.color}-100 hover:bg-${domain.color}-200 focus:bg-${domain.color}-300`}
               onClick={() => setCurrentDomainId(domain.id)}
+              className={`focus:outline-none group rounded-lg p-5 shadow-md border border-transparent hover:border-${domain.color}-600 transition-colors w-full text-left flex flex-col min-h-[120px] justify-between bg-${domain.color}-100 hover:bg-${domain.color}-200 focus:bg-${domain.color}-300`}
+              aria-label={`Explore ${domain.name}`}
+              type="button"
             >
+              <h3 className="text-lg font-semibold mb-1 group-hover:text-primary transition-colors">{domain.name}</h3>
               <Badge
                 variant="outline"
                 className={`text-${domain.color}-600 border-${domain.color}-600 cursor-default`}
@@ -424,12 +459,21 @@ const RoleExplorer: React.FC = () => {
                 {domain.name}
               </Badge>
               <p className="sr-only">{`Explore roles in ${domain.name} domain`}</p>
-            </ExplorerCard>
+            </button>
           ))}
         </section>
       )}
 
-      {currentIndustry && currentDomain && !currentRoleId && <RolesList />}
+      {currentIndustry && currentDomain && !currentRoleId && (
+        <>
+          <RoleGraph
+            domain={currentDomain}
+            selectedRoleId={currentRoleId}
+            onSelectRole={setCurrentRoleId}
+          />
+          <RolesList />
+        </>
+      )}
 
       {currentRole && <RoleDetails role={currentRole} />}
     </main>

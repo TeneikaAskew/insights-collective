@@ -55,6 +55,7 @@ import CourseManageMaterials from './pages/CourseManageMaterials';
 
 // Import the new AdminCourseEdit component
 import AdminCourseEdit from "./pages/AdminCourseEdit";
+import RoleExplorer from "./pages/RoleExplorer";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -129,6 +130,12 @@ function App() {
                         <CourseManageMaterials />
                       </PageVisibilityGuard>
                     } />
+                    
+                    {/* Add Route for Role Explorer - No auth, public access */}
+                    <Route
+                      path="/role-explorer"
+                      element={<RoleExplorer />}
+                    />
                     
                     <Route path="*" element={<NotFound />} />
                   </Routes>
