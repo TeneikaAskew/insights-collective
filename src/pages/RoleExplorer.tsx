@@ -1,4 +1,8 @@
 
+// Fix the RoleExplorer page to remove undefined `fullWidth` usage in AppLayout props
+// Assuming the error comes from passing fullWidth to AppLayout which does not accept it,
+// so we'll remove that prop or define it properly.
+
 import React, { useState } from "react";
 import { ChevronLeft } from "lucide-react";
 import AppLayout from "@/components/layout/AppLayout";
