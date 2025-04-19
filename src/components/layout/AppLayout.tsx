@@ -7,21 +7,20 @@ import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 
 type AppLayoutProps = {
   children: React.ReactNode;
+  fullWidth?: boolean;
 };
 
-const AppLayout = ({ children }: AppLayoutProps) => {
+const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
   // Fixed: Use the correct property name from the hook
   const { navigateWithAuth } = useAuthenticatedNavigation();
-  
+
   return (
     <SidebarProvider>
       <div className="flex h-screen overflow-hidden">
         <AppSidebar />
         <div className="flex flex-col flex-1 overflow-hidden">
           <Navbar />
-          {/* <main className="flex-1 overflow-auto p-4"> */}
           <main className={`flex-1 overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
-            
             {children}
           </main>
           <footer className="p-4 border-t text-center text-sm text-gray-500">

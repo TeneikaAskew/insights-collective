@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -47,7 +46,6 @@ const Resume = () => {
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Load initial data on user assign
   useEffect(() => {
     let isMounted = true;
     const loadInitialData = async () => {
@@ -69,7 +67,6 @@ const Resume = () => {
     };
   }, [user, initialLoadComplete, refreshResume]);
 
-  // Load existing analysis from resume object
   useEffect(() => {
     if (resume?.analysis && !analysis && !hasLoadedAnalysis && user) {
       try {
@@ -81,11 +78,8 @@ const Resume = () => {
     }
   }, [resume, analysis, setAnalysis, hasLoadedAnalysis, user]);
 
-  // Create and manage Blob URL for local PDF preview, extract text concurrently
   useEffect(() => {
     if (!resumeFile) {
-      // setPdfPreviewUrl(null);
-      // Just handle cleanup when resumeFile becomes null
       if (pdfPreviewUrl) {
         URL.revokeObjectURL(pdfPreviewUrl);
         setPdfPreviewUrl(null);
@@ -94,7 +88,6 @@ const Resume = () => {
       return;
     }
 
-    // Create Blob URL for pdf preview if PDF
     let blobUrl: string | null = null;
     if (resumeFile.type === 'application/pdf') {
       blobUrl = URL.createObjectURL(resumeFile);
@@ -103,38 +96,23 @@ const Resume = () => {
       setPdfPreviewUrl(null);
     }
 
-    // (async () => {
-    //   try {
-    //     const text = await extractTextFromFile(resumeFile);
-    //     setExtractedText(text);
-    //   } catch (err) {
-    //     console.error(err);
-    //     toast({
-    //       title: 'Extraction failed',
-    //       description: 'Could not extract text from your resume.',
-    //       variant: 'destructive'
-    //     });
-    //   }
-    // })();
-    // Only extract text if not already done
-      if (!extractedText) {
-        (async () => {
-          try {
-            const text = await extractTextFromFile(resumeFile);
-            setExtractedText(text);
-          } catch (err) {
-            console.error(err);
-            toast({
-              title: 'Extraction failed',
-              description: 'Could not extract text from your resume.',
-              variant: 'destructive'
-            });
-          }
-        })();
-      }
+    if (!extractedText) {
+      (async () => {
+        try {
+          const text = await extractTextFromFile(resumeFile);
+          setExtractedText(text);
+        } catch (err) {
+          console.error(err);
+          toast({
+            title: 'Extraction failed',
+            description: 'Could not extract text from your resume.',
+            variant: 'destructive'
+          });
+        }
+      })();
+    }
 
     return () => {
-      // if (blobUrl) {
       if (pdfPreviewUrl && resumeFile?.type === 'application/pdf') {
         URL.revokeObjectURL(blobUrl);
         setPdfPreviewUrl(null);
@@ -254,8 +232,8 @@ const Resume = () => {
   const loading = resumeLoading || isAnalyzing || isRefreshing;
 
   return (
-    <AppLayout>
-      <div className="container mx-auto py-6 space-y-6">
+    <AppLayout fullWidth>
+      <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
@@ -334,4 +312,3 @@ const Resume = () => {
 };
 
 export default Resume;
-
