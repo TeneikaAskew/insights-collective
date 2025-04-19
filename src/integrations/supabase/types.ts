@@ -773,6 +773,8 @@ export type Database = {
           file_path: string
           id: string
           initial_assessment: string | null
+          sentences: Json | null
+          sentences_updated_at: string | null
           target_role: string | null
           text: string | null
           updated_at: string | null
@@ -785,6 +787,8 @@ export type Database = {
           file_path: string
           id?: string
           initial_assessment?: string | null
+          sentences?: Json | null
+          sentences_updated_at?: string | null
           target_role?: string | null
           text?: string | null
           updated_at?: string | null
@@ -797,6 +801,8 @@ export type Database = {
           file_path?: string
           id?: string
           initial_assessment?: string | null
+          sentences?: Json | null
+          sentences_updated_at?: string | null
           target_role?: string | null
           text?: string | null
           updated_at?: string | null
@@ -844,6 +850,14 @@ export type Database = {
       }
     }
     Functions: {
+      delete_all_user_resumes: {
+        Args: { user_id_param: string }
+        Returns: undefined
+      }
+      delete_resume_records: {
+        Args: { user_id_param: string; problem_id_param: string }
+        Returns: undefined
+      }
       generate_initial_assistant_message: {
         Args: { quiz_attempt_id: string }
         Returns: string
