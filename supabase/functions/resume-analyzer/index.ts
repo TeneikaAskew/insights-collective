@@ -43,12 +43,7 @@ export function serveSentenceDetector(resumeText, userId) {
       
       // Extract sentences
       const sentences = await detectSentences(resumeText, userId);
-      console.log("User: ", userId, "Sentences: ", sentences);
-      
-      // if (userId) {
-      //   await saveSentencesToDatabase(userId, sentences);
-      // }
-      
+      console.log("User: ", userId, "Sentences: ", sentences);      
       return new Response(JSON.stringify({
         sentences
       }), {
