@@ -33,6 +33,15 @@ const assessmentQuestions = [
   },
 ];
 
+const dummyCareers: string[] = [
+  "Data Scientist",
+  "Frontend Engineer",
+  "AI Researcher",
+  "Product Manager",
+  "UX Designer",
+  "Business Analyst",
+];
+
 interface SkillInterestData {
   skills: string;
   interests: string;
