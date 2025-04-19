@@ -132,7 +132,6 @@ async function getResumeRoast(resumeText, userId) {
   }
 }
 
-    
 // Main resume analysis logic
 async function analyzeResume(resumeText, userId) {
   let text = resumeText;
