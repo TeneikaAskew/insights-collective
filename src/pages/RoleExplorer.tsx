@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -159,6 +158,16 @@ type BreadcrumbItem = {
   id?: string;
 };
 
+// We add a type for simulation nodes
+type SimulationNode = {
+  id: string;
+  title: string;
+  x: number;
+  y: number;
+  fx: number | null;
+  fy: number | null;
+};
+
 const RoleExplorer: React.FC = () => {
   const [currentIndustryId, setCurrentIndustryId] = useState<string | null>(null);
   const [currentDomainId, setCurrentDomainId] = useState<string | null>(null);
@@ -222,41 +231,41 @@ const RoleExplorer: React.FC = () => {
     selectedRoleId: string | null;
     onSelectRole: (id: string) => void;
   }) => {
-    const svgRef = useRef<SVGSVGElement | null>(null);
-    const [nodes, setNodes] = useState(
+    const svgRef = React.useRef<SVGSVGElement | null>(null);
+    const [nodes, setNodes] = React.useState<SimulationNode[]>(
       domain.roles.map((role) => ({
         id: role.id,
         title: role.title,
         x: Math.random() * 500,
         y: Math.random() * 500,
-        fx: null as number | null, // fixed position x (for dragging)
-        fy: null as number | null, // fixed position y
+        fx: null,
+        fy: null,
       }))
     );
-    const [links, setLinks] = useState<{ source: string; target: string }[]>([]);
+    const [links, setLinks] = React.useState<{ source: string; target: string }[]>([]);
 
-    // Build links as connections between roles based on career progression paths or simple mesh for demo
-    useEffect(() => {
+    React.useEffect(() => {
       let newLinks: { source: string; target: string }[] = [];
-      // For demo, connect each node to the next to form a "career chain"
       for (let i = 0; i < domain.roles.length - 1; i++) {
         newLinks.push({ source: domain.roles[i].id, target: domain.roles[i + 1].id });
       }
-      // Also add some additional links for better connectivity mesh
       if (domain.roles.length > 2) {
         newLinks.push({ source: domain.roles[0].id, target: domain.roles[domain.roles.length - 1].id });
       }
       setLinks(newLinks);
     }, [domain.roles]);
 
-    // Create a D3 force simulation for the nodes and links
-    useEffect(() => {
+    React.useEffect(() => {
       if (!svgRef.current) return;
 
-      const simulation = d3.forceSimulation(nodes)
+      // Create simulation typed with SimulationNode
+      const simulation = d3.forceSimulation<SimulationNode>(nodes)
         .force("charge", d3.forceManyBody().strength(-200))
         .force("center", d3.forceCenter(250, 250))
-        .force("link", d3.forceLink(links).id(d => d.id).distance(120).strength(1))
+        .force(
+          "link",
+          d3.forceLink<SimulationNode, d3.SimulationLinkDatum<SimulationNode>>(links).id(d => d.id).distance(120).strength(1)
+        )
         .force("collision", d3.forceCollide(30))
         .on("tick", () => {
           setNodes(simulation.nodes());
@@ -265,31 +274,34 @@ const RoleExplorer: React.FC = () => {
       return () => {
         simulation.stop();
       };
-    }, [links]); // Re-run simulation when links change
+    }, [links]);
 
-    // Drag handlers to fix node position
-    const dragStarted = (event: any, d: any, simulation: any) => {
+    // Drag handlers with proper typing
+    const dragStarted = (event: d3.D3DragEvent<SVGCircleElement, SimulationNode, SimulationNode>, d: SimulationNode, simulation: d3.Simulation<SimulationNode, d3.SimulationLinkDatum<SimulationNode>>) => {
       if (!event.active) simulation.alphaTarget(0.3).restart();
       d.fx = d.x;
       d.fy = d.y;
     };
-    const dragged = (event: any, d: any) => {
+    const dragged = (event: d3.D3DragEvent<SVGCircleElement, SimulationNode, SimulationNode>, d: SimulationNode) => {
       d.fx = event.x;
       d.fy = event.y;
     };
-    const dragEnded = (event: any, d: any, simulation: any) => {
+    const dragEnded = (event: d3.D3DragEvent<SVGCircleElement, SimulationNode, SimulationNode>, d: SimulationNode, simulation: d3.Simulation<SimulationNode, d3.SimulationLinkDatum<SimulationNode>>) => {
       if (!event.active) simulation.alphaTarget(0);
       d.fx = null;
       d.fy = null;
     };
 
-    // Attach drag behavior to nodes using useEffect for d3 drag
-    useEffect(() => {
+    React.useEffect(() => {
       if (!svgRef.current) return;
 
-      const simulation = d3.forceSimulation(nodes);
+      // Use simulation instance same as above, or create new for drag behavior? 
+      // We recreate simulation here with correct type for drag behavior only to attach drag, 
+      // but better approach is to attach it to existing simulation, 
+      // but no reference kept here, so recreate with nodes
+      const simulation = d3.forceSimulation<SimulationNode>(nodes);
 
-      const drag = d3.drag<SVGCircleElement, typeof nodes[0]>()
+      const drag = d3.drag<SVGCircleElement, SimulationNode>()
         .on("start", (event, d) => dragStarted(event, d, simulation))
         .on("drag", dragged)
         .on("end", (event, d) => dragEnded(event, d, simulation));
@@ -298,6 +310,7 @@ const RoleExplorer: React.FC = () => {
 
       return () => {
         drag.on("start", null).on("drag", null).on("end", null);
+        simulation.stop();
       };
     }, [nodes]);
 
@@ -589,4 +602,3 @@ const RoleExplorer: React.FC = () => {
 };
 
 export default RoleExplorer;
-
