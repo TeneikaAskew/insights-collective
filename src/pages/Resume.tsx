@@ -84,7 +84,12 @@ const Resume = () => {
   // Create and manage Blob URL for local PDF preview, extract text concurrently
   useEffect(() => {
     if (!resumeFile) {
-      setPdfPreviewUrl(null);
+      // setPdfPreviewUrl(null);
+      // Just handle cleanup when resumeFile becomes null
+      if (pdfPreviewUrl) {
+        URL.revokeObjectURL(pdfPreviewUrl);
+        setPdfPreviewUrl(null);
+      }
       setExtractedText(null);
       return;
     }
@@ -98,22 +103,39 @@ const Resume = () => {
       setPdfPreviewUrl(null);
     }
 
-    (async () => {
-      try {
-        const text = await extractTextFromFile(resumeFile);
-        setExtractedText(text);
-      } catch (err) {
-        console.error(err);
-        toast({
-          title: 'Extraction failed',
-          description: 'Could not extract text from your resume.',
-          variant: 'destructive'
-        });
+    // (async () => {
+    //   try {
+    //     const text = await extractTextFromFile(resumeFile);
+    //     setExtractedText(text);
+    //   } catch (err) {
+    //     console.error(err);
+    //     toast({
+    //       title: 'Extraction failed',
+    //       description: 'Could not extract text from your resume.',
+    //       variant: 'destructive'
+    //     });
+    //   }
+    // })();
+    // Only extract text if not already done
+      if (!extractedText) {
+        (async () => {
+          try {
+            const text = await extractTextFromFile(resumeFile);
+            setExtractedText(text);
+          } catch (err) {
+            console.error(err);
+            toast({
+              title: 'Extraction failed',
+              description: 'Could not extract text from your resume.',
+              variant: 'destructive'
+            });
+          }
+        })();
       }
-    })();
 
     return () => {
-      if (blobUrl) {
+      // if (blobUrl) {
+      if (pdfPreviewUrl && resumeFile?.type === 'application/pdf') {
         URL.revokeObjectURL(blobUrl);
         setPdfPreviewUrl(null);
       }
