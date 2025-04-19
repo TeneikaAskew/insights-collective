@@ -26,7 +26,7 @@ export async function enhanceWithGroq(resumeText, analysis) {
       return {
         text: b.original.substring(0, 100),
         score: b.bullet_total,
-        issues: b.tips ? b.tips.substring(0, 150) : "" // First 150 chars of tips
+        issues: (b.tips && typeof b.tips === 'string') ? b.tips.substring(0, 150) : "" //issues: b.tips ? b.tips.substring(0, 150) : "" // First 150 chars of tips
       };
     });
     console.log("Bullet Summary: ", bulletSummary);
