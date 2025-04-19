@@ -239,7 +239,6 @@ export const useResume = () => {
           console.log("Using pre-extracted text, length:", fileText.length);
         }
 
-      console.log("Pre-extracted resuem text found, length", fileText.length)
       // Upload file to storage with a unique path
       const timestamp = Date.now();
       const uploadResult = await uploadResumeFile(file, user.id);
