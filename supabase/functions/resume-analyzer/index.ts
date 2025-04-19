@@ -19,19 +19,19 @@ export { detectSentences };
 export { serveBulletImprover };
 
 // Helper function to save sentences to database
-async function saveSentencesToDatabase(userId, sentences) {
-  if (userId) {
-    try {
-      await supabase.from('resumes').update({
-        sentences: sentences,
-        sentences_updated_at: new Date().toISOString()
-      }).eq('user_id', userId);
-      console.log('Sentences stored in database for user:', userId);
-    } catch (error) {
-      console.error('Error saving sentences to database:', error);
-    }
-  }
-}
+// async function saveSentencesToDatabase(userId, sentences) {
+//   if (userId) {
+//     try {
+//       await supabase.from('resumes').update({
+//         sentences: sentences,
+//         sentences_updated_at: new Date().toISOString()
+//       }).eq('user_id', userId);
+//       console.log('Sentences stored in database for user:', userId);
+//     } catch (error) {
+//       console.error('Error saving sentences to database:', error);
+//     }
+//   }
+// }
 
 // Sentence detector endpoint
 export function serveSentenceDetector(resumeText, userId) {
@@ -60,9 +60,9 @@ export function serveSentenceDetector(resumeText, userId) {
       const sentences = await detectSentences(resumeText, userId);
       console.log("User: ", userId, "Sentences: ", sentences);
       
-      if (userId) {
-        await saveSentencesToDatabase(userId, sentences);
-      }
+      // if (userId) {
+      //   await saveSentencesToDatabase(userId, sentences);
+      // }
       
       return new Response(JSON.stringify({
         sentences

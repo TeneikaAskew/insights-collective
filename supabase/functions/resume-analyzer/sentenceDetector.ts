@@ -495,87 +495,102 @@ function cleanAndDeduplicate(sentences) {
   return result;
 }
 
-// Save extracted sentences to the most recent resume record of the user in DB
+
+// Helper function to save sentences to database
 export async function saveSentencesToDatabase(userId, sentences) {
-  console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
-  const startTime = Date.now();
-  // Initialize Supabase client inside the function with service role key
-  const supabase = getSupabaseClient();
-  try {
-    // Find the most recent resume for this user
-    console.log(`saveSentencesToUserLatestResume: Querying for most recent resume for user ${userId}`);
-    const queryStartTime = Date.now();
-    const { data: recentResume, error: queryError } = await supabase
-      .from('resumes')
-      .select('id, updated_at')
-      .eq('user_id', userId)
-      .order('updated_at', { ascending: false })
-      .limit(1)
-      .single()
-    // const { data: recentResumes, error: queryError } = await supabase.from('resumes').select('id, updated_at').eq('user_id', userId).order('updated_at', {
-    //   ascending: false
-    // }).limit(1);
-    const queryEndTime = Date.now();
-    console.log(`saveSentencesToUserLatestResume: Query completed in ${queryEndTime - queryStartTime}ms`);
-    if (queryError) {
-      console.error('saveSentencesToUserLatestResume: Database query error:', queryError);
-      throw queryError;
+  if (userId) {
+    try {
+      await supabase.from('resumes').update({
+        sentences: sentences,
+        sentences_updated_at: new Date().toISOString()
+      }).eq('user_id', userId);
+      console.log('Sentences stored in database for user:', userId);
+    } catch (error) {
+      console.error('Error saving sentences to database:', error);
     }
-    if (!recentResumes || recentResumes.length === 0) {
-      console.error(`saveSentencesToUserLatestResume: No resumes found for user ${userId}`);
-      throw new Error(`No resumes found for user ${userId}`);
-    }
-    const resumeId = recentResumes[0].id;
-    const resumeUpdatedAt = recentResumes[0].updated_at;
-    console.log(`saveSentencesToUserLatestResume: Found most recent resume ${resumeId} (last updated: ${resumeUpdatedAt})`);
-    // Update the resume record with sentences and current timestamp
-    console.log(`saveSentencesToUserLatestResume: Updating resume ${resumeId} with ${sentences.length} sentences`);
-    const updateStartTime = Date.now();
-    const { error: updateError } = await supabase.from('resumes').update({
-      sentences: sentences,
-      sentences_updated_at: new Date().toISOString()
-    }).eq('id', resumeId);
-    const updateEndTime = Date.now();
-    console.log(`saveSentencesToUserLatestResume: Update completed in ${updateEndTime - updateStartTime}ms`);
-    if (updateError) {
-      console.error('saveSentencesToUserLatestResume: Database update error:', updateError);
-      throw updateError;
-    }
-    // Verification after update
-    const { data: verifyData, error: verifyError } = await supabase.from('resumes').select('sentences, sentences_updated_at').eq('id', resumeId).single();
-    console.log('Verification after update:');
-    console.log('  Data exists:', !!verifyData);
-    console.log('  Sentences exists:', !!verifyData?.sentences);
-    console.log('  Sentences count:', verifyData?.sentences?.length || 0);
-    console.log('  Updated timestamp:', verifyData?.sentences_updated_at);
-    console.log('  Verify error:', verifyError);
-    const endTime = Date.now();
-    console.log(`saveSentencesToUserLatestResume: Successfully saved ${sentences.length} sentences to resume ${resumeId}`);
-    console.log(`saveSentencesToUserLatestResume: Total function execution time: ${endTime - startTime}ms`);
-  } catch (error) {
-    const errorTime = Date.now() - startTime;
-    console.error(`saveSentencesToUserLatestResume: Error after ${errorTime}ms:`, error.message);
-    if (error.stack) {
-      console.error('saveSentencesToUserLatestResume: Error stack:', error.stack);
-    }
-    throw error;
   }
 }
+// Save extracted sentences to the most recent resume record of the user in DB
+// export async function saveSentencesToDatabase(userId, sentences) {
+//   console.log(`saveSentencesToUserLatestResume: Starting database save for user ${userId} with ${sentences.length} sentences`);
+//   const startTime = Date.now();
+//   // Initialize Supabase client inside the function with service role key
+//   const supabase = getSupabaseClient();
+//   try {
+//     // Find the most recent resume for this user
+//     console.log(`saveSentencesToUserLatestResume: Querying for most recent resume for user ${userId}`);
+//     const queryStartTime = Date.now();
+//     const { data: recentResume, error: queryError } = await supabase
+//       .from('resumes')
+//       .select('id, updated_at')
+//       .eq('user_id', userId)
+//       .order('updated_at', { ascending: false })
+//       .limit(1)
+//       .single()
+//     // const { data: recentResumes, error: queryError } = await supabase.from('resumes').select('id, updated_at').eq('user_id', userId).order('updated_at', {
+//     //   ascending: false
+//     // }).limit(1);
+//     const queryEndTime = Date.now();
+//     console.log(`saveSentencesToUserLatestResume: Query completed in ${queryEndTime - queryStartTime}ms`);
+//     if (queryError) {
+//       console.error('saveSentencesToUserLatestResume: Database query error:', queryError);
+//       throw queryError;
+//     }
+//     if (!recentResumes || recentResumes.length === 0) {
+//       console.error(`saveSentencesToUserLatestResume: No resumes found for user ${userId}`);
+//       throw new Error(`No resumes found for user ${userId}`);
+//     }
+//     const resumeId = recentResumes[0].id;
+//     const resumeUpdatedAt = recentResumes[0].updated_at;
+//     console.log(`saveSentencesToUserLatestResume: Found most recent resume ${resumeId} (last updated: ${resumeUpdatedAt})`);
+//     // Update the resume record with sentences and current timestamp
+//     console.log(`saveSentencesToUserLatestResume: Updating resume ${resumeId} with ${sentences.length} sentences`);
+//     const updateStartTime = Date.now();
+//     const { error: updateError } = await supabase.from('resumes').update({
+//       sentences: sentences,
+//       sentences_updated_at: new Date().toISOString()
+//     }).eq('id', resumeId);
+//     const updateEndTime = Date.now();
+//     console.log(`saveSentencesToUserLatestResume: Update completed in ${updateEndTime - updateStartTime}ms`);
+//     if (updateError) {
+//       console.error('saveSentencesToUserLatestResume: Database update error:', updateError);
+//       throw updateError;
+//     }
+//     // Verification after update
+//     const { data: verifyData, error: verifyError } = await supabase.from('resumes').select('sentences, sentences_updated_at').eq('id', resumeId).single();
+//     console.log('Verification after update:');
+//     console.log('  Data exists:', !!verifyData);
+//     console.log('  Sentences exists:', !!verifyData?.sentences);
+//     console.log('  Sentences count:', verifyData?.sentences?.length || 0);
+//     console.log('  Updated timestamp:', verifyData?.sentences_updated_at);
+//     console.log('  Verify error:', verifyError);
+//     const endTime = Date.now();
+//     console.log(`saveSentencesToUserLatestResume: Successfully saved ${sentences.length} sentences to resume ${resumeId}`);
+//     console.log(`saveSentencesToUserLatestResume: Total function execution time: ${endTime - startTime}ms`);
+//   } catch (error) {
+//     const errorTime = Date.now() - startTime;
+//     console.error(`saveSentencesToUserLatestResume: Error after ${errorTime}ms:`, error.message);
+//     if (error.stack) {
+//       console.error('saveSentencesToUserLatestResume: Error stack:', error.stack);
+//     }
+//     throw error;
+//   }
+// }
 
 
-// Update the function signature to accept userId
-export async function extractAndSaveSentences(text, userId) {
-  console.log(`extractAndSaveSentences: Starting for userId=${userId} with text length=${text.length}`);
-  const startTime = Date.now();
-  try {
-    const sentences = await detectSentences(text, userId);
-    const endTime = Date.now();
-    console.log(`extractAndSaveSentences: Completed in ${endTime - startTime}ms, extracted ${sentences.length} sentences`);
-    return sentences;
-  } catch (error) {
-    const errorTime = Date.now() - startTime;
-    console.error(`extractAndSaveSentences: Error after ${errorTime}ms:`, error.message);
-    throw error;
-  }
-}
+// // Update the function signature to accept userId
+// export async function extractAndSaveSentences(text, userId) {
+//   console.log(`extractAndSaveSentences: Starting for userId=${userId} with text length=${text.length}`);
+//   const startTime = Date.now();
+//   try {
+//     const sentences = await detectSentences(text, userId);
+//     const endTime = Date.now();
+//     console.log(`extractAndSaveSentences: Completed in ${endTime - startTime}ms, extracted ${sentences.length} sentences`);
+//     return sentences;
+//   } catch (error) {
+//     const errorTime = Date.now() - startTime;
+//     console.error(`extractAndSaveSentences: Error after ${errorTime}ms:`, error.message);
+//     throw error;
+//   }
+// }
 
