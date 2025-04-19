@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,11 +9,12 @@ import ResumeUploadSection from '@/components/resume/ResumeUploadSection';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
 import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
-import { useResumeStorage, extractTextFromFile } from '@/hooks/resume/useResumeStorage';
+import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+
 const Resume = () => {
   const {
     user,
@@ -38,22 +40,23 @@ const Resume = () => {
     setAnalysis
   } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
-  const [pdfDataUrl, setPdfDataUrl] = useState<string | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string | null>(null);
   const [hasLoadedAnalysis, setHasLoadedAnalysis] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Load initial data on user assign
   useEffect(() => {
     let isMounted = true;
     const loadInitialData = async () => {
       if (initialLoadComplete || !user) return;
       try {
-        console.log("Initial data load started");
         setStorageError(null);
         await refreshResume();
         setInitialLoadComplete(true);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error in initial data load:", err);
         if (err.message?.includes('bucket') || err.message?.includes('storage')) {
           setStorageError("Resume storage is not properly configured. Please contact support.");
@@ -65,10 +68,11 @@ const Resume = () => {
       isMounted = false;
     };
   }, [user, initialLoadComplete, refreshResume]);
+
+  // Load existing analysis from resume object
   useEffect(() => {
     if (resume?.analysis && !analysis && !hasLoadedAnalysis && user) {
       try {
-        console.log("Loading analysis from resume object:", resume.analysis);
         setAnalysis(resume.analysis);
         setHasLoadedAnalysis(true);
       } catch (err) {
@@ -76,12 +80,24 @@ const Resume = () => {
       }
     }
   }, [resume, analysis, setAnalysis, hasLoadedAnalysis, user]);
-  
+
+  // Create and manage Blob URL for local PDF preview, extract text concurrently
   useEffect(() => {
-    if (!resumeFile) return;
-    const reader = new FileReader();
-    reader.onload = e => setPdfDataUrl(e.target?.result as string);
-    reader.readAsDataURL(resumeFile);
+    if (!resumeFile) {
+      setPdfPreviewUrl(null);
+      setExtractedText(null);
+      return;
+    }
+
+    // Create Blob URL for pdf preview if PDF
+    let blobUrl: string | null = null;
+    if (resumeFile.type === 'application/pdf') {
+      blobUrl = URL.createObjectURL(resumeFile);
+      setPdfPreviewUrl(blobUrl);
+    } else {
+      setPdfPreviewUrl(null);
+    }
+
     (async () => {
       try {
         const text = await extractTextFromFile(resumeFile);
@@ -95,40 +111,17 @@ const Resume = () => {
         });
       }
     })();
-  // }, [resumeFile, toast]);
 
-  
-// First useEffect for file handling
-// useEffect(() => {
-//   if (!resumeFile) return;
-  
-//   // Create a Blob URL instead of using FileReader and Data URL
-//   const url = URL.createObjectURL(resumeFile);
-//   setPdfDataUrl(url);
-  
-//   // Extract text from the file
-//   (async () => {
-//     try {
-//       const text = await extractTextFromFile(resumeFile);
-//       setExtractedText(text);
-//     } catch (err) {
-//       console.error(err);
-//       toast({
-//         title: 'Extraction failed',
-//         description: 'Could not extract text from your resume.',
-//         variant: 'destructive'
-//       });
-//     }
-//   })();
-  
-  // // Clean up the Blob URL when component unmounts or file changes
-  // return () => {
-  //   URL.revokeObjectURL(url);
-  // };
-}, [resumeFile, toast]);
+    return () => {
+      if (blobUrl) {
+        URL.revokeObjectURL(blobUrl);
+        setPdfPreviewUrl(null);
+      }
+    };
+  }, [resumeFile, toast]);
+
   useEffect(() => {
     if (resume?.text && !analysis && !isAnalyzing && !hasLoadedAnalysis && initialLoadComplete) {
-      console.log("Analyzing existing resume text");
       analyzeResume(resume.text).then(success => {
         if (success) {
           setHasLoadedAnalysis(true);
@@ -138,6 +131,7 @@ const Resume = () => {
       });
     }
   }, [resume, analysis, analyzeResume, isAnalyzing, hasLoadedAnalysis, initialLoadComplete]);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -152,6 +146,7 @@ const Resume = () => {
       });
     }
   };
+
   const handleUpload = async () => {
     if (!resumeFile || !extractedText) {
       toast({
@@ -170,7 +165,6 @@ const Resume = () => {
           await analyzeResume(extractedText);
           setHasLoadedAnalysis(true);
         } catch (error) {
-          console.error('Error analyzing resume:', error);
           toast({
             title: 'Analysis Error',
             description: 'Resume was uploaded but analysis failed. You can try again later.',
@@ -178,24 +172,23 @@ const Resume = () => {
           });
         }
       }
-    } catch (error) {
-      console.error('Error uploading resume:', error);
+    } catch (error: any) {
       if (error.message?.includes('bucket') || error.message?.includes('storage')) {
         setStorageError("Resume storage is not properly configured. Please contact support.");
       }
     }
   };
+
   const handleDelete = async () => {
     try {
       if (resume) await deleteResume();
       setResumeFile(null);
-      setPdfDataUrl(null);
+      setPdfPreviewUrl(null);
       setExtractedText(null);
       setShowCareerChat(false);
       setAnalysis(null);
       setHasLoadedAnalysis(false);
     } catch (error) {
-      console.error('Error in handleDelete:', error);
       toast({
         title: 'Delete Failed',
         description: 'Could not delete resume. Please try again.',
@@ -203,10 +196,13 @@ const Resume = () => {
       });
     }
   };
+
   const handleDownload = () => {
     if (resume?.file_url) window.open(resume.file_url, '_blank');
   };
+
   const handleStartCareerChat = () => setShowCareerChat(true);
+
   const handleRefreshData = async () => {
     setIsRefreshing(true);
     setHasLoadedAnalysis(false);
@@ -217,8 +213,7 @@ const Resume = () => {
         title: 'Refreshed',
         description: 'Resume data has been refreshed.'
       });
-    } catch (error) {
-      console.error('Error refreshing data:', error);
+    } catch (error: any) {
       if (error.message?.includes('bucket') || error.message?.includes('storage')) {
         setStorageError("Resume storage is not properly configured. Please contact support.");
       }
@@ -231,9 +226,13 @@ const Resume = () => {
       setIsRefreshing(false);
     }
   };
+
   if (!isAuthenticated) return <ResumeLoginWall />;
+
   const loading = resumeLoading || isAnalyzing || isRefreshing;
-  return <AppLayout>
+
+  return (
+    <AppLayout>
       <div className="container mx-auto py-6 space-y-6">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Resume Management</h1>
@@ -252,18 +251,44 @@ const Resume = () => {
             </AlertDescription>
           </Alert>}
 
-        {careerAlignments && careerAlignments.length > 0 && <div className="space-y-2">
-            {careerAlignments.map((alignment, index) => <Alert key={index} className={`${index === 0 ? "bg-accent/20 border border-accent" : "bg-slate-50 border border-slate-200"}`}>
+        {careerAlignments && careerAlignments.length > 0 && (
+          <div className="space-y-2">
+            {careerAlignments.map((alignment, index) => (
+              <Alert
+                key={index}
+                className={`${index === 0 ? "bg-accent/20 border border-accent" : "bg-slate-50 border border-slate-200"}`}
+              >
                 <AlertDescription>
                   {alignment.description}
                 </AlertDescription>
-              </Alert>)}
-          </div>}
+              </Alert>
+            ))}
+          </div>
+        )}
 
         <div className="grid md:grid-cols-2 gap-6">
-          <ResumeUploadSection resumeFile={resumeFile} setResumeFile={setResumeFile} resume={resume} loading={loading} uploading={uploading} isAnalyzing={isAnalyzing} handleUpload={handleUpload} handleDelete={handleDelete} handleFileChange={handleFileChange} handleDownload={handleDownload} pdfDataUrl={pdfDataUrl} />
+          <ResumeUploadSection
+            resumeFile={resumeFile}
+            setResumeFile={setResumeFile}
+            resume={resume}
+            loading={loading}
+            uploading={uploading}
+            isAnalyzing={isAnalyzing}
+            handleUpload={handleUpload}
+            handleDelete={handleDelete}
+            handleFileChange={handleFileChange}
+            handleDownload={handleDownload}
+            pdfPreviewUrl={pdfPreviewUrl}
+          />
 
-          <ResumeAnalysisSection loading={loading} isAnalyzing={isAnalyzing} analysis={analysis} resume={resume} handleStartCareerChat={handleStartCareerChat} handleFileChange={handleFileChange} />
+          <ResumeAnalysisSection
+            loading={loading}
+            isAnalyzing={isAnalyzing}
+            analysis={analysis}
+            resume={resume}
+            handleStartCareerChat={handleStartCareerChat}
+            handleFileChange={handleFileChange}
+          />
         </div>
 
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
@@ -271,13 +296,20 @@ const Resume = () => {
         <details open className="border rounded-md bg-white shadow-sm">
           <summary className="cursor-pointer px-4 py-2 font-medium">Storytelling Analysis</summary>
           <div className="p-4">
-            {analysis?.bullets && analysis.bullets.length > 0 ? <BulletPointsAnalysisCard bullets={analysis.bullets} /> : <p className="text-gray-500">
+            {analysis?.bullets && analysis.bullets.length > 0 ? (
+              <BulletPointsAnalysisCard bullets={analysis.bullets} />
+            ) : (
+              <p className="text-gray-500">
                 No bullet‑point analysis available. Upload and analyze your resume
                 to see detailed feedback.
-              </p>}
+              </p>
+            )}
           </div>
         </details>
       </div>
-    </AppLayout>;
+    </AppLayout>
+  );
 };
+
 export default Resume;
+

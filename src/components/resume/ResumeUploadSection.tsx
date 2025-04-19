@@ -6,10 +6,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { useToast } from '@/hooks/use-toast';
 import type { Resume } from '@/hooks/resume/useResume';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Document, Page, pdfjs } from 'react-pdf';
-
-// Set workerSrc for react-pdf (use CDN)
-pdfjs.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
 
 interface ResumeUploadSectionProps {
   resumeFile: File | null;
@@ -22,7 +18,7 @@ interface ResumeUploadSectionProps {
   handleDelete: () => Promise<void>;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDownload: () => void;
-  pdfDataUrl: string | null;
+  pdfPreviewUrl: string | null;
 }
 
 const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
@@ -36,10 +32,9 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
   handleDelete,
   handleFileChange,
   handleDownload,
-  pdfDataUrl,
+  pdfPreviewUrl,
 }) => {
   const [fileError, setFileError] = useState<string | null>(null);
-  const [numPages, setNumPages] = useState<number>(0);
 
   useEffect(() => {
     if (resumeFile) {
@@ -47,62 +42,41 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
     }
   }, [resumeFile]);
 
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-  };
-
   const renderFilePreview = () => {
-    // If we have a stored resume with a URL and it's a PDF, use react-pdf to render preview
+    // Server URL PDF preview
     if (resume?.file_url && resume?.file_name?.toLowerCase().endsWith('.pdf')) {
       return (
-        <div className="w-full aspect-[8.5/11] border rounded-md overflow-auto bg-white">
-          <Document
-            file={resume.file_url}
-            onLoadSuccess={onDocumentLoadSuccess}
-            loading={<p className="p-4 text-center text-muted-foreground">Loading document preview...</p>}
-            options={{ cMapUrl: 'cmaps/', cMapPacked: true }}
-          >
-            {Array.from(new Array(numPages), (_el, index) => (
-              <Page key={`page_${index + 1}`} pageNumber={index + 1} width={600} />
-            ))}
-          </Document>
+        <iframe
+          src={resume.file_url}
+          title="Resume Preview"
+          className="w-full aspect-[8.5/11] border rounded-md"
+        />
+      );
+    }
+
+    // Local PDF preview using Blob URL and iframe
+    if (pdfPreviewUrl && resumeFile?.type === 'application/pdf') {
+      return (
+        <iframe
+          src={pdfPreviewUrl}
+          title="Local Resume Preview"
+          className="w-full aspect-[8.5/11] border rounded-md"
+        />
+      );
+    }
+
+    // DOCX preview placeholder
+    if (resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      return (
+        <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-accent/10">
+          <File className="h-12 w-12 text-muted-foreground mb-2" />
+          <p className="text-muted-foreground">Word Document Preview</p>
+          <p className="text-xs text-muted-foreground mt-1">(Preview not available for DOCX files)</p>
         </div>
       );
     }
 
-    // For local preview of newly selected files
-    if (pdfDataUrl) {
-      // Check if it's a PDF
-      if (resumeFile?.type === 'application/pdf') {
-        return (
-          <div className="w-full aspect-[8.5/11] border rounded-md overflow-auto bg-white">
-            <Document
-              file={pdfDataUrl}
-              onLoadSuccess={onDocumentLoadSuccess}
-              loading={<p className="p-4 text-center text-muted-foreground">Loading document preview...</p>}
-              options={{ cMapUrl: 'cmaps/', cMapPacked: true }}
-            >
-              {Array.from(new Array(numPages), (_el, index) => (
-                <Page key={`page_${index + 1}`} pageNumber={index + 1} width={600} />
-              ))}
-            </Document>
-          </div>
-        );
-      }
-
-      // For DOCX, we can't preview directly, show a placeholder
-      if (resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-        return (
-          <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-accent/10">
-            <File className="h-12 w-12 text-muted-foreground mb-2" />
-            <p className="text-muted-foreground">Word Document Preview</p>
-            <p className="text-xs text-muted-foreground mt-1">(Preview not available for DOCX files)</p>
-          </div>
-        );
-      }
-    }
-
-    // Fallback if no preview available
+    // No preview available fallback
     return (
       <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
         <p className="text-muted-foreground">No file uploaded</p>
@@ -221,3 +195,4 @@ const ResumeUploadSection: React.FC<ResumeUploadSectionProps> = ({
 };
 
 export default ResumeUploadSection;
+
