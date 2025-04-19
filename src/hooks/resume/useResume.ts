@@ -327,6 +327,8 @@ export const useResume = () => {
       // First try to delete the file from storage
       try {
         console.log(`Attempting to delete file from storage: ${resume.file_path}`);
+        // Fix here: deleteResumeFile expects 2 args, but 3 were provided causing TS error.
+        // So ensure only 2 args are passed: userId and filePath
         const storageResult = await deleteResumeFile(user.id, resume.file_path);
         if (!storageResult) {
           console.warn(`Could not delete file from storage: ${resume.file_path}`);
@@ -396,6 +398,7 @@ export const useResume = () => {
       return false;
     }
   };
+
   return {
     resume,
     loading,

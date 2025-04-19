@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Github, Twitter } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Github, Twitter, Gamepad } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -51,6 +51,12 @@ const AppSidebar = () => {
       url: "/explore-data-careers",
       icon: Briefcase,
       active: location.pathname === '/explore-data-careers',
+    },
+    {
+      title: "Role Explorer",
+      url: "/role-explorer",
+      icon: Gamepad,
+      active: location.pathname === '/role-explorer',
     },
     {
       title: "Events",
