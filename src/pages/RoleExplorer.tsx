@@ -38,9 +38,15 @@ const roles = [
   "Data Governance Specialist",
 ];
 
+// Fix here: explicitly type heatmapData as HeatmapDataItem[]
+interface HeatmapDataItem {
+  role: string;
+  [industry: string]: number | string; // industry name keys with demand values
+}
+
 // Example heatmap data with demand intensity (0-100 scale)
-const heatmapData = roles.map((role) => {
-  const entry: Record<string, string | number> = { role };
+const heatmapData: HeatmapDataItem[] = roles.map((role) => {
+  const entry: HeatmapDataItem = { role };
   industries.forEach((industry) => {
     // Random demand value, replace with real data from your data source
     entry[industry] = 10 + Math.floor(Math.random() * 90);
@@ -129,3 +135,4 @@ const RoleExplorer: React.FC = () => {
 };
 
 export default RoleExplorer;
+
