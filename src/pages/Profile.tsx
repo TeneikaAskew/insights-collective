@@ -1,4 +1,4 @@
-import { useEffect, useState, ChangeEvent } from 'react';
+import { useEffect, useState, ChangeEvent, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -13,6 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { mockService } from '@/lib/mockData';
 import { Bell, Lock, User, Settings, LogOut, Award, Upload } from 'lucide-react';
 import QuizResultsSection from '@/components/profile/QuizResultsSection';
+import { supabase } from '@/integrations/supabase/client';
+import { quizQuestions } from '@/data/careerQuizData';
 
 const Profile = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -20,6 +22,11 @@ const Profile = () => {
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
+  const [quizAnswers, setQuizAnswers] = useState<Record<number, number | string>>({});
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -27,13 +34,40 @@ const Profile = () => {
     }
   }, [isAuthenticated, navigate]);
 
-  useEffect(() => {
-    if (user?.avatar) {
-      setAvatarPreview(user.avatar);
+  const fetchUserProfile = useCallback(async () => {
+    if (!user?.id) return;
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('avatar_url, first_name, last_name')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      console.error('Failed to fetch profile', error);
+      setProfileAvatarUrl(null);
     } else {
-      setAvatarPreview(null);
+      if (data && data.avatar_url) {
+        setProfileAvatarUrl(data.avatar_url);
+      } else {
+        setProfileAvatarUrl(null);
+      }
     }
   }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      fetchUserProfile();
+    }
+  }, [user, fetchUserProfile]);
+
+  useEffect(() => {
+    if (avatarFile) {
+      const url = URL.createObjectURL(avatarFile);
+      setAvatarPreview(url);
+    } else {
+      setAvatarPreview(profileAvatarUrl);
+    }
+  }, [avatarFile, profileAvatarUrl]);
 
   if (!user) return null;
 
@@ -51,23 +85,111 @@ const Profile = () => {
     return user.name ? user.name.split(' ').slice(1).join(' ') : '';
   };
 
+  const uploadAvatar = async (file: File) => {
+    if (!user) return;
+
+    setUploadingAvatar(true);
+
+    try {
+      const timestamp = Date.now();
+      const fileExt = file.name.split('.').pop();
+      const filePath = `user-avatars/${user.id}/${timestamp}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('user-avatars')
+        .upload(filePath, file, {upsert: true});
+
+      if (uploadError) {
+        console.error('Avatar upload error:', uploadError);
+        alert('Failed to upload avatar. Please try again.');
+        setUploadingAvatar(false);
+        return;
+      }
+
+      const { data } = supabase.storage.from('user-avatars').getPublicUrl(filePath);
+
+      const publicUrl = data.publicUrl;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Profile update avatar_url error:', updateError);
+        alert('Failed to update profile avatar. Please try again.');
+        setUploadingAvatar(false);
+        return;
+      }
+
+      await fetchUserProfile();
+      setAvatarFile(null);
+    } catch (err) {
+      console.error('Unknown error uploading avatar:', err);
+      alert('Unexpected error uploading avatar.');
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
       setAvatarFile(file);
-      const url = URL.createObjectURL(file);
-      setAvatarPreview(url);
     }
   };
 
   const handleAvatarReset = () => {
     setAvatarFile(null);
-    setAvatarPreview(user.avatar || null);
   };
 
   const handleAvatarSave = () => {
-    alert("Avatar upload functionality to be implemented with backend.");
+    if (avatarFile) {
+      uploadAvatar(avatarFile);
+    }
   };
+
+  const careerAdvicePrompt = `Here are outputs from a career chat:
+• A set of recommended roles with descriptions & salary bands
+• A table of skills and matching courses
+• A narrative of next-step career recommendations
+• A 'Roles that might be right for you' list
+• A 'Path to your aspirational role' carousel
+Please combine these data points with the user’s quiz answers to generate a personalized career-advice report.`;
+
+  const evaluateCareerAdvice = async (quizAnswersPayload: Record<number, number | string>) => {
+    try {
+      const payload = {
+        prompt: careerAdvicePrompt,
+        Quizquestions: quizQuestions,
+        quizAnswers: quizAnswersPayload
+      };
+
+      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (error) {
+        console.error('Error invoking evaluateCareerAdvice:', error);
+        setCareerAdviceReport('Failed to get career advice. Please try again later.');
+        return;
+      }
+
+      const responseText = typeof data === 'string' ? data : (data && data.generatedText) || JSON.stringify(data);
+
+      setCareerAdviceReport(responseText);
+    } catch (err) {
+      console.error('Unknown error invoking career advice function:', err);
+      setCareerAdviceReport('Failed to get career advice. Please try again later.');
+    }
+  };
+
+  useEffect(() => {
+    if (Object.keys(quizAnswers).length === quizQuestions.length) {
+      evaluateCareerAdvice(quizAnswers);
+    }
+  }, [quizAnswers]);
 
   return (
     <AppLayout>
@@ -165,15 +287,21 @@ const Profile = () => {
                     id="avatar-upload"
                     onChange={handleAvatarChange}
                     className="hidden"
+                    disabled={uploadingAvatar}
                   />
-                  <label htmlFor="avatar-upload" className="cursor-pointer inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium shadow-sm hover:bg-gray-50">
+                  <label
+                    htmlFor="avatar-upload"
+                    className={`cursor-pointer inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium shadow-sm hover:bg-gray-50
+                      ${uploadingAvatar ? 'opacity-50 pointer-events-none' : ''}
+                    `}
+                  >
                     <Upload className="mr-2 h-4 w-4" />
-                    Choose Avatar
+                    {uploadingAvatar ? 'Uploading...' : 'Choose Avatar'}
                   </label>
                   {avatarFile && (
                     <div className="flex space-x-2">
-                      <Button onClick={handleAvatarReset} variant="outline" size="sm">Cancel</Button>
-                      <Button onClick={handleAvatarSave} size="sm">Save</Button>
+                      <Button onClick={handleAvatarReset} variant="outline" size="sm" disabled={uploadingAvatar}>Cancel</Button>
+                      <Button onClick={handleAvatarSave} size="sm" disabled={uploadingAvatar}>Save</Button>
                     </div>
                   )}
                 </div>
@@ -226,6 +354,20 @@ const Profile = () => {
                 <QuizResultsSection />
               </CardContent>
             </Card>
+
+            {careerAdviceReport && (
+              <Card id="career-advice-report">
+                <CardHeader>
+                  <CardTitle>Personalized Career Advice</CardTitle>
+                  <CardDescription>
+                    Based on your quiz answers, here is your career advice report.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</div>
+                </CardContent>
+              </Card>
+            )}
             
             <Card id="security">
               <CardHeader>
@@ -255,7 +397,7 @@ const Profile = () => {
                 <Button>Update Password</Button>
               </CardFooter>
             </Card>
-            
+
             <Card id="enrolled-courses">
               <CardHeader>
                 <CardTitle>Enrolled Courses</CardTitle>
@@ -333,7 +475,7 @@ const Profile = () => {
                 </Tabs>
               </CardContent>
             </Card>
-            
+
             <Card id="notifications">
               <CardHeader>
                 <CardTitle>Notification Settings</CardTitle>
@@ -373,7 +515,7 @@ const Profile = () => {
                 </div>
               </CardContent>
             </Card>
-            
+
             <Card id="preferences">
               <CardHeader>
                 <CardTitle>Preferences</CardTitle>
