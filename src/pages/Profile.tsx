@@ -1,3 +1,4 @@
+
 import { useEffect, useState, ChangeEvent, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,6 +86,7 @@ const Profile = () => {
     return user.name ? user.name.split(' ').slice(1).join(' ') : '';
   };
 
+  // Upload avatar to Supabase storage bucket and update profile
   const uploadAvatar = async (file: File) => {
     if (!user) return;
 
@@ -95,9 +97,10 @@ const Profile = () => {
       const fileExt = file.name.split('.').pop();
       const filePath = `user-avatars/${user.id}/${timestamp}.${fileExt}`;
 
+      // Upload file to public bucket "user-avatars"
       const { error: uploadError } = await supabase.storage
         .from('user-avatars')
-        .upload(filePath, file, {upsert: true});
+        .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
         console.error('Avatar upload error:', uploadError);
@@ -106,10 +109,11 @@ const Profile = () => {
         return;
       }
 
+      // Get public URL for the uploaded avatar
       const { data } = supabase.storage.from('user-avatars').getPublicUrl(filePath);
-
       const publicUrl = data.publicUrl;
 
+      // Update the user's profile with new avatar URL
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
@@ -122,7 +126,9 @@ const Profile = () => {
         return;
       }
 
+      // Refresh profile to get updated avatar URL
       await fetchUserProfile();
+      // Clear selected file
       setAvatarFile(null);
     } catch (err) {
       console.error('Unknown error uploading avatar:', err);
@@ -149,6 +155,7 @@ const Profile = () => {
     }
   };
 
+  // Career advice prompt string
   const careerAdvicePrompt = `Here are outputs from a career chat:
 • A set of recommended roles with descriptions & salary bands
 • A table of skills and matching courses
@@ -157,6 +164,7 @@ const Profile = () => {
 • A 'Path to your aspirational role' carousel
 Please combine these data points with the user’s quiz answers to generate a personalized career-advice report.`;
 
+  // Call Supabase Edge Function to evaluate career advice
   const evaluateCareerAdvice = async (quizAnswersPayload: Record<number, number | string>) => {
     try {
       const payload = {
@@ -177,7 +185,6 @@ Please combine these data points with the user’s quiz answers to generate a pe
       }
 
       const responseText = typeof data === 'string' ? data : (data && data.generatedText) || JSON.stringify(data);
-
       setCareerAdviceReport(responseText);
     } catch (err) {
       console.error('Unknown error invoking career advice function:', err);
@@ -185,6 +192,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
     }
   };
 
+  // Detect when quiz answers complete to trigger career advice
   useEffect(() => {
     if (Object.keys(quizAnswers).length === quizQuestions.length) {
       evaluateCareerAdvice(quizAnswers);
@@ -351,7 +359,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
                 <CardDescription>Your career path assessment and recommendations</CardDescription>
               </CardHeader>
               <CardContent>
-                <QuizResultsSection />
+                <QuizResultsSection quizAnswers={quizAnswers} setQuizAnswers={setQuizAnswers} />
               </CardContent>
             </Card>
 

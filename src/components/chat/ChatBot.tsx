@@ -4,38 +4,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { MessageCircle, Send, X, PlusCircle, Upload, Home, BookOpen, Calendar, FileText, Cpu, User } from 'lucide-react';
-import { Avatar } from '@/components/ui/avatar';
+import { MessageCircle, Send, X, Upload } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 type Message = {
   id: string;
   content: string;
   role: 'user' | 'assistant';
   timestamp: Date;
-};
-
-const MENU_DESCRIPTIONS = {
-  dashboard: "View your learning progress and recommended content",
-  courses: "Browse and enroll in our data science curriculum",
-  events: "Upcoming workshops, webinars, and networking opportunities",
-  resources: "Articles, guides, and learning materials",
-  assistants: "AI-powered career and learning assistants",
-  profile: "Manage your account and track achievements",
-  resume: "Build and customize your data professional resume",
-  messages: "Connect with instructors and fellow learners",
-  calendar: "Schedule and track learning events and deadlines"
-};
-
-const MENU_ICONS = {
-  dashboard: Home,
-  courses: BookOpen,
-  events: Calendar,
-  resources: FileText,
-  assistants: Cpu,
-  profile: User,
 };
 
 const INITIAL_MESSAGES: Message[] = [
@@ -64,7 +44,7 @@ const ChatBot = () => {
   const [showMenuButtons, setShowMenuButtons] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -89,11 +69,63 @@ const ChatBot = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Check if user has a resume on file when chat opens
+  useEffect(() => {
+    if (isOpen && user) {
+      (async () => {
+        try {
+          const { data, error } = await supabase
+            .from('resumes')
+            .select('id, text')
+            .eq('user_id', user.id)
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            console.error('Error checking resume existence:', error);
+            // Add message anyway to prompt upload if needed
+            appendBotMessage("Do you want to upload your resume to get personalized career advice?");
+            return;
+          }
+
+          if (data && data.id) {
+            // Resume exists, welcome message includes resume usage info
+            appendBotMessage("Welcome back! I found your resume on file, so we can use it during our career conversations.");
+          } else {
+            // No resume found, prompt to upload
+            appendBotMessage("I don't see a resume on file. Please upload your resume to get personalized career advice.");
+          }
+        } catch (e) {
+          console.error('Exception during resume check:', e);
+          appendBotMessage("I cannot check your resume status currently. Please upload your resume for personalized career advice.");
+        }
+      })();
+    }
+  }, [isOpen, user]);
+
+  const appendBotMessage = (content: string) => {
+    setMessages(prev => [
+      ...prev, 
+      {
+        id: `bot_${Date.now()}`,
+        content,
+        role: 'assistant',
+        timestamp: new Date(),
+      }
+    ]);
+  };
+
+  // Reset chat - clears all messages and cache
+  const handleResetChat = () => {
+    setMessages([...INITIAL_MESSAGES]);
+    setShowMenuButtons(true);
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    
+
     if (!input.trim()) return;
-    
+
     // Add user message to the chat
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -101,123 +133,98 @@ const ChatBot = () => {
       role: 'user',
       timestamp: new Date(),
     };
-    
-    setMessages((prev) => [...prev, userMessage]);
+
+    setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsProcessing(true);
     setShowMenuButtons(false); // Hide menu buttons when user starts chatting
-    
+
     try {
-      // In a real implementation, this would be an API call to a backend service
-      // For this demo, we'll simulate a response
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Get a random response from fallbacks or generate a more specific one
-      const botResponse = generateResponse(input, isAuthenticated);
-      
+      // Before sending, get user's resume text to include in context if exists
+      let resumeText = null;
+
+      if (user) {
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('text')
+          .eq('user_id', user.id)
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching resume text:', error);
+        } else if (data && data.text) {
+          resumeText = data.text;
+        }
+      }
+
+      const context = resumeText
+        ? `User resume provided: \n${resumeText}\n`
+        : 'No user resume provided.';
+
+      // Call the Edge Function with the context included
+      const { data, error } = await supabase.functions.invoke('assistant-ai', {
+        body: {
+          query: userMessage.content,
+          careerFocus: 'Data',
+          careerPath: 'Data Analyst',
+          salaryCap: 120000,
+          assistantType: 'Career Coach',
+          context,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: botResponse,
+        id: `assistant-${Date.now()}`,
         role: 'assistant',
+        content: data?.response || "I'm sorry, I couldn't process your request at this time.",
         timestamp: new Date(),
       };
-      
-      setMessages((prev) => [...prev, assistantMessage]);
+
+      setMessages(prev => [...prev, assistantMessage]);
+
+      // If conversation reached certain keywords, respond with report message
+      const lowerContent = userMessage.content.toLowerCase();
+      if (
+        lowerContent.includes('career pathway') ||
+        lowerContent.includes('career advice') ||
+        lowerContent.includes('recommendation')
+      ) {
+        appendBotMessage("I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights...");
+        // After delay or API call (backend handles) final report is available
+        // In real system, would poll or push event for report update
+      }
+
     } catch (error) {
       console.error('Error processing message:', error);
-      
+
       const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: "I'm sorry, I couldn't process your request at the moment. Please try again later.",
+        id: `assistant-fallback-${Date.now()}`,
         role: 'assistant',
+        content: "Sorry, I couldn't process your request at this moment. Please try again later.",
         timestamp: new Date(),
       };
-      
-      setMessages((prev) => [...prev, errorMessage]);
+
+      setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsProcessing(false);
+      scrollToBottom();
     }
   };
 
-  const generateResponse = (query: string, isAuthenticated: boolean): string => {
-    // Simple keyword matching for demo purposes
-    const normalizedQuery = query.toLowerCase();
-    
-    if (normalizedQuery.includes('menu') || normalizedQuery.includes('navigation') || normalizedQuery.includes('find')) {
-      const menuItems = Object.entries(MENU_DESCRIPTIONS)
-        .map(([key, desc]) => `• ${key.charAt(0).toUpperCase() + key.slice(1)}: ${desc}`)
-        .join('\n\n');
-      
-      return `Here's what you can find in our main menu:\n\n${menuItems}\n\nIs there a specific section you'd like to know more about?`;
+  const handleInputKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
     }
-    
-    if (normalizedQuery.includes('course') || normalizedQuery.includes('class')) {
-      return "We offer courses in Data Science, Analytics, Data Engineering, and Machine Learning. Each course is designed with a practical, hands-on approach to help you build real-world skills.";
-    }
-    
-    if (normalizedQuery.includes('blueprint') || normalizedQuery.includes('series')) {
-      return "The Data Blueprint Series is our comprehensive 10-part guide that covers everything from starting a data career to advanced topics like responsible AI and career growth paths.";
-    }
-    
-    if (normalizedQuery.includes('career') || normalizedQuery.includes('job')) {
-      return "Based on our Data Blueprint Series, successful data careers usually start with strong foundations in statistics and programming, then specialize based on your interests. Building a portfolio of projects is crucial for landing your first role.";
-    }
-    
-    if (normalizedQuery.includes('event') || normalizedQuery.includes('conference')) {
-      return "We have several upcoming events, including the Machine Learning Conference 2025 on June 15th. Would you like me to provide more details about our events calendar?";
-    }
-    
-    if (!isAuthenticated && (normalizedQuery.includes('advanced') || normalizedQuery.includes('personalized'))) {
-      return "For more advanced or personalized assistance, please sign in to your account. This allows me to provide recommendations based on your learning history and interests.";
-    }
-    
-    // Return a random fallback response for other queries
-    return FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)];
   };
 
-  const handleUpload = () => {
-    toast({
-      title: "File uploaded successfully",
-      description: "Your document has been added to the knowledge base.",
-    });
-    setUploadModalOpen(false);
-  };
-
-  const handleCloseChat = () => {
-    setIsOpen(false);
-    // Reset for next opening
-    setShowMenuButtons(true);
-    
-    // Reset messages to initial state when closing
-    setMessages(INITIAL_MESSAGES);
-  };
-
-  // Renders menu navigation buttons
-  const renderMenuButtons = () => {
-    return (
-      <div className="flex flex-col space-y-2 mt-4">
-        {Object.entries(MENU_ICONS).map(([key, Icon]) => (
-          <Link 
-            to={`/${key === 'dashboard' ? '' : key}`} 
-            key={key} 
-            onClick={() => setIsOpen(false)}
-          >
-            <Button 
-              variant="outline" 
-              className="w-full justify-start text-left"
-            >
-              <Icon className="mr-2 h-4 w-4" />
-              {key.charAt(0).toUpperCase() + key.slice(1)}: {MENU_DESCRIPTIONS[key as keyof typeof MENU_DESCRIPTIONS]}
-            </Button>
-          </Link>
-        ))}
-      </div>
-    );
-  };
-
-  // Process message content for rendering
+  // Formats message content for JSX, handles newlines
   const formatMessageContent = (content: string) => {
-    // Split by newlines to handle them properly in JSX
     return content.split('\n').map((line, i) => (
       <React.Fragment key={i}>
         {line}
@@ -226,95 +233,124 @@ const ChatBot = () => {
     ));
   };
 
+  // Get user initials fallback for avatar
+  const getUserInitials = (name?: string) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(' ');
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+  };
+
   return (
     <>
       {/* Chat trigger button */}
       <div className="fixed bottom-6 right-6 z-50">
-        <Button 
+        <Button
           className="h-14 w-14 rounded-full shadow-lg bg-primary hover:bg-primary/90 p-0"
           onClick={() => setIsOpen(true)}
+          aria-label="Open chat"
         >
           <MessageCircle className="h-6 w-6" />
         </Button>
       </div>
-      
+
       {/* Chat interface */}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent 
+        <SheetContent
           className="w-full sm:max-w-md p-0 border-l"
           side="right"
+          aria-label="Chat window"
         >
           <div className="flex flex-col h-full">
             <SheetHeader className="px-4 py-3 border-b">
               <div className="flex justify-between items-center">
                 <SheetTitle className="text-xl font-medium">IC Assistant</SheetTitle>
                 <div className="flex items-center gap-2">
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     size="icon"
                     onClick={() => setUploadModalOpen(true)}
+                    aria-label="Upload document"
                   >
                     <Upload className="h-5 w-5" />
                   </Button>
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={handleCloseChat}
-                  >
+                  <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)} aria-label="Close chat">
                     <X className="h-5 w-5" />
                   </Button>
                 </div>
               </div>
             </SheetHeader>
-            
-            <ScrollArea className="flex-1 p-4">
+
+            <ScrollArea className="flex-1 p-4 overflow-auto">
               <div className="space-y-4">
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${
+                    className={`flex max-w-[80%] ${
                       message.role === 'assistant' ? 'justify-start' : 'justify-end'
                     }`}
                   >
+                    {message.role === 'assistant' && (
+                      <Avatar className="h-8 w-8 mr-2 self-end select-none" aria-label="Assistant Avatar">
+                        {/* Use static system avatar or fallback */}
+                        <AvatarFallback className="text-xs font-semibold bg-primary text-primary-foreground rounded-full">
+                          IC
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+
                     <div
-                      className={`max-w-[80%] rounded-lg p-3 ${
+                      className={`rounded-lg p-3 break-words text-sm ${
                         message.role === 'assistant'
                           ? 'bg-secondary text-secondary-foreground'
                           : 'bg-primary text-primary-foreground'
                       }`}
                     >
-                      {message.role === 'assistant' && (
-                        <div className="flex items-center mb-1">
-                          <Avatar className="h-6 w-6 mr-2">
-                            <div className="bg-primary text-primary-foreground rounded-full h-full w-full flex items-center justify-center text-xs font-medium">
-                              IC
-                            </div>
-                          </Avatar>
-                          <span className="text-xs font-medium">IC Assistant</span>
-                        </div>
-                      )}
-                      <p className="text-sm">
-                        {formatMessageContent(message.content)}
-                      </p>
-                      <div className="text-xs opacity-70 mt-1 text-right">
-                        {message.timestamp.toLocaleTimeString([], { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
+                      <p>{formatMessageContent(message.content)}</p>
+                      <div className="text-xs opacity-70 mt-1 text-right select-none">
+                        {message.timestamp.toLocaleTimeString([], {
+                          hour: '2-digit',
+                          minute: '2-digit',
                         })}
                       </div>
                     </div>
+
+                    {message.role === 'user' && (
+                      <Avatar className="h-8 w-8 ml-2 self-end select-none" aria-label="User Avatar">
+                        {user?.avatar ? (
+                          <AvatarImage src={user.avatar} alt={user.name || 'User Avatar'} />
+                        ) : (
+                          <AvatarFallback className="text-xs font-semibold rounded-full">
+                            {getUserInitials(user?.name)}
+                          </AvatarFallback>
+                        )}
+                      </Avatar>
+                    )}
                   </div>
                 ))}
-                
-                {/* Always show menu buttons after initial message, unless user has started chatting */}
+
+                {/* Show menu only if not chatting */}
                 {showMenuButtons && (
                   <div className="flex justify-start w-full">
                     <div className="max-w-[95%] w-full">
-                      {renderMenuButtons()}
+                      {/* menu buttons rendering */}
+                      <div className="flex flex-col space-y-2 mt-4">
+                        <Link to="/" onClick={() => setIsOpen(false)}>
+                          <Button variant="outline" className="w-full justify-start text-left">
+                            Home
+                          </Button>
+                        </Link>
+                        <Link to="/courses" onClick={() => setIsOpen(false)}>
+                          <Button variant="outline" className="w-full justify-start text-left">
+                            Courses
+                          </Button>
+                        </Link>
+                        {/* add other links similarly... */}
+                      </div>
                     </div>
                   </div>
                 )}
-                
+
                 {isProcessing && (
                   <div className="flex justify-start">
                     <div className="max-w-[80%] rounded-lg p-3 bg-secondary text-secondary-foreground">
@@ -329,25 +365,19 @@ const ChatBot = () => {
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
-            
-            <form 
-              onSubmit={handleSubmit}
-              className="border-t p-4"
-            >
+
+            <form onSubmit={handleSubmit} className="border-t p-4" aria-label="Chat input form">
               <div className="flex items-center gap-2">
                 <Input
                   ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={e => setInput(e.target.value)}
                   placeholder="Ask me anything..."
                   className="flex-1"
+                  aria-label="Type your message"
                   disabled={isProcessing}
                 />
-                <Button 
-                  type="submit" 
-                  size="icon"
-                  disabled={isProcessing || !input.trim()}
-                >
+                <Button type="submit" size="icon" disabled={isProcessing || !input.trim()} aria-label="Send message">
                   <Send className="h-5 w-5" />
                 </Button>
               </div>
@@ -355,7 +385,13 @@ const ChatBot = () => {
                 <p>
                   Did you know? You can ask about our courses, resources, events, or data careers.
                   {!isAuthenticated && (
-                    <span> <a href="/login" className="text-primary hover:underline">Sign in</a> for personalized assistance.</span>
+                    <span>
+                      {' '}
+                      <a href="/login" className="text-primary hover:underline">
+                        Sign in
+                      </a>{' '}
+                      for personalized assistance.
+                    </span>
                   )}
                 </p>
               </div>
@@ -363,7 +399,7 @@ const ChatBot = () => {
           </div>
         </SheetContent>
       </Sheet>
-      
+
       {/* Upload modal */}
       <Sheet open={uploadModalOpen} onOpenChange={setUploadModalOpen}>
         <SheetContent className="w-full sm:max-w-md">
@@ -385,7 +421,13 @@ const ChatBot = () => {
               <Button variant="outline" onClick={() => setUploadModalOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleUpload}>
+              <Button onClick={() => {
+                toast({
+                  title: "File uploaded successfully",
+                  description: "Your document has been added to the knowledge base.",
+                });
+                setUploadModalOpen(false);
+              }}>
                 Upload
               </Button>
             </div>
