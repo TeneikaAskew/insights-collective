@@ -1,4 +1,5 @@
 
+// Fix: Improve user's resume presence message and clean code
 import React, { useEffect, useState } from 'react';
 import { quizQuestions } from '@/data/careerQuizData';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,21 +21,40 @@ Please combine these data points with the user’s quiz answers to generate a pe
 const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ quizAnswers }) => {
   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
   const [loading, setLoading] = useState(false);
+  const [resumeFound, setResumeFound] = useState(false);
 
   useEffect(() => {
     const allAnswersProvided = Object.keys(quizAnswers).length === quizQuestions.length;
     if (!allAnswersProvided) {
       setCareerAdviceReport('');
+      setResumeFound(false);
       return;
     }
 
     const fetchCareerAdvice = async () => {
       setLoading(true);
       try {
+        const { data: resumeData, error: resumeError } = await supabase
+          .from('resumes')
+          .select('text')
+          .limit(1)
+          .maybeSingle();
+
+        let resumeText = null;
+        if (resumeError) {
+          console.error('Error checking resume for career advice:', resumeError);
+        } else if (resumeData && resumeData.text) {
+          resumeText = resumeData.text;
+          setResumeFound(true);
+        } else {
+          setResumeFound(false);
+        }
+
         const payload = {
           prompt: careerAdvicePrompt,
           Quizquestions: quizQuestions,
           quizAnswers: quizAnswers,
+          resumeText,
         };
 
         const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
@@ -80,7 +100,14 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ quizAnswers
             <span className="ml-2 text-muted-foreground">Generating report...</span>
           </div>
         ) : (
-          <pre className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</pre>
+          <>
+            {resumeFound && (
+              <div className="mb-4 p-2 bg-green-100 text-green-700 rounded border border-green-300">
+                Resume found and incorporated into career advice.
+              </div>
+            )}
+            <pre className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</pre>
+          </>
         )}
       </CardContent>
     </Card>
