@@ -130,188 +130,335 @@ async function getResumeRoast(resumeText, userId) {
 }
 
 // Main resume analysis logic
-async function analyzeResume(resumeText, userId, sentenceResponse) {
-  let text = resumeText;
-  console.log("Provided text:", text ? `${text.length} characters` : "none");
+// async function analyzeResume(resumeText, userId, sentenceResponse) {
+//   let text = resumeText;
+//   console.log("Provided text:", text ? `${text.length} characters` : "none");
   
-  // Initialize variables to store bullet points and detected sentences
-  let bulletPoints = [];
-  let detectedSentences = [];
+//   // Initialize variables to store bullet points and detected sentences
+//   let bulletPoints = [];
+//   let detectedSentences = [];
   
-  // First, try to process the sentenceResponse if it exists
-  if (sentenceResponse) {
-    try {
-      const sentenceData = await sentenceResponse.json();
+//   // First, try to process the sentenceResponse if it exists
+//   if (sentenceResponse) {
+//     try {
+//       const sentenceData = await sentenceResponse.json();
       
-      if (sentenceData.sentences && sentenceData.sentences.length > 0) {
-        detectedSentences = sentenceData.sentences;
-        console.log(`Detected ${detectedSentences.length} sentences from sentence detector`);
-        bulletPoints = detectedSentences; // Use detected sentences as bullet points
-      }
-    } catch (sentenceError) {
-      console.error("Error detecting sentences:", sentenceError);
-    }
-  }
+//       if (sentenceData.sentences && sentenceData.sentences.length > 0) {
+//         detectedSentences = sentenceData.sentences;
+//         console.log(`Detected ${detectedSentences.length} sentences from sentence detector`);
+//         bulletPoints = detectedSentences; // Use detected sentences as bullet points
+//       }
+//     } catch (sentenceError) {
+//       console.error("Error detecting sentences:", sentenceError);
+//     }
+//   }
   
+//   try {
+//     // Check if we need to fetch from database (only if resumeText is null/empty or no sentences detected)
+//     if ((!text || bulletPoints.length === 0) && userId) {
+//       console.log("No text provided or no sentences detected, attempting to fetch from database for user:", userId);
+//       const { data: existing, error: fetchError } = await supabase
+//         .from('resumes')
+//         .select('id,text,sentences')
+//         .eq('user_id', userId)
+//         .order('uploaded_at', { ascending: false })  // Order by upload date, newest first
+//         .limit(1)  // Only get the most recent record
+//         .maybeSingle();
+      
+//       if (fetchError) console.error("Error fetching text from database:", fetchError);
+      
+//       if (existing?.id) {
+//         if (existing?.text && !text) {
+//           text = existing.text;
+//           console.log("Successfully retrieved text from database, length:", text.length);
+//         }
+        
+//         if (existing?.sentences && existing.sentences.length > 0 && bulletPoints.length === 0) {
+//           bulletPoints = existing.sentences;
+//           console.log(`Found ${bulletPoints.length} sentences in database for userId=${userId}`);
+//         }
+//       } else {
+//         console.log("No text or sentences found in database for user:", userId);
+//       }
+//     }
+    
+//     // Final check if we have text to analyze
+//     if (!text) throw new Error('No resume text provided or found in database');
+    
+//     // If we still don't have bullet points, extract them from the text
+//     if (bulletPoints.length === 0) {
+//       console.log('No sentences found from sentence detector or database, extracting from text');
+//       bulletPoints = await extractBulletPoints(text);
+//       console.log('[Roast]: Bullet Points Extracted:', bulletPoints.length);
+      
+//       if (bulletPoints.length === 0) {
+//         bulletPoints = fallbackExtractBullets(text);
+//         console.log('[Roast]: Fallback Bullet Points Extracted:', bulletPoints.length);
+//       }
+      
+//       if (bulletPoints.length > 0 && userId) {
+//         // Save to database
+//         await supabase.from('resumes').update({
+//           sentences: bulletPoints,
+//           sentences_updated_at: new Date().toISOString()
+//         }).eq('user_id', userId);
+//         console.log(`Saved ${bulletPoints.length} sentences to database for userId=${userId}`);
+//       }
+//     }
+    
+//     if (bulletPoints.length === 0) {
+//       return {
+//         bullets: [],
+//         resume_average: 0,
+//         resume_percent: 50,
+//         letter_grade: 'C',
+//         themes: [
+//           'Format your resume with clear bullet points'
+//         ],
+//         elevator_pitch: 'We couldn\'t detect formatted bullet points.',
+//         explanation: 'Please organize your experience in clear bullet points.'
+//       };
+//     }
+    
+//     console.log("Processing bullet points for analysis");
+//     const analyzed = await Promise.all(bulletPoints.map(async (bullet) => {
+//       try {
+//         const wb = analyzeWordBalance(bullet);
+//         const xyz = xyzCheck(bullet);
+//         const total = wb.word_balance_score + xyz.xyz_total;
+//         const rewritten = await rewriteBullet(bullet, {
+//           xyz_scores: xyz
+//         });
+//         const tips = await generateTips(bullet, {
+//           xyz_scores: xyz,
+//           word_balance_score: wb.word_balance_score
+//         });
+//         return {
+//           original: bullet,
+//           word_balance: wb,
+//           xyz_scores: xyz,
+//           bullet_total: total,
+//           rewritten,
+//           tips
+//         };
+//       } catch (error) {
+//         console.error("Error analyzing bullet:", error);
+//         return {
+//           original: bullet,
+//           word_balance: {
+//             industry_pct: 0,
+//             common_pct: 0,
+//             action_pct: 0,
+//             metric_pct: 0
+//           },
+//           xyz_scores: {
+//             hard_soft: 0,
+//             action_words: 0,
+//             measurable_results: 0,
+//             clarity_focus: 0
+//           },
+//           bullet_total: 10,
+//           rewritten: bullet,
+//           tips: 'Analysis failed for this bullet.'
+//         };
+//       }
+//     }));
+    
+//     const totalScore = analyzed.reduce((sum, b) => sum + b.bullet_total, 0);
+//     const avg = totalScore / analyzed.length;
+//     const percent = Math.max(Math.min(parseFloat((avg / 45 * 100).toFixed(1)), 100), 30);
+//     let grade = getLetterGrade(percent);
+//     if (grade === 'F') grade = 'D';
+//     const themes = generateThemes(analyzed);
+//     let basic = {
+//       bullets: analyzed,
+//       resume_average: avg,
+//       resume_percent: percent,
+//       letter_grade: grade,
+//       themes,
+//       elevator_pitch: 'Experienced professional ...',
+//       explanation: `Your resume received a ${grade} grade (${percent}%).`
+//     };
+    
+//     let enhanced;
+//     console.log("Text: ", text, " Basic Analysis: ", basic);
+//     try {
+//       enhanced = await enhanceWithGroq(text, basic);
+//       console.log("Enhanced Scoring: ", enhanced);
+//     } catch (error) {
+//       console.error("Error enhancing with Groq:", error);
+//       enhanced = basic;
+//     }
+    
+//     if (userId) {
+//       await supabase.from('resumes').update({
+//         analysis: enhanced,
+//         updated_at: new Date().toISOString()
+//       }).eq('user_id', userId);
+//       console.log('Successfully updated resume analysis in database');
+//     }    
+
+//     if (userId) await getResumeRoast(text, userId);
+    
+//     return enhanced;
+    
+//   } catch (err) {
+//     console.error('Error analyzing resume:', err);
+//     return {
+//       bullets: [],
+//       resume_average: 25,
+//       resume_percent: 50,
+//       letter_grade: 'C',
+//       themes: [
+//         'Error during analysis'
+//       ],
+//       elevator_pitch: 'Error occurred',
+//       explanation: `Error: ${err.message}`
+//     };
+//   }
+// }
+
+
+/**
+ * Analyze a user's resume by processing provided sentences or extracting bullet points.
+ * @param {string} resumeText - Raw resume text.
+ * @param {string} userId - User identifier for DB operations.
+ * @param {string[]} sentences - Array of pre-detected sentences to use as bullet points.
+ * @returns {Promise<object>} Enhanced analysis results.
+ */
+export async function analyzeResume(resumeText, userId, sentences = []) {
+  let text = resumeText || '';
+  console.log('Provided text:', text.length, 'characters');
+
+  // Initialize bulletPoints from passed-in sentences
+  let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
+  if (bulletPoints.length) {
+    console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
+  }
+
   try {
-    // Check if we need to fetch from database (only if resumeText is null/empty or no sentences detected)
-    if ((!text || bulletPoints.length === 0) && userId) {
-      console.log("No text provided or no sentences detected, attempting to fetch from database for user:", userId);
+    // If no bullets and userId is present, try retrieving from database
+    if (bulletPoints.length === 0 && userId) {
+      console.log('No bullets passed in; checking database for userId=', userId);
       const { data: existing, error: fetchError } = await supabase
         .from('resumes')
-        .select('id,text,sentences')
+        .select('text, sentences')
         .eq('user_id', userId)
-        .order('uploaded_at', { ascending: false })  // Order by upload date, newest first
-        .limit(1)  // Only get the most recent record
+        .order('uploaded_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
-      
-      if (fetchError) console.error("Error fetching text from database:", fetchError);
-      
-      if (existing?.id) {
-        if (existing?.text && !text) {
+
+      if (fetchError) console.error('DB fetch error:', fetchError);
+      if (existing) {
+        if (!text && existing.text) {
           text = existing.text;
-          console.log("Successfully retrieved text from database, length:", text.length);
+          console.log('Retrieved text from database:', text.length, 'chars');
         }
-        
-        if (existing?.sentences && existing.sentences.length > 0 && bulletPoints.length === 0) {
+        if (Array.isArray(existing.sentences) && existing.sentences.length > 0) {
           bulletPoints = existing.sentences;
-          console.log(`Found ${bulletPoints.length} sentences in database for userId=${userId}`);
+          console.log(`Retrieved ${bulletPoints.length} bullets from database`);
         }
-      } else {
-        console.log("No text or sentences found in database for user:", userId);
       }
     }
-    
-    // Final check if we have text to analyze
-    if (!text) throw new Error('No resume text provided or found in database');
-    
-    // If we still don't have bullet points, extract them from the text
+
+    // If still no bullets, extract from text
+    if (!text) throw new Error('No resume text provided or found');
     if (bulletPoints.length === 0) {
-      console.log('No sentences found from sentence detector or database, extracting from text');
+      console.log('Extracting bullets from text');
       bulletPoints = await extractBulletPoints(text);
-      console.log('[Roast]: Bullet Points Extracted:', bulletPoints.length);
-      
+      console.log('Extracted', bulletPoints.length, 'bullets from text');
+
       if (bulletPoints.length === 0) {
         bulletPoints = fallbackExtractBullets(text);
-        console.log('[Roast]: Fallback Bullet Points Extracted:', bulletPoints.length);
+        console.log('Fallback extracted', bulletPoints.length, 'bullets');
       }
-      
+
+      // Persist new bullets to DB
       if (bulletPoints.length > 0 && userId) {
-        // Save to database
         await supabase.from('resumes').update({
           sentences: bulletPoints,
           sentences_updated_at: new Date().toISOString()
         }).eq('user_id', userId);
-        console.log(`Saved ${bulletPoints.length} sentences to database for userId=${userId}`);
+        console.log('Saved bullets to database');
       }
     }
-    
+
+    // If still no bullets, return default C-response
     if (bulletPoints.length === 0) {
       return {
         bullets: [],
         resume_average: 0,
         resume_percent: 50,
         letter_grade: 'C',
-        themes: [
-          'Format your resume with clear bullet points'
-        ],
+        themes: ['Format your resume with clear bullet points'],
         elevator_pitch: 'We couldn\'t detect formatted bullet points.',
         explanation: 'Please organize your experience in clear bullet points.'
       };
     }
-    
-    console.log("Processing bullet points for analysis");
+
+    // Core bullet-by-bullet analysis
+    console.log('Analyzing', bulletPoints.length, 'bullet points');
     const analyzed = await Promise.all(bulletPoints.map(async (bullet) => {
       try {
         const wb = analyzeWordBalance(bullet);
         const xyz = xyzCheck(bullet);
         const total = wb.word_balance_score + xyz.xyz_total;
-        const rewritten = await rewriteBullet(bullet, {
-          xyz_scores: xyz
-        });
-        const tips = await generateTips(bullet, {
-          xyz_scores: xyz,
-          word_balance_score: wb.word_balance_score
-        });
-        return {
-          original: bullet,
-          word_balance: wb,
-          xyz_scores: xyz,
-          bullet_total: total,
-          rewritten,
-          tips
-        };
-      } catch (error) {
-        console.error("Error analyzing bullet:", error);
-        return {
-          original: bullet,
-          word_balance: {
-            industry_pct: 0,
-            common_pct: 0,
-            action_pct: 0,
-            metric_pct: 0
-          },
-          xyz_scores: {
-            hard_soft: 0,
-            action_words: 0,
-            measurable_results: 0,
-            clarity_focus: 0
-          },
-          bullet_total: 10,
-          rewritten: bullet,
-          tips: 'Analysis failed for this bullet.'
-        };
+        const rewritten = await rewriteBullet(bullet, { xyz_scores: xyz });
+        const tips = await generateTips(bullet, { xyz_scores: xyz, word_balance_score: wb.word_balance_score });
+        return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total, rewritten, tips };
+      } catch (err) {
+        console.error('Error on bullet:', err);
+        return { original: bullet, word_balance: {}, xyz_scores: {}, bullet_total: 10, rewritten: bullet, tips: 'Analysis failed.' };
       }
     }));
-    
+
+    // Aggregate scores
     const totalScore = analyzed.reduce((sum, b) => sum + b.bullet_total, 0);
     const avg = totalScore / analyzed.length;
-    const percent = Math.max(Math.min(parseFloat((avg / 45 * 100).toFixed(1)), 100), 30);
+    const percent = Math.max(Math.min((avg / 45) * 100, 100), 30);
     let grade = getLetterGrade(percent);
     if (grade === 'F') grade = 'D';
     const themes = generateThemes(analyzed);
-    let basic = {
+
+    // Base response
+    const basic = {
       bullets: analyzed,
       resume_average: avg,
-      resume_percent: percent,
+      resume_percent: parseFloat(percent.toFixed(1)),
       letter_grade: grade,
       themes,
       elevator_pitch: 'Experienced professional ...',
       explanation: `Your resume received a ${grade} grade (${percent}%).`
     };
-    
+
+    // Optionally enhance via GROQ
     let enhanced;
-    console.log("Text: ", text, " Basic Analysis: ", basic);
     try {
       enhanced = await enhanceWithGroq(text, basic);
-      console.log("Enhanced Scoring: ", enhanced);
-    } catch (error) {
-      console.error("Error enhancing with Groq:", error);
+      console.log('Enhanced analysis:', enhanced);
+    } catch (err) {
+      console.error('GROQ enhancement error:', err);
       enhanced = basic;
     }
-    
-    if (userId) {
-      await supabase.from('resumes').update({
-        analysis: enhanced,
-        updated_at: new Date().toISOString()
-      }).eq('user_id', userId);
-      console.log('Successfully updated resume analysis in database');
-    }    
 
-    if (userId) await getResumeRoast(text, userId);
-    
+    // Persist analysis and trigger roast
+    if (userId) {
+      await supabase.from('resumes').update({ analysis: enhanced, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+      console.log('Saved analysis to database');
+      getResumeRoast(text, userId);
+    }
+
     return enhanced;
-    
+
   } catch (err) {
-    console.error('Error analyzing resume:', err);
+    console.error('Analysis error:', err);
     return {
       bullets: [],
       resume_average: 25,
       resume_percent: 50,
       letter_grade: 'C',
-      themes: [
-        'Error during analysis'
-      ],
+      themes: ['Error during analysis'],
       elevator_pitch: 'Error occurred',
       explanation: `Error: ${err.message}`
     };
