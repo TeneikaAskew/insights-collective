@@ -797,6 +797,7 @@ export type Database = {
         Row: {
           analysis: Json | null
           career_alignment_score: number | null
+          enhanced_analysis: Json | null
           file_path: string
           id: string
           initial_assessment: string | null
@@ -811,6 +812,7 @@ export type Database = {
         Insert: {
           analysis?: Json | null
           career_alignment_score?: number | null
+          enhanced_analysis?: Json | null
           file_path: string
           id?: string
           initial_assessment?: string | null
@@ -825,6 +827,7 @@ export type Database = {
         Update: {
           analysis?: Json | null
           career_alignment_score?: number | null
+          enhanced_analysis?: Json | null
           file_path?: string
           id?: string
           initial_assessment?: string | null
