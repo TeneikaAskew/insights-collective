@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
@@ -116,9 +117,9 @@ const CareerAgent: React.FC = () => {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(false);
-  const [inputValue, setInputValue] = useState("");
   const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
   const [userHasResume, setUserHasResume] = useState<boolean | null>(null);
+  const [resumeUseConfirmed, setResumeUseConfirmed] = useState<boolean | null>(null);
   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -126,6 +127,7 @@ const CareerAgent: React.FC = () => {
     scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
+  // On mount, hydrate chat messages and check if resume exists for user
   useEffect(() => {
     const hydrateMessagesAndCheck = async () => {
       const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -183,19 +185,20 @@ const CareerAgent: React.FC = () => {
           } else {
             const hasResume = !!data;
             setUserHasResume(hasResume);
-            if (!hasResume) {
-              setMessages((prev) => {
-                const messageExists = prev.some((msg) =>
-                  msg.text === "We'll use your resume on file to continue." && msg.sender === "bot"
-                );
-                if (messageExists) return prev;
-                const newMsg: Message = {
-                  id: `bot_resume_notice_${Date.now()}`,
+
+            // If a resume is found, insert a bot message to ask for use confirmation if not already asked
+            if (hasResume) {
+              const resumeConfirmMsgExists = messages.some((msg) =>
+                msg.text.includes("We found a resume on file")
+              );
+              if (!resumeConfirmMsgExists) {
+                const confirmMsg: Message = {
+                  id: `bot_resume_confirm_${Date.now()}`,
                   sender: "bot",
-                  text: "We'll use your resume on file to continue.",
+                  text: "We found a resume on file. Would you like to use this resume for personalized career advice or upload a new one?",
                 };
-                return [...prev, newMsg];
-              });
+                setMessages((prev) => [...prev, confirmMsg]);
+              }
             }
           }
         } catch (e) {
@@ -240,8 +243,13 @@ const CareerAgent: React.FC = () => {
     setAnswers({});
     setInputValue("");
     setResumeFile(null);
+    setUserHasResume(null);
+    setResumeUseConfirmed(null);
+    setCareerAdviceReport('');
     window.localStorage.removeItem(LOCAL_STORAGE_KEY);
   };
+
+  const [inputValue, setInputValue] = useState("");
 
   const handleQuickReply = (replyText: string) => {
     if (isTyping) return;
@@ -291,6 +299,17 @@ const CareerAgent: React.FC = () => {
 
   const handleSubmit = async () => {
     if (isTyping) return;
+
+    if (userHasResume && resumeUseConfirmed === null) {
+      // User must respond to use resume or upload new
+      alert("Please confirm if you want to use the existing resume or upload a new one.");
+      return;
+    }
+
+    if (userHasResume && resumeUseConfirmed === false && !resumeFile) {
+      alert("Please upload a new resume file to proceed.");
+      return;
+    }
 
     if (questionIndex >= 0 && questionIndex < assessmentQuestions.length) {
       if (!inputValue.trim()) return;
@@ -379,7 +398,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
               prompt,
               Quizquestions: assessmentQuestions,
               quizAnswers: quizAnswersPayload,
-              resumeText: resumeText || null,
+              resumeText: resumeUseConfirmed ? resumeText : null,
             };
 
             try {
@@ -411,57 +430,69 @@ Please combine these data points with the user’s quiz answers to generate a pe
               setMessages((prev) => [...prev, botMessageReport]);
             } catch (e) {
               console.error("Error during career advice evaluation:", e);
+              const errMsg = "Failed to get career advice. Please try again later.";
+              setCareerAdviceReport(errMsg);
+              setMessages((prev) => [
+                ...prev,
+                { id: `bot_error_${Date.now()}`, sender: "bot", text: errMsg },
+              ]);
             }
           })();
         }
       }, 1200);
     } else if (questionIndex === assessmentQuestions.length) {
-      if (!resumeFile) return;
-      setIsTyping(true);
+      if (userHasResume === false && !resumeFile) {
+        alert("Please upload your resume file to continue.");
+        return;
+      }
 
-      const userMessage: Message = {
-        id: `user_${Date.now()}`,
-        sender: "user",
-        text: `Uploaded resume file: ${resumeFile.name}`,
-      };
-      setMessages((prev) => [...prev, userMessage]);
+      if (userHasResume === false && resumeFile) {
+        setIsTyping(true);
 
-      try {
-        const uploadSuccess = await userResumeUpload(resumeFile);
-        if (uploadSuccess) {
+        const userMessage: Message = {
+          id: `user_${Date.now()}`,
+          sender: "user",
+          text: `Uploaded resume file: ${resumeFile.name}`,
+        };
+        setMessages((prev) => [...prev, userMessage]);
+
+        try {
+          const uploadSuccess = await userResumeUpload(resumeFile);
+          if (uploadSuccess) {
+            const botMessage: Message = {
+              id: `bot_${Date.now()}`,
+              sender: "bot",
+              text: "Resume uploaded successfully! Based on your inputs, here are some career recommendations:",
+            };
+
+            const careerMessages: Message[] = dummyCareers.map((career) => ({
+              id: `career_${career}_${Date.now()}`,
+              sender: "bot",
+              text: `• ${career} - This is a recommended career based on your skills and interests.`,
+            }));
+
+            setMessages((prev) => [...prev, botMessage, ...careerMessages]);
+            setQuestionIndex(questionIndex + 1);
+          } else {
+            const botMessage: Message = {
+              id: `bot_${Date.now()}`,
+              sender: "bot",
+              text: "Failed to upload resume. Please try again.",
+            };
+            setMessages((prev) => [...prev, botMessage]);
+          }
+        } catch (error) {
+          console.error("Error uploading resume:", error);
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
-            text: "Resume uploaded successfully! Based on your inputs, here are some career recommendations:",
-          };
-
-          const careerMessages: Message[] = dummyCareers.map((career) => ({
-            id: `career_${career}_${Date.now()}`,
-            sender: "bot",
-            text: `• ${career} - This is a recommended career based on your skills and interests.`,
-          }));
-
-          setMessages((prev) => [...prev, botMessage, ...careerMessages]);
-          setQuestionIndex(questionIndex + 1);
-        } else {
-          const botMessage: Message = {
-            id: `bot_${Date.now()}`,
-            sender: "bot",
-            text: "Failed to upload resume. Please try again.",
+            text: "An error occurred uploading your resume. Please try again later.",
           };
           setMessages((prev) => [...prev, botMessage]);
+        } finally {
+          setIsTyping(false);
+          setResumeFile(null);
         }
-      } catch (error) {
-        console.error("Error uploading resume:", error);
-        const botMessage: Message = {
-          id: `bot_${Date.now()}`,
-          sender: "bot",
-          text: "An error occurred uploading your resume. Please try again later.",
-        };
-        setMessages((prev) => [...prev, botMessage]);
-      } finally {
-        setIsTyping(false);
-        setResumeFile(null);
       }
     } else if (questionIndex === assessmentQuestions.length + 1) {
       const botMessage: Message = {
@@ -624,43 +655,76 @@ Please combine these data points with the user’s quiz answers to generate a pe
             </div>
           );
         })}
-        {isTyping && (
-          <div className="flex items-center space-x-3">
-            <div
-              className="w-9 h-9 rounded-full select-none flex items-center justify-center bg-amber-100 text-amber-600 font-semibold"
-              aria-label="Coach Avatar Typing"
-            >
-              <img
-                src={coachAvatarUrl}
-                alt="Career Coach Avatar"
-                className="w-full h-full rounded-full object-cover"
-                draggable={false}
-                onError={(e) => {
-                  const target = e.currentTarget as HTMLImageElement;
-                  target.style.display = "none";
-                }}
-              />
-              <span className="sr-only">IC</span>
+        {showQuickReplies && (
+          <div className="flex justify-start w-full">
+            <div className="max-w-[95%] w-full">
+              <div className="flex flex-col space-y-2 mt-4">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left"
+                  type="button"
+                  onClick={() => {
+                    setResumeUseConfirmed(true);
+                    const msg: Message = {
+                      id: `user_confirm_resume_${Date.now()}`,
+                      sender: "user",
+                      text: "Use existing resume",
+                    };
+                    setMessages((prev) => [...prev, msg]);
+                    setShowQuickReplies(false);
+                  }}
+                >
+                  Use existing resume
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left"
+                  type="button"
+                  onClick={() => {
+                    setResumeUseConfirmed(false);
+                    const msg: Message = {
+                      id: `user_upload_resume_${Date.now()}`,
+                      sender: "user",
+                      text: "Upload new resume",
+                    };
+                    setMessages((prev) => [...prev, msg]);
+                    setShowQuickReplies(false);
+                  }}
+                >
+                  Upload new resume
+                </Button>
+              </div>
             </div>
-            <div className="italic text-gray-500 select-none">Coach is typing...</div>
           </div>
         )}
-      </div>
 
-      {showQuickRepliesAtCorrectPlace() && (
-        <div className="flex flex-col space-y-3 mb-4">
-          {quickReplies.map((reply, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleQuickReply(reply)}
-              className="rounded-full px-6 py-3 border border-gray-300 text-gray-900 text-left hover:bg-amber-100 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-300 max-w-full sm:max-w-md mx-auto"
-              type="button"
+        {!showQuickReplies && resumeUseConfirmed === false && (
+          <div className="flex flex-col space-y-4 mt-4">
+            <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
+            <input
+              type="file"
+              accept=".pdf,.docx"
+              onChange={handleFileChange}
+              disabled={isTyping}
+              className="block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-900 hover:file:bg-amber-200 cursor-pointer"
+            />
+            <Button
+              onClick={() => void handleSubmit()}
+              disabled={isTyping || !resumeFile}
+              variant="default"
             >
-              {reply}
-            </button>
-          ))}
-        </div>
-      )}
+              Send
+            </Button>
+          </div>
+        )}
+
+        {!showQuickReplies && questionIndex === assessmentQuestions.length && resumeUseConfirmed === true && (
+          <div className="p-4 bg-amber-100 rounded-md text-amber-900 mb-4">
+            Using your existing resume on file for personalized career advice.
+          </div>
+        )}
+
+      </div>
 
       <form
         onSubmit={(e) => {
@@ -676,47 +740,19 @@ Please combine these data points with the user’s quiz answers to generate a pe
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleInputKeyDown}
-          disabled={isTyping}
+          disabled={isTyping || (userHasResume === true && resumeUseConfirmed === null)}
           autoComplete="off"
           aria-label="Chat input"
         />
         <Button
           type="submit"
-          disabled={isTyping || inputValue.trim() === ""}
+          disabled={isTyping || !inputValue.trim() || (userHasResume === true && resumeUseConfirmed === null)}
           variant="default"
           size="default"
         >
           Send
         </Button>
       </form>
-
-      {!showQuickReplies && questionIndex === assessmentQuestions.length && (
-        <div className="flex flex-col space-y-4 mt-4">
-          <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
-          <input
-            type="file"
-            accept=".pdf,.docx"
-            onChange={handleFileChange}
-            disabled={isTyping}
-            className="block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-900 hover:file:bg-amber-200 cursor-pointer"
-          />
-          <Button
-            onClick={() => void handleSubmit()}
-            disabled={isTyping || !resumeFile}
-            variant="default"
-          >
-            Send
-          </Button>
-        </div>
-      )}
-
-      {!showQuickReplies && questionIndex > assessmentQuestions.length && (
-        <div className="flex justify-end mt-4">
-          <Button onClick={() => void handleSubmit()} disabled={isTyping}>
-            Next
-          </Button>
-        </div>
-      )}
 
       {careerAdviceReport && (
         <div className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full whitespace-pre-wrap text-gray-900 text-sm">
