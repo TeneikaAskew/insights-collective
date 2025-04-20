@@ -326,7 +326,7 @@ async function getResumeRoast(resumeText, userId) {
  * @param {string[]} sentences - Array of pre-detected sentences to use as bullet points.
  * @returns {Promise<object>} Enhanced analysis results.
  */
-export async function analyzeResume(resumeText, userId, sentences = []) {
+export async function analyzeResume(resumeText, userId, sentences) {
   let text = resumeText || '';
   console.log('Provided text:', text.length, 'characters');
 
@@ -475,6 +475,8 @@ serve(async (req) => {
       headers: corsHeaders
     });
   }
+
+  console.log("Sentences passed in: ", sentences)
 
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
