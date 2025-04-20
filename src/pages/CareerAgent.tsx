@@ -110,19 +110,12 @@ const dummyCareers: string[] = [
   "Business Analyst",
 ];
 
-const chatBubbleColors = {
-  userBg: "bg-gray-100 text-gray-900",
-  botBg: "bg-amber-50 text-gray-900",
-  userShadow: "shadow",
-  botShadow: "shadow-md",
-};
-
 const avatarUrl = "/placeholder.svg"; // Put actual coach avatar url here
 
 const CareerAgent: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
-  // Session and state
+  // All hooks at top level, unconditionally
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [questionIndex, setQuestionIndex] = useState<number>(-1); // start before questions to show initial 3 AI messages + quick replies
@@ -130,6 +123,8 @@ const CareerAgent: React.FC = () => {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isTyping, setIsTyping] = useState(false);
   const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [inputValue, setInputValue] = useState("");
+  const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -237,8 +232,6 @@ const CareerAgent: React.FC = () => {
   };
 
   // Handle input enter for subsequent questions (text inputs from q2 onwards)
-  const [inputValue, setInputValue] = useState("");
-
   const handleSubmit = async () => {
     if (isTyping) return;
 
@@ -386,8 +379,6 @@ const CareerAgent: React.FC = () => {
   };
 
   // Emoji reaction feature - just display a simple emoji picker on AI messages on hover (basic)
-  const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
-
   const emojis = ["👍", "❤️", "💡"];
 
   const handleEmojiClick = (msgId: string, emoji: string) => {
