@@ -108,7 +108,9 @@ async function getResumeRoast(resumeText, userId) {
     if (!resp.ok) throw new Error('GROQ API error');
     const result = await resp.json();
     const roastText = result.choices[0].message.content.trim();
+    console.log("Roast/Assessment: ", roastText)
     const cleanRoast = roastText.replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, '').replace(/^[–\-*\s]*|:/g, '').trim();
+    console.log("Cleaned Roast/Assessment: ", cleanRoast)
     roastCache.set(cacheKey, cleanRoast);
     if (userId) {
       await supabase.from('resumes').update({
