@@ -330,14 +330,15 @@ async function getResumeRoast(resumeText, userId) {
 export async function analyzeResume(resumeText, userId, sentences = []) {
   let text = resumeText || '';
   console.log('Provided text:', text.length, 'characters');
+  console.log('analyzeResume() got sentences:', sentences);
 
   // Initialize bulletPoints from passed-in sentences
-  // let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
-  // if (bulletPoints.length) {
-  //   console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
-  // }
+  let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
+  if (bulletPoints.length) {
+    console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
+  }
 
-  let bulletPoints = []
+  // let bulletPoints = []
 
   try {
     // If no bullets and userId is present, try retrieving from database
@@ -506,8 +507,12 @@ serve(async (req) => {
       }
 
       // Parse out the array of sentences
-      const { sentences } = await detectRes.json();
-      console.log('Detected', sentences.length, 'sentences');
+      // const { sentences } = await detectRes.json();
+      // console.log('Detected', sentences.length, 'sentences');
+      const payload = await detectRes.json();
+      const sentences = payload.sentences || [];
+      console.log('Detected sentences payload:', payload);
+      console.log('—> Passing into analyzeResume():', sentences.length, 'sentences');
 
       // Run resume analysis
       const analysisResult = await analyzeResume(resolvedText, userId, sentences);
