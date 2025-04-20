@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CareerTrack, getSkillLevel, getTrackPersona } from '@/data/careerQuizData';
 import { Button } from '@/components/ui/button';
@@ -17,23 +16,18 @@ interface QuizResult {
   persona: any;
 }
 
-interface QuizResultsSectionProps {
-  quizAnswers: Record<number, number | string>;
-  setQuizAnswers: Dispatch<SetStateAction<Record<number, number | string>>>;
-}
-
-const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, setQuizAnswers }) => {
+const QuizResultsSection = () => {
   const [quizResults, setQuizResults] = useState<QuizResult[] | null>(null);
   const [hasResults, setHasResults] = useState<boolean>(false);
   const [isLoadingResults, setIsLoadingResults] = useState<boolean>(true);
   const navigate = useNavigate();
-  const { initiateCareerCoach } = useCareerCoach();
+  const { initiateCareerCoachChat } = useCareerCoach();
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     loadQuizResults();
-
+    
     // Add event listener to refresh results when storage changes
     window.addEventListener('storage', handleStorageChange);
     return () => {
@@ -53,15 +47,15 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
       // First, check localStorage for immediate results
       let hasValidScores = false;
       let topTracks: QuizResult[] = [];
-
+      
       const storedScores = localStorage.getItem('quizScores');
-
+      
       if (storedScores) {
         const scores = JSON.parse(storedScores) as Record<CareerTrack, number>;
-
+        
         // Verify if we have valid scores in localStorage
         hasValidScores = Object.values(scores).some(score => score > 0);
-
+        
         if (hasValidScores) {
           console.log("Found valid quiz scores in localStorage");
           topTracks = Object.entries(scores)
@@ -75,11 +69,11 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
             }));
         }
       }
-
+      
       // If user is authenticated, try to fetch from Supabase
       if (user && (!hasValidScores || topTracks.length === 0)) {
         console.log("Checking Supabase for quiz results for user:", user.id);
-
+        
         const { data: quizAttempt, error } = await supabase
           .from('career_quiz_attempts')
           .select('*')
@@ -87,14 +81,14 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
-
+        
         if (error) {
           console.error("Error fetching quiz results from Supabase:", error);
         }
-
+        
         if (quizAttempt) {
           console.log("Found quiz results in Supabase:", quizAttempt);
-
+          
           // Create scores object from Supabase data
           const supabaseScores: Record<CareerTrack, number> = {
             'AI/ML': quizAttempt.result_ai_ml_score || 0,
@@ -102,10 +96,10 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
             'Data Engineering': quizAttempt.result_data_engineering_score || 0,
             'Business Intelligence': quizAttempt.result_business_intelligence_score || 0
           };
-
+          
           // Save to localStorage for future reference
           localStorage.setItem('quizScores', JSON.stringify(supabaseScores));
-
+          
           // Generate top tracks
           topTracks = Object.entries(supabaseScores)
             .sort(([, scoreA], [, scoreB]) => scoreB - scoreA)
@@ -116,11 +110,11 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
               level: getSkillLevel(Math.round(score)),
               persona: getTrackPersona(track as CareerTrack)
             }));
-
+          
           hasValidScores = true;
         }
       }
-
+      
       if (hasValidScores && topTracks.length > 0) {
         console.log("Setting quiz results:", topTracks);
         setQuizResults(topTracks);
@@ -183,7 +177,7 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
     if (storedScores) {
       return JSON.parse(storedScores) as Record<CareerTrack, number>;
     }
-
+    
     return {
       'AI/ML': 0,
       'Analytics': 0,
@@ -237,7 +231,7 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
               </div>
             ))}
           </div>
-
+          
           <div className="flex gap-2 justify-end mt-4">
             <Button 
               variant="outline" 
@@ -248,7 +242,7 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
             </Button>
             <Button 
               size="sm"
-              onClick={() => initiateCareerCoach(getDefaultAnswers(), getDefaultScores())} 
+              onClick={() => initiateCareerCoachChat(getDefaultAnswers(), getDefaultScores())} 
             >
               Chat with Career Coach
             </Button>
@@ -272,4 +266,3 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
 };
 
 export default QuizResultsSection;
-
