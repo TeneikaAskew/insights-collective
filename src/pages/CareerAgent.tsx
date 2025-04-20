@@ -115,7 +115,7 @@ const CareerAgent: React.FC = () => {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isTyping, setIsTyping] = useState(false);
-  const [showQuickReplies, setShowQuickReplies] = useState(true);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
 
@@ -126,7 +126,7 @@ const CareerAgent: React.FC = () => {
     scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // On login, initiate session and bot starter messages
+  // On login, initiate session and bot starter messages once
   useEffect(() => {
     if (isAuthenticated && !sessionId) {
       const newSessionId = uuidv4();
@@ -134,6 +134,8 @@ const CareerAgent: React.FC = () => {
 
       (async () => {
         setIsTyping(true);
+
+        // Push the 3 starter messages one by one with delay & typing animation
         for (let i = 0; i < starterMessages.length; i++) {
           await new Promise((resolve) => setTimeout(resolve, 600)); // typing pause
           setMessages((prev) => [
@@ -142,22 +144,11 @@ const CareerAgent: React.FC = () => {
           ]);
         }
         setIsTyping(false);
+        setShowQuickReplies(true);
+        setQuestionIndex(0); // start questions from first question
       })();
     }
   }, [isAuthenticated, sessionId]);
-
-  // After showing starter messages, show quick replies and start questions
-  useEffect(() => {
-    if (
-      messages.length === starterMessages.length &&
-      !isTyping &&
-      showQuickReplies &&
-      questionIndex === -1
-    ) {
-      setShowQuickReplies(true);
-      setQuestionIndex(0); // start questions from first question
-    }
-  }, [messages, isTyping, showQuickReplies, questionIndex]);
 
   if (!isAuthenticated) {
     return (
@@ -216,7 +207,7 @@ const CareerAgent: React.FC = () => {
     }, 700);
   };
 
-  // Handle text input submit for normal questions
+  // Handle text input submit for normal questions or after quick reply
   const handleSubmit = async () => {
     if (isTyping) return;
 
@@ -333,7 +324,7 @@ const CareerAgent: React.FC = () => {
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (questionIndex >= 1 && questionIndex < assessmentQuestions.length) {
+      if (questionIndex >= 0 && questionIndex < assessmentQuestions.length) {
         if (inputValue.trim()) {
           void handleSubmit();
         }
@@ -372,7 +363,7 @@ const CareerAgent: React.FC = () => {
         {messages.map((msg, idx) => {
           const isBot = msg.sender === "bot";
           const isUser = msg.sender === "user";
-          const isFirstBot = isBot && idx === messages.findIndex(m => m.sender === 'bot');
+          const firstBotIndex = messages.findIndex((m) => m.sender === "bot");
 
           return (
             <div
@@ -391,7 +382,7 @@ const CareerAgent: React.FC = () => {
                 }
               }}
             >
-              {isBot && isFirstBot && (
+              {isBot && idx === firstBotIndex && (
                 <img
                   src={avatarUrl}
                   alt="Career Coach Avatar"
@@ -433,7 +424,6 @@ const CareerAgent: React.FC = () => {
             </div>
           );
         })}
-
         {isTyping && (
           <div className="flex items-center space-x-3">
             <img
@@ -447,14 +437,15 @@ const CareerAgent: React.FC = () => {
         )}
       </div>
 
-      {/* Quick reply buttons displayed only after all starter messages and before first question answered */}
-      {showQuickReplies && messages.length === starterMessages.length && !isTyping && questionIndex === 0 && (
-        <div className="flex flex-col space-y-3">
+      {/* Show quick reply buttons only after last starter message */}
+      {showQuickReplies && (
+        <div className="flex flex-col space-y-3 mb-4">
           {quickReplies.map((reply, idx) => (
             <button
               key={idx}
               onClick={() => handleQuickReply(reply)}
               className="rounded-full px-6 py-3 border border-gray-300 text-gray-900 text-left hover:bg-amber-100 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-300 max-w-full sm:max-w-md mx-auto"
+              type="button"
             >
               {reply}
             </button>
@@ -462,39 +453,38 @@ const CareerAgent: React.FC = () => {
         </div>
       )}
 
-      {/* Input for questions from second question onwards */}
-      {!showQuickReplies && questionIndex >= 1 && questionIndex < assessmentQuestions.length && (
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            void handleSubmit();
-          }}
-          className="flex items-center space-x-3"
+      {/* Persistent chat input bar always visible */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleSubmit();
+        }}
+        className="flex items-center space-x-3 border-t border-gray-200 pt-3"
+      >
+        <input
+          className="flex-grow rounded-full border border-gray-300 px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+          type="text"
+          placeholder="Type your response…"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleInputKeyDown}
+          disabled={isTyping}
+          autoComplete="off"
+          aria-label="Chat input"
+        />
+        <Button
+          type="submit"
+          disabled={isTyping || inputValue.trim() === ""}
+          variant="default"
+          size="default"
         >
-          <input
-            className="flex-grow rounded-full border border-gray-300 px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
-            type="text"
-            placeholder={assessmentQuestions[questionIndex]?.placeholder || "Type your answer..."}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleInputKeyDown}
-            autoFocus
-            disabled={isTyping}
-          />
-          <Button
-            type="submit"
-            disabled={isTyping || inputValue.trim() === ""}
-            variant="default"
-            size="default"
-          >
-            Send
-          </Button>
-        </form>
-      )}
+          Send
+        </Button>
+      </form>
 
       {/* Resume upload step */}
       {!showQuickReplies && questionIndex === assessmentQuestions.length && (
-        <div className="flex flex-col space-y-4">
+        <div className="flex flex-col space-y-4 mt-4">
           <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
           <input
             type="file"
@@ -515,7 +505,7 @@ const CareerAgent: React.FC = () => {
 
       {/* After final submit (career recommendations) show Next button */}
       {!showQuickReplies && questionIndex > assessmentQuestions.length && (
-        <div className="flex justify-end">
+        <div className="flex justify-end mt-4">
           <Button onClick={() => void handleSubmit()} disabled={isTyping}>
             Next
           </Button>
