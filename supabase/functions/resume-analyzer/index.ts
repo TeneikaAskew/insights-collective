@@ -69,6 +69,7 @@ export function serveSentenceDetector(resumeText, userId) {
 
 // Generate a resume roast and store it
 async function getResumeRoast(resumeText, userId) {
+  console.log('Running resume roast');
   const cacheKey = userId ? `user:${userId}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
   if (roastCache.has(cacheKey)) {
     console.log('Using cached roast');
@@ -448,7 +449,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       await supabase.from('resumes').update({ analysis: enhanced, updated_at: new Date().toISOString() })
         .eq('user_id', userId);
       console.log('Saved analysis to database');
-      // getResumeRoast(text, userId);
+      getResumeRoast(text, userId);
     }
 
     return enhanced;
@@ -511,15 +512,6 @@ serve(async (req) => {
       // Run resume analysis
       const analysisResult = await analyzeResume(resolvedText, userId, sentences);
       return new Response(JSON.stringify(analysisResult), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    // Resume roast endpoint
-    if (action === 'get-roast') {
-      console.log('Running resume roast');
-      const roast = await getResumeRoast(resolvedText, userId);
-      return new Response(JSON.stringify(roast), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
