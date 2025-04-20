@@ -1,3 +1,4 @@
+import { corsHeaders, callGroqWithRetry } from './utils.ts';
 console.log('Resume scoring and feedback function hit');
 // Use GROQ API to enhance analysis with AI
 export async function enhanceWithGroq(resumeText, analysis) {
@@ -115,40 +116,67 @@ export async function enhanceWithGroq(resumeText, analysis) {
     const controller = new AbortController();
     const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
     try {
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama3-8b-8192',
-          messages: [
-            {
-              role: 'system',
-              content: `You are an expert resume analyst. Based on the provided resume text and basic analysis, 
-              provide three key outputs:
-              1. A professional elevator pitch (max 2 sentences) based on the resume text
-              2. Three specific improvement themes (one sentence each) based on the resume text
-              3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
+      // const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      //   method: 'POST',
+      //   headers: {
+      //     'Authorization': `Bearer ${apiKey}`,
+      //     'Content-Type': 'application/json'
+      //   },
+      //   body: JSON.stringify({
+      //     model: 'llama3-8b-8192',
+      //     messages: [
+      //       {
+      //         role: 'system',
+      //         content: `You are an expert resume analyst. Based on the provided resume text and basic analysis, 
+      //         provide three key outputs:
+      //         1. A professional elevator pitch (max 2 sentences) based on the resume text
+      //         2. Three specific improvement themes (one sentence each) based on the resume text
+      //         3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
               
-              Be specific, professional, and concise. Focus on actionable advice.`
-            },
-            {
-              role: 'user',
-              content: `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
-            }
-          ],
-          max_tokens: 500,
-          temperature: 0.4
-        }),
-        signal: controller.signal
-      });
+      //         Be specific, professional, and concise. Focus on actionable advice.`
+      //       },
+      //       {
+      //         role: 'user',
+      //         content: `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
+      //       }
+      //     ],
+      //     max_tokens: 500,
+      //     temperature: 0.4
+      //   }),
+      //   signal: controller.signal
+      // });
+      // clearTimeout(timeoutId);
+      // if (!response.ok) {
+      //   throw new Error(`GROQ API returned ${response.status}`);
+      // }
+      // const data = await response.json(); 
+
+     const requestBody = {
+        model: 'llama3-8b-8192',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert resume analyst. Based on the provided resume text and basic analysis, 
+            provide three key outputs:
+            1. A professional elevator pitch (max 2 sentences) based on the resume text
+            2. Three specific improvement themes (one sentence each) based on the resume text
+            3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
+            
+            Be specific, professional, and concise. Focus on actionable advice.`
+          },
+          {
+            role: 'user',
+            content: `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
+          }
+        ],
+        max_tokens: 500,
+        temperature: 0.4
+      };
+      
+      // Add the signal to the retry function
+      const data = await callGroqWithRetry(apiKey, requestBody, 3, controller.signal);
       clearTimeout(timeoutId);
-      if (!response.ok) {
-        throw new Error(`GROQ API returned ${response.status}`);
-      }
-      const data = await response.json();
+      
       const aiResponse = data.choices[0].message.content;
       console.log("AI Response: ", aiResponse);
       // Parse AI response - simple approach, in production would use more robust parsing
