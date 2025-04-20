@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import OverallScoreCard from './OverallScoreCard';
@@ -6,11 +5,13 @@ import OverallScoreCard from './OverallScoreCard';
 interface ResumeAnalysisDisplayProps {
   analysis: ResumeAnalysis | null;
   onStartCareerChat: () => void;
+  userId?: string; // Add userId prop
 }
 
 const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   analysis,
-  onStartCareerChat
+  onStartCareerChat,
+  userId
 }) => {
   if (!analysis) return null;
   
@@ -33,6 +34,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         themes={themes || []}
         explanation={explanation}
         onStartCareerChat={onStartCareerChat}
+        userId={userId} // Pass userId
       />
     </div>
   );
