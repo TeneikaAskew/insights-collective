@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
@@ -127,7 +126,6 @@ const CareerAgent: React.FC = () => {
     scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // On mount, hydrate chat messages and check if resume exists for user
   useEffect(() => {
     const hydrateMessagesAndCheck = async () => {
       const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -148,7 +146,7 @@ const CareerAgent: React.FC = () => {
               sender: "bot",
               text,
             })));
-            setShowQuickReplies(true);
+            setShowQuickReplies(false);
             setQuestionIndex(0);
           }
         } catch {
@@ -157,7 +155,7 @@ const CareerAgent: React.FC = () => {
             sender: "bot",
             text,
           })));
-          setShowQuickReplies(true);
+          setShowQuickReplies(false);
           setQuestionIndex(0);
         }
       } else {
@@ -166,7 +164,7 @@ const CareerAgent: React.FC = () => {
           sender: "bot",
           text,
         })));
-        setShowQuickReplies(true);
+        setShowQuickReplies(false);
         setQuestionIndex(0);
       }
 
@@ -186,20 +184,9 @@ const CareerAgent: React.FC = () => {
             const hasResume = !!data;
             setUserHasResume(hasResume);
 
-            // If a resume is found, insert a bot message to ask for use confirmation if not already asked
-            if (hasResume) {
-              const resumeConfirmMsgExists = messages.some((msg) =>
-                msg.text.includes("We found a resume on file")
-              );
-              if (!resumeConfirmMsgExists) {
-                const confirmMsg: Message = {
-                  id: `bot_resume_confirm_${Date.now()}`,
-                  sender: "bot",
-                  text: "We found a resume on file. Would you like to use this resume for personalized career advice or upload a new one?",
-                };
-                setMessages((prev) => [...prev, confirmMsg]);
-              }
-            }
+            // Only prompt for resume use confirmation **after** user answers first question
+            // So we no longer inject prompt message here directly
+            // The quick replies UI will handle showing options when appropriate
           }
         } catch (e) {
           console.error("Exception during resume check:", e);
@@ -238,7 +225,7 @@ const CareerAgent: React.FC = () => {
       sender: "bot",
       text,
     })));
-    setShowQuickReplies(true);
+    setShowQuickReplies(false);
     setQuestionIndex(0);
     setAnswers({});
     setInputValue("");
@@ -300,13 +287,13 @@ const CareerAgent: React.FC = () => {
   const handleSubmit = async () => {
     if (isTyping) return;
 
-    if (userHasResume && resumeUseConfirmed === null) {
-      // User must respond to use resume or upload new
-      alert("Please confirm if you want to use the existing resume or upload a new one.");
+    // Show resume confirmation only after first question answered
+    if (userHasResume && resumeUseConfirmed === null && questionIndex >= 1) {
+      setShowQuickReplies(true);
       return;
     }
 
-    if (userHasResume && resumeUseConfirmed === false && !resumeFile) {
+    if (userHasResume && resumeUseConfirmed === false && !resumeFile && questionIndex >= assessmentQuestions.length) {
       alert("Please upload a new resume file to proceed.");
       return;
     }
@@ -343,9 +330,11 @@ const CareerAgent: React.FC = () => {
       setTimeout(() => {
         const nextIndex = questionIndex + 1;
         setIsTyping(false);
-        setQuestionIndex(nextIndex);
 
-        if (nextIndex < assessmentQuestions.length) {
+        // If next question is the resume step and resumeUseConfirmed is null, prompt user for confirmation
+        if (nextIndex === assessmentQuestions.length && userHasResume && resumeUseConfirmed === null) {
+          setShowQuickReplies(true);
+        } else if (nextIndex < assessmentQuestions.length) {
           const nextQ = assessmentQuestions[nextIndex];
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
@@ -354,6 +343,7 @@ const CareerAgent: React.FC = () => {
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
+          // At end of questions - start career advice generation process
           const botMessageLoading: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
@@ -439,6 +429,8 @@ Please combine these data points with the user’s quiz answers to generate a pe
             }
           })();
         }
+
+        setQuestionIndex(nextIndex);
       }, 1200);
     } else if (questionIndex === assessmentQuestions.length) {
       // This is the last step where user uploads a resume if they declined the existing one or no resume found
@@ -506,7 +498,6 @@ Please combine these data points with the user’s quiz answers to generate a pe
     }
   };
 
-  // New function to handle resume use confirmation and advance the chat properly
   const handleResumeUseConfirm = (useExisting: boolean) => {
     setResumeUseConfirmed(useExisting);
     const userText = useExisting ? "Use existing resume" : "Upload new resume";
@@ -517,12 +508,11 @@ Please combine these data points with the user’s quiz answers to generate a pe
     };
     setMessages((prev) => [...prev, userMessage]);
 
-    // If user chooses to use existing resume, continue the question flow
+    setShowQuickReplies(false);
+
     if (useExisting) {
-      // Advance question index past resume upload step
+      // Use existing resume: advance to career advice generation step (skip resume upload)
       setQuestionIndex(assessmentQuestions.length);
-      
-      // Show message that existing resume is in use
       const botMsg: Message = {
         id: `bot_resume_use_confirm_${Date.now()}`,
         sender: "bot",
@@ -530,12 +520,9 @@ Please combine these data points with the user’s quiz answers to generate a pe
       };
       setMessages((prev) => [...prev, botMsg]);
     } else {
-      // For upload new resume, set questionIndex to last step to show upload UI
+      // Upload new resume: prompt user to upload resume file (last step)
       setQuestionIndex(assessmentQuestions.length);
     }
-
-    // Hide quick replies after selection
-    setShowQuickReplies(false);
   };
 
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -556,7 +543,6 @@ Please combine these data points with the user’s quiz answers to generate a pe
   };
 
   const userResumeUpload = async (file: File): Promise<boolean> => {
-    // Simulated upload delay; in real app should upload file to storage and save info in database
     await new Promise((r) => setTimeout(r, 1200));
     return true;
   };
@@ -689,7 +675,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
             </div>
           );
         })}
-        {showQuickReplies && (
+        {showQuickReplies && questionIndex >= 1 && userHasResume && resumeUseConfirmed === null && (
           <div className="flex justify-start w-full">
             <div className="max-w-[95%] w-full">
               <div className="flex flex-col space-y-2 mt-4">
@@ -756,13 +742,17 @@ Please combine these data points with the user’s quiz answers to generate a pe
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleInputKeyDown}
-          disabled={isTyping || (userHasResume === true && resumeUseConfirmed === null)}
+          disabled={isTyping || (userHasResume === true && resumeUseConfirmed === null && questionIndex >= 1)}
           autoComplete="off"
           aria-label="Chat input"
         />
         <Button
           type="submit"
-          disabled={isTyping || !inputValue.trim() || (userHasResume === true && resumeUseConfirmed === null)}
+          disabled={
+            isTyping ||
+            !inputValue.trim() ||
+            (userHasResume === true && resumeUseConfirmed === null && questionIndex >= 1)
+          }
           variant="default"
           size="default"
         >
@@ -780,4 +770,3 @@ Please combine these data points with the user’s quiz answers to generate a pe
 };
 
 export default CareerAgent;
-
