@@ -98,8 +98,6 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
     console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
   }
 
-  let bulletPoints = []
-
   try {
     // If no bullets and userId is present, try retrieving from database
     if (bulletPoints.length === 0 && userId) {
