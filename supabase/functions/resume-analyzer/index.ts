@@ -18,55 +18,6 @@ const bulletCache = new Map();
 export { detectSentences };
 export { serveBulletImprover };
 
-// Sentence detector endpoint
-export function serveSentenceDetector(resumeText, userId) {
-  return async (req) => {
-    if (req.method === 'OPTIONS') {
-      return new Response(null, {
-        status: 200,
-        headers: corsHeaders
-      });
-    }
-    try {
-      // We'll use the params passed in from the main handler
-      if (!resumeText || typeof resumeText !== 'string') {
-        return new Response(JSON.stringify({
-          error: 'Missing or invalid text parameter'
-        }), {
-          status: 400,
-          headers: {
-            'Content-Type': 'application/json',
-            ...corsHeaders
-          }
-        });
-      }
-      
-      // Extract sentences
-      const sentences = await detectSentences(resumeText, userId);
-      console.log("User: ", userId, "Sentences: ", sentences);      
-      return new Response(JSON.stringify({
-        sentences
-      }), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      });
-    } catch (error) {
-      console.error('Error in sentence detector service:', error);
-      return new Response(JSON.stringify({
-        error: error.message || 'Failed to detect sentences'
-      }), {
-        status: 500,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      });
-    }
-  };
-}
-
 // Generate a resume roast and store it
 async function getResumeRoast(resumeText, userId) {
   console.log('Running resume roast');
@@ -216,8 +167,8 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
         const wb = analyzeWordBalance(bullet);
         const xyz = xyzCheck(bullet);
         const total = wb.word_balance_score + xyz.xyz_total;
-        const rewritten = await rewriteBullet(bullet, { xyz_scores: xyz });
-        const tips = await generateTips(bullet, { xyz_scores: xyz, word_balance_score: wb.word_balance_score });
+        // const rewritten = await rewriteBullet(bullet, { xyz_scores: xyz });
+        // const tips = await generateTips(bullet, { xyz_scores: xyz, word_balance_score: wb.word_balance_score });
         return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total, rewritten, tips };
       } catch (err) {
         console.error('Error on bullet:', err);
@@ -287,8 +238,6 @@ serve(async (req) => {
     });
   }
 
-  console.log("Sentences passed in: ")
-
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
   console.log('URL:', url, 'Path:', path);
@@ -303,21 +252,8 @@ serve(async (req) => {
     if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path) {
       console.log('Running sentence detection + analysis');
 
-      // Invoke the sentence detector
-      const detectRequest = new Request(new URL('/detect-sentences', req.url), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...corsHeaders },
-        body: JSON.stringify({ text: resolvedText, userId })
-      });
-
-      const detectRes = await serveSentenceDetector(resolvedText, userId)(detectRequest);
-      if (!detectRes.ok) {
-        return detectRes;
-      }
-
-      // Parse out the array of sentences
-      const { sentences } = await detectRes.json();
-      console.log('Detected', sentences.length, 'sentences');
+      const sentences = await detectSentences(resolvedText, userId);
+      console.log('Direct detectSentences():', sentences.length);
 
       // Run resume analysis
       const analysisResult = await analyzeResume(resolvedText, userId, sentences);
