@@ -130,17 +130,36 @@ async function getResumeRoast(resumeText, userId) {
 }
 
 // Main resume analysis logic
-async function analyzeResume(resumeText, userId) {
+async function analyzeResume(resumeText, userId, sentenceResponse) {
   let text = resumeText;
   console.log("Provided text:", text ? `${text.length} characters` : "none");
   
+  // Initialize variables to store bullet points and detected sentences
+  let bulletPoints = [];
+  let detectedSentences = [];
+  
+  // First, try to process the sentenceResponse if it exists
+  if (sentenceResponse) {
+    try {
+      const sentenceData = await sentenceResponse.json();
+      
+      if (sentenceData.sentences && sentenceData.sentences.length > 0) {
+        detectedSentences = sentenceData.sentences;
+        console.log(`Detected ${detectedSentences.length} sentences from sentence detector`);
+        bulletPoints = detectedSentences; // Use detected sentences as bullet points
+      }
+    } catch (sentenceError) {
+      console.error("Error detecting sentences:", sentenceError);
+    }
+  }
+  
   try {
-    // Check if we need to fetch from database (only if resumeText is null/empty)
-    if (!text && userId) {
-      console.log("No text provided, attempting to fetch from database for user:", userId);
+    // Check if we need to fetch from database (only if resumeText is null/empty or no sentences detected)
+    if ((!text || bulletPoints.length === 0) && userId) {
+      console.log("No text provided or no sentences detected, attempting to fetch from database for user:", userId);
       const { data: existing, error: fetchError } = await supabase
         .from('resumes')
-        .select('id,text')
+        .select('id,text,sentences')
         .eq('user_id', userId)
         .order('uploaded_at', { ascending: false })  // Order by upload date, newest first
         .limit(1)  // Only get the most recent record
@@ -148,50 +167,43 @@ async function analyzeResume(resumeText, userId) {
       
       if (fetchError) console.error("Error fetching text from database:", fetchError);
       
-      if (existing?.id && existing?.text) {
-        text = existing.text;
-        console.log("Successfully retrieved text from database, length:", text.length);
+      if (existing?.id) {
+        if (existing?.text && !text) {
+          text = existing.text;
+          console.log("Successfully retrieved text from database, length:", text.length);
+        }
+        
+        if (existing?.sentences && existing.sentences.length > 0 && bulletPoints.length === 0) {
+          bulletPoints = existing.sentences;
+          console.log(`Found ${bulletPoints.length} sentences in database for userId=${userId}`);
+        }
       } else {
-        console.log("No text found in database for user:", userId);
+        console.log("No text or sentences found in database for user:", userId);
       }
     }
     
     // Final check if we have text to analyze
     if (!text) throw new Error('No resume text provided or found in database');
     
-    // Bullets
-    let bulletPoints = [];
-    if (userId) {
-      console.log('Checking for saved bullets for user:', userId);
-      const { data, error } = await supabase
-        .from('resumes')
-        .select('sentences')
-        .eq('user_id', userId)
-        .order('uploaded_at', { ascending: false })  // Order by upload date, newest first
-        .limit(1)  // Only get the most recent record
-        .maybeSingle();
-    
-      if (!error && data?.sentences && data.sentences.length > 0) {
-        console.log(`Found ${data.sentences.length} sentences in database for userId=${userId}`);
-        bulletPoints = data.sentences;
-      } else {
-        console.log('No sentences found in database, extracting from text');
-        bulletPoints = await extractBulletPoints(text);
-        console.log('[Roast]: Bullet Points Extracted:', bulletPoints.length);
-        if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
-        if (bulletPoints.length > 0 && userId) {
-          // Save to database
-          await supabase.from('resumes').update({
-            sentences: bulletPoints,
-            sentences_updated_at: new Date().toISOString()
-          }).eq('user_id', userId);
-          console.log(`Saved ${bulletPoints.length} sentences to database for userId=${userId}`);
-        }
-      }
-    } else {
+    // If we still don't have bullet points, extract them from the text
+    if (bulletPoints.length === 0) {
+      console.log('No sentences found from sentence detector or database, extracting from text');
       bulletPoints = await extractBulletPoints(text);
       console.log('[Roast]: Bullet Points Extracted:', bulletPoints.length);
-      if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
+      
+      if (bulletPoints.length === 0) {
+        bulletPoints = fallbackExtractBullets(text);
+        console.log('[Roast]: Fallback Bullet Points Extracted:', bulletPoints.length);
+      }
+      
+      if (bulletPoints.length > 0 && userId) {
+        // Save to database
+        await supabase.from('resumes').update({
+          sentences: bulletPoints,
+          sentences_updated_at: new Date().toISOString()
+        }).eq('user_id', userId);
+        console.log(`Saved ${bulletPoints.length} sentences to database for userId=${userId}`);
+      }
     }
     
     if (bulletPoints.length === 0) {
@@ -207,7 +219,8 @@ async function analyzeResume(resumeText, userId) {
         explanation: 'Please organize your experience in clear bullet points.'
       };
     }
-    console.log("2")
+    
+    console.log("Processing bullet points for analysis");
     const analyzed = await Promise.all(bulletPoints.map(async (bullet) => {
       try {
         const wb = analyzeWordBalance(bullet);
@@ -228,8 +241,8 @@ async function analyzeResume(resumeText, userId) {
           rewritten,
           tips
         };
-        console.log("3")
-      } catch (_) {
+      } catch (error) {
+        console.error("Error analyzing bullet:", error);
         return {
           original: bullet,
           word_balance: {
@@ -250,7 +263,7 @@ async function analyzeResume(resumeText, userId) {
         };
       }
     }));
-    console.log("4")
+    
     const totalScore = analyzed.reduce((sum, b) => sum + b.bullet_total, 0);
     const avg = totalScore / analyzed.length;
     const percent = Math.max(Math.min(parseFloat((avg / 45 * 100).toFixed(1)), 100), 30);
@@ -266,14 +279,17 @@ async function analyzeResume(resumeText, userId) {
       elevator_pitch: 'Experienced professional ...',
       explanation: `Your resume received a ${grade} grade (${percent}%).`
     };
+    
     let enhanced;
-    console.log("Text: ", text, " Basic Analysis: ", basic)
+    console.log("Text: ", text, " Basic Analysis: ", basic);
     try {
       enhanced = await enhanceWithGroq(text, basic);
-      console.log("Enhanced Scoring: ", enhanced)
-    } catch {
+      console.log("Enhanced Scoring: ", enhanced);
+    } catch (error) {
+      console.error("Error enhancing with Groq:", error);
       enhanced = basic;
     }
+    
     if (userId) {
       await supabase.from('resumes').update({
         analysis: enhanced,
@@ -283,7 +299,6 @@ async function analyzeResume(resumeText, userId) {
     }    
 
     if (userId) await getResumeRoast(text, userId);
-    // getResumeRoast(text, userId).catch(err => console.error('Roast failed:', err));
     
     return enhanced;
     
@@ -332,10 +347,15 @@ serve(async (req) => {
     // Priority 1: Sentence detection
     if (path === 'detect-sentences') {
       console.log("Executing: Sentence detection");
-      return await serveSentenceDetector(resolvedText, resolvedUserId)(new Request(req.url, {
+      const sentenceDetectorResponse = new Request(req.url, {
         method: req.method,
         headers: req.headers
-      }));
+      });
+      
+      const sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(sentenceDetectorResponse);
+      
+      // Return the detected sentences to the client
+      return sentenceResponse;
     } 
     // Priority 2: Resume roast
     else if (action === 'get-roast') {
@@ -351,7 +371,22 @@ serve(async (req) => {
     // Priority 3: Resume analysis
     else if (path === 'analyze' || path === 'resume-analyzer' || !path) {
       console.log("Executing: Resume analysis");
-      const analysis = await analyzeResume(resolvedText, resolvedUserId);
+      
+      // First get sentence data
+      let sentenceResponse = null;
+      if (resolvedText) {
+        const sentenceDetectorRequest = new Request(req.url, {
+          method: req.method,
+          headers: req.headers
+        });
+        
+        sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(sentenceDetectorRequest);
+        console.log("Sentences detected for analysis");
+      }
+      
+      // Then analyze with the sentence data
+      const analysis = await analyzeResume(resolvedText, resolvedUserId, sentenceResponse);
+      
       return new Response(JSON.stringify(analysis), {
         headers: {
           'Content-Type': 'application/json',
@@ -359,15 +394,6 @@ serve(async (req) => {
         }
       });
     }
-    // // Priority 4 (LAST): Bullet improvement
-    // else if (path === 'improve-bullet') {
-    //   console.log("Executing: Bullet improvement");
-    //   return await serveBulletImprover()(new Request(req.url, {
-    //     method: req.method,
-    //     headers: req.headers,
-    //     body: JSON.stringify(requestData)
-    //   }));
-    // }
     // No matching handler
     else {
       console.log("No matching handler for path:", path);
