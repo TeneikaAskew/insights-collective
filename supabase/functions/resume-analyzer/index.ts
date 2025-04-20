@@ -326,17 +326,17 @@ async function getResumeRoast(resumeText, userId) {
  * @param {string[]} sentences - Array of pre-detected sentences to use as bullet points.
  * @returns {Promise<object>} Enhanced analysis results.
  */
-export async function analyzeResume(resumeText, userId, sentences) {
+export async function analyzeResume(resumeText, userId, sentences = []) {
   let text = resumeText || '';
   console.log('Provided text:', text.length, 'characters');
 
   // Initialize bulletPoints from passed-in sentences
-  // let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
-  // if (bulletPoints.length) {
-  //   console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
-  // }
+  let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
+  if (bulletPoints.length) {
+    console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
+  }
 
-  let bulletPoints = []
+  // let bulletPoints = []
 
   try {
     // If no bullets and userId is present, try retrieving from database
@@ -476,7 +476,7 @@ serve(async (req) => {
     });
   }
 
-  console.log("Sentences passed in: ", sentences)
+  console.log("Sentences passed in: ")
 
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
