@@ -441,12 +441,13 @@ Please combine these data points with the user’s quiz answers to generate a pe
         }
       }, 1200);
     } else if (questionIndex === assessmentQuestions.length) {
+      // This is the last step where user uploads a resume if they declined the existing one or no resume found
       if (userHasResume === false && !resumeFile) {
         alert("Please upload your resume file to continue.");
         return;
       }
 
-      if (userHasResume === false && resumeFile) {
+      if ((userHasResume === false || resumeUseConfirmed === false) && resumeFile) {
         setIsTyping(true);
 
         const userMessage: Message = {
@@ -505,6 +506,38 @@ Please combine these data points with the user’s quiz answers to generate a pe
     }
   };
 
+  // New function to handle resume use confirmation and advance the chat properly
+  const handleResumeUseConfirm = (useExisting: boolean) => {
+    setResumeUseConfirmed(useExisting);
+    const userText = useExisting ? "Use existing resume" : "Upload new resume";
+    const userMessage: Message = {
+      id: `user_resume_confirm_${Date.now()}`,
+      sender: "user",
+      text: userText,
+    };
+    setMessages((prev) => [...prev, userMessage]);
+
+    // If user chooses to use existing resume, continue the question flow
+    if (useExisting) {
+      // Advance question index past resume upload step
+      setQuestionIndex(assessmentQuestions.length);
+      
+      // Show message that existing resume is in use
+      const botMsg: Message = {
+        id: `bot_resume_use_confirm_${Date.now()}`,
+        sender: "bot",
+        text: "Using your existing resume on file for personalized career advice.",
+      };
+      setMessages((prev) => [...prev, botMsg]);
+    } else {
+      // For upload new resume, set questionIndex to last step to show upload UI
+      setQuestionIndex(assessmentQuestions.length);
+    }
+
+    // Hide quick replies after selection
+    setShowQuickReplies(false);
+  };
+
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -523,6 +556,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
   };
 
   const userResumeUpload = async (file: File): Promise<boolean> => {
+    // Simulated upload delay; in real app should upload file to storage and save info in database
     await new Promise((r) => setTimeout(r, 1200));
     return true;
   };
@@ -663,16 +697,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
                   variant="outline"
                   className="w-full justify-start text-left"
                   type="button"
-                  onClick={() => {
-                    setResumeUseConfirmed(true);
-                    const msg: Message = {
-                      id: `user_confirm_resume_${Date.now()}`,
-                      sender: "user",
-                      text: "Use existing resume",
-                    };
-                    setMessages((prev) => [...prev, msg]);
-                    setShowQuickReplies(false);
-                  }}
+                  onClick={() => handleResumeUseConfirm(true)}
                 >
                   Use existing resume
                 </Button>
@@ -680,16 +705,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
                   variant="outline"
                   className="w-full justify-start text-left"
                   type="button"
-                  onClick={() => {
-                    setResumeUseConfirmed(false);
-                    const msg: Message = {
-                      id: `user_upload_resume_${Date.now()}`,
-                      sender: "user",
-                      text: "Upload new resume",
-                    };
-                    setMessages((prev) => [...prev, msg]);
-                    setShowQuickReplies(false);
-                  }}
+                  onClick={() => handleResumeUseConfirm(false)}
                 >
                   Upload new resume
                 </Button>
@@ -764,3 +780,4 @@ Please combine these data points with the user’s quiz answers to generate a pe
 };
 
 export default CareerAgent;
+
