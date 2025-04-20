@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
@@ -103,7 +102,7 @@ const dummyCareers: string[] = [
   "Business Analyst",
 ];
 
-const avatarUrl = "/placeholder.svg";
+const coachAvatarUrl = "/placeholder.svg";
 
 const LOCAL_STORAGE_KEY = "careerPathwayChat";
 
@@ -120,6 +119,7 @@ const CareerAgent: React.FC = () => {
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
+  const [userHasResume, setUserHasResume] = useState<boolean | null>(null);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
@@ -130,37 +130,97 @@ const CareerAgent: React.FC = () => {
 
   // On mount - hydrate messages from localStorage
   useEffect(() => {
-    const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsedMessages: Message[] = JSON.parse(stored);
-        // Determine the appropriate questionIndex based on messages length or answers
-        setMessages(parsedMessages);
-        if (parsedMessages.length === 0) {
-          setQuestionIndex(0);
+    const hydrateMessages = async () => {
+      // Load from localStorage
+      const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsedMessages: Message[] = JSON.parse(stored);
+          // Avoid duplicating starter messages if already present
+          const uniqueStarters = starterMessages.every((starter) =>
+            parsedMessages.some((msg) => msg.text === starter && msg.sender === "bot")
+          );
+
+          setMessages(parsedMessages);
+
+          if (parsedMessages.length === 0) {
+            // No saved messages - add starters and show quick replies
+            setMessages(starterMessages.map((text, index) => ({
+              id: `bot_starter_${index}`,
+              sender: "bot",
+              text,
+            })));
+            setShowQuickReplies(true);
+            setQuestionIndex(0);
+          } else {
+            // Advance question index or quick reply visibility based on answers count
+            const userAnswersCount = parsedMessages.filter((m) => m.sender === "user" && m.text).length;
+            setQuestionIndex(Math.min(userAnswersCount, assessmentQuestions.length));
+            setShowQuickReplies(userAnswersCount === 0);
+          }
+        } catch {
+          // On error parsing or missing data, initialize with starters
+          setMessages(starterMessages.map((text, index) => ({
+            id: `bot_starter_${index}`,
+            sender: "bot",
+            text,
+          })));
           setShowQuickReplies(true);
-        } else {
-          // Question index set to last answered + 1 or at least 0
-          // We'll do a simple approach: look for last question answered in assessmentQuestions
-          // Map answers from parsedMessages
-          const answeredQuestions = parsedMessages
-            .filter((m) => m.sender === "user" && m.text)
-            .map((m) => m.text);
-          // Use the answers object or calculate index based on length of user answers
-          const userAnswersCount = parsedMessages.filter((m) => m.sender === "user" && m.text).length;
-          setQuestionIndex(Math.min(userAnswersCount, assessmentQuestions.length));
-          // Show quick replies only if questionIndex is 0 (start)
-          setShowQuickReplies(userAnswersCount === 0);
+          setQuestionIndex(0);
         }
-      } catch {
-        // invalid json fallback
-        initializeIntroMessages();
+      } else {
+        // No stored messages: initialize with starters
+        setMessages(starterMessages.map((text, index) => ({
+          id: `bot_starter_${index}`,
+          sender: "bot",
+          text,
+        })));
+        setShowQuickReplies(true);
+        setQuestionIndex(0);
       }
-    } else {
-      initializeIntroMessages();
-    }
+
+      // Check if user has resume file already
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from("resumes")
+            .select("id")
+            .eq("user_id", user.id)
+            .limit(1)
+            .maybeSingle();
+
+          if (error) {
+            console.error("Error checking resume existence:", error);
+            setUserHasResume(null);
+          } else {
+            const hasResume = !!data;
+            setUserHasResume(hasResume);
+            if (!hasResume) {
+              // Check if message is already present to avoid duplicates
+              setMessages((prev) => {
+                const messageExists = prev.some((msg) =>
+                  msg.text === "We'll use your resume on file to continue." && msg.sender === "bot"
+                );
+                if (messageExists) return prev;
+                const newMsg: Message = {
+                  id: `bot_resume_notice_${Date.now()}`,
+                  sender: "bot",
+                  text: "We'll use your resume on file to continue.",
+                };
+                return [...prev, newMsg];
+              });
+            }
+          }
+        } catch (e) {
+          console.error("Exception during resume check:", e);
+          setUserHasResume(null);
+        }
+      }
+    };
+
+    hydrateMessages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   // On login, initiate sessionId if none
   useEffect(() => {
@@ -174,30 +234,6 @@ const CareerAgent: React.FC = () => {
     if (messages.length === 0) return;
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
-
-  // Add starter messages only once if not present in messages
-  const initializeIntroMessages = () => {
-    setMessages((prev) => {
-      // Check if starter messages are already in messages
-      const hasAllStarters = starterMessages.every((starter) =>
-        prev.some((msg) => msg.text === starter && msg.sender === "bot")
-      );
-      if (hasAllStarters) return prev;
-
-      // Add only missing starter messages in order
-      const newStarters = starterMessages
-        .filter((starter) => !prev.some((msg) => msg.text === starter && msg.sender === "bot"))
-        .map((text, index) => ({
-          id: `bot_starter_${index}`,
-          sender: "bot" as SenderType,
-          text,
-        }));
-
-      return [...prev, ...newStarters];
-    });
-    setShowQuickReplies(true);
-    setQuestionIndex(0);
-  };
 
   if (!isAuthenticated) {
     return (
@@ -442,9 +478,17 @@ const CareerAgent: React.FC = () => {
             >
               {isBot && idx === firstBotIndex && (
                 <img
-                  src={avatarUrl}
+                  src={coachAvatarUrl}
                   alt="Career Coach Avatar"
                   className="w-9 h-9 rounded-full mr-3 select-none"
+                  draggable={false}
+                />
+              )}
+              {isUser && idx === messages.findIndex((m) => m.id === msg.id) && (
+                <img
+                  src={user?.user_metadata?.avatar_url || "/placeholder.svg"}
+                  alt="User Avatar"
+                  className="w-9 h-9 rounded-full ml-3 select-none"
                   draggable={false}
                 />
               )}
@@ -485,7 +529,7 @@ const CareerAgent: React.FC = () => {
         {isTyping && (
           <div className="flex items-center space-x-3">
             <img
-              src={avatarUrl}
+              src={coachAvatarUrl}
               alt="Career Coach Avatar"
               className="w-9 h-9 rounded-full select-none"
               draggable={false}
@@ -574,4 +618,3 @@ const CareerAgent: React.FC = () => {
 };
 
 export default CareerAgent;
-
