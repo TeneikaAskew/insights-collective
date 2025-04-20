@@ -1,3 +1,4 @@
+console.log("Bullet Extractor Endpoint hit")
 import { corsHeaders, callGroqWithRetry } from './utils.ts';
 import { extractSentencesFromResponse } from './sentenceDetector.ts';
 
@@ -40,6 +41,8 @@ export function serveBulletImprover() {
           }
         });
       }
+
+      console.log("Beginning improvement of bullet points")
       const improved = await improveBulletsBatch(data);
       return new Response(JSON.stringify(improved), {
         headers: {
