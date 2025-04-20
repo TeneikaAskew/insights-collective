@@ -359,15 +359,15 @@ serve(async (req) => {
         }
       });
     }
-    // Priority 4 (LAST): Bullet improvement
-    else if (path === 'improve-bullet') {
-      console.log("Executing: Bullet improvement");
-      return await serveBulletImprover()(new Request(req.url, {
-        method: req.method,
-        headers: req.headers,
-        body: JSON.stringify(requestData)
-      }));
-    }
+    // // Priority 4 (LAST): Bullet improvement
+    // else if (path === 'improve-bullet') {
+    //   console.log("Executing: Bullet improvement");
+    //   return await serveBulletImprover()(new Request(req.url, {
+    //     method: req.method,
+    //     headers: req.headers,
+    //     body: JSON.stringify(requestData)
+    //   }));
+    // }
     // No matching handler
     else {
       console.log("No matching handler for path:", path);
