@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -11,35 +11,64 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { mockService } from '@/lib/mockData';
-import { Bell, Lock, User, Settings, LogOut, Award } from 'lucide-react';
+import { Bell, Lock, User, Settings, LogOut, Award, Upload } from 'lucide-react';
 import QuizResultsSection from '@/components/profile/QuizResultsSection';
 
 const Profile = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  
+
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
   useEffect(() => {
     if (!isAuthenticated) {
       navigate('/login');
     }
   }, [isAuthenticated, navigate]);
-  
+
+  useEffect(() => {
+    if (user?.avatar) {
+      setAvatarPreview(user.avatar);
+    } else {
+      setAvatarPreview(null);
+    }
+  }, [user]);
+
   if (!user) return null;
-  
+
   const enrolledCourses = mockService.getEnrolledCourses(user.id);
-  
+
   const getInitial = (name?: string) => {
     return name && name.length > 0 ? name.charAt(0) : '?';
   };
-  
+
   const getFirstName = () => {
     return user.name ? user.name.split(' ')[0] : '';
   };
-  
+
   const getLastName = () => {
     return user.name ? user.name.split(' ').slice(1).join(' ') : '';
   };
-  
+
+  const handleAvatarChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      setAvatarFile(file);
+      const url = URL.createObjectURL(file);
+      setAvatarPreview(url);
+    }
+  };
+
+  const handleAvatarReset = () => {
+    setAvatarFile(null);
+    setAvatarPreview(user.avatar || null);
+  };
+
+  const handleAvatarSave = () => {
+    alert("Avatar upload functionality to be implemented with backend.");
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -49,14 +78,17 @@ const Profile = () => {
             Manage your account settings and preferences.
           </p>
         </div>
-        
+
         <div className="grid gap-6 md:grid-cols-[1fr_2fr]">
           <Card className="md:sticky md:top-6 h-fit">
             <CardContent className="p-6">
               <div className="flex flex-col items-center text-center mb-6">
                 <Avatar className="h-24 w-24 mb-4">
-                  <AvatarImage src={user.avatar} />
-                  <AvatarFallback className="text-xl">{getInitial(user.name)}</AvatarFallback>
+                  {avatarPreview ? (
+                    <AvatarImage src={avatarPreview} />
+                  ) : (
+                    <AvatarFallback className="text-xl">{getInitial(user.name)}</AvatarFallback>
+                  )}
                 </Avatar>
                 <h2 className="text-xl font-semibold">{user.name || 'User'}</h2>
                 <p className="text-muted-foreground">{user.email}</p>
@@ -73,7 +105,7 @@ const Profile = () => {
                   </div>
                 )}
               </div>
-              
+
               <div className="space-y-2">
                 <Button variant="outline" className="w-full justify-start" asChild>
                   <a href="#account">
@@ -111,8 +143,44 @@ const Profile = () => {
                 </Button>
               </div>
             </CardContent>
+
+            <Card className="mt-6">
+              <CardHeader>
+                <CardTitle>Update Profile Image</CardTitle>
+                <CardDescription>Select a new avatar or upload your own</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col items-center space-y-4">
+                  <Avatar className="h-20 w-20">
+                    {avatarPreview ? (
+                      <AvatarImage src={avatarPreview} />
+                    ) : (
+                      <AvatarFallback className="text-3xl">{getInitial(user.name)}</AvatarFallback>
+                    )}
+                  </Avatar>
+
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id="avatar-upload"
+                    onChange={handleAvatarChange}
+                    className="hidden"
+                  />
+                  <label htmlFor="avatar-upload" className="cursor-pointer inline-flex items-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium shadow-sm hover:bg-gray-50">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Choose Avatar
+                  </label>
+                  {avatarFile && (
+                    <div className="flex space-x-2">
+                      <Button onClick={handleAvatarReset} variant="outline" size="sm">Cancel</Button>
+                      <Button onClick={handleAvatarSave} size="sm">Save</Button>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </Card>
-          
+
           <div className="space-y-6">
             <Card id="account">
               <CardHeader>

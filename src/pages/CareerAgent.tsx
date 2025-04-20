@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
@@ -109,10 +110,9 @@ const LOCAL_STORAGE_KEY = "careerPathwayChat";
 const CareerAgent: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
-  // Hooks at top level
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [questionIndex, setQuestionIndex] = useState<number>(-1); // start before questions
+  const [questionIndex, setQuestionIndex] = useState<number>(-1);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -123,28 +123,29 @@ const CareerAgent: React.FC = () => {
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom smoothly when messages or typing changes
+  // Scroll on messages or typing
   useEffect(() => {
     scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // On mount - hydrate messages from localStorage
+  // Hydrate messages and check resume on mount
   useEffect(() => {
-    const hydrateMessages = async () => {
-      // Load from localStorage
+    const hydrateMessagesAndCheck = async () => {
       const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) {
         try {
           const parsedMessages: Message[] = JSON.parse(stored);
-          // Avoid duplicating starter messages if already present
-          const uniqueStarters = starterMessages.every((starter) =>
+          // Check if starter messages are already there (for dedupe)
+          const existingStarters = starterMessages.every((starter) =>
             parsedMessages.some((msg) => msg.text === starter && msg.sender === "bot")
           );
-
-          setMessages(parsedMessages);
-
-          if (parsedMessages.length === 0) {
-            // No saved messages - add starters and show quick replies
+          if (existingStarters) {
+            setMessages(parsedMessages);
+            const userAnswersCount = parsedMessages.filter((m) => m.sender === "user" && m.text).length;
+            setQuestionIndex(Math.min(userAnswersCount, assessmentQuestions.length));
+            setShowQuickReplies(userAnswersCount === 0);
+          } else {
+            // Starters missing - initialize with starters only once
             setMessages(starterMessages.map((text, index) => ({
               id: `bot_starter_${index}`,
               sender: "bot",
@@ -152,14 +153,9 @@ const CareerAgent: React.FC = () => {
             })));
             setShowQuickReplies(true);
             setQuestionIndex(0);
-          } else {
-            // Advance question index or quick reply visibility based on answers count
-            const userAnswersCount = parsedMessages.filter((m) => m.sender === "user" && m.text).length;
-            setQuestionIndex(Math.min(userAnswersCount, assessmentQuestions.length));
-            setShowQuickReplies(userAnswersCount === 0);
           }
         } catch {
-          // On error parsing or missing data, initialize with starters
+          // Parsing error, initialize with starters
           setMessages(starterMessages.map((text, index) => ({
             id: `bot_starter_${index}`,
             sender: "bot",
@@ -169,7 +165,7 @@ const CareerAgent: React.FC = () => {
           setQuestionIndex(0);
         }
       } else {
-        // No stored messages: initialize with starters
+        // No stored messages: initialize starters
         setMessages(starterMessages.map((text, index) => ({
           id: `bot_starter_${index}`,
           sender: "bot",
@@ -179,7 +175,7 @@ const CareerAgent: React.FC = () => {
         setQuestionIndex(0);
       }
 
-      // Check if user has resume file already
+      // Check if user has resume file
       if (user) {
         try {
           const { data, error } = await supabase
@@ -196,7 +192,6 @@ const CareerAgent: React.FC = () => {
             const hasResume = !!data;
             setUserHasResume(hasResume);
             if (!hasResume) {
-              // Check if message is already present to avoid duplicates
               setMessages((prev) => {
                 const messageExists = prev.some((msg) =>
                   msg.text === "We'll use your resume on file to continue." && msg.sender === "bot"
@@ -218,18 +213,17 @@ const CareerAgent: React.FC = () => {
       }
     };
 
-    hydrateMessages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    hydrateMessagesAndCheck();
   }, [user]);
 
-  // On login, initiate sessionId if none
+  // Create session on login
   useEffect(() => {
     if (isAuthenticated && !sessionId) {
       setSessionId(uuidv4());
     }
   }, [isAuthenticated, sessionId]);
 
-  // Persist messages to localStorage on every messages update
+  // Save messages to localStorage on every update
   useEffect(() => {
     if (messages.length === 0) return;
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(messages));
@@ -245,7 +239,20 @@ const CareerAgent: React.FC = () => {
     );
   }
 
-  // Handle user selecting a quick reply for first question
+  const handleResetChat = () => {
+    setMessages(starterMessages.map((text, index) => ({
+      id: `bot_starter_${index}`,
+      sender: "bot",
+      text,
+    })));
+    setShowQuickReplies(true);
+    setQuestionIndex(0);
+    setAnswers({});
+    setInputValue("");
+    setResumeFile(null);
+    window.localStorage.removeItem(LOCAL_STORAGE_KEY);
+  };
+
   const handleQuickReply = (replyText: string) => {
     if (isTyping) return;
 
@@ -292,7 +299,6 @@ const CareerAgent: React.FC = () => {
     }, 700);
   };
 
-  // Handle text input submit for normal questions or after quick reply
   const handleSubmit = async () => {
     if (isTyping) return;
 
@@ -437,16 +443,26 @@ const CareerAgent: React.FC = () => {
 
   // Determine if quick replies are to be shown only below third starter message
   const showQuickRepliesAtCorrectPlace = () => {
-    // Only render quick replies if showQuickReplies is true and third intro message rendered
-    // Also, don't show after user completed questions.
     if (!showQuickReplies) return false;
     const botThirdMsg = messages.find((m) => m.text === starterMessages[2] && m.sender === "bot");
     return !!botThirdMsg;
   };
 
+  const getUserInitials = (name: string | undefined) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+  };
+
   return (
     <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen bg-white rounded-lg shadow-md">
-      <h1 className="text-4xl font-bold text-amber-600 mb-6">Career Pathway Agent</h1>
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-4xl font-bold text-amber-600">Career Pathway Agent</h1>
+        <Button variant="outline" onClick={handleResetChat} size="sm" className="ml-4">
+          Reset Chat
+        </Button>
+      </div>
 
       <div
         ref={scrollAreaRef}
@@ -476,22 +492,47 @@ const CareerAgent: React.FC = () => {
                 }
               }}
             >
+              {/* Coach avatar on left for first bot message */}
               {isBot && idx === firstBotIndex && (
-                <img
-                  src={coachAvatarUrl}
-                  alt="Career Coach Avatar"
-                  className="w-9 h-9 rounded-full mr-3 select-none"
-                  draggable={false}
-                />
+                <div
+                  className="w-9 h-9 rounded-full mr-3 flex items-center justify-center bg-amber-100 select-none text-amber-600 font-semibold text-sm"
+                  aria-label="Coach Avatar"
+                >
+                  <img
+                    src={coachAvatarUrl}
+                    alt="Career Coach Avatar"
+                    className="w-full h-full rounded-full object-cover"
+                    draggable={false}
+                    onError={(e) => {
+                      // fallback to initials if image fails
+                      const target = e.currentTarget as HTMLImageElement;
+                      target.style.display = "none";
+                    }}
+                  />
+                  {/* If image fails, fallback to initials IC */}
+                  <span className="sr-only">IC</span>
+                </div>
               )}
-              {isUser && idx === messages.findIndex((m) => m.id === msg.id) && (
-                <img
-                  src={user?.user_metadata?.avatar_url || "/placeholder.svg"}
-                  alt="User Avatar"
-                  className="w-9 h-9 rounded-full ml-3 select-none"
-                  draggable={false}
-                />
+
+              {/* User avatar on right for user messages */}
+              {isUser && (
+                <div
+                  className="w-9 h-9 rounded-full ml-3 flex items-center justify-center bg-gray-300 select-none text-gray-700 font-semibold text-sm"
+                  aria-label="User Avatar"
+                >
+                  {user?.user_metadata?.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt="User Avatar"
+                      className="w-full h-full rounded-full object-cover"
+                      draggable={false}
+                    />
+                  ) : (
+                    <span>{getUserInitials(user?.name)}</span>
+                  )}
+                </div>
               )}
+
               <div
                 className={`relative max-w-[75%] px-5 py-3 rounded-3xl break-words text-sm
                   ${
@@ -510,7 +551,7 @@ const CareerAgent: React.FC = () => {
                 <p className="whitespace-pre-wrap">{msg.text}</p>
                 {reactingMessageId === msg.id && (
                   <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
-                    {emojis.map((emoji) => (
+                    {["👍", "❤️", "💡"].map((emoji) => (
                       <button
                         key={emoji}
                         onClick={() => handleEmojiClick(msg.id, emoji)}
@@ -528,18 +569,27 @@ const CareerAgent: React.FC = () => {
         })}
         {isTyping && (
           <div className="flex items-center space-x-3">
-            <img
-              src={coachAvatarUrl}
-              alt="Career Coach Avatar"
-              className="w-9 h-9 rounded-full select-none"
-              draggable={false}
-            />
+            <div
+              className="w-9 h-9 rounded-full select-none flex items-center justify-center bg-amber-100 text-amber-600 font-semibold"
+              aria-label="Coach Avatar Typing"
+            >
+              <img
+                src={coachAvatarUrl}
+                alt="Career Coach Avatar"
+                className="w-full h-full rounded-full object-cover"
+                draggable={false}
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  target.style.display = "none";
+                }}
+              />
+              <span className="sr-only">IC</span>
+            </div>
             <div className="italic text-gray-500 select-none">Coach is typing...</div>
           </div>
         )}
       </div>
 
-      {/* Show quick reply buttons only after last starter message */}
       {showQuickRepliesAtCorrectPlace() && (
         <div className="flex flex-col space-y-3 mb-4">
           {quickReplies.map((reply, idx) => (
@@ -618,3 +668,4 @@ const CareerAgent: React.FC = () => {
 };
 
 export default CareerAgent;
+
