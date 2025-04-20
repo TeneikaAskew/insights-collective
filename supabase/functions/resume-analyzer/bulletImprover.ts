@@ -1,6 +1,15 @@
 import { corsHeaders } from './utils.ts';
 import { extractSentencesFromResponse } from './sentenceDetector.ts';
 
+// Global batch queue for bullet processing
+if (!globalThis.bulletBatchQueue) {
+  globalThis.bulletBatchQueue = [];
+  globalThis.batchInProgress = false;
+  globalThis.pendingResults = new Map();
+  globalThis.processingInterval = null;
+}
+
+
 // Service handler for batch bullet improvement
 export function serveBulletImprover() {
   return async (req) => {
@@ -53,13 +62,6 @@ export function serveBulletImprover() {
   };
 }
 
-// Global batch queue for bullet processing
-if (!globalThis.bulletBatchQueue) {
-  globalThis.bulletBatchQueue = [];
-  globalThis.batchInProgress = false;
-  globalThis.pendingResults = new Map();
-  globalThis.processingInterval = null;
-}
 /**
  * Top‐level batch processor: splits bullets into batches, processes sequentially,
  * and aggregates results. Honors configurable batch size and adds backoff between.
