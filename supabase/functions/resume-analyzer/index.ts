@@ -317,7 +317,6 @@ async function analyzeResume(resumeText, userId, sentenceResponse) {
     };
   }
 }
-
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -394,6 +393,17 @@ serve(async (req) => {
         }
       });
     }
+
+    // // Priority 4 (LAST): Bullet improvement
+    // else if (path === 'improve-bullet') {
+    //   console.log("Executing: Bullet improvement");
+    //   return await serveBulletImprover()(new Request(req.url, {
+    //     method: req.method,
+    //     headers: req.headers,
+    //     body: JSON.stringify(requestData)
+    //   }));
+    // }
+    // No matching handler
     // No matching handler
     else {
       console.log("No matching handler for path:", path);
@@ -423,3 +433,109 @@ serve(async (req) => {
     });
   }
 });
+
+
+// serve(async (req) => {
+//   // Handle CORS preflight requests
+//   if (req.method === 'OPTIONS') {
+//     return new Response(null, {
+//       status: 200,
+//       headers: corsHeaders
+//     });
+//   }
+
+//   const url = new URL(req.url);
+//   const path = url.pathname.split('/').pop();
+//   console.log("URL:", url, "Path:", path);
+
+//   try {
+//     // Read the request body ONCE and store it
+//     const requestData = await req.json();
+//     const { action, resumeText, text, userId } = requestData;
+    
+//     // Use either resumeText or text parameter, whichever is provided
+//     const resolvedText = resumeText || text;
+//     const resolvedUserId = userId;
+    
+//     console.log("Logged in user:", resolvedUserId, "Text length:", resolvedText ? resolvedText.length : 0);
+
+//     // Each function should be executed in chronological order with else if
+    
+//     // Priority 1: Sentence detection
+//     if (path === 'detect-sentences') {
+//       console.log("Executing: Sentence detection");
+//       // return await serveSentenceDetector(resolvedText, resolvedUserId)(new Request(req.url, {
+//       //   method: req.method,
+//       //   headers: req.headers
+//       // }));
+
+//       const sentenceDetectorResponse = new Request(req.url, {
+//         method: req.method,
+//         headers: req.headers
+//       });
+      
+//       const sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(sentenceDetectorResponse);
+      
+//       // Return the detected sentences to the client
+//       return sentenceResponse;
+//     } 
+//     // Priority 2: Resume roast
+//     else if (action === 'get-roast') {
+//       console.log("Executing: Resume roast");
+//       const roastData = await getResumeRoast(resolvedText, resolvedUserId);
+//       return new Response(JSON.stringify(roastData), {
+//         headers: {
+//           'Content-Type': 'application/json',
+//           ...corsHeaders
+//         }
+//       });
+//     }
+//     // Priority 3: Resume analysis
+//     else if (path === 'analyze' || path === 'resume-analyzer' || !path) {
+//       console.log("Executing: Resume analysis");
+//       const analysis = await analyzeResume(resolvedText, resolvedUserId, sentenceResponse);
+//       return new Response(JSON.stringify(analysis), {
+//         headers: {
+//           'Content-Type': 'application/json',
+//           ...corsHeaders
+//         }
+//       });
+//     }
+//     // // Priority 4 (LAST): Bullet improvement
+//     // else if (path === 'improve-bullet') {
+//     //   console.log("Executing: Bullet improvement");
+//     //   return await serveBulletImprover()(new Request(req.url, {
+//     //     method: req.method,
+//     //     headers: req.headers,
+//     //     body: JSON.stringify(requestData)
+//     //   }));
+//     // }
+//     // No matching handler
+//     else {
+//       console.log("No matching handler for path:", path);
+//       return new Response(JSON.stringify({
+//         error: 'Not found',
+//         message: `Path ${path} not recognized or action ${action} not supported`
+//       }), {
+//         status: 404,
+//         headers: {
+//           'Content-Type': 'application/json',
+//           ...corsHeaders
+//         }
+//       });
+//     }
+    
+//   } catch (error) {
+//     console.error('Error processing request:', error);
+//     return new Response(JSON.stringify({
+//       error: error.message,
+//       bullets: []
+//     }), {
+//       status: 500,
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...corsHeaders
+//       }
+//     });
+//   }
+// });
