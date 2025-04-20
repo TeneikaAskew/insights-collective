@@ -12,7 +12,7 @@ function getSupabaseClient() {
   }
   return createClient(supabaseUrl, supabaseKey);
 }
-
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 export function getSentencesFromCache(userId) {
   if (!userId) return null;
