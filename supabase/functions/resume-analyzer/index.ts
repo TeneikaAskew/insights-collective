@@ -317,8 +317,19 @@ async function analyzeResume(resumeText, userId, sentenceResponse) {
     };
   }
 }
+import { serve } from 'some-server-lib';
+import { serveSentenceDetector } from './sentenceDetector';
+import { analyzeResume } from './resumeAnalyzer';
+import { getResumeRoast } from './roastService';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
+  'Access-Control-Allow-Headers': 'Content-Type'
+};
+
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -328,99 +339,66 @@ serve(async (req) => {
 
   const url = new URL(req.url);
   const path = url.pathname.split('/').pop();
-  console.log("URL:", url, "Path:", path);
+  console.log('URL:', url, 'Path:', path);
 
   try {
-    // Read the request body ONCE and store it
-    const requestData = await req.json();
-    const { action, resumeText, text, userId } = requestData;
-    
-    // Use either resumeText or text parameter, whichever is provided
+    // Parse the request body once
+    const { action, resumeText, text, userId } = await req.json();
     const resolvedText = resumeText || text;
-    const resolvedUserId = userId;
-    
-    console.log("Logged in user:", resolvedUserId, "Text length:", resolvedText ? resolvedText.length : 0);
+    console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
 
-    // Each function should be executed in chronological order with else if
-    
-    // Priority 1: Sentence detection
+    // Consolidated sentence detection + analysis
     if (path === 'detect-sentences') {
-      console.log("Executing: Sentence detection");
-      // Use the sentence detector directly
-      const sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(req);
-      // Return the detected sentences to the client
-      return sentenceResponse;
-    } 
-    // Priority 2: Resume roast
-    else if (action === 'get-roast') {
-      console.log("Executing: Resume roast");
-      const roastData = await getResumeRoast(resolvedText, resolvedUserId);
-      return new Response(JSON.stringify(roastData), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
+      console.log('Running sentence detection + analysis');
+
+      // Invoke the sentence detector
+      const detectRequest = new Request(new URL('/detect-sentences', req.url), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...corsHeaders },
+        body: JSON.stringify({ text: resolvedText, userId })
       });
-    }
-    // Priority 3: Resume analysis
-    else if (path === 'analyze' || path === 'resume-analyzer' || !path) {
-      console.log("Executing: Resume analysis");
-      
-      // We use the existing sentenceResponse if we're coming from the detect-sentences route
-      let sentenceResponse = null;
-      if (resolvedText) {
-        // Pass the actual request to the sentence detector to get the sentenceResponse
-        // This is just to get the sentences - we're not returning this response to the client
-        // We're reusing the existing sentence detector logic
-        sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(
-          new Request(new URL('/detect-sentences', req.url), {
-            method: 'POST',
-            headers: req.headers,
-            body: JSON.stringify({ text: resolvedText, userId: resolvedUserId })
-          })
-        );
-        console.log("Sentences detected for analysis");
+
+      const detectRes = await serveSentenceDetector(resolvedText, userId)(detectRequest);
+      if (!detectRes.ok) {
+        return detectRes;
       }
-      
-      // Then analyze with the sentence data
-      const analysis = await analyzeResume(resolvedText, resolvedUserId, sentenceResponse);
-      
-      return new Response(JSON.stringify(analysis), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
+
+      // Parse out the array of sentences
+      const { sentences } = await detectRes.json();
+      console.log('Detected', sentences.length, 'sentences');
+
+      // Run resume analysis
+      const analysisResult = await analyzeResume(resolvedText, userId, sentences);
+      return new Response(JSON.stringify(analysisResult), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
-    // No matching handler
-    else {
-      console.log("No matching handler for path:", path);
-      return new Response(JSON.stringify({
-        error: 'Not found',
-        message: `Path ${path} not recognized or action ${action} not supported`
-      }), {
-        status: 404,
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
+
+    // Resume roast endpoint
+    if (action === 'get-roast') {
+      console.log('Running resume roast');
+      const roast = await getResumeRoast(resolvedText, userId);
+      return new Response(JSON.stringify(roast), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
-    
-  } catch (error) {
-    console.error('Error processing request:', error);
-    return new Response(JSON.stringify({
-      error: error.message,
-      bullets: []
-    }), {
+
+    // Fallback: unrecognized path or action
+    console.log('No handler for path:', path, 'or action:', action);
+    return new Response(JSON.stringify({ error: 'Not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+
+  } catch (err) {
+    console.error('Error:', err);
+    return new Response(JSON.stringify({ error: err.message || 'Internal error' }), {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
   }
 });
+
 
 // serve(async (req) => {
 //   // Handle CORS preflight requests
