@@ -1,4 +1,5 @@
 
+console.log("Bullet Suggestions Endpoint hit")
 import { actionWords } from './bulletAnalysis.ts';
 import { improveBullet } from './bulletImprover.ts';
 
@@ -8,6 +9,7 @@ import { skillsKeywords } from './bulletAnalysis.ts';
 export async function rewriteBullet(bullet: string, analysis: any): Promise<string> {
   try {
     // Use the GROQ-based bullet improver
+    console.log("Beginning rewrite of bullet points")
     const result = await improveBullet({
       original: bullet,
       xyz_scores: analysis.xyz_scores,
