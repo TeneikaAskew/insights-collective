@@ -167,10 +167,14 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
         const total = wb.word_balance_score + xyz.xyz_total;
         // const rewritten = await rewriteBullet(bullet, { xyz_scores: xyz });
         // const tips = await generateTips(bullet, { xyz_scores: xyz, word_balance_score: wb.word_balance_score });
-        return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total, rewritten, tips };
+        // return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total, rewritten, tips };
+        
+        return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total };
       } catch (err) {
         console.error('Error on bullet:', err);
-        return { original: bullet, word_balance: {}, xyz_scores: {}, bullet_total: 10, rewritten: bullet, tips: 'Analysis failed.' };
+        // return { original: bullet, word_balance: {}, xyz_scores: {}, bullet_total: 10, rewritten: bullet, tips: 'Analysis failed.' };
+        
+        return { original: bullet, word_balance: {}, xyz_scores: {}, bullet_total: 10 };
       }
     }));
 
