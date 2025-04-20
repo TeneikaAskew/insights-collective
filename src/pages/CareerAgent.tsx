@@ -5,10 +5,6 @@ import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 
-/**
- * Type definitions
- */
-
 type SenderType = "system" | "user" | "bot";
 
 type Message = {
@@ -24,14 +20,12 @@ const quickReplies = [
   "I am a recent or soon-to-be college grad looking for potential career paths",
 ];
 
-// Static three starter AI messages as requested
 const starterMessages = [
   "I will recommend the best route to your aspirational role, step-by-step. I'll also show you the most promising alternative career paths.",
   "You'll find specific recommendations on how to fill gaps in your key skills. I will even create a dynamite first draft of your professional pitch! Sound good? Okay, let's do this. It should take less than 8 minutes to answer my questions.",
   "Choose the statement that best describes your interest in taking a career assessment",
 ];
 
-// Assessment questions list as given (to maintain question flow)
 const assessmentQuestions = [
   {
     id: "q1",
@@ -100,7 +94,6 @@ const assessmentQuestions = [
   },
 ];
 
-// Dummy career recommendations
 const dummyCareers: string[] = [
   "Data Scientist",
   "Frontend Engineer",
@@ -110,15 +103,15 @@ const dummyCareers: string[] = [
   "Business Analyst",
 ];
 
-const avatarUrl = "/placeholder.svg"; // Put actual coach avatar url here
+const avatarUrl = "/placeholder.svg";
 
 const CareerAgent: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
-  // All hooks at top level, unconditionally
+  // Hooks at top level
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [questionIndex, setQuestionIndex] = useState<number>(-1); // start before questions to show initial 3 AI messages + quick replies
+  const [questionIndex, setQuestionIndex] = useState<number>(-1); // start before questions
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [isTyping, setIsTyping] = useState(false);
@@ -128,29 +121,24 @@ const CareerAgent: React.FC = () => {
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to bottom on messages or typing changes
+  // Scroll to bottom smoothly when messages or typing changes
   useEffect(() => {
     scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // On login, initiate session and initial messages
+  // On login, initiate session and bot starter messages
   useEffect(() => {
     if (isAuthenticated && !sessionId) {
       const newSessionId = uuidv4();
       setSessionId(newSessionId);
 
-      // Add the 3 starter AI messages with delay and typing effect
       (async () => {
         setIsTyping(true);
         for (let i = 0; i < starterMessages.length; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 600)); // typing delay 600ms
+          await new Promise((resolve) => setTimeout(resolve, 600)); // typing pause
           setMessages((prev) => [
             ...prev,
-            {
-              id: `bot_starter_${i}`,
-              sender: "bot",
-              text: starterMessages[i],
-            },
+            { id: `bot_starter_${i}`, sender: "bot", text: starterMessages[i] },
           ]);
         }
         setIsTyping(false);
@@ -158,21 +146,22 @@ const CareerAgent: React.FC = () => {
     }
   }, [isAuthenticated, sessionId]);
 
-  // After starter messages shown, show quick replies
+  // After showing starter messages, show quick replies and start questions
   useEffect(() => {
     if (
-      messages.length === starterMessages.length && // all 3 starter messages displayed
+      messages.length === starterMessages.length &&
       !isTyping &&
-      showQuickReplies
+      showQuickReplies &&
+      questionIndex === -1
     ) {
       setShowQuickReplies(true);
-      setQuestionIndex(0); // start questions from the first question
+      setQuestionIndex(0); // start questions from first question
     }
-  }, [messages, isTyping, showQuickReplies]);
+  }, [messages, isTyping, showQuickReplies, questionIndex]);
 
   if (!isAuthenticated) {
     return (
-      <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen justify-center items-center">
+      <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen justify-center items-center bg-white">
         <p className="text-lg text-center text-muted-foreground">
           Please log in to access the Career Pathway Agent.
         </p>
@@ -180,11 +169,10 @@ const CareerAgent: React.FC = () => {
     );
   }
 
-  // Handles user selecting a quick reply for first question
+  // Handle user selecting a quick reply for first question
   const handleQuickReply = (replyText: string) => {
     if (isTyping) return;
 
-    // Append user quick reply as message bubble on right
     const userMessage: Message = {
       id: `user_${Date.now()}`,
       sender: "user",
@@ -195,13 +183,11 @@ const CareerAgent: React.FC = () => {
     setIsTyping(true);
     setShowQuickReplies(false);
 
-    // Save answer for q1
     setAnswers((prev) => ({
       ...prev,
       [assessmentQuestions[0].id]: replyText,
     }));
 
-    // Store answer in database
     (async () => {
       if (sessionId && user) {
         try {
@@ -217,7 +203,6 @@ const CareerAgent: React.FC = () => {
       }
     })();
 
-    // After short delay, show next question AI bubble with typing delay
     setTimeout(() => {
       const nextQuestion = assessmentQuestions[1];
       const botMessage: Message = {
@@ -231,15 +216,13 @@ const CareerAgent: React.FC = () => {
     }, 700);
   };
 
-  // Handle input enter for subsequent questions (text inputs from q2 onwards)
+  // Handle text input submit for normal questions
   const handleSubmit = async () => {
     if (isTyping) return;
 
-    // Handling the normal question-answer flow for questions 2 to 13 and resume upload
     if (questionIndex >= 1 && questionIndex < assessmentQuestions.length) {
       if (!inputValue.trim()) return;
 
-      // Append user message
       const userMessage: Message = {
         id: `user_${Date.now()}`,
         sender: "user",
@@ -251,7 +234,6 @@ const CareerAgent: React.FC = () => {
       const currentQuestion = assessmentQuestions[questionIndex];
       setAnswers((prev) => ({ ...prev, [currentQuestion.id]: inputValue.trim() }));
 
-      // Save answer to DB
       if (sessionId && user) {
         try {
           await supabase.from("career_assessments").insert({
@@ -268,7 +250,6 @@ const CareerAgent: React.FC = () => {
       setInputValue("");
 
       setTimeout(() => {
-        // Proceed to next question or next step
         const nextIndex = questionIndex + 1;
         setIsTyping(false);
         setQuestionIndex(nextIndex);
@@ -282,7 +263,6 @@ const CareerAgent: React.FC = () => {
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
-          // End of questions, prompt resume upload
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
@@ -292,11 +272,9 @@ const CareerAgent: React.FC = () => {
         }
       }, 1200);
     } else if (questionIndex === assessmentQuestions.length) {
-      // Resume upload step
       if (!resumeFile) return;
       setIsTyping(true);
 
-      // Show user resume upload message
       const userMessage: Message = {
         id: `user_${Date.now()}`,
         sender: "user",
@@ -342,7 +320,6 @@ const CareerAgent: React.FC = () => {
         setResumeFile(null);
       }
     } else if (questionIndex === assessmentQuestions.length + 1) {
-      // Final dashboard welcome
       const botMessage: Message = {
         id: `bot_${Date.now()}`,
         sender: "bot",
@@ -370,15 +347,11 @@ const CareerAgent: React.FC = () => {
     }
   };
 
-  // Stub for resume upload wrapper
   const userResumeUpload = async (file: File): Promise<boolean> => {
-    // Implement with your resume upload logic or reuse useResume() hook's uploadResume
-    // For now, simulate upload delay and success
     await new Promise((r) => setTimeout(r, 1200));
     return true;
   };
 
-  // Emoji reaction feature - just display a simple emoji picker on AI messages on hover (basic)
   const emojis = ["👍", "❤️", "💡"];
 
   const handleEmojiClick = (msgId: string, emoji: string) => {
@@ -399,11 +372,12 @@ const CareerAgent: React.FC = () => {
         {messages.map((msg, idx) => {
           const isBot = msg.sender === "bot";
           const isUser = msg.sender === "user";
-          const isFirstBot = isBot && idx === 0;
+          const isFirstBot = isBot && idx === messages.findIndex(m => m.sender === 'bot');
+
           return (
             <div
               key={msg.id}
-              className={`flex items-end ${
+              className={`flex items-end max-w-full ${
                 isBot ? "justify-start" : "justify-end"
               } group`}
               onMouseLeave={() => {
@@ -426,9 +400,13 @@ const CareerAgent: React.FC = () => {
                 />
               )}
               <div
-                className={`relative max-w-[75%] px-4 py-3 rounded-2xl break-words ${
-                  isBot ? "bg-amber-50 text-gray-900 shadow-md" : "bg-gray-100 text-gray-900 shadow"
-                }`}
+                className={`relative max-w-[75%] px-5 py-3 rounded-3xl break-words text-sm
+                  ${
+                    isBot
+                      ? "bg-amber-50 text-gray-900 shadow-md/[0_2px_8px_rgba(0,0,0,0.06)]"
+                      : "bg-gray-100 text-gray-900 shadow/[0_2px_6px_rgba(0,0,0,0.10)]"
+                  }
+                `}
                 onMouseEnter={() => {
                   if (isBot) setReactingMessageId(msg.id);
                 }}
@@ -437,7 +415,6 @@ const CareerAgent: React.FC = () => {
                 }}
               >
                 <p className="whitespace-pre-wrap">{msg.text}</p>
-                {/* Emoji reaction popup */}
                 {reactingMessageId === msg.id && (
                   <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
                     {emojis.map((emoji) => (
@@ -470,24 +447,22 @@ const CareerAgent: React.FC = () => {
         )}
       </div>
 
-      {/* Quick reply buttons - only show after starter 3 bulleted AI messages and before first question answered */}
-      {showQuickReplies && messages.length === starterMessages.length && !isTyping && (
+      {/* Quick reply buttons displayed only after all starter messages and before first question answered */}
+      {showQuickReplies && messages.length === starterMessages.length && !isTyping && questionIndex === 0 && (
         <div className="flex flex-col space-y-3">
           {quickReplies.map((reply, idx) => (
-            <Button
+            <button
               key={idx}
-              variant="outline"
-              size="lg"
-              className="text-left rounded-full px-6 py-3 hover:bg-amber-100"
               onClick={() => handleQuickReply(reply)}
+              className="rounded-full px-6 py-3 border border-gray-300 text-gray-900 text-left hover:bg-amber-100 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-300 max-w-full sm:max-w-md mx-auto"
             >
               {reply}
-            </Button>
+            </button>
           ))}
         </div>
       )}
 
-      {/* Input for questions starting from second question */}
+      {/* Input for questions from second question onwards */}
       {!showQuickReplies && questionIndex >= 1 && questionIndex < assessmentQuestions.length && (
         <form
           onSubmit={(e) => {
@@ -497,7 +472,7 @@ const CareerAgent: React.FC = () => {
           className="flex items-center space-x-3"
         >
           <input
-            className="flex-grow rounded-full border border-gray-300 px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+            className="flex-grow rounded-full border border-gray-300 px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
             type="text"
             placeholder={assessmentQuestions[questionIndex]?.placeholder || "Type your answer..."}
             value={inputValue}
@@ -538,7 +513,7 @@ const CareerAgent: React.FC = () => {
         </div>
       )}
 
-      {/* After final submit (career recommendations) show Next button to proceed */}
+      {/* After final submit (career recommendations) show Next button */}
       {!showQuickReplies && questionIndex > assessmentQuestions.length && (
         <div className="flex justify-end">
           <Button onClick={() => void handleSubmit()} disabled={isTyping}>
