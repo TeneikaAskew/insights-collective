@@ -485,7 +485,7 @@ serve(async (req) => {
     console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
 
     // Consolidated sentence detection + analysis
-    if (path === 'detect-sentences') {
+    if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path) {
       console.log('Running sentence detection + analysis');
 
       // Invoke the sentence detector
