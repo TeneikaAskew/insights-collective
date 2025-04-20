@@ -1,3 +1,4 @@
+
 import { useEffect, useState, ChangeEvent, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -350,7 +351,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
                 <CardDescription>Your career path assessment and recommendations</CardDescription>
               </CardHeader>
               <CardContent>
-                <QuizResultsSection quizAnswers={quizAnswers} setQuizAnswers={setQuizAnswers} />
+                <QuizResultsSection />
                 <CareerPathwaySection quizAnswers={quizAnswers} />
               </CardContent>
             </Card>
