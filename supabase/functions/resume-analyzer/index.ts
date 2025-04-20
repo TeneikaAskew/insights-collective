@@ -317,16 +317,6 @@ async function analyzeResume(resumeText, userId, sentenceResponse) {
     };
   }
 }
-import { serve } from 'some-server-lib';
-import { serveSentenceDetector } from './sentenceDetector';
-import { analyzeResume } from './resumeAnalyzer';
-import { getResumeRoast } from './roastService';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'OPTIONS,POST,GET',
-  'Access-Control-Allow-Headers': 'Content-Type'
-};
 
 serve(async (req) => {
   // Handle CORS preflight
