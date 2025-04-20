@@ -448,6 +448,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       await supabase.from('resumes').update({ analysis: enhanced, updated_at: new Date().toISOString() })
         .eq('user_id', userId);
       console.log('Saved analysis to database');
+      // getResumeRoast(text, userId);
     }
 
     return enhanced;
