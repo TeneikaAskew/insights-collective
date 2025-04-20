@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { v4 as uuidv4 } from "uuid";
@@ -120,22 +119,19 @@ const CareerAgent: React.FC = () => {
   const [inputValue, setInputValue] = useState("");
   const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
   const [userHasResume, setUserHasResume] = useState<boolean | null>(null);
-
+  const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  // Scroll on messages or typing
   useEffect(() => {
     scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // Hydrate messages and check resume on mount
   useEffect(() => {
     const hydrateMessagesAndCheck = async () => {
       const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
       if (stored) {
         try {
           const parsedMessages: Message[] = JSON.parse(stored);
-          // Check if starter messages are already there (for dedupe)
           const existingStarters = starterMessages.every((starter) =>
             parsedMessages.some((msg) => msg.text === starter && msg.sender === "bot")
           );
@@ -145,7 +141,6 @@ const CareerAgent: React.FC = () => {
             setQuestionIndex(Math.min(userAnswersCount, assessmentQuestions.length));
             setShowQuickReplies(userAnswersCount === 0);
           } else {
-            // Starters missing - initialize with starters only once
             setMessages(starterMessages.map((text, index) => ({
               id: `bot_starter_${index}`,
               sender: "bot",
@@ -155,7 +150,6 @@ const CareerAgent: React.FC = () => {
             setQuestionIndex(0);
           }
         } catch {
-          // Parsing error, initialize with starters
           setMessages(starterMessages.map((text, index) => ({
             id: `bot_starter_${index}`,
             sender: "bot",
@@ -165,7 +159,6 @@ const CareerAgent: React.FC = () => {
           setQuestionIndex(0);
         }
       } else {
-        // No stored messages: initialize starters
         setMessages(starterMessages.map((text, index) => ({
           id: `bot_starter_${index}`,
           sender: "bot",
@@ -175,7 +168,6 @@ const CareerAgent: React.FC = () => {
         setQuestionIndex(0);
       }
 
-      // Check if user has resume file
       if (user) {
         try {
           const { data, error } = await supabase
@@ -216,14 +208,12 @@ const CareerAgent: React.FC = () => {
     hydrateMessagesAndCheck();
   }, [user]);
 
-  // Create session on login
   useEffect(() => {
     if (isAuthenticated && !sessionId) {
       setSessionId(uuidv4());
     }
   }, [isAuthenticated, sessionId]);
 
-  // Save messages to localStorage on every update
   useEffect(() => {
     if (messages.length === 0) return;
     window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(messages));
@@ -345,12 +335,84 @@ const CareerAgent: React.FC = () => {
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
-          const botMessage: Message = {
+          const botMessageLoading: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
-            text: "Thank you for your answers! Please upload your resume to help us provide career recommendations.",
+            text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights...",
           };
-          setMessages((prev) => [...prev, botMessage]);
+          setMessages((prev) => [...prev, botMessageLoading]);
+
+          (async () => {
+            if (!user) return;
+            const quizAnswersPayload: Record<number, string> = {};
+            assessmentQuestions.forEach((q) => {
+              if (answers[q.id]) {
+                quizAnswersPayload[q.id] = answers[q.id];
+              }
+            });
+
+            let resumeText = null;
+            try {
+              const { data, error } = await supabase
+                .from('resumes')
+                .select('text')
+                .eq('user_id', user.id)
+                .limit(1)
+                .maybeSingle();
+
+              if (!error && data && data.text) {
+                resumeText = data.text;
+              }
+            } catch (err) {
+              console.error("Error fetching resume text", err);
+            }
+
+            const prompt = `Here are outputs from a career chat:
+• A set of recommended roles with descriptions & salary bands
+• A table of skills and matching courses
+• A narrative of next-step career recommendations
+• A 'Roles that might be right for you' list
+• A 'Path to your aspirational role' carousel
+Please combine these data points with the user’s quiz answers to generate a personalized career-advice report.`;
+
+            const payload = {
+              prompt,
+              Quizquestions: assessmentQuestions,
+              quizAnswers: quizAnswersPayload,
+              resumeText: resumeText || null,
+            };
+
+            try {
+              const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+              });
+
+              if (error) {
+                console.error("Error invoking evaluateCareerAdvice:", error);
+                const errMsg = "Failed to get career advice. Please try again later.";
+                setCareerAdviceReport(errMsg);
+                setMessages((prev) => [
+                  ...prev,
+                  { id: `bot_error_${Date.now()}`, sender: "bot", text: errMsg },
+                ]);
+                return;
+              }
+
+              const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+              setCareerAdviceReport(resultText);
+
+              const botMessageReport: Message = {
+                id: `bot_report_${Date.now()}`,
+                sender: "bot",
+                text: resultText,
+              };
+
+              setMessages((prev) => [...prev, botMessageReport]);
+            } catch (e) {
+              console.error("Error during career advice evaluation:", e);
+            }
+          })();
         }
       }, 1200);
     } else if (questionIndex === assessmentQuestions.length) {
@@ -441,7 +503,6 @@ const CareerAgent: React.FC = () => {
     setReactingMessageId(null);
   };
 
-  // Determine if quick replies are to be shown only below third starter message
   const showQuickRepliesAtCorrectPlace = () => {
     if (!showQuickReplies) return false;
     const botThirdMsg = messages.find((m) => m.text === starterMessages[2] && m.sender === "bot");
@@ -492,7 +553,6 @@ const CareerAgent: React.FC = () => {
                 }
               }}
             >
-              {/* Coach avatar on left for first bot message */}
               {isBot && idx === firstBotIndex && (
                 <div
                   className="w-9 h-9 rounded-full mr-3 flex items-center justify-center bg-amber-100 select-none text-amber-600 font-semibold text-sm"
@@ -504,17 +564,14 @@ const CareerAgent: React.FC = () => {
                     className="w-full h-full rounded-full object-cover"
                     draggable={false}
                     onError={(e) => {
-                      // fallback to initials if image fails
                       const target = e.currentTarget as HTMLImageElement;
                       target.style.display = "none";
                     }}
                   />
-                  {/* If image fails, fallback to initials IC */}
                   <span className="sr-only">IC</span>
                 </div>
               )}
 
-              {/* User avatar on right for user messages */}
               {isUser && (
                 <div
                   className="w-9 h-9 rounded-full ml-3 flex items-center justify-center bg-gray-300 select-none text-gray-700 font-semibold text-sm"
@@ -605,7 +662,6 @@ const CareerAgent: React.FC = () => {
         </div>
       )}
 
-      {/* Persistent chat input bar always visible at the bottom */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -634,7 +690,6 @@ const CareerAgent: React.FC = () => {
         </Button>
       </form>
 
-      {/* Resume upload step */}
       {!showQuickReplies && questionIndex === assessmentQuestions.length && (
         <div className="flex flex-col space-y-4 mt-4">
           <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
@@ -655,7 +710,6 @@ const CareerAgent: React.FC = () => {
         </div>
       )}
 
-      {/* After final submit (career recommendations) show Next button */}
       {!showQuickReplies && questionIndex > assessmentQuestions.length && (
         <div className="flex justify-end mt-4">
           <Button onClick={() => void handleSubmit()} disabled={isTyping}>
@@ -663,9 +717,14 @@ const CareerAgent: React.FC = () => {
           </Button>
         </div>
       )}
+
+      {careerAdviceReport && (
+        <div className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full whitespace-pre-wrap text-gray-900 text-sm">
+          {careerAdviceReport}
+        </div>
+      )}
     </div>
   );
 };
 
 export default CareerAgent;
-
