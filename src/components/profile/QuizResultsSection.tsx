@@ -14,25 +14,29 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
 
   return (
     <div className="space-y-4">
-      {quizQuestions.map((question, idx) => (
+      {quizQuestions.map((question) => (
         <div key={question.id} className="space-y-1">
           <label htmlFor={`question-${question.id}`} className="block font-medium text-gray-700">
-            {question.question}
+            {question.text}
           </label>
-          {question.type === 'multiple-choice' && (
+          {question.type === 'multiple-choice' && question.options && (
             <select
               id={`question-${question.id}`}
               value={quizAnswers[question.id] || ''}
               onChange={(e) => handleAnswerChange(question.id, e.target.value)}
               className="mt-1 block w-full rounded-md border border-gray-300 bg-white py-2 px-3 shadow-sm focus:border-primary focus:outline-none focus:ring-primary sm:text-sm"
             >
-              <option value="" disabled>Select an option</option>
-              {question.options?.map(option => (
-                <option key={option} value={option}>{option}</option>
+              <option value="" disabled>
+                Select an option
+              </option>
+              {question.options.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.text}
+                </option>
               ))}
             </select>
           )}
-          {question.type === 'text' && (
+          {question.type === 'scale' && (
             <textarea
               id={`question-${question.id}`}
               value={quizAnswers[question.id] || ''}
