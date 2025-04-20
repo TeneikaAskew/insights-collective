@@ -154,13 +154,13 @@ async function processBatchQueue() {
   try {
     while (globalThis.bulletBatchQueue.length > 0) {
       // Wait for a batch to accumulate or process what we have after a timeout
-      if (globalThis.bulletBatchQueue.length < 5) {
+      if (globalThis.bulletBatchQueue.length < 15) {
         // Wait a bit to see if more bullets arrive to form a complete batch
         await new Promise(resolve => setTimeout(resolve, 500));
       }
       
       // Process current batch (up to 5 bullets)
-      const batchSize = Math.min(5, globalThis.bulletBatchQueue.length);
+      const batchSize = Math.min(15, globalThis.bulletBatchQueue.length);
       if (batchSize === 0) break; // No bullets to process
       
       // Get the next batch of bullets
@@ -348,7 +348,7 @@ async function fetchWithRetry(
 /**
  * Batch‐size configurable via BULLET_BATCH_SIZE env var.
  */
-const DEFAULT_BATCH_SIZE = 5;
+const DEFAULT_BATCH_SIZE = 15;
 function getBatchSize(): number {
   const val = Deno.env.get('BULLET_BATCH_SIZE');
   const n = val ? parseInt(val, 10) : DEFAULT_BATCH_SIZE;
