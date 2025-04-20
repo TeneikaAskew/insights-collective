@@ -346,13 +346,8 @@ serve(async (req) => {
     // Priority 1: Sentence detection
     if (path === 'detect-sentences') {
       console.log("Executing: Sentence detection");
-      const sentenceDetectorResponse = new Request(req.url, {
-        method: req.method,
-        headers: req.headers
-      });
-      
-      const sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(sentenceDetectorResponse);
-      
+      // Use the sentence detector directly
+      const sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(req);
       // Return the detected sentences to the client
       return sentenceResponse;
     } 
@@ -371,15 +366,19 @@ serve(async (req) => {
     else if (path === 'analyze' || path === 'resume-analyzer' || !path) {
       console.log("Executing: Resume analysis");
       
-      // First get sentence data
+      // We use the existing sentenceResponse if we're coming from the detect-sentences route
       let sentenceResponse = null;
       if (resolvedText) {
-        const sentenceDetectorRequest = new Request(req.url, {
-          method: req.method,
-          headers: req.headers
-        });
-        
-        sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(sentenceDetectorRequest);
+        // Pass the actual request to the sentence detector to get the sentenceResponse
+        // This is just to get the sentences - we're not returning this response to the client
+        // We're reusing the existing sentence detector logic
+        sentenceResponse = await serveSentenceDetector(resolvedText, resolvedUserId)(
+          new Request(new URL('/detect-sentences', req.url), {
+            method: 'POST',
+            headers: req.headers,
+            body: JSON.stringify({ text: resolvedText, userId: resolvedUserId })
+          })
+        );
         console.log("Sentences detected for analysis");
       }
       
@@ -393,17 +392,6 @@ serve(async (req) => {
         }
       });
     }
-
-    // // Priority 4 (LAST): Bullet improvement
-    // else if (path === 'improve-bullet') {
-    //   console.log("Executing: Bullet improvement");
-    //   return await serveBulletImprover()(new Request(req.url, {
-    //     method: req.method,
-    //     headers: req.headers,
-    //     body: JSON.stringify(requestData)
-    //   }));
-    // }
-    // No matching handler
     // No matching handler
     else {
       console.log("No matching handler for path:", path);
@@ -433,7 +421,6 @@ serve(async (req) => {
     });
   }
 });
-
 
 // serve(async (req) => {
 //   // Handle CORS preflight requests
