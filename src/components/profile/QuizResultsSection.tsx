@@ -248,7 +248,7 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
             </Button>
             <Button 
               size="sm"
-              onClick={() => initiateCareerCoachChat(getDefaultAnswers(), getDefaultScores())} 
+              onClick={() => initiateCareerCoach(getDefaultAnswers(), getDefaultScores())} 
             >
               Chat with Career Coach
             </Button>
@@ -272,3 +272,4 @@ const QuizResultsSection: React.FC<QuizResultsSectionProps> = ({ quizAnswers, se
 };
 
 export default QuizResultsSection;
+
