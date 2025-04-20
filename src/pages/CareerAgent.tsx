@@ -105,6 +105,8 @@ const dummyCareers: string[] = [
 
 const avatarUrl = "/placeholder.svg";
 
+const LOCAL_STORAGE_KEY = "careerPathwayChat";
+
 const CareerAgent: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
 
@@ -126,29 +128,76 @@ const CareerAgent: React.FC = () => {
     scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, isTyping]);
 
-  // On login, initiate session and bot starter messages once
+  // On mount - hydrate messages from localStorage
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (stored) {
+      try {
+        const parsedMessages: Message[] = JSON.parse(stored);
+        // Determine the appropriate questionIndex based on messages length or answers
+        setMessages(parsedMessages);
+        if (parsedMessages.length === 0) {
+          setQuestionIndex(0);
+          setShowQuickReplies(true);
+        } else {
+          // Question index set to last answered + 1 or at least 0
+          // We'll do a simple approach: look for last question answered in assessmentQuestions
+          // Map answers from parsedMessages
+          const answeredQuestions = parsedMessages
+            .filter((m) => m.sender === "user" && m.text)
+            .map((m) => m.text);
+          // Use the answers object or calculate index based on length of user answers
+          const userAnswersCount = parsedMessages.filter((m) => m.sender === "user" && m.text).length;
+          setQuestionIndex(Math.min(userAnswersCount, assessmentQuestions.length));
+          // Show quick replies only if questionIndex is 0 (start)
+          setShowQuickReplies(userAnswersCount === 0);
+        }
+      } catch {
+        // invalid json fallback
+        initializeIntroMessages();
+      }
+    } else {
+      initializeIntroMessages();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // On login, initiate sessionId if none
   useEffect(() => {
     if (isAuthenticated && !sessionId) {
-      const newSessionId = uuidv4();
-      setSessionId(newSessionId);
-
-      (async () => {
-        setIsTyping(true);
-
-        // Push the 3 starter messages one by one with delay & typing animation
-        for (let i = 0; i < starterMessages.length; i++) {
-          await new Promise((resolve) => setTimeout(resolve, 600)); // typing pause
-          setMessages((prev) => [
-            ...prev,
-            { id: `bot_starter_${i}`, sender: "bot", text: starterMessages[i] },
-          ]);
-        }
-        setIsTyping(false);
-        setShowQuickReplies(true);
-        setQuestionIndex(0); // start questions from first question
-      })();
+      setSessionId(uuidv4());
     }
   }, [isAuthenticated, sessionId]);
+
+  // Persist messages to localStorage on every messages update
+  useEffect(() => {
+    if (messages.length === 0) return;
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  // Add starter messages only once if not present in messages
+  const initializeIntroMessages = () => {
+    setMessages((prev) => {
+      // Check if starter messages are already in messages
+      const hasAllStarters = starterMessages.every((starter) =>
+        prev.some((msg) => msg.text === starter && msg.sender === "bot")
+      );
+      if (hasAllStarters) return prev;
+
+      // Add only missing starter messages in order
+      const newStarters = starterMessages
+        .filter((starter) => !prev.some((msg) => msg.text === starter && msg.sender === "bot"))
+        .map((text, index) => ({
+          id: `bot_starter_${index}`,
+          sender: "bot" as SenderType,
+          text,
+        }));
+
+      return [...prev, ...newStarters];
+    });
+    setShowQuickReplies(true);
+    setQuestionIndex(0);
+  };
 
   if (!isAuthenticated) {
     return (
@@ -211,7 +260,7 @@ const CareerAgent: React.FC = () => {
   const handleSubmit = async () => {
     if (isTyping) return;
 
-    if (questionIndex >= 1 && questionIndex < assessmentQuestions.length) {
+    if (questionIndex >= 0 && questionIndex < assessmentQuestions.length) {
       if (!inputValue.trim()) return;
 
       const userMessage: Message = {
@@ -324,7 +373,7 @@ const CareerAgent: React.FC = () => {
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      if (questionIndex >= 0 && questionIndex < assessmentQuestions.length) {
+      if (questionIndex >= 0 && questionIndex <= assessmentQuestions.length) {
         if (inputValue.trim()) {
           void handleSubmit();
         }
@@ -348,6 +397,15 @@ const CareerAgent: React.FC = () => {
   const handleEmojiClick = (msgId: string, emoji: string) => {
     alert(`You reacted to message ${msgId} with ${emoji}`);
     setReactingMessageId(null);
+  };
+
+  // Determine if quick replies are to be shown only below third starter message
+  const showQuickRepliesAtCorrectPlace = () => {
+    // Only render quick replies if showQuickReplies is true and third intro message rendered
+    // Also, don't show after user completed questions.
+    if (!showQuickReplies) return false;
+    const botThirdMsg = messages.find((m) => m.text === starterMessages[2] && m.sender === "bot");
+    return !!botThirdMsg;
   };
 
   return (
@@ -438,7 +496,7 @@ const CareerAgent: React.FC = () => {
       </div>
 
       {/* Show quick reply buttons only after last starter message */}
-      {showQuickReplies && (
+      {showQuickRepliesAtCorrectPlace() && (
         <div className="flex flex-col space-y-3 mb-4">
           {quickReplies.map((reply, idx) => (
             <button
@@ -453,7 +511,7 @@ const CareerAgent: React.FC = () => {
         </div>
       )}
 
-      {/* Persistent chat input bar always visible */}
+      {/* Persistent chat input bar always visible at the bottom */}
       <form
         onSubmit={(e) => {
           e.preventDefault();
