@@ -93,10 +93,10 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
   console.log('Provided text:', text.length, 'characters');
 
   // Initialize bulletPoints from passed-in sentences
-  // let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
-  // if (bulletPoints.length) {
-  //   console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
-  // }
+  let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
+  if (bulletPoints.length) {
+    console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
+  }
 
   let bulletPoints = []
 
