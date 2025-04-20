@@ -161,18 +161,39 @@ async function analyzeResume(resumeText, userId) {
     
     // Bullets
     let bulletPoints = [];
-    if (userId && bulletCache.has(`user:${userId}:bullets`)) {
-      console.log('Using cached bullets for user:', userId);
-      bulletPoints = bulletCache.get(`user:${userId}:bullets`);
+    if (userId) {
+      console.log('Checking for saved bullets for user:', userId);
+      const { data, error } = await supabase
+        .from('resumes')
+        .select('sentences')
+        .eq('user_id', userId)
+        .order('uploaded_at', { ascending: false })  // Order by upload date, newest first
+        .limit(1)  // Only get the most recent record
+        .maybeSingle();
+    
+      if (!error && data?.sentences && data.sentences.length > 0) {
+        console.log(`Found ${data.sentences.length} sentences in database for userId=${userId}`);
+        bulletPoints = data.sentences;
+      } else {
+        console.log('No sentences found in database, extracting from text');
+        bulletPoints = await extractBulletPoints(text);
+        console.log('[Roast]: Bullet Points Extracted:', bulletPoints.length);
+        if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
+        if (bulletPoints.length > 0 && userId) {
+          // Save to database
+          await supabase.from('resumes').update({
+            sentences: bulletPoints,
+            sentences_updated_at: new Date().toISOString()
+          }).eq('user_id', userId);
+          console.log(`Saved ${bulletPoints.length} sentences to database for userId=${userId}`);
+        }
+      }
     } else {
       bulletPoints = await extractBulletPoints(text);
       console.log('[Roast]: Bullet Points Extracted:', bulletPoints.length);
       if (bulletPoints.length === 0) bulletPoints = fallbackExtractBullets(text);
-      if (bulletPoints.length > 0 && userId) {
-        bulletCache.set(`user:${userId}:bullets`, bulletPoints);
-      }
     }
-    console.log("1")
+    
     if (bulletPoints.length === 0) {
       return {
         bullets: [],
