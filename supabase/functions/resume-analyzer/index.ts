@@ -297,7 +297,7 @@ export async function bulletImprover(userId) {
     const result = await supabase
       .from('resumes')
       .update({ 
-        improved_bullets: enhancedBullets,
+        enhanced_analysis: enhancedBullets,
         updated_at: new Date().toISOString() 
       })
       .eq('user_id', userId);
