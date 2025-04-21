@@ -175,11 +175,16 @@ async function callGroqAPI(prompt: string): Promise<any> {
   // Example using fetch:
   
   try {
+
+    const GROQ_API_KEY = Deno.env.get('GROQ');
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ API key not found in environment');
+    }
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+        'Authorization': `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
         model: 'llama3-8b-8192',
