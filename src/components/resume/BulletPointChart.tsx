@@ -1,10 +1,13 @@
+
 import React from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { BulletDonutChart, DistributionBar } from './chart/ChartComponents';
 import { prepareBulletChartData, BULLET_CATEGORIES } from './chart/BulletChartData';
+
 interface BulletPointChartProps {
   bullet: BulletAnalysis;
 }
+
 const BulletPointChart: React.FC<BulletPointChartProps> = ({
   bullet
 }) => {
@@ -16,7 +19,9 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
     dataWithPercent,
     bullet_total
   } = prepareBulletChartData(bullet);
-  return <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
+
+  return (
+    <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
       <style>{`
         :root {
           --color-hard-soft: #1E40AF; /* Primary blue for Hard & Soft Skills */
@@ -36,15 +41,22 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
             <h3 className="text-md font-semibold">Distribution</h3>
             <div className="flex items-center space-x-8">
               <span className="text-sm font-medium">Score</span>
-              <span className="text-sm font-medium">Goal</span>
+              {/* Removed Goal column */}
             </div>
           </div>
           
           <div className="space-y-4">
-            {dataWithPercent.map((item, index) => <DistributionBar key={`distribution-${item.name}-${index}`} item={item} />)}
+            {dataWithPercent.map((item, index) => (
+              <DistributionBar 
+                key={`distribution-${item.name}-${index}`} 
+                item={item} 
+              />
+            ))}
           </div>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default BulletPointChart;
