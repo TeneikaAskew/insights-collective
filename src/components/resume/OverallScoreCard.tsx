@@ -41,6 +41,8 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
             .order('uploaded_at', { ascending: false })
             .limit(1)
             .maybeSingle();
+
+          console.log("Roast data", data)
             
           if (!error && data?.initial_assessment) {
             setHasRoast(true);
