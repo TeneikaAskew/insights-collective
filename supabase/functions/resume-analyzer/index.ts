@@ -185,14 +185,21 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
 
 
     // Recommended change
-    const maxRealisticScore = 35; // A more realistic "excellent" score
-    const rawPercent = (avg / maxRealisticScore) * 100;
-    
-    // Option 1: Simple linear adjustment with no floor
-    // const percent = Math.min(rawPercent, 100);
-    
-    // Option 2: Sigmoid curve (creates better differentiation in middle range)
-    const percent = 100 / (1 + Math.exp(-0.15 * (avg - 17.5)));
+    // Sort bullets by score (highest first)
+      const sortedBullets = analyzed.sort((a, b) => b.bullet_total - a.bullet_total);
+      
+      // Calculate weighted average (giving more weight to top bullets)
+      const weightedScores = sortedBullets.map((bullet, index) => {
+        // Apply descending weights: 1.5, 1.4, 1.3, etc.
+        const weight = Math.max(1.5 - (index * 0.1), 1.0);
+        return bullet.bullet_total * weight;
+      });
+      
+      const weightedTotal = weightedScores.reduce((sum, score) => sum + score, 0);
+      const weightedAverage = weightedTotal / weightedScores.length;
+      
+      // Convert to percentage (60% baseline + up to 40% from performance)
+      const percent = 60 + (weightedAverage / 45 * 40);
 
 
     
