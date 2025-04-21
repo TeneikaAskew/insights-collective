@@ -140,38 +140,88 @@ export function analyzeWordBalance(bullet: string): {
     word_balance_score
   };
 }
-
-// XYZ ATS Quality Check
+// XYZ ATS Quality Check - Enhanced version
 export function xyzCheck(bullet: string): {
-  hard_soft: number;
-  action_words: number;
-  measurable_results: number;
-  clarity_focus: number;
-  xyz_total: number;
+  action: number,
+  metrics: number,
+  clarity: number,
+  industry: number,
+  achievement: number,
+  xyz_total: number
 } {
-  const hasSkills = skillsKeywords.some(keyword => bullet.toLowerCase().includes(keyword));
-  const hard_soft = hasSkills ? 5 : 0;
+  const words = bullet.split(/\s+/);
+  const wordCount = words.length;
   
+  // Action word at beginning check
   const actionRegex = new RegExp(`^(${actionWords.map(w => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`,'i');
   const startsWithAction = actionRegex.test(bullet);
-  const weakRegex = new RegExp(`\\b(${weakPhrases.map(phrase => phrase.replace(/[-/\\^$*+?.()|[\\]{}]/g, '\\$&')).join('|')})\\b`,'i');
-  const noWeakPhrasing = !weakRegex.test(bullet);
-  const action_words = (startsWithAction && noWeakPhrasing) ? 5 : (startsWithAction || noWeakPhrasing ? 3 : 0);
+  const action = startsWithAction ? 10 : 0;
   
-  const hasNumbers = /\d+%|\d+x|\$\d+|\d+ percent|\d+k|\d+M|\d+B/i.test(bullet);
-  const measurable_results = hasNumbers ? 5 : 0;
+  // Metrics/quantifiable results check
+  const hasMetrics = /\d+%|\d+x|\$\d+|\d+ percent|\d+k|\d+M|\d+B/i.test(bullet);
+  const hasPartialMetrics = /\d+/.test(bullet);
+  const metrics = hasMetrics ? 30 : (hasPartialMetrics ? 15 : 0);
   
-  const wordCount = bullet.split(/\s+/).length;
-  const isConcise = wordCount <= 25;
-  const clarity_focus = isConcise ? 5 : (wordCount <= 30 ? 3 : 0);
+  // Clarity and conciseness check
+  const clarity = wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5);
   
-  const xyz_total = hard_soft + action_words + measurable_results + clarity_focus;
+  // Industry relevance check
+  const industryKeywords = industryWords.filter(keyword => 
+    bullet.toLowerCase().includes(keyword.toLowerCase())
+  );
+  const industryKeywordCount = industryKeywords.length;
+  const industry = industryKeywordCount >= 3 ? 25 : (industryKeywordCount >= 1 ? 15 : 0);
+  
+  // Achievement-focused vs duty-focused check
+  const weakRegex = new RegExp(`\\b(${weakPhrases.map(phrase => phrase.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`,'i');
+  const hasWeakPhrasing = weakRegex.test(bullet);
+  const achievementKeywords = ["achieved", "improved", "increased", "reduced", "led", "created", "developed"];
+  const hasAchievementLanguage = achievementKeywords.some(keyword => bullet.toLowerCase().includes(keyword));
+  const achievement = hasAchievementLanguage ? 20 : (hasWeakPhrasing ? 0 : 10);
+  
+  // Calculate total score (max 100 points)
+  const xyz_total = action + metrics + clarity + industry + achievement;
   
   return {
-    hard_soft,
-    action_words,
-    measurable_results,
-    clarity_focus,
+    action,
+    metrics,
+    clarity,
+    industry,
+    achievement,
     xyz_total
   };
 }
+// XYZ ATS Quality Check
+// export function xyzCheck(bullet: string): {
+//   hard_soft: number;
+//   action_words: number;
+//   measurable_results: number;
+//   clarity_focus: number;
+//   xyz_total: number;
+// } {
+//   const hasSkills = skillsKeywords.some(keyword => bullet.toLowerCase().includes(keyword));
+//   const hard_soft = hasSkills ? 5 : 0;
+  
+//   const actionRegex = new RegExp(`^(${actionWords.map(w => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`,'i');
+//   const startsWithAction = actionRegex.test(bullet);
+//   const weakRegex = new RegExp(`\\b(${weakPhrases.map(phrase => phrase.replace(/[-/\\^$*+?.()|[\\]{}]/g, '\\$&')).join('|')})\\b`,'i');
+//   const noWeakPhrasing = !weakRegex.test(bullet);
+//   const action_words = (startsWithAction && noWeakPhrasing) ? 5 : (startsWithAction || noWeakPhrasing ? 3 : 0);
+  
+//   const hasNumbers = /\d+%|\d+x|\$\d+|\d+ percent|\d+k|\d+M|\d+B/i.test(bullet);
+//   const measurable_results = hasNumbers ? 5 : 0;
+  
+//   const wordCount = bullet.split(/\s+/).length;
+//   const isConcise = wordCount <= 25;
+//   const clarity_focus = isConcise ? 5 : (wordCount <= 30 ? 3 : 0);
+  
+//   const xyz_total = hard_soft + action_words + measurable_results + clarity_focus;
+  
+//   return {
+//     hard_soft,
+//     action_words,
+//     measurable_results,
+//     clarity_focus,
+//     xyz_total
+//   };
+// }
