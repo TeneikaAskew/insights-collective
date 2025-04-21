@@ -20,6 +20,45 @@ interface OverallScoreCardProps {
   userId?: string; // Add userId to check for initial_assessment
 }
 
+// Add this state to your Resume component
+const [hasInitialAssessment, setHasInitialAssessment] = useState(false);
+
+// Add this effect to check for initial_assessment
+useEffect(() => {
+  if (user && resume?.id) {
+    logDebug('InitialAssessment', `Checking for initial assessment for resumeId: ${resume.id} and userId: ${user.id}`);
+    
+    const checkForInitialAssessment = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('initial_assessment')
+          .eq('id', resume.id)
+          .maybeSingle();
+        
+        logDebug('InitialAssessment', 'Query result:', { data, error, hasInitialAssessment: !!data?.initial_assessment });
+          
+        if (!error && data?.initial_assessment) {
+          logDebug('InitialAssessment', 'Found initial assessment data, setting hasInitialAssessment to true');
+          setHasInitialAssessment(true);
+        } else {
+          logDebug('InitialAssessment', 'No initial assessment found or error occurred');
+        }
+      } catch (error) {
+        logDebug('InitialAssessment', 'Error checking for initial assessment:', error);
+      }
+    };
+    
+    checkForInitialAssessment();
+  } else {
+    logDebug('InitialAssessment', 'Missing user or resumeId, cannot check for initial assessment', { 
+      hasUser: !!user, 
+      hasResumeId: !!resume?.id 
+    });
+  }
+}, [user, resume?.id]);
+
+
 const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   letterGrade,
   resumePercent,
