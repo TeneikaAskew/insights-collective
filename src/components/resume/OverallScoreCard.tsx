@@ -71,7 +71,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     
     const flashInterval = setInterval(() => {
       setIsFlashing(prev => !prev);
-    }, 1500); // Toggle every 1.5 seconds
+    }, 1000); // Toggle every 1.5 seconds
     
     return () => clearInterval(flashInterval);
   }, [hasAnalysis]);
