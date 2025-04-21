@@ -164,7 +164,11 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       try {
         const wb = analyzeWordBalance(bullet);
         const xyz = xyzCheck(bullet);
-        const total = wb.word_balance_score + xyz.xyz_total;
+        // const total = wb.word_balance_score + xyz.xyz_total;
+
+        // Use the new xyz_total directly instead of adding it to word_balance_score
+        const total = xyz.xyz_total; // Now on a 0-100 scale
+        
         // const rewritten = await rewriteBullet(bullet, { xyz_scores: xyz });
         // const tips = await generateTips(bullet, { xyz_scores: xyz, word_balance_score: wb.word_balance_score });
         // return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total, rewritten, tips };
