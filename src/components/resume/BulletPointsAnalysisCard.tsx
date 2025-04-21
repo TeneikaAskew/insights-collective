@@ -252,6 +252,94 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                 {getRewrittenText()}
               </div>
             )}
+          </div>
+        </div>
+        
+        {/* Suggested Improved Bullet Analysis Visualization */}
+        {showImprovements && displayBullet?.rewritten && displayBullet.rewritten !== displayBullet.original && (
+          <div className="mt-6 border-t pt-4">
+            {/* Improved bullet text display */}
+            <div className="text-center mb-4">
+              <div className="text-lg">
+                <HighlightedBulletText text={displayBullet?.rewritten || ''} />
+              </div>
+            </div>
+            
+            {/* We're reusing the BulletPointChart component for the improved version */}
+            <BulletPointChart bullet={{
+              ...displayBullet,
+              original: displayBullet.rewritten,
+              // For this example, we're creating an improved version with better scores
+              bullet_total: Math.min(45, displayBullet.bullet_total + 10),
+              xyz_scores: {
+                hard_soft: Math.min(5, displayBullet.xyz_scores.hard_soft + 1),
+                action_words: Math.min(5, displayBullet.xyz_scores.action_words + 1),
+                measurable_results: Math.min(5, displayBullet.xyz_scores.measurable_results + 1),
+                clarity_focus: Math.min(5, displayBullet.xyz_scores.clarity_focus + 1)
+              },
+              word_balance_score: Math.min(25, displayBullet.word_balance_score + 5),
+              word_balance: {
+                industry_pct: Math.min(45, displayBullet.word_balance.industry_pct + 5),
+                common_pct: Math.max(25, displayBullet.word_balance.common_pct - 2),
+                action_pct: Math.min(15, displayBullet.word_balance.action_pct + 2),
+                metric_pct: Math.min(15, displayBullet.word_balance.metric_pct + 2)
+              }
+            }} />
+          </div>
+        )}
+        
+        {/* Score Breakdown section */}
+        <div className="mt-6 border-t pt-4">
+          <h4 className="text-lg font-semibold mb-4">Score Breakdown:</h4>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h5 className="font-medium text-sm mb-2">Word Balance ({displayBullet?.word_balance_score || 0}/25)</h5>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span>Industry:</span>
+                  <span className="font-medium">{displayBullet?.word_balance?.industry_pct || 0}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Common:</span>
+                  <span className="font-medium">{displayBullet?.word_balance?.common_pct || 0}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Action:</span>
+                  <span className="font-medium">{displayBullet?.word_balance?.action_pct || 0}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Metric:</span>
+                  <span className="font-medium">{displayBullet?.word_balance?.metric_pct || 0}%</span>
+                </div>
+              </div>
+            </div>
+            
+            <div>
+              <h5 className="font-medium text-sm mb-2">XYZ Quality ({(displayBullet?.xyz_scores?.hard_soft || 0) + (displayBullet?.xyz_scores?.action_words || 0) + (displayBullet?.xyz_scores?.measurable_results || 0) + (displayBullet?.xyz_scores?.clarity_focus || 0)}/20)</h5>
+              <div className="space-y-2">
+                <ScoreWithIcon score={displayBullet?.xyz_scores?.hard_soft || 0} maxScore={5} label="Hard/Soft Skills" />
+                <ScoreWithIcon score={displayBullet?.xyz_scores?.action_words || 0} maxScore={5} label="Action Words" />
+                <ScoreWithIcon score={displayBullet?.xyz_scores?.measurable_results || 0} maxScore={5} label="Measurable Results" />
+                <ScoreWithIcon score={displayBullet?.xyz_scores?.clarity_focus || 0} maxScore={5} label="Clarity & Focus" />
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Improvement Tips */}
+        <div className="mt-6 border-t pt-4">
+          <h4 className="text-md font-semibold mb-2">Improvement Tips:</h4>
+          <p className="text-md text-slate-700">
+            {getTips()}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default BulletPointsAnalysisCard;
 
 // import React, { useState } from 'react';
 // import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
