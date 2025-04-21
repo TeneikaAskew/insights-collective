@@ -31,6 +31,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   // Check if initial_assessment exists for this user
   useEffect(() => {
     if (userId) {
+      console.log("Checking if roast exists yet for: ", userId)
       const checkForRoast = async () => {
         try {
           const { data, error } = await supabase
@@ -55,6 +56,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   
   // Setup flashing effect with interval, but only if we have a roast
   useEffect(() => {
+    console.log("Does the roast exist? ", hasRoast)
     if (!hasRoast) return;
     
     const flashInterval = setInterval(() => {
