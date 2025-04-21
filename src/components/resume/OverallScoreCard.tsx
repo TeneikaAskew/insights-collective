@@ -34,8 +34,9 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   
   // Check if initial_assessment exists for this user
   useEffect(() => {
+    console.log("Checking if roast exists yet for: ", userId)
     if (userId) {
-      console.log("Checking if roast exists yet for: ", userId)
+      
       const checkForRoast = async () => {
         try {
           const { data, error } = await supabase
