@@ -756,6 +756,7 @@ const Resume = () => {
             resume={resume}
             handleStartCareerChat={handleStartCareerChat}
             handleFileChange={handleFileChange}
+            hasAnalysis={!!analysis} 
           />
         </div>
 

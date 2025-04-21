@@ -17,47 +17,8 @@ interface OverallScoreCardProps {
   themes: string[];
   explanation: string;
   onStartCareerChat: () => void;
-  userId?: string; // Add userId to check for initial_assessment
+  hasAnalysis=boolean;
 }
-
-// Add this state to your Resume component
-const [hasInitialAssessment, setHasInitialAssessment] = useState(false);
-
-// Add this effect to check for initial_assessment
-useEffect(() => {
-  if (user && resume?.id) {
-    logDebug('InitialAssessment', `Checking for initial assessment for resumeId: ${resume.id} and userId: ${user.id}`);
-    
-    const checkForInitialAssessment = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('resumes')
-          .select('initial_assessment')
-          .eq('id', resume.id)
-          .maybeSingle();
-        
-        logDebug('InitialAssessment', 'Query result:', { data, error, hasInitialAssessment: !!data?.initial_assessment });
-          
-        if (!error && data?.initial_assessment) {
-          logDebug('InitialAssessment', 'Found initial assessment data, setting hasInitialAssessment to true');
-          setHasInitialAssessment(true);
-        } else {
-          logDebug('InitialAssessment', 'No initial assessment found or error occurred');
-        }
-      } catch (error) {
-        logDebug('InitialAssessment', 'Error checking for initial assessment:', error);
-      }
-    };
-    
-    checkForInitialAssessment();
-  } else {
-    logDebug('InitialAssessment', 'Missing user or resumeId, cannot check for initial assessment', { 
-      hasUser: !!user, 
-      hasResumeId: !!resume?.id 
-    });
-  }
-}, [user, resume?.id]);
-
 
 const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   letterGrade,
@@ -66,51 +27,51 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   themes,
   explanation,
   onStartCareerChat,
-  userId
+  hasAnalysis = false
 }) => {
   const [isFlashing, setIsFlashing] = useState(false);
   const [hasRoast, setHasRoast] = useState(false);
   
-  // Check if initial_assessment exists for this user
-  useEffect(() => {
-    console.log("Checking if roast exists yet for: ", userId)
-    if (userId) {
+  // // Check if initial_assessment exists for this user
+  // useEffect(() => {
+  //   console.log("Checking if roast exists yet for: ", userId)
+  //   if (userId) {
       
-      const checkForRoast = async () => {
-        try {
-          const { data, error } = await supabase
-            .from('resumes')
-            .select('initial_assessment')
-            .eq('user_id', userId)
-            .order('uploaded_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
+  //     const checkForRoast = async () => {
+  //       try {
+  //         const { data, error } = await supabase
+  //           .from('resumes')
+  //           .select('initial_assessment')
+  //           .eq('user_id', userId)
+  //           .order('uploaded_at', { ascending: false })
+  //           .limit(1)
+  //           .maybeSingle();
 
-          console.log("user: ", userId, " - Roast data", data)
+  //         console.log("user: ", userId, " - Roast data", data)
             
-          if (!error && data?.initial_assessment) {
-            setHasRoast(true);
-          }
-        } catch (error) {
-          console.error("Error checking for roast:", error);
-        }
-      };
+  //         if (!error && data?.initial_assessment) {
+  //           setHasRoast(true);
+  //         }
+  //       } catch (error) {
+  //         console.error("Error checking for roast:", error);
+  //       }
+  //     };
       
-      checkForRoast();
-    }
-  }, [userId]);
+  //     checkForRoast();
+  //   }
+  // }, [userId]);
   
   // Setup flashing effect with interval, but only if we have a roast
   useEffect(() => {
-    console.log("Does the roast exist? ", hasRoast)
-    if (!hasRoast) return;
+    console.log("Does the roast exist? ",  hasAnalysis)
+    if (!hasAnalysis) return;
     
     const flashInterval = setInterval(() => {
       setIsFlashing(prev => !prev);
     }, 1500); // Toggle every 1.5 seconds
     
     return () => clearInterval(flashInterval);
-  }, [hasRoast]);
+  }, [hasAnalysis]);
   
   const getLetterGradeColor = (grade: string) => {
     switch (grade) {
