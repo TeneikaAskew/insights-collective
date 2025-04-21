@@ -756,6 +756,8 @@ const Resume = () => {
             resume={resume}
             handleStartCareerChat={handleStartCareerChat}
             handleFileChange={handleFileChange}
+            hasInitialAssessment={hasInitialAssessment} // Add this prop
+            userId={user?.id} // Add user ID directly
           />
         </div>
 
