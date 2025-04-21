@@ -115,7 +115,7 @@ export const DistributionBar: React.FC<{
           </span>
           {/* Show Goal label instead of Target */}
           <span className="text-gray-500">
-            {item.target}% (±5%)
+            {item.target}%
           </span>
         </div>
       </div>
