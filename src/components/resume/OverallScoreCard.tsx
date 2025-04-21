@@ -42,7 +42,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
             .limit(1)
             .maybeSingle();
 
-          console.log("Roast data", data)
+          console.log("user: ", userId, " - Roast data", data)
             
           if (!error && data?.initial_assessment) {
             setHasRoast(true);
