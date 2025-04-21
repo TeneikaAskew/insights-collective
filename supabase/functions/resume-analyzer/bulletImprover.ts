@@ -4,7 +4,7 @@ console.log("Bullet Extractor Endpoint hit")
 
 export const config = {
   MAX_BATCHES_TO_PROCESS: 1,
-  DEFAULT_BATCH_SIZE: 7,
+  DEFAULT_BATCH_SIZE: 5,
   MAX_RETRIES: 5,
   RATE_LIMIT_DELAY_MS: 2000,
   RATE_LIMIT_JITTER_MS: 500
