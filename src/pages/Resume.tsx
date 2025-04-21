@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -46,16 +46,24 @@ const Resume = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [enhancedBullets, setEnhancedBullets] = useState([]);
   const [isLoadingEnhancedBullets, setIsLoadingEnhancedBullets] = useState(false);
-  const [subscriptionEstablished, setSubscriptionEstablished] = useState(false);
+  const subscriptionRef = useRef(null);
+  const currentResumeIdRef = useRef(null);
+  const hasLoadedEnhancedRef = useRef(false);
 
-  // Subscribe to changes in the resumes table for enhanced_analysis updates
+  // Set up and clean up real-time subscription
   useEffect(() => {
-    if (!user || subscriptionEstablished) return;
+    if (!user || !resume || subscriptionRef.current) return;
 
-    // Set up real-time subscription
-    const subscription = supabase
+    // Store the current resume ID to filter updates
+    if (resume.id) {
+      currentResumeIdRef.current = resume.id;
+    }
+
+    console.log("Setting up subscription for user", user.id, "and resume", currentResumeIdRef.current);
+
+    // Set up real-time subscription with proper filters
+    const channel = supabase
       .channel('enhanced-analysis-changes')
       .on(
         'postgres_changes',
@@ -66,43 +74,50 @@ const Resume = () => {
           filter: `user_id=eq.${user.id}`
         },
         (payload) => {
-          console.log('Enhanced analysis update received:', payload);
+          console.log('Received update event:', payload);
+          
+          // If we have a current resume ID, check that we're processing the right resume
+          if (currentResumeIdRef.current && payload.new.id !== currentResumeIdRef.current) {
+            console.log('Ignoring update for different resume:', payload.new.id);
+            return;
+          }
+          
+          // Only process if enhanced_analysis has been updated
           if (payload.new && payload.new.enhanced_analysis) {
-            // Handle the updated data
+            console.log('Enhanced analysis update received');
             handleEnhancedAnalysisUpdate(payload.new.enhanced_analysis);
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
 
-    setSubscriptionEstablished(true);
+    subscriptionRef.current = channel;
 
     // Cleanup subscription on unmount
     return () => {
-      supabase.removeChannel(subscription);
-      setSubscriptionEstablished(false);
+      console.log("Cleaning up subscription");
+      if (subscriptionRef.current) {
+        supabase.removeChannel(subscriptionRef.current);
+        subscriptionRef.current = null;
+      }
     };
-  }, [user, subscriptionEstablished]);
+  }, [user, resume]);
 
   // Handle updates to enhanced_analysis
   const handleEnhancedAnalysisUpdate = (enhancedAnalysis) => {
-    if (!enhancedAnalysis) return;
+    if (!enhancedAnalysis || !analysis || hasLoadedEnhancedRef.current) return;
 
-    // Check if the enhanced analysis has rewritten bullets
-    if (enhancedAnalysis && Array.isArray(enhancedAnalysis)) {
-      setEnhancedBullets(enhancedAnalysis);
-
-      // If we have analysis data, update it with the enhanced bullets
-      if (analysis && analysis.bullets) {
-        // Create a mapping from original bullet to enhanced bullet
-        const enhancedMap = new Map();
-        enhancedAnalysis.forEach(bullet => {
-          enhancedMap.set(bullet.original, bullet);
-        });
-
+    console.log("Processing enhanced analysis update", enhancedAnalysis);
+    
+    try {
+      // Check if the enhanced analysis has rewritten bullets and is an array
+      if (Array.isArray(enhancedAnalysis) && enhancedAnalysis.length > 0) {
         // Update the analysis with enhanced bullets
         const updatedBullets = analysis.bullets.map(bullet => {
-          const enhanced = enhancedMap.get(bullet.original);
+          // Find matching enhanced bullet
+          const enhanced = enhancedAnalysis.find(item => item.original === bullet.original);
           if (enhanced) {
             return {
               ...bullet,
@@ -118,12 +133,16 @@ const Resume = () => {
           bullets: updatedBullets
         });
 
+        hasLoadedEnhancedRef.current = true;
+        
         toast({
           title: 'Resume Bullet Improvements Ready',
           description: 'Your resume bullets have been enhanced with AI improvements.',
           variant: 'default'
         });
       }
+    } catch (err) {
+      console.error("Error processing enhanced bullets:", err);
     }
 
     // Done loading enhanced bullets
@@ -156,6 +175,14 @@ const Resume = () => {
       try {
         setAnalysis(resume.analysis);
         setHasLoadedAnalysis(true);
+        
+        // If resume has an ID, store it
+        if (resume.id) {
+          currentResumeIdRef.current = resume.id;
+        }
+        
+        // Reset enhanced bullets flag when loading a new analysis
+        hasLoadedEnhancedRef.current = false;
       } catch (err) {
         console.error("Error setting analysis from resume:", err);
       }
@@ -165,17 +192,16 @@ const Resume = () => {
   // Initial load of enhanced analysis
   useEffect(() => {
     const loadEnhancedAnalysis = async () => {
-      if (!user || !analysis) return;
+      if (!user || !analysis || !resume || !resume.id || hasLoadedEnhancedRef.current) return;
 
       try {
         setIsLoadingEnhancedBullets(true);
         
+        // Query specifically by resume ID to ensure we get the right one
         const { data, error } = await supabase
           .from('resumes')
           .select('enhanced_analysis')
-          .eq('user_id', user.id)
-          .order('uploaded_at', { ascending: false })
-          .limit(1)
+          .eq('id', resume.id)
           .maybeSingle();
 
         if (error) {
@@ -187,22 +213,9 @@ const Resume = () => {
         if (data?.enhanced_analysis) {
           handleEnhancedAnalysisUpdate(data.enhanced_analysis);
         } else {
-          // No enhanced analysis yet, check if there's a need to manually trigger it
-          const { data: resumeData, error: resumeError } = await supabase
-            .from('resumes')
-            .select('analysis')
-            .eq('user_id', user.id)
-            .order('uploaded_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (!resumeError && resumeData?.analysis) {
-            // Analysis exists but no enhanced bullets yet, keep the loading state
-            console.log("Analysis exists but enhanced bullets not yet generated. Waiting...");
-          } else {
-            // No analysis data either, stop loading
-            setIsLoadingEnhancedBullets(false);
-          }
+          // No enhanced analysis yet
+          console.log("No enhanced bullets yet for resume", resume.id);
+          setIsLoadingEnhancedBullets(false);
         }
       } catch (err) {
         console.error("Error loading enhanced analysis:", err);
@@ -211,7 +224,7 @@ const Resume = () => {
     };
 
     loadEnhancedAnalysis();
-  }, [user, analysis]);
+  }, [user, analysis, resume]);
 
   useEffect(() => {
     if (!resumeFile) {
@@ -261,6 +274,9 @@ const Resume = () => {
         if (success) {
           setHasLoadedAnalysis(true);
           setIsLoadingEnhancedBullets(true); // Start waiting for enhanced bullets
+          
+          // Reset enhanced bullets flag when loading a new analysis
+          hasLoadedEnhancedRef.current = false;
         }
       }).catch(err => {
         console.error("Error analyzing resume:", err);
@@ -274,6 +290,9 @@ const Resume = () => {
     if (file.type === 'application/pdf' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       setResumeFile(file);
       setHasLoadedAnalysis(false);
+      
+      // Reset enhanced bullets flag when uploading a new file
+      hasLoadedEnhancedRef.current = false;
     } else {
       toast({
         title: 'Invalid type',
@@ -294,9 +313,18 @@ const Resume = () => {
     }
     setHasLoadedAnalysis(false);
     setStorageError(null);
+    
+    // Reset enhanced bullets flag
+    hasLoadedEnhancedRef.current = false;
+    
     try {
       const ok = await uploadResume(resumeFile, extractedText);
       if (ok) {
+        // Store the current resume ID after upload
+        if (resume && resume.id) {
+          currentResumeIdRef.current = resume.id;
+        }
+        
         try {
           await analyzeResume(extractedText);
           setHasLoadedAnalysis(true);
@@ -325,7 +353,10 @@ const Resume = () => {
       setShowCareerChat(false);
       setAnalysis(null);
       setHasLoadedAnalysis(false);
-      setEnhancedBullets([]);
+      
+      // Reset enhanced bullets flag and resume ID
+      hasLoadedEnhancedRef.current = false;
+      currentResumeIdRef.current = null;
     } catch (error) {
       toast({
         title: 'Delete Failed',
@@ -345,22 +376,26 @@ const Resume = () => {
     setIsRefreshing(true);
     setHasLoadedAnalysis(false);
     setStorageError(null);
+    
+    // Reset enhanced bullets flag
+    hasLoadedEnhancedRef.current = false;
+    
     try {
       await refreshResume();
       
-      // Check for enhanced analysis
-      const { data, error } = await supabase
-        .from('resumes')
-        .select('enhanced_analysis')
-        .eq('user_id', user.id)
-        .order('uploaded_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-        
-      if (!error && data?.enhanced_analysis) {
-        handleEnhancedAnalysisUpdate(data.enhanced_analysis);
-      } else {
-        setIsLoadingEnhancedBullets(true);
+      if (resume && resume.id) {
+        // Check for enhanced analysis for the specific resume
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('enhanced_analysis')
+          .eq('id', resume.id)
+          .maybeSingle();
+          
+        if (!error && data?.enhanced_analysis) {
+          handleEnhancedAnalysisUpdate(data.enhanced_analysis);
+        } else {
+          setIsLoadingEnhancedBullets(true);
+        }
       }
       
       toast({
@@ -382,16 +417,15 @@ const Resume = () => {
   };
 
   const handleCheckEnhancements = async () => {
-    if (!user) return;
+    if (!user || !resume || !resume.id) return;
     
     setIsLoadingEnhancedBullets(true);
     try {
+      // Query specifically by resume ID
       const { data, error } = await supabase
         .from('resumes')
         .select('enhanced_analysis')
-        .eq('user_id', user.id)
-        .order('uploaded_at', { ascending: false })
-        .limit(1)
+        .eq('id', resume.id)
         .maybeSingle();
 
       if (error) {
