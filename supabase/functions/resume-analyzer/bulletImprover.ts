@@ -1,27 +1,217 @@
-// console.log("Bullet Extractor Endpoint hit")
-const config = {
-  // Maximum number of batches to process
+console.log("Bullet Extractor Endpoint hit")
+
+// bulletImprover.ts
+
+export const config = {
   MAX_BATCHES_TO_PROCESS: 2,
-  // Default batch size
   DEFAULT_BATCH_SIZE: 7,
-  // Retry settings
   MAX_RETRIES: 5,
-  // Rate limiting
-  RATE_LIMIT_DELAY_MS: 2000, // Base delay between batches
-  RATE_LIMIT_JITTER_MS: 500  // Random jitter to add to delay
+  RATE_LIMIT_DELAY_MS: 2000,
+  RATE_LIMIT_JITTER_MS: 500
 };
 
-async function processBatchQueue(batchQueue, userId) {
+// This is the primary function that needs to be exported - it's imported in bulletSuggestions.ts
+export async function improveBullet(bulletData: any): Promise<any> {
+  try {
+    console.log(`Improving bullet: ${bulletData.original.substring(0, 30)}...`);
+    
+    // Make API call to rewrite the bullet
+    const groqPrompt = constructGroqPrompt(bulletData);
+    const result = await callGroqWithRetry(groqPrompt, bulletData);
+    
+    // Parse the response to extract the rewritten bullet and tips
+    const processedResult = processGroqResponse(result, bulletData);
+    
+    return processedResult;
+  } catch (error) {
+    console.error(`Error improving bullet:`, error);
+    // Return original bullet and fallback tips if there's an error
+    return {
+      rewritten: bulletData.original,
+      tips: "Consider adding metrics, starting with strong action verbs, and focusing on impact."
+    };
+  }
+}
+
+// Helper function to construct the prompt for GROQ
+function constructGroqPrompt(bulletData: any): string {
+  // Construct a prompt based on the bullet data
+  const prompt = `
+  Rewrite this resume bullet point to make it stronger:
+  
+  Original: ${bulletData.original}
+  
+  Current scores:
+  - Action words: ${bulletData.xyz_scores?.action || 0}/10
+  - Measurable results: ${bulletData.xyz_scores?.metrics || 0}/30
+  - Clarity/focus: ${bulletData.xyz_scores?.clarity || 0}/10
+  - Industry terms: ${bulletData.xyz_scores?.industry || 0}/25
+  - Achievement focus: ${bulletData.xyz_scores?.achievement || 0}/25
+  
+  Word balance:
+  - Industry terms: ${bulletData.word_balance?.industry_pct || 0}%
+  - Common words: ${bulletData.word_balance?.common_pct || 0}%
+  - Action words: ${bulletData.word_balance?.action_pct || 0}%
+  - Metrics: ${bulletData.word_balance?.metric_pct || 0}%
+  
+  Improve this bullet by:
+  1. Making it more results-oriented
+  2. Using stronger action verbs
+  3. Adding specific metrics if missing
+  4. Making it more concise and focused
+  5. Incorporating relevant industry terms
+  
+  Respond in JSON format with 'rewritten' for the improved bullet and 'tips' for specific improvement advice.
+  `;
+  
+  return prompt;
+}
+
+// Helper function to process the GROQ response
+function processGroqResponse(response: any, originalBullet: any): any {
+  try {
+    // If the response is already in the expected format, return it
+    if (response.rewritten && response.tips) {
+      return response;
+    }
+    
+    // Try to parse the response if it's a JSON string
+    if (typeof response === 'string') {
+      try {
+        const parsedResponse = JSON.parse(response);
+        if (parsedResponse.rewritten && parsedResponse.tips) {
+          return parsedResponse;
+        }
+      } catch (e) {
+        // Not valid JSON, continue with other parsing methods
+      }
+      
+      // Try to extract from the string
+      const rewrittenMatch = response.match(/["']rewritten["']\s*:\s*["']([^"']+)["']/);
+      const tipsMatch = response.match(/["']tips["']\s*:\s*["']([^"']+)["']/);
+      
+      if (rewrittenMatch && tipsMatch) {
+        return {
+          rewritten: rewrittenMatch[1],
+          tips: tipsMatch[1]
+        };
+      }
+    }
+    
+    // Fallback: extract any content between opening/closing brackets as the rewritten bullet
+    if (typeof response === 'string') {
+      const contentBetweenBrackets = response.match(/\[(.*?)\]/s);
+      if (contentBetweenBrackets && contentBetweenBrackets[1]) {
+        return {
+          rewritten: contentBetweenBrackets[1].trim(),
+          tips: "Extracted from API response."
+        };
+      }
+    }
+    
+    // Last resort fallback
+    console.warn("Could not parse GROQ response, returning original bullet");
+    return {
+      rewritten: originalBullet.original,
+      tips: "Could not generate specific tips. Consider adding metrics and using stronger action verbs."
+    };
+  } catch (error) {
+    console.error("Error processing GROQ response:", error);
+    return {
+      rewritten: originalBullet.original,
+      tips: "Error processing the API response. Consider adding metrics and using stronger action verbs."
+    };
+  }
+}
+
+// Function to call GROQ API with retry logic
+async function callGroqWithRetry(prompt: string, context: any, attempt = 1, maxAttempts = 4): Promise<any> {
+  try {
+    console.log(`callGroqWithRetry: Attempt ${attempt}/${maxAttempts}`);
+    
+    // Call your actual GROQ API here
+    const response = await callGroqAPI(prompt);
+    
+    return response;
+  } catch (error: any) {
+    if (attempt < maxAttempts) {
+      // Extract wait time from rate limit error if available
+      let waitTime = 1000 * Math.pow(2, attempt); // Default exponential backoff
+      
+      // Check if it's a rate limit error with a specific wait time
+      if (error.message && error.message.includes('rate limit')) {
+        console.log(`callGroqWithRetry: Rate limit hit (429). Error: ${error.message}\n`);
+        
+        // Try to extract wait time from error message if provided by API
+        const waitTimeMatch = error.message.match(/try again in (\d+\.?\d*)s/i);
+        if (waitTimeMatch && waitTimeMatch[1]) {
+          const seconds = parseFloat(waitTimeMatch[1]);
+          waitTime = Math.ceil(seconds * 1000);
+          console.log(`callGroqWithRetry: Extracted wait time of ${waitTime}ms from error message`);
+        }
+      } else {
+        console.error(`API error (attempt ${attempt}/${maxAttempts}):`, error);
+      }
+      
+      // Add some jitter to avoid synchronized retries
+      waitTime += Math.floor(Math.random() * 500);
+      
+      console.log(`callGroqWithRetry: Waiting ${waitTime}ms before retry ${attempt}`);
+      await new Promise(resolve => setTimeout(resolve, waitTime));
+      
+      // Recursive retry with incremented attempt counter
+      return callGroqWithRetry(prompt, context, attempt + 1, maxAttempts);
+    } else {
+      // Max attempts reached, throw the error
+      console.error(`Max retry attempts (${maxAttempts}) reached.`);
+      throw error;
+    }
+  }
+}
+
+// Implement your actual GROQ API call here
+async function callGroqAPI(prompt: string): Promise<any> {
+  // Replace this with your actual API implementation
+  // Example using fetch:
+  
+  try {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'llama3-8b-8192',
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 500
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`GROQ API Error: ${JSON.stringify(errorData)}`);
+    }
+    
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error("Error calling GROQ API:", error);
+    throw error;
+  }
+}
+
+// Function to process a batch of bullets
+export async function processBatchQueue(batchQueue: any[], userId: string) {
   try {
     console.log(`Starting background bullet improvement for userId: ${userId}`);
     
     // Track processed batches
     let processedBatchCount = 0;
     let results = [];
-    
-    // Calculate total bullets
-    const totalBullets = batchQueue.flat().length;
-    let processedBullets = 0;
     
     // Process batches up to the limit
     for (let i = 0; i < Math.min(batchQueue.length, config.MAX_BATCHES_TO_PROCESS); i++) {
@@ -40,17 +230,15 @@ async function processBatchQueue(batchQueue, userId) {
       try {
         const batchResults = await improveBulletsBatch(batch, userId);
         results = [...results, ...batchResults];
-        processedBullets += batch.length;
       } catch (error) {
         console.error(`Error processing batch ${i+1}:`, error);
         // Add original bullets as fallback
-        const fallbackResults = batch.map(bullet => ({
+        const fallbackResults = batch.map((bullet: any) => ({
           id: bullet.id,
-          rewritten: bullet.original, // Use original as fallback
+          rewritten: bullet.original,
           error: true
         }));
         results = [...results, ...fallbackResults];
-        processedBullets += batch.length;
       }
     }
     
@@ -60,9 +248,9 @@ async function processBatchQueue(batchQueue, userId) {
       console.log(`Batch limit of ${config.MAX_BATCHES_TO_PROCESS} reached. Resolving ${remainingBullets.length} remaining bullets with defaults.`);
       
       // Add original bullets for all remaining
-      const defaultResults = remainingBullets.map(bullet => ({
+      const defaultResults = remainingBullets.map((bullet: any) => ({
         id: bullet.id,
-        rewritten: bullet.original, // Return original for unprocessed bullets
+        rewritten: bullet.original,
         unprocessed: true
       }));
       
@@ -76,7 +264,8 @@ async function processBatchQueue(batchQueue, userId) {
   }
 }
 
-async function improveBulletsBatch(bullets, userId) {
+// Function to improve a batch of bullets
+export async function improveBulletsBatch(bullets: any[], userId: string) {
   const results = [];
   
   for (const bullet of bullets) {
@@ -84,48 +273,18 @@ async function improveBulletsBatch(bullets, userId) {
     console.log(`Beginning rewrite of bullet points`);
     
     try {
-      // Implement exponential backoff for retries
-      let attempt = 0;
-      let success = false;
-      let error;
-      let result;
+      // Use the single bullet improvement function
+      const result = await improveBullet(bullet);
       
-      while (attempt < config.MAX_RETRIES && !success) {
-        try {
-          // Call your AI service with the bullet
-          result = await callGroqWithRetry(bullet.original, userId);
-          success = true;
-        } catch (err) {
-          error = err;
-          attempt++;
-          
-          if (attempt < config.MAX_RETRIES) {
-            // Exponential backoff with jitter
-            const backoffTime = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
-            console.log(`Retry ${attempt}/${config.MAX_RETRIES} after ${backoffTime}ms`);
-            await new Promise(resolve => setTimeout(resolve, backoffTime));
-          }
-        }
-      }
-      
-      if (success) {
-        results.push({
-          id: bullet.id,
-          rewritten: result
-        });
-      } else {
-        console.error(`Failed to improve bullet after ${config.MAX_RETRIES} attempts:`, error);
-        results.push({
-          id: bullet.id,
-          rewritten: bullet.original, // Fallback to original
-          error: true
-        });
-      }
+      results.push({
+        id: bullet.id,
+        rewritten: result.rewritten
+      });
     } catch (err) {
       console.error(`Error improving bullet ${bullet.id}:`, err);
       results.push({
         id: bullet.id,
-        rewritten: bullet.original, // Fallback to original
+        rewritten: bullet.original,
         error: true
       });
     }
@@ -133,6 +292,159 @@ async function improveBulletsBatch(bullets, userId) {
   
   return results;
 }
+
+// Batch creation utility
+export function getBatchSize(totalItems: number): number {
+  return config.DEFAULT_BATCH_SIZE;
+}
+
+// Create batches from a list of items
+export function createBatches(items: any[], batchSize: number): any[][] {
+  const batches = [];
+  
+  for (let i = 0; i < items.length; i += batchSize) {
+    batches.push(items.slice(i, i + batchSize));
+  }
+  
+  return batches;
+}
+
+
+
+// const config = {
+//   // Maximum number of batches to process
+//   MAX_BATCHES_TO_PROCESS: 2,
+//   // Default batch size
+//   DEFAULT_BATCH_SIZE: 7,
+//   // Retry settings
+//   MAX_RETRIES: 5,
+//   // Rate limiting
+//   RATE_LIMIT_DELAY_MS: 2000, // Base delay between batches
+//   RATE_LIMIT_JITTER_MS: 500  // Random jitter to add to delay
+// };
+
+// async function processBatchQueue(batchQueue, userId) {
+//   try {
+//     console.log(`Starting background bullet improvement for userId: ${userId}`);
+    
+//     // Track processed batches
+//     let processedBatchCount = 0;
+//     let results = [];
+    
+//     // Calculate total bullets
+//     const totalBullets = batchQueue.flat().length;
+//     let processedBullets = 0;
+    
+//     // Process batches up to the limit
+//     for (let i = 0; i < Math.min(batchQueue.length, config.MAX_BATCHES_TO_PROCESS); i++) {
+//       const batch = batchQueue[i];
+//       processedBatchCount++;
+      
+//       console.log(`Processing batch ${processedBatchCount} of ${config.MAX_BATCHES_TO_PROCESS}: ${batch.length} bullets from queue`);
+      
+//       // Rate limiting with jitter to avoid synchronized retries
+//       if (i > 0) {
+//         const jitter = Math.floor(Math.random() * config.RATE_LIMIT_JITTER_MS);
+//         const delay = config.RATE_LIMIT_DELAY_MS + jitter;
+//         await new Promise(resolve => setTimeout(resolve, delay));
+//       }
+      
+//       try {
+//         const batchResults = await improveBulletsBatch(batch, userId);
+//         results = [...results, ...batchResults];
+//         processedBullets += batch.length;
+//       } catch (error) {
+//         console.error(`Error processing batch ${i+1}:`, error);
+//         // Add original bullets as fallback
+//         const fallbackResults = batch.map(bullet => ({
+//           id: bullet.id,
+//           rewritten: bullet.original, // Use original as fallback
+//           error: true
+//         }));
+//         results = [...results, ...fallbackResults];
+//         processedBullets += batch.length;
+//       }
+//     }
+    
+//     // Handle any remaining bullets outside the batch limit
+//     if (processedBatchCount < batchQueue.length) {
+//       const remainingBullets = batchQueue.slice(processedBatchCount).flat();
+//       console.log(`Batch limit of ${config.MAX_BATCHES_TO_PROCESS} reached. Resolving ${remainingBullets.length} remaining bullets with defaults.`);
+      
+//       // Add original bullets for all remaining
+//       const defaultResults = remainingBullets.map(bullet => ({
+//         id: bullet.id,
+//         rewritten: bullet.original, // Return original for unprocessed bullets
+//         unprocessed: true
+//       }));
+      
+//       results = [...results, ...defaultResults];
+//     }
+    
+//     return results;
+//   } catch (error) {
+//     console.error('Error in processBatchQueue:', error);
+//     throw error;
+//   }
+// }
+
+// async function improveBulletsBatch(bullets, userId) {
+//   const results = [];
+  
+//   for (const bullet of bullets) {
+//     console.log(`Improving bullet: ${bullet.original.substring(0, 30)}...`);
+//     console.log(`Beginning rewrite of bullet points`);
+    
+//     try {
+//       // Implement exponential backoff for retries
+//       let attempt = 0;
+//       let success = false;
+//       let error;
+//       let result;
+      
+//       while (attempt < config.MAX_RETRIES && !success) {
+//         try {
+//           // Call your AI service with the bullet
+//           result = await callGroqWithRetry(bullet.original, userId);
+//           success = true;
+//         } catch (err) {
+//           error = err;
+//           attempt++;
+          
+//           if (attempt < config.MAX_RETRIES) {
+//             // Exponential backoff with jitter
+//             const backoffTime = Math.pow(2, attempt) * 1000 + Math.random() * 1000;
+//             console.log(`Retry ${attempt}/${config.MAX_RETRIES} after ${backoffTime}ms`);
+//             await new Promise(resolve => setTimeout(resolve, backoffTime));
+//           }
+//         }
+//       }
+      
+//       if (success) {
+//         results.push({
+//           id: bullet.id,
+//           rewritten: result
+//         });
+//       } else {
+//         console.error(`Failed to improve bullet after ${config.MAX_RETRIES} attempts:`, error);
+//         results.push({
+//           id: bullet.id,
+//           rewritten: bullet.original, // Fallback to original
+//           error: true
+//         });
+//       }
+//     } catch (err) {
+//       console.error(`Error improving bullet ${bullet.id}:`, err);
+//       results.push({
+//         id: bullet.id,
+//         rewritten: bullet.original, // Fallback to original
+//         error: true
+//       });
+//     }
+//   }
+  
+//   return results;
+// }
 
 // console.log("Bullet Extractor Endpoint hit")
 // import { corsHeaders, callGroqWithRetry } from './utils.ts';
