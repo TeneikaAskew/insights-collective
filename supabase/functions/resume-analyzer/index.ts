@@ -181,7 +181,21 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
     // Aggregate scores
     const totalScore = analyzed.reduce((sum, b) => sum + b.bullet_total, 0);
     const avg = totalScore / analyzed.length;
-    const percent = Math.max(Math.min((avg / 45) * 100, 100), 30);
+    // const percent = Math.max(Math.min((avg / 45) * 100, 100), 30);
+
+
+    // Recommended change
+    const maxRealisticScore = 35; // A more realistic "excellent" score
+    const rawPercent = (avg / maxRealisticScore) * 100;
+    
+    // Option 1: Simple linear adjustment with no floor
+    // const percent = Math.min(rawPercent, 100);
+    
+    // Option 2: Sigmoid curve (creates better differentiation in middle range)
+    const percent = 100 / (1 + Math.exp(-0.15 * (avg - 17.5)));
+
+
+    
     let grade = getLetterGrade(percent);
     if (grade === 'F') grade = 'D';
     const themes = generateThemes(analyzed);
