@@ -35,8 +35,8 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-md font-semibold">Distribution</h3>
             <div className="flex items-center space-x-8">
-              <span className="text-sm font-medium">Actual</span>
-              <span className="text-sm font-medium">Target</span>
+              <span className="text-sm font-medium">Score</span>
+              <span className="text-sm font-medium">Goal</span>
             </div>
           </div>
           
