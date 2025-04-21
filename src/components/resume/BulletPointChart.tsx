@@ -1,10 +1,13 @@
+
 import React from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { BulletDonutChart, DistributionBar } from './chart/ChartComponents';
 import { prepareBulletChartData, BULLET_CATEGORIES } from './chart/BulletChartData';
+
 interface BulletPointChartProps {
   bullet: BulletAnalysis;
 }
+
 const BulletPointChart: React.FC<BulletPointChartProps> = ({
   bullet
 }) => {
@@ -16,7 +19,8 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
     dataWithPercent,
     bullet_total
   } = prepareBulletChartData(bullet);
-  return <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
+  return (
+    <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
       <style>{`
         :root {
           --color-hard-soft: #1E40AF; /* Primary blue for Hard & Soft Skills */
@@ -35,8 +39,8 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-md font-semibold">Distribution</h3>
             <div className="flex items-center space-x-8">
-              <span className="text-sm font-medium">Actual</span>
-              <span className="text-sm font-medium">Target</span>
+              <span className="text-sm font-medium">Score</span>
+              {/* Goal header removed as per user request */}
             </div>
           </div>
           
@@ -45,6 +49,8 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
           </div>
         </div>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default BulletPointChart;

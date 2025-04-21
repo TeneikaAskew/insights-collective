@@ -1,12 +1,11 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
 import { BULLET_CATEGORIES } from './BulletChartData';
 
 // Helper function to determine if target is met
-export const isTargetMet = (actual: number, target: number) => {
-  return actual >= target - 5 && actual <= target + 5;
+export const isTargetMet = (score: number) => {
+  return score >= 100 - 14 && score <= 100 + 14;
 };
 
 // Chart data item structure
@@ -87,6 +86,15 @@ export const BulletDonutChart: React.FC<{
 export const DistributionBar: React.FC<{
   item: ChartDataItem;
 }> = ({ item }) => {
+  // Calculate scaled score percentage = (actual / target) * 100
+  const scaledScore = item.target > 0 ? Math.round((item.percent / item.target) * 100) : 0;
+
+  // Determine color of score: green if scaledScore >= 100%, else red
+  const scoreColorClass = scaledScore >= 100 ? "text-green-600 font-semibold" : "text-red-600 font-semibold";
+
+  // Bar width based on scaled score capped at 100%
+  const barWidthPercent = Math.min(scaledScore, 100);
+
   return (
     <div className="relative">
       <div className="flex justify-between text-sm mb-1">
@@ -95,20 +103,26 @@ export const DistributionBar: React.FC<{
           <span>{item.name}</span>
         </div>
         <div className="flex items-center space-x-10">
-          <span className={isTargetMet(item.percent, item.target) ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
-            {item.percent}%
-          </span>
-          <span className="text-gray-500">
-            {item.target}% (±5%)
+          <span className={scoreColorClass}>
+            {scaledScore}%
           </span>
         </div>
       </div>
-      <div className="h-2 w-full bg-gray-200 rounded">
+      <div className="h-2 w-full bg-gray-200 rounded relative overflow-visible">
         <div 
           className={`h-full rounded ${getCategoryColorClass(item.category)}`}
           style={{
-            width: `${Math.min(100, item.percent)}%`,
+            width: `${barWidthPercent}%`,
           }}
+        ></div>
+        {/* Line indicator for Goal at 100% */}
+        <div 
+          className="absolute top-0 left-[100%] h-full w-[2px] bg-gray-900 opacity-40"
+          style={{
+            transform: 'translateX(-1px)'
+          }}
+          aria-label="Goal marker"
+          title="Goal"
         ></div>
       </div>
     </div>
