@@ -17,7 +17,7 @@ interface OverallScoreCardProps {
   themes: string[];
   explanation: string;
   onStartCareerChat: () => void;
-  hasAnalysis=boolean;
+  hasAnalysis?: boolean;
 }
 
 const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
@@ -134,7 +134,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         <Button 
           onClick={onStartCareerChat} 
           className={`w-full gap-2 transition-colors duration-300 ${
-            hasRoast && isFlashing 
+            hasAnalysis && isFlashing 
               ? 'bg-teal-600 hover:bg-teal-700' 
               : 'bg-blue-600 hover:bg-blue-700'
           }`}

@@ -24,7 +24,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   resume,
   handleStartCareerChat,
   handleFileChange,
-  hasAnalysis: false
+  hasAnalysis = false
 }) => {
   return (
     <Card>
