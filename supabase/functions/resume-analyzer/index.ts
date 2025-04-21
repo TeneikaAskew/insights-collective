@@ -354,38 +354,154 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
 //   }
 // }
 
-export async function bulletImprover(userId) {
+// export async function bulletImprover(userId) {
+//   try {
+//     console.log(`Starting background bullet improvement for userId: ${userId}`);
+    
+//     // First fetch the current analysis from the database
+//     const { data: currentData, error: fetchError } = await supabase
+//       .from('resumes')
+//       .select('analysis, text')
+//       .eq('user_id', userId)
+//       .order('uploaded_at', { ascending: false })
+//       .limit(1)
+//       .maybeSingle();
+      
+//     if (fetchError) {
+//       console.error('Error fetching current analysis:', fetchError);
+//       return { success: false, error: 'Failed to fetch analysis' };
+//     }
+    
+//     if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
+//       console.error('No bullets found in analysis');
+//       return { success: false, error: 'No bullets found' };
+//     }
+    
+//     const bullets = currentData.analysis.bullets;
+//     console.log(`Found ${bullets.length} bullets to improve`);
+    
+//     // Import the batch processing functions from bulletImprover
+//     const { processBatchQueue, createBatches, getBatchSize } = await import('./bulletImprover.ts');
+    
+//     // Prepare the bullets for batch processing
+//     const formattedBullets = bullets.map((bullet, index) => ({
+//       id: `single_${Date.now()}_${index}`, // Create unique ID for each bullet
+//       original: bullet.original,
+//       xyz_scores: bullet.xyz_scores,
+//       word_balance: bullet.word_balance || {
+//         industry_pct: 0,
+//         common_pct: 0,
+//         action_pct: 0,
+//         metric_pct: 0
+//       }
+//     }));
+    
+//     // Create batches using the batch size from config
+//     const batchSize = getBatchSize(formattedBullets.length);
+//     const batchQueue = createBatches(formattedBullets, batchSize);
+    
+//     console.log(`Created ${batchQueue.length} batches of size ${batchSize}`);
+    
+//     // Process the batches (limited to MAX_BATCHES_TO_PROCESS in config)
+//     const improvedResults = await processBatchQueue(batchQueue, userId);
+    
+//     // Map the results back to the original bullet structure
+//     const enhancedBullets = bullets.map((originalBullet, index) => {
+//       // Find the corresponding improved bullet
+//       const improvedBullet = improvedResults.find(b => 
+//         b.id === `single_${Date.now()}_${index}` || 
+//         b.original === originalBullet.original
+//       );
+      
+//       if (improvedBullet && improvedBullet.rewritten && !improvedBullet.error) {
+//         return {
+//           ...originalBullet,
+//           rewritten: improvedBullet.rewritten,
+//           tips: improvedBullet.tips || "Consider using stronger action verbs and adding metrics."
+//         };
+//       } else {
+//         // Use original for bullets that weren't processed or had errors
+//         return {
+//           ...originalBullet,
+//           rewritten: originalBullet.original,
+//           tips: improvedBullet?.unprocessed 
+//             ? "This bullet wasn't processed due to batch limits."
+//             : "Error generating improvements."
+//         };
+//       }
+//     });
+    
+//     console.log(`Successfully processed bullets: ${enhancedBullets.filter(b => b.rewritten !== b.original).length}`);
+//     console.log(`Unprocessed bullets: ${enhancedBullets.filter(b => b.rewritten === b.original).length}`);
+    
+//     // Store the enhanced bullets in a separate column
+//     const result = await supabase
+//       .from('resumes')
+//       .update({ 
+//         enhanced_analysis: enhancedBullets,
+//         updated_at: new Date().toISOString() 
+//       })
+//       .eq('user_id', userId);
+      
+//     if (result.error) {
+//       throw result.error;
+//     }
+    
+//     console.log('Successfully saved improved bullets to database');
+//     return { 
+//       success: true, 
+//       count: enhancedBullets.length,
+//       processed: enhancedBullets.filter(b => b.rewritten !== b.original).length
+//     };
+    
+//   } catch (error) {
+//     console.error('Bullet improver error:', error);
+//     return { success: false, error: error.message };
+//   }
+// }
+
+export async function bulletImprover(userId, enhanced = null) {
   try {
     console.log(`Starting background bullet improvement for userId: ${userId}`);
     
-    // First fetch the current analysis from the database
-    const { data: currentData, error: fetchError } = await supabase
-      .from('resumes')
-      .select('analysis, text')
-      .eq('user_id', userId)
-      .order('uploaded_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    let bullets;
+    
+    // First try to use the provided enhanced analysis if available
+    if (enhanced?.bullets && enhanced.bullets.length > 0) {
+      console.log('Using provided enhanced analysis');
+      bullets = enhanced.bullets;
+    } else {
+      // Fall back to fetching from database
+      console.log('No enhanced analysis provided, fetching from database');
+      const { data: currentData, error: fetchError } = await supabase
+        .from('resumes')
+        .select('analysis, text')
+        .eq('user_id', userId)
+        .order('uploaded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+        
+      if (fetchError) {
+        console.error('Error fetching current analysis:', fetchError);
+        return { success: false, error: 'Failed to fetch analysis' };
+      }
       
-    if (fetchError) {
-      console.error('Error fetching current analysis:', fetchError);
-      return { success: false, error: 'Failed to fetch analysis' };
+      if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
+        console.error('No bullets found in analysis');
+        return { success: false, error: 'No bullets found' };
+      }
+      
+      bullets = currentData.analysis.bullets;
     }
     
-    if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
-      console.error('No bullets found in analysis');
-      return { success: false, error: 'No bullets found' };
-    }
-    
-    const bullets = currentData.analysis.bullets;
     console.log(`Found ${bullets.length} bullets to improve`);
     
-    // Import the batch processing functions from bulletImprover
-    const { processBatchQueue, createBatches, getBatchSize } = await import('./bulletImprover.ts');
+    // Generate a stable timestamp to use for all bullet IDs
+    const batchTimestamp = Date.now();
     
     // Prepare the bullets for batch processing
     const formattedBullets = bullets.map((bullet, index) => ({
-      id: `single_${Date.now()}_${index}`, // Create unique ID for each bullet
+      id: `single_${batchTimestamp}_${index}`, // Create unique ID for each bullet with stable timestamp
       original: bullet.original,
       xyz_scores: bullet.xyz_scores,
       word_balance: bullet.word_balance || {
@@ -400,18 +516,21 @@ export async function bulletImprover(userId) {
     const batchSize = getBatchSize(formattedBullets.length);
     const batchQueue = createBatches(formattedBullets, batchSize);
     
-    console.log(`Created ${batchQueue.length} batches of size ${batchSize}`);
+    console.log(`Created ${batchQueue.length} batches of size ${batchSize}, processing first ${Math.min(batchQueue.length, bulletImproverConfig.MAX_BATCHES_TO_PROCESS)} batches`);
     
     // Process the batches (limited to MAX_BATCHES_TO_PROCESS in config)
     const improvedResults = await processBatchQueue(batchQueue, userId);
     
+    // Create a mapping of IDs to results for faster lookup
+    const resultsMap = new Map();
+    improvedResults.forEach(result => {
+      resultsMap.set(result.id, result);
+    });
+    
     // Map the results back to the original bullet structure
     const enhancedBullets = bullets.map((originalBullet, index) => {
-      // Find the corresponding improved bullet
-      const improvedBullet = improvedResults.find(b => 
-        b.id === `single_${Date.now()}_${index}` || 
-        b.original === originalBullet.original
-      );
+      const bulletId = `single_${batchTimestamp}_${index}`;
+      const improvedBullet = resultsMap.get(bulletId);
       
       if (improvedBullet && improvedBullet.rewritten && !improvedBullet.error) {
         return {
@@ -421,18 +540,22 @@ export async function bulletImprover(userId) {
         };
       } else {
         // Use original for bullets that weren't processed or had errors
+        const isUnprocessed = improvedResults.some(r => r.id === bulletId && r.unprocessed);
         return {
           ...originalBullet,
           rewritten: originalBullet.original,
-          tips: improvedBullet?.unprocessed 
+          tips: isUnprocessed 
             ? "This bullet wasn't processed due to batch limits."
             : "Error generating improvements."
         };
       }
     });
     
-    console.log(`Successfully processed bullets: ${enhancedBullets.filter(b => b.rewritten !== b.original).length}`);
-    console.log(`Unprocessed bullets: ${enhancedBullets.filter(b => b.rewritten === b.original).length}`);
+    const processedCount = enhancedBullets.filter(b => b.rewritten !== b.original).length;
+    const unprocessedCount = enhancedBullets.filter(b => b.rewritten === b.original).length;
+    
+    console.log(`Successfully processed bullets: ${processedCount}`);
+    console.log(`Unprocessed bullets: ${unprocessedCount}`);
     
     // Store the enhanced bullets in a separate column
     const result = await supabase
@@ -451,7 +574,8 @@ export async function bulletImprover(userId) {
     return { 
       success: true, 
       count: enhancedBullets.length,
-      processed: enhancedBullets.filter(b => b.rewritten !== b.original).length
+      processed: processedCount,
+      unprocessed: unprocessedCount
     };
     
   } catch (error) {
@@ -459,6 +583,7 @@ export async function bulletImprover(userId) {
     return { success: false, error: error.message };
   }
 }
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
