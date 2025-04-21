@@ -625,7 +625,7 @@ serve(async (req) => {
         setTimeout(async () => {
           try {
             console.log('Starting background bullet improvement process');
-            await bulletImprover(userId);
+            await bulletImprover(userId, analysisResult);
           } catch (bgError) {
             console.error('Background bullet improvement failed:', bgError);
           }
