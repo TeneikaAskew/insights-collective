@@ -6,6 +6,10 @@ import { Separator } from '@/components/ui/separator';
 import { MessageSquare } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Get user ID if authenticated
+const { data: { user } } = await supabase.auth.getUser();
+const userId = user?.id;
+
 interface OverallScoreCardProps {
   letterGrade: string;
   resumePercent: number;
