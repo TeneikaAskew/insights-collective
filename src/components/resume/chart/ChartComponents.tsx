@@ -83,23 +83,10 @@ export const BulletDonutChart: React.FC<{
   );
 };
 
-// Updated DistributionBar component with scaled values and bar fill based on scaled percent
-// Removed Goal column from the UI (done in BulletPointChart)
-// Label "Target" replaced conceptually by "Goal" but Goal column removed
-
+// Distribution bar component
 export const DistributionBar: React.FC<{
   item: ChartDataItem;
 }> = ({ item }) => {
-  // Calculate scaled percent = actual value / target * 100
-  // Fallback target to 1 to avoid division by zero
-  const scaledPercent = Math.round((item.value / (item.target || 1)) * 100);
-
-  // Determine text color based on scaled percent
-  const actualColorClass = scaledPercent >= 100 ? "text-green-600 font-semibold" : "text-red-600 font-semibold";
-
-  // Bar fill width capped at 100%
-  const barFillWidth = Math.min(100, scaledPercent);
-
   return (
     <div className="relative">
       <div className="flex justify-between text-sm mb-1">
@@ -107,26 +94,22 @@ export const DistributionBar: React.FC<{
           <div className={`w-4 h-4 mr-2 rounded-full ${getCategoryColorClass(item.category)}`}></div>
           <span>{item.name}</span>
         </div>
-        <div className={actualColorClass}>
-          {scaledPercent}%
+        <div className="flex items-center space-x-10">
+          <span className={isTargetMet(item.percent, item.target) ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+            {item.percent}%
+          </span>
+          <span className="text-gray-500">
+            {item.target}% (±5%)
+          </span>
         </div>
       </div>
-      <div className="h-2 w-full bg-gray-200 rounded relative">
-        {/* Actual bar fill */}
+      <div className="h-2 w-full bg-gray-200 rounded">
         <div 
           className={`h-full rounded ${getCategoryColorClass(item.category)}`}
           style={{
-            width: `${barFillWidth}%`,
+            width: `${Math.min(100, item.percent)}%`,
           }}
-        />
-        {/* Vertical line marker at goal (target%) */}
-        <div
-          className="absolute top-0 bottom-0 w-[2px] bg-black dark:bg-white opacity-70"
-          style={{
-            left: `${item.target}%`,
-            transform: "translateX(-50%)",
-          }}
-        />
+        ></div>
       </div>
     </div>
   );
