@@ -6,7 +6,17 @@ import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
 import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
+// import { serveBulletImprover } from "./bulletImprover.ts";
+// Change this line:
 import { serveBulletImprover } from "./bulletImprover.ts";
+
+// To:
+import { 
+  processBatchQueue, 
+  createBatches, 
+  getBatchSize, 
+  config as bulletImproverConfig 
+} from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { corsHeaders } from "./utils.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
@@ -16,7 +26,8 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const roastCache = new Map();
 const bulletCache = new Map();
 export { detectSentences };
-export { serveBulletImprover };
+// export { serveBulletImprover };
+export { bulletImproverConfig };
 
 // Generate a resume roast and store it
 async function getResumeRoast(resumeText, userId) {
@@ -259,6 +270,90 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
   }
 }
 
+// export async function bulletImprover(userId) {
+//   try {
+//     console.log(`Starting background bullet improvement for userId: ${userId}`);
+    
+//     // First fetch the current analysis from the database
+//     const { data: currentData, error: fetchError } = await supabase
+//       .from('resumes')
+//       .select('analysis, text')
+//       .eq('user_id', userId)
+//       .order('uploaded_at', { ascending: false })
+//       .limit(1)
+//       .maybeSingle();
+      
+//     if (fetchError) {
+//       console.error('Error fetching current analysis:', fetchError);
+//       return { success: false, error: 'Failed to fetch analysis' };
+//     }
+    
+//     if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
+//       console.error('No bullets found in analysis');
+//       return { success: false, error: 'No bullets found' };
+//     }
+    
+//     console.log(`Found ${currentData.analysis.bullets.length} bullets to improve`);
+    
+//     // Process each bullet individually to generate improvements
+//     const enhancedBullets = await Promise.all(currentData.analysis.bullets.map(async (bullet) => {
+//       try {
+//         // Extract the required data from the bullet object exactly as in your example
+//         const { original, xyz_scores, bullet_total, word_balance } = bullet;
+        
+//         console.log(`Improving bullet: ${original.substring(0, 30)}...`);
+        
+//         // Call rewriteBullet with the proper data structure
+//         const rewritten = await rewriteBullet(original, { 
+//           xyz_scores 
+//         });
+        
+//         // Call generateTips with the proper data structure
+//         const tips = await generateTips(original, { 
+//           xyz_scores, 
+//           word_balance_score: word_balance.word_balance_score || 0
+//         });
+        
+//         // Return the enhanced bullet with all original properties plus the improvements
+//         return {
+//           ...bullet,
+//           rewritten,
+//           tips
+//         };
+//       } catch (bulletError) {
+//         console.error(`Error improving individual bullet: ${bulletError}`);
+//         return {
+//           ...bullet,
+//           rewritten: bullet.original,
+//           tips: "Error generating improvements"
+//         };
+//       }
+//     }));
+    
+//     console.log(`Successfully processed ${enhancedBullets.length} bullets`);
+    
+//     // Store the enhanced bullets in a separate column
+//     const result = await supabase
+//       .from('resumes')
+//       .update({ 
+//         enhanced_analysis: enhancedBullets,
+//         updated_at: new Date().toISOString() 
+//       })
+//       .eq('user_id', userId);
+      
+//     if (result.error) {
+//       throw result.error;
+//     }
+    
+//     console.log('Successfully saved improved bullets to database');
+//     return { success: true, count: enhancedBullets.length };
+    
+//   } catch (error) {
+//     console.error('Bullet improver error:', error);
+//     return { success: false, error: error.message };
+//   }
+// }
+
 export async function bulletImprover(userId) {
   try {
     console.log(`Starting background bullet improvement for userId: ${userId}`);
@@ -282,44 +377,62 @@ export async function bulletImprover(userId) {
       return { success: false, error: 'No bullets found' };
     }
     
-    console.log(`Found ${currentData.analysis.bullets.length} bullets to improve`);
+    const bullets = currentData.analysis.bullets;
+    console.log(`Found ${bullets.length} bullets to improve`);
     
-    // Process each bullet individually to generate improvements
-    const enhancedBullets = await Promise.all(currentData.analysis.bullets.map(async (bullet) => {
-      try {
-        // Extract the required data from the bullet object exactly as in your example
-        const { original, xyz_scores, bullet_total, word_balance } = bullet;
-        
-        console.log(`Improving bullet: ${original.substring(0, 30)}...`);
-        
-        // Call rewriteBullet with the proper data structure
-        const rewritten = await rewriteBullet(original, { 
-          xyz_scores 
-        });
-        
-        // Call generateTips with the proper data structure
-        const tips = await generateTips(original, { 
-          xyz_scores, 
-          word_balance_score: word_balance.word_balance_score || 0
-        });
-        
-        // Return the enhanced bullet with all original properties plus the improvements
-        return {
-          ...bullet,
-          rewritten,
-          tips
-        };
-      } catch (bulletError) {
-        console.error(`Error improving individual bullet: ${bulletError}`);
-        return {
-          ...bullet,
-          rewritten: bullet.original,
-          tips: "Error generating improvements"
-        };
+    // Import the batch processing functions from bulletImprover
+    const { processBatchQueue, createBatches, getBatchSize } = await import('./bulletImprover.ts');
+    
+    // Prepare the bullets for batch processing
+    const formattedBullets = bullets.map((bullet, index) => ({
+      id: `single_${Date.now()}_${index}`, // Create unique ID for each bullet
+      original: bullet.original,
+      xyz_scores: bullet.xyz_scores,
+      word_balance: bullet.word_balance || {
+        industry_pct: 0,
+        common_pct: 0,
+        action_pct: 0,
+        metric_pct: 0
       }
     }));
     
-    console.log(`Successfully processed ${enhancedBullets.length} bullets`);
+    // Create batches using the batch size from config
+    const batchSize = getBatchSize(formattedBullets.length);
+    const batchQueue = createBatches(formattedBullets, batchSize);
+    
+    console.log(`Created ${batchQueue.length} batches of size ${batchSize}`);
+    
+    // Process the batches (limited to MAX_BATCHES_TO_PROCESS in config)
+    const improvedResults = await processBatchQueue(batchQueue, userId);
+    
+    // Map the results back to the original bullet structure
+    const enhancedBullets = bullets.map((originalBullet, index) => {
+      // Find the corresponding improved bullet
+      const improvedBullet = improvedResults.find(b => 
+        b.id === `single_${Date.now()}_${index}` || 
+        b.original === originalBullet.original
+      );
+      
+      if (improvedBullet && improvedBullet.rewritten && !improvedBullet.error) {
+        return {
+          ...originalBullet,
+          rewritten: improvedBullet.rewritten,
+          tips: improvedBullet.tips || "Consider using stronger action verbs and adding metrics."
+        };
+      } else {
+        // Use original for bullets that weren't processed or had errors
+        return {
+          ...originalBullet,
+          rewritten: originalBullet.original,
+          tips: improvedBullet?.unprocessed 
+            ? "This bullet wasn't processed due to batch limits."
+            : "Error generating improvements."
+        };
+      }
+    });
+    
+    console.log(`Successfully processed bullets: ${enhancedBullets.filter(b => b.rewritten !== b.original).length}`);
+    console.log(`Unprocessed bullets: ${enhancedBullets.filter(b => b.rewritten === b.original).length}`);
     
     // Store the enhanced bullets in a separate column
     const result = await supabase
@@ -335,15 +448,17 @@ export async function bulletImprover(userId) {
     }
     
     console.log('Successfully saved improved bullets to database');
-    return { success: true, count: enhancedBullets.length };
+    return { 
+      success: true, 
+      count: enhancedBullets.length,
+      processed: enhancedBullets.filter(b => b.rewritten !== b.original).length
+    };
     
   } catch (error) {
     console.error('Bullet improver error:', error);
     return { success: false, error: error.message };
   }
 }
-
-
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
