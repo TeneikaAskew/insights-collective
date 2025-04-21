@@ -21,13 +21,16 @@ export interface ChartDataItem {
 // Get color class based on category
 export const getCategoryColorClass = (category: string): string => {
   switch (category) {
-    case BULLET_CATEGORIES.HARD_SOFT:
-      return 'bg-blue-800';
     case BULLET_CATEGORIES.ACTION:
       return 'bg-amber-600';
-    case BULLET_CATEGORIES.MEASURABLE:
+    case BULLET_CATEGORIES.METRICS:
       return 'bg-teal-600';
-    case BULLET_CATEGORIES.COMMON:
+    case BULLET_CATEGORIES.CLARITY:
+      return 'bg-blue-500';
+    case BULLET_CATEGORIES.INDUSTRY:
+      return 'bg-blue-800';
+    case BULLET_CATEGORIES.ACHIEVEMENT:
+      return 'bg-green-600';
     default:
       return 'bg-gray-500';
   }
@@ -36,17 +39,50 @@ export const getCategoryColorClass = (category: string): string => {
 // Get text color class based on category
 export const getCategoryTextColorClass = (category: string): string => {
   switch (category) {
-    case BULLET_CATEGORIES.HARD_SOFT:
-      return 'text-blue-800';
     case BULLET_CATEGORIES.ACTION:
       return 'text-amber-600';
-    case BULLET_CATEGORIES.MEASURABLE:
+    case BULLET_CATEGORIES.METRICS:
       return 'text-teal-600';
-    case BULLET_CATEGORIES.COMMON:
+    case BULLET_CATEGORIES.CLARITY:
+      return 'text-blue-500';
+    case BULLET_CATEGORIES.INDUSTRY:
+      return 'text-blue-800';
+    case BULLET_CATEGORIES.ACHIEVEMENT:
+      return 'text-green-600';
     default:
       return 'text-gray-500';
   }
 };
+
+// // Get color class based on category
+// export const getCategoryColorClass = (category: string): string => {
+//   switch (category) {
+//     case BULLET_CATEGORIES.HARD_SOFT:
+//       return 'bg-blue-800';
+//     case BULLET_CATEGORIES.ACTION:
+//       return 'bg-amber-600';
+//     case BULLET_CATEGORIES.MEASURABLE:
+//       return 'bg-teal-600';
+//     case BULLET_CATEGORIES.COMMON:
+//     default:
+//       return 'bg-gray-500';
+//   }
+// };
+
+// // Get text color class based on category
+// export const getCategoryTextColorClass = (category: string): string => {
+//   switch (category) {
+//     case BULLET_CATEGORIES.HARD_SOFT:
+//       return 'text-blue-800';
+//     case BULLET_CATEGORIES.ACTION:
+//       return 'text-amber-600';
+//     case BULLET_CATEGORIES.MEASURABLE:
+//       return 'text-teal-600';
+//     case BULLET_CATEGORIES.COMMON:
+//     default:
+//       return 'text-gray-500';
+//   }
+// };
 
 // Donut chart component
 export const BulletDonutChart: React.FC<{

@@ -192,6 +192,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
   return components;
 };
 
+
 // Component to display parsed bullet text with highlighting using brand colors
 export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
   const components = parseTextComponents(text || '');
@@ -203,12 +204,16 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
           <span 
             key={idx} 
             className={`transition-colors duration-200 ${
-              part.category === BULLET_CATEGORIES.HARD_SOFT 
+              part.category === BULLET_CATEGORIES.INDUSTRY 
                 ? 'text-[#1E40AF] font-bold' : 
               part.category === BULLET_CATEGORIES.ACTION 
                 ? 'text-[#D97706] font-bold' : 
-              part.category === BULLET_CATEGORIES.MEASURABLE 
+              part.category === BULLET_CATEGORIES.METRICS 
                 ? 'text-[#0D9488] font-bold' : 
+              part.category === BULLET_CATEGORIES.CLARITY
+                ? 'text-[#2563EB] font-bold' :
+              part.category === BULLET_CATEGORIES.ACHIEVEMENT
+                ? 'text-[#059669] font-bold' :
               'text-gray-600'
             }`}
           >
@@ -220,3 +225,32 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
     </>
   );
 };
+
+// // Component to display parsed bullet text with highlighting using brand colors
+// export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
+//   const components = parseTextComponents(text || '');
+  
+//   return (
+//     <>
+//       {components.length > 0 ? 
+//         components.map((part, idx) => (
+//           <span 
+//             key={idx} 
+//             className={`transition-colors duration-200 ${
+//               part.category === BULLET_CATEGORIES.HARD_SOFT 
+//                 ? 'text-[#1E40AF] font-bold' : 
+//               part.category === BULLET_CATEGORIES.ACTION 
+//                 ? 'text-[#D97706] font-bold' : 
+//               part.category === BULLET_CATEGORIES.MEASURABLE 
+//                 ? 'text-[#0D9488] font-bold' : 
+//               'text-gray-600'
+//             }`}
+//           >
+//             {part.text}
+//           </span>
+//         )) : 
+//         "No bullet text available"
+//       }
+//     </>
+//   );
+// };

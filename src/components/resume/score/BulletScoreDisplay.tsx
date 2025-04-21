@@ -42,28 +42,57 @@ export const WordBalanceScore: React.FC<{
   );
 };
 
+// // XYZ Quality Score display component
+// export const XYZQualityScore: React.FC<{
+//   xyzScores: {
+//     hard_soft: number;
+//     action_words: number;
+//     measurable_results: number;
+//     clarity_focus: number;
+//   };
+// }> = ({ xyzScores }) => {
+//   const totalXyzScore = (xyzScores.hard_soft || 0) + 
+//                         (xyzScores.action_words || 0) + 
+//                         (xyzScores.measurable_results || 0) + 
+//                         (xyzScores.clarity_focus || 0);
+  
+//   return (
+//     <div className="space-y-2">
+//       <h4 className="text-sm font-medium mb-2">XYZ Quality ({totalXyzScore}/20)</h4>
+//       <div className="space-y-1 text-sm">
+//         <ScoreWithIcon score={xyzScores.hard_soft || 0} maxScore={5} label="Hard/Soft Skills" />
+//         <ScoreWithIcon score={xyzScores.action_words || 0} maxScore={5} label="Action Words" />
+//         <ScoreWithIcon score={xyzScores.measurable_results || 0} maxScore={5} label="Measurable Results" />
+//         <ScoreWithIcon score={xyzScores.clarity_focus || 0} maxScore={5} label="Clarity & Focus" />
+//       </div>
+//     </div>
+//   );
+// };
 // XYZ Quality Score display component
 export const XYZQualityScore: React.FC<{
   xyzScores: {
-    hard_soft: number;
-    action_words: number;
-    measurable_results: number;
-    clarity_focus: number;
+    action: number;
+    metrics: number;
+    clarity: number;
+    industry: number;
+    achievement: number;
   };
 }> = ({ xyzScores }) => {
-  const totalXyzScore = (xyzScores.hard_soft || 0) + 
-                        (xyzScores.action_words || 0) + 
-                        (xyzScores.measurable_results || 0) + 
-                        (xyzScores.clarity_focus || 0);
+  const totalXyzScore = (xyzScores.action || 0) + 
+                       (xyzScores.metrics || 0) + 
+                       (xyzScores.clarity || 0) + 
+                       (xyzScores.industry || 0) + 
+                       (xyzScores.achievement || 0);
   
   return (
     <div className="space-y-2">
-      <h4 className="text-sm font-medium mb-2">XYZ Quality ({totalXyzScore}/20)</h4>
+      <h4 className="text-sm font-medium mb-2">XYZ Quality ({totalXyzScore}/100)</h4>
       <div className="space-y-1 text-sm">
-        <ScoreWithIcon score={xyzScores.hard_soft || 0} maxScore={5} label="Hard/Soft Skills" />
-        <ScoreWithIcon score={xyzScores.action_words || 0} maxScore={5} label="Action Words" />
-        <ScoreWithIcon score={xyzScores.measurable_results || 0} maxScore={5} label="Measurable Results" />
-        <ScoreWithIcon score={xyzScores.clarity_focus || 0} maxScore={5} label="Clarity & Focus" />
+        <ScoreWithIcon score={xyzScores.action || 0} maxScore={10} label="Action Words" />
+        <ScoreWithIcon score={xyzScores.metrics || 0} maxScore={30} label="Metrics/Results" />
+        <ScoreWithIcon score={xyzScores.clarity || 0} maxScore={15} label="Clarity & Conciseness" />
+        <ScoreWithIcon score={xyzScores.industry || 0} maxScore={25} label="Industry Keywords" />
+        <ScoreWithIcon score={xyzScores.achievement || 0} maxScore={20} label="Achievement Focus" />
       </div>
     </div>
   );

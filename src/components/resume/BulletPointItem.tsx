@@ -39,32 +39,61 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
     setIsEditing(true);
   };
 
-  const handleSave = () => {
-    // Create a simulated analysis of the edited text
-    // In a real implementation, you would call the actual analysis API
-    const improvedBullet = {
-      ...bullet,
-      rewritten: editedText,
-      // Simulate improved scores based on edits
-      bullet_total: Math.min(45, bullet_total + 5),
-      xyz_scores: {
-        hard_soft: Math.min(5, xyz_scores.hard_soft + 0.5),
-        action_words: Math.min(5, xyz_scores.action_words + 0.5),
-        measurable_results: Math.min(5, xyz_scores.measurable_results + 0.5),
-        clarity_focus: Math.min(5, xyz_scores.clarity_focus + 0.5)
-      },
-      word_balance_score: Math.min(25, word_balance_score + 2),
-      word_balance: {
-        industry_pct: Math.min(45, word_balance.industry_pct + 2),
-        common_pct: Math.max(25, word_balance.common_pct - 2),
-        action_pct: Math.min(15, word_balance.action_pct + 2),
-        metric_pct: Math.min(15, word_balance.metric_pct + 2)
-      }
-    };
-    
-    setEditedBullet(improvedBullet);
-    setIsEditing(false);
+// Handle save button click
+const handleSave = () => {
+  // Create a simulated analysis of the edited text
+  // In a real implementation, you would call the actual analysis API
+  const improvedBullet = {
+    ...bullet,
+    rewritten: editedText,
+    // Simulate improved scores based on edits
+    bullet_total: Math.min(100, bullet_total + 10),
+    xyz_scores: {
+      action: Math.min(10, (xyz_scores.action || 0) + 2),
+      metrics: Math.min(30, (xyz_scores.metrics || 0) + 5),
+      clarity: Math.min(15, (xyz_scores.clarity || 0) + 3),
+      industry: Math.min(25, (xyz_scores.industry || 0) + 5),
+      achievement: Math.min(20, (xyz_scores.achievement || 0) + 3)
+    },
+    word_balance_score: Math.min(25, word_balance_score + 2),
+    word_balance: {
+      industry_pct: Math.min(45, word_balance.industry_pct + 2),
+      common_pct: Math.max(25, word_balance.common_pct - 2),
+      action_pct: Math.min(15, word_balance.action_pct + 2),
+      metric_pct: Math.min(15, word_balance.metric_pct + 2)
+    }
   };
+  
+  setEditedBullet(improvedBullet);
+  setIsEditing(false);
+};
+  
+  // const handleSave = () => {
+  //   // Create a simulated analysis of the edited text
+  //   // In a real implementation, you would call the actual analysis API
+  //   const improvedBullet = {
+  //     ...bullet,
+  //     rewritten: editedText,
+  //     // Simulate improved scores based on edits
+  //     bullet_total: Math.min(45, bullet_total + 5),
+  //     xyz_scores: {
+  //       hard_soft: Math.min(5, xyz_scores.hard_soft + 0.5),
+  //       action_words: Math.min(5, xyz_scores.action_words + 0.5),
+  //       measurable_results: Math.min(5, xyz_scores.measurable_results + 0.5),
+  //       clarity_focus: Math.min(5, xyz_scores.clarity_focus + 0.5)
+  //     },
+  //     word_balance_score: Math.min(25, word_balance_score + 2),
+  //     word_balance: {
+  //       industry_pct: Math.min(45, word_balance.industry_pct + 2),
+  //       common_pct: Math.max(25, word_balance.common_pct - 2),
+  //       action_pct: Math.min(15, word_balance.action_pct + 2),
+  //       metric_pct: Math.min(15, word_balance.metric_pct + 2)
+  //     }
+  //   };
+    
+  //   setEditedBullet(improvedBullet);
+  //   setIsEditing(false);
+  // };
 
   const handleCancel = () => {
     setIsEditing(false);

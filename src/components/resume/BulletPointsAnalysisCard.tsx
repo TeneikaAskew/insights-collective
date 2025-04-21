@@ -287,9 +287,53 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
             }} />
           </div>
         )}
-        
         {/* Score Breakdown section */}
-        <div className="mt-6 border-t pt-4">
+<div className="mt-6 border-t pt-4">
+  <h4 className="text-lg font-semibold mb-4">Score Breakdown:</h4>
+  
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div>
+      <h5 className="font-medium text-sm mb-2">Word Balance ({displayBullet?.word_balance_score || 0}/25)</h5>
+      <div className="space-y-2">
+        <div className="flex justify-between">
+          <span>Industry:</span>
+          <span className="font-medium">{displayBullet?.word_balance?.industry_pct || 0}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Common:</span>
+          <span className="font-medium">{displayBullet?.word_balance?.common_pct || 0}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Action:</span>
+          <span className="font-medium">{displayBullet?.word_balance?.action_pct || 0}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Metric:</span>
+          <span className="font-medium">{displayBullet?.word_balance?.metric_pct || 0}%</span>
+        </div>
+      </div>
+    </div>
+    
+    <div>
+      <h5 className="font-medium text-sm mb-2">XYZ Quality ({
+        (displayBullet?.xyz_scores?.action || 0) + 
+        (displayBullet?.xyz_scores?.metrics || 0) + 
+        (displayBullet?.xyz_scores?.clarity || 0) + 
+        (displayBullet?.xyz_scores?.industry || 0) + 
+        (displayBullet?.xyz_scores?.achievement || 0)
+      }/100)</h5>
+      <div className="space-y-2">
+        <ScoreWithIcon score={displayBullet?.xyz_scores?.action || 0} maxScore={10} label="Action Words" />
+        <ScoreWithIcon score={displayBullet?.xyz_scores?.metrics || 0} maxScore={30} label="Metrics/Results" />
+        <ScoreWithIcon score={displayBullet?.xyz_scores?.clarity || 0} maxScore={15} label="Clarity/Conciseness" />
+        <ScoreWithIcon score={displayBullet?.xyz_scores?.industry || 0} maxScore={25} label="Industry Keywords" />
+        <ScoreWithIcon score={displayBullet?.xyz_scores?.achievement || 0} maxScore={20} label="Achievement Focus" />
+      </div>
+    </div>
+  </div>
+</div>
+        {/* Score Breakdown section */}
+        {/* <div className="mt-6 border-t pt-4">
           <h4 className="text-lg font-semibold mb-4">Score Breakdown:</h4>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -325,7 +369,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
         
         {/* Improvement Tips */}
         <div className="mt-6 border-t pt-4">
