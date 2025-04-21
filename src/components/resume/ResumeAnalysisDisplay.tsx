@@ -6,12 +6,14 @@ interface ResumeAnalysisDisplayProps {
   analysis: ResumeAnalysis | null;
   onStartCareerChat: () => void;
   userId?: string; // Add userId prop
+  hasAnalysis?: boolean;
 }
 
 const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   analysis,
   onStartCareerChat,
-  userId
+  userId,
+  hasAnalysis
 }) => {
   if (!analysis) return null;
   
@@ -34,7 +36,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         themes={themes || []}
         explanation={explanation}
         onStartCareerChat={onStartCareerChat}
-        userId={userId} // Pass userId
+        userId={userId} 
+        hasAnalysis={hasAnalysis} 
       />
     </div>
   );
