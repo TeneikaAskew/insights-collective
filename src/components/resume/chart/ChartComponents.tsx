@@ -52,51 +52,40 @@ export const getCategoryTextColorClass = (category: string): string => {
 export const BulletDonutChart: React.FC<{
   data: ChartDataItem[];
   totalScore: number;
-}> = ({ data, totalScore }) => {
-  return (
-    <div className="relative">
+}> = ({
+  data,
+  totalScore
+}) => {
+  return <div className="relative">
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
-          <Pie 
-            data={data} 
-            cx="50%" 
-            cy="50%" 
-            innerRadius={60} 
-            outerRadius={90} 
-            paddingAngle={2} 
-            dataKey="value"
-            startAngle={90}
-            endAngle={-270}
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.fill} />
-            ))}
+          <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value" startAngle={90} endAngle={-270}>
+            {data.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
           </Pie>
         </PieChart>
       </ResponsiveContainer>
       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
         <div className="text-3xl font-bold">{totalScore}</div>
-        <div className="text-sm text-gray-500">Bullet Score</div>
+        <div className="text-sm text-gray-500">Story Score</div>
       </div>
-    </div>
-  );
+    </div>;
 };
 
 // Distribution bar component
 export const DistributionBar: React.FC<{
   item: ChartDataItem;
-}> = ({ item }) => {
+}> = ({
+  item
+}) => {
   // Calculate scaled score percentage = (actual / target) * 100
-  const scaledScore = item.target > 0 ? Math.round((item.percent / item.target) * 100) : 0;
+  const scaledScore = item.target > 0 ? Math.round(item.percent / item.target * 100) : 0;
 
   // Determine color of score: green if scaledScore >= 100%, else red
   const scoreColorClass = scaledScore >= 100 ? "text-green-600 font-semibold" : "text-red-600 font-semibold";
 
   // Bar width based on scaled score capped at 100%
   const barWidthPercent = Math.min(scaledScore, 100);
-
-  return (
-    <div className="relative">
+  return <div className="relative">
       <div className="flex justify-between text-sm mb-1">
         <div className="flex items-center">
           <div className={`w-4 h-4 mr-2 rounded-full ${getCategoryColorClass(item.category)}`}></div>
@@ -109,24 +98,15 @@ export const DistributionBar: React.FC<{
         </div>
       </div>
       <div className="h-2 w-full bg-gray-200 rounded relative overflow-visible">
-        <div 
-          className={`h-full rounded ${getCategoryColorClass(item.category)}`}
-          style={{
-            width: `${barWidthPercent}%`,
-          }}
-        ></div>
+        <div className={`h-full rounded ${getCategoryColorClass(item.category)}`} style={{
+        width: `${barWidthPercent}%`
+      }}></div>
         {/* Line indicator for Goal at 100% */}
-        <div 
-          className="absolute top-0 left-[100%] h-full w-[2px] bg-gray-900 opacity-40"
-          style={{
-            transform: 'translateX(-1px)'
-          }}
-          aria-label="Goal marker"
-          title="Goal"
-        ></div>
+        <div className="absolute top-0 left-[100%] h-full w-[2px] bg-gray-900 opacity-40" style={{
+        transform: 'translateX(-1px)'
+      }} aria-label="Goal marker" title="Goal"></div>
       </div>
-    </div>
-  );
+    </div>;
 };
 
 // Score display with icon component
@@ -134,15 +114,15 @@ export const ScoreWithIcon: React.FC<{
   score: number;
   maxScore: number;
   label: string;
-}> = ({ score, maxScore, label }) => {
+}> = ({
+  score,
+  maxScore,
+  label
+}) => {
   const isPassing = score >= maxScore * 0.6; // 60% threshold
-  
-  return (
-    <div className="flex items-center">
-      {isPassing ? 
-        <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : 
-        <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
+
+  return <div className="flex items-center">
+      {isPassing ? <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
       <span>{label}: {score}/{maxScore}</span>
-    </div>
-  );
+    </div>;
 };
