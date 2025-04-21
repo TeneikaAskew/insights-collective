@@ -3,7 +3,7 @@ console.log("Bullet Extractor Endpoint hit")
 // bulletImprover.ts
 
 export const config = {
-  MAX_BATCHES_TO_PROCESS: 2,
+  MAX_BATCHES_TO_PROCESS: 1,
   DEFAULT_BATCH_SIZE: 7,
   MAX_RETRIES: 5,
   RATE_LIMIT_DELAY_MS: 2000,
