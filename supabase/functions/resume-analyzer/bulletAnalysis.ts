@@ -163,7 +163,10 @@ export function xyzCheck(bullet: string): {
   const metrics = hasMetrics ? 30 : (hasPartialMetrics ? 15 : 0);
   
   // Clarity and conciseness check
-  const clarity = wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5);
+  // const clarity = wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5);
+  // More penalty for extremely short bullets
+  const clarity = wordCount <= 7 ? 0 : (wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5));
+  
   
   // Industry relevance check
   const industryKeywords = industryWords.filter(keyword => 
