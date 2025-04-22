@@ -421,31 +421,30 @@ serve(async (req) => {
       // Run resume analysis first
       const analysisResult = await analyzeResume(resolvedText, userId, sentences);
 
-      const improvedBullets = await bulletImprover(userId, analysisResult);
-      
-      console.log('Bullet improvements: ',improvedBullets);
+      // const improvedBullets = await bulletImprover(userId, analysisResult);
+      // console.log('Bullet improvements: ',improvedBullets);
       
       // Prepare the response before starting the background process
       // const response = new Response(JSON.stringify(sentences), {
-      // const response = new Response(JSON.stringify(analysisResult), {
+      const response = new Response(JSON.stringify(analysisResult), {
         
-      const response = new Response(JSON.stringify(improvedBullets), {
+      // const response = new Response(JSON.stringify(improvedBullets), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
       
-      // Trigger background processing AFTER preparing the response
-      if (userId) {
-        console.log('Triggering background bullet improvements');
-        // Use setTimeout to ensure this runs after the response is sent
-        setTimeout(async () => {
-          try {
-            console.log('Starting background bullet improvement process');
-            await bulletImprover(userId, analysisResult);
-          } catch (bgError) {
-            console.error('Background bullet improvement failed:', bgError);
-          }
-        }, 50);
-      }
+      // // Trigger background processing AFTER preparing the response
+      // if (userId) {
+      //   console.log('Triggering background bullet improvements');
+      //   // Use setTimeout to ensure this runs after the response is sent
+      //   setTimeout(async () => {
+      //     try {
+      //       console.log('Starting background bullet improvement process');
+      //       await bulletImprover(userId, analysisResult);
+      //     } catch (bgError) {
+      //       console.error('Background bullet improvement failed:', bgError);
+      //     }
+      //   }, 50);
+      // }
       
       // Return the response immediately
       return response;
