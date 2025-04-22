@@ -45,14 +45,14 @@ serve(async (req) => {
     ];
 
     // Call OpenAI API chat completion
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${OPENAI_API_KEY}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'compound-beta-mini',
         messages,
         temperature: 0.7,
         max_tokens: 1200,
