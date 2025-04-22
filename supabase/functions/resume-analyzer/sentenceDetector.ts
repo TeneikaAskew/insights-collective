@@ -154,95 +154,146 @@ export async function detectSentences(text, userId) {
 
 
 // Add this function to implement retry logic with exponential backoff
-async function callGroqWithRetry(processedText, GROQ_API_KEY, maxRetries = 3) {
-  let retryCount = 0;
-  let baseDelay = 1000; // Start with 1 second delay
+// async function callGroqWithRetry(processedText, GROQ_API_KEY, maxRetries = 3) {
+//   let retryCount = 0;
+//   let baseDelay = 1000; // Start with 1 second delay
   
-  while (retryCount <= maxRetries) {
-    try {
-      console.log(`callGroqWithRetry: Attempt ${retryCount + 1}/${maxRetries + 1}`);
+//   while (retryCount <= maxRetries) {
+//     try {
+//       console.log(`callGroqWithRetry: Attempt ${retryCount + 1}/${maxRetries + 1}`);
       
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'compound-beta-mini', //llama3-8b-8192
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a sentence extraction expert. Extract resume bullet points and return ONLY a JSON array of strings. Do not include any explanatory text before or after the JSON array.'
-            },
-            {
-              role: 'user',
-              content: `Extract resume bullet points from the following text:\n\n${processedText}`
-            }
-          ],
-          temperature: 0.2,
-          max_tokens: 1024
-        })
-      });
+//       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+//         method: 'POST',
+//         headers: {
+//           'Authorization': `Bearer ${GROQ_API_KEY}`,
+//           'Content-Type': 'application/json'
+//         },
+//         body: JSON.stringify({
+//           model: 'compound-beta-mini', //llama3-8b-8192
+//           messages: [
+//             {
+//               role: 'system',
+//               content: 'You are a sentence extraction expert. Extract resume bullet points and return ONLY a JSON array of strings. Do not include any explanatory text before or after the JSON array.'
+//             },
+//             {
+//               role: 'user',
+//               content: `Extract resume bullet points from the following text:\n\n${processedText}`
+//             }
+//           ],
+//           temperature: 0.2,
+//           max_tokens: 1024
+//         })
+//       });
       
-      // If successful, return the response
-      if (response.ok) {
-        return await response.json();
-      }
+//       // If successful, return the response
+//       if (response.ok) {
+//         return await response.json();
+//       }
       
-      // If we hit a rate limit (429)
-      if (response.status === 429) {
-        const errorText = await response.text();
-        console.log(`callGroqWithRetry: Rate limit hit (429). Error: ${errorText}`);
+//       // If we hit a rate limit (429)
+//       if (response.status === 429) {
+//         const errorText = await response.text();
+//         console.log(`callGroqWithRetry: Rate limit hit (429). Error: ${errorText}`);
         
-        // Try to extract wait time from error message
-        let waitTime = baseDelay * Math.pow(2, retryCount); // Default exponential backoff
+//         // Try to extract wait time from error message
+//         let waitTime = baseDelay * Math.pow(2, retryCount); // Default exponential backoff
         
-        try {
-          // Extract retry time from error message if available
-          const errorJson = JSON.parse(errorText);
-          const waitTimeMatch = errorJson?.error?.message.match(/try again in (\d+)m?(\d+(?:\.\d+)?)s/i);
+//         try {
+//           // Extract retry time from error message if available
+//           const errorJson = JSON.parse(errorText);
+//           const waitTimeMatch = errorJson?.error?.message.match(/try again in (\d+)m?(\d+(?:\.\d+)?)s/i);
           
-          if (waitTimeMatch) {
-            const minutes = waitTimeMatch[1] ? parseInt(waitTimeMatch[1], 10) : 0;
-            const seconds = parseFloat(waitTimeMatch[2] || 0);
-            const extractedWaitTime = (minutes * 60 + seconds) * 1000; // Convert to milliseconds
+//           if (waitTimeMatch) {
+//             const minutes = waitTimeMatch[1] ? parseInt(waitTimeMatch[1], 10) : 0;
+//             const seconds = parseFloat(waitTimeMatch[2] || 0);
+//             const extractedWaitTime = (minutes * 60 + seconds) * 1000; // Convert to milliseconds
             
-            if (extractedWaitTime > 0) {
-              waitTime = extractedWaitTime + 500; // Add a small buffer (500ms)
-              console.log(`callGroqWithRetry: Extracted wait time of ${waitTime}ms from error message`);
-            }
-          }
-        } catch (e) {
-          console.log(`callGroqWithRetry: Couldn't parse error message for wait time: ${e.message}`);
-        }
+//             if (extractedWaitTime > 0) {
+//               waitTime = extractedWaitTime + 500; // Add a small buffer (500ms)
+//               console.log(`callGroqWithRetry: Extracted wait time of ${waitTime}ms from error message`);
+//             }
+//           }
+//         } catch (e) {
+//           console.log(`callGroqWithRetry: Couldn't parse error message for wait time: ${e.message}`);
+//         }
         
-        // Wait before retry
-        console.log(`callGroqWithRetry: Waiting ${waitTime}ms before retry ${retryCount + 1}`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        retryCount++;
-        continue;
-      }
+//         // Wait before retry
+//         console.log(`callGroqWithRetry: Waiting ${waitTime}ms before retry ${retryCount + 1}`);
+//         await new Promise(resolve => setTimeout(resolve, waitTime));
+//         retryCount++;
+//         continue;
+//       }
       
-      // For other errors, throw and don't retry
-      const errorText = await response.text();
-      throw new Error(`GROQ API error: ${response.status} - ${errorText}`);
+//       // For other errors, throw and don't retry
+//       const errorText = await response.text();
+//       throw new Error(`GROQ API error: ${response.status} - ${errorText}`);
       
-    } catch (error) {
-      // If this is a network error or something we can retry
-      if (retryCount < maxRetries && !error.message.includes('GROQ API error:')) {
-        const waitTime = baseDelay * Math.pow(2, retryCount);
-        console.log(`callGroqWithRetry: Error: ${error.message}. Retrying in ${waitTime}ms...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-        retryCount++;
-      } else {
-        // We've exhausted retries or got a non-retryable error
-        throw error;
-      }
-    }
-  }
+//     } catch (error) {
+//       // If this is a network error or something we can retry
+//       if (retryCount < maxRetries && !error.message.includes('GROQ API error:')) {
+//         const waitTime = baseDelay * Math.pow(2, retryCount);
+//         console.log(`callGroqWithRetry: Error: ${error.message}. Retrying in ${waitTime}ms...`);
+//         await new Promise(resolve => setTimeout(resolve, waitTime));
+//         retryCount++;
+//       } else {
+//         // We've exhausted retries or got a non-retryable error
+//         throw error;
+//       }
+//     }
+//   }
   
-  throw new Error(`Failed after ${maxRetries} retries`);
+//   throw new Error(`Failed after ${maxRetries} retries`);
+// }
+async function callGroqAPI(prompt: string): Promise<string> {
+  const AWAN_API_KEY = Deno.env.get('AWAN');
+  if (!AWAN_API_KEY) throw new Error('AWAN API key not found in environment');
+
+  const GROQ_API_KEY = Deno.env.get('GROQ');
+  if (!GROQ_API_KEY) throw new Error('GROQ API key not found in environment');
+
+  const awanUrl = 'https://api.awanllm.com/v1/chat/completions';
+  const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
+
+  // 1️⃣ Try ANWAN first
+  let resp = await fetch(awanUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${AWAN_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'Meta-Llama-3-8B-Instruct',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  });
+
+  // 2️⃣ If ANWAN hits rate limit or error, fall back to GROQ
+  if (resp.status === 429 || !resp.ok) {
+    console.warn(`ANWAN failed (status ${resp.status}), falling back to GROQ`);
+    resp = await fetch(groqUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'compound-beta-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 500
+      })
+    });
+  }
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Chat completion failed: ${resp.status} ${text}`);
+  }
+
+  const data = await resp.json();
+  return data.choices?.[0]?.message?.content;
 }
 
 
@@ -253,7 +304,7 @@ export function extractSentencesFromResponse(content) {
   // Try multiple extraction methods, from most structured to least
   // Method 4: Extract quoted strings individually
     if (sentences.length === 0) {
-    // console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
+    console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
     const items = [];
     const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
     let match;
@@ -275,8 +326,8 @@ export function extractSentencesFromResponse(content) {
 
   // Method 2: Extract JSON array if embedded in text
   if (sentences.length === 0) {
-    // console.log('extractSentencesFromResponse: Trying Method 2 - JSON array extraction');
-    // console.log(`extractSentencesFromResponse: Content includes '[': ${content.includes('[')}, includes ']': ${content.includes(']')}`);
+    console.log('extractSentencesFromResponse: Trying Method 2 - JSON array extraction');
+    console.log(`extractSentencesFromResponse: Content includes '[': ${content.includes('[')}, includes ']': ${content.includes(']')}`);
     if (content.includes('[') && content.includes(']')) {
       try {
         const jsonMatch = content.match(/\[\s*[\s\S]*\]/);
@@ -302,14 +353,14 @@ export function extractSentencesFromResponse(content) {
   }
   // Method 3: Fix malformed JSON with double quotes issue
   if (sentences.length === 0) {
-    // console.log('extractSentencesFromResponse: Trying Method 3 - Fixing double quotes issue');
-    // console.log(`extractSentencesFromResponse: Content includes '""': ${content.includes('""')}`);
+    console.log('extractSentencesFromResponse: Trying Method 3 - Fixing double quotes issue');
+    console.log(`extractSentencesFromResponse: Content includes '""': ${content.includes('""')}`);
     if (content.includes('""')) {
       try {
         // Replace double quotes with single quotes and try to parse
         console.log('extractSentencesFromResponse: Method 3 - applying quote fixes to content');
         const fixedContent = content.replace(/\[\s*\n?/g, '[').replace(/\s*\n?\]/g, ']').replace(/""/g, '"').replace(/",\s*(?=\])/g, '"');
-        // console.log(`extractSentencesFromResponse: Method 3 - fixed content preview: ${fixedContent.substring(0, 50)}...`);
+        console.log(`extractSentencesFromResponse: Method 3 - fixed content preview: ${fixedContent.substring(0, 50)}...`);
         // Try to extract array with fixed quotes
         const jsonMatch = fixedContent.match(/\[\s*[\s\S]*\]/);
         if (jsonMatch) {
@@ -355,8 +406,8 @@ export function extractSentencesFromResponse(content) {
   // }
   
   // Method 4: Try direct JSON parsing if it looks like a JSON array
-  // console.log('extractSentencesFromResponse: Trying Method 4 - Direct JSON parsing');
-  // console.log(`extractSentencesFromResponse: Content starts with '[': ${content.trim().startsWith('[')}, ends with ']': ${content.trim().endsWith(']')}`);
+  console.log('extractSentencesFromResponse: Trying Method 4 - Direct JSON parsing');
+  console.log(`extractSentencesFromResponse: Content starts with '[': ${content.trim().startsWith('[')}, ends with ']': ${content.trim().endsWith(']')}`);
   if (content.trim().startsWith('[') && content.trim().endsWith(']')) {
     try {
       const parsedArray = JSON.parse(content.trim());
@@ -387,7 +438,7 @@ export function extractSentencesFromResponse(content) {
         items.push(match[1].trim());
       }
     }
-    // console.log(`extractSentencesFromResponse: Method 5 - found ${matchCount} double-quote matches, ${items.length} valid items`);
+    console.log(`extractSentencesFromResponse: Method 5 - found ${matchCount} double-quote matches, ${items.length} valid items`);
     if (items.length > 0) {
       console.log('extractSentencesFromResponse: Method 5 successful');
       sentences = items;
@@ -397,7 +448,7 @@ export function extractSentencesFromResponse(content) {
   }
   // Method 6: Last resort - extract by lines
   if (sentences.length === 0) {
-    // console.log('extractSentencesFromResponse: Trying Method 6 - Line-by-line extraction (last resort)');
+    console.log('extractSentencesFromResponse: Trying Method 6 - Line-by-line extraction (last resort)');
     const lines = content.split(/\r?\n/);
     console.log(`extractSentencesFromResponse: Method 6 - content split into ${lines.length} lines`);
     sentences = lines.map((line)=>line.trim()).filter((line)=>{
