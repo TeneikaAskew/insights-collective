@@ -153,14 +153,14 @@ try {
     enhancedAnalysis.explanation = extractedContent.explanation;
   }
   
-  console.log("Enhanced Analysis: ", enhancedAnalysis);
-  return enhancedAnalysis;
-} catch (error) {
-  console.error('Error processing AI response:', error);
-  clearTimeout(timeoutId);
-  // Return the original analysis if there was an error
-  return analysis;
-}}}
+//   console.log("Enhanced Analysis: ", enhancedAnalysis);
+//   return enhancedAnalysis;
+// } catch (error) {
+//   console.error('Error processing AI response:', error);
+//   clearTimeout(timeoutId);
+//   // Return the original analysis if there was an error
+//   return analysis;
+// }}}
     //   function formatResponse(raw) {
     //     if (!raw) return '';
     //     let text = raw;
@@ -324,19 +324,19 @@ try {
 
 
         
-  //       console.log("Enhanced Analysis: ", enhancedAnalysis);
-  //       return enhancedAnalysis;
-  //     }
-  //   } catch (fetchError) {
-  //     console.error("GROQ API fetch error:", fetchError);
-  //     // If there's a timeout or other fetch error, continue with the basic analysis
-  //     clearTimeout(timeoutId);
-  //   }
-  //   // Return the original analysis if we couldn't enhance it
-  //   return analysis;
-  // } catch (error) {
-  //   console.error("Error enhancing analysis with GROQ:", error);
-  //   // Return original analysis on any error
-  //   return analysis;
-  // }
-// }
+        console.log("Enhanced Analysis: ", enhancedAnalysis);
+        return enhancedAnalysis;
+      }
+    } catch (fetchError) {
+      console.error("GROQ API fetch error:", fetchError);
+      // If there's a timeout or other fetch error, continue with the basic analysis
+      clearTimeout(timeoutId);
+    }
+    // Return the original analysis if we couldn't enhance it
+    return analysis;
+  } catch (error) {
+    console.error("Error enhancing analysis with GROQ:", error);
+    // Return original analysis on any error
+    return analysis;
+  }
+}
