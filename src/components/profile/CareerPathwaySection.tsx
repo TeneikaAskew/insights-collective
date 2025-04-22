@@ -1,89 +1,78 @@
-
-// Fix: Improve user's resume presence message and clean code
+// Updated: CareerPathwaySection now fetches saved career advice instead of generating it
 import React, { useEffect, useState } from 'react';
-import { quizQuestions } from '@/data/careerQuizData';
+import { pathwayQuestions } from '@/data/careerPathwayData';
 import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
 
 type CareerPathwaySectionProps = {
-  quizAnswers: Record<number, number | string>;
+  pathwayAnswers: Record<number, number | string>;
 };
 
-const careerAdvicePrompt = `Here are outputs from a career chat:
-• A set of recommended roles with descriptions & salary bands
-• A table of skills and matching courses
-• A narrative of next-step career recommendations
-• A 'Roles that might be right for you' list
-• A 'Path to your aspirational role' carousel
-Please combine these data points with the user’s quiz answers to generate a personalized career-advice report.`;
-
-const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ quizAnswers }) => {
+const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnswers }) => {
+  const { user } = useAuth();
   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [resumeFound, setResumeFound] = useState(false);
 
   useEffect(() => {
-    const allAnswersProvided = Object.keys(quizAnswers).length === quizQuestions.length;
-    if (!allAnswersProvided) {
+    const allAnswersProvided = Object.keys(pathwayAnswers).length === pathwayQuestions.length;
+    if (!allAnswersProvided || !user) {
       setCareerAdviceReport('');
       setResumeFound(false);
       return;
     }
 
-    const fetchCareerAdvice = async () => {
+    const fetchSavedCareerAdvice = async () => {
       setLoading(true);
       try {
+        // Check if resume exists
         const { data: resumeData, error: resumeError } = await supabase
           .from('resumes')
           .select('text')
+          .eq('user_id', user.id)
           .limit(1)
           .maybeSingle();
 
-        let resumeText = null;
         if (resumeError) {
           console.error('Error checking resume for career advice:', resumeError);
         } else if (resumeData && resumeData.text) {
-          resumeText = resumeData.text;
           setResumeFound(true);
         } else {
           setResumeFound(false);
         }
 
-        const payload = {
-          prompt: careerAdvicePrompt,
-          Quizquestions: quizQuestions,
-          quizAnswers: quizAnswers,
-          resumeText,
-        };
+        // Fetch the latest career advice report from the database
+        const { data: adviceData, error: adviceError } = await supabase
+          .from('career_pathway_results')
+          .select('report')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
-          method: 'POST',
-          body: JSON.stringify(payload),
-        });
-
-        if (error) {
-          console.error('Error invoking evaluateCareerAdvice:', error);
+        if (adviceError) {
+          console.error('Error fetching career advice:', adviceError);
           setCareerAdviceReport('Failed to get career advice. Please try again later.');
           return;
         }
 
-        const responseText =
-          typeof data === 'string'
-            ? data
-            : (data && data.generatedText) || JSON.stringify(data);
-
-        setCareerAdviceReport(responseText);
+        if (adviceData && adviceData.report) {
+          setCareerAdviceReport(adviceData.report);
+        } else {
+          setCareerAdviceReport('No career pathway report found. Please complete the career pathway chat first.');
+        }
       } catch (err) {
-        console.error('Unknown error invoking career advice function:', err);
+        console.error('Unknown error fetching career advice:', err);
         setCareerAdviceReport('Failed to get career advice. Please try again later.');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCareerAdvice();
-  }, [quizAnswers]);
+    fetchSavedCareerAdvice();
+  }, [quizAnswers, user]);
 
   return (
     <Card id="career-pathway-report" className="mt-6">
@@ -97,7 +86,7 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ quizAnswers
         {loading ? (
           <div className="flex justify-center items-center h-full">
             <Spinner className="w-8 h-8" />
-            <span className="ml-2 text-muted-foreground">Generating report...</span>
+            <span className="ml-2 text-muted-foreground">Loading report...</span>
           </div>
         ) : (
           <>
