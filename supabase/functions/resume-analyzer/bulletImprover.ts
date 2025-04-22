@@ -20,7 +20,7 @@ export async function improveBullet(bulletData: any): Promise<any> {
     
     // Make API call to rewrite the bullet
     const groqPrompt = constructGroqPrompt(bulletData);
-    const result = await callGroqWithRetry(groqPrompt, bulletData);
+    const result = await callGroqWithRetry("", groqPrompt);
     
     // Parse the response to extract the rewritten bullet and tips
     const processedResult = processGroqResponse(result, bulletData);

@@ -60,7 +60,8 @@ export async function detectSentences(text, userId) {
       // Call AI API with retry logic
       // console.log(`detectSentences: Calling GROQ API with retry for chunk ${i+1} [${new Date().toISOString()}]`);
       const apiStartTime = Date.now();
-
+      
+      ///PROMPTS
       const system = `You are a sentence extraction expert. Extract resume bullet points and return ONLY a JSON array of strings. 
       Do not include any explanatory text before or after the JSON array.`
       
