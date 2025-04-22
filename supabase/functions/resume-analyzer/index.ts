@@ -48,7 +48,7 @@ async function getResumeRoast(resumeText, userId) {
     const groqApiKey = Deno.env.get('GROQ');
     if (!groqApiKey) throw new Error('GROQ API key not found');
     const prompt = `I'm looking at this resume text:        
-        ${resumeText.substring(0, 4000)}        
+        ${resumeText.substring(0, 3800)}        
         Now, I need a full-on resume roast. Don't sugarcoat it — tell me what's holding this back. Why am I not getting callbacks, referrals, or interviews? Tear it apart like a hiring manager who's had one too many resumes land on their desk. Be blunt. What's outdated, what's weak, what's missing, what makes you roll your eyes, and what makes you scroll past me? Give me the real — and then tell me how to fix it so I actually start landing opportunities.
         Be specific and provide actionable advice. Format your response with no markdown, just clean text. Keep it to 3-4 paragraphs maximum.`
       ; 
