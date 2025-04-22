@@ -420,6 +420,10 @@ serve(async (req) => {
 
       // Run resume analysis first
       const analysisResult = await analyzeResume(resolvedText, userId, sentences);
+
+      const improvedBullets = await bulletImprover(userId, analysisResult);
+      
+      console.log('Bullet improvements: ',improvedBullets);
       
       // Prepare the response before starting the background process
       // const response = new Response(JSON.stringify(sentences), {
