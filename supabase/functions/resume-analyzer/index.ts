@@ -427,7 +427,9 @@ serve(async (req) => {
       
       // Prepare the response before starting the background process
       // const response = new Response(JSON.stringify(sentences), {
-      const response = new Response(JSON.stringify(analysisResult), {
+      // const response = new Response(JSON.stringify(analysisResult), {
+        
+      const response = new Response(JSON.stringify(improvedBullets), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
       
