@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import AppLayout from '@/components/layout/AppLayout';
+// import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import {
   pathwayQuestions,
@@ -15,7 +15,39 @@ interface Message {
   sender: 'user' | 'bot';
   text: string;
 }
+const CareerAgent = () => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [answers, setAnswers] = useState<{ [key: string]: string }>({});
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
+  const { user } = useUser();
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [resumeText, setResumeText] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
 
+  useEffect(() => {
+    const storedChat = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (storedChat) {
+      const parsedChat = JSON.parse(storedChat);
+      setMessages(parsedChat.messages || []);
+      setAnswers(parsedChat.answers || {});
+      setSessionId(parsedChat.sessionId || null);
+      setCurrentQuestionIndex(parsedChat.currentQuestionIndex || 0);
+    } else {
+      // Start a new session if no chat history is found
+      startNewSession();
+    }
+  }, []);
+
+  useEffect(() => {
+    // Save chat to local storage whenever messages or answers change
+    localStorage.setItem(
+      LOCAL_STORAGE_KEY,
+      JSON.stringify({ messages, answers, sessionId, currentQuestionIndex })
+    );
+  }, [messages, answers, sessionId, currentQuestionIndex]);
+
+  const start
 const CareerAgent: React.FC = () => {
   // Authentication hook
   const { user, isAuthenticated } = useAuth();
