@@ -169,7 +169,7 @@ async function callGroqWithRetry(processedText, GROQ_API_KEY, maxRetries = 3) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          model: 'compound-beta-mini' //llama3-8b-8192',
+          model: 'compound-beta-mini' //llama3-8b-8192
           messages: [
             {
               role: 'system',
