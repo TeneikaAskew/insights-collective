@@ -1,6 +1,3 @@
-
-// Replace the incorrect useUser import and usage with useAuth
-
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Message } from '@/components/chat/types';
@@ -11,8 +8,10 @@ import {
   careerAdvicePrompt, 
   LOCAL_STORAGE_KEY
 } from '@/data/careerPathwayData';
-import { useAuth } from '@/contexts/AuthContext'; // Changed from useUser to useAuth
-
+const {
+    user,
+    isAuthenticated
+  } = useAuth();
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
   if (sessionId && user) {
     try {
@@ -359,7 +358,7 @@ const CareerAgent = () => {
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
-  const { user } = useAuth(); // Fixed here: replaced useUser with useAuth
+  const { user } = useUser();
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [resumeText, setResumeText] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
