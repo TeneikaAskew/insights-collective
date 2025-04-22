@@ -71,7 +71,7 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
 
     // Save the report to the database
     try {
-      await supabase.from("career_pathway_results").insert({
+      await supabase.from("career_pathway_answers).insert({
         user_id: user.id,
         session_id: sessionId,
         report: resultText
