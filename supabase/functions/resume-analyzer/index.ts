@@ -254,7 +254,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       resume_average: avg,
       resume_percent: parseFloat(percent.toFixed(1)),
       letter_grade: grade,
-      themes,
+      // themes,
       elevator_pitch: 'Experienced professional ...',
       explanation: `Your resume received a ${grade} grade (${percent}%).`
     };
