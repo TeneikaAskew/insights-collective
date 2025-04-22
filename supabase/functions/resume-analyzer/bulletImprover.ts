@@ -187,7 +187,7 @@ async function callGroqAPI(prompt: string): Promise<any> {
         'Authorization': `Bearer ${GROQ_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192',
+        model: 'compound-beta-mini', //'llama3-8b-8192',
         messages: [
           { role: 'user', content: prompt }
         ],
