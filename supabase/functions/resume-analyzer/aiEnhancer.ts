@@ -134,6 +134,7 @@ try {
   
   // Use our new format function which returns an object with extracted content
   const extractedContent = formatResponse(aiResponse);
+  console.log("Extracted Content: ", extractedContent)
   
   // Update the analysis with AI-generated content
   const enhancedAnalysis = {
