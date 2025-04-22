@@ -481,4 +481,5 @@ useEffect(() => {
     dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
   />
 )}
+};
 export default CareerAgent;
