@@ -1,7 +1,8 @@
 console.log("Bullet Extractor Endpoint hit")
 
 // bulletImprover.ts
-import { callGroqAPI, callGroqWithRetry } from './utils.ts';
+
+import { callGroqWithRetry } from './utils.ts';
 
 
 export const config = {
