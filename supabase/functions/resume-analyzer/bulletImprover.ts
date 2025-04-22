@@ -63,6 +63,8 @@ function constructGroqPrompt(bulletData: any): string {
   
   Respond in JSON format with 'rewritten' for the improved bullet and 'tips' for specific improvement advice.
   `;
+
+  console.log('Prompt used', prompt)
   
   return prompt;
 }
