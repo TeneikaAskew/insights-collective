@@ -7,10 +7,6 @@ import {
   LOCAL_STORAGE_KEY
 } from '@/data/careerPathwayData';
 
-// Replace any references to assessmentQuestions with pathwayQuestions
-// Replace any references to quizAnswers with pathwayAnswers
-// Replace any references to "career_assessments" with "career_pathway_answers"
-
 // Updated function for saving answer to database
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
   if (sessionId && user) {
@@ -272,3 +268,30 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     handleReportError("Failed to get career advice. Please try again later.");
   }
 };
+
+{careerAdviceReport && (
+  <div 
+    className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full text-gray-900 text-sm shadow-md"
+    dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+  />
+)}
+
+const reportRef = useRef<HTMLDivElement>(null);
+
+// Add this useEffect hook somewhere in your component
+useEffect(() => {
+  if (careerAdviceReport && reportRef.current) {
+    setTimeout(() => {
+      reportRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 500);
+  }
+}, [careerAdviceReport]);
+
+// Then update your JSX to include the ref
+{careerAdviceReport && (
+  <div 
+    ref={reportRef}
+    className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full text-gray-900 text-sm shadow-md"
+    dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+  />
+)}
