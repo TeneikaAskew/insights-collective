@@ -309,26 +309,90 @@ const CareerAgent: React.FC = () => {
   };
 
   // Generate career advice report
-  const generateCareerAdviceReport = async (resumeText?: string) => {
-    // Start report generation
-    const botMessageLoading: Message = {
-      id: `bot_${Date.now()}`,
-      sender: "bot",
-      text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights...",
-    };
-    setMessages((prev) => [...prev, botMessageLoading]);
+//   const generateCareerAdviceReport = async (resumeText?: string) => {
+//     // Start report generation
+//     const botMessageLoading: Message = {
+//       id: `bot_${Date.now()}`,
+//       sender: "bot",
+//       text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights...",
+//     };
+//     setMessages((prev) => [...prev, botMessageLoading]);
     
-    if (!user) return;
+//     if (!user) return;
     
-    // Format quiz answers for API
-    const quizAnswersPayload: Record<number, string> = {};
-    assessmentQuestions.forEach((q) => {
-      if (answers[q.id]) {
-        quizAnswersPayload[q.id] = answers[q.id];
-      }
-    });
+//     // Format quiz answers for API
+//     const quizAnswersPayload: Record<number, string> = {};
+//     assessmentQuestions.forEach((q) => {
+//       if (answers[q.id]) {
+//         quizAnswersPayload[q.id] = answers[q.id];
+//       }
+//     });
 
-    const prompt = `Here are outputs from a career chat:
+//     const prompt = `Here are outputs from a career chat:
+// - A set of recommended roles with descriptions & salary bands
+// - A table of skills and matching courses
+// - A narrative of next-step career recommendations
+// - A 'Roles that might be right for you' list
+// - A 'Path to your aspirational role' carousel
+// Please combine these data points with the user's quiz answers to generate a personalized career-advice report.`;
+
+//     const payload = {
+//       prompt,
+//       Quizquestions: assessmentQuestions,
+//       quizAnswers: quizAnswersPayload,
+//       resumeText: resumeText || null,
+//     };
+
+//     try {
+//       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+//         method: 'POST',
+//         body: JSON.stringify(payload),
+//       });
+
+//       if (error) {
+//         console.error("Error invoking evaluateCareerAdvice:", error);
+//         handleReportError("Failed to get career advice. Please try again later.");
+//         return;
+//       }
+
+//       const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+//       setCareerAdviceReport(resultText);
+
+//       const botMessageReport: Message = {
+//         id: `bot_report_${Date.now()}`,
+//         sender: "bot",
+//         text: resultText,
+//       };
+
+//       setMessages((prev) => [...prev, botMessageReport]);
+//     } catch (e) {
+//       console.error("Error during career advice evaluation:", e);
+//       handleReportError("Failed to get career advice. Please try again later.");
+//     }
+//   };
+
+  // This is the updated generateCareerAdviceReport function for CareerAgent.tsx
+
+const generateCareerAdviceReport = async (resumeText?: string) => {
+  // Start report generation
+  const botMessageLoading: Message = {
+    id: `bot_${Date.now()}`,
+    sender: "bot",
+    text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights...",
+  };
+  setMessages((prev) => [...prev, botMessageLoading]);
+  
+  if (!user) return;
+  
+  // Format pathway answers for API
+  const pathwayAnswersPayload: Record<number, string> = {};
+  assessmentQuestions.forEach((q) => {
+    if (answers[q.id]) {
+      pathwayAnswersPayload[q.id] = answers[q.id];
+    }
+  });
+
+  const prompt = `Here are outputs from a career chat:
 - A set of recommended roles with descriptions & salary bands
 - A table of skills and matching courses
 - A narrative of next-step career recommendations
@@ -336,41 +400,52 @@ const CareerAgent: React.FC = () => {
 - A 'Path to your aspirational role' carousel
 Please combine these data points with the user's quiz answers to generate a personalized career-advice report.`;
 
-    const payload = {
-      prompt,
-      Quizquestions: assessmentQuestions,
-      quizAnswers: quizAnswersPayload,
-      resumeText: resumeText || null,
-    };
-
-    try {
-      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
-
-      if (error) {
-        console.error("Error invoking evaluateCareerAdvice:", error);
-        handleReportError("Failed to get career advice. Please try again later.");
-        return;
-      }
-
-      const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
-      setCareerAdviceReport(resultText);
-
-      const botMessageReport: Message = {
-        id: `bot_report_${Date.now()}`,
-        sender: "bot",
-        text: resultText,
-      };
-
-      setMessages((prev) => [...prev, botMessageReport]);
-    } catch (e) {
-      console.error("Error during career advice evaluation:", e);
-      handleReportError("Failed to get career advice. Please try again later.");
-    }
+  const payload = {
+    prompt,
+    PathwayQuestions: assessmentQuestions,
+    pathwayAnswers: pathwayAnswersPayload,
+    resumeText: resumeText || null,
   };
 
+  try {
+    const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    if (error) {
+      console.error("Error invoking evaluateCareerAdvice:", error);
+      handleReportError("Failed to get career advice. Please try again later.");
+      return;
+    }
+
+    const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+    setCareerAdviceReport(resultText);
+
+    // Save the report to the database
+    try {
+      await supabase.from("career_pathway_results").insert({
+        user_id: user.id,
+        session_id: sessionId,
+        report: resultText
+      });
+    } catch (saveError) {
+      console.error("Error saving career pathway report:", saveError);
+      // Continue even if saving fails - we don't want to block the user experience
+    }
+
+    const botMessageReport: Message = {
+      id: `bot_report_${Date.now()}`,
+      sender: "bot",
+      text: resultText,
+    };
+
+    setMessages((prev) => [...prev, botMessageReport]);
+  } catch (e) {
+    console.error("Error during career advice evaluation:", e);
+    handleReportError("Failed to get career advice. Please try again later.");
+  }
+};
   // Use the actual resume upload function from useResume hook
   const handleResumeUpload = async (file: File): Promise<boolean> => {
     if (!user) return false;
