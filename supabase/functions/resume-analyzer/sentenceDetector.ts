@@ -1,4 +1,3 @@
-console.log('Sentence Detection function hit');
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 console.log('Sentence Detection function hit');
 
@@ -117,7 +116,7 @@ export async function saveSentencesToDatabase(userId, sentences) {
     console.error('DB save failed:', e);
   }
 }
-
+// console.log('Sentence Detection function hit');
 // import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 // const bulletCache = new Map(); // Cache for storing bullet points by user ID
 
