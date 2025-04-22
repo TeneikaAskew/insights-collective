@@ -79,34 +79,7 @@ export type Database = {
           },
         ]
       }
-      career_pathway_answers: {
-        Row: {
-          answer: string
-          created_at: string
-          id: string
-          question: string
-          session_id: string
-          user_id: string
-        }
-        Insert: {
-          answer: string
-          created_at?: string
-          id?: string
-          question: string
-          session_id: string
-          user_id: string
-        }
-        Update: {
-          answer?: string
-          created_at?: string
-          id?: string
-          question?: string
-          session_id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      career_pathway_results: {
+      career_assessments: {
         Row: {
           answer: string
           created_at: string
@@ -825,7 +798,6 @@ export type Database = {
           analysis: Json | null
           career_alignment_score: number | null
           enhanced_analysis: Json | null
-          fallback_analysis: Json | null
           file_path: string
           id: string
           initial_assessment: string | null
@@ -841,7 +813,6 @@ export type Database = {
           analysis?: Json | null
           career_alignment_score?: number | null
           enhanced_analysis?: Json | null
-          fallback_analysis?: Json | null
           file_path: string
           id?: string
           initial_assessment?: string | null
@@ -857,7 +828,6 @@ export type Database = {
           analysis?: Json | null
           career_alignment_score?: number | null
           enhanced_analysis?: Json | null
-          fallback_analysis?: Json | null
           file_path?: string
           id?: string
           initial_assessment?: string | null

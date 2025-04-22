@@ -1,6 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Message } from '@/components/chat/types';
+// Changes to import statements at the top of CareerAgent.tsx
 import {
   pathwayQuestions, 
   quickReplies, 
@@ -8,8 +6,8 @@ import {
   careerAdvicePrompt, 
   LOCAL_STORAGE_KEY
 } from '@/data/careerPathwayData';
-const { user } = useAuth();
 
+// Updated function for saving answer to database
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
   if (sessionId && user) {
     try {
@@ -225,6 +223,126 @@ const handleReportError = (errorMessage: string) => {
 
 
 // Updated generateCareerAdviceReport function
+// const generateCareerAdviceReport = async (resumeText?: string) => {
+//   // Start report generation
+//   const botMessageLoading: Message = {
+//     id: `bot_${Date.now()}`,
+//     sender: "bot",
+//     text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights...",
+//   };
+//   setMessages((prev) => [...prev, botMessageLoading]);
+  
+//   if (!user) return;
+  
+//   // Format pathway answers for API
+//   const pathwayAnswersPayload: Record<number, string> = {};
+//   pathwayQuestions.forEach((q) => {
+//     if (answers[q.id]) {
+//       pathwayAnswersPayload[q.id] = answers[q.id];
+//     }
+//   });
+
+//   const payload = {
+//     prompt: careerAdvicePrompt,
+//     PathwayQuestions: pathwayQuestions,
+//     pathwayAnswers: pathwayAnswersPayload,
+//     resumeText: resumeText || null,
+//   };
+
+//   try {
+//     const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+//       method: 'POST',
+//       body: JSON.stringify(payload),
+//     });
+
+//     if (error) {
+//       console.error("Error invoking evaluateCareerAdvice:", error);
+//       handleReportError("Failed to get career advice. Please try again later.");
+//       return;
+//     }
+
+//     // const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+//     const resultText = `
+// **Personalized Career Advice Report for Joshua B. Brown**
+
+// **Summary:**
+// Based on your quiz answers and resume, we've generated a comprehensive report to guide your career transition. You aim to leverage your analytical skills and experience in machine learning and AI to move into strategic roles that incorporate these areas, with a focus on private equity, social impact, or strategy at a director level. Your priorities include compensation, remote work, autonomy, and growth.
+
+// **Recommended Roles:**
+
+// 1. **Strategy Director - Private Equity**: Lead strategic planning and implementation for private equity investments, leveraging your analytical skills and experience in program management. Salary band: $150,000 - $250,000.
+// 2. **Director of Impact Investing**: Oversee impact investing initiatives, combining your analytical expertise with a focus on social impact. Salary band: $120,000 - $200,000.
+// 3. **Strategic Development Manager**: Drive strategic development and growth initiatives for organizations, utilizing your analytical and program management skills. Salary band: $100,000 - $180,000.
+
+// **Skills and Matching Courses:**
+
+// | Skill | Course |
+// | --- | --- |
+// | Strategic Planning | Coursera - Strategic Management Specialization |
+// | Impact Investing | edX - Impact Investing Course |
+// | Data Analysis | DataCamp - Data Analysis with Python Course |
+// | Leadership | LinkedIn Learning - Leadership Course |
+
+// **Next-Step Career Recommendations:**
+
+// To achieve your aspirational role, focus on developing the following skills:
+
+// 1. **Project Management**: Enhance your project management skills to overcome your identified weakness. Consider obtaining your PMP certification.
+// 2. **Communication and Documentation**: Improve your documentation and communication skills to effectively convey strategic plans and results.
+// 3. **Leadership and Team Management**: Develop your leadership skills to lead strategic teams and drive growth initiatives.
+
+// **Roles that Might be Right for You:**
+
+// 1. **Program Director**: Oversee programs and drive strategic initiatives in industries like private equity, social impact, or strategy.
+// 2. **Strategy Consultant**: Provide strategic guidance to organizations, leveraging your analytical expertise and experience in program management.
+// 3. **Impact Investing Manager**: Lead impact investing initiatives, combining your analytical skills with a focus on social impact.
+
+// **Path to Your Aspirational Role:**
+
+// 1. **Short-term (6-12 months)**: Develop your project management and communication skills. Network with professionals in your desired field and explore relevant courses.
+// 2. **Mid-term (1-2 years)**: Take on leadership roles in program management or strategic development. Continue to build your skills and expertise.
+// 3. **Long-term (2-5 years)**: Pursue director-level positions in private equity, social impact, or strategy, leveraging your analytical expertise and leadership skills.
+
+// **Remote Work Considerations:**
+// Given your preference for remote work, focus on developing skills that are transferable to remote environments, such as:
+
+// 1. **Digital communication and collaboration tools**: Familiarize yourself with tools like Slack, Asana, or Trello.
+// 2. **Virtual leadership and team management**: Develop skills to effectively lead and manage teams remotely.
+
+// By following this personalized career advice report, you'll be well on your way to achieving your career aspirations and transitioning into a role that aligns with your skills, experience, and priorities.`
+//     console.log(resultText)
+
+//     // Format the report to improve readability and structure
+//     const formattedReport = formatCareerPathwayReport(resultText);
+    
+//     // setCareerAdviceReport(resultText);
+//     setCareerAdviceReport(formattedReport);
+
+//     // Save the report to the database
+//     try {
+//       await supabase.from("career_pathway_results").insert({
+//         user_id: user.id,
+//         session_id: sessionId,
+//         report: resultText
+//       });
+//     } catch (saveError) {
+//       console.error("Error saving career pathway report:", saveError);
+//       // Continue even if saving fails - we don't want to block the user experience
+//     }
+
+//     const botMessageReport: Message = {
+//       id: `bot_report_${Date.now()}`,
+//       sender: "bot",
+//       text: resultText,
+//     };
+
+//     setMessages((prev) => [...prev, botMessageReport]);
+//   } catch (e) {
+//     console.error("Error during career advice evaluation:", e);
+//     handleReportError("Failed to get career advice. Please try again later.");
+//   }
+// };
+// Updated generateCareerAdviceReport function
 const generateCareerAdviceReport = async (resumeText?: string) => {
   // Start report generation
   const botMessageLoading: Message = {
@@ -265,57 +383,7 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       return;
     }
 
-    // const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
-        const resultText = `
-**Personalized Career Advice Report for Joshua B. Brown**
-
-**Summary:**
-Based on your quiz answers and resume, we've generated a comprehensive report to guide your career transition. You aim to leverage your analytical skills and experience in machine learning and AI to move into strategic roles that incorporate these areas, with a focus on private equity, social impact, or strategy at a director level. Your priorities include compensation, remote work, autonomy, and growth.
-
-**Recommended Roles:**
-
-1. **Strategy Director - Private Equity**: Lead strategic planning and implementation for private equity investments, leveraging your analytical skills and experience in program management. Salary band: $150,000 - $250,000.
-2. **Director of Impact Investing**: Oversee impact investing initiatives, combining your analytical expertise with a focus on social impact. Salary band: $120,000 - $200,000.
-3. **Strategic Development Manager**: Drive strategic development and growth initiatives for organizations, utilizing your analytical and program management skills. Salary band: $100,000 - $180,000.
-
-**Skills and Matching Courses:**
-
-| Skill | Course |
-| --- | --- |
-| Strategic Planning | Coursera - Strategic Management Specialization |
-| Impact Investing | edX - Impact Investing Course |
-| Data Analysis | DataCamp - Data Analysis with Python Course |
-| Leadership | LinkedIn Learning - Leadership Course |
-
-**Next-Step Career Recommendations:**
-
-To achieve your aspirational role, focus on developing the following skills:
-
-1. **Project Management**: Enhance your project management skills to overcome your identified weakness. Consider obtaining your PMP certification.
-2. **Communication and Documentation**: Improve your documentation and communication skills to effectively convey strategic plans and results.
-3. **Leadership and Team Management**: Develop your leadership skills to lead strategic teams and drive growth initiatives.
-
-**Roles that Might be Right for You:**
-
-1. **Program Director**: Oversee programs and drive strategic initiatives in industries like private equity, social impact, or strategy.
-2. **Strategy Consultant**: Provide strategic guidance to organizations, leveraging your analytical expertise and experience in program management.
-3. **Impact Investing Manager**: Lead impact investing initiatives, combining your analytical skills with a focus on social impact.
-
-**Path to Your Aspirational Role:**
-
-1. **Short-term (6-12 months)**: Develop your project management and communication skills. Network with professionals in your desired field and explore relevant courses.
-2. **Mid-term (1-2 years)**: Take on leadership roles in program management or strategic development. Continue to build your skills and expertise.
-3. **Long-term (2-5 years)**: Pursue director-level positions in private equity, social impact, or strategy, leveraging your analytical expertise and leadership skills.
-
-**Remote Work Considerations:**
-Given your preference for remote work, focus on developing skills that are transferable to remote environments, such as:
-
-1. **Digital communication and collaboration tools**: Familiarize yourself with tools like Slack, Asana, or Trello.
-2. **Virtual leadership and team management**: Develop skills to effectively lead and manage teams remotely.
-
-By following this personalized career advice report, you'll be well on your way to achieving your career aspirations and transitioning into a role that aligns with your skills, experience, and priorities.`
-    console.log(resultText)
-
+    const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
 
     // Format the report to improve readability and structure
     const formattedReport = formatCareerPathwayReport(resultText);
@@ -350,236 +418,52 @@ By following this personalized career advice report, you'll be well on your way 
     handleReportError(errorMsg);
   }
 };
+// {careerAdviceReport && (
+//   <div 
+//     className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full text-gray-900 text-sm shadow-md"
+//     dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+//   />
+// )}
 
-const CareerAgent = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [answers, setAnswers] = useState<{ [key: string]: string }>({});
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
-  const { user } = useUser();
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [resumeText, setResumeText] = useState<string>('');
-  const [isUploading, setIsUploading] = useState(false);
+const reportRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const storedChat = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (storedChat) {
-      const parsedChat = JSON.parse(storedChat);
-      setMessages(parsedChat.messages || []);
-      setAnswers(parsedChat.answers || {});
-      setSessionId(parsedChat.sessionId || null);
-      setCurrentQuestionIndex(parsedChat.currentQuestionIndex || 0);
-    } else {
-      // Start a new session if no chat history is found
-      startNewSession();
+// Add this useEffect hook somewhere in your component
+useEffect(() => {
+  if (careerAdviceReport && reportRef.current) {
+    setTimeout(() => {
+      reportRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 500);
+  }
+}, [careerAdviceReport]);
+
+// Then update your JSX to include the ref
+// {careerAdviceReport && (
+//   <div 
+//     ref={reportRef}
+//     className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full text-gray-900 text-sm shadow-md"
+//     dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+//   />
+// )}
+<style jsx>{`
+  @keyframes slideInUp {
+    from {
+      transform: translateY(20px);
+      opacity: 0;
     }
-  }, []);
-
-  useEffect(() => {
-    // Save chat to local storage whenever messages or answers change
-    localStorage.setItem(
-      LOCAL_STORAGE_KEY,
-      JSON.stringify({ messages, answers, sessionId, currentQuestionIndex })
-    );
-  }, [messages, answers, sessionId, currentQuestionIndex]);
-
-  const startNewSession = async () => {
-    const newSessionId = generateSessionId();
-    setSessionId(newSessionId);
-
-    // Initialize the chat with starter messages
-    const initialMessages = starterMessages.map((text, index) => ({
-      id: `bot_init_${index}`,
-      sender: "bot",
-      text: text,
-    }));
-    setMessages(initialMessages);
-  };
-
-  const generateSessionId = () => {
-    return Math.random().toString(36).substring(2, 15);
-  };
-
-  const handleQuickReply = (reply: string) => {
-    handleUserMessage(reply);
-  };
-
-  const handleUserMessage = async (text: string) => {
-    const userMessage: Message = {
-      id: `user_${Date.now()}`,
-      sender: "user",
-      text: text,
-    };
-    setMessages((prev) => [...prev, userMessage]);
-
-    // Save the answer to the state
-    const currentQuestionId = pathwayQuestions[currentQuestionIndex].id;
-    setAnswers((prevAnswers) => ({
-      ...prevAnswers,
-      [currentQuestionId]: text,
-    }));
-
-    // Save the answer to the database
-    await saveAnswerToDatabase(currentQuestionId, text);
-
-    // Move to the next question or generate the report
-    if (currentQuestionIndex < pathwayQuestions.length - 1) {
-      setCurrentQuestionIndex((prevIndex) => prevIndex + 1);
-    } else {
-      // All questions answered, generate the career advice report
-      generateCareerAdviceReport(resumeText);
+    to {
+      transform: translateY(0);
+      opacity: 1;
     }
-  };
-
-  const handleFileUpload = async (file: File) => {
-    setIsUploading(true);
-    try {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const text = e.target?.result as string;
-        setResumeText(text);
-        // Optionally, generate the report immediately after upload
-        // generateCareerAdviceReport(text);
-      };
-      reader.readAsText(file);
-    } catch (error) {
-      console.error("Error reading file:", error);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const currentQuestion = pathwayQuestions[currentQuestionIndex];
-
-  const reportRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (careerAdviceReport && reportRef.current) {
-      setTimeout(() => {
-        reportRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 500);
-    }
-  }, [careerAdviceReport]);
-
-  return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <header className="bg-white shadow">
-        <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-          <h1 className="text-3xl font-bold text-gray-900">Career Agent</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Let's explore your career pathway.
-          </p>
-        </div>
-      </header>
-
-      <main className="flex-grow overflow-auto p-4">
-        <div className="max-w-3xl mx-auto">
-          {/* Chat Messages */}
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`chat-message ${message.sender === "user" ? "user-message" : "bot-message"
-                  }`}
-              >
-                <div
-                  className={`px-4 py-2 rounded-lg ${message.sender === "user"
-                      ? "bg-blue-500 text-white ml-auto"
-                      : "bg-gray-200 text-gray-800 mr-auto"
-                    }`}
-                >
-                  {message.text}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Upload Resume Section */}
-          {currentQuestionIndex === 0 && (
-            <div className="mt-6 p-4 bg-white rounded-lg shadow-md">
-              <h2 className="text-lg font-semibold text-gray-700 mb-3">
-                Upload Your Resume (Optional)
-              </h2>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt"
-                onChange={(e) => {
-                  if (e.target.files && e.target.files.length > 0) {
-                    handleFileUpload(e.target.files[0]);
-                  }
-                }}
-                className="mb-3"
-              />
-              {isUploading && <p>Uploading...</p>}
-              {resumeText && (
-                <p className="text-sm text-gray-500">
-                  Resume uploaded. Analyzing...
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Question and Input Section */}
-          {currentQuestion && (
-            <div className="mt-6 p-4 bg-white rounded-lg shadow-md">
-              <h2 className="text-lg font-semibold text-gray-700 mb-3">
-                {currentQuestion.label}
-              </h2>
-              <input
-                type="text"
-                placeholder={currentQuestion.placeholder}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    handleUserMessage(e.target.value);
-                    (e.target as HTMLInputElement).value = ""; // Clear the input after sending
-                  }
-                }}
-                className="w-full p-2 border rounded-md text-gray-700 focus:ring-blue-500 focus:border-blue-500"
-              />
-
-              {/* Quick Replies */}
-              {currentQuestionIndex === 0 && (
-                <div className="mt-4">
-                  {quickReplies.map((reply, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleQuickReply(reply)}
-                      className="bg-blue-100 hover:bg-blue-200 text-blue-800 font-medium py-2 px-4 rounded-full mr-2 mb-2"
-                    >
-                      {reply}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      </main>
-      <style jsx>{`
-        @keyframes slideInUp {
-          from {
-            transform: translateY(20px);
-            opacity: 0;
-          }
-          to {
-            transform: translateY(0);
-            opacity: 1;
-          }
-        }
-        
-        .career-advice-report {
-          animation: slideInUp 0.5s ease-out forwards;
-        }
-      `}</style>
-      {careerAdviceReport && (
-        <div 
-          ref={reportRef}
-          className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-amber-300 max-w-full text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
-          dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-        />
-      )}
-    </div>
-  );
-};
-
-export default CareerAgent;
+  }
+  
+  .career-advice-report {
+    animation: slideInUp 0.5s ease-out forwards;
+  }
+`}</style>
+{careerAdviceReport && (
+  <div 
+    ref={reportRef}
+    className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-amber-300 max-w-full text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
+    dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+  />
+)}
