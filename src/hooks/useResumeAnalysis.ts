@@ -756,6 +756,7 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
             
             return true;
           }
+      }
     } catch (error) {
       console.error('Error analyzing resume:', error);
       
