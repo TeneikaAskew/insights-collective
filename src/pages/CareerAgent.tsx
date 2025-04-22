@@ -245,7 +245,8 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     // Format the report to improve readability and structure
     const formattedReport = formatCareerPathwayReport(resultText);
     
-    setCareerAdviceReport(resultText);
+    // setCareerAdviceReport(resultText);
+    setCareerAdviceReport(formattedReport);
 
     // Save the report to the database
     try {
