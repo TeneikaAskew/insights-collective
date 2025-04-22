@@ -211,10 +211,16 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
     // Sort bullets by score (highest first)
       const sortedBullets = analyzed.sort((a, b) => b.bullet_total - a.bullet_total);
       
+    // Step 1: Determine how many high-quality bullets exist (score > 80)
+      const highQualityBullets = sortedBullets.filter(b => b.bullet_total > 80).length;
+      const totalBullets = sortedBullets.length;
+      const highQualityRatio = totalBullets > 0 ? highQualityBullets / totalBullets : 0;
       // Calculate weighted average (giving more weight to top bullets)
       const weightedScores = sortedBullets.map((bullet, index) => {
         // Apply descending weights: 1.5, 1.4, 1.3, etc.
-        const weight = Math.max(1.5 - (index * 0.1), 1.0);
+        // const weight = Math.max(1.5 - (index * 0.1), 1.0);
+        // Apply stronger descending weights: 2.0, 1.8, 1.6, etc. for top bullets
+        const weight = Math.max(2.0 - (index * 0.2), 1.0);
         return bullet.bullet_total * weight;
       });
       
@@ -222,7 +228,16 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       const weightedAverage = weightedTotal / weightedScores.length;
 
       // Convert to percentage (60% baseline + up to 60% from performance)
-      const percent = 40 + (weightedAverage / 100 * 60);
+      // const percent = 40 + (weightedAverage / 100 * 60);
+    
+    // Step 3: Use a much lower baseline (30%) and give more weight to bullet quality
+      let percent = 30 + (weightedAverage / 100 * 70);
+    // Step 4: Add a bonus for having a high percentage of quality bullets
+      // This rewards resumes with consistently good content
+      const qualityBonus = highQualityRatio * 15; // Up to 15% bonus for all high-quality bullets
+      percent += qualityBonus;
+    // Cap at 100%
+      percent = Math.min(100, percent);
       
       // // Convert to percentage (60% baseline + up to 40% from performance)
       // const percent = 60 + (weightedAverage / 45 * 40);
