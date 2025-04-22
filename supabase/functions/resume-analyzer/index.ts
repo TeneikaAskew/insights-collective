@@ -270,6 +270,206 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
   }
 }
 
+export async function bulletImprover(userId, enhanced = null) {
+  try {
+    console.log(`Starting background bullet improvement for userId: ${userId}`);
+    const { config } = await import('./bulletImprover.ts');
+    let bullets;
+    
+    // First try to use the provided enhanced analysis if available
+    if (enhanced?.bullets && enhanced.bullets.length > 0) {
+      console.log('Using provided enhanced analysis');
+      bullets = enhanced.bullets;
+    } else {
+      // Fall back to fetching from database
+      console.log('No enhanced analysis provided, fetching from database');
+      const { data: currentData, error: fetchError } = await supabase
+        .from('resumes')
+        .select('analysis, text')
+        .eq('user_id', userId)
+        .order('uploaded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+        
+      if (fetchError) {
+        console.error('Error fetching current analysis:', fetchError);
+        return { success: false, error: 'Failed to fetch analysis' };
+      }
+      
+      if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
+        console.error('No bullets found in analysis');
+        return { success: false, error: 'No bullets found' };
+      }
+      
+      bullets = currentData.analysis.bullets;
+    }
+    
+    console.log(`Found ${bullets.length} bullets to improve`);
+    
+    // Sort bullets by score so the highest scoring ones get processed first
+    const sortedBullets = [...bullets].sort((a, b) => b.bullet_total - a.bullet_total);
+    
+    // Only process the top bullets based on config limits
+    const bulletsToProcess = sortedBullets.slice(0, config.MAX_BATCHES_TO_PROCESS * config.DEFAULT_BATCH_SIZE);
+    
+    console.log(`Processing the top ${bulletsToProcess.length} bullets out of ${bullets.length} total`);
+    
+    // Process each bullet individually to maintain the correct format
+    const enhancedBullets = await Promise.all(bullets.map(async (bullet, index) => {
+      // Check if this bullet is in the list to be processed
+      const sortedIndex = sortedBullets.indexOf(bullet);
+      const shouldProcess = sortedIndex < bulletsToProcess.length;
+      
+      if (shouldProcess) {
+        try {
+          // Extract the required data from the bullet object
+          const { original, xyz_scores, word_balance } = bullet;
+          
+          console.log(`Improving bullet ${sortedIndex+1}: ${original.substring(0, 30)}...`);
+          
+          // Call rewriteBullet with the proper data structure - just like in the old function
+          const rewritten = await rewriteBullet(original, { 
+            xyz_scores 
+          });
+          
+          // Call generateTips with the proper data structure - just like in the old function
+          const tips = await generateTips(original, { 
+            xyz_scores, 
+            word_balance_score: word_balance?.word_balance_score || 0
+          });
+          
+          // Return the enhanced bullet with all original properties plus the improvements
+          return {
+            ...bullet,
+            rewritten,
+            tips
+          };
+        } catch (bulletError) {
+          console.error(`Error improving individual bullet: ${bulletError}`);
+          return {
+            ...bullet,
+            rewritten: bullet.original,
+            tips: "Error generating improvements: " + bulletError.message
+          };
+        }
+      } else {
+        // For bullets we're not processing, return the original
+        return {
+          ...bullet,
+          rewritten: bullet.original,
+          tips: "This bullet wasn't processed due to processing limits."
+        };
+      }
+    }));
+    
+    const processedCount = enhancedBullets.filter(b => b.rewritten !== b.original).length;
+    
+    console.log(`Successfully processed ${processedCount} out of ${bullets.length} bullets`);
+    
+    // Store the enhanced bullets in a separate column
+    const result = await supabase
+      .from('resumes')
+      .update({ 
+        enhanced_analysis: enhancedBullets,
+        updated_at: new Date().toISOString() 
+      })
+      .eq('user_id', userId);
+      
+    if (result.error) {
+      throw result.error;
+    }
+    
+    console.log('Successfully saved improved bullets to database');
+    return { 
+      success: true, 
+      count: enhancedBullets.length,
+      processed: processedCount
+    };
+    
+  } catch (error) {
+    console.error('Bullet improver error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+serve(async (req) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 200,
+      headers: corsHeaders
+    });
+  }
+
+  const url = new URL(req.url);
+  const path = url.pathname.split('/').pop();
+  console.log('URL:', url, 'Path:', path);
+
+  try {
+    // Parse the request body once
+    const { action, resumeText, text, userId } = await req.json();
+    const resolvedText = resumeText || text;
+    console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
+
+    // Consolidated sentence detection + analysis (main flow)
+    if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path) {
+      console.log('Running sentence detection + analysis');
+
+      const sentences = await detectSentences(resolvedText, userId);
+      console.log('Direct detectSentences():', sentences.length);
+
+      // Run resume analysis first
+      // const analysisResult = await analyzeResume(resolvedText, userId, sentences);
+      
+      // Prepare the response before starting the background process
+      const response = new Response(JSON.stringify(sentences), {
+      // const response = new Response(JSON.stringify(analysisResult), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+      
+      // // Trigger background processing AFTER preparing the response
+      // if (userId) {
+      //   console.log('Triggering background bullet improvements');
+      //   // Use setTimeout to ensure this runs after the response is sent
+      //   setTimeout(async () => {
+      //     try {
+      //       console.log('Starting background bullet improvement process');
+      //       await bulletImprover(userId, analysisResult);
+      //     } catch (bgError) {
+      //       console.error('Background bullet improvement failed:', bgError);
+      //     }
+      //   }, 50);
+      // }
+      
+      // Return the response immediately
+      return response;
+    }
+    
+    // Special endpoint just for improving bullets (can be called separately)
+    if (action === 'improve-bullets' && userId) {
+      console.log('Running bullet improver only');
+      const result = await bulletImprover(userId);
+      return new Response(JSON.stringify(result), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+    }
+
+    // Fallback: unrecognized path or action
+    console.log('No handler for path:', path, 'or action:', action);
+    return new Response(JSON.stringify({ error: 'Not found' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  } catch (err) {
+    console.error('Error:', err);
+    return new Response(JSON.stringify({ error: err.message || 'Internal error' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json', ...corsHeaders }
+    });
+  }
+});
+
+
 // export async function bulletImprover(userId) {
 //   try {
 //     console.log(`Starting background bullet improvement for userId: ${userId}`);
@@ -585,203 +785,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
 // }
 
 
-export async function bulletImprover(userId, enhanced = null) {
-  try {
-    console.log(`Starting background bullet improvement for userId: ${userId}`);
-    const { config } = await import('./bulletImprover.ts');
-    let bullets;
-    
-    // First try to use the provided enhanced analysis if available
-    if (enhanced?.bullets && enhanced.bullets.length > 0) {
-      console.log('Using provided enhanced analysis');
-      bullets = enhanced.bullets;
-    } else {
-      // Fall back to fetching from database
-      console.log('No enhanced analysis provided, fetching from database');
-      const { data: currentData, error: fetchError } = await supabase
-        .from('resumes')
-        .select('analysis, text')
-        .eq('user_id', userId)
-        .order('uploaded_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-        
-      if (fetchError) {
-        console.error('Error fetching current analysis:', fetchError);
-        return { success: false, error: 'Failed to fetch analysis' };
-      }
-      
-      if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
-        console.error('No bullets found in analysis');
-        return { success: false, error: 'No bullets found' };
-      }
-      
-      bullets = currentData.analysis.bullets;
-    }
-    
-    console.log(`Found ${bullets.length} bullets to improve`);
-    
-    // Sort bullets by score so the highest scoring ones get processed first
-    const sortedBullets = [...bullets].sort((a, b) => b.bullet_total - a.bullet_total);
-    
-    // Only process the top bullets based on config limits
-    const bulletsToProcess = sortedBullets.slice(0, config.MAX_BATCHES_TO_PROCESS * config.DEFAULT_BATCH_SIZE);
-    
-    console.log(`Processing the top ${bulletsToProcess.length} bullets out of ${bullets.length} total`);
-    
-    // Process each bullet individually to maintain the correct format
-    const enhancedBullets = await Promise.all(bullets.map(async (bullet, index) => {
-      // Check if this bullet is in the list to be processed
-      const sortedIndex = sortedBullets.indexOf(bullet);
-      const shouldProcess = sortedIndex < bulletsToProcess.length;
-      
-      if (shouldProcess) {
-        try {
-          // Extract the required data from the bullet object
-          const { original, xyz_scores, word_balance } = bullet;
-          
-          console.log(`Improving bullet ${sortedIndex+1}: ${original.substring(0, 30)}...`);
-          
-          // Call rewriteBullet with the proper data structure - just like in the old function
-          const rewritten = await rewriteBullet(original, { 
-            xyz_scores 
-          });
-          
-          // Call generateTips with the proper data structure - just like in the old function
-          const tips = await generateTips(original, { 
-            xyz_scores, 
-            word_balance_score: word_balance?.word_balance_score || 0
-          });
-          
-          // Return the enhanced bullet with all original properties plus the improvements
-          return {
-            ...bullet,
-            rewritten,
-            tips
-          };
-        } catch (bulletError) {
-          console.error(`Error improving individual bullet: ${bulletError}`);
-          return {
-            ...bullet,
-            rewritten: bullet.original,
-            tips: "Error generating improvements: " + bulletError.message
-          };
-        }
-      } else {
-        // For bullets we're not processing, return the original
-        return {
-          ...bullet,
-          rewritten: bullet.original,
-          tips: "This bullet wasn't processed due to processing limits."
-        };
-      }
-    }));
-    
-    const processedCount = enhancedBullets.filter(b => b.rewritten !== b.original).length;
-    
-    console.log(`Successfully processed ${processedCount} out of ${bullets.length} bullets`);
-    
-    // Store the enhanced bullets in a separate column
-    const result = await supabase
-      .from('resumes')
-      .update({ 
-        enhanced_analysis: enhancedBullets,
-        updated_at: new Date().toISOString() 
-      })
-      .eq('user_id', userId);
-      
-    if (result.error) {
-      throw result.error;
-    }
-    
-    console.log('Successfully saved improved bullets to database');
-    return { 
-      success: true, 
-      count: enhancedBullets.length,
-      processed: processedCount
-    };
-    
-  } catch (error) {
-    console.error('Bullet improver error:', error);
-    return { success: false, error: error.message };
-  }
-}
 
-serve(async (req) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders
-    });
-  }
-
-  const url = new URL(req.url);
-  const path = url.pathname.split('/').pop();
-  console.log('URL:', url, 'Path:', path);
-
-  try {
-    // Parse the request body once
-    const { action, resumeText, text, userId } = await req.json();
-    const resolvedText = resumeText || text;
-    console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
-
-    // Consolidated sentence detection + analysis (main flow)
-    if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path) {
-      console.log('Running sentence detection + analysis');
-
-      const sentences = await detectSentences(resolvedText, userId);
-      console.log('Direct detectSentences():', sentences.length);
-
-      // Run resume analysis first
-      const analysisResult = await analyzeResume(resolvedText, userId, sentences);
-      
-      // Prepare the response before starting the background process
-      const response = new Response(JSON.stringify(analysisResult), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-      
-      // // Trigger background processing AFTER preparing the response
-      // if (userId) {
-      //   console.log('Triggering background bullet improvements');
-      //   // Use setTimeout to ensure this runs after the response is sent
-      //   setTimeout(async () => {
-      //     try {
-      //       console.log('Starting background bullet improvement process');
-      //       await bulletImprover(userId, analysisResult);
-      //     } catch (bgError) {
-      //       console.error('Background bullet improvement failed:', bgError);
-      //     }
-      //   }, 50);
-      // }
-      
-      // Return the response immediately
-      return response;
-    }
-    
-    // Special endpoint just for improving bullets (can be called separately)
-    if (action === 'improve-bullets' && userId) {
-      console.log('Running bullet improver only');
-      const result = await bulletImprover(userId);
-      return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
-    }
-
-    // Fallback: unrecognized path or action
-    console.log('No handler for path:', path, 'or action:', action);
-    return new Response(JSON.stringify({ error: 'Not found' }), {
-      status: 404,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-  } catch (err) {
-    console.error('Error:', err);
-    return new Response(JSON.stringify({ error: err.message || 'Internal error' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json', ...corsHeaders }
-    });
-  }
-});
 // serve(async (req) => {
 //   // Handle CORS preflight
 //   if (req.method === 'OPTIONS') {
