@@ -170,88 +170,93 @@ async function callGroqWithRetry(prompt: string, context: any, attempt = 1, maxA
 }
 
 // Implement your actual GROQ API call here
-// async function callGroqAPI(prompt: string): Promise<any> {
-//   // Replace this with your actual API implementation
-//   // Example using fetch:
-  
-//   try {
-
-//     const GROQ_API_KEY = Deno.env.get('GROQ');
-//     if (!GROQ_API_KEY) {
-//       throw new Error('GROQ API key not found in environment');
-//     }
-//     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-//       method: 'POST',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'Authorization': `Bearer ${GROQ_API_KEY}`
-//       },
-//       body: JSON.stringify({
-//         model: 'compound-beta-mini', //'llama3-8b-8192',
-//         messages: [
-//           { role: 'user', content: prompt }
-//         ],
-//         temperature: 0.7,
-//         max_tokens: 500
-//       })
-//     });
-    
-//     if (!response.ok) {
-//       const errorData = await response.json();
-//       throw new Error(`GROQ API Error: ${JSON.stringify(errorData)}`);
-//     }
-    
-//     const data = await response.json();
-//     return data.choices[0].message.content;
-//   } catch (error) {
-//     console.error("Error calling GROQ API:", error);
-//     throw error;
-//   }
-// }
 async function callGroqAPI(prompt: string): Promise<any> {
-  // 1️⃣ Load both keys
+  // Replace this with your actual API implementation
+  // Example using fetch:
+  
+  try {
+
+    const GROQ_API_KEY = Deno.env.get('GROQ');
+    if (!GROQ_API_KEY) {
+      throw new Error('GROQ API key not found in environment');
+    }
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${GROQ_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: 'compound-beta-mini', //'llama3-8b-8192',
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 500
+      })
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`GROQ API Error: ${JSON.stringify(errorData)}`);
+    }
+    
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    console.error("Error calling GROQ API:", error);
+    throw error;
+  }
+}
+
+
+async function callGroqAPI(prompt: string): Promise<string> {
   const GROQ_API_KEY = Deno.env.get('GROQ');
   if (!GROQ_API_KEY) throw new Error('GROQ API key not found in environment');
   const AWAN_API_KEY = Deno.env.get('AWAN');
   if (!AWAN_API_KEY) throw new Error('AWAN API key not found in environment');
 
-  // 2️⃣ Prepare request options
-  const body = JSON.stringify({
-    model: 'compound-beta-mini',
-    messages: [{ role: 'user', content: prompt }],
-    temperature: 0.7,
-    max_tokens: 500
-  });
   const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
   const awanUrl = 'https://api.awanllm.com/v1/chat/completions';
 
-  async function doFetch(url: string, apiKey: string) {
-    return fetch(url, {
+  // 1️⃣ Try GROQ first
+  let resp = await fetch(groqUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${GROQ_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'compound-beta-mini',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  });
+
+  // 2️⃣ On 429, fall back to AWAN with the correct model name
+  if (resp.status === 429) {
+    console.warn('GROQ rate limit, falling back to AWAN');
+    resp = await fetch(awanUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': `Bearer ${AWAN_API_KEY}`
       },
-      body
+      body: JSON.stringify({
+        model: 'Meta-Llama-3-8B-Instruct',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 500
+      })
     });
   }
 
-  // 3️⃣ Hit GROQ first
-  let resp = await doFetch(groqUrl, GROQ_API_KEY);
-
-  // 4️⃣ On rate‐limit, fall back to AWAN
-  if (resp.status === 429) {
-    console.warn('GROQ rate limit (429), falling back to AWAN');
-    resp = await doFetch(awanUrl, AWAN_API_KEY);
-  }
-
-  // 5️⃣ If still not OK, throw
   if (!resp.ok) {
     const text = await resp.text();
     throw new Error(`Chat completion failed: ${resp.status} ${text}`);
   }
 
-  // 6️⃣ Parse and return
   const data = await resp.json();
   return data.choices?.[0]?.message?.content;
 }
