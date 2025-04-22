@@ -419,11 +419,11 @@ serve(async (req) => {
       console.log('Direct detectSentences():', sentences.length);
 
       // Run resume analysis first
-      // const analysisResult = await analyzeResume(resolvedText, userId, sentences);
+      const analysisResult = await analyzeResume(resolvedText, userId, sentences);
       
       // Prepare the response before starting the background process
-      const response = new Response(JSON.stringify(sentences), {
-      // const response = new Response(JSON.stringify(analysisResult), {
+      // const response = new Response(JSON.stringify(sentences), {
+      const response = new Response(JSON.stringify(analysisResult), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
       
