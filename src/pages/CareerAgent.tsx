@@ -8,10 +8,8 @@ import {
   careerAdvicePrompt, 
   LOCAL_STORAGE_KEY
 } from '@/data/careerPathwayData';
-const {
-    user,
-    isAuthenticated
-  } = useAuth();
+const { user } = useAuth();
+
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
   if (sessionId && user) {
     try {
