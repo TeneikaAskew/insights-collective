@@ -643,41 +643,119 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
         });
         
         return true;
-      } catch (functionError) {
-        console.error("Error invoking edge function:", functionError);
+      // } catch (functionError) {
+      //   console.error("Error invoking edge function:", functionError);
         
-        // If the error is a CORS error or network error, try using a mockup fallback analysis
-        toast({
-          title: "Analysis Service Unavailable",
-          description: "We're experiencing technical difficulties. Using limited analysis capabilities.",
-          variant: "destructive",
-        });
+      //   // If the error is a CORS error or network error, try using a mockup fallback analysis
+      //   toast({
+      //     title: "Analysis Service Unavailable",
+      //     description: "We're experiencing technical difficulties. Using limited analysis capabilities.",
+      //     variant: "destructive",
+      //   });
         
-        // Create a basic fallback analysis
-        const fallbackAnalysis = {
-          resume_id: user.id,
-          resume_percent: 50,
-          letter_grade: "C+",
-          bullets: [],
-          elevator_pitch: "Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
-          themes: [
-            "Add more metrics and achievements to your bullet points",
-            "Use stronger action verbs at the start of each bullet point",
-            "Make your bullet points more concise and focused on results"
-          ],
-          explanation: "Your resume would benefit from more specific accomplishments with metrics. Focus on what you achieved rather than just responsibilities."
-        };
+      //   // Create a basic fallback analysis
+      //   const fallbackAnalysis = {
+      //     resume_id: user.id,
+      //     resume_percent: 50,
+      //     letter_grade: "C+",
+      //     bullets: [],
+      //     elevator_pitch: "Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
+      //     themes: [
+      //       "Add more metrics and achievements to your bullet points",
+      //       "Use stronger action verbs at the start of each bullet point",
+      //       "Make your bullet points more concise and focused on results"
+      //     ],
+      //     explanation: "Your resume would benefit from more specific accomplishments with metrics. Focus on what you achieved rather than just responsibilities."
+      //   };
         
-        // Perform basic keyword analysis on the resume text
-        const enhancedFallback = analyzeKeywordsInResume(resumeText, fallbackAnalysis as ResumeAnalysis);
+      //   // Perform basic keyword analysis on the resume text
+      //   const enhancedFallback = analyzeKeywordsInResume(resumeText, fallbackAnalysis as ResumeAnalysis);
         
-        // Save the fallback analysis
-        localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedFallback));
-        setAnalysis(enhancedFallback as ResumeAnalysis);
-        calculateCareerAlignments(enhancedFallback as ResumeAnalysis);
+      //   // Save the fallback analysis
+      //   localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedFallback));
+      //   setAnalysis(enhancedFallback as ResumeAnalysis);
+      //   calculateCareerAlignments(enhancedFallback as ResumeAnalysis);
         
-        return true;
-      }
+      //   return true;
+      // }
+        } catch (functionError) {
+          console.error("Error invoking edge function:", functionError);
+          
+          // Try to load the fallback analysis from the database first
+          try {
+            console.log("Attempting to retrieve fallback analysis from database");
+            
+            const { data: resumeData, error: resumeError } = await supabase
+              .from('resumes')
+              .select('fallback_analysis')
+              .eq('user_id', user.id)
+              .order('uploaded_at', { ascending: false })
+              .limit(1)
+              .single();
+            
+            if (resumeError) {
+              throw new Error(`Database fallback retrieval error: ${resumeError.message}`);
+            }
+            
+            if (resumeData?.fallback_analysis) {
+              console.log("Found fallback analysis in database:", resumeData.fallback_analysis);
+              
+              // Use the stored fallback analysis
+              const storedFallback = resumeData.fallback_analysis;
+              
+              toast({
+                title: "Using Saved Analysis",
+                description: "We're using a previously saved analysis as our service is currently unavailable.",
+                variant: "warning",
+              });
+              
+              // Save the fallback analysis and update state
+              localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(storedFallback));
+              setAnalysis(storedFallback as ResumeAnalysis);
+              calculateCareerAlignments(storedFallback as ResumeAnalysis);
+              
+              return true;
+            }
+            
+            // If no fallback_analysis in DB, continue to local generation
+            console.log("No fallback analysis found in database, generating local analysis");
+            throw new Error("No fallback analysis found in database");
+            
+          } catch (dbError) {
+            console.error("Error retrieving fallback analysis:", dbError);
+            
+            // Show toast about limited capabilities
+            toast({
+              title: "Analysis Service Unavailable",
+              description: "We're experiencing technical difficulties. Using limited analysis capabilities.",
+              variant: "destructive",
+            });
+            
+            // Create a basic local fallback analysis
+            const fallbackAnalysis = {
+              resume_id: user.id,
+              resume_percent: 50,
+              letter_grade: "C+",
+              bullets: [],
+              elevator_pitch: "Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
+              themes: [
+                "Add more metrics and achievements to your bullet points",
+                "Use stronger action verbs at the start of each bullet point",
+                "Make your bullet points more concise and focused on results"
+              ],
+              explanation: "Your resume would benefit from more specific accomplishments with metrics. Focus on what you achieved rather than just responsibilities."
+            };
+            
+            // Perform basic keyword analysis on the resume text
+            const enhancedFallback = analyzeKeywordsInResume(resumeText, fallbackAnalysis as ResumeAnalysis);
+            
+            // Save the fallback analysis
+            localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedFallback));
+            setAnalysis(enhancedFallback as ResumeAnalysis);
+            calculateCareerAlignments(enhancedFallback as ResumeAnalysis);
+            
+            return true;
+          }
     } catch (error) {
       console.error('Error analyzing resume:', error);
       

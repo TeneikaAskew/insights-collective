@@ -276,6 +276,19 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
           elevator_pitch: 'Experienced professional ...',
           explanation: `Your resume received a ${grade} grade (${percent}%).`
         };
+
+      // Save the fallback analysis to the database for future use
+      if (userId) {
+        try {
+          await supabase.from('resumes').update({
+            fallback_analysis: enhanced,
+            fallback_updated_at: new Date().toISOString()
+          }).eq('user_id', userId);
+          console.log('Successfully saved fallback analysis to database');
+        } catch (dbError) {
+          console.error('Error saving fallback analysis:', dbError);
+        }
+      }
     }
 
     // Persist analysis and trigger roast
