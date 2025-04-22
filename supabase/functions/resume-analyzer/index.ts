@@ -741,19 +741,19 @@ serve(async (req) => {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
       
-      // Trigger background processing AFTER preparing the response
-      if (userId) {
-        console.log('Triggering background bullet improvements');
-        // Use setTimeout to ensure this runs after the response is sent
-        setTimeout(async () => {
-          try {
-            console.log('Starting background bullet improvement process');
-            await bulletImprover(userId, analysisResult);
-          } catch (bgError) {
-            console.error('Background bullet improvement failed:', bgError);
-          }
-        }, 50);
-      }
+      // // Trigger background processing AFTER preparing the response
+      // if (userId) {
+      //   console.log('Triggering background bullet improvements');
+      //   // Use setTimeout to ensure this runs after the response is sent
+      //   setTimeout(async () => {
+      //     try {
+      //       console.log('Starting background bullet improvement process');
+      //       await bulletImprover(userId, analysisResult);
+      //     } catch (bgError) {
+      //       console.error('Background bullet improvement failed:', bgError);
+      //     }
+      //   }, 50);
+      // }
       
       // Return the response immediately
       return response;
