@@ -21,8 +21,6 @@ import InteractiveCareerReportSection from '@/components/assistants/InteractiveC
 import { parseCareerReport } from '@/components/assistants/utils/CareerReportParser';
 import { CareerReportData } from '@/components/assistants/utils/CareerReportParser';
 
-// 2. Add this state for structured report data
-const [structuredReport, setStructuredReport] = useState<CareerReportData | null>(null);
 
 const Profile = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -35,6 +33,9 @@ const Profile = () => {
 
   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number | string>>({});
+  // 2. Add this state for structured report data
+  const [structuredReport, setStructuredReport] = useState<CareerReportData | null>(null);
+  
 
   useEffect(() => {
     if (!isAuthenticated) {
