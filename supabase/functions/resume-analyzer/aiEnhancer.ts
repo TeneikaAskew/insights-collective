@@ -162,7 +162,7 @@ export async function enhanceWithGroq(resumeText, analysis) {
             2. Three specific improvement themes (one sentence each) based on the resume text
             3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
             
-            Be specific, professional, and concise. Focus on actionable advice.`
+            Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.`
           },
           {
             role: 'user',
