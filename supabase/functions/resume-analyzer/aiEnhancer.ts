@@ -327,20 +327,19 @@ try {
 
 
 
-        
-        console.log("Enhanced Analysis: ", enhancedAnalysis);
-        return enhancedAnalysis;
-      // }
+ 
+      console.log("Enhanced Analysis: ", enhancedAnalysis);
+      return enhancedAnalysis;
     } catch (fetchError) {
       console.error("GROQ API fetch error:", fetchError);
       // If there's a timeout or other fetch error, continue with the basic analysis
       clearTimeout(timeoutId);
+      return analysis;
     }
-    // Return the original analysis if we couldn't enhance it
+    
+  } catch (error) {
+    console.error("Error enhancing analysis with GROQ:", error);
+    // Return original analysis on any error
     return analysis;
-  // } catch (error) {
-  //   console.error("Error enhancing analysis with GROQ:", error);
-  //   // Return original analysis on any error
-  //   return analysis;
   }
-// }
+} // End of enhanceWithGroq function
