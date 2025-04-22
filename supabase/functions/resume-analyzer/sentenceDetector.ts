@@ -251,25 +251,28 @@ export function extractSentencesFromResponse(content) {
   console.log('extractSentencesFromResponse: Starting extraction');
   let sentences = [];
   // Try multiple extraction methods, from most structured to least
-  // Method 1: Try direct JSON parsing if it looks like a JSON array
-  console.log('extractSentencesFromResponse: Trying Method 1 - Direct JSON parsing');
-  console.log(`extractSentencesFromResponse: Content starts with '[': ${content.trim().startsWith('[')}, ends with ']': ${content.trim().endsWith(']')}`);
-  if (content.trim().startsWith('[') && content.trim().endsWith(']')) {
-    try {
-      const parsedArray = JSON.parse(content.trim());
-      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-        console.log(`extractSentencesFromResponse: Method 1 successful - parsed ${parsedArray.length} items`);
-        sentences = parsedArray;
-      } else {
-        console.log('extractSentencesFromResponse: Method 1 parsed successfully but result is not a valid array or is empty');
+  // Method 4: Extract quoted strings individually
+    if (sentences.length === 0) {
+    console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
+    const items = [];
+    const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+    let match;
+    let matchCount = 0;
+    while((match = pattern.exec(content)) !== null){
+      matchCount++;
+      if (match[1] && match[1].trim().length > 15) {
+        items.push(match[1].trim());
       }
-    } catch (e) {
-      console.log(`extractSentencesFromResponse: Method 1 failed - ${e.message}`);
-    // Continue to next method if this fails
     }
-  } else {
-    console.log('extractSentencesFromResponse: Method 1 skipped - content does not start/end with brackets');
+    console.log(`extractSentencesFromResponse: Method 4 - found ${matchCount} regex matches, ${items.length} valid items`);
+    if (items.length > 0) {
+      console.log('extractSentencesFromResponse: Method 4 successful');
+      sentences = items;
+    } else {
+      console.log('extractSentencesFromResponse: Method 4 failed - no valid items found');
+    }
   }
+
   // Method 2: Extract JSON array if embedded in text
   if (sentences.length === 0) {
     console.log('extractSentencesFromResponse: Trying Method 2 - JSON array extraction');
@@ -330,25 +333,45 @@ export function extractSentencesFromResponse(content) {
     }
   }
   // Method 4: Extract quoted strings individually
-  if (sentences.length === 0) {
-    console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
-    const items = [];
-    const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
-    let match;
-    let matchCount = 0;
-    while((match = pattern.exec(content)) !== null){
-      matchCount++;
-      if (match[1] && match[1].trim().length > 15) {
-        items.push(match[1].trim());
+  // if (sentences.length === 0) {
+  //   console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
+  //   const items = [];
+  //   const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
+  //   let match;
+  //   let matchCount = 0;
+  //   while((match = pattern.exec(content)) !== null){
+  //     matchCount++;
+  //     if (match[1] && match[1].trim().length > 15) {
+  //       items.push(match[1].trim());
+  //     }
+  //   }
+  //   console.log(`extractSentencesFromResponse: Method 4 - found ${matchCount} regex matches, ${items.length} valid items`);
+  //   if (items.length > 0) {
+  //     console.log('extractSentencesFromResponse: Method 4 successful');
+  //     sentences = items;
+  //   } else {
+  //     console.log('extractSentencesFromResponse: Method 4 failed - no valid items found');
+  //   }
+  // }
+  
+  // Method 4: Try direct JSON parsing if it looks like a JSON array
+  console.log('extractSentencesFromResponse: Trying Method 4 - Direct JSON parsing');
+  console.log(`extractSentencesFromResponse: Content starts with '[': ${content.trim().startsWith('[')}, ends with ']': ${content.trim().endsWith(']')}`);
+  if (content.trim().startsWith('[') && content.trim().endsWith(']')) {
+    try {
+      const parsedArray = JSON.parse(content.trim());
+      if (Array.isArray(parsedArray) && parsedArray.length > 0) {
+        console.log(`extractSentencesFromResponse: Method 1 successful - parsed ${parsedArray.length} items`);
+        sentences = parsedArray;
+      } else {
+        console.log('extractSentencesFromResponse: Method 1 parsed successfully but result is not a valid array or is empty');
       }
+    } catch (e) {
+      console.log(`extractSentencesFromResponse: Method 1 failed - ${e.message}`);
+    // Continue to next method if this fails
     }
-    console.log(`extractSentencesFromResponse: Method 4 - found ${matchCount} regex matches, ${items.length} valid items`);
-    if (items.length > 0) {
-      console.log('extractSentencesFromResponse: Method 4 successful');
-      sentences = items;
-    } else {
-      console.log('extractSentencesFromResponse: Method 4 failed - no valid items found');
-    }
+  } else {
+    console.log('extractSentencesFromResponse: Method 1 skipped - content does not start/end with brackets');
   }
   // Method 5: Handle doubly quoted strings (""text"") which appeared in the logs
   if (sentences.length === 0) {
