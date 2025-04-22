@@ -178,11 +178,19 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
         // const total = wb.word_balance_score + xyz.xyz_total;
 
         // Use the new xyz_total directly instead of adding it to word_balance_score
-        const total = xyz.xyz_total; // Now on a 0-100 scale
+        // const total = xyz.xyz_total; // Now on a 0-100 scale
         
         // const rewritten = await rewriteBullet(bullet, { xyz_scores: xyz });
         // const tips = await generateTips(bullet, { xyz_scores: xyz, word_balance_score: wb.word_balance_score });
         // return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total, rewritten, tips };
+
+        // Add minimum content requirements
+        const hasMinimumContent = bullet.length > 20 && bullet.split(/\s+/).length > 4;
+        const contentPenalty = hasMinimumContent ? 0 : 25;
+        
+        // Use the new xyz_total directly instead of adding it to word_balance_score
+        // Apply minimum content penalty
+        const total = Math.max(0, xyz.xyz_total - contentPenalty);
         
         return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total };
       } catch (err) {
