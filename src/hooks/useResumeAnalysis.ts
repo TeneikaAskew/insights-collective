@@ -643,7 +643,7 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
         });
         
         return true;
-      // } catch (functionError) {
+      } catch (functionError) {
       //   console.error("Error invoking edge function:", functionError);
         
       //   // If the error is a CORS error or network error, try using a mockup fallback analysis
@@ -677,8 +677,8 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
       //   calculateCareerAlignments(enhancedFallback as ResumeAnalysis);
         
         // return true;
-      }
-        } catch (functionError) {
+      // }
+      //   } catch (functionError) {
           console.error("Error invoking edge function:", functionError);
           
           // Try to load the fallback analysis from the database first
