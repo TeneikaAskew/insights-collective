@@ -16,7 +16,6 @@ import QuizResultsSection from '@/components/profile/QuizResultsSection';
 import CareerPathwaySection from '@/components/profile/CareerPathwaySection';
 import { supabase } from '@/integrations/supabase/client';
 import { quizQuestions } from '@/data/careerQuizData';
-// 1. Add these imports
 import InteractiveCareerReportSection from '@/components/assistants/InteractiveCareerReportSection';
 import { parseCareerReport } from '@/components/assistants/utils/CareerReportParser';
 import { CareerReportData } from '@/components/assistants/utils/CareerReportParser';
