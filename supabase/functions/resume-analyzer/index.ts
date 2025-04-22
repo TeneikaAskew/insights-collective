@@ -19,10 +19,7 @@ import {
 } from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { corsHeaders } from "./utils.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
-const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-const supabase = createClient(supabaseUrl, supabaseKey);
+import { supabase } from '@/integrations/supabase/client';
 const roastCache = new Map();
 const bulletCache = new Map();
 export { detectSentences };

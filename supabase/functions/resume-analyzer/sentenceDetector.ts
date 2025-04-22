@@ -1,18 +1,8 @@
 console.log('Sentence Detection function hit');
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-const bulletCache = new Map(); // Cache for storing bullet points by user ID
+import { supabase } from '@/integrations/supabase/client';
 
-// This function sets up Supabase client with service role key credentials from env
-function getSupabaseClient() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('getSupabaseClient: Missing Supabase credentials in environment variables!');
-    throw new Error('Missing Supabase credentials');
-  }
-  return createClient(supabaseUrl, supabaseKey);
-}
-const supabase = getSupabaseClient();
+const bulletCache = new Map(); // Cache for storing bullet points by user ID
 
 export function getSentencesFromCache(userId) {
   if (!userId) return null;
@@ -41,6 +31,13 @@ export async function detectSentences(text, userId) {
   console.log('detectSentences: userId provided=', userId ? 'Yes' : 'No');
   
   try {
+    const GROQ_API_KEY = Deno.env.get('GROQ');
+    if (!GROQ_API_KEY) {
+      console.warn("detectSentences: GROQ API key not found, falling back to regex extraction");
+      throw new Error("GROQ API key not configured");
+    }
+    console.log('detectSentences: GROQ API key found, proceeding with API call');
+    
     // Truncate to avoid token limits
     const maxChars = 12000;
     const processedText = text.length > maxChars ? text.substring(0, maxChars) : text;
@@ -145,6 +142,98 @@ export async function detectSentences(text, userId) {
   }
 }
 
+
+// Add this function to implement retry logic with exponential backoff
+async function callGroqWithRetry(processedText, GROQ_API_KEY, maxRetries = 3) {
+  let retryCount = 0;
+  let baseDelay = 1000; // Start with 1 second delay
+  
+  while (retryCount <= maxRetries) {
+    try {
+      console.log(`callGroqWithRetry: Attempt ${retryCount + 1}/${maxRetries + 1}`);
+      
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${GROQ_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'compound-beta-mini', //llama3-8b-8192
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a sentence extraction expert. Extract resume bullet points and return ONLY a JSON array of strings. Do not include any explanatory text before or after the JSON array.'
+            },
+            {
+              role: 'user',
+              content: `Extract resume bullet points from the following text:\n\n${processedText}`
+            }
+          ],
+          temperature: 0.2,
+          max_tokens: 1024
+        })
+      });
+      
+      // If successful, return the response
+      if (response.ok) {
+        return await response.json();
+      }
+      
+      // If we hit a rate limit (429)
+      if (response.status === 429) {
+        const errorText = await response.text();
+        console.log(`callGroqWithRetry: Rate limit hit (429). Error: ${errorText}`);
+        
+        // Try to extract wait time from error message
+        let waitTime = baseDelay * Math.pow(2, retryCount); // Default exponential backoff
+        
+        try {
+          // Extract retry time from error message if available
+          const errorJson = JSON.parse(errorText);
+          const waitTimeMatch = errorJson?.error?.message.match(/try again in (\d+)m?(\d+(?:\.\d+)?)s/i);
+          
+          if (waitTimeMatch) {
+            const minutes = waitTimeMatch[1] ? parseInt(waitTimeMatch[1], 10) : 0;
+            const seconds = parseFloat(waitTimeMatch[2] || 0);
+            const extractedWaitTime = (minutes * 60 + seconds) * 1000; // Convert to milliseconds
+            
+            if (extractedWaitTime > 0) {
+              waitTime = extractedWaitTime + 500; // Add a small buffer (500ms)
+              console.log(`callGroqWithRetry: Extracted wait time of ${waitTime}ms from error message`);
+            }
+          }
+        } catch (e) {
+          console.log(`callGroqWithRetry: Couldn't parse error message for wait time: ${e.message}`);
+        }
+        
+        // Wait before retry
+        console.log(`callGroqWithRetry: Waiting ${waitTime}ms before retry ${retryCount + 1}`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        retryCount++;
+        continue;
+      }
+      
+      // For other errors, throw and don't retry
+      const errorText = await response.text();
+      throw new Error(`GROQ API error: ${response.status} - ${errorText}`);
+      
+    } catch (error) {
+      // If this is a network error or something we can retry
+      if (retryCount < maxRetries && !error.message.includes('GROQ API error:')) {
+        const waitTime = baseDelay * Math.pow(2, retryCount);
+        console.log(`callGroqWithRetry: Error: ${error.message}. Retrying in ${waitTime}ms...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+        retryCount++;
+      } else {
+        // We've exhausted retries or got a non-retryable error
+        throw error;
+      }
+    }
+  }
+  
+  throw new Error(`Failed after ${maxRetries} retries`);
+}
 
 
 // Helper function to extract sentences from the response with multiple fallback strategies
