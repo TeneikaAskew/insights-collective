@@ -417,7 +417,7 @@ export function extractSentencesFromResponse(content) {
 
 // Helper function to clean and deduplicate the extracted sentences
 function cleanAndDeduplicate(sentences) {
-  console.log(`cleanAndDeduplicate: Starting cleanup of ${sentences.length} sentences`);
+  // console.log(`cleanAndDeduplicate: Starting cleanup of ${sentences.length} sentences`);
   const uniqueMap = new Map();
   let cleanedCount = 0;
   let droppedCount = 0;
@@ -450,7 +450,7 @@ function cleanAndDeduplicate(sentences) {
     }
   });
   const result = Array.from(uniqueMap.values());
-  console.log(`cleanAndDeduplicate: Cleaned ${cleanedCount}, dropped ${droppedCount} (too short), found ${duplicateCount} duplicates`);
+  // console.log(`cleanAndDeduplicate: Cleaned ${cleanedCount}, dropped ${droppedCount} (too short), found ${duplicateCount} duplicates`);
   console.log(`cleanAndDeduplicate: Final unique sentence count: ${result.length}`);
   return result;
 }
