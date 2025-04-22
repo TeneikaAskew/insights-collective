@@ -36,33 +36,73 @@ export async function improveBullet(bulletData: any): Promise<any> {
 // Helper function to construct the prompt for GROQ
 function constructGroqPrompt(bulletData: any): string {
   // Construct a prompt based on the bullet data
-  const prompt = `
-  Rewrite this resume bullet point to make it stronger:
+  // const prompt = `
+  // Rewrite this resume bullet point to make it stronger:
   
-  Original: ${bulletData.original}
+  // Original: ${bulletData.original}
   
-  Current scores:
-  - Action words: ${bulletData.xyz_scores?.action || 0}/10
-  - Measurable results: ${bulletData.xyz_scores?.metrics || 0}/30
-  - Clarity/focus: ${bulletData.xyz_scores?.clarity || 0}/10
-  - Industry terms: ${bulletData.xyz_scores?.industry || 0}/25
-  - Achievement focus: ${bulletData.xyz_scores?.achievement || 0}/25
+  // Current scores:
+  // - Action words: ${bulletData.xyz_scores?.action || 0}/10
+  // - Measurable results: ${bulletData.xyz_scores?.metrics || 0}/30
+  // - Clarity/focus: ${bulletData.xyz_scores?.clarity || 0}/10
+  // - Industry terms: ${bulletData.xyz_scores?.industry || 0}/25
+  // - Achievement focus: ${bulletData.xyz_scores?.achievement || 0}/25
   
-  Word balance:
-  - Industry terms: ${bulletData.word_balance?.industry_pct || 0}%
-  - Common words: ${bulletData.word_balance?.common_pct || 0}%
-  - Action words: ${bulletData.word_balance?.action_pct || 0}%
-  - Metrics: ${bulletData.word_balance?.metric_pct || 0}%
+  // Word balance:
+  // - Industry terms: ${bulletData.word_balance?.industry_pct || 0}%
+  // - Common words: ${bulletData.word_balance?.common_pct || 0}%
+  // - Action words: ${bulletData.word_balance?.action_pct || 0}%
+  // - Metrics: ${bulletData.word_balance?.metric_pct || 0}%
   
-  Improve this bullet by:
-  1. Making it more results-oriented
-  2. Using stronger action verbs
-  3. Adding specific metrics if missing
-  4. Making it more concise and focused
-  5. Incorporating relevant industry terms
+  // Improve this bullet by:
+  // 1. Making it more results-oriented
+  // 2. Using stronger action verbs
+  // 3. Adding specific metrics if missing
+  // 4. Making it more concise and focused
+  // 5. Incorporating relevant industry terms
   
-  Respond in JSON format with 'rewritten' for the improved bullet and 'tips' for specific improvement advice.
-  `;
+  // Respond in JSON format with 'rewritten' for the improved bullet and 'tips' for specific improvement advice.
+  // `;
+
+  // const prompt = `
+  //   You are a professional resume bullet point improver. Your task is to rewrite this bullet point to make it stronger:
+    
+  //   Original: ${bulletData.original}
+    
+  //   Current scores:
+  //   - Action words: ${bulletData.xyz_scores?.action || 0}/10
+  //   - Measurable results: ${bulletData.xyz_scores?.metrics || 0}/30
+  //   - Clarity/focus: ${bulletData.xyz_scores?.clarity || 0}/10
+  //   - Industry terms: ${bulletData.xyz_scores?.industry || 0}/25
+  //   - Achievement focus: ${bulletData.xyz_scores?.achievement || 0}/25
+    
+  //   Improve this bullet by:
+  //   1. Making it more results-oriented
+  //   2. Using stronger action verbs
+  //   3. Adding specific metrics if missing
+  //   4. Making it more concise and focused (20-25 words max)
+  //   5. Incorporating relevant industry terms
+    
+  //   IMPORTANT: Return your response as a JSON object with two fields:
+  //   - "rewritten": The completely rewritten, improved bullet point (not suggestions or tips)
+  //   - "tips": A brief explanation of what you improved
+    
+  //   Example format:
+  //   {
+  //     "rewritten": "Streamlined cross-agency communications for F-18 program by establishing centralized information hub, cutting response times by 45% and improving program visibility across 12 departments.",
+  //     "tips": "Added stronger action verb, emphasized quantifiable results, and incorporated relevant industry terminology."
+  //   }
+    
+  //   Do not return multiple suggestions or a list of tips - return a single rewritten bullet and a single tips explanation.
+  //   `;
+
+  const prompt = `Here is the original bullet: ${bulletData.original}. You are a professional resume bullet point improver. Your job is to:
+    1. Rewrite the bullet point to be more impactful
+    2. Start with strong action verbs
+    3. Include quantifiable metrics where possible
+    4. Ensure clarity and conciseness (20-25 words max)
+    5. Incorporate relevant technical or leadership skills
+    IMPORTANT: Return ONLY a JSON array of objects with { id, rewritten, tips }`;
   
   return prompt;
 }
