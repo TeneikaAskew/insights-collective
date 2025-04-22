@@ -7,6 +7,8 @@ import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
 // import { serveBulletImprover } from "./bulletImprover.ts";
+// Change this line:
+import { serveBulletImprover } from "./bulletImprover.ts";
 
 // To:
 import { 
