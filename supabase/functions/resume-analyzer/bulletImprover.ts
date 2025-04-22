@@ -63,8 +63,6 @@ function constructGroqPrompt(bulletData: any): string {
   
   Respond in JSON format with 'rewritten' for the improved bullet and 'tips' for specific improvement advice.
   `;
-
-  console.log('Prompt used', prompt)
   
   return prompt;
 }
@@ -194,7 +192,7 @@ async function callGroqAPI(prompt: string): Promise<any> {
           { role: 'user', content: prompt }
         ],
         temperature: 0.7,
-        max_tokens: 400
+        max_tokens: 500
       })
     });
     
