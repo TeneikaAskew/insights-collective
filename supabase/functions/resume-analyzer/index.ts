@@ -588,7 +588,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
 export async function bulletImprover(userId, enhanced = null) {
   try {
     console.log(`Starting background bullet improvement for userId: ${userId}`);
-    
+    const { config } = await import('./bulletImprover.ts');
     let bullets;
     
     // First try to use the provided enhanced analysis if available
