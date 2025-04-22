@@ -10,7 +10,7 @@ export async function enhanceWithGroq(resumeText, analysis) {
     }
     // Limit the text to send to GROQ to reduce token usage
     const maxResumeLength = 3000; // Limit resume text to ~3500 chars
-    const truncatedResume = resumeText.length > maxResumeLength ? resumeText.substring(0, maxResumeLength) + "..." : resumeText;
+    const truncatedResume = resumeText.length > maxResumeLength ? resumeText.substring(50, maxResumeLength) + "..." : resumeText;
     console.log("Truncated Resume: ", truncatedResume);
     // For bullet analysis, just send a summary of the scores and most critical bullets
     // Select only high and low scoring bullets to give AI a sample of the range
