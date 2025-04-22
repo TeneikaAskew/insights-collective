@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/contexts/AuthContext';
 import { Message } from '@/components/chat/types';
 import {
@@ -265,7 +265,57 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       return;
     }
 
-    const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+    // const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+        const resultText = `
+**Personalized Career Advice Report for Joshua B. Brown**
+
+**Summary:**
+Based on your quiz answers and resume, we've generated a comprehensive report to guide your career transition. You aim to leverage your analytical skills and experience in machine learning and AI to move into strategic roles that incorporate these areas, with a focus on private equity, social impact, or strategy at a director level. Your priorities include compensation, remote work, autonomy, and growth.
+
+**Recommended Roles:**
+
+1. **Strategy Director - Private Equity**: Lead strategic planning and implementation for private equity investments, leveraging your analytical skills and experience in program management. Salary band: $150,000 - $250,000.
+2. **Director of Impact Investing**: Oversee impact investing initiatives, combining your analytical expertise with a focus on social impact. Salary band: $120,000 - $200,000.
+3. **Strategic Development Manager**: Drive strategic development and growth initiatives for organizations, utilizing your analytical and program management skills. Salary band: $100,000 - $180,000.
+
+**Skills and Matching Courses:**
+
+| Skill | Course |
+| --- | --- |
+| Strategic Planning | Coursera - Strategic Management Specialization |
+| Impact Investing | edX - Impact Investing Course |
+| Data Analysis | DataCamp - Data Analysis with Python Course |
+| Leadership | LinkedIn Learning - Leadership Course |
+
+**Next-Step Career Recommendations:**
+
+To achieve your aspirational role, focus on developing the following skills:
+
+1. **Project Management**: Enhance your project management skills to overcome your identified weakness. Consider obtaining your PMP certification.
+2. **Communication and Documentation**: Improve your documentation and communication skills to effectively convey strategic plans and results.
+3. **Leadership and Team Management**: Develop your leadership skills to lead strategic teams and drive growth initiatives.
+
+**Roles that Might be Right for You:**
+
+1. **Program Director**: Oversee programs and drive strategic initiatives in industries like private equity, social impact, or strategy.
+2. **Strategy Consultant**: Provide strategic guidance to organizations, leveraging your analytical expertise and experience in program management.
+3. **Impact Investing Manager**: Lead impact investing initiatives, combining your analytical skills with a focus on social impact.
+
+**Path to Your Aspirational Role:**
+
+1. **Short-term (6-12 months)**: Develop your project management and communication skills. Network with professionals in your desired field and explore relevant courses.
+2. **Mid-term (1-2 years)**: Take on leadership roles in program management or strategic development. Continue to build your skills and expertise.
+3. **Long-term (2-5 years)**: Pursue director-level positions in private equity, social impact, or strategy, leveraging your analytical expertise and leadership skills.
+
+**Remote Work Considerations:**
+Given your preference for remote work, focus on developing skills that are transferable to remote environments, such as:
+
+1. **Digital communication and collaboration tools**: Familiarize yourself with tools like Slack, Asana, or Trello.
+2. **Virtual leadership and team management**: Develop skills to effectively lead and manage teams remotely.
+
+By following this personalized career advice report, you'll be well on your way to achieving your career aspirations and transitioning into a role that aligns with your skills, experience, and priorities.`
+    console.log(resultText)
+
 
     // Format the report to improve readability and structure
     const formattedReport = formatCareerPathwayReport(resultText);
