@@ -143,14 +143,17 @@ try {
   // Directly set the extracted values
   if (extractedContent.elevatorPitch) {
     enhancedAnalysis.elevator_pitch = extractedContent.elevatorPitch;
+    console.log("Elevator pitch: ", enhancedAnalysis.elevator_pitch )
   }
   
   if (extractedContent.themes && extractedContent.themes.length > 0) {
-    enhancedAnalysis.themes = extractedContent.themes.slice(0, 3);
+    enhancedAnalysis.themes = extractedContent.themes.slice(0, 4);
+    console.log("Themes: ", extractedContent.themes )
   }
   
   if (extractedContent.explanation) {
     enhancedAnalysis.explanation = extractedContent.explanation;
+    console.log("Overall Explanation: ", enhancedAnalysis.explanation )
   }
   
 //   console.log("Enhanced Analysis: ", enhancedAnalysis);
