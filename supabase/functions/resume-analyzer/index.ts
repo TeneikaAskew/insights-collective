@@ -246,7 +246,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
     
     let grade = getLetterGrade(percent);
     if (grade === 'F') grade = 'D';
-    const themes = generateThemes(analyzed);
+    
 
     // Base response
     const basic = {
@@ -265,7 +265,17 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       enhanced = await enhanceWithGroq(text, basic);
     } catch (err) {
       console.error('GROQ enhancement error:', err);
-      enhanced = basic;
+      const themes = generateThemes(analyzed);
+      enhanced =         
+          {
+          bullets: analyzed,
+          resume_average: avg,
+          resume_percent: parseFloat(percent.toFixed(1)),
+          letter_grade: grade,
+          themes,
+          elevator_pitch: 'Experienced professional ...',
+          explanation: `Your resume received a ${grade} grade (${percent}%).`
+        };
     }
 
     // Persist analysis and trigger roast
