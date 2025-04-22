@@ -59,7 +59,7 @@ async function getResumeRoast(resumeText, userId) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'llama-3.1-8b-instant',//'llama3-70b-8192',
+        model: 'compound-beta-mini', //'llama-3.1-8b-instant',//'llama3-70b-8192',
         messages: [  
           { role: "system", content: "You are a brutally honest resume critic. Your job is to point out the real issues in a resume without sugarcoating, then provide actionable advice." },
           { role: "user", content: prompt }

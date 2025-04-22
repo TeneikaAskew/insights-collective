@@ -104,7 +104,7 @@ const controller = new AbortController();
 const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
 try {
   const requestBody = {
-    model: 'llama3-8b-8192',
+    model: 'compound-beta-mini', //'llama3-8b-8192',
     messages: [
       {
         role: 'system',
