@@ -205,10 +205,16 @@ export function handleOptions(req: Request) {
 
 /**
  * callGroqAPI
- *  • tries ANWAN (Meta‑Llama‑3‑8B‑Instruct) first,
- *    then falls back to GROQ (compound‑beta‑mini).
+ *  • tries ANWAN (Meta-Llama-3-8B-Instruct) first,
+ *    then falls back to GROQ (compound-beta-mini).
+ *
+ * @param system      System-role instructions (what the assistant “is”)
+ * @param user        User-role prompt (what you want it to do)
  */
-export async function callGroqAPI(prompt: string): Promise<string> {
+export async function callGroqAPI(
+  system: string,
+  user: string
+): Promise<string> {
   const AWAN_API_KEY = Deno.env.get('AWAN');
   if (!AWAN_API_KEY) throw new Error('AWAN API key not found in environment');
   const GROQ_API_KEY = Deno.env.get('GROQ');
@@ -226,13 +232,16 @@ export async function callGroqAPI(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: 'Meta-Llama-3-8B-Instruct',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user',   content: user   }
+      ],
       temperature: 0.7,
       max_tokens: 500
     })
   });
 
-  // 2️⃣ On 429 or other error, fall back to GROQ
+  // 2️⃣ On 429 or error → fallback to GROQ
   if (resp.status === 429 || !resp.ok) {
     console.warn(`ANWAN failed (status ${resp.status}), falling back to GROQ`);
     resp = await fetch(groqUrl, {
@@ -243,7 +252,10 @@ export async function callGroqAPI(prompt: string): Promise<string> {
       },
       body: JSON.stringify({
         model: 'compound-beta-mini',
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user',   content: user   }
+        ],
         temperature: 0.7,
         max_tokens: 500
       })
@@ -251,47 +263,53 @@ export async function callGroqAPI(prompt: string): Promise<string> {
   }
 
   if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`Chat completion failed: ${resp.status} ${text}`);
+    const txt = await resp.text();
+    throw new Error(`Chat completion failed: ${resp.status} ${txt}`);
   }
 
-  const data = await resp.json();
-  return data.choices?.[0]?.message?.content;
+  const json = await resp.json();
+  return json.choices?.[0]?.message?.content;
 }
 
 /**
  * callGroqWithRetry
- *  • wraps callGroqAPI in exponential‑backoff retry
+ *  • wraps callGroqAPI in exponential-backoff retry
+ *
+ * @param system      System-role instructions
+ * @param user        User-role prompt
+ * @param attempt     (internal) current retry number
+ * @param maxAttempts Maximum retries before giving up
  */
 export async function callGroqWithRetry(
-  prompt: string,
+  system: string,
+  user: string,
   attempt = 1,
   maxAttempts = 4
 ): Promise<string> {
   try {
     console.log(`callGroqWithRetry: Attempt ${attempt}/${maxAttempts}`);
-    return await callGroqAPI(prompt);
-  } catch (error: any) {
+    return await callGroqAPI(system, user);
+  } catch (err: any) {
     if (attempt < maxAttempts) {
-      // default backoff
-      let waitTime = 1000 * Math.pow(2, attempt);
+      // exponential backoff
+      let waitMs = 1000 * Math.pow(2, attempt);
 
-      // if error mentions “rate limit in …s”
-      const m = error.message.match(/try again in (\d+\.?\d*)s/i);
+      // if error says “try again in Xs”
+      const m = err.message.match(/try again in (\d+\.?\d*)s/i);
       if (m) {
-        waitTime = Math.ceil(parseFloat(m[1]) * 1000) + 500;
-        console.log(`Extracted waitTime=${waitTime}ms from error message`);
+        waitMs = Math.ceil(parseFloat(m[1]) * 1000) + 500;
+        console.log(`Extracted wait=${waitMs}ms from error message`);
       }
 
       // jitter
-      waitTime += Math.floor(Math.random() * 500);
-      console.log(`Waiting ${waitTime}ms before retry ${attempt + 1}`);
-      await new Promise(r => setTimeout(r, waitTime));
+      waitMs += Math.floor(Math.random() * 500);
+      console.log(`Waiting ${waitMs}ms before retry #${attempt+1}`);
+      await new Promise(r => setTimeout(r, waitMs));
 
-      return callGroqWithRetry(prompt, attempt + 1, maxAttempts);
+      return callGroqWithRetry(system, user, attempt + 1, maxAttempts);
     }
 
     console.error(`Max retry attempts (${maxAttempts}) reached.`);
-    throw error;
+    throw err;
   }
 }
