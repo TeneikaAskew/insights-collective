@@ -755,7 +755,7 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
             calculateCareerAlignments(enhancedFallback as ResumeAnalysis);
             
             return true;
-          // }
+          }
     } catch (error) {
       console.error('Error analyzing resume:', error);
       
