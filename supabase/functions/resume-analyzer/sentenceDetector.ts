@@ -61,11 +61,13 @@ export async function detectSentences(text, userId) {
       // console.log(`detectSentences: Calling GROQ API with retry for chunk ${i+1} [${new Date().toISOString()}]`);
       const apiStartTime = Date.now();
 
-      const prompt = `You are a sentence extraction expert. Extract resume bullet points and return ONLY a JSON array of strings. Do not include any explanatory text before or after the JSON array. 
-      Extract resume bullet points from the following text:\n\n${processedText}`
+      const system = `You are a sentence extraction expert. Extract resume bullet points and return ONLY a JSON array of strings. 
+      Do not include any explanatory text before or after the JSON array.`
+      
+      const user = `Extract resume bullet points from the following text:\n\n${processedText}`
       
       // Use our retry function
-      const data = await callGroqWithRetry(chunks[i], prompt);
+      const data = await callGroqWithRetry(system, user);
       
       const apiEndTime = Date.now();
       // console.log(`detectSentences: GROQ API call for chunk ${i+1} completed in ${apiEndTime - apiStartTime}ms`);
