@@ -8,6 +8,18 @@ import {  pathwayQuestions,   quickReplies,   starterMessages,   careerAdvicePro
   //   user,
   //   isAuthenticated
   // } = useAuth();
+const CareerAgent: React.FC = () => {
+  // ← Add it here, inside your component body:
+  const { user, isAuthenticated } = useAuth();
+
+  // now you can use `user` and `isAuthenticated`
+  const [messages, setMessages] = useState<Message[]>([]);
+  // …rest of your hooks and logic…
+
+  // optionally guard the page
+  if (!isAuthenticated) {
+    return <div>Please log in to access your career agent.</div>;
+  }
 
 // Updated function for saving answer to database
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
