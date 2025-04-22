@@ -72,14 +72,14 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
     };
 
     fetchSavedCareerAdvice();
-  }, [quizAnswers, user]);
+  }, [pathwayAnswers, user]);
 
   return (
     <Card id="career-pathway-report" className="mt-6">
       <CardHeader>
         <CardTitle>Personalized Career Pathway Report</CardTitle>
         <CardDescription>
-          Based on your quiz answers and data analysis, here is your personalized career pathway report.
+          Based on your pathway answers and data analysis, here is your personalized career pathway report.
         </CardDescription>
       </CardHeader>
       <CardContent className="min-h-[150px]">
