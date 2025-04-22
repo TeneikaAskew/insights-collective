@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import {  pathwayQuestions,   quickReplies,   starterMessages,   careerAdvicePrompt,   LOCAL_STORAGE_KEY} from '@/data/careerPathwayData';
-const { user } = useAuth();
+import { useAuth } from '@/contexts/AuthContext';
 
 // Updated function for saving answer to database
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
