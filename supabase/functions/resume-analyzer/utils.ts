@@ -112,48 +112,48 @@ export function handleOptions(req: Request) {
 
 // Function to call GROQ API with retry logic
 // async function callGroqWithRetry(prompt: string, context: any, attempt = 1, maxAttempts = 4): Promise<any> {
-  try {
-    console.log(`callGroqWithRetry: Attempt ${attempt}/${maxAttempts}`);
+//   try {
+//     console.log(`callGroqWithRetry: Attempt ${attempt}/${maxAttempts}`);
     
-    // Call your actual GROQ API here
-    const response = await callGroqAPI(prompt);
+//     // Call your actual GROQ API here
+//     const response = await callGroqAPI(prompt);
     
-    return response;
-  } catch (error: any) {
-    if (attempt < maxAttempts) {
-      // Extract wait time from rate limit error if available
-      let waitTime = 1000 * Math.pow(2, attempt); // Default exponential backoff
+//     return response;
+//   } catch (error: any) {
+//     if (attempt < maxAttempts) {
+//       // Extract wait time from rate limit error if available
+//       let waitTime = 1000 * Math.pow(2, attempt); // Default exponential backoff
       
-      // Check if it's a rate limit error with a specific wait time
-      if (error.message && error.message.includes('rate limit')) {
-        console.log(`callGroqWithRetry: Rate limit hit (429). Error: ${error.message}\n`);
+//       // Check if it's a rate limit error with a specific wait time
+//       if (error.message && error.message.includes('rate limit')) {
+//         console.log(`callGroqWithRetry: Rate limit hit (429). Error: ${error.message}\n`);
         
-        // Try to extract wait time from error message if provided by API
-        const waitTimeMatch = error.message.match(/try again in (\d+\.?\d*)s/i);
-        if (waitTimeMatch && waitTimeMatch[1]) {
-          const seconds = parseFloat(waitTimeMatch[1]);
-          waitTime = Math.ceil(seconds * 1000);
-          console.log(`callGroqWithRetry: Extracted wait time of ${waitTime}ms from error message`);
-        }
-      } else {
-        console.error(`API error (attempt ${attempt}/${maxAttempts}):`, error);
-      }
+//         // Try to extract wait time from error message if provided by API
+//         const waitTimeMatch = error.message.match(/try again in (\d+\.?\d*)s/i);
+//         if (waitTimeMatch && waitTimeMatch[1]) {
+//           const seconds = parseFloat(waitTimeMatch[1]);
+//           waitTime = Math.ceil(seconds * 1000);
+//           console.log(`callGroqWithRetry: Extracted wait time of ${waitTime}ms from error message`);
+//         }
+//       } else {
+//         console.error(`API error (attempt ${attempt}/${maxAttempts}):`, error);
+//       }
       
-      // Add some jitter to avoid synchronized retries
-      waitTime += Math.floor(Math.random() * 500);
+//       // Add some jitter to avoid synchronized retries
+//       waitTime += Math.floor(Math.random() * 500);
       
-      console.log(`callGroqWithRetry: Waiting ${waitTime}ms before retry ${attempt}`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
+//       console.log(`callGroqWithRetry: Waiting ${waitTime}ms before retry ${attempt}`);
+//       await new Promise(resolve => setTimeout(resolve, waitTime));
       
-      // Recursive retry with incremented attempt counter
-      return callGroqWithRetry(prompt, context, attempt + 1, maxAttempts);
-    } else {
-      // Max attempts reached, throw the error
-      console.error(`Max retry attempts (${maxAttempts}) reached.`);
-      throw error;
-    }
-  }
-}
+//       // Recursive retry with incremented attempt counter
+//       return callGroqWithRetry(prompt, context, attempt + 1, maxAttempts);
+//     } else {
+//       // Max attempts reached, throw the error
+//       console.error(`Max retry attempts (${maxAttempts}) reached.`);
+//       throw error;
+//     }
+//   }
+// }
 
 
 /**
