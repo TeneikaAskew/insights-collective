@@ -160,7 +160,7 @@ try {
   clearTimeout(timeoutId);
   // Return the original analysis if there was an error
   return analysis;
-}}
+}}}
     //   function formatResponse(raw) {
     //     if (!raw) return '';
     //     let text = raw;
@@ -339,4 +339,4 @@ try {
   //   // Return original analysis on any error
   //   return analysis;
   // }
-}
+// }
