@@ -1,11 +1,6 @@
-// Changes to import statements at the top of CareerAgent.tsx
-import {
-  pathwayQuestions, 
-  quickReplies, 
-  starterMessages, 
-  careerAdvicePrompt, 
-  LOCAL_STORAGE_KEY
-} from '@/data/careerPathwayData';
+import { supabase } from '@/integrations/supabase/client';
+import {  pathwayQuestions,   quickReplies,   starterMessages,   careerAdvicePrompt,   LOCAL_STORAGE_KEY} from '@/data/careerPathwayData';
+const { user } = useAuth();
 
 // Updated function for saving answer to database
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
