@@ -676,7 +676,7 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
       //   setAnalysis(enhancedFallback as ResumeAnalysis);
       //   calculateCareerAlignments(enhancedFallback as ResumeAnalysis);
         
-        return true;
+        // return true;
       }
         } catch (functionError) {
           console.error("Error invoking edge function:", functionError);
