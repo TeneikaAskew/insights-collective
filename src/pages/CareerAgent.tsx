@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useUser } from '@/contexts/AuthContext';
 import { Message } from '@/components/chat/types';
 import {
   pathwayQuestions, 
@@ -9,7 +8,10 @@ import {
   careerAdvicePrompt, 
   LOCAL_STORAGE_KEY
 } from '@/data/careerPathwayData';
-
+const {
+    user,
+    isAuthenticated
+  } = useAuth();
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
   if (sessionId && user) {
     try {
