@@ -240,7 +240,6 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
     let enhanced;
     try {
       enhanced = await enhanceWithGroq(text, basic);
-      console.log('Enhanced analysis:', enhanced);
     } catch (err) {
       console.error('GROQ enhancement error:', err);
       enhanced = basic;

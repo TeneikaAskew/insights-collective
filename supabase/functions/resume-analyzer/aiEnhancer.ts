@@ -93,7 +93,7 @@ function formatResponse(raw) {
     extractedContent.explanation = explanationMatch[1].trim();
   }
   
-  console.log("Extracted content: ", extractedContent);
+  // console.log("Extracted content: ", extractedContent);
   
   // Return the extracted content directly
   return extractedContent;
