@@ -467,19 +467,3 @@ useEffect(() => {
     dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
   />
 )}
-
-@keyframes slideInUp {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.career-advice-report {
-  animation: slideInUp 0.5s ease-out forwards;
-}
-
