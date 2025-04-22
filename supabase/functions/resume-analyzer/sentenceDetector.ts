@@ -264,12 +264,12 @@ export function extractSentencesFromResponse(content) {
         items.push(match[1].trim());
       }
     }
-    console.log(`extractSentencesFromResponse: Method 4 - found ${matchCount} regex matches, ${items.length} valid items`);
+    console.log(`extractSentencesFromResponse: Method 1 - found ${matchCount} regex matches, ${items.length} valid items`);
     if (items.length > 0) {
-      console.log('extractSentencesFromResponse: Method 4 successful');
+      console.log('extractSentencesFromResponse: Method 1 successful');
       sentences = items;
     } else {
-      console.log('extractSentencesFromResponse: Method 4 failed - no valid items found');
+      console.log('extractSentencesFromResponse: Method 1 failed - no valid items found');
     }
   }
 
@@ -361,17 +361,17 @@ export function extractSentencesFromResponse(content) {
     try {
       const parsedArray = JSON.parse(content.trim());
       if (Array.isArray(parsedArray) && parsedArray.length > 0) {
-        console.log(`extractSentencesFromResponse: Method 1 successful - parsed ${parsedArray.length} items`);
+        console.log(`extractSentencesFromResponse: Method 4 successful - parsed ${parsedArray.length} items`);
         sentences = parsedArray;
       } else {
-        console.log('extractSentencesFromResponse: Method 1 parsed successfully but result is not a valid array or is empty');
+        console.log('extractSentencesFromResponse: Method 4 parsed successfully but result is not a valid array or is empty');
       }
     } catch (e) {
-      console.log(`extractSentencesFromResponse: Method 1 failed - ${e.message}`);
+      console.log(`extractSentencesFromResponse: Method 4 failed - ${e.message}`);
     // Continue to next method if this fails
     }
   } else {
-    console.log('extractSentencesFromResponse: Method 1 skipped - content does not start/end with brackets');
+    console.log('extractSentencesFromResponse: Method 4 skipped - content does not start/end with brackets');
   }
   // Method 5: Handle doubly quoted strings (""text"") which appeared in the logs
   if (sentences.length === 0) {
