@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
 import { supabase } from '@/integrations/supabase/client';
 import {  pathwayQuestions,   quickReplies,   starterMessages,   careerAdvicePrompt,   LOCAL_STORAGE_KEY} from '@/data/careerPathwayData';
-import { useAuth } from '@/contexts/AuthContext';
-  const {
-    user,
-    isAuthenticated
-  } = useAuth();
+
+  // const {
+  //   user,
+  //   isAuthenticated
+  // } = useAuth();
 
 // Updated function for saving answer to database
 const saveAnswerToDatabase = async (questionId: string, answer: string) => {
