@@ -153,14 +153,7 @@ try {
     enhancedAnalysis.explanation = extractedContent.explanation;
   }
   
-  console.log("Enhanced Analysis: ", enhancedAnalysis);
-  return enhancedAnalysis;
-} catch (error) {
-  console.error('Error processing AI response:', error);
-  clearTimeout(timeoutId);
-  // Return the original analysis if there was an error
-  return analysis;
-}
+
     //   function formatResponse(raw) {
     //     if (!raw) return '';
     //     let text = raw;
