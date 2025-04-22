@@ -221,8 +221,8 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       const weightedTotal = weightedScores.reduce((sum, score) => sum + score, 0);
       const weightedAverage = weightedTotal / weightedScores.length;
 
-      // Convert to percentage (60% baseline + up to 40% from performance)
-      const percent = 40 + (weightedAverage / 100 * 40);
+      // Convert to percentage (60% baseline + up to 60% from performance)
+      const percent = 40 + (weightedAverage / 100 * 60);
       
       // // Convert to percentage (60% baseline + up to 40% from performance)
       // const percent = 60 + (weightedAverage / 45 * 40);
