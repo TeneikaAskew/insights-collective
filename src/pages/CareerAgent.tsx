@@ -237,6 +237,7 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     }
 
     const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+    console.log(resultText)
 
     // Format the report to improve readability and structure
     const formattedReport = formatCareerPathwayReport(resultText);
