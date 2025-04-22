@@ -8,9 +8,15 @@ import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
 // import { serveBulletImprover } from "./bulletImprover.ts";
 // Change this line:
-// import { serveBulletImprover } from "./bulletImprover.ts";
+import { serveBulletImprover } from "./bulletImprover.ts";
 
-import { processBatchQueue, createBatches, getBatchSize, config as bulletImproverConfig} from "./bulletImprover.ts";
+// To:
+import { 
+  processBatchQueue, 
+  createBatches, 
+  getBatchSize, 
+  config as bulletImproverConfig 
+} from "./bulletImprover.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { corsHeaders } from "./utils.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.31.0";
@@ -582,11 +588,8 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
 export async function bulletImprover(userId, enhanced = null) {
   try {
     console.log(`Starting background bullet improvement for userId: ${userId}`);
-    // Import the configuration from bulletImprover.ts
-    const { config } = await import('./bulletImprover.ts');
     
     let bullets;
-    
     
     // First try to use the provided enhanced analysis if available
     if (enhanced?.bullets && enhanced.bullets.length > 0) {
