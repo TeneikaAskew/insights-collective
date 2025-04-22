@@ -16,6 +16,13 @@ import QuizResultsSection from '@/components/profile/QuizResultsSection';
 import CareerPathwaySection from '@/components/profile/CareerPathwaySection';
 import { supabase } from '@/integrations/supabase/client';
 import { quizQuestions } from '@/data/careerQuizData';
+// 1. Add these imports
+import InteractiveCareerReportSection from '@/components/assistants/InteractiveCareerReportSection';
+import { parseCareerReport } from '@/components/assistants/utils/CareerReportParser';
+import { CareerReportData } from '@/components/assistants/utils/CareerReportParser';
+
+// 2. Add this state for structured report data
+const [structuredReport, setStructuredReport] = useState<CareerReportData | null>(null);
 
 const Profile = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -356,7 +363,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
             </Card>
 
             {/* CareerPathwaySection separate and only passed quizAnswers prop */}
-            <CareerPathwaySection quizAnswers={quizAnswers} />
+            {/* <CareerPathwaySection quizAnswers={quizAnswers} />
 
             {careerAdviceReport && (
               <Card id="career-advice-report">
@@ -370,6 +377,25 @@ Please combine these data points with the user’s quiz answers to generate a pe
                   <div className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</div>
                 </CardContent>
               </Card>
+            )} */}
+
+            {/* Interactive Career Report Section */}
+            {structuredReport ? (
+              <InteractiveCareerReportSection reportData={structuredReport} />
+            ) : careerAdviceReport ? (
+              <Card id="career-advice-report">
+                <CardHeader>
+                  <CardTitle>Personalized Career Advice</CardTitle>
+                  <CardDescription>
+                    Based on your quiz answers, here is your career advice report.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</div>
+                </CardContent>
+              </Card>
+            ) : (
+              <CareerPathwaySection quizAnswers={quizAnswers} />
             )}
             
             <Card id="security">
