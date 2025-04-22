@@ -172,6 +172,8 @@ export async function enhanceWithGroq(resumeText, analysis) {
         max_tokens: 500,
         temperature: 0.4
       };
+
+      console.log("Prompt", requestBody)
       
       // Add the signal to the retry function
       const data = await callGroqWithRetry(apiKey, requestBody, 3, controller.signal);
