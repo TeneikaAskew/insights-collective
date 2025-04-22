@@ -269,12 +269,12 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
   }
 };
 
-{careerAdviceReport && (
-  <div 
-    className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full text-gray-900 text-sm shadow-md"
-    dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-  />
-)}
+// {careerAdviceReport && (
+//   <div 
+//     className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full text-gray-900 text-sm shadow-md"
+//     dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+//   />
+// )}
 
 const reportRef = useRef<HTMLDivElement>(null);
 
