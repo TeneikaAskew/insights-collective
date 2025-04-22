@@ -64,7 +64,7 @@ export async function detectSentences(text, userId) {
         const end = Math.min(i + chunkSize, processedText.length);
         chunks.push(processedText.substring(i, end));
       }
-      console.log(`detectSentences: Split text into ${chunks.length} chunks`);
+      // console.log(`detectSentences: Split text into ${chunks.length} chunks`);
     } else {
       chunks.push(processedText);
     }
@@ -75,14 +75,14 @@ export async function detectSentences(text, userId) {
       console.log(`detectSentences: Processing chunk ${i+1}/${chunks.length} (${chunks[i].length} chars)`);
       
       // Call AI API with retry logic
-      console.log(`detectSentences: Calling GROQ API with retry for chunk ${i+1} [${new Date().toISOString()}]`);
+      // console.log(`detectSentences: Calling GROQ API with retry for chunk ${i+1} [${new Date().toISOString()}]`);
       const apiStartTime = Date.now();
       
       // Use our retry function
       const data = await callGroqWithRetry(chunks[i], GROQ_API_KEY);
       
       const apiEndTime = Date.now();
-      console.log(`detectSentences: GROQ API call for chunk ${i+1} completed in ${apiEndTime - apiStartTime}ms`);
+      // console.log(`detectSentences: GROQ API call for chunk ${i+1} completed in ${apiEndTime - apiStartTime}ms`);
       
       const content = data.choices?.[0]?.message?.content || '';
       console.log(`detectSentences: raw content from API chunk ${i+1} (${content.length} chars) preview=`, 
@@ -107,13 +107,13 @@ export async function detectSentences(text, userId) {
     }
     
     // Deduplicate sentences from all chunks
-    console.log(`detectSentences: Total raw sentences from all chunks: ${allSentences.length}`);
+    // console.log(`detectSentences: Total raw sentences from all chunks: ${allSentences.length}`);
     const sentences = cleanAndDeduplicate(allSentences);
-    console.log(`detectSentences: Final deduplicated sentences: ${sentences.length}`);
+    // console.log(`detectSentences: Final deduplicated sentences: ${sentences.length}`);
     
     // Save to database if userId is provided
     if (userId) {
-      console.log(`detectSentences: Saving sentences to database for userId=${userId}`);
+      console.log(`detectSentences: Saving ${sentences.length} sentences to database for userId=${userId}`);
       const dbStartTime = Date.now();
       try {
         // Save to cache if userId is provided

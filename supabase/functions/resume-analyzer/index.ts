@@ -161,8 +161,8 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       return {
         bullets: [],
         resume_average: 0,
-        resume_percent: 50,
-        letter_grade: 'C',
+        resume_percent: 0,
+        letter_grade: 'Err',
         themes: ['Format your resume with clear bullet points'],
         elevator_pitch: 'We couldn\'t detect formatted bullet points.',
         explanation: 'Please organize your experience in clear bullet points.'
@@ -236,7 +236,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       explanation: `Your resume received a ${grade} grade (${percent}%).`
     };
 
-    // Optionally enhance via GROQ
+    // enhance via GROQ
     let enhanced;
     try {
       enhanced = await enhanceWithGroq(text, basic);
