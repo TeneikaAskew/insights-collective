@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -31,7 +30,6 @@ import AssistantInterface from "./pages/AssistantInterface";
 import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
-
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -149,4 +147,3 @@ function App() {
 }
 
 export default App;
-

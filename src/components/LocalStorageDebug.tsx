@@ -1,9 +1,10 @@
+
 // components/LocalStorageDebug.tsx
 import React from 'react';
 import { Button } from './ui/button';
 import { LocalStorageUtils } from '../utils/localStorageUtils';
 
-export const LocalStorageDebug: React.FC = () => {
+const LocalStorageDebug: React.FC = () => {
   const [items, setItems] = React.useState<{ key: string; value: string | null }[]>([]);
 
   const refreshItems = () => {
@@ -59,5 +60,4 @@ export const LocalStorageDebug: React.FC = () => {
   );
 };
 
-// Usage in your app (development only):
-{process.env.NODE_ENV === 'development' && <LocalStorageDebug />}
+export default LocalStorageDebug;
