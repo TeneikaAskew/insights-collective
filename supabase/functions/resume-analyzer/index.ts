@@ -124,7 +124,6 @@ async function getResumeRoast(resumeText, userId) {
 export async function analyzeResume(resumeText, userId, sentences = []) {
   let text = resumeText || '';
   console.log('Provided text:', text.length, 'characters');
-  getResumeRoast(text, userId);
   // Initialize bulletPoints from passed-in sentences
   let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
   if (bulletPoints.length) {
@@ -481,6 +480,8 @@ serve(async (req) => {
     // Consolidated sentence detection + analysis (main flow)
     if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path) {
       console.log('Running sentence detection + analysis');
+
+      getResumeRoast(resolvedText, userId);
 
       const sentences = await detectSentences(resolvedText, userId);
       console.log('Direct detectSentences():', sentences.length);
