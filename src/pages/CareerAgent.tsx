@@ -645,7 +645,6 @@ const CareerAgent: React.FC = () => {
     setResumePromptShown(false);
     window.localStorage.removeItem(LOCAL_STORAGE_KEY);
   };
-
   return (
     <AppLayout>
       <div className="container mx-auto max-w-3xl px-4 py-6 flex flex-col h-[calc(100vh-8rem)]">
@@ -656,12 +655,29 @@ const CareerAgent: React.FC = () => {
           </Button>
         </div>
 
-        <div
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          <div
+            ref={scrollAreaRef}
+            role="log"
+            aria-live="polite"
+            className="flex-1 overflow-y-auto space-y-4 mb-4"
+          >
+  {/* return (
+    <AppLayout>
+      <div className="container mx-auto max-w-3xl px-4 py-6 flex flex-col h-[calc(100vh-8rem)]">
+        <div className="flex justify-between items-center mb-4 shrink-0">
+          <h1 className="text-4xl font-bold text-amber-600">Career Pathway Agent</h1>
+          <Button variant="outline" onClick={handleResetChat} size="sm" className="ml-4">
+            Reset Chat
+          </Button>
+        </div> */}
+
+        {/* <div
           ref={scrollAreaRef}
           role="log"
           aria-live="polite"
           className="flex-1 overflow-y-auto space-y-4 mb-4 min-h-0"
-        >
+        > */}
           {messages.map((msg) => {
             const isBot = msg.sender === "bot";
             const isUser = msg.sender === "user";
