@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
-import {redirectInProgressRef} from '/src/hooks/useAuth.ts';
+// import {redirectInProgressRef} from '/src/hooks/useAuth.ts';
 
 const Login = () => {
   const {
@@ -25,6 +25,7 @@ const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const redirectInProgressRef = useRef(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
