@@ -65,7 +65,7 @@ export async function detectSentences(text, userId) {
       const system = `You are a sentence extraction expert. Extract resume bullet points and return ONLY a JSON array of strings. 
       Do not include any explanatory text before or after the JSON array.`
       
-      const user = `Extract resume bullet points from the following text:\n\n${processedText}`
+      const user = `Extract resume bullet points from the following text:\n\n${chunks[i]}`
       
       // Use our retry function
       const data = await callGroqWithRetry(system, user);
