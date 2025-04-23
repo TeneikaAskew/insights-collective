@@ -27,6 +27,7 @@ export async function detectSentences(text, userId) {
   }
   const startTime = Date.now();
   console.log(`detectSentences: Starting extraction [${new Date().toISOString()}]`);
+  console.log('detectSentences: input text: ', text);
   console.log('detectSentences: input text length=', text.length);
   console.log('detectSentences: userId provided=', userId ? 'Yes' : 'No');
   
