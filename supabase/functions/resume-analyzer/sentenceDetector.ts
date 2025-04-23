@@ -1,4 +1,3 @@
-console.log('Sentence Detection function hit');
 // import { supabase } from '@/integrations/supabase/client';
 // import { supabase } from '../../../integrations/supabase/client.ts';
 import { supabase, callGroqWithRetry } from './utils.ts';
@@ -16,6 +15,7 @@ export function getSentencesFromCache(userId) {
 
 // Modified detectSentences function to use the retry logic
 export async function detectSentences(text, userId) {
+  console.log('Sentence Detection function hit');
   // First check if we have cached sentences for this user
   // if (userId) {
   //   const cachedSentences = getSentencesFromCache(userId);
@@ -316,7 +316,7 @@ export function extractSentencesFromResponse(content) {
 
 // Helper function to clean and deduplicate the extracted sentences
 function cleanAndDeduplicate(sentences) {
-  // console.log(`cleanAndDeduplicate: Starting cleanup of ${sentences.length} sentences`);
+  console.log(`cleanAndDeduplicate: Starting cleanup of ${sentences.length} sentences`);
   const uniqueMap = new Map();
   let cleanedCount = 0;
   let droppedCount = 0;
