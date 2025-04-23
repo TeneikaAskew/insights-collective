@@ -1,10 +1,9 @@
 
 import { useState, useRef, useEffect } from "react";
-import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CircleUser } from "lucide-react";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface Message {
   role: 'user' | 'assistant';
@@ -34,7 +33,7 @@ export default function CareerAgent() {
 
     const newMessages = [
       ...messages,
-      { role: 'user', content: userInput }
+      { role: 'user' as const, content: userInput }
     ];
 
     setMessages(newMessages);
@@ -45,7 +44,7 @@ export default function CareerAgent() {
       setMessages([
         ...newMessages,
         {
-          role: 'assistant',
+          role: 'assistant' as const, 
           content: "Based on what you've shared, let's explore career paths that align with your interests and goals. Would you like to discuss specific industries or roles you're interested in?"
         }
       ]);
