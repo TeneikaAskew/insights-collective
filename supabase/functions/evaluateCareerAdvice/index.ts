@@ -1,7 +1,6 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
 const GROQ_API_KEY = Deno.env.get("GROQ");
 
 const corsHeaders = {
@@ -32,13 +31,12 @@ serve(async (req) => {
       );
     }
 
-    // Build the combined prompt
+    // Construct prompt
     let combinedPrompt = `${prompt}\n\nUser's pathway answers:\n`;
     for (const question of PathwayQuestions) {
       const answer = pathwayAnswers[question.id] || "";
       combinedPrompt += `${question.label || question.id}: ${answer}\n`;
     }
-
     if (resumeText) {
       combinedPrompt += `\nUser Resume Text:\n${resumeText}\n`;
     }
@@ -69,10 +67,10 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const errorDetails = await response.text();
-      console.error("OpenAI API error:", errorDetails);
+      const errorText = await response.text();
+      console.error("GROQ API Error:", errorText);
       return new Response(
-        JSON.stringify({ error: "OpenAI API error", details: errorDetails }),
+        JSON.stringify({ error: "GROQ API error", details: errorText }),
         {
           status: 502,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -84,10 +82,10 @@ serve(async (req) => {
     try {
       data = await response.json();
     } catch (jsonErr) {
-      console.error("Failed to parse JSON:", jsonErr);
+      console.error("Failed to parse JSON from GROQ:", jsonErr);
       return new Response(
         JSON.stringify({
-          error: "Failed to parse response JSON",
+          error: "Failed to parse GROQ JSON response",
           details: jsonErr.message,
         }),
         {
@@ -104,9 +102,12 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Error in evaluateCareerAdvice function:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: error.message || "Unexpected error occurred" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
