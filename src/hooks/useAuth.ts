@@ -200,10 +200,10 @@ export const useAuthProvider = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (awaitingRedirectRef.current && isAuthenticated && !loading) {
+    if (isAuthenticated && !loading) { //awaitingRedirectRef.current && 
       console.log('[useEffect] Awaiting redirect now triggering...');
       handleRedirectAfterLogin();
-      awaitingRedirectRef.current = false;
+      // awaitingRedirectRef.current = false;
     }
   }, [isAuthenticated, loading, handleRedirectAfterLogin]);
 
