@@ -1,4 +1,3 @@
-
 import { BulletAnalysis } from '@/components/assistants/types';
 
 // Define categories consistent with the current keys used in bullet analysis
@@ -18,7 +17,8 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       dataWithPercent: [],
       bullet_total: 0,
       xyz_scores: { action: 0, metrics: 0, clarity: 0, industry: 0, achievement: 0 },
-      totalScore: 0
+      totalScore: 0,
+      word_balance: { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 }
     };
   }
 
@@ -85,4 +85,3 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     totalScore
   };
 };
-

@@ -163,9 +163,12 @@ ${sections.remote ? `<section><h2>Remote</h2>${formatNumberedList(sections.remot
     setMessages(prev=>[...prev,{id:`user_${Date.now()}`,sender:'user',text}]);
     const q = pathwayQuestions[currentQuestionIndex];
     setAnswers(prev=>({...prev,[q.id]:text}));
-    await saveAnswerToDatabase(q.id,text);
-    if (currentQuestionIndex < pathwayQuestions.length-1) setCurrentQuestionIndex(i=>i+1);
-    else generateCareerAdviceReport(resumeText);
+    await saveAnswerToDatabase(q.id, text);
+    if (currentQuestionIndex < pathwayQuestions.length - 1) {
+      setCurrentQuestionIndex(i => i + 1);
+    } else {
+      generateCareerAdviceReport(resumeText);
+    }
   };
 
   const handleFileUpload = (file:File) => {

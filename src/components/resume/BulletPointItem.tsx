@@ -23,7 +23,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   const [editedText, setEditedText] = useState(bullet?.rewritten || "");
   const [editedBullet, setEditedBullet] = useState<BulletAnalysis | null>(null);
 
-  // Use correct xyz_scores structure
+  // Destructure bullet ensuring xyz_scores shape consistent with types
   const {
     original = "",
     word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
@@ -40,10 +40,11 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   };
 
   const handleSave = () => {
-    const improvedBullet = {
+    // Compose improved bullet with correct xyz_scores keys and limits
+    const improvedBullet: BulletAnalysis = {
       ...bullet,
       rewritten: editedText,
-      bullet_total: Math.min(100, bullet_total + 10),
+      bullet_total: Math.min(45, bullet_total + 10),
       xyz_scores: {
         action: Math.min(10, (xyz_scores.action || 0) + 2),
         metrics: Math.min(30, (xyz_scores.metrics || 0) + 5),
@@ -57,7 +58,9 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
         common_pct: Math.max(25, word_balance.common_pct - 2),
         action_pct: Math.min(15, word_balance.action_pct + 2),
         metric_pct: Math.min(15, word_balance.metric_pct + 2)
-      }
+      },
+      original,
+      tips
     };
     setEditedBullet(improvedBullet);
     setIsEditing(false);

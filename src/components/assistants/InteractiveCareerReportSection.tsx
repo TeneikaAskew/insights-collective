@@ -58,7 +58,6 @@ interface CareerReportData {
   keyTakeaways: string[];
 }
 
-// Sample data
 const sampleReportData: CareerReportData = {
   userName: "Joshua B. Brown",
   summary: "Based on your quiz answers and resume, we have generated a comprehensive report to guide your career growth in the data field. Your experience in program management, data-driven marketing, and logistics has equipped you with a unique set of skills that can be leveraged to excel in various roles.",
@@ -151,13 +150,12 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
   };
 
   const startCareerChat = () => {
-    // Provide empty object with correct structure if needed, or adjust useCareerCoach to allow empty
     initiateCareerCoachChat({
       "AI/ML": 0,
-      "Analytics": 0,
+      Analytics: 0,
       "Data Engineering": 0,
-      "Business Intelligence": 0
-    }, {});
+      "Business Intelligence": 0,
+    } as Record<'AI/ML' | 'Analytics' | 'Data Engineering' | 'Business Intelligence', number>, {});
   };
 
   const handleExploreRole = (roleTitle: string) => {
