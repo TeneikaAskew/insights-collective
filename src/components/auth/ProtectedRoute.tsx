@@ -4,13 +4,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
-  requireAuth?: boolean;
+  // requireAuth?: boolean;
   requireAdmin?: boolean;
   children?: React.ReactNode;
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
-  requireAuth = true,
+  // requireAuth = true,
   requireAdmin = false,
   children
 }) => {
@@ -34,11 +34,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       </div>
     );
   }
-  
+
   // Check auth requirements
-  if (requireAuth && !isAuthenticated) {
+  if (!isAuthenticated) {
+    // Store current path before redirecting
+    storeRedirectPath(location.pathname + location.search);
     return <Navigate to="/login" replace />;
   }
+  
+  // Check auth requirements
+  // if (requireAuth && !isAuthenticated) {
+  //   return <Navigate to="/login" replace />;
+  // }
   
   // Check admin requirements
   if (requireAdmin && !isAdminAuthenticated) {
