@@ -271,6 +271,7 @@ export function extractSentencesFromResponse(content) {
   } else {
     console.log('extractSentencesFromResponse: Method 4 skipped - content does not start/end with brackets');
   }
+}
   // Method 5: Handle doubly quoted strings (""text"") which appeared in the logs
   if (sentences.length === 0) {
     console.log('extractSentencesFromResponse: Trying Method 5 - Double-quote pattern extraction');
