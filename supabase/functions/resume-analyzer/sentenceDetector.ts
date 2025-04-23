@@ -69,12 +69,13 @@ export async function detectSentences(text, userId) {
       const user = `Extract resume bullet points from the following text:\n\n${chunks[i]}`
       
       // Use our retry function
-      const data = await callGroqWithRetry(system, user);
+      // const data = await callGroqWithRetry(system, user);
+      const content = await callGroqWithRetry(system, user);
       
       const apiEndTime = Date.now();
       // console.log(`detectSentences: GROQ API call for chunk ${i+1} completed in ${apiEndTime - apiStartTime}ms`);
       
-      const content = data.choices?.[0]?.message?.content || '';
+      // const content = data.choices?.[0]?.message?.content || '';
       console.log(`detectSentences: raw content from API chunk ${i+1} (${content.length} chars) preview=`, 
                   content.length > 100 ? content.slice(0, 100) + '...' : content);
       
