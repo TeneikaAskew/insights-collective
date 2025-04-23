@@ -11,13 +11,16 @@ interface MessageListProps {
 const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Scroll to bottom whenever messages change
-  useEffect(() => {
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
   }, [messages]);
   
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-none">
       {messages.map((message) => (
         <MessageDisplay key={message.id} message={message} />
       ))}

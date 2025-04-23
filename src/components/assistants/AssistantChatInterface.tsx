@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Assistant } from '@/types/assistants';
 import AssistantChatSidebar from './AssistantChatSidebar';
@@ -8,9 +9,7 @@ import ChatInput from './ChatInput';
 import { PersonalizationSettings } from './types';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { CareerTrack } from '@/data/careerQuizData';
-
-// Re-export types for backward compatibility
-export type { Message, Chat } from './types';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface AssistantChatInterfaceProps { 
   initialAssistant: Assistant;
@@ -73,10 +72,10 @@ const AssistantChatInterface: React.FC<AssistantChatInterfaceProps> = ({ initial
   };
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full justify-center">
       {/* Left Sidebar - Chat Management */}
       <div className={`h-[calc(100vh-4rem)] md:block ${showLeftSidebar ? 'block' : 'hidden'} 
-                     transition-all duration-300 border-r w-full max-w-xs`}>
+                     transition-all duration-300 border-r w-full max-w-[240px]`}>
         <AssistantChatSidebar 
           currentChat={currentChat}
           onNewChat={() => handleNewChat(personalizationSettings)}
@@ -85,14 +84,22 @@ const AssistantChatInterface: React.FC<AssistantChatInterfaceProps> = ({ initial
       </div>
 
       {/* Main Chat Window */}
-      <div className="flex flex-col flex-1">
-        {/* Header with Assistant Type Selector */}
-        <ChatHeader 
-          assistant={assistant}
-          onAssistantChange={handleAssistantChange}
-          onToggleLeftSidebar={() => setShowLeftSidebar(!showLeftSidebar)}
-          onToggleRightSidebar={() => setShowRightSidebar(!showRightSidebar)}
-        />
+      <div className="flex flex-col flex-1 max-w-3xl">
+        {/* Header with Assistant Info */}
+        <div className="p-4 border-b flex items-center space-x-4">
+          <Avatar className="h-12 w-12">
+            <AvatarImage src={assistant?.avatar_url} />
+            <AvatarFallback className="bg-blue-100 text-blue-800">
+              CR
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h2 className="font-semibold text-lg">Building Your Career Roadmap</h2>
+            <p className="text-sm text-muted-foreground">
+              Let's explore your career path together
+            </p>
+          </div>
+        </div>
         
         {/* Messages Area */}
         <MessageList 
@@ -112,7 +119,7 @@ const AssistantChatInterface: React.FC<AssistantChatInterfaceProps> = ({ initial
 
       {/* Right Sidebar - Control Panel */}
       <div className={`h-[calc(100vh-4rem)] md:block ${showRightSidebar ? 'block' : 'hidden'} 
-                     transition-all duration-300 border-l w-full max-w-xs`}>
+                     transition-all duration-300 border-l w-full max-w-[240px]`}>
         <AssistantControlPanel 
           careerFocus={personalizationSettings.careerFocus}
           onCareerFocusChange={handleCareerFocusChange}
