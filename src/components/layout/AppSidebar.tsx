@@ -156,7 +156,7 @@ const AppSidebar = () => {
     },
     {
       title: "Debugging",
-      url: "./LocalStorageDebug",
+      url: "@src/components/LocalStorageDebug",
       icon: Settings,
       active: location.pathname === '@src/components/LocalStorageDebug',
     },
