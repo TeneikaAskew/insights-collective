@@ -7,9 +7,9 @@ const bulletCache = new Map(); // Cache for storing bullet points by user ID
 export function getSentencesFromCache(userId) {
   if (!userId) return null;
   
-  // console.log(`getSentencesFromCache: Checking cache for userId=${userId}`);
-  // const cachedSentences = bulletCache.get(`user:${userId}:bullets`);
-  // console.log(`getSentencesFromCache: Cache ${cachedSentences ? 'hit' : 'miss'} for userId=${userId}`);
+  console.log(`getSentencesFromCache: Checking cache for userId=${userId}`);
+  const cachedSentences = bulletCache.get(`user:${userId}:bullets`);
+  console.log(`getSentencesFromCache: Cache ${cachedSentences ? 'hit' : 'miss'} for userId=${userId}`);
   
   return cachedSentences || null;
 }
@@ -151,7 +151,7 @@ export function extractSentencesFromResponse(content) {
   // Try multiple extraction methods, from most structured to least
   // Method 4: Extract quoted strings individually
     if (sentences.length === 0) {
-    console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
+    console.log('extractSentencesFromResponse: Trying Method 1 - Individual string extraction');
     const items = [];
     const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
     let match;
