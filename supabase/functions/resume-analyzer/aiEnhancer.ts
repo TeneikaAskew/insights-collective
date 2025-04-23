@@ -155,15 +155,16 @@ function formatResponse(raw: string): { elevatorPitch: string, themes: string[],
   }
 
   const explanationPatterns = [
-    /(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*$|$))/i,
-    /\*\*Resume Grade:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$|$)/i,
-    /(?:\*\*)?Resume Grade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*$|$)/i,
-    /(?:\*\*)?Brief (?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*$|$)/i,
-    /3\.\s*(?:Brief )?(?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade:?\s*\n?([\s\S]*?)(?=\n\s*$|$)/i,
-    /\*\*Resume Grade Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
-    /Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
-    /3\.\s*Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i
-  ];
+    r"(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))" ,
+        r"\*\*Resume Grade:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*)",
+        r"(?:\*\*)?Resume Grade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*)",
+        r"(?:\*\*)?Brief (?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*)",
+        r"3\.\s*(?:Brief )?(?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade:?\s*\n?([\s\S]*?)(?=\n\s*)",
+        r"\*\*Resume Grade Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)",
+        r"Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)",
+        r"3\.\s*Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)",
+        r"(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))"
+      ];
 
   for (const pattern of explanationPatterns) {
     const match = text.match(pattern);
