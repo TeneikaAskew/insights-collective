@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -23,7 +24,8 @@ const CareerAgent: React.FC = () => {
   // State
   const [sessionId, setSessionId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  // Changed key type of answers to string to match pathwayQuestions id type
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
   const [resumeText, setResumeText] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -61,7 +63,8 @@ const CareerAgent: React.FC = () => {
   }, [careerAdviceReport]);
 
   // Save answer to database
-  const saveAnswerToDatabase = async (questionId: number, answer: string) => {
+  // Changed questionId type to string
+  const saveAnswerToDatabase = async (questionId: string, answer: string) => {
     if (user && sessionId) {
       try {
         await supabase.from('career_pathway_answers').insert({

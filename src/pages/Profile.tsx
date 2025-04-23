@@ -20,7 +20,6 @@ import InteractiveCareerReportSection from '@/components/assistants/InteractiveC
 import { parseCareerReport } from '@/components/assistants/utils/CareerReportParser';
 import { CareerReportData } from '@/components/assistants/utils/CareerReportParser';
 
-
 const Profile = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
@@ -31,10 +30,8 @@ const Profile = () => {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
-  const [quizAnswers, setQuizAnswers] = useState<Record<number, number | string>>({});
-  // 2. Add this state for structured report data
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, string | number>>({});
   const [structuredReport, setStructuredReport] = useState<CareerReportData | null>(null);
-  
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -164,7 +161,7 @@ const Profile = () => {
 • A 'Path to your aspirational role' carousel
 Please combine these data points with the user’s quiz answers to generate a personalized career-advice report.`;
 
-  const evaluateCareerAdvice = async (quizAnswersPayload: Record<number, number | string>) => {
+  const evaluateCareerAdvice = async (quizAnswersPayload: Record<string, string | number>) => {
     try {
       const payload = {
         prompt: careerAdvicePrompt,
@@ -357,29 +354,10 @@ Please combine these data points with the user’s quiz answers to generate a pe
                 <CardDescription>Your career path assessment and recommendations</CardDescription>
               </CardHeader>
               <CardContent>
-                {/* QuizResultsSection does not take quizAnswers or setQuizAnswers */}
                 <QuizResultsSection />
               </CardContent>
             </Card>
 
-            {/* CareerPathwaySection separate and only passed quizAnswers prop */}
-            {/* <CareerPathwaySection quizAnswers={quizAnswers} />
-
-            {careerAdviceReport && (
-              <Card id="career-advice-report">
-                <CardHeader>
-                  <CardTitle>Personalized Career Advice</CardTitle>
-                  <CardDescription>
-                    Based on your quiz answers, here is your career advice report.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</div>
-                </CardContent>
-              </Card>
-            )} */}
-
-            {/* Interactive Career Report Section */}
             {structuredReport ? (
               <InteractiveCareerReportSection reportData={structuredReport} />
             ) : careerAdviceReport ? (
@@ -395,7 +373,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
                 </CardContent>
               </Card>
             ) : (
-              <CareerPathwaySection quizAnswers={quizAnswers} />
+              <CareerPathwaySection pathwayAnswers={quizAnswers} />
             )}
             
             <Card id="security">
