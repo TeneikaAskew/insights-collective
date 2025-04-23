@@ -60,20 +60,20 @@ export async function callGroqAPI(
   system: string,
   user: string
 ): Promise<string> {
-  const AWAN_API_KEY = Deno.env.get('AWAN');
-  if (!AWAN_API_KEY) throw new Error('AWAN API key not found in environment');
+  const ANWAN_API_KEY = Deno.env.get('ANWAN');
+  if (!ANWAN_API_KEY) throw new Error('ANWAN API key not found in environment');
   const GROQ_API_KEY = Deno.env.get('GROQ');
   if (!GROQ_API_KEY) throw new Error('GROQ API key not found in environment');
 
-  const awanUrl = 'https://api.awanllm.com/v1/chat/completions';
+  const anwanUrl = 'https://api.awanllm.com/v1/chat/completions';
   const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
   // 1️⃣ Try ANWAN
-  let resp = await fetch(awanUrl, {
+  let resp = await fetch(anwanUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${AWAN_API_KEY}`
+      'Authorization': `Bearer ${ANWAN_API_KEY}`
     },
     body: JSON.stringify({
       model: 'Meta-Llama-3-8B-Instruct',
