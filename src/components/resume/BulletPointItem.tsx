@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { Badge } from '@/components/ui/badge';
@@ -23,7 +22,6 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   const [editedText, setEditedText] = useState(bullet?.rewritten || "");
   const [editedBullet, setEditedBullet] = useState<BulletAnalysis | null>(null);
   
-  // Add default values to prevent undefined errors
   const {
     original = "",
     word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
@@ -39,41 +37,36 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
     setIsEditing(true);
   };
 
-// Handle save button click
-const handleSave = () => {
-  // Create a simulated analysis of the edited text
-  // In a real implementation, you would call the actual analysis API
-  const improvedBullet = {
-    ...bullet,
-    rewritten: editedText,
-    // Simulate improved scores based on edits
-    bullet_total: Math.min(100, bullet_total + 10),
-    xyz_scores: {
-      action: Math.min(10, (xyz_scores.action || 0) + 2),
-      metrics: Math.min(30, (xyz_scores.metrics || 0) + 5),
-      clarity: Math.min(15, (xyz_scores.clarity || 0) + 3),
-      industry: Math.min(25, (xyz_scores.industry || 0) + 5),
-      achievement: Math.min(20, (xyz_scores.achievement || 0) + 3)
-    },
-    word_balance_score: Math.min(25, word_balance_score + 2),
-    word_balance: {
-      industry_pct: Math.min(45, word_balance.industry_pct + 2),
-      common_pct: Math.max(25, word_balance.common_pct - 2),
-      action_pct: Math.min(15, word_balance.action_pct + 2),
-      metric_pct: Math.min(15, word_balance.metric_pct + 2)
-    }
+  const handleSave = () => {
+    const improvedBullet = {
+      ...bullet,
+      rewritten: editedText,
+      bullet_total: Math.min(100, bullet_total + 10),
+      xyz_scores: {
+        action: Math.min(10, (xyz_scores.action || 0) + 2),
+        metrics: Math.min(30, (xyz_scores.metrics || 0) + 5),
+        clarity: Math.min(15, (xyz_scores.clarity || 0) + 3),
+        industry: Math.min(25, (xyz_scores.industry || 0) + 5),
+        achievement: Math.min(20, (xyz_scores.achievement || 0) + 3)
+      },
+      word_balance_score: Math.min(25, word_balance_score + 2),
+      word_balance: {
+        industry_pct: Math.min(45, word_balance.industry_pct + 2),
+        common_pct: Math.max(25, word_balance.common_pct - 2),
+        action_pct: Math.min(15, word_balance.action_pct + 2),
+        metric_pct: Math.min(15, word_balance.metric_pct + 2)
+      }
+    };
+    
+    setEditedBullet(improvedBullet);
+    setIsEditing(false);
   };
-  
-  setEditedBullet(improvedBullet);
-  setIsEditing(false);
-};
 
   const handleCancel = () => {
     setIsEditing(false);
     setEditedText(rewritten);
   };
 
-  // Display the edited bullet or the original bullet
   const displayBullet = editedBullet || bullet;
 
   return (
@@ -91,7 +84,6 @@ const handleSave = () => {
       
       <AccordionContent className="px-4 pb-4 pt-2">
         <div className="space-y-6">
-          {/* Original vs Rewritten */}
           <div className="space-y-4">
             <h4 className="text-sm font-medium">Original:</h4>
             <div className="text-sm bg-slate-50 p-3 rounded">
@@ -145,13 +137,11 @@ const handleSave = () => {
             )}
           </div>
           
-          {/* Bullet Point Visualization */}
           <div className="mt-4">
             <h4 className="text-sm font-medium mb-2">Suggested Improved Bullet Analysis Visualization:</h4>
             <BulletPointChart bullet={displayBullet} />
           </div>
           
-          {/* Score Breakdown */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <WordBalanceScore 
               wordBalance={displayBullet.word_balance}
@@ -161,7 +151,6 @@ const handleSave = () => {
             <XYZQualityScore xyzScores={displayBullet.xyz_scores} />
           </div>
           
-          {/* Improvement Tips */}
           <div className="mt-4">
             <h4 className="text-sm font-medium">Improvement Tips:</h4>
             <p className="text-sm text-muted-foreground mt-1">{displayBullet.tips || "No improvement tips available"}</p>
@@ -173,4 +162,3 @@ const handleSave = () => {
 };
 
 export default BulletPointItem;
-

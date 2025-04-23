@@ -7,7 +7,8 @@ export const BULLET_CATEGORIES = {
   METRICS: 'metrics',
   CLARITY: 'clarity',
   INDUSTRY: 'industry',
-  ACHIEVEMENT: 'achievement'
+  ACHIEVEMENT: 'achievement',
+  COMMON: 'common'  // Added missing COMMON category
 };
 
 // Helper function to prepare chart data

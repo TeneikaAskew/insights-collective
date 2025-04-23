@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BULLET_CATEGORIES } from '../chart/BulletChartData';
 
@@ -225,4 +224,3 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
     </>
   );
 };
-
