@@ -305,6 +305,7 @@ const CareerAgent: React.FC = () => {
       if (error) throw error;
       
       const raw = typeof data === 'string' ? data : data.generatedText;
+      console.log("Career Pathway Insights: ", raw)
       const html = formatCareerPathwayReport(raw);
       setCareerAdviceReport(html);
       
