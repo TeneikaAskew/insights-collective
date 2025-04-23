@@ -43,7 +43,7 @@ function getSupabaseClient() {
   }
   return createClient(supabaseUrl, supabaseKey);
 }
-const supabase = getSupabaseClient();
+export const supabase = getSupabaseClient();
 // ─────────── new helpers for GROQ/ANWAN ───────────
 
 /**
