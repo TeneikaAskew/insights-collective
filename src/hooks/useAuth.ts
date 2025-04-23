@@ -168,7 +168,7 @@ export const useAuthProvider = () => {
 
       if (event === 'SIGNED_IN') {
         setSession(newSession);
-        awaitingRedirectRef.current = true;
+        // awaitingRedirectRef.current = true;
         toast({ title: 'Success', description: 'Logged in successfully' });
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
