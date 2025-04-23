@@ -120,6 +120,7 @@ function App() {
                     <Route path="/admin/courses" element={<ProtectedRoute requireAdmin><CourseManagementDashboard /></ProtectedRoute>} />
                     <Route path="/admin/courses/:courseId/edit" element={<ProtectedRoute requireAdmin><AdminCourseEdit /></ProtectedRoute>} />
                     <Route path="/admin/courses/new" element={<ProtectedRoute requireAdmin><AdminCourseEdit /></ProtectedRoute>} />
+                    <Route path="/courses/:courseId/materials" element={<ProtectedRoute><CourseManageMaterials /></ProtectedRoute>} />
                     <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
                     <Route path="/admin/enrollments" element={<ProtectedRoute requireAdmin><AdminEnrollments /></ProtectedRoute>} />
                     <Route path="/admin/certificates" element={<ProtectedRoute requireAdmin><AdminCertificates /></ProtectedRoute>} />
@@ -129,12 +130,8 @@ function App() {
                     <Route path="/admin/blog" element={<ProtectedRoute requireAdmin><AdminBlogPosts /></ProtectedRoute>} />
                     <Route path="/admin/blog/create" element={<ProtectedRoute requireAdmin><CreateBlogPost /></ProtectedRoute>} />
                     <Route path="/admin/page-visibility" element={<ProtectedRoute requireAdmin><AdminPageVisibility /></ProtectedRoute>} />
+                    <Route path="/components/LocalStorageDebug.tsx" element={<ProtectedRoute requireAdmin><LocalStorageDebug /></ProtectedRoute>} />
 
-                    <Route path="/courses/:courseId/materials" element={
-                      <ProtectedRoute>
-                        <CourseManageMaterials />
-                      </ProtectedRoute>
-                    } />
 
                     {/* Catch all NotFound */}
                     <Route path="*" element={<NotFound />} />
