@@ -18,12 +18,12 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const location = useLocation();
   
   // Store current path on mount
-  useEffect(() => {
-    if (requireAuth && !isAuthenticated) {
-      const currentPath = location.pathname + location.search;
-      storeRedirectPath(currentPath);
-    }
-  }, [isAuthenticated, requireAuth, location, storeRedirectPath]);
+  // useEffect(() => {
+  //   if (requireAuth && !isAuthenticated) {
+  //     const currentPath = location.pathname + location.search;
+  //     storeRedirectPath(currentPath);
+  //   }
+  // }, [isAuthenticated, requireAuth, location, storeRedirectPath]);
   
   // Show loading state while checking auth
   if (loading) {
