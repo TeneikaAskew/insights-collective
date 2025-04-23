@@ -53,7 +53,7 @@ const AssistantChatInterface: React.FC<AssistantChatInterfaceProps> = ({ initial
         toast({
           title: "Storage Warning",
           description: "Unable to save all settings. Some data might be lost between sessions.",
-          variant: "warning",
+          variant: "destructive",
         });
       }
     }

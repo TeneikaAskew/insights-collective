@@ -90,7 +90,7 @@ export function useCareerCoach() {
         toast({
           title: "Storage Warning",
           description: "Quiz data may be partially stored due to browser limitations. Please complete your login promptly.",
-          variant: "warning"
+          variant: "destructive"
         });
       }
       
@@ -142,7 +142,7 @@ export function useCareerCoach() {
         toast({
           title: "Storage Warning",
           description: "Some session data couldn't be saved due to browser limitations. The experience may be affected.",
-          variant: "warning"
+          variant: "destructive"
         });
       }
       
