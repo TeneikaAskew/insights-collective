@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,32 +8,20 @@ interface AdminGuardProps {
   children: React.ReactNode;
 }
 
+/**
+ * Updated AdminGuard to rely on ProtectedRoute instead for redirect and storeRedirectPath logic.
+ * This component only shows loading while auth state is undefined,
+ * and denies access to non-admin users, redirecting them elsewhere.
+ * 
+ * (You can replace this component entirely with ProtectedRoute with requireAdmin=true,
+ * but we keep it for backward compatibility if still used.)
+ */
 const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
-  const { isAuthenticated, user, storeRedirectPath } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const location = useLocation();
-  
-  // Check if user has admin role
+
   const isAdmin = user?.roles?.includes('admin');
-  
-  // Store current admin path for post-login redirect
-  useEffect(() => {
-    if (!isAuthenticated || !isAdmin) {
-      if (location.pathname.startsWith('/admin')) {
-        // Save the admin path both ways for redundancy
-        // 1. In localStorage (our primary method)
-        localStorage.setItem('redirectAfterLogin', location.pathname);
-        console.log('AdminGuard: stored admin path in localStorage:', location.pathname);
-        
-        // 2. Using the context method if available (redundant backup)
-        if (storeRedirectPath) {
-          storeRedirectPath(location.pathname);
-          console.log('AdminGuard: stored admin path via context:', location.pathname);
-        }
-      }
-    }
-  }, [isAuthenticated, isAdmin, location.pathname, storeRedirectPath]);
-  
-  // Show loading state while checking authentication
+
   if (isAuthenticated === undefined) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -42,18 +30,15 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
       </div>
     );
   }
-  
-  // Redirect to unified login page if not authenticated
+
   if (!isAuthenticated) {
-    return <Navigate to={`/login`} state={{ from: location }} replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
-  // Redirect to dashboard if authenticated but not an admin
+
   if (!isAdmin) {
     return <Navigate to="/dashboard" state={{ message: "You don't have admin access." }} replace />;
   }
-  
-  // Render children if authenticated and is admin
+
   return <>{children}</>;
 };
 

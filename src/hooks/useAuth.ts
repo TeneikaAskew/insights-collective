@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,103 +15,67 @@ export const useAuthProvider = () => {
   const location = useLocation();
   const { toast } = useToast();
 
-  const redirectInProgressRef = useRef(false);
-  const awaitingRedirectRef = useRef(false);
-
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
   const isAuthenticated = !!enrichedUser;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
+  // Centralized redirect path state in Auth context
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
+
   const storeRedirectPath = useCallback((path: string) => {
-    // Fix: Remove reference to undefined 'alreadyStored' variable
-    const storedPath = localStorage.getItem('redirectAfterLogin');
-    
     if (path && !['/login', '/register', '/'].includes(path)) {
       localStorage.setItem('redirectAfterLogin', path);
+      setRedirectPath(path);
       console.log('[storeRedirectPath] Stored redirect path:', path);
     } else {
-      console.log('[storeRedirectPath] Skipped storing path:', { path, storedPath });
+      console.log('[storeRedirectPath] Skipped storing path:', path);
     }
   }, []);
 
   const handleRedirectAfterLogin = useCallback(() => {
-    if (redirectInProgressRef.current) {
-      console.log('[handleRedirectAfterLogin] Skipped: redirect already in progress');
-      return;
+    let redirectTo = redirectPath;
+
+    if (!redirectTo) {
+      // fallback to localStorage if state lost (unlikely)
+      redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+      console.log('[handleRedirectAfterLogin] Fallback redirectTo from localStorage:', redirectTo);
+    } else {
+      console.log('[handleRedirectAfterLogin] RedirectTo from state:', redirectTo);
     }
 
-    redirectInProgressRef.current = true;
-    console.log('[handleRedirectAfterLogin] Triggered');
-
-    try {
-      const redirectParam = new URLSearchParams(location.search).get('redirect');
-      const fromPath = location.state?.from?.pathname;
-      const storedRedirect = localStorage.getItem('redirectAfterLogin');
-
-      let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
-
-      console.log('[handleRedirectAfterLogin] Decision tree:', {
-        storedRedirect,
-        redirectParam,
-        fromPath,
-        fallback: '/dashboard',
-        redirectTo,
-        currentPath: location.pathname,
-        enrichedUser,
+    if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
+      toast({
+        title: 'Access Denied',
+        description: 'You do not have permission to access the admin area.',
+        variant: 'destructive',
       });
-
-      if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-        console.warn('[handleRedirectAfterLogin] User blocked from admin route:', redirectTo);
-        toast({
-          title: 'Access Denied',
-          description: 'You do not have permission to access the admin area.',
-          variant: 'destructive',
-        });
-        redirectTo = '/dashboard';
-      }
-
-      localStorage.removeItem('redirectAfterLogin');
-      console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
-
-      navigate(redirectTo, { replace: true });
-    } finally {
-      setTimeout(() => {
-        redirectInProgressRef.current = false;
-        console.log('[handleRedirectAfterLogin] Redirect complete, reset flag');
-      }, 100);
+      redirectTo = '/dashboard';
     }
-  }, [navigate, location, enrichedUser, toast]);
+
+    localStorage.removeItem('redirectAfterLogin');
+    setRedirectPath(null);
+    console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
+    navigate(redirectTo, { replace: true });
+
+  }, [navigate, redirectPath, enrichedUser, toast]);
 
   useEffect(() => {
     let isMounted = true;
 
-    const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!isMounted) return;
 
-      console.log('[onAuthStateChange] Event:', event, 'Session:', newSession);
-
-      if (event === 'SIGNED_IN') {
-        setSession(newSession);
-        awaitingRedirectRef.current = true;
-        toast({ title: 'Success', description: 'Logged in successfully' });
-      } else if (event === 'SIGNED_OUT') {
-        setSession(null);
-        localStorage.removeItem('redirectAfterLogin');
-        console.log('[onAuthStateChange] Signed out and cleared redirect');
-      }
+      setSession(newSession);
     });
 
     const init = async () => {
       const { data, error } = await supabase.auth.getSession();
-      console.log('[init] Supabase session:', data.session, 'Error:', error);
-
       if (error || !data.session) {
         setSession(null);
       } else {
         setSession(data.session);
       }
-
       setLoading(false);
     };
 
@@ -120,23 +84,20 @@ export const useAuthProvider = () => {
     return () => {
       isMounted = false;
       data.subscription?.unsubscribe();
-      console.log('[cleanup] Unsubscribed from auth listener');
     };
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
-    if (awaitingRedirectRef.current && isAuthenticated && !loading) {
-      console.log('[useEffect] Awaiting redirect now triggering...');
+    // On profile loaded & authenticated, perform redirect if redirect path set
+    if (isAuthenticated && !loading && redirectPath) {
       handleRedirectAfterLogin();
-      awaitingRedirectRef.current = false;
     }
-  }, [isAuthenticated, loading, handleRedirectAfterLogin]);
+  }, [isAuthenticated, loading, redirectPath, handleRedirectAfterLogin]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
       setError(null);
-      console.log('[login] Attempting login:', email);
 
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -155,7 +116,6 @@ export const useAuthProvider = () => {
   const socialSignIn = useCallback(async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setLoading(true);
-      console.log('[socialSignIn] Triggering for provider:', provider);
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
@@ -175,7 +135,6 @@ export const useAuthProvider = () => {
   const register = useCallback(async (name: string, email: string, password: string) => {
     try {
       setLoading(true);
-      console.log('[register] Registering new user:', email);
 
       const { error } = await supabase.auth.signUp({
         email,
@@ -204,7 +163,6 @@ export const useAuthProvider = () => {
   }, [navigate, toast]);
 
   const logout = useCallback(async () => {
-    console.log('[logout] Signing out...');
     await supabase.auth.signOut();
     setSession(null);
     navigate('/');

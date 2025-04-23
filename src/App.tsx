@@ -46,8 +46,11 @@ import CreateBlogPost from "./pages/CreateBlogPost";
 import AdminPageVisibility from "./pages/AdminPageVisibility";
 
 // Import guards and layout components
-import PageVisibilityGuard from "./components/PageVisibilityGuard";
-import AdminGuard from "./components/admin/AdminGuard";
+// Remove old guards imports; use new ProtectedRoute instead
+// import PageVisibilityGuard from "./components/PageVisibilityGuard";
+// import AdminGuard from "./components/admin/AdminGuard";
+
+import ProtectedRoute from "./components/ProtectedRoute";
 
 // Import course management components
 import CourseManagementDashboard from '@/components/course/management/CourseManagementDashboard';
@@ -79,68 +82,62 @@ function App() {
               <AuthProvider>
                 <PageVisibilityProvider>
                   <Routes>
-                    <Route path="/" element={<PageVisibilityGuard><Index /></PageVisibilityGuard>} />
-                    <Route path="/dashboard" element={<PageVisibilityGuard><Dashboard /></PageVisibilityGuard>} />
+                    {/* Public routes */}
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
-                    <Route path="/courses" element={<PageVisibilityGuard><CourseList /></PageVisibilityGuard>} />
-                    <Route path="/courses/:courseId" element={<PageVisibilityGuard><CourseDetail /></PageVisibilityGuard>} />
-                    <Route path="/courses/:courseId/modules/:moduleId" element={<PageVisibilityGuard><ModuleDetail /></PageVisibilityGuard>} />
-                    <Route path="/resources" element={<PageVisibilityGuard><Resources /></PageVisibilityGuard>} />
-                    
-                    <Route path="/data-blueprint" element={<PageVisibilityGuard><DataBlueprintSeries /></PageVisibilityGuard>} />
-                    
-                    <Route path="/blog" element={<PageVisibilityGuard><BlogList /></PageVisibilityGuard>} />
-                    <Route path="/blog/:slug" element={<PageVisibilityGuard><BlogPost /></PageVisibilityGuard>} />
-                    
-                    <Route path="/events" element={<PageVisibilityGuard><Events /></PageVisibilityGuard>} />
-                    <Route path="/notifications" element={<PageVisibilityGuard><Notifications /></PageVisibilityGuard>} />
-                    <Route path="/explore-data-careers" element={<PageVisibilityGuard><ExploreDataCareers /></PageVisibilityGuard>} />
-                    <Route path="/profile" element={<PageVisibilityGuard><Profile /></PageVisibilityGuard>} />
-                    <Route path="/calendar" element={<PageVisibilityGuard><Calendar /></PageVisibilityGuard>} />
-                    <Route path="/assistants" element={<PageVisibilityGuard><Assistants /></PageVisibilityGuard>} />
-                    <Route path="/assistant/:assistantId?" element={<PageVisibilityGuard><AssistantInterface /></PageVisibilityGuard>} />
-                    <Route path="/messages" element={<PageVisibilityGuard><Messages /></PageVisibilityGuard>} />
-                    <Route path="/messages/:conversationId?" element={<PageVisibilityGuard><Messages /></PageVisibilityGuard>} />
-                    <Route path="/resume" element={<PageVisibilityGuard><Resume /></PageVisibilityGuard>} />
-                    
-                    <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
-                    <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
-                    
-                    <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
-                    <Route path="/admin/activity" element={<AdminGuard><AdminActivity /></AdminGuard>} />
-                    <Route path="/admin/courses" element={
-                      <AdminGuard>
-                        <CourseManagementDashboard />
-                      </AdminGuard>
-                    } />
-                    <Route path="/admin/courses/:courseId/edit" element={<AdminCourseEdit />} />
-                    <Route path="/admin/courses/new" element={<AdminCourseEdit />} />
-                    <Route path="/admin/users" element={<AdminGuard><AdminUsers /></AdminGuard>} />
-                    <Route path="/admin/enrollments" element={<AdminGuard><AdminEnrollments /></AdminGuard>} />
-                    <Route path="/admin/certificates" element={<AdminGuard><AdminCertificates /></AdminGuard>} />
-                    <Route path="/admin/resources" element={<AdminGuard><AdminResources /></AdminGuard>} />
-                    <Route path="/admin/events" element={<AdminGuard><AdminEvents /></AdminGuard>} />
-                    <Route path="/admin/settings" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
-                    <Route path="/admin/blog" element={<AdminGuard><AdminBlogPosts /></AdminGuard>} />
-                    <Route path="/admin/blog/create" element={<AdminGuard><CreateBlogPost /></AdminGuard>} />
-                    <Route path="/admin/page-visibility" element={<AdminGuard><AdminPageVisibility /></AdminGuard>} />
-                    
-                    <Route path="/courses/:courseId/materials" element={
-                      <PageVisibilityGuard>
-                        <CourseManageMaterials />
-                      </PageVisibilityGuard>
-                    } />
-
-                    {/* Add Route for Career Agent - public access */}
                     <Route path="/career-agent" element={<CareerAgent />} />
 
-                    {/* Removed Role Explorer route */}
-                    {/* <Route path="/role-explorer" element={<RoleExplorer />} /> */}
+                    {/* Protected public routes with visibility checks */}
+                    <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                    <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+                    <Route path="/courses" element={<ProtectedRoute><CourseList /></ProtectedRoute>} />
+                    <Route path="/courses/:courseId" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
+                    <Route path="/courses/:courseId/modules/:moduleId" element={<ProtectedRoute><ModuleDetail /></ProtectedRoute>} />
+                    <Route path="/resources" element={<ProtectedRoute><Resources /></ProtectedRoute>} />
+                    <Route path="/data-blueprint" element={<ProtectedRoute><DataBlueprintSeries /></ProtectedRoute>} />
+                    <Route path="/blog" element={<ProtectedRoute><BlogList /></ProtectedRoute>} />
+                    <Route path="/blog/:slug" element={<ProtectedRoute><BlogPost /></ProtectedRoute>} />
+                    <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
+                    <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+                    <Route path="/explore-data-careers" element={<ProtectedRoute><ExploreDataCareers /></ProtectedRoute>} />
+                    <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+                    <Route path="/calendar" element={<ProtectedRoute><Calendar /></ProtectedRoute>} />
+                    <Route path="/assistants" element={<ProtectedRoute><Assistants /></ProtectedRoute>} />
+                    <Route path="/assistant/:assistantId?" element={<ProtectedRoute><AssistantInterface /></ProtectedRoute>} />
+                    <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                    <Route path="/messages/:conversationId?" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+                    <Route path="/resume" element={<ProtectedRoute><Resume /></ProtectedRoute>} />
 
+                    <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
+                    <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
+
+                    {/* Admin protected routes */}
+                    <Route path="/admin" element={<ProtectedRoute requireAdmin>{<AdminDashboard />}</ProtectedRoute>} />
+                    <Route path="/admin/activity" element={<ProtectedRoute requireAdmin>{<AdminActivity />}</ProtectedRoute>} />
+                    <Route path="/admin/courses" element={<ProtectedRoute requireAdmin><CourseManagementDashboard /></ProtectedRoute>} />
+                    <Route path="/admin/courses/:courseId/edit" element={<ProtectedRoute requireAdmin><AdminCourseEdit /></ProtectedRoute>} />
+                    <Route path="/admin/courses/new" element={<ProtectedRoute requireAdmin><AdminCourseEdit /></ProtectedRoute>} />
+                    <Route path="/admin/users" element={<ProtectedRoute requireAdmin><AdminUsers /></ProtectedRoute>} />
+                    <Route path="/admin/enrollments" element={<ProtectedRoute requireAdmin><AdminEnrollments /></ProtectedRoute>} />
+                    <Route path="/admin/certificates" element={<ProtectedRoute requireAdmin><AdminCertificates /></ProtectedRoute>} />
+                    <Route path="/admin/resources" element={<ProtectedRoute requireAdmin><AdminResources /></ProtectedRoute>} />
+                    <Route path="/admin/events" element={<ProtectedRoute requireAdmin><AdminEvents /></ProtectedRoute>} />
+                    <Route path="/admin/settings" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
+                    <Route path="/admin/blog" element={<ProtectedRoute requireAdmin><AdminBlogPosts /></ProtectedRoute>} />
+                    <Route path="/admin/blog/create" element={<ProtectedRoute requireAdmin><CreateBlogPost /></ProtectedRoute>} />
+                    <Route path="/admin/page-visibility" element={<ProtectedRoute requireAdmin><AdminPageVisibility /></ProtectedRoute>} />
+
+                    <Route path="/courses/:courseId/materials" element={
+                      <ProtectedRoute>
+                        <CourseManageMaterials />
+                      </ProtectedRoute>
+                    } />
+
+                    {/* Catch all NotFound */}
                     <Route path="*" element={<NotFound />} />
+
                   </Routes>
-                  {/* Temporarily removed ChatBot to fix console errors */}
+                  {/* ChatBot is still removed temporarily */}
                 </PageVisibilityProvider>
               </AuthProvider>
             </BrowserRouter>
