@@ -1,6 +1,5 @@
 console.log('Sentence Detection function hit');
-import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '.../integrations/supabase/client';
 
 const bulletCache = new Map(); // Cache for storing bullet points by user ID
 
