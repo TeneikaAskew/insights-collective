@@ -13,12 +13,7 @@ import { serveBulletImprover } from "./bulletImprover.ts";
 import { supabase, callGroqWithRetry, corsHeaders } from './utils.ts';
 
 // To:
-import { 
-  processBatchQueue, 
-  createBatches, 
-  getBatchSize, 
-  config as bulletImproverConfig 
-} from "./bulletImprover.ts";
+import { processBatchQueue, createBatches, getBatchSize, config as bulletImproverConfig } from "./bulletImprover.ts";
 
 const roastCache = new Map();
 const bulletCache = new Map();
