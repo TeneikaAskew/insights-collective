@@ -61,7 +61,8 @@ export async function callGroqAPI(
   user: string
 ): Promise<string> {
   const ANWAN_API_KEY = Deno.env.get('ANWAN');
-  console.log(ANWAN_API_KEY)
+  console.log('ANWAN_API_KEY is', !!ANWAN_API_KEY ? 'loaded' : 'missing');
+
   if (!ANWAN_API_KEY) throw new Error('ANWAN API key not found in environment');
   const GROQ_API_KEY = Deno.env.get('GROQ');
   if (!GROQ_API_KEY) throw new Error('GROQ API key not found in environment');
@@ -70,6 +71,8 @@ export async function callGroqAPI(
   const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
   // 1️⃣ Try ANWAN
+  console.log(ANWAN_API_KEY)
+  console.log(GROQ_API_KEY)
   let resp = await fetch(anwanUrl, {
     method: 'POST',
     headers: {
