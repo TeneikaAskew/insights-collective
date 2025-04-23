@@ -261,7 +261,7 @@ function formatResponse(raw: string): Extraction {
     extractedContent.explanation = m[1].trim();
   }
 
-  console.log("Extracted Content:", out);
+  console.log("Extracted Content:", extractedContent);
   return extractedContent;
 }
 
