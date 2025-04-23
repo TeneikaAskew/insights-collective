@@ -9,8 +9,7 @@ import {
   pathwayQuestions,
   quickReplies,
   starterMessages,
-  careerAdvicePrompt,
-  LOCAL_STORAGE_KEY
+  careerAdvicePrompt
 } from '@/data/careerPathwayData';
 
 interface Message {
@@ -61,60 +60,14 @@ const CareerAgent: React.FC = () => {
     setCurrentQuestionIndex(0);
   };
 
-  // Initialize or retrieve session ID
+  // Initialize session ID and conversation
   useEffect(() => {
-    let sid = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (!sid) {
-      sid = Date.now().toString();
-      localStorage.setItem(LOCAL_STORAGE_KEY, sid);
-    }
+    const sid = Date.now().toString();
     setSessionId(sid);
-
-    // Load existing conversation or start new
-    const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (stored) {
-      try {
-        const parsedData = JSON.parse(stored);
-        const existingMessages = parsedData.messages || [];
-        const existingStarters = starterMessages.every((starter) =>
-          existingMessages.some((msg) => msg.text === starter && msg.sender === "bot")
-        );
-        if (existingStarters) {
-          setMessages(existingMessages);
-          setAnswers(parsedData.answers || {});
-          const userAnswersCount = existingMessages.filter((m) => m.sender === "user" && m.text).length;
-          setCurrentQuestionIndex(Math.min(userAnswersCount, pathwayQuestions.length));
-          setShowQuickReplies(userAnswersCount === 0);
-          
-          // Check if resume prompt exists
-          const resumePromptExists = existingMessages.some(msg => 
-            msg.sender === "bot" && msg.text.includes("found an existing resume on file")
-          );
-          setResumePromptShown(resumePromptExists);
-        } else {
-          initializeConversation();
-        }
-      } catch {
-        initializeConversation();
-      }
-    } else {
-      initializeConversation();
-    }
+    initializeConversation();
   }, []);
 
-  // Save state to localStorage
-  useEffect(() => {
-    if (messages.length === 0) return;
-    window.localStorage.setItem(
-      LOCAL_STORAGE_KEY,
-      JSON.stringify({
-        messages,
-        sessionId,
-        currentQuestionIndex,
-        answers
-      })
-    );
-  }, [messages, sessionId, currentQuestionIndex, answers]);
+  // No localStorage saving - all data saved to database
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -141,7 +94,7 @@ const CareerAgent: React.FC = () => {
       <AppLayout>
         <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen justify-center items-center">
           <p className="text-lg text-center text-muted-foreground">
-            Please log in to access the Building Your Career Roadmap chat.
+            Please log in to access Building Your Career Roadmap.
           </p>
         </div>
       </AppLayout>
@@ -337,7 +290,7 @@ const CareerAgent: React.FC = () => {
     
     if (!user) return;
     
-    // Format answers for API
+    // Format answers for API - ensure proper structure
     const pathwayAnswersPayload: Record<string, string> = {};
     pathwayQuestions.forEach((q) => {
       if (answers[q.id]) {
@@ -345,12 +298,15 @@ const CareerAgent: React.FC = () => {
       }
     });
 
+    // Ensure payload is properly formatted
     const payload = { 
-      prompt: careerAdvicePrompt, 
-      PathwayQuestions: pathwayQuestions, 
-      pathwayAnswers: pathwayAnswersPayload, 
-      resumeText: resumeText || null 
+      prompt: careerAdvicePrompt || '', 
+      pathwayQuestions: pathwayQuestions || [], 
+      pathwayAnswers: pathwayAnswersPayload || {}, 
+      resumeText: resumeText || '' 
     };
+    
+    console.log('Sending payload:', JSON.stringify(payload, null, 2));
     
     try {
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
@@ -358,7 +314,7 @@ const CareerAgent: React.FC = () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: payload
+        body: JSON.stringify(payload)
       });
       
       if (error) throw error;
@@ -651,7 +607,6 @@ const CareerAgent: React.FC = () => {
     setResumeUseConfirmed(null);
     setCareerAdviceReport('');
     setResumePromptShown(false);
-    window.localStorage.removeItem(LOCAL_STORAGE_KEY);
   };
 
   return (
