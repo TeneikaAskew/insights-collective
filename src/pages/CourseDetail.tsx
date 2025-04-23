@@ -198,7 +198,8 @@ const CourseDetail = () => {
   const handleEnroll = async () => {
     if (!isAuthenticated) {
       // Store current path for redirect after login
-      localStorage.setItem('redirectAfterLogin', `/courses/${courseId}`);
+      // localStorage.setItem('redirectAfterLogin', `/courses/${courseId}`);
+      storeRedirectPath(`/courses/${courseId}`);
       navigate('/login', {
         state: {
           from: `/courses/${courseId}`

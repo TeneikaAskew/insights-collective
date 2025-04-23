@@ -13,18 +13,22 @@ export const useStoreRedirectPath = () => {
     if (isAuthenticated) {
       return;
     }
-
-    const updateRedirect = (path: string) => {
-      const isAuthPage = ['/login', '/register'].includes(path);
+     const currentPath = location.pathname + location.search;
+    const isAuthPage = ['/login', '/register'].includes(location.pathname);
+    // const updateRedirect = (path: string) => {
+      // const isAuthPage = ['/login', '/register'].includes(path);
       
       // Don't store auth pages as redirect destinations
       if (!isAuthPage) {
-        localStorage.setItem('redirectAfterLogin', path);
-        storeRedirectPath?.(path);
-        console.log('[useStoreRedirectPath] 🔁 Updated redirectAfterLogin to:', path);
-      } else {
-        console.log('[storeRedirectPath] Skipped storing auth path:', path);
-      }
+      //   localStorage.setItem('redirectAfterLogin', path);
+      //   storeRedirectPath?.(path);
+      //   console.log('[useStoreRedirectPath] 🔁 Updated redirectAfterLogin to:', path);
+      // } else {
+      //   console.log('[storeRedirectPath] Skipped storing auth path:', path);
+      // }
+        storeRedirectPath(currentPath);
+        }
+      }, []);
     };
 
     const clickHandler = (e: MouseEvent) => {

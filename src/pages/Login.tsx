@@ -40,7 +40,7 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !redirectInProgressRef.current) {
       console.log('[Login] isAuthenticated true. Calling handleRedirectAfterLogin...');
       handleRedirectAfterLogin();
     } else {
@@ -96,9 +96,16 @@ const Login = () => {
   if (isAuthenticated) {
     console.log('[Login] Already authenticated - showing "Redirecting..." screen');
     return (
-      <div className="flex justify-center items-center h-screen">
-        Redirecting...
+      // <div className="flex justify-center items-center h-screen">
+      //   Redirecting...
+      // </div>
+
+       <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
+      <div className="text-center">
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+        <p>Redirecting you...</p>
       </div>
+    </div>
     );
   }
 

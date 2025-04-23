@@ -45,43 +45,66 @@ export const useAuthProvider = () => {
     console.log('[handleRedirectAfterLogin] Triggered');
 
     try {
-      const redirectParam = new URLSearchParams(location.search).get('redirect');
-      const fromPath = location.state?.from?.pathname;
-      const storedRedirect = localStorage.getItem('redirectAfterLogin');
-
-      let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
-
-      console.log('[handleRedirectAfterLogin] Decision tree:', {
-        storedRedirect,
-        redirectParam,
-        fromPath,
-        fallback: '/dashboard',
-        redirectTo,
-        currentPath: location.pathname,
-        enrichedUser,
-      });
-
+       const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+      // Clear the stored path immediately
+      localStorage.removeItem('redirectAfterLogin');
+      // Simple admin redirect protection
       if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-        console.warn('[handleRedirectAfterLogin] User blocked from admin route:', redirectTo);
         toast({
           title: 'Access Denied',
           description: 'You do not have permission to access the admin area.',
           variant: 'destructive',
         });
-        redirectTo = '/dashboard';
+        navigate('/dashboard', { replace: true });
+      } else {
+        navigate(redirectTo, { replace: true });
       }
-
-      localStorage.removeItem('redirectAfterLogin');
-      console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
-
-      navigate(redirectTo, { replace: true });
     } finally {
+      // Reset the flag after a short delay
       setTimeout(() => {
         redirectInProgressRef.current = false;
-        console.log('[handleRedirectAfterLogin] Redirect complete, reset flag');
       }, 100);
     }
-  }, [navigate, location, enrichedUser, toast]);
+  }, [navigate, enrichedUser, toast]);
+      
+      
+  //     const redirectParam = new URLSearchParams(location.search).get('redirect');
+  //     const fromPath = location.state?.from?.pathname;
+  //     const storedRedirect = localStorage.getItem('redirectAfterLogin');
+
+  //     let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
+
+  //     console.log('[handleRedirectAfterLogin] Decision tree:', {
+  //       storedRedirect,
+  //       redirectParam,
+  //       fromPath,
+  //       fallback: '/dashboard',
+  //       redirectTo,
+  //       currentPath: location.pathname,
+  //       enrichedUser,
+  //     });
+
+  //     if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
+  //       console.warn('[handleRedirectAfterLogin] User blocked from admin route:', redirectTo);
+  //       toast({
+  //         title: 'Access Denied',
+  //         description: 'You do not have permission to access the admin area.',
+  //         variant: 'destructive',
+  //       });
+  //       redirectTo = '/dashboard';
+  //     }
+
+  //     localStorage.removeItem('redirectAfterLogin');
+  //     console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
+
+  //     navigate(redirectTo, { replace: true });
+  //   } finally {
+  //     setTimeout(() => {
+  //       redirectInProgressRef.current = false;
+  //       console.log('[handleRedirectAfterLogin] Redirect complete, reset flag');
+  //     }, 100);
+  //   }
+  // }, [navigate, location, enrichedUser, toast]);
 
   useEffect(() => {
     let isMounted = true;
