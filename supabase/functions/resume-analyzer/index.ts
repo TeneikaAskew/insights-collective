@@ -106,7 +106,7 @@ async function getResumeRoast(resumeText, userId) {
       console.log('Roast/Assessment stored in database for user:', userId);
       
     const endTime = Date.now();
-    console.log(`Roast/Assessment: Function completed in ${endTime - startTime}ms`);
+    console.log(`Roast/Assessment: Function completed in ${(endTime - startTime)/1000}s`);
     }
     return {
       roast: cleanRoast
