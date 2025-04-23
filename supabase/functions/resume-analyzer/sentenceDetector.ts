@@ -7,9 +7,9 @@ const bulletCache = new Map(); // Cache for storing bullet points by user ID
 export function getSentencesFromCache(userId) {
   if (!userId) return null;
   
-  console.log(`getSentencesFromCache: Checking cache for userId=${userId}`);
-  const cachedSentences = bulletCache.get(`user:${userId}:bullets`);
-  console.log(`getSentencesFromCache: Cache ${cachedSentences ? 'hit' : 'miss'} for userId=${userId}`);
+  // console.log(`getSentencesFromCache: Checking cache for userId=${userId}`);
+  // const cachedSentences = bulletCache.get(`user:${userId}:bullets`);
+  // console.log(`getSentencesFromCache: Cache ${cachedSentences ? 'hit' : 'miss'} for userId=${userId}`);
   
   return cachedSentences || null;
 }
