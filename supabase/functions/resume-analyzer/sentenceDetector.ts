@@ -1,10 +1,7 @@
 console.log('Sentence Detection function hit');
 // import { supabase } from '@/integrations/supabase/client';
 // import { supabase } from '../../../integrations/supabase/client.ts';
-import { supabase } from './utils.ts';
-
-
-
+import { supabase, callGroqWithRetry } from './utils.ts';
 const bulletCache = new Map(); // Cache for storing bullet points by user ID
 
 export function getSentencesFromCache(userId) {
