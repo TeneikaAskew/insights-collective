@@ -15,58 +15,109 @@ export const useAuthProvider = () => {
   const location = useLocation();
   const { toast } = useToast();
 
-  const redirectInProgressRef = useRef(false);
-  const awaitingRedirectRef = useRef(false);
+  // const redirectInProgressRef = useRef(false);
+  // const awaitingRedirectRef = useRef(false);
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
-  const isAuthenticated = !!enrichedUser;
+  const isAuthenticated = !!session; //enrichedUser;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
   const storeRedirectPath = useCallback((path: string) => {
     // Fix: Remove reference to undefined 'alreadyStored' variable
-    const storedPath = localStorage.getItem('redirectAfterLogin');
+    localStorage.setItem('redirectAfterLogin', path);
+    console.log('[storeRedirectPath] Stored redirect path:', path);
+    // const storedPath = localStorage.getItem('redirectAfterLogin');
     
-    if (path && !['/login', '/register', '/'].includes(path)) {
-      localStorage.setItem('redirectAfterLogin', path);
-      console.log('[storeRedirectPath] Stored redirect path:', path);
-    } else {
-      console.log('[storeRedirectPath] Skipped storing path:', { path, storedPath });
+    // if (path && !['/login', '/register', '/'].includes(path)) {
+    //   localStorage.setItem('redirectAfterLogin', path);
+    //   console.log('[storeRedirectPath] Stored redirect path:', path);
+    // } else {
+    //   console.log('[storeRedirectPath] Skipped storing path:', { path, storedPath });
     }
   }, []);
 
-  const handleRedirectAfterLogin = useCallback(() => {
-    if (redirectInProgressRef.current) {
-      console.log('[handleRedirectAfterLogin] Skipped: redirect already in progress');
-      return;
-    }
+  // const handleRedirectAfterLogin = useCallback(() => {
+  //   if (redirectInProgressRef.current) {
+  //     console.log('[handleRedirectAfterLogin] Skipped: redirect already in progress');
+  //     return;
+  //   }
 
-    redirectInProgressRef.current = true;
-    console.log('[handleRedirectAfterLogin] Triggered');
+  //   redirectInProgressRef.current = true;
+  //   console.log('[handleRedirectAfterLogin] Triggered');
 
-    try {
-       const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
-      // Clear the stored path immediately
-      localStorage.removeItem('redirectAfterLogin');
-      // Simple admin redirect protection
-      if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-        toast({
-          title: 'Access Denied',
-          description: 'You do not have permission to access the admin area.',
-          variant: 'destructive',
-        });
-        navigate('/dashboard', { replace: true });
-      } else {
-        navigate(redirectTo, { replace: true });
+  //   try {
+  //      const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
+  //     // Clear the stored path immediately
+  //     localStorage.removeItem('redirectAfterLogin');
+  //     // Simple admin redirect protection
+  //     if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
+  //       toast({
+  //         title: 'Access Denied',
+  //         description: 'You do not have permission to access the admin area.',
+  //         variant: 'destructive',
+  //       });
+  //       navigate('/dashboard', { replace: true });
+  //     } else {
+  //       navigate(redirectTo, { replace: true });
+  //     }
+  //   } finally {
+  //     // Reset the flag after a short delay
+  //     setTimeout(() => {
+  //       redirectInProgressRef.current = false;
+  //     }, 100);
+  //   }
+  // }, [navigate, enrichedUser, toast]);
+    const handleRedirectAfterLogin = useCallback(() => {
+    const storedRedirect = localStorage.getItem('redirectAfterLogin');
+    const defaultRedirect = '/dashboard';
+    const redirectTo = storedRedirect || defaultRedirect;
+
+    console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
+    
+    // Clear the stored path immediately
+    localStorage.removeItem('redirectAfterLogin');
+    
+    // Simple redirect
+    navigate(redirectTo, { replace: true });
+  }, [navigate]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      if (!mounted) return;
+
+      console.log('[onAuthStateChange] Event:', event, 'Session:', newSession);
+
+      if (event === 'SIGNED_IN' && newSession) {
+        setSession(newSession);
+        toast({ title: 'Success', description: 'Logged in successfully' });
+      } else if (event === 'SIGNED_OUT') {
+        setSession(null);
+        localStorage.removeItem('redirectAfterLogin');
+      } else if (event === 'INITIAL_SESSION' && newSession) {
+        setSession(newSession);
       }
-    } finally {
-      // Reset the flag after a short delay
-      setTimeout(() => {
-        redirectInProgressRef.current = false;
-      }, 100);
-    }
-  }, [navigate, enrichedUser, toast]);
+    });
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!mounted) return;
+
+      console.log('[init] Supabase session:', session, 'Error:', error);
       
+      if (session) {
+        setSession(session);
+      }
+      setLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      data.subscription?.unsubscribe();
+    };
+  }, [toast]);    
       
   //     const redirectParam = new URLSearchParams(location.search).get('redirect');
   //     const fromPath = location.state?.from?.pathname;

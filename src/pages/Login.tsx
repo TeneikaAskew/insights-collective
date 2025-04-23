@@ -19,6 +19,7 @@ const Login = () => {
     twitterSignIn,
     isAuthenticated,
     handleRedirectAfterLogin,
+    loading: authLoading,
   } = useAuth();
 
   const { toast } = useToast();
@@ -41,13 +42,17 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !authLoading ) {
       console.log('[Login] isAuthenticated true. Calling handleRedirectAfterLogin...');
       handleRedirectAfterLogin();
     } else {
       console.log('[Login] Not authenticated');
     }
-  }, [isAuthenticated, handleRedirectAfterLogin]);
+  }, [isAuthenticated, authLoading, handleRedirectAfterLogin]);
+
+
+
+  
 
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -94,8 +99,31 @@ const Login = () => {
     }
   };
 
+  // if (isAuthenticated) {
+  //   console.log('[Login] Already authenticated - showing "Redirecting..." screen');
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
+  //       <div className="text-center">
+  //         <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+  //         <p>Redirecting you...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
+// Show a simple loading state while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't show login form if already authenticated
   if (isAuthenticated) {
-    console.log('[Login] Already authenticated - showing "Redirecting..." screen');
     return (
       <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
         <div className="text-center">
