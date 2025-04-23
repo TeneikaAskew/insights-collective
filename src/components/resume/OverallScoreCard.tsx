@@ -145,7 +145,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
           }`}
         >
           <MessageSquare className="h-4 w-4" />
-          Your Resume Roast is Available!
+          Resume Roast is Available!
         </Button>
       </CardFooter>
     </Card>
