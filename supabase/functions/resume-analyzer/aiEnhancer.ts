@@ -207,11 +207,11 @@ export async function enhanceWithGroq(resumeText, analysis) {
 
 //   return extractedContent;
 // }
-// interface Extraction {
-//   elevatorPitch: string;
-//   themes: string[];
-//   explanation: string;
-// }
+interface Extraction {
+  elevatorPitch: string;
+  themes: string[];
+  explanation: string;
+}
 
 // function formatResponse(raw: string): Extraction {
 //   const extractedContent: Extraction = {
@@ -392,123 +392,6 @@ export async function enhanceWithGroq(resumeText, analysis) {
 
 //   return extractedContent;
 // }
-// function formatResponse(raw) {
-//   if (!raw) return { elevatorPitch: '', themes: [], explanation: '' };
-
-//   const extractedContent = {
-//     elevatorPitch: '',
-//     themes: [],
-//     explanation: ''
-//   };
-
-//   // Normalize text
-//   let text = raw.replace(/\r\n/g, '\n').trim();
-
-//   // Extract elevator pitch
-//   const elevatorPitchPatterns = [
-//     /\*\*Professional Elevator Pitch:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
-//     /1\.\s*Professional Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
-//     /Professional Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
-//     /\*\*Elevator Pitch:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i
-//   ];
-
-//   for (const pattern of elevatorPitchPatterns) {
-//     const match = text.match(pattern);
-//     if (match && match[1]) {
-//       extractedContent.elevatorPitch = match[1].trim()
-//         .replace(/^(As a|I am a)\s*/i, '') // Remove common prefixes
-//         .replace(/^\*\s*/, '') // Remove leading asterisk if italic
-//         .replace(/\*$/, ''); // Remove trailing asterisk if italic
-//       break;
-//     }
-//   }
-
-//   // Extract themes
-//   const themePatterns = [
-//     /\*\*(?:Three Specific )?Improvement Themes:\*\*\s*([\s\S]*?)(?=\n\s*\*\*(?:Resume Grade|Professional|Elevator|Detailed) Explanation|\n\s*\d+\.|\n\s*$)/i,
-//     /2\.\s*(?:Three Specific )?Improvement Themes:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
-//     /\*\*Key Improvement Themes:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i
-//   ];
-
-//   for (const pattern of themePatterns) {
-//     const match = text.match(pattern);
-//     if (match && match[1]) {
-//       const themesText = match[1].trim();
-      
-//       // Extract themes in different formats
-//       const themeRegexes = [
-//         // Format: "1. **Title**: Description"
-//         /(?:^\s*\d+\.\s*)\*\*(.*?)\*\*(?:\s*[:\-]\s*)?([\s\S]*?)(?=\n\s*\d+\.|\n\s*\*|\n\s*$)/gm,
-//         // Format: "* **Title**: Description"
-//         /^\s*[\*\-•]\s*\*\*(.*?)\*\*(?:\s*[:\-]\s*)?([\s\S]*?)(?=\n\s*[\*\-•]|\n\s*$)/gm,
-//         // Format: "- Title: Description" or "* Title: Description"
-//         /^\s*[\*\-•]\s*([^:\n]+?)(?:\s*[:\-]\s*)([\s\S]*?)(?=\n\s*[\*\-•]|\n\s*$)/gm,
-//         // Simple bullet points without titles
-//         /^\s*[\*\-•]\s*([\s\S]*?)(?=\n|$)/gm
-//       ];
-
-//       let themes = [];
-//       for (const regex of themeRegexes) {
-//         const matches = Array.from(themesText.matchAll(regex));
-//         if (matches.length > 0) {
-//           // Check if we have title-description format
-//           if (matches[0].length > 2) {
-//             themes = matches.map(m => {
-//               const title = m[1].trim();
-//               const description = (m[2] || '').trim();
-//               return description ? `${title}: ${description}` : title;
-//             });
-//           } else {
-//             // Simple bullet format
-//             themes = matches.map(m => m[1].trim());
-//           }
-//           break;
-//         }
-//       }
-
-//       // If no matches found, try line-by-line extraction
-//       if (themes.length === 0) {
-//         themes = themesText
-//           .split('\n')
-//           .map(line => line.trim())
-//           .filter(line => line.length > 0 && !line.match(/^[\*\-•\d]/));
-//       }
-
-//       // Clean up themes
-//       themes = themes.map(theme => 
-//         theme
-//           .replace(/^[\*\-•\d]+\.?\s*/, '') // Remove bullet/number prefixes
-//           .replace(/\*\*$/, '') // Remove trailing bold markers
-//           .replace(/\*\*\s+/g, ' ') // Clean up extra asterisks
-//           .trim()
-//       ).filter(theme => theme.length > 0);
-
-//       extractedContent.themes = themes;
-//       break;
-//     }
-//   }
-
-//   // Extract explanation
-//   const explanationPatterns = [
-//     /\*\*(?:Resume Grade )?Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i,
-//     /3\.\s*(?:Brief )?Explanation(?: of the Resume Grade)?:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
-//     /\*\*Detailed Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i,
-//     /(?:Resume Grade )?Explanation:\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i
-//   ];
-
-//   for (const pattern of explanationPatterns) {
-//     const match = text.match(pattern);
-//     if (match && match[1]) {
-//       extractedContent.explanation = match[1].trim()
-//         .replace(/Explanation:\*\*\s*/, '') // Remove prefix if it's repeated
-//         .replace(/^This resume/, 'This resume'); // Ensure proper capitalization
-//       break;
-//     }
-//   }
-
-//   return extractedContent;
-// }
-
 function formatResponse(raw) {
   if (!raw) return { elevatorPitch: '', themes: [], explanation: '' };
 
@@ -521,191 +404,112 @@ function formatResponse(raw) {
   // Normalize text
   let text = raw.replace(/\r\n/g, '\n').trim();
 
-  // Remove common noise
-  text = text.replace(/Here are the three key outputs:/i, '');
-  text = text.replace(/\*\*$/, ''); // Remove trailing **
-  
-  // Extract elevator pitch with multiple variations
+  // Extract elevator pitch
   const elevatorPitchPatterns = [
-    /(?:\*\*)?Professional Elevator Pitch(?:\*\*)?:\s*(?:\*\*)?\s*([\s\S]*?)(?=\n\s*(?:\*\*)?(?:Three Specific |Key )?Improvement Themes|(?:\*\*)?Improvement Themes|\n\s*\d+\.|\n\s*$)/i,
-    /(?:\*\*)?Elevator Pitch(?:\*\*)?:\s*(?:\*\*)?\s*([\s\S]*?)(?=\n\s*(?:\*\*)?(?:Three Specific |Key )?Improvement Themes|(?:\*\*)?Improvement Themes|\n\s*\d+\.|\n\s*$)/i,
-    /1\.\s*Professional (?:E|e)levator (?:P|p)itch:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
-    /Professional (?:E|e)levator (?:P|p)itch:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /\*\*Professional Elevator Pitch:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /1\.\s*Professional Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+    /Professional Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /\*\*Elevator Pitch:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i
   ];
 
   for (const pattern of elevatorPitchPatterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
-      let pitch = match[1].trim();
-      // Clean up pitch
-      pitch = pitch.replace(/^[\"\']|[\"\']$/g, ''); // Remove quotes
-      pitch = pitch.replace(/^\*\s*/, ''); // Remove leading asterisk
-      pitch = pitch.replace(/\*$/, ''); // Remove trailing asterisk
-      pitch = pitch.replace(/^(As a|As an|I am a|I am an)\s*/i, '');
-      if (pitch.split(/\s+/).length >= 5) { // Validate it's meaningful
-        extractedContent.elevatorPitch = pitch;
-        break;
-      }
+      extractedContent.elevatorPitch = match[1].trim()
+        .replace(/^(As a|I am a)\s*/i, '') // Remove common prefixes
+        .replace(/^\*\s*/, '') // Remove leading asterisk if italic
+        .replace(/\*$/, ''); // Remove trailing asterisk if italic
+      break;
     }
   }
 
-  // Extract themes with many variations
+  // Extract themes
   const themePatterns = [
-    /(?:\*\*)?(?:Three Specific )?Improvement Themes(?:\*\*)?:\s*([\s\S]*?)(?=\n\s*(?:\*\*)?(?:Resume Grade Explanation|Detailed Explanation|Brief Explanation|Explanation)|\n\s*(?:\*\*)?Resume Grade:|\n\s*$)/i,
-    /(?:\*\*)?Key Improvement Themes(?:\*\*)?:\s*([\s\S]*?)(?=\n\s*(?:\*\*)?(?:Resume Grade Explanation|Detailed Explanation|Brief Explanation|Explanation)|\n\s*$)/i,
+    /\*\*(?:Three Specific )?Improvement Themes:\*\*\s*([\s\S]*?)(?=\n\s*\*\*(?:Resume Grade|Professional|Elevator|Detailed) Explanation|\n\s*\d+\.|\n\s*$)/i,
     /2\.\s*(?:Three Specific )?Improvement Themes:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
-    /(?:\*\*)?Three Specific Improvement Themes(?:\*\*)?:\s*([\s\S]*?)(?=\n\s*(?:\*\*)?(?:Resume Grade|Explanation)|\n\s*$)/i,
+    /\*\*Key Improvement Themes:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i
   ];
 
   for (const pattern of themePatterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
       const themesText = match[1].trim();
-      let themes = [];
       
-      // Try different theme extraction patterns
+      // Extract themes in different formats
       const themeRegexes = [
-        // Format: "1. **Title**: Description" or "1. **Title** Description"
-        /^\s*\d+\.\s*\*\*(.*?)\*\*\s*[:\-]?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*\*\*|\n\s*$)/gm,
-        // Format: "* **Title**: Description" or "- **Title**: Description"
-        /^\s*[\*\-•]\s*\*\*(.*?)\*\*\s*[:\-]?\s*([\s\S]*?)(?=\n\s*[\*\-•]|\n\s*\*\*|\n\s*$)/gm,
-        // Format: "1. Description" (numbered list)
-        /^\s*\d+\.\s*([^\n]+(?:\n(?!\s*\d+\.).*)?)/gm,
-        // Format: "* Description" or "- Description" (bullet list)
-        /^\s*[\*\-•]\s*([^\n]+(?:\n(?!\s*[\*\-•]).*)?)/gm
+        // Format: "1. **Title**: Description"
+        /(?:^\s*\d+\.\s*)\*\*(.*?)\*\*(?:\s*[:\-]\s*)?([\s\S]*?)(?=\n\s*\d+\.|\n\s*\*|\n\s*$)/gm,
+        // Format: "* **Title**: Description"
+        /^\s*[\*\-•]\s*\*\*(.*?)\*\*(?:\s*[:\-]\s*)?([\s\S]*?)(?=\n\s*[\*\-•]|\n\s*$)/gm,
+        // Format: "- Title: Description" or "* Title: Description"
+        /^\s*[\*\-•]\s*([^:\n]+?)(?:\s*[:\-]\s*)([\s\S]*?)(?=\n\s*[\*\-•]|\n\s*$)/gm,
+        // Simple bullet points without titles
+        /^\s*[\*\-•]\s*([\s\S]*?)(?=\n|$)/gm
       ];
 
+      let themes = [];
       for (const regex of themeRegexes) {
         const matches = Array.from(themesText.matchAll(regex));
         if (matches.length > 0) {
-          if (matches[0].length > 2 && matches[0][1] && matches[0][2]) {
-            // Title and description format
+          // Check if we have title-description format
+          if (matches[0].length > 2) {
             themes = matches.map(m => {
               const title = m[1].trim();
               const description = (m[2] || '').trim();
               return description ? `${title}: ${description}` : title;
             });
           } else {
-            // Plain text format
+            // Simple bullet format
             themes = matches.map(m => m[1].trim());
           }
           break;
         }
       }
 
-      // If still no themes found, try line-by-line extraction
+      // If no matches found, try line-by-line extraction
       if (themes.length === 0) {
-        const lines = themesText.split('\n');
-        let currentTheme = '';
-        
-        for (const line of lines) {
-          const trimmedLine = line.trim();
-          
-          // Skip empty lines and section headers
-          if (!trimmedLine || trimmedLine.match(/^(?:\*\*)?(?:improvement themes|themes|key improvement themes):?(?:\*\*)?$/i)) {
-            continue;
-          }
-          
-          // Check if it's a new numbered or bulleted item
-          if (trimmedLine.match(/^[\d]\.|^[\*\-•]/)) {
-            if (currentTheme) {
-              themes.push(currentTheme.trim());
-            }
-            currentTheme = trimmedLine.replace(/^[\d]+\.\s*|^[\*\-•]\s*/, '');
-          } else if (currentTheme) {
-            // Continuation of current theme
-            currentTheme += ' ' + trimmedLine;
-          } else {
-            // Standalone line
-            themes.push(trimmedLine);
-          }
-        }
-        
-        if (currentTheme) {
-          themes.push(currentTheme.trim());
-        }
+        themes = themesText
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0 && !line.match(/^[\*\-•\d]/));
       }
 
       // Clean up themes
-      themes = themes
-        .map(theme => 
-          theme
-            .replace(/^[\*\-•\d]+\.?\s*/, '') // Remove bullet/number prefixes
-            .replace(/\*\*$/, '') // Remove trailing bold markers
-            .replace(/\*\*\s+/g, ' ') // Clean up extra asterisks
-            .replace(/^[\"\']|[\"\']$/g, '') // Remove quotes
-            .trim()
-        )
-        .filter(theme => theme.length > 10); // Only keep meaningful themes
+      themes = themes.map(theme => 
+        theme
+          .replace(/^[\*\-•\d]+\.?\s*/, '') // Remove bullet/number prefixes
+          .replace(/\*\*$/, '') // Remove trailing bold markers
+          .replace(/\*\*\s+/g, ' ') // Clean up extra asterisks
+          .trim()
+      ).filter(theme => theme.length > 0);
 
-      if (themes.length > 0) {
-        extractedContent.themes = themes;
-        break;
-      }
+      extractedContent.themes = themes;
+      break;
     }
   }
 
-  // Extract explanation with various patterns
+  // Extract explanation
   const explanationPatterns = [
-    /(?:\*\*)?Resume Grade Explanation(?:\*\*)?:\s*([\s\S]*?)(?=\n\s*(?:\*\*)?|$)/i,
-    /(?:\*\*)?Resume Grade(?:\*\*)?:\s*([\s\S]*?)(?=\n\s*(?:\*\*)?|$)/i,
-    /(?:\*\*)?Brief Explanation of the Resume Grade(?:\*\*)?:\s*([\s\S]*?)(?=\n\s*(?:\*\*)?|$)/i,
-    /(?:\*\*)?Detailed Explanation(?:\*\*)?:\s*([\s\S]*?)(?=\n\s*(?:\*\*)?|$)/i,
-    /3\.\s*Brief Explanation of the Resume Grade:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
-    /3\.\s*Resume Grade:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
-    /3\.\s*Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
-    /(?:Brief |Resume Grade )?Explanation:?\s*([\s\S]*?)(?=\n\s*(?:\*\*)?|$)/i
+    /\*\*(?:Resume Grade )?Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i,
+    /3\.\s*(?:Brief )?Explanation(?: of the Resume Grade)?:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+    /\*\*Detailed Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i,
+    /(?:Resume Grade )?Explanation:\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*$)/i
   ];
 
   for (const pattern of explanationPatterns) {
     const match = text.match(pattern);
     if (match && match[1]) {
-      let explanation = match[1].trim();
-      // Clean up explanation
-      explanation = explanation.replace(/^Explanation:\*\*\s*/i, '');
-      explanation = explanation.replace(/^\*\*\n/, '');
-      explanation = explanation.replace(/\*\*$/, '');
-      explanation = explanation.replace(/^[\"\']|[\"\']$/g, '');
-      if (explanation.split(/\s+/).length >= 10) { // Validate it's meaningful
-        extractedContent.explanation = explanation;
-        break;
-      }
-    }
-  }
-
-  // Special handling for formats where all content is in a single paragraph
-  if (!extractedContent.elevatorPitch || extractedContent.themes.length === 0 || !extractedContent.explanation) {
-    // Try to extract from a single paragraph format
-    const singleParagraphMatch = text.match(/^(.+?)\n\n(.+?)\n\n(.+?)$/s);
-    if (singleParagraphMatch) {
-      if (!extractedContent.elevatorPitch) {
-        const pitch = singleParagraphMatch[1].replace(/^(As a|As an|I am a|I am an)\s*/i, '').trim();
-        if (pitch.split(/\s+/).length >= 5) {
-          extractedContent.elevatorPitch = pitch;
-        }
-      }
-      
-      if (extractedContent.themes.length === 0) {
-        const themesSection = singleParagraphMatch[2];
-        if (themesSection.includes(';') || themesSection.includes(':')) {
-          const themeItems = themesSection.split(/[;:]/);
-          extractedContent.themes = themeItems
-            .map(t => t.trim())
-            .filter(t => t.length > 10);
-        }
-      }
-      
-      if (!extractedContent.explanation) {
-        const explanation = singleParagraphMatch[3].trim();
-        if (explanation.split(/\s+/).length >= 10) {
-          extractedContent.explanation = explanation;
-        }
-      }
+      extractedContent.explanation = match[1].trim()
+        .replace(/Explanation:\*\*\s*/, '') // Remove prefix if it's repeated
+        .replace(/^This resume/, 'This resume'); // Ensure proper capitalization
+      break;
     }
   }
 
   return extractedContent;
 }
+
+
     
 // Call the GROQ API with timeout
 const controller = new AbortController();
