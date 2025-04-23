@@ -31,7 +31,7 @@ import AssistantInterface from "./pages/AssistantInterface";
 import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
-import local
+
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
