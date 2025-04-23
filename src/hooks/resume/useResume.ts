@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
-
+import { LocalStorageUtils } from '@/utils/localStorageUtils';
 // Create cache outside of hook
 const signedUrlCache = new Map<string, string>();
 
