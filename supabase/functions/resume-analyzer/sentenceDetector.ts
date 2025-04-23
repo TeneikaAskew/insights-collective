@@ -231,7 +231,7 @@ export function extractSentencesFromResponse(content) {
     }
   }
   // Method 4: Extract quoted strings individually
-  // if (sentences.length === 0) {
+  if (sentences.length === 0) {
   //   console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
   //   const items = [];
   //   const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
@@ -270,6 +270,7 @@ export function extractSentencesFromResponse(content) {
     }
   } else {
     console.log('extractSentencesFromResponse: Method 4 skipped - content does not start/end with brackets');
+  }
   }
   // Method 5: Handle doubly quoted strings (""text"") which appeared in the logs
   if (sentences.length === 0) {
