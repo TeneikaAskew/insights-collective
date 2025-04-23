@@ -1,5 +1,5 @@
 
-console.log("Bullet Suggestions Endpoint hit")
+// console.log("Bullet Suggestions Endpoint hit")
 import { actionWords } from './bulletAnalysis.ts';
 import { improveBullet } from './bulletImprover.ts';
 
@@ -7,6 +7,7 @@ import { skillsKeywords } from './bulletAnalysis.ts';
 
 // Rewrite bullet function using GROQ
 export async function rewriteBullet(bullet: string, analysis: any): Promise<string> {
+  console.log("Bullet Rewrite Endpoint hit")
   try {
     // Use the GROQ-based bullet improver
     console.log("Beginning rewrite of bullet points")
@@ -32,6 +33,7 @@ export async function rewriteBullet(bullet: string, analysis: any): Promise<stri
 
 // Generate tips for improvement using GROQ
 export async function generateTips(bullet: string, analysis: any): Promise<string> {
+  console.log("Generate Tips Endpoint hit")
   try {
     // Use the GROQ-based bullet improver
     const result = await improveBullet({
@@ -56,6 +58,7 @@ export async function generateTips(bullet: string, analysis: any): Promise<strin
 
 // Fallback rewrite function if GROQ is unavailable
 function fallbackRewriteBullet(bullet: string, analysis: any): string {
+  console.log("Fallback Bullet Rewrite Endpoint hit")
   // Simple rewriting logic
   let rewritten = bullet;
   
@@ -134,6 +137,7 @@ function fallbackRewriteBullet(bullet: string, analysis: any): string {
 
 // Fallback tips generation if GROQ is unavailable
 function fallbackGenerateTips(analysis: any): string {
+  console.log("Fallback Generate Tips Endpoint hit")
   let tips = "";
   
   if (analysis.xyz_scores.hard_soft < 5) {
@@ -161,6 +165,7 @@ function fallbackGenerateTips(analysis: any): string {
 
 // Generate improvement themes
 export function generateThemes(bullets: any[]): string[] {
+  console.log("Generate Themes Endpoint hit")
   let weakActionWords = 0;
   let weakMeasurableResults = 0;
   let weakClarity = 0;
