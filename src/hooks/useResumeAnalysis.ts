@@ -337,7 +337,30 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
 
   // Get the user's quiz results from localStorage if available
   const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
-  const quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
+  // const quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
+   // First, try to get quiz results from the database
+  let quizTopPath: CareerTrack | null = null;
+  
+  try {
+    const { data: quizAttempt, error } = await supabase
+      .from('career_quiz_attempts')
+      .select('recommended_path')
+      .eq('user_id', user.id)
+      .order('completed_at', { ascending: false })
+      .limit(1)
+      .single();
+    
+    if (!error && quizAttempt?.recommended_path) {
+      quizTopPath = quizAttempt.recommended_path as CareerTrack;
+    }
+  } catch (error) {
+    console.error('Error fetching quiz attempt:', error);
+  }
+  
+  // Fallback to localStorage if database fetch fails
+  if (!quizTopPath) {
+      quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
+  }
   console.log("Data Quiz Top Paths: ", quizTopPath)
   
   // Sort paths with quiz top path first if available
