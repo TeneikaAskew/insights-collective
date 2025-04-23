@@ -151,7 +151,7 @@ export function extractSentencesFromResponse(content) {
   // Try multiple extraction methods, from most structured to least
   // Method 4: Extract quoted strings individually
     if (sentences.length === 0) {
-    console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
+    // console.log('extractSentencesFromResponse: Trying Method 1 - Individual string extraction');
     const items = [];
     const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
     let match;
@@ -173,13 +173,13 @@ export function extractSentencesFromResponse(content) {
 
   // Method 2: Extract JSON array if embedded in text
   if (sentences.length === 0) {
-    console.log('extractSentencesFromResponse: Trying Method 2 - JSON array extraction');
-    console.log(`extractSentencesFromResponse: Content includes '[': ${content.includes('[')}, includes ']': ${content.includes(']')}`);
+    // console.log('extractSentencesFromResponse: Trying Method 2 - JSON array extraction');
+    // console.log(`extractSentencesFromResponse: Content includes '[': ${content.includes('[')}, includes ']': ${content.includes(']')}`);
     if (content.includes('[') && content.includes(']')) {
       try {
         const jsonMatch = content.match(/\[\s*[\s\S]*\]/);
         if (jsonMatch) {
-          console.log(`extractSentencesFromResponse: Method 2 - found potential JSON: ${jsonMatch[0].substring(0, 50)}...`);
+          // console.log(`extractSentencesFromResponse: Method 2 - found potential JSON: ${jsonMatch[0].substring(0, 50)}...`);
           const parsedArray = JSON.parse(jsonMatch[0]);
           if (Array.isArray(parsedArray) && parsedArray.length > 0) {
             console.log(`extractSentencesFromResponse: Method 2 successful - parsed ${parsedArray.length} items`);
@@ -200,14 +200,14 @@ export function extractSentencesFromResponse(content) {
   }
   // Method 3: Fix malformed JSON with double quotes issue
   if (sentences.length === 0) {
-    console.log('extractSentencesFromResponse: Trying Method 3 - Fixing double quotes issue');
+    // console.log('extractSentencesFromResponse: Trying Method 3 - Fixing double quotes issue');
     console.log(`extractSentencesFromResponse: Content includes '""': ${content.includes('""')}`);
     if (content.includes('""')) {
       try {
         // Replace double quotes with single quotes and try to parse
-        console.log('extractSentencesFromResponse: Method 3 - applying quote fixes to content');
+        // console.log('extractSentencesFromResponse: Method 3 - applying quote fixes to content');
         const fixedContent = content.replace(/\[\s*\n?/g, '[').replace(/\s*\n?\]/g, ']').replace(/""/g, '"').replace(/",\s*(?=\])/g, '"');
-        console.log(`extractSentencesFromResponse: Method 3 - fixed content preview: ${fixedContent.substring(0, 50)}...`);
+        // console.log(`extractSentencesFromResponse: Method 3 - fixed content preview: ${fixedContent.substring(0, 50)}...`);
         // Try to extract array with fixed quotes
         const jsonMatch = fixedContent.match(/\[\s*[\s\S]*\]/);
         if (jsonMatch) {
@@ -253,8 +253,8 @@ export function extractSentencesFromResponse(content) {
   // }
   
   // Method 4: Try direct JSON parsing if it looks like a JSON array
-  console.log('extractSentencesFromResponse: Trying Method 4 - Direct JSON parsing');
-  console.log(`extractSentencesFromResponse: Content starts with '[': ${content.trim().startsWith('[')}, ends with ']': ${content.trim().endsWith(']')}`);
+  // console.log('extractSentencesFromResponse: Trying Method 4 - Direct JSON parsing');
+  // console.log(`extractSentencesFromResponse: Content starts with '[': ${content.trim().startsWith('[')}, ends with ']': ${content.trim().endsWith(']')}`);
   if (content.trim().startsWith('[') && content.trim().endsWith(']')) {
     try {
       const parsedArray = JSON.parse(content.trim());
@@ -274,7 +274,7 @@ export function extractSentencesFromResponse(content) {
   }
   // Method 5: Handle doubly quoted strings (""text"") which appeared in the logs
   if (sentences.length === 0) {
-    console.log('extractSentencesFromResponse: Trying Method 5 - Double-quote pattern extraction');
+    // console.log('extractSentencesFromResponse: Trying Method 5 - Double-quote pattern extraction');
     const items = [];
     // This regex looks for patterns like ""text""
     const doubleQuotePattern = /""([^"]*)""(?:,|$)/g;
@@ -296,9 +296,9 @@ export function extractSentencesFromResponse(content) {
   }
   // Method 6: Last resort - extract by lines
   if (sentences.length === 0) {
-    console.log('extractSentencesFromResponse: Trying Method 6 - Line-by-line extraction (last resort)');
+    // console.log('extractSentencesFromResponse: Trying Method 6 - Line-by-line extraction (last resort)');
     const lines = content.split(/\r?\n/);
-    console.log(`extractSentencesFromResponse: Method 6 - content split into ${lines.length} lines`);
+    // console.log(`extractSentencesFromResponse: Method 6 - content split into ${lines.length} lines`);
     sentences = lines.map((line)=>line.trim()).filter((line)=>{
       // Filter criteria for likely bullet points
       const isValid = line.length > 15 && !line.startsWith('[') && !line.startsWith(']') && !line.includes('```');
