@@ -90,8 +90,8 @@ export async function callGroqAPI(
   // 2️⃣ On 429 or error → fallback to GROQ
   if (resp.status === 429 || !resp.ok) {
     console.warn(`ANWAN failed (status ${resp.status}), falling back to GROQ`);
-    console.warn(`ANWAN error ${resp.text}, falling back to GROQ`);
-    
+    const body = await resp.text();
+    console.error(`ANWAN failed (status ${resp.status} – body: ${body})`);
     resp = await fetch(groqUrl, {
       method: 'POST',
       headers: {
