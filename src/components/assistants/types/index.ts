@@ -30,11 +30,13 @@ export interface BulletAnalysis {
     metric_pct: number;
   };
   word_balance_score: number;
+  // Updated xyz_scores to match usage in UI components
   xyz_scores: {
-    hard_soft: number;
-    action_words: number;
-    measurable_results: number;
-    clarity_focus: number;
+    action: number;
+    metrics: number;
+    clarity: number;
+    industry: number;
+    achievement: number;
   };
   bullet_total: number;
   rewritten: string;
