@@ -275,16 +275,12 @@ export function useResumeAnalysis() {
 
       const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
       console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
-      console.log("Saved Analysis: ", savedAnalysis)
 
       if (savedAnalysis) {
         try {
           const parsedAnalysis = JSON.parse(savedAnalysis);
-          console.log("Parsed Analysis: ", parsedAnalysis)
           setAnalysis(parsedAnalysis);
           calculateCareerAlignments(parsedAnalysis);
-
-          
         } catch (error) {
           console.error('Error parsing saved analysis:', error);
         }
@@ -422,7 +418,6 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
     
     // Generate description
     const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
-    console.log(description)
     
     return { path, percentage, description };
   });
@@ -431,44 +426,44 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
 };
   
   // Fetch the resume assessment (roast) and store it in the database
-  // const fetchAndStoreAssessment = async (resumeText: string, userId: string) => {
-  //   try {
-  //     // Call the Edge Function to get the roast
-  //     const { data, error } = await supabase.functions.invoke('resume-analyzer', {
-  //       body: { 
-  //         action: 'get-roast',
-  //         resumeText: resumeText,
-  //         userId: userId
-  //       }
-  //     });
+  const fetchAndStoreAssessment = async (resumeText: string, userId: string) => {
+    try {
+      // Call the Edge Function to get the roast
+      const { data, error } = await supabase.functions.invoke('resume-analyzer', {
+        body: { 
+          action: 'get-roast',
+          resumeText: resumeText,
+          userId: userId
+        }
+      });
       
-  //     if (error) {
-  //       console.error("Error fetching assessment:", error);
-  //       throw error;
-  //     }
+      if (error) {
+        console.error("Error fetching assessment:", error);
+        throw error;
+      }
       
-  //     if (data && data.roast) {
-  //       // Update the resume record with the initial assessment
-  //       const { error: updateError } = await supabase
-  //         .from('resumes')
-  //         .update({ initial_assessment: data.roast })
-  //         .eq('user_id', userId);
+      if (data && data.roast) {
+        // Update the resume record with the initial assessment
+        const { error: updateError } = await supabase
+          .from('resumes')
+          .update({ initial_assessment: data.roast })
+          .eq('user_id', userId);
           
-  //       if (updateError) {
-  //         console.error('Error storing assessment in database:', updateError);
-  //       } else {
-  //         console.log('Initial assessment stored successfully');
-  //       }
+        if (updateError) {
+          console.error('Error storing assessment in database:', updateError);
+        } else {
+          console.log('Initial assessment stored successfully');
+        }
         
-  //       return data.roast;
-  //     }
+        return data.roast;
+      }
       
-  //     return null;
-  //   } catch (error) {
-  //     console.error('Error fetching resume assessment:', error);
-  //     return null;
-  //   }
-  // };
+      return null;
+    } catch (error) {
+      console.error('Error fetching resume assessment:', error);
+      return null;
+    }
+  };
 
   const analyzeResume = async (resumeText: string): Promise<boolean> => {
     if (!resumeText || !user) {
@@ -544,9 +539,9 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
         setAnalysis(enhancedData as ResumeAnalysis);
         calculateCareerAlignments(enhancedData as ResumeAnalysis);
         
-        // Fetch and store the assessment in parallel
-        fetchAndStoreAssessment(resumeText, user.id)
-          .catch(err => console.error("Error fetching assessment:", err));
+        // // Fetch and store the assessment in parallel
+        // fetchAndStoreAssessment(resumeText, user.id)
+        //   .catch(err => console.error("Error fetching assessment:", err));
         
         // Also update the analysis in the resume record
         try {
