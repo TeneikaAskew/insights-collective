@@ -10,6 +10,8 @@ import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 
+import {redirectInProgressRef} from '/src/hooks/useAuth.ts';
+
 const Login = () => {
   const {
     login,

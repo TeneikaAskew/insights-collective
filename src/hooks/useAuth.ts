@@ -15,7 +15,7 @@ export const useAuthProvider = () => {
   const location = useLocation();
   const { toast } = useToast();
 
-  const redirectInProgressRef = useRef(false);
+  export const redirectInProgressRef = useRef(false);
   const awaitingRedirectRef = useRef(false);
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
