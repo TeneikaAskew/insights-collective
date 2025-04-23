@@ -72,8 +72,9 @@ export async function callGroqAPI(
   let resp = await fetch(anwanUrl, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${ANWAN_API_KEY}`
+      'Authorization': `Bearer ${ANWAN_API_KEY}`,
+        'Content-Type': 'application/json'
+      
     },
     body: JSON.stringify({
       model: 'Meta-Llama-3-8B-Instruct',
@@ -89,6 +90,8 @@ export async function callGroqAPI(
   // 2️⃣ On 429 or error → fallback to GROQ
   if (resp.status === 429 || !resp.ok) {
     console.warn(`ANWAN failed (status ${resp.status}), falling back to GROQ`);
+    console.warn(`ANWAN error ${resp.text}, falling back to GROQ`);
+    
     resp = await fetch(groqUrl, {
       method: 'POST',
       headers: {
