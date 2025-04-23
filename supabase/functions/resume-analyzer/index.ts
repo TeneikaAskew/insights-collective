@@ -1,5 +1,5 @@
 // Add this at the top of the file
-console.log('Resume analyzer function hit');
+console.log('Resume Roast and Analyzer function hit');
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -28,7 +28,7 @@ export { bulletImproverConfig };
 
 // Generate a resume roast and store it
 async function getResumeRoast(resumeText, userId) {
-  console.log('Resume Roast Endpoing hit');
+  console.log('Running Resume Roast');
   const cacheKey = userId ? `user:${userId}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
   if (roastCache.has(cacheKey)) {
     console.log('Using cached roast');
@@ -122,6 +122,7 @@ async function getResumeRoast(resumeText, userId) {
  * @returns {Promise<object>} Enhanced analysis results.
  */
 export async function analyzeResume(resumeText, userId, sentences = []) {
+  console.log('Running Resume Analyzer');
   let text = resumeText || '';
   console.log('Provided text:', text.length, 'characters');
   // Initialize bulletPoints from passed-in sentences
