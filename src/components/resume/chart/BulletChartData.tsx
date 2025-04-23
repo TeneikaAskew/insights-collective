@@ -38,7 +38,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       value: xyz_scores.action || 0,
       fill: '#D97706', // amber
       category: BULLET_CATEGORIES.ACTION,
-      target: 10,
+      target: 6,
       percent: 0
     },
     {
@@ -79,7 +79,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   const totalScore = data.reduce((sum, item) => sum + item.value, 0);
   const dataWithPercent = data.map(item => ({
     ...item,
-    percent: Math.round(item.value)// / (totalScore || 1) * 100)
+    percent: Math.round(item.value / (totalScore || 1) * 100)
   }));
 
   return {
