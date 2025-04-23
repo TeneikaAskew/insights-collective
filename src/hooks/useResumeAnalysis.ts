@@ -325,6 +325,7 @@ export function useResumeAnalysis() {
     // Update the analysis state and localStorage
     setAnalysis(updatedAnalysis);
     localStorage.setItem(`resume_analysis_${user?.id}`, JSON.stringify(updatedAnalysis));
+    console.log("Updated Analysis: ", updatedAnalysis)
     
     return updatedAnalysis;
   };
