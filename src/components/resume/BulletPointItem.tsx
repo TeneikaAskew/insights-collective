@@ -28,7 +28,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
     original = "",
     word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
     word_balance_score = 0,
-    xyz_scores = { hard_soft: 0, action_words: 0, measurable_results: 0, clarity_focus: 0 },
+    xyz_scores = { action: 0, metrics: 0, clarity: 0, industry: 0, achievement: 0 },
     bullet_total = 0,
     rewritten = "",
     tips = ""
@@ -67,33 +67,6 @@ const handleSave = () => {
   setEditedBullet(improvedBullet);
   setIsEditing(false);
 };
-  
-  // const handleSave = () => {
-  //   // Create a simulated analysis of the edited text
-  //   // In a real implementation, you would call the actual analysis API
-  //   const improvedBullet = {
-  //     ...bullet,
-  //     rewritten: editedText,
-  //     // Simulate improved scores based on edits
-  //     bullet_total: Math.min(45, bullet_total + 5),
-  //     xyz_scores: {
-  //       hard_soft: Math.min(5, xyz_scores.hard_soft + 0.5),
-  //       action_words: Math.min(5, xyz_scores.action_words + 0.5),
-  //       measurable_results: Math.min(5, xyz_scores.measurable_results + 0.5),
-  //       clarity_focus: Math.min(5, xyz_scores.clarity_focus + 0.5)
-  //     },
-  //     word_balance_score: Math.min(25, word_balance_score + 2),
-  //     word_balance: {
-  //       industry_pct: Math.min(45, word_balance.industry_pct + 2),
-  //       common_pct: Math.max(25, word_balance.common_pct - 2),
-  //       action_pct: Math.min(15, word_balance.action_pct + 2),
-  //       metric_pct: Math.min(15, word_balance.metric_pct + 2)
-  //     }
-  //   };
-    
-  //   setEditedBullet(improvedBullet);
-  //   setIsEditing(false);
-  // };
 
   const handleCancel = () => {
     setIsEditing(false);
@@ -200,3 +173,4 @@ const handleSave = () => {
 };
 
 export default BulletPointItem;
+

@@ -67,7 +67,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
             components.push({
               text: segment.substring(skillIndex, skillIndex + skill.length),
               type: 'skill',
-              category: BULLET_CATEGORIES.HARD_SOFT
+              category: BULLET_CATEGORIES.INDUSTRY
             });
             
             // Text after skill
@@ -98,7 +98,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
       components.push({
         text: match[0],
         type: 'measurable',
-        category: BULLET_CATEGORIES.MEASURABLE
+        category: BULLET_CATEGORIES.METRICS
       });
       
       lastIndex = index! + match[0].length;
@@ -126,7 +126,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
             components.push({
               text: part,
               type: 'skill',
-              category: BULLET_CATEGORIES.HARD_SOFT
+              category: BULLET_CATEGORIES.INDUSTRY
             });
           } else if (part) {
             // Check for action words within this part
@@ -226,31 +226,3 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-// // Component to display parsed bullet text with highlighting using brand colors
-// export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
-//   const components = parseTextComponents(text || '');
-  
-//   return (
-//     <>
-//       {components.length > 0 ? 
-//         components.map((part, idx) => (
-//           <span 
-//             key={idx} 
-//             className={`transition-colors duration-200 ${
-//               part.category === BULLET_CATEGORIES.HARD_SOFT 
-//                 ? 'text-[#1E40AF] font-bold' : 
-//               part.category === BULLET_CATEGORIES.ACTION 
-//                 ? 'text-[#D97706] font-bold' : 
-//               part.category === BULLET_CATEGORIES.MEASURABLE 
-//                 ? 'text-[#0D9488] font-bold' : 
-//               'text-gray-600'
-//             }`}
-//           >
-//             {part.text}
-//           </span>
-//         )) : 
-//         "No bullet text available"
-//       }
-//     </>
-//   );
-// };

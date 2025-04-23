@@ -58,7 +58,6 @@ interface CareerReportData {
   keyTakeaways: string[];
 }
 
-// This would come from your API or props in real implementation
 const sampleReportData: CareerReportData = {
   userName: "Joshua B. Brown",
   summary: "Based on your quiz answers and resume, we have generated a comprehensive report to guide your career growth in the data field. Your experience in program management, data-driven marketing, and logistics has equipped you with a unique set of skills that can be leveraged to excel in various roles.",
@@ -151,7 +150,12 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
   };
 
   const startCareerChat = () => {
-    initiateCareerCoachChat({}, {});
+    initiateCareerCoachChat({}, {
+      "AI/ML": 0,
+      Analytics: 0,
+      "Data Engineering": 0,
+      "Business Intelligence": 0
+    });
   };
 
   const handleExploreRole = (roleTitle: string) => {
@@ -211,7 +215,6 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
             </TabsTrigger>
           </TabsList>
 
-          {/* Overview Tab */}
           <TabsContent value="overview" className="p-6">
             <div className="space-y-6">
               <div className="space-y-3">
@@ -277,7 +280,6 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
             </div>
           </TabsContent>
 
-          {/* Recommended Roles Tab */}
           <TabsContent value="roles" className="p-6">
             <div className="space-y-6">
               <h3 className="text-lg font-medium flex items-center">
@@ -347,7 +349,6 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
             </div>
           </TabsContent>
 
-          {/* Skills & Learning Tab */}
           <TabsContent value="skills" className="p-6">
             <div className="space-y-6">
               <h3 className="text-lg font-medium flex items-center">
@@ -403,7 +404,6 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
             </div>
           </TabsContent>
 
-          {/* Career Path Tab */}
           <TabsContent value="career-path" className="p-6">
             <div className="space-y-6">
               <div>
@@ -417,14 +417,11 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
               </div>
               
               <div className="relative">
-                {/* Timeline connector */}
                 <div className="absolute left-4 top-5 bottom-5 w-0.5 bg-primary/30"></div>
                 
-                {/* Steps */}
                 <div className="space-y-8 relative">
                   {reportData.careerPathSteps.map((step, index) => (
                     <div key={index} className="ml-10 relative">
-                      {/* Timeline dot */}
                       <div className="absolute -left-12 top-1 h-7 w-7 rounded-full border-2 border-primary bg-background flex items-center justify-center">
                         <span className="text-xs font-bold text-primary">{index + 1}</span>
                       </div>
