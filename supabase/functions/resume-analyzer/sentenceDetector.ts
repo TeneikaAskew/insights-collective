@@ -17,14 +17,14 @@ export function getSentencesFromCache(userId) {
 // Modified detectSentences function to use the retry logic
 export async function detectSentences(text, userId) {
   // First check if we have cached sentences for this user
-  if (userId) {
-    const cachedSentences = getSentencesFromCache(userId);
-    if (cachedSentences && cachedSentences.length > 0) {
-      console.log(`detectSentences: Using ${cachedSentences.length} cached sentences for userId=${userId}`);
-      console.log(`Current cache size: ${bulletCache.size} entries`);
-      return cachedSentences;
-    }
-  }
+  // if (userId) {
+  //   const cachedSentences = getSentencesFromCache(userId);
+  //   if (cachedSentences && cachedSentences.length > 0) {
+  //     console.log(`detectSentences: Using ${cachedSentences.length} cached sentences for userId=${userId}`);
+  //     console.log(`Current cache size: ${bulletCache.size} entries`);
+  //     return cachedSentences;
+  //   }
+  // }
   const startTime = Date.now();
   console.log(`detectSentences: Starting extraction [${new Date().toISOString()}]`);
   console.log('detectSentences: input text: ', text);
@@ -40,9 +40,9 @@ export async function detectSentences(text, userId) {
     // Further truncate or split text if it's still very large
     // This helps avoid hitting token limits
     const chunks = [];
-    if (processedText.length > 6000) {
+    if (processedText.length > 12000) {
       // Split into multiple chunks with some overlap
-      const chunkSize = 5000;
+      const chunkSize = 6000;
       const overlap = 500;
       for (let i = 0; i < processedText.length; i += chunkSize - overlap) {
         const end = Math.min(i + chunkSize, processedText.length);
@@ -231,7 +231,7 @@ export function extractSentencesFromResponse(content) {
     }
   }
   // Method 4: Extract quoted strings individually
-  if (sentences.length === 0) {
+  // if (sentences.length === 0) {
   //   console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
   //   const items = [];
   //   const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
@@ -271,7 +271,6 @@ export function extractSentencesFromResponse(content) {
   } else {
     console.log('extractSentencesFromResponse: Method 4 skipped - content does not start/end with brackets');
   }
-}
   // Method 5: Handle doubly quoted strings (""text"") which appeared in the logs
   if (sentences.length === 0) {
     console.log('extractSentencesFromResponse: Trying Method 5 - Double-quote pattern extraction');
