@@ -1,3 +1,15 @@
+// This function sets up Supabase client with service role key credentials from env
+import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('getSupabaseClient: Missing Supabase credentials in environment variables!');
+    throw new Error('Missing Supabase credentials');
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
+export const supabase = getSupabaseClient();
 
 // Safe JSON parse with fallback
 export function safeJsonParse(jsonString: string, fallback: any): any {
@@ -33,17 +45,7 @@ export function handleOptions(req: Request) {
 }
 
 
-// This function sets up Supabase client with service role key credentials from env
-function getSupabaseClient() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('getSupabaseClient: Missing Supabase credentials in environment variables!');
-    throw new Error('Missing Supabase credentials');
-  }
-  return createClient(supabaseUrl, supabaseKey);
-}
-export const supabase = getSupabaseClient();
+
 // ─────────── new helpers for GROQ/ANWAN ───────────
 
 /**
