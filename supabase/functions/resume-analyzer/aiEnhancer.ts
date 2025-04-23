@@ -1,5 +1,6 @@
-import { corsHeaders, callGroqWithRetry } from './utils.ts';
+
 console.log('Resume scoring and feedback function hit');
+import { corsHeaders, callGroqWithRetry } from './utils.ts';
 // Use GROQ API to enhance analysis with AI
 export async function enhanceWithGroq(resumeText, analysis) {
   try {
