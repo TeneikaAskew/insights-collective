@@ -43,62 +43,169 @@ export async function enhanceWithGroq(resumeText, analysis) {
     };
     console.log("Condensed Analysis:", JSON.stringify(condensedAnalysis, null, 2));
     // Improved function for formatting and extracting AI response content
-function formatResponse(raw) {
-  if (!raw) return '';
-  let text = raw;
-  console.log("Before formatting: ", raw);
+// function formatResponse(raw) {
+//   if (!raw) return '';
+//   let text = raw;
+//   console.log("Before formatting: ", raw);
   
-  // Create an object to directly extract and return the required content
+//   // Create an object to directly extract and return the required content
+//   const extractedContent = {
+//     elevatorPitch: '',
+//     themes: [],
+//     explanation: ''
+//   };
+  
+//   // Match the elevator pitch - follows "1. Professional elevator pitch:" pattern
+//   const elevatorPitchMatch = text.match(/1\.\s*Professional elevator pitch:?\s*([^]*?)(?=\n\s*\d\.|\n\s*$)/i);
+//   if (elevatorPitchMatch && elevatorPitchMatch[1]) {
+//     extractedContent.elevatorPitch = elevatorPitchMatch[1].trim();
+//   }
+  
+//   // Match the themes section
+//   const themesMatch = text.match(/2\.\s*Three specific improvement themes:?\s*([^]*?)(?=\n\s*\d\.|\n\s*$)/i);
+//   if (themesMatch && themesMatch[1]) {
+//     // Extract individual bullet points from themes
+//     const themesText = themesMatch[1];
+    
+//     // Try to match bullet points with asterisks first
+//     let bulletPoints = themesText.match(/\*\s*(.*?)(?=\n\*|\n\s*\d\.|\s*$)/g) || [];
+    
+//     // If no asterisk bullets found, try dash/hyphen bullets
+//     if (bulletPoints.length === 0) {
+//       bulletPoints = themesText.match(/-\s*(.*?)(?=\n-|\n\s*\d\.|\s*$)/g) || [];
+//     }
+    
+//     // If still no bullets found, try to extract lines as potential themes
+//     if (bulletPoints.length === 0) {
+//       const lines = themesText.split('\n').filter(line => line.trim().length > 0);
+//       extractedContent.themes = lines.map(line => line.trim());
+//     } else {
+//       // Process each bullet point (works for both * and - bullets)
+//       extractedContent.themes = bulletPoints.map(point => {
+//         // Clean up the bullet point - remove * or - at beginning
+//         return point.replace(/^[\*\-]\s*/, '').trim();
+//       }).filter(theme => theme.length > 0);
+//     }
+//   }
+  
+//   // Match the explanation
+//   const explanationMatch = text.match(/3\.\s*Brief explanation of the resume grade:?\s*([^]*?)(?=\n\s*\d\.|\s*$)/i);
+//   if (explanationMatch && explanationMatch[1]) {
+//     extractedContent.explanation = explanationMatch[1].trim();
+//   }
+  
+//   // console.log("Extracted content: ", extractedContent);
+  
+//   // Return the extracted content directly
+//   return extractedContent;
+// }
+    function formatResponse(raw: string) {
+  if (!raw) return { elevatorPitch: '', themes: [], explanation: '' };
+
+  // 0) Normalize line endings
+  let text = raw.replace(/\r\n/g, '\n');
+
+  // 1) Fix unbalanced bold markers: **…* or *…** → **…**
+  text = text.replace(/\*\*(.+?)\*/g, '**$1**');
+  text = text.replace(/\*(.+?)\*\*/g, '**$1**');
+
+  // 2) Convert leading "* " or "+ " into "- " bullets
+  text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
+
+  // 3) Convert numbered lists into bullet points
+  text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
+
+  // 4) Turn bold‐only lines into Markdown headers
+  text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
+
+  // 5) Strip noisy inline labels
+  text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
+
+  // 6) Remove known noise patterns
+  const noisy = [
+    /Resume Grade Explanation:\*?.*/gi,
+    /Brief Explanation of the Resume Grade:\*?.*/gi,
+    /Three Specific Improvement Themes:\*?.*/gi,
+    /Specific Improvement Themes:\*?.*/gi,
+    /Professional Elevator Pitch:\*?.*/gi,
+    /\*?Resume Grade[^:]*:\*?/gi,
+    /\*?Three Specific Improvement Themes[^:]*:?\*?/gi,
+    /\*?Professional Elevator Pitch[^:]*:\*?/gi,
+    /\*?Detailed Explanation:\*?/gi,
+    /\*?Key Improvement Themes:\*?/gi,
+    /\*?([A-Za-z\s]+)\s*\(max\s*\d+\s*sentences?\):\*?/gi,
+  ];
+  for (const r of noisy) text = text.replace(r, '');
+
+  // 7) Remove leftover Markdown noise
+  text = text.replace(/^##\s*\*/gm, '');
+  text = text.replace(/-\s*\*+[A-Za-z\s]+:\*+/g, '-');
+  text = text.replace(/\*+[A-Za-z\s]+:\*+/g, '');
+
+  // 8) Strip floating ** or __
+  text = text.replace(/(?<=\s|^)\*{2,}(?=\s|$)/g, '');
+  text = text.replace(/(?<=\s|^)_+(?=\s|$)/g, '');
+
+  // 9) Simplify bullets like "- *Title*: description"
+  text = text.replace(/^-\s*\*?([A-Za-z\s]+\*?:)\s*(.*?)$/gm, '- $2');
+
+  // 10) Remove any remaining single *…*
+  text = text.replace(/\*([^*]+)\*/g, '$1');
+
+  // 11) Collapse 3+ blank lines to 2
+  text = text.replace(/\n{3,}/g, '\n\n');
+
+  // 12) Trim each line and outer whitespace
+  text = text
+    .split('\n')
+    .map(l => l.trimEnd())
+    .join('\n')
+    .trim();
+
+  // --- now extract the three sections ---
+
   const extractedContent = {
     elevatorPitch: '',
-    themes: [],
+    themes: [] as string[],
     explanation: ''
   };
-  
-  // Match the elevator pitch - follows "1. Professional elevator pitch:" pattern
-  const elevatorPitchMatch = text.match(/1\.\s*Professional elevator pitch:?\s*([^]*?)(?=\n\s*\d\.|\n\s*$)/i);
-  if (elevatorPitchMatch && elevatorPitchMatch[1]) {
-    extractedContent.elevatorPitch = elevatorPitchMatch[1].trim();
-  }
-  
-  // Match the themes section
-  const themesMatch = text.match(/2\.\s*Three specific improvement themes:?\s*([^]*?)(?=\n\s*\d\.|\n\s*$)/i);
-  if (themesMatch && themesMatch[1]) {
-    // Extract individual bullet points from themes
-    const themesText = themesMatch[1];
-    
-    // Try to match bullet points with asterisks first
-    let bulletPoints = themesText.match(/\*\s*(.*?)(?=\n\*|\n\s*\d\.|\s*$)/g) || [];
-    
-    // If no asterisk bullets found, try dash/hyphen bullets
-    if (bulletPoints.length === 0) {
-      bulletPoints = themesText.match(/-\s*(.*?)(?=\n-|\n\s*\d\.|\s*$)/g) || [];
-    }
-    
-    // If still no bullets found, try to extract lines as potential themes
-    if (bulletPoints.length === 0) {
-      const lines = themesText.split('\n').filter(line => line.trim().length > 0);
-      extractedContent.themes = lines.map(line => line.trim());
+
+  // Elevator pitch: "**Professional Elevator Pitch:**" or "1. Professional elevator pitch:"
+  let m = text.match(
+    /(?:\*\*Professional Elevator Pitch:\*\*|1\.\s*Professional elevator pitch:)\s*([\s\S]*?)(?=\n\s*(?:\*\*Improvement Themes:\*\*|2\.)|\n{2,})/i
+  );
+  if (m) extractedContent.elevatorPitch = m[1].trim();
+
+  // Improvement themes: "**Improvement Themes:**" or "2. Three specific improvement themes:"
+  m = text.match(
+    /(?:\*\*Improvement Themes:\*\*|2\.\s*Three specific improvement themes:)\s*([\s\S]*?)(?=\n\s*(?:\*\*Resume Grade Explanation:\*\*|3\.)|\n{2,})/i
+  );
+  if (m) {
+    const block = m[1];
+    // match lines like "1. **Specificity**: …"
+    const items = Array.from(block.matchAll(
+      /\d+\.\s*\*\*(.*?)\*\*:\s*([\s\S]*?)(?=\n\s*\d+\.|\n|$)/g
+    ));
+    if (items.length) {
+      extractedContent.themes = items.map(([, title, desc]) => `${title.trim()}: ${desc.trim()}`);
     } else {
-      // Process each bullet point (works for both * and - bullets)
-      extractedContent.themes = bulletPoints.map(point => {
-        // Clean up the bullet point - remove * or - at beginning
-        return point.replace(/^[\*\-]\s*/, '').trim();
-      }).filter(theme => theme.length > 0);
+      // fallback: non-empty lines
+      extractedContent.themes = block
+        .split('\n')
+        .map(l => l.trim())
+        .filter(l => l);
     }
   }
-  
-  // Match the explanation
-  const explanationMatch = text.match(/3\.\s*Brief explanation of the resume grade:?\s*([^]*?)(?=\n\s*\d\.|\s*$)/i);
-  if (explanationMatch && explanationMatch[1]) {
-    extractedContent.explanation = explanationMatch[1].trim();
-  }
-  
-  // console.log("Extracted content: ", extractedContent);
-  
-  // Return the extracted content directly
+
+  // Explanation: "**Resume Grade Explanation:**" or "3. Brief explanation of the resume grade:"
+  m = text.match(
+    /(?:\*\*Resume Grade Explanation:\*\*|3\.\s*Brief explanation of the resume grade:)\s*([\s\S]*)$/i
+  );
+  if (m) extractedContent.explanation = m[1].trim();
+
   return extractedContent;
 }
+
 
 // Call the GROQ API with timeout
 const controller = new AbortController();
@@ -176,75 +283,75 @@ try {
 //   // Return the original analysis if there was an error
 //   return analysis;
 // }}}
-    //   function formatResponse(raw) {
-    //     if (!raw) return '';
-    //     let text = raw;
-    //     console.log("Before formatting: ", raw);
+//       function formatResponse(raw) {
+//         if (!raw) return '';
+//         let text = raw;
+//         console.log("Before formatting: ", raw);
         
-    //     // 1) Fix unbalanced bold markers: **…* or *…** → **…**
-    //     text = text.replace(/\*\*(.+?)\*/g, '**$1**');
-    //     text = text.replace(/\*(.+?)\*\*/g, '**$1**');
+//         // 1) Fix unbalanced bold markers: **…* or *…** → **…**
+//         text = text.replace(/\*\*(.+?)\*/g, '**$1**');
+//         text = text.replace(/\*(.+?)\*\*/g, '**$1**');
         
-    //     // 2) Convert leading "* " or "+ " into "- " bullets
-    //     text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
+//         // 2) Convert leading "* " or "+ " into "- " bullets
+//         text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
         
-    //     // 3) Convert numbered lists into bullet points
-    //     text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
+//         // 3) Convert numbered lists into bullet points
+//         text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
         
-    //     // 4) Ensure bold-only lines become headers
-    //     text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
+//         // 4) Ensure bold-only lines become headers
+//         text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
         
-    //     // 5) Remove noisy markdown-like labels (flexible pattern)
-    //     text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
+//         // 5) Remove noisy markdown-like labels (flexible pattern)
+//         text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
         
-    //     // 6) Remove known noise patterns - CONSOLIDATED with section patterns
-    //     const noisyPatterns = [
-    //       // Original noise patterns
-    //       /Resume Grade Explanation:\*?.*/gi,
-    //       /Brief Explanation of the Resume Grade:\*?.*/gi,
-    //       /Three Specific Improvement Themes:\*?.*/gi,
-    //       /Quantifiable Results:\*?.*/gi,
-    //       /IStronger Action Verbs:k:.*/gi,
-    //       /Specific Improvement Themes:\*?.*/gi,
-    //       /Concise Language:\*?.*/gi,
-    //       /Professional Elevator Pitch:\*?.*/gi,
-    //       /Resume Grade and Explanation:\*?.*/gi,
+//         // 6) Remove known noise patterns - CONSOLIDATED with section patterns
+//         const noisyPatterns = [
+//           // Original noise patterns
+//           /Resume Grade Explanation:\*?.*/gi,
+//           /Brief Explanation of the Resume Grade:\*?.*/gi,
+//           /Three Specific Improvement Themes:\*?.*/gi,
+//           /Quantifiable Results:\*?.*/gi,
+//           /IStronger Action Verbs:k:.*/gi,
+//           /Specific Improvement Themes:\*?.*/gi,
+//           /Concise Language:\*?.*/gi,
+//           /Professional Elevator Pitch:\*?.*/gi,
+//           /Resume Grade and Explanation:\*?.*/gi,
           
-    //       // Added consolidated section patterns
-    //       /\*?Professional Elevator Pitch[^:]*:\*?/gi,
-    //       /\*?Resume Grade[^:]*:\*?/gi,
-    //       /\*?Three Specific Improvement Themes[^:]*:?\*?/gi,
-    //       /\*?Detailed Explanation:\*?/gi,
-    //       /\*?Key Improvement Themes:\*?/gi,
+//           // Added consolidated section patterns
+//           /\*?Professional Elevator Pitch[^:]*:\*?/gi,
+//           /\*?Resume Grade[^:]*:\*?/gi,
+//           /\*?Three Specific Improvement Themes[^:]*:?\*?/gi,
+//           /\*?Detailed Explanation:\*?/gi,
+//           /\*?Key Improvement Themes:\*?/gi,
           
-    //       // General section pattern with max sentences
-    //       /\*?([A-Za-z\s]+)\s*\(max\s*\d+\s*sentences?\):\*?/gi
-    //     ];
+//           // General section pattern with max sentences
+//           /\*?([A-Za-z\s]+)\s*\(max\s*\d+\s*sentences?\):\*?/gi
+//         ];
         
-    //     for (const pattern of noisyPatterns) {
-    //       text = text.replace(pattern, '');
-    //     }
+//         for (const pattern of noisyPatterns) {
+//           text = text.replace(pattern, '');
+//         }
         
-    //     // 7) Remove markdown-like noise lines
-    //     text = text.replace(/^##\s*\*/gm, '');
-    //     text = text.replace(/-\s*\*+[A-Za-z\s]+:\*+/g, '-');
-    //     text = text.replace(/\*+[A-Za-z\s]+:\*+/g, '');
+//         // 7) Remove markdown-like noise lines
+//         text = text.replace(/^##\s*\*/gm, '');
+//         text = text.replace(/-\s*\*+[A-Za-z\s]+:\*+/g, '-');
+//         text = text.replace(/\*+[A-Za-z\s]+:\*+/g, '');
         
-    //     // 8) Remove floating bold/italic markers (e.g., **, ***, etc.)
-    //     text = text.replace(/(?<=\s|^)\*{2,}(?=\s|$)/g, '');
-    //     text = text.replace(/(?<=\s|^)_+(?=\s|$)/g, '');
+//         // 8) Remove floating bold/italic markers (e.g., **, ***, etc.)
+//         text = text.replace(/(?<=\s|^)\*{2,}(?=\s|$)/g, '');
+//         text = text.replace(/(?<=\s|^)_+(?=\s|$)/g, '');
         
-    //     // 9) Clean up bullet points with special formatting
-    //     text = text.replace(/^-\s*\*?([A-Za-z\s]+\*?:)\s*(.*?)$/gm, '- $2');
+//         // 9) Clean up bullet points with special formatting
+//         text = text.replace(/^-\s*\*?([A-Za-z\s]+\*?:)\s*(.*?)$/gm, '- $2');
         
-    //     // 10) Clean up asterisks around text
-    //     text = text.replace(/\*([^*]+)\*/g, '$1');
+//         // 10) Clean up asterisks around text
+//         text = text.replace(/\*([^*]+)\*/g, '$1');
         
-    //     // 11) Collapse 3+ blank lines → 2
-    //     text = text.replace(/\n{3,}/g, '\n\n');
+//         // 11) Collapse 3+ blank lines → 2
+//         text = text.replace(/\n{3,}/g, '\n\n');
         
-    //     // 12) Trim trailing spaces and outer whitespace
-    //     return text.split('\n').map((line) => line.trimEnd()).join('\n').trim();
+//         // 12) Trim trailing spaces and outer whitespace
+//         return text.split('\n').map((line) => line.trimEnd()).join('\n').trim();
     //   }
     // // Call the GROQ API with timeout
     // const controller = new AbortController();
