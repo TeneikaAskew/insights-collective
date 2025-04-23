@@ -268,7 +268,7 @@ function formatResponse(raw: string): Extraction {
 
 // Call the GROQ API with timeout
 // const controller = new AbortController();
-// const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
+const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
 try {
   // const requestBody = {
   //   model: 'compound-beta-mini', //'llama3-8b-8192',
