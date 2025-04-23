@@ -16,8 +16,25 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // try {
+  //   const body = await req.json();
+let data;
   try {
-    const body = await req.json();
+    data = await response.json();
+  } catch (jsonErr) {
+    console.error('Failed to parse JSON from OpenAI response:', jsonErr);
+    return new Response(JSON.stringify({
+      error: 'Failed to parse response JSON',
+      details: jsonErr.message
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
+    });
+  }
+
     
     // Support both the old and new parameter names for backward compatibility
     const prompt = body.prompt;
@@ -68,11 +85,18 @@ serve(async (req) => {
     if (!response.ok) {
       const errorDetails = await response.text();
       console.error('OpenAI API error:', errorDetails);
-      return new Response(JSON.stringify({ error: 'OpenAI API error' }), {
+      return new Response(JSON.stringify({
+        error: 'OpenAI API error',
+        details: errorDetails
+      }), {
         status: 502,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       });
     }
+
 
     const data = await response.json();
     const generatedText = data.choices?.[0]?.message?.content || '';
