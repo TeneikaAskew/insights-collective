@@ -113,7 +113,7 @@ export async function detectSentences(text, userId) {
               console.log(`detectSentences: Saving sentences to cache for userId=${userId}`);
               bulletCache.set(`user:${userId}:bullets`, sentences);
               console.log(`detectSentences: Successfully saved ${sentences.length} sentences to cache for userId=${userId}`);
-              console.log(`New cache size: ${bulletCache.size} entries`);
+              // console.log(`New cache size: ${bulletCache.size} entries`);
           }
         } catch (cacheError) {
           console.error('detectSentences: Cache save failed:', cacheError);

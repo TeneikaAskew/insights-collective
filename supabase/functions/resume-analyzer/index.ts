@@ -29,6 +29,8 @@ export { bulletImproverConfig };
 // Generate a resume roast and store it
 async function getResumeRoast(resumeText, userId) {
   console.log('Running Resume Roast');
+  
+  const startTime = Date.now();
   const cacheKey = userId ? `user:${userId}:roast` : `temp:${resumeText.substring(0, 100)}:roast`;
   if (roastCache.has(cacheKey)) {
     console.log('Using cached roast');
@@ -102,6 +104,9 @@ async function getResumeRoast(resumeText, userId) {
         initial_assessment: cleanRoast
       }).eq('user_id', userId);
       console.log('Roast/Assessment stored in database for user:', userId);
+      
+    const endTime = Date.now();
+    console.log(`Roast/Assessment: Function completed in ${endTime - startTime}ms`);
     }
     return {
       roast: cleanRoast
