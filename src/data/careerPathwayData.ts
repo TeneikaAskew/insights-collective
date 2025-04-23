@@ -90,14 +90,4 @@ export const careerAdvicePrompt = `Here are outputs from a career chat:
 - A 'Path to your aspirational role' carousel
 Please combine these data points with the user's pathway answers to generate a personalized career pathway report.`;
 
-// Maximum number of messages to keep in chat history - reduced from original
-export const MAX_CHAT_MESSAGES = 20;
-
-// Maximum size (in characters) to store for each message - reduced from 2000
-export const MAX_MESSAGE_SIZE = 1000;
-
-// Key for storing career pathway chat in local storage
 export const LOCAL_STORAGE_KEY = "careerPathwayChat";
-
-// Keys for storing career pathway settings
-export const CAREER_SETTINGS_KEY = "careerPathwaySettings";

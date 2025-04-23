@@ -1,393 +1,302 @@
-import { useState, useEffect, useCallback } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { Assistant } from '@/types/assistants';
-import { Message, Chat, PersonalizationSettings } from '@/components/assistants/types';
+
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from './use-toast';
-import { ChatStorageUtils } from '@/utils/chatStorageUtils'; 
-import { careerAdvicePrompt, starterMessages } from '@/data/careerPathwayData';
+import { Chat, Message, PersonalizationSettings } from '@/components/assistants/types';
+import { Assistant } from '@/types/assistants';
+import { allAssistants, careerExplorerAssistant } from '@/data/assistantData';
 
-// Maximum number of messages to keep in history
-const MAX_MESSAGES = 30;
-
-// Default assistant welcome messages
-const ASSISTANT_WELCOME_MESSAGES: Record<string, string[]> = {
-  'career-coach': [
-    "Hello! I'm your Career Coach AI assistant. I'm here to help you navigate your career path and provide personalized advice.",
-    "I'll analyze your skills, experience, and goals to recommend the best next steps in your career journey.",
-    "What specific aspect of your career would you like to discuss today?"
-  ],
-  'data-guru': [
-    "Welcome to Data Guru! I'm your AI assistant specialized in all things data.",
-    "Whether you need help with data analysis, visualization, or understanding complex data concepts, I'm here to assist.",
-    "What data-related question can I help you with today?"
-  ],
-  'resume-builder': [
-    "Welcome to Resume Builder! I'm your AI assistant for crafting impressive resumes and cover letters.",
-    "I can help you highlight your skills, format your resume professionally, and tailor it to specific job applications.",
-    "How can I help improve your resume today?"
-  ]
-};
-
-export function useAssistantChat(initialAssistant: Assistant) {
+export const useAssistantChat = (initialAssistant: Assistant) => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
   const [assistant, setAssistant] = useState<Assistant>(initialAssistant);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentChat, setCurrentChat] = useState<Chat | null>(null);
-  const { toast } = useToast();
-
-  const getStorageKey = useCallback(() => {
-    return `${assistant.id}-chat-${currentChat?.id || 'current'}`;
-  }, [assistant.id, currentChat?.id]);
-
-  // Load chats from localStorage
+  const [quizAttemptId, setQuizAttemptId] = useState<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  
+  // Check for quiz data context on initialization
   useEffect(() => {
-    const loadChats = () => {
-      try {
-        const savedChats = localStorage.getItem(`${assistant.id}-chats`);
-        if (savedChats) {
-          const parsedChats = JSON.parse(savedChats);
-          return Array.isArray(parsedChats) ? parsedChats : [];
-        }
-      } catch (error) {
-        console.error('Error loading chats:', error);
-      }
-      return [];
-    };
+    const storedQuizAttemptId = localStorage.getItem('activeQuizAttemptId');
+    const storedConversationId = localStorage.getItem('activeConversationId');
     
-    // Get the most recent chat or create a new one
-    const chats = loadChats();
-    if (chats.length > 0) {
-      // Sort by updated time
-      const sortedChats = chats.sort((a: Chat, b: Chat) => 
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-      );
-      setCurrentChat(sortedChats[0]);
-    } else {
-      handleNewChat();
+    if (storedQuizAttemptId) {
+      setQuizAttemptId(storedQuizAttemptId);
     }
-  }, [assistant.id]);
-
-  // Load messages when current chat changes
-  useEffect(() => {
-    if (currentChat) {
-      const savedMessages = ChatStorageUtils.loadMessages(getStorageKey());
-      if (savedMessages) {
-        setMessages(savedMessages);
+    
+    if (storedConversationId) {
+      setConversationId(storedConversationId);
+      
+      // Fetch conversation history if we have a conversation ID
+      if (storedConversationId) {
+        fetchConversationHistory(storedConversationId);
       }
     }
-  }, [currentChat, getStorageKey]);
-
-  // Save messages when they change
-  useEffect(() => {
-    if (messages.length > 0 && currentChat) {
-      const success = ChatStorageUtils.storeMessages(getStorageKey(), messages);
-      
-      if (!success) {
-        toast({
-          title: "Storage Warning",
-          description: "Some message history couldn't be saved due to browser limitations.",
-          variant: "destructive",
-        });
-      }
-      
-      // Also update the chat in the list of chats
-      updateChat({
-        ...currentChat,
-        updatedAt: new Date(),
-        messages: messages.slice(0, 3) // Just save a preview of messages
-      });
-    }
-  }, [messages, currentChat, getStorageKey, toast]);
-
-  const updateChat = (updatedChat: Chat) => {
+  }, []);
+  
+  // Function to fetch conversation history from Supabase
+  const fetchConversationHistory = async (convId: string) => {
     try {
-      // Get existing chats
-      const savedChats = localStorage.getItem(`${assistant.id}-chats`) || '[]';
-      const chats = JSON.parse(savedChats);
+      const { data, error } = await supabase
+        .from('assistant_messages')
+        .select('*')
+        .eq('conversation_id', convId)
+        .order('created_at', { ascending: true });
+        
+      if (error) {
+        console.error('Error fetching conversation history:', error);
+        return;
+      }
       
-      // Find and update the chat
-      const updatedChats = Array.isArray(chats) ? 
-        chats.map((chat: Chat) => chat.id === updatedChat.id ? updatedChat : chat) : 
-        [updatedChat];
-      
-      // Save back to localStorage, but handle potential quota errors
-      try {
-        localStorage.setItem(`${assistant.id}-chats`, JSON.stringify(updatedChats));
-      } catch (error) {
-        console.error('Error saving chats:', error);
-        // If error, try to save with just IDs and titles
-        const minimalChats = updatedChats.map((chat: Chat) => ({
-          id: chat.id,
-          title: chat.title,
-          createdAt: chat.createdAt,
-          updatedAt: chat.updatedAt
+      if (data && data.length > 0) {
+        const chatMessages: Message[] = data.map((msg) => ({
+          id: msg.id,
+          role: msg.sender_type as 'user' | 'assistant' | 'system',
+          content: msg.content,
+          timestamp: new Date(msg.created_at)
         }));
-        try {
-          localStorage.setItem(`${assistant.id}-chats`, JSON.stringify(minimalChats));
-        } catch (innerError) {
-          console.error('Error saving minimal chats:', innerError);
-          // Last resort - remove oldest chats to make room
-          const newestChats = minimalChats.slice(-5);
-          try {
-            localStorage.setItem(`${assistant.id}-chats`, JSON.stringify(newestChats));
-          } catch (finalError) {
-            console.error('Failed to save even minimal chats:', finalError);
-          }
-        }
+        
+        setMessages(chatMessages);
       }
     } catch (error) {
-      console.error('Error in updateChat:', error);
+      console.error('Error in fetchConversationHistory:', error);
     }
   };
-
-  const handleNewChat = (personalizationSettings?: PersonalizationSettings) => {
+  
+  const initializeChat = (settings: PersonalizationSettings) => {
+    // Skip initialization if we have conversation history
+    if (conversationId && messages.length > 0) {
+      return;
+    }
+    
+    const { careerFocus, careerPath, salaryCap } = settings;
+    
+    const welcomeMessage: Message = {
+      id: `welcome-${Date.now()}`,
+      role: 'assistant',
+      content: `Hello! I'm your ${assistant.name} assistant. ${assistant.description} How can I help you today?`,
+      timestamp: new Date(),
+    };
+    
+    // Add personalization settings reminder
+    const personalizationReminder: Message = {
+      id: `reminder-${Date.now()}`,
+      role: 'system',
+      content: `**Personalization Settings Reminder**\n\nYour current settings:\n- Career Focus: **${careerFocus}**\n- Career Path: **${careerPath}**\n- Target Salary: **$${salaryCap.toLocaleString()}**\n\nAdjust these settings in the sidebar to get more tailored responses.`,
+      timestamp: new Date(),
+    };
+    
+    setMessages([welcomeMessage, personalizationReminder]);
+    
+    // Create new chat
     const newChat: Chat = {
-      id: uuidv4(),
-      title: `Chat with ${assistant.name}`,
+      id: `chat-${Date.now()}`,
+      title: `New ${assistant.name} Chat`,
+      messages: [welcomeMessage, personalizationReminder],
+      assistantId: assistant.id,
       createdAt: new Date(),
       updatedAt: new Date(),
-      messages: []
     };
     
-    try {
-      // Get existing chats
-      const savedChats = localStorage.getItem(`${assistant.id}-chats`) || '[]';
-      const chats = JSON.parse(savedChats);
-      
-      // Add new chat to the list
-      const updatedChats = Array.isArray(chats) ? [...chats, newChat] : [newChat];
-      
-      // Save to localStorage
-      localStorage.setItem(`${assistant.id}-chats`, JSON.stringify(updatedChats));
-      
-      // Set as current chat
-      setCurrentChat(newChat);
-      setMessages([]);
-      
-      // Initialize with welcome messages if provided
-      if (personalizationSettings) {
-        initializeChat(personalizationSettings);
-      }
-    } catch (error) {
-      console.error('Error creating new chat:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create a new chat. Please try clearing your browser cache.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const loadChat = (chatId: string) => {
-    try {
-      // Get existing chats
-      const savedChats = localStorage.getItem(`${assistant.id}-chats`) || '[]';
-      const chats = JSON.parse(savedChats);
-      
-      // Find the chat
-      if (Array.isArray(chats)) {
-        const chat = chats.find((c: Chat) => c.id === chatId);
-        if (chat) {
-          setCurrentChat(chat);
-          
-          // Load messages for this chat
-          const savedMessages = ChatStorageUtils.loadMessages(`${assistant.id}-chat-${chatId}`);
-          if (savedMessages) {
-            setMessages(savedMessages);
-          } else {
-            setMessages([]);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error loading chat:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load the chat. The data may be corrupted.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAssistantChange = (newAssistant: Assistant) => {
-    // Save current chat state if needed
-    if (messages.length > 0 && currentChat) {
-      updateChat({
-        ...currentChat,
-        updatedAt: new Date(),
-        messages: messages.slice(0, 3) // Just save a preview
-      });
-    }
+    setCurrentChat(newChat);
     
-    // Update the assistant
+    // Save to localStorage
+    const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
+    savedChats.push(newChat);
+    localStorage.setItem('assistantChats', JSON.stringify(savedChats));
+  };
+
+  const handleAssistantChange = (assistantId: string) => {
+    const newAssistant = [...allAssistants, careerExplorerAssistant].find(
+      a => a.id === assistantId
+    ) || careerExplorerAssistant;
+    
     setAssistant(newAssistant);
     
-    // Reset state for new assistant
-    setMessages([]);
-    setInputValue('');
-    setCurrentChat(null);
-    
-    // Create a new chat for this assistant
-    handleNewChat();
-  };
-
-  const initializeChat = async (personalizationSettings?: PersonalizationSettings) => {
-    // Get welcome messages for this assistant
-    const welcomeMessages = ASSISTANT_WELCOME_MESSAGES[assistant.id] || [
-      `Welcome! I'm ${assistant.name}, your AI assistant.`,
-      "How can I help you today?"
-    ];
-    
-    // For career coach, use starter messages from data
-    const assistantMessages = assistant.id === 'career-coach' 
-      ? starterMessages 
-      : welcomeMessages;
-    
-    // Create message objects
-    const initialMessages: Message[] = assistantMessages.map((content, index) => ({
-      id: `welcome-${index}-${Date.now()}`,
-      content,
-      role: 'assistant',
-      timestamp: new Date()
-    }));
-    
-    // Set messages
-    setMessages(initialMessages);
-    
-    // Update chat title based on context
-    if (currentChat && personalizationSettings) {
-      let chatTitle = `${assistant.name} Chat`;
-      
-      if (assistant.id === 'career-coach' && personalizationSettings.careerPath) {
-        chatTitle = `Career Path: ${personalizationSettings.careerPath}`;
-      }
-      
-      const updatedChat = {
-        ...currentChat,
-        title: chatTitle
-      };
-      
-      setCurrentChat(updatedChat);
-      updateChat(updatedChat);
+    // Reset quiz context if changing away from career coach
+    if (assistantId !== 'career-coach') {
+      setQuizAttemptId(null);
+      setConversationId(null);
+      localStorage.removeItem('activeQuizAttemptId');
+      localStorage.removeItem('activeConversationId');
     }
+    
+    // Update URL without reloading
+    navigate(`/assistant/${assistantId}`, { replace: true });
   };
 
-  const handleSendMessage = async (personalizationSettings?: PersonalizationSettings) => {
+  const handleSendMessage = async (settings: PersonalizationSettings) => {
     if (!inputValue.trim() || isLoading) return;
     
-    // Create user message
     const userMessage: Message = {
       id: `user-${Date.now()}`,
-      content: inputValue,
       role: 'user',
-      timestamp: new Date()
+      content: inputValue,
+      timestamp: new Date(),
     };
     
-    // Update UI immediately
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prevMessages => [...prevMessages, userMessage]);
     setInputValue('');
     setIsLoading(true);
     
     try {
-      // Get context for career coach
-      let context = '';
-      if (assistant.id === 'career-coach' && personalizationSettings) {
-        context = `The user is interested in a ${personalizationSettings.careerPath} career path in the ${personalizationSettings.careerFocus} field, with a target salary of $${personalizationSettings.salaryCap}.`;
-      }
-      
-      // Call the backend function
-      const functionName = assistant.id === 'career-coach' 
-        ? 'evaluateCareerAdvice' 
-        : 'assistant-ai';
+      // Update the current chat
+      if (currentChat) {
+        const updatedChat = {
+          ...currentChat,
+          messages: [...currentChat.messages, userMessage],
+          updatedAt: new Date()
+        };
+        setCurrentChat(updatedChat);
         
-      let payload: any = {
-        query: userMessage.content,
-        assistantType: assistant.name,
-        context
-      };
-      
-      // Add career coach specific parameters
-      if (assistant.id === 'career-coach') {
-        payload = {
-          prompt: careerAdvicePrompt,
-          PathwayQuestions: [], // We don't need these for chat responses
-          pathwayAnswers: {},
-          resumeText: ''
-        };
+        // Update in localStorage
+        const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
+        const updatedChats = savedChats.map((chat: Chat) => 
+          chat.id === updatedChat.id ? updatedChat : chat
+        );
+        localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
       }
       
-      // Add personalization settings if available
-      if (personalizationSettings) {
-        payload = {
-          ...payload,
-          ...personalizationSettings
-        };
-      }
-      
-      // Call Supabase edge function
-      const { data, error } = await supabase.functions.invoke(functionName, {
-        body: payload
+      // Call the OpenAI edge function with the user's message and context
+      const { careerFocus, careerPath, salaryCap } = settings;
+      const { data, error } = await supabase.functions.invoke('assistant-ai', {
+        body: {
+          query: userMessage.content,
+          careerFocus,
+          careerPath,
+          salaryCap,
+          assistantType: assistant.name,
+          conversationId: conversationId || undefined,
+          quizAttemptId: quizAttemptId || undefined
+        }
       });
       
       if (error) throw error;
       
-      // Process response
-      const responseContent = data?.generatedText || data?.response || 
-        "I'm sorry, I couldn't process your request at this time.";
-        
-      // Create assistant response message
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
-        content: responseContent,
         role: 'assistant',
-        timestamp: new Date()
+        content: data?.response || "I'm sorry, I couldn't process your request at this time.",
+        timestamp: new Date(),
       };
       
-      // Update messages
-      setMessages(prev => {
-        const updatedMessages = [...prev, assistantMessage];
-        // Keep message history manageable
-        return updatedMessages.length > MAX_MESSAGES 
-          ? updatedMessages.slice(updatedMessages.length - MAX_MESSAGES) 
-          : updatedMessages;
-      });
+      setMessages(prevMessages => [...prevMessages, assistantMessage]);
       
-      // Update chat title if it's the first user message
-      if (currentChat && messages.filter(m => m.role === 'user').length === 0) {
-        const title = userMessage.content.length > 30
-          ? `${userMessage.content.substring(0, 30)}...`
-          : userMessage.content;
-          
+      // Update chat with AI response
+      if (currentChat) {
         const updatedChat = {
           ...currentChat,
-          title
+          messages: [...currentChat.messages, userMessage, assistantMessage],
+          updatedAt: new Date()
         };
-        
         setCurrentChat(updatedChat);
-        updateChat(updatedChat);
+        
+        // Update localStorage
+        const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
+        const updatedChats = savedChats.map((chat: Chat) => 
+          chat.id === updatedChat.id ? updatedChat : chat
+        );
+        localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      
-      // Add error message
-      const errorMessage: Message = {
-        id: `error-${Date.now()}`,
-        content: "I'm sorry, I encountered an error processing your request. Please try again later.",
-        role: 'assistant',
-        timestamp: new Date()
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-      
       toast({
         title: "Error",
-        description: "Failed to get a response from the assistant.",
+        description: "Failed to get a response. Please try again.",
         variant: "destructive",
       });
+      
+      // Add fallback response if the API call fails
+      const { careerFocus, careerPath, salaryCap } = settings;
+      const fallbackMessage: Message = {
+        id: `assistant-fallback-${Date.now()}`,
+        role: 'assistant',
+        content: `Based on your interest in ${careerFocus} with a focus on ${careerPath} careers and a target salary up to $${(salaryCap/1000).toFixed(0)}K, I'd recommend exploring roles like Senior Data Analyst or ML Engineer. Would you like more specific information about either of these paths?`,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prevMessages => [...prevMessages, fallbackMessage]);
+      
+      // Update chat with fallback response
+      if (currentChat) {
+        const updatedChat = {
+          ...currentChat,
+          messages: [...currentChat.messages, userMessage, fallbackMessage],
+          updatedAt: new Date()
+        };
+        setCurrentChat(updatedChat);
+        
+        // Update localStorage
+        const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
+        const updatedChats = savedChats.map((chat: Chat) => 
+          chat.id === updatedChat.id ? updatedChat : chat
+        );
+        localStorage.setItem('assistantChats', JSON.stringify(updatedChats));
+      }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleNewChat = (settings: PersonalizationSettings) => {
+    // Reset the current assistant conversation
+    const welcomeMessage: Message = {
+      id: `welcome-${Date.now()}`,
+      role: 'assistant',
+      content: `Hello! I'm your ${assistant.name} assistant. ${assistant.description} How can I help you today?`,
+      timestamp: new Date(),
+    };
+    
+    setMessages([welcomeMessage]);
+    
+    // Create new chat object
+    const newChat: Chat = {
+      id: `chat-${Date.now()}`,
+      title: `New ${assistant.name} Chat`,
+      messages: [welcomeMessage],
+      assistantId: assistant.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    
+    setCurrentChat(newChat);
+    
+    // Reset quiz context when starting a new chat
+    if (assistant.id !== 'career-coach') {
+      setQuizAttemptId(null);
+      setConversationId(null);
+      localStorage.removeItem('activeQuizAttemptId');
+      localStorage.removeItem('activeConversationId');
+    }
+    
+    // Save to localStorage
+    const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
+    savedChats.push(newChat);
+    localStorage.setItem('assistantChats', JSON.stringify(savedChats));
+    
+    toast({
+      title: "New Chat Created",
+      description: "Started a new conversation with the assistant.",
+    });
+  };
+
+  const loadChat = (chatId: string) => {
+    const savedChats = JSON.parse(localStorage.getItem('assistantChats') || '[]');
+    const chat = savedChats.find((c: Chat) => c.id === chatId);
+    
+    if (chat) {
+      setCurrentChat(chat);
+      setMessages(chat.messages);
+      
+      // Find and set the assistant
+      const chatAssistant = [...allAssistants, careerExplorerAssistant].find(
+        a => a.id === chat.assistantId
+      ) || careerExplorerAssistant;
+      
+      setAssistant(chatAssistant);
     }
   };
 
@@ -397,6 +306,8 @@ export function useAssistantChat(initialAssistant: Assistant) {
     inputValue,
     isLoading,
     currentChat,
+    quizAttemptId,
+    conversationId,
     setInputValue,
     handleAssistantChange,
     handleSendMessage,
@@ -404,4 +315,4 @@ export function useAssistantChat(initialAssistant: Assistant) {
     loadChat,
     initializeChat
   };
-}
+};

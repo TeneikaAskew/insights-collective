@@ -10,7 +10,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log("Request received")
+  console.log("Request: ", req)
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -32,25 +32,16 @@ serve(async (req) => {
       });
     }
 
-    // Build optimized prompt - only include essential data
+    // Build combined prompt with all inputs for better context to OpenAI
     let combinedPrompt = `${prompt}\n\nUser's pathway answers:\n`;
 
-    // Only include questions with actual answers to save space
     for (const question of PathwayQuestions) {
       const answer = pathwayAnswers[question.id] || '';
-      if (answer.trim()) {
-        // Include only the answer label and response, skip placeholders
-        combinedPrompt += `${question.label || question.id}: ${answer}\n`;
-      }
+      combinedPrompt += `${question.label || question.id}: ${answer}\n`;
     }
 
-    // Limit resume text if provided
     if (resumeText) {
-      // Truncate resume text if too long (keeping first 1000 chars)
-      const truncatedResume = resumeText.length > 1000 
-        ? resumeText.substring(0, 1000) + "... [truncated]" 
-        : resumeText;
-      combinedPrompt += `\nUser Resume Summary:\n${truncatedResume}\n`;
+      combinedPrompt += `\nUser Resume Text:\n${resumeText}\n`;
     }
 
     // Compose the message array for gpt chat completion
@@ -59,7 +50,7 @@ serve(async (req) => {
       { role: "user", content: combinedPrompt },
     ];
 
-    // Call API with reduced tokens and more efficient settings
+    // Call OpenAI API chat completion
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -70,14 +61,14 @@ serve(async (req) => {
         model: 'compound-beta-mini',
         messages,
         temperature: 0.7,
-        max_tokens: 1000, // Reduced from 1200
+        max_tokens: 1200,
       }),
     });
 
     if (!response.ok) {
       const errorDetails = await response.text();
-      console.error('API error:', errorDetails);
-      return new Response(JSON.stringify({ error: 'API error' }), {
+      console.error('OpenAI API error:', errorDetails);
+      return new Response(JSON.stringify({ error: 'OpenAI API error' }), {
         status: 502,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

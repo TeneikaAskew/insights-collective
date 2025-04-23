@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Assistant } from '@/types/assistants';
 import AssistantChatSidebar from './AssistantChatSidebar';
@@ -9,8 +8,6 @@ import ChatInput from './ChatInput';
 import { PersonalizationSettings } from './types';
 import { useAssistantChat } from '@/hooks/useAssistantChat';
 import { CareerTrack } from '@/data/careerQuizData';
-import { LocalStorageUtils } from '@/utils/localStorageUtils';
-import { useToast } from '@/hooks/use-toast';
 
 // Re-export types for backward compatibility
 export type { Message, Chat } from './types';
@@ -22,7 +19,6 @@ interface AssistantChatInterfaceProps {
 const AssistantChatInterface: React.FC<AssistantChatInterfaceProps> = ({ initialAssistant }) => {
   const [showLeftSidebar, setShowLeftSidebar] = useState(true);
   const [showRightSidebar, setShowRightSidebar] = useState(true);
-  const { toast } = useToast();
   
   // Initialize with default values or values from quiz results
   const initialCareerFocus = 'Technology';
@@ -42,22 +38,8 @@ const AssistantChatInterface: React.FC<AssistantChatInterfaceProps> = ({ initial
       // but can remove the personalization setting items
       localStorage.removeItem('recommendedCareerPath');
       localStorage.removeItem('recommendedSalary');
-      
-      // Try to safely store the settings
-      const success = LocalStorageUtils.safelyStoreItem(
-        'careerCoachSettings', 
-        JSON.stringify(personalizationSettings)
-      );
-      
-      if (!success) {
-        toast({
-          title: "Storage Warning",
-          description: "Unable to save all settings. Some data might be lost between sessions.",
-          variant: "destructive",
-        });
-      }
     }
-  }, [initialAssistant.id, toast]);
+  }, [initialAssistant.id]);
   
   const {
     assistant,

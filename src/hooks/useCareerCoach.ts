@@ -5,7 +5,6 @@ import { useToast } from '@/hooks/use-toast';
 import { storeQuizAttempt, startCareerCoachConversation } from '@/services/quizService';
 import { CareerTrack } from '@/data/careerQuizData';
 import { useAuth } from '@/contexts/AuthContext';
-import { LocalStorageUtils } from '@/utils/localStorageUtils';
 
 // Define typical salary ranges for each career path
 const careerPathSalaries: Record<CareerTrack, number> = {
@@ -25,26 +24,18 @@ export function useCareerCoach() {
   useEffect(() => {
     const syncQuizResultsToSupabase = async () => {
       if (isAuthenticated) {
-        // Use safely retrieve quiz data from localStorage
-        let storedScores = null;
-        let storedAnswers = null;
-        
-        try {
-          const scoresStr = localStorage.getItem('quizScores');
-          const answersStr = localStorage.getItem('quizAnswers');
-          
-          if (scoresStr) storedScores = JSON.parse(scoresStr);
-          if (answersStr) storedAnswers = JSON.parse(answersStr);
-        } catch (error) {
-          console.error('Error parsing stored quiz data:', error);
-        }
+        const storedScores = localStorage.getItem('quizScores');
+        const storedAnswers = localStorage.getItem('quizAnswers');
         
         if (storedScores && storedAnswers) {
           try {
+            const scores = JSON.parse(storedScores);
+            const answers = JSON.parse(storedAnswers);
+            
             // Only sync if we have valid data
-            if (Object.keys(storedScores).length > 0 && Object.keys(storedAnswers).length > 0) {
+            if (Object.keys(scores).length > 0 && Object.keys(answers).length > 0) {
               console.log('Syncing stored quiz results to Supabase silently');
-              const quizAttemptId = await storeQuizAttempt(storedAnswers, storedScores);
+              const quizAttemptId = await storeQuizAttempt(answers, scores);
               
               if (quizAttemptId) {
                 console.log('Successfully synced quiz results to Supabase');
@@ -82,17 +73,9 @@ export function useCareerCoach() {
       // Store the career coach path for redirect after login
       storeRedirectPath('/assistant/career-coach');
       
-      // Safely store quiz data for after login
-      const storeScores = LocalStorageUtils.safelyStoreItem('quizScores', JSON.stringify(scores));
-      const storeAnswers = LocalStorageUtils.safelyStoreItem('quizAnswers', JSON.stringify(answers));
-      
-      if (!storeScores || !storeAnswers) {
-        toast({
-          title: "Storage Warning",
-          description: "Quiz data may be partially stored due to browser limitations. Please complete your login promptly.",
-          variant: "destructive"
-        });
-      }
+      // Store quiz data for after login
+      localStorage.setItem('quizScores', JSON.stringify(scores));
+      localStorage.setItem('quizAnswers', JSON.stringify(answers));
       
       // Redirect to login
       toast({
@@ -130,21 +113,10 @@ export function useCareerCoach() {
       const recommendedSalary = careerPathSalaries[topCareerPath];
       
       // Step 4: Store settings for the assistant interface to use
-      const storageOps = [
-        LocalStorageUtils.safelyStoreItem('activeQuizAttemptId', quizAttemptId),
-        LocalStorageUtils.safelyStoreItem('activeConversationId', conversationId),
-        LocalStorageUtils.safelyStoreItem('recommendedCareerPath', topCareerPath),
-        LocalStorageUtils.safelyStoreItem('recommendedSalary', recommendedSalary.toString())
-      ];
-      
-      // Check if any storage operations failed
-      if (storageOps.some(success => !success)) {
-        toast({
-          title: "Storage Warning",
-          description: "Some session data couldn't be saved due to browser limitations. The experience may be affected.",
-          variant: "destructive"
-        });
-      }
+      localStorage.setItem('activeQuizAttemptId', quizAttemptId);
+      localStorage.setItem('activeConversationId', conversationId);
+      localStorage.setItem('recommendedCareerPath', topCareerPath);
+      localStorage.setItem('recommendedSalary', recommendedSalary.toString());
       
       // Clear stored quiz data as it's now in Supabase
       localStorage.removeItem('quizScores');
