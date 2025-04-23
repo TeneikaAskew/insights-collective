@@ -25,7 +25,8 @@ export const useAuthProvider = () => {
 
   const storeRedirectPath = useCallback((path: string) => {
     // Fix: Remove reference to undefined 'alreadyStored' variable
-    localStorage.setItem('redirectAfterLogin', path);
+    if (path && !['/login', '/register', '/'].includes(path)) {
+      localStorage.setItem('redirectAfterLogin', path);
     console.log('[storeRedirectPath] Stored redirect path:', path);
     // const storedPath = localStorage.getItem('redirectAfterLogin');
     
