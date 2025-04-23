@@ -343,6 +343,8 @@ const CareerAgent: React.FC = () => {
       pathwayAnswers: pathwayAnswersPayload, 
       resumeText: resumeText || null 
     };
+
+    console.log("Payload: ", payload)
     
     try {
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
