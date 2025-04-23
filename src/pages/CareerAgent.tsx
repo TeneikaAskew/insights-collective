@@ -70,6 +70,7 @@ const CareerAgent: React.FC = () => {
           question: pathwayQuestions.find(q => q.id === questionId)?.label || String(questionId),
           answer,
         });
+        console.log(`[saveAnswerToDatabase] Saved answer for question ${questionId}:`, answer);
       } catch (err) {
         console.error('Error saving answer:', err);
       }
