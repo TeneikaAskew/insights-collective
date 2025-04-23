@@ -135,10 +135,12 @@ try {
             3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
             Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.`
  const user = `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
-  const data = await callGroqWithRetry(system, user);
+  // const data = await callGroqWithRetry(system, user);
+  
+  const aiResponse = await callGroqWithRetry(system, user);
   clearTimeout(timeoutId);
   
-  const aiResponse = data.choices[0].message.content;
+  // const aiResponse = data.choices[0].message.content;
   console.log("AI Response: ", aiResponse);
   
   // Use our new format function which returns an object with extracted content
