@@ -207,11 +207,11 @@ export async function enhanceWithGroq(resumeText, analysis) {
 
 //   return extractedContent;
 // }
-interface Extraction {
-  elevatorPitch: string;
-  themes: string[];
-  explanation: string;
-}
+// interface Extraction {
+//   elevatorPitch: string;
+//   themes: string[];
+//   explanation: string;
+// }
 
 // function formatResponse(raw: string): Extraction {
 //   const extractedContent: Extraction = {
@@ -535,6 +535,159 @@ function formatResponse(raw) {
 
   return extractedContent;
 }
+
+
+
+
+function formatResponse(raw) {
+  if (!raw) return { elevatorPitch: '', themes: [], explanation: '' };
+
+  const extractedContent = {
+    elevatorPitch: '',
+    themes: [],
+    explanation: ''
+  };
+
+  // Normalize text
+  let text = raw.replace(/\r\n/g, '\n').trim();
+
+  // Remove common noise
+  text = text.replace(/Here are the three key outputs:?/i, '');
+  text = text.replace(/based on the provided resume text and basic analysis:/i, '');
+
+  // === Extract Elevator Pitch ===
+  const elevatorPitchPatterns = [
+    /(?:\*\*)?Professional Elevator Pitch(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*(?:\*\*)?(?:Three Specific |Key )?Improvement Themes|(?:\*\*)?Improvement Themes|\n\s*\d+\.|\n\s*\*\*|$)/i,
+    /(?:\*\*)?Elevator Pitch(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*(?:\*\*)?(?:Three Specific |Key )?Improvement Themes|(?:\*\*)?Improvement Themes|\n\s*\d+\.|\n\s*\*\*|$)/i,
+    /1\.\s*Professional (?:E|e)levator (?:P|p)itch:?\s*\n?([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+  ];
+
+  for (const pattern of elevatorPitchPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      let pitch = match[1].trim();
+      // Remove asterisks and clean up
+      pitch = pitch.replace(/^\*\*\s*/, '').replace(/\s*\*\*$/, '');
+      pitch = pitch.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+      extractedContent.elevatorPitch = pitch;
+      break;
+    }
+  }
+
+  // === Extract Themes ===
+  const themePatterns = [
+    /(?:\*\*)?(?:Three Specific )?Improvement Themes(?:\*\*)?:?\s*([\s\S]*?)(?=\n\s*(?:\*\*)?(?:Resume Grade Explanation|Resume Grade)|\n\s*(?:\*\*)?Resume Grade:|\n\s*$)/i,
+    /2\.\s*(?:Three Specific )?Improvement Themes:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+  ];
+
+  for (const pattern of themePatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const themesText = match[1].trim();
+      let themes = [];
+      
+      // Comprehensive regex patterns for various theme formats
+      const themeRegexes = [
+        // Format: "1. **Title:** Description" or "1. **Title** Description"
+        /^\s*\d+\.\s*\*\*(.*?)\*\*\s*[:\-]?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*[\*\-•]|\n\s*\*\*|\n\s*$|$)/gm,
+        
+        // Format: "1. Title: Description" (no bold)
+        /^\s*\d+\.\s*([^:\n\*]+?):\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*[\*\-•]|\n\s*\*\*|\n\s*$|$)/gm,
+        
+        // Format: "1. Description" (numbered without title)
+        /^\s*\d+\.\s*((?![*\d]).+?)(?=\n\s*\d+\.|\n\s*[\*\-•]|\n\s*\*\*|\n\s*$|$)/gm,
+        
+        // Format: "- **Title:** Description" or "* **Title:** Description"
+        /^\s*[\*\-•]\s*\*\*(.*?)\*\*\s*[:\-]?\s*([\s\S]*?)(?=\n\s*[\*\-•]|\n\s*\d+\.|\n\s*\*\*|\n\s*$|$)/gm,
+        
+        // Format: "- Title: Description" or "* Title: Description" (no bold)
+        /^\s*[\*\-•]\s*([^:\n\*]+?):\s*([\s\S]*?)(?=\n\s*[\*\-•]|\n\s*\d+\.|\n\s*\*\*|\n\s*$|$)/gm,
+        
+        // Format: "- Description" or "* Description" (bullets without title)
+        /^\s*[\*\-•]\s*((?![*\d]).+?)(?=\n\s*[\*\-•]|\n\s*\d+\.|\n\s*\*\*|\n\s*$|$)/gm,
+      ];
+
+      // Try each regex pattern
+      for (const regex of themeRegexes) {
+        const matches = Array.from(themesText.matchAll(regex));
+        if (matches.length > 0) {
+          themes = matches.map(m => {
+            if (m.length === 3 && m[1] && m[2]) {
+              // Has title and description
+              const title = m[1].trim();
+              const description = m[2].trim();
+              return description ? `${title}: ${description}` : title;
+            } else if (m[1]) {
+              // Just description (or title without description)
+              return m[1].trim();
+            }
+            return '';
+          }).filter(theme => theme.length > 5);
+          
+          if (themes.length > 0) break;
+        }
+      }
+
+      // If no matches found, try line-by-line extraction
+      if (themes.length === 0) {
+        const lines = themesText.split('\n');
+        let currentTheme = '';
+        
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          
+          if (!trimmedLine) continue;
+          
+          // Check if it's a new item (numbered, bulleted)
+          if (trimmedLine.match(/^[\d]+\./) || trimmedLine.match(/^[\*\-•]/)) {
+            if (currentTheme) {
+              themes.push(currentTheme.trim());
+            }
+            currentTheme = trimmedLine.replace(/^[\d]+\.\s*|^[\*\-•]\s*/, '').replace(/\*\*/g, '');
+          } else if (currentTheme) {
+            // Continuation of current theme
+            currentTheme += ' ' + trimmedLine.replace(/\*\*/g, '');
+          } else {
+            themes.push(trimmedLine.replace(/\*\*/g, ''));
+          }
+        }
+        
+        if (currentTheme) {
+          themes.push(currentTheme.trim());
+        }
+      }
+
+      // Final cleanup
+      themes = themes
+        .map(theme => theme.replace(/\*\*/g, '').trim())
+        .filter(theme => theme.length > 5);
+
+      extractedContent.themes = themes;
+      break;
+    }
+  }
+
+  // === Extract Explanation ===
+  const explanationPatterns = [
+    /(?:\*\*)?Resume Grade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*$|$)/i,
+    /(?:\*\*)?Brief (?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*$|$)/i,
+    /3\.\s*(?:Brief )?(?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade:?\s*\n?([\s\S]*?)(?=\n\s*$|$)/i,
+  ];
+
+  for (const pattern of explanationPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      let explanation = match[1].trim();
+      // Remove asterisks and clean up
+      explanation = explanation.replace(/^\*\*\s*/, '').replace(/\s*\*\*$/, '');
+      explanation = explanation.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim();
+      extractedContent.explanation = explanation;
+      break;
+    }
+  }
+
+  return extractedContent;
+}    
 // Call the GROQ API with timeout
 const controller = new AbortController();
 const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
