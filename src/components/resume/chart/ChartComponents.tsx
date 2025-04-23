@@ -138,7 +138,7 @@ export const DistributionBar: React.FC<{
         width: `${barWidthPercent}%`
       }}></div>
         {/* Line indicator for Goal at 100% */}
-        <div className="absolute top-0 left-[100%] h-full w-[2px] bg-gray-900 opacity-40" style={{
+        <div className="absolute top-0 left-[60%] h-full w-[2px] bg-gray-900 opacity-40" style={{
         transform: 'translateX(-1px)'
       }} aria-label="Goal marker" title="Goal"></div>
       </div>
