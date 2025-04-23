@@ -338,6 +338,7 @@ const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
   // Get the user's quiz results from localStorage if available
   const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
   const quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
+  console.log("Data Quiz Top Paths: ", quizTopPath)
   
   // Sort paths with quiz top path first if available
   const sortedPaths = quizTopPath 
