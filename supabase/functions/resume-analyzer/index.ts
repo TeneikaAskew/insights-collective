@@ -124,7 +124,7 @@ async function getResumeRoast(resumeText, userId) {
 export async function analyzeResume(resumeText, userId, sentences = []) {
   let text = resumeText || '';
   console.log('Provided text:', text.length, 'characters');
-
+  getResumeRoast(text, userId);
   // Initialize bulletPoints from passed-in sentences
   let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
   if (bulletPoints.length) {
@@ -318,7 +318,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       await supabase.from('resumes').update({ analysis: enhanced, updated_at: new Date().toISOString() })
         .eq('user_id', userId);
       console.log('Saved analysis to database');
-      getResumeRoast(text, userId);
+     
     }
 
     return enhanced;
