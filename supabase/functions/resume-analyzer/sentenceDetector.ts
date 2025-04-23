@@ -40,7 +40,7 @@ export async function detectSentences(text, userId) {
     // Further truncate or split text if it's still very large
     // This helps avoid hitting token limits
     const chunks = [];
-    if (processedText.length > 12000) {
+    if (processedText.length > 9000) {
       // Split into multiple chunks with some overlap
       const chunkSize = 6000;
       const overlap = 500;
