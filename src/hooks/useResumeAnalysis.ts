@@ -3,7 +3,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { ResumeAnalysis, BulletAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
-import { rewriteBullet, generateTips, generateThemes } from '@/supabase/functions/resume-analyzer/bulletSuggestions';
+import { rewriteBullet, generateTips, generateThemes } from './supabase/functions/resume-analyzer/bulletSuggestions';
 import { analyzeWordBalance, xyzCheck } from '@/supabase/functions/resume-analyzer/bulletAnalysis';
 
 interface UseResumeAnalysisReturn {
