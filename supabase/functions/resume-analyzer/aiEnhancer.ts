@@ -104,30 +104,38 @@ function formatResponse(raw) {
 const controller = new AbortController();
 const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
 try {
-  const requestBody = {
-    model: 'compound-beta-mini', //'llama3-8b-8192',
-    messages: [
-      {
-        role: 'system',
-        content: `You are an expert resume analyst. Based on the provided resume text and basic analysis, 
-        provide three key outputs:
-        1. A professional elevator pitch (max 2 sentences) based on the resume text
-        2. Three specific improvement themes (one sentence each) based on the resume text
-        3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
+  // const requestBody = {
+  //   model: 'compound-beta-mini', //'llama3-8b-8192',
+  //   messages: [
+  //     {
+  //       role: 'system',
+  //       content: `You are an expert resume analyst. Based on the provided resume text and basic analysis, 
+  //       provide three key outputs:
+  //       1. A professional elevator pitch (max 2 sentences) based on the resume text
+  //       2. Three specific improvement themes (one sentence each) based on the resume text
+  //       3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
         
-        Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.`
-      },
-      {
-        role: 'user',
-        content: `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
-      }
-    ],
-    max_tokens: 500,
-    temperature: 0.4
-  };
+  //       Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.`
+  //     },
+  //     {
+  //       role: 'user',
+  //       content: `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
+  //     }
+  //   ],
+  //   max_tokens: 500,
+  //   temperature: 0.4
+  // };
   
-  // Add the signal to the retry function
-  const data = await callGroqWithRetry(apiKey, requestBody, 3, controller.signal);
+  // // Add the signal to the retry function
+  // const data = await callGroqWithRetry(apiKey, requestBody, 3, controller.signal);
+  const system =`You are an expert resume analyst. Based on the provided resume text and basic analysis, 
+              provide three key outputs:
+            1. A professional elevator pitch (max 2 sentences) based on the resume text
+            2. Three specific improvement themes (one sentence each) based on the resume text
+            3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
+            Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.`
+ const user = `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
+  const data = await callGroqWithRetry(system, user);
   clearTimeout(timeoutId);
   
   const aiResponse = data.choices[0].message.content;
