@@ -213,58 +213,185 @@ interface Extraction {
   explanation: string;
 }
 
-function formatResponse(raw: string): Extraction {
-  const extractedContent: Extraction = {
+// function formatResponse(raw: string): Extraction {
+//   const extractedContent: Extraction = {
+//     elevatorPitch: '',
+//     themes: [],
+//     explanation: ''
+//   };
+
+//   if (!raw) return extractedContent;
+
+//   console.log("Before formatting:", raw);
+
+//   // 1) Grab elevator pitch
+//   //    Matches "**Professional Elevator Pitch:** ..." or "1. Professional elevator pitch: ..."
+//   let m = raw.match(
+//     /(?:\*\*Professional Elevator Pitch:\*\*|1\.\s*Professional elevator pitch:?)\s*([\s\S]*?)(?=\n{2,}|\n[*\d]|$)/i
+//   );
+//   if (m) {
+//     extractedContent.elevatorPitch = m[1].trim();
+//   }
+
+//   // 2) Grab themes block
+//   //    Matches "**Improvement Themes:**" or "2. Three specific improvement themes:"
+//   m = raw.match(
+//     /(?:\*\*Improvement Themes:\*\*|2\.\s*Three specific improvement themes:?)\s*([\s\S]*?)(?=\n{2,}|\n[*\d]|$)/i
+//   );
+//   if (m) {
+//     const block = m[1].trim();
+//     // Try asterisk bullets
+//     let lines = Array.from(block.matchAll(/^[ *\-]+\s*(.+)$/gm), a => a[1].trim());
+//     if (!lines.length) {
+//       // fallback: any non-empty line
+//       lines = block
+//         .split(/\r?\n/)
+//         .map(l => l.trim())
+//         .filter(l => l.length);
+//     }
+//     extractedContent.themes = lines;
+//   }
+
+//   // 3) Grab explanation
+//   //    Matches "**Resume Grade Explanation:**" or "3. Brief explanation of the resume grade:"
+//   m = raw.match(
+//     /(?:\*\*Resume Grade Explanation:\*\*|3\.\s*Brief explanation of the resume grade:?)\s*([\s\S]*?)$/i
+//   );
+//   if (m) {
+//     extractedContent.explanation = m[1].trim();
+//   }
+
+//   console.log("Extracted Content:", extractedContent);
+//   return extractedContent;
+// }
+
+    function formatResponse(raw) {
+  if (!raw) return { elevatorPitch: '', themes: [], explanation: '' };
+
+  const extractedContent = {
     elevatorPitch: '',
     themes: [],
     explanation: ''
   };
 
-  if (!raw) return extractedContent;
+  // Normalize text
+  let text = raw.replace(/\r\n/g, '\n').trim();
 
-  console.log("Before formatting:", raw);
+  // Patterns for different formats of section headers
+  const elevatorPitchPatterns = [
+    /\*\*Professional Elevator Pitch:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /1\.\s*Professional Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+    /Professional Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /^Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/im
+  ];
 
-  // 1) Grab elevator pitch
-  //    Matches "**Professional Elevator Pitch:** ..." or "1. Professional elevator pitch: ..."
-  let m = raw.match(
-    /(?:\*\*Professional Elevator Pitch:\*\*|1\.\s*Professional elevator pitch:?)\s*([\s\S]*?)(?=\n{2,}|\n[*\d]|$)/i
-  );
-  if (m) {
-    extractedContent.elevatorPitch = m[1].trim();
-  }
+  const themePatterns = [
+    /\*\*Improvement Themes:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /2\.\s*Three Specific Improvement Themes:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+    /2\.\s*Improvement Themes:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+    /Three Specific Improvement Themes:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /Improvement Themes:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i
+  ];
 
-  // 2) Grab themes block
-  //    Matches "**Improvement Themes:**" or "2. Three specific improvement themes:"
-  m = raw.match(
-    /(?:\*\*Improvement Themes:\*\*|2\.\s*Three specific improvement themes:?)\s*([\s\S]*?)(?=\n{2,}|\n[*\d]|$)/i
-  );
-  if (m) {
-    const block = m[1].trim();
-    // Try asterisk bullets
-    let lines = Array.from(block.matchAll(/^[ *\-]+\s*(.+)$/gm), a => a[1].trim());
-    if (!lines.length) {
-      // fallback: any non-empty line
-      lines = block
-        .split(/\r?\n/)
-        .map(l => l.trim())
-        .filter(l => l.length);
+  const explanationPatterns = [
+    /\*\*Resume Grade Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /3\.\s*Brief Explanation of the Resume Grade:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+    /3\.\s*Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
+    /Brief Explanation of the Resume Grade:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
+    /3\.\s*Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i
+  ];
+
+  // Extract elevator pitch
+  for (const pattern of elevatorPitchPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      extractedContent.elevatorPitch = match[1].trim();
+      break;
     }
-    extractedContent.themes = lines;
   }
 
-  // 3) Grab explanation
-  //    Matches "**Resume Grade Explanation:**" or "3. Brief explanation of the resume grade:"
-  m = raw.match(
-    /(?:\*\*Resume Grade Explanation:\*\*|3\.\s*Brief explanation of the resume grade:?)\s*([\s\S]*?)$/i
-  );
-  if (m) {
-    extractedContent.explanation = m[1].trim();
+  // Extract themes
+  for (const pattern of themePatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const themesText = match[1].trim();
+      
+      // Try to extract bullet points (supports *, -, •, or numbered)
+      const bulletPatterns = [
+        /^\s*[\*\-•]\s*(.+?)(?=\n|$)/gm,    // Asterisk, dash, or bullet
+        /^\s*\d+[\.)]\s*(.+?)(?=\n|$)/gm,   // Numbered list
+        /^(.+?)(?=\n|$)/gm                  // Fallback: any non-empty line
+      ];
+
+      let themes = [];
+      for (const bulletPattern of bulletPatterns) {
+        const matches = Array.from(themesText.matchAll(bulletPattern));
+        if (matches.length > 0) {
+          themes = matches.map(m => m[1].trim()).filter(line => line.length > 0);
+          break;
+        }
+      }
+
+      // If still no themes, split by newlines and clean up
+      if (themes.length === 0) {
+        themes = themesText
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0 && !line.match(/^[\*\-•\d]/));
+      }
+
+      extractedContent.themes = themes;
+      break;
+    }
   }
 
-  console.log("Extracted Content:", extractedContent);
+  // Extract explanation
+  for (const pattern of explanationPatterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      extractedContent.explanation = match[1].trim();
+      break;
+    }
+  }
+
+  // Fallback extraction if sections weren't found but are present in the text
+  if (!extractedContent.elevatorPitch) {
+    // Look for content after "elevator pitch" mention
+    const fallbackMatch = text.match(/elevator pitch:?\s*([^]*?)(?=\n\s*(?:\d+\.|improvement|themes|brief|resume grade)|$)/i);
+    if (fallbackMatch) {
+      extractedContent.elevatorPitch = fallbackMatch[1].trim();
+    }
+  }
+
+  if (extractedContent.themes.length === 0) {
+    // Look for content after "improvement themes" mention
+    const fallbackMatch = text.match(/improvement themes:?\s*([^]*?)(?=\n\s*(?:\d+\.|brief|resume grade|explanation)|$)/i);
+    if (fallbackMatch) {
+      const themesText = fallbackMatch[1];
+      const matches = themesText.match(/(?:^|\n)\s*[\*\-•\d]+\.?\s*(.+?)(?=\n|$)/g);
+      if (matches) {
+        extractedContent.themes = matches.map(m => m.replace(/^[\s\*\-•\d.]+/, '').trim());
+      }
+    }
+  }
+
+  if (!extractedContent.explanation) {
+    // Look for content after "explanation" or "grade" mention
+    const fallbackMatch = text.match(/(?:explanation|grade explanation|resume grade):?\s*([^]*?)$/i);
+    if (fallbackMatch) {
+      extractedContent.explanation = fallbackMatch[1].trim();
+    }
+  }
+
+  // Clean up extracted content
+  extractedContent.elevatorPitch = extractedContent.elevatorPitch.replace(/^As a /, '');
+  extractedContent.themes = extractedContent.themes.map(theme => 
+    theme.replace(/^[\*\-•\d]+\.?\s*/, '').trim()
+  ).filter(theme => theme.length > 0);
+
   return extractedContent;
 }
-
 
 // Call the GROQ API with timeout
 const controller = new AbortController();
