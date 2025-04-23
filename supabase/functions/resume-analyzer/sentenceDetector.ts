@@ -151,7 +151,7 @@ export function extractSentencesFromResponse(content) {
   // Try multiple extraction methods, from most structured to least
   // Method 4: Extract quoted strings individually
     if (sentences.length === 0) {
-    console.log('extractSentencesFromResponse: Trying Method 1 - Individual string extraction');
+    console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
     const items = [];
     const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
     let match;
@@ -231,7 +231,7 @@ export function extractSentencesFromResponse(content) {
     }
   }
   // Method 4: Extract quoted strings individually
-  // if (sentences.length === 0) {
+  if (sentences.length === 0) {
   //   console.log('extractSentencesFromResponse: Trying Method 4 - Individual string extraction');
   //   const items = [];
   //   const pattern = /"([^"\\]*(?:\\.[^"\\]*)*)"/g;
