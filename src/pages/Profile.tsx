@@ -32,7 +32,9 @@ const Profile = () => {
 
   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
   const [quizAnswers, setQuizAnswers] = useState<Record<number, number | string>>({});
+  // 2. Add this state for structured report data
   const [structuredReport, setStructuredReport] = useState<CareerReportData | null>(null);
+  
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -355,10 +357,29 @@ Please combine these data points with the user’s quiz answers to generate a pe
                 <CardDescription>Your career path assessment and recommendations</CardDescription>
               </CardHeader>
               <CardContent>
+                {/* QuizResultsSection does not take quizAnswers or setQuizAnswers */}
                 <QuizResultsSection />
               </CardContent>
             </Card>
 
+            {/* CareerPathwaySection separate and only passed quizAnswers prop */}
+            {/* <CareerPathwaySection quizAnswers={quizAnswers} />
+
+            {careerAdviceReport && (
+              <Card id="career-advice-report">
+                <CardHeader>
+                  <CardTitle>Personalized Career Advice</CardTitle>
+                  <CardDescription>
+                    Based on your quiz answers, here is your career advice report.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</div>
+                </CardContent>
+              </Card>
+            )} */}
+
+            {/* Interactive Career Report Section */}
             {structuredReport ? (
               <InteractiveCareerReportSection reportData={structuredReport} />
             ) : careerAdviceReport ? (
@@ -374,7 +395,7 @@ Please combine these data points with the user’s quiz answers to generate a pe
                 </CardContent>
               </Card>
             ) : (
-              <CareerPathwaySection />
+              <CareerPathwaySection quizAnswers={quizAnswers} />
             )}
             
             <Card id="security">

@@ -15,148 +15,73 @@ export const useAuthProvider = () => {
   const location = useLocation();
   const { toast } = useToast();
 
-  // const redirectInProgressRef = useRef(false);
-  // const awaitingRedirectRef = useRef(false);
+  const redirectInProgressRef = useRef(false);
+  const awaitingRedirectRef = useRef(false);
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
-  const isAuthenticated = !!session; //enrichedUser;
+  const isAuthenticated = !!enrichedUser;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
   const storeRedirectPath = useCallback((path: string) => {
     // Fix: Remove reference to undefined 'alreadyStored' variable
+    const storedPath = localStorage.getItem('redirectAfterLogin');
+    
     if (path && !['/login', '/register', '/'].includes(path)) {
       localStorage.setItem('redirectAfterLogin', path);
-    console.log('[storeRedirectPath] Stored redirect path:', path);
-    // const storedPath = localStorage.getItem('redirectAfterLogin');
-    
-    // if (path && !['/login', '/register', '/'].includes(path)) {
-    //   localStorage.setItem('redirectAfterLogin', path);
-    //   console.log('[storeRedirectPath] Stored redirect path:', path);
-    // } else {
-    //   console.log('[storeRedirectPath] Skipped storing path:', { path, storedPath });
+      console.log('[storeRedirectPath] Stored redirect path:', path);
+    } else {
+      console.log('[storeRedirectPath] Skipped storing path:', { path, storedPath });
     }
   }, []);
 
-  // const handleRedirectAfterLogin = useCallback(() => {
-  //   if (redirectInProgressRef.current) {
-  //     console.log('[handleRedirectAfterLogin] Skipped: redirect already in progress');
-  //     return;
-  //   }
+  const handleRedirectAfterLogin = useCallback(() => {
+    if (redirectInProgressRef.current) {
+      console.log('[handleRedirectAfterLogin] Skipped: redirect already in progress');
+      return;
+    }
 
-  //   redirectInProgressRef.current = true;
-  //   console.log('[handleRedirectAfterLogin] Triggered');
+    redirectInProgressRef.current = true;
+    console.log('[handleRedirectAfterLogin] Triggered');
 
-  //   try {
-  //      const redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
-  //     // Clear the stored path immediately
-  //     localStorage.removeItem('redirectAfterLogin');
-  //     // Simple admin redirect protection
-  //     if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-  //       toast({
-  //         title: 'Access Denied',
-  //         description: 'You do not have permission to access the admin area.',
-  //         variant: 'destructive',
-  //       });
-  //       navigate('/dashboard', { replace: true });
-  //     } else {
-  //       navigate(redirectTo, { replace: true });
-  //     }
-  //   } finally {
-  //     // Reset the flag after a short delay
-  //     setTimeout(() => {
-  //       redirectInProgressRef.current = false;
-  //     }, 100);
-  //   }
-  // }, [navigate, enrichedUser, toast]);
-    const handleRedirectAfterLogin = useCallback(() => {
-    const storedRedirect = localStorage.getItem('redirectAfterLogin');
-    const defaultRedirect = '/dashboard';
-    const redirectTo = storedRedirect || defaultRedirect;
+    try {
+      const redirectParam = new URLSearchParams(location.search).get('redirect');
+      const fromPath = location.state?.from?.pathname;
+      const storedRedirect = localStorage.getItem('redirectAfterLogin');
 
-    console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
-    
-    // Clear the stored path immediately
-    localStorage.removeItem('redirectAfterLogin');
-    
-    // Simple redirect
-    navigate(redirectTo, { replace: true });
-  }, [navigate]);
+      let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
 
-  useEffect(() => {
-    let mounted = true;
+      console.log('[handleRedirectAfterLogin] Decision tree:', {
+        storedRedirect,
+        redirectParam,
+        fromPath,
+        fallback: '/dashboard',
+        redirectTo,
+        currentPath: location.pathname,
+        enrichedUser,
+      });
 
-    const { data } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-      if (!mounted) return;
-
-      console.log('[onAuthStateChange] Event:', event, 'Session:', newSession);
-
-      if (event === 'SIGNED_IN' && newSession) {
-        setSession(newSession);
-        toast({ title: 'Success', description: 'Logged in successfully' });
-      } else if (event === 'SIGNED_OUT') {
-        setSession(null);
-        localStorage.removeItem('redirectAfterLogin');
-      } else if (event === 'INITIAL_SESSION' && newSession) {
-        setSession(newSession);
+      if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
+        console.warn('[handleRedirectAfterLogin] User blocked from admin route:', redirectTo);
+        toast({
+          title: 'Access Denied',
+          description: 'You do not have permission to access the admin area.',
+          variant: 'destructive',
+        });
+        redirectTo = '/dashboard';
       }
-    });
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (!mounted) return;
+      localStorage.removeItem('redirectAfterLogin');
+      console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
 
-      console.log('[init] Supabase session:', session, 'Error:', error);
-      
-      if (session) {
-        setSession(session);
-      }
-      setLoading(false);
-    });
-
-    return () => {
-      mounted = false;
-      data.subscription?.unsubscribe();
-    };
-  }, [toast]);    
-      
-  //     const redirectParam = new URLSearchParams(location.search).get('redirect');
-  //     const fromPath = location.state?.from?.pathname;
-  //     const storedRedirect = localStorage.getItem('redirectAfterLogin');
-
-  //     let redirectTo = storedRedirect || redirectParam || fromPath || '/dashboard';
-
-  //     console.log('[handleRedirectAfterLogin] Decision tree:', {
-  //       storedRedirect,
-  //       redirectParam,
-  //       fromPath,
-  //       fallback: '/dashboard',
-  //       redirectTo,
-  //       currentPath: location.pathname,
-  //       enrichedUser,
-  //     });
-
-  //     if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-  //       console.warn('[handleRedirectAfterLogin] User blocked from admin route:', redirectTo);
-  //       toast({
-  //         title: 'Access Denied',
-  //         description: 'You do not have permission to access the admin area.',
-  //         variant: 'destructive',
-  //       });
-  //       redirectTo = '/dashboard';
-  //     }
-
-  //     localStorage.removeItem('redirectAfterLogin');
-  //     console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
-
-  //     navigate(redirectTo, { replace: true });
-  //   } finally {
-  //     setTimeout(() => {
-  //       redirectInProgressRef.current = false;
-  //       console.log('[handleRedirectAfterLogin] Redirect complete, reset flag');
-  //     }, 100);
-  //   }
-  // }, [navigate, location, enrichedUser, toast]);
+      navigate(redirectTo, { replace: true });
+    } finally {
+      setTimeout(() => {
+        redirectInProgressRef.current = false;
+        console.log('[handleRedirectAfterLogin] Redirect complete, reset flag');
+      }, 100);
+    }
+  }, [navigate, location, enrichedUser, toast]);
 
   useEffect(() => {
     let isMounted = true;
@@ -168,7 +93,7 @@ export const useAuthProvider = () => {
 
       if (event === 'SIGNED_IN') {
         setSession(newSession);
-        // awaitingRedirectRef.current = true;
+        awaitingRedirectRef.current = true;
         toast({ title: 'Success', description: 'Logged in successfully' });
       } else if (event === 'SIGNED_OUT') {
         setSession(null);
@@ -200,10 +125,10 @@ export const useAuthProvider = () => {
   }, [toast]);
 
   useEffect(() => {
-    if (isAuthenticated && !loading) { //awaitingRedirectRef.current && 
+    if (awaitingRedirectRef.current && isAuthenticated && !loading) {
       console.log('[useEffect] Awaiting redirect now triggering...');
       handleRedirectAfterLogin();
-      // awaitingRedirectRef.current = false;
+      awaitingRedirectRef.current = false;
     }
   }, [isAuthenticated, loading, handleRedirectAfterLogin]);
 

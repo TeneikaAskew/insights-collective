@@ -33,10 +33,7 @@ export default function PageVisibilityGuard({ children }) {
       </div>
     </div>
   );
-}
-
-
-// import React, { useEffect, useState } from 'react';
+}// import React, { useEffect, useState } from 'react';
 // import { useLocation } from 'react-router-dom';
 // import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 // import { useAuth } from '@/contexts/AuthContext'; // <-- ADD THIS

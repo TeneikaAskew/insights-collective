@@ -17,8 +17,10 @@ interface Message {
 }
 
 const CareerAgent: React.FC = () => {
+  // Authentication hook
   const { user, isAuthenticated } = useAuth();
 
+  // State
   const [sessionId, setSessionId] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -28,6 +30,7 @@ const CareerAgent: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const reportRef = useRef<HTMLDivElement>(null);
 
+  // Initialize or retrieve session ID
   useEffect(() => {
     let sid = localStorage.getItem(LOCAL_STORAGE_KEY);
     if (!sid) {
@@ -36,6 +39,7 @@ const CareerAgent: React.FC = () => {
     }
     setSessionId(sid);
 
+    // Start with welcome messages
     const initMessages = starterMessages.map((text, idx) => ({
       id: `bot_init_${idx}`,
       sender: 'bot' as const,
@@ -44,16 +48,19 @@ const CareerAgent: React.FC = () => {
     setMessages(initMessages);
   }, []);
 
+  // Guard: require authentication
   if (!isAuthenticated) {
     return <div className="p-6">Please log in to access your career agent.</div>;
   }
 
+  // Scroll to report when ready
   useEffect(() => {
     if (careerAdviceReport && reportRef.current) {
       setTimeout(() => reportRef.current?.scrollIntoView({ behavior: 'smooth' }), 500);
     }
   }, [careerAdviceReport]);
 
+  // Save answer to database
   const saveAnswerToDatabase = async (questionId: number, answer: string) => {
     if (user && sessionId) {
       try {
@@ -63,13 +70,13 @@ const CareerAgent: React.FC = () => {
           question: pathwayQuestions.find(q => q.id === questionId)?.label || String(questionId),
           answer,
         });
-        console.log(`[saveAnswerToDatabase] Saved answer for question ${questionId}:`, answer);
       } catch (err) {
         console.error('Error saving answer:', err);
       }
     }
   };
 
+  // Helpers for report formatting
   const extractSection = (text: string, start: string, ends: string[]): string => {
     const i = text.indexOf(start);
     if (i === -1) return '';
@@ -135,6 +142,7 @@ ${sections.remote ? `<section><h2>Remote</h2>${formatNumberedList(sections.remot
 
   const handleReportError = (msg: string) => setMessages(prev => [...prev,{ id:`bot_error_${Date.now()}`, sender:'bot', text:`Error: ${msg}`}]);
 
+  // Generate career report
   const generateCareerAdviceReport = async (txt?: string) => {
     setMessages(prev=>[...prev,{ id:`bot_${Date.now()}`, sender:'bot', text:'Generating report…'}]);
     if (!user) return;
@@ -149,21 +157,14 @@ ${sections.remote ? `<section><h2>Remote</h2>${formatNumberedList(sections.remot
     } catch(e) { handleReportError(e instanceof Error?e.message:'Failed to get career advice'); }
   };
 
+  // Chat input handling
   const handleUserMessage = async (text:string) => {
     setMessages(prev=>[...prev,{id:`user_${Date.now()}`,sender:'user',text}]);
     const q = pathwayQuestions[currentQuestionIndex];
-    if (!q) return;
     setAnswers(prev=>({...prev,[q.id]:text}));
-
-    const questionIdNum = Number(q.id);
-
-    await saveAnswerToDatabase(questionIdNum, text);
-
-    if (currentQuestionIndex < pathwayQuestions.length - 1) {
-      setCurrentQuestionIndex(i => i + 1);
-    } else {
-      generateCareerAdviceReport(resumeText);
-    }
+    await saveAnswerToDatabase(q.id,text);
+    if (currentQuestionIndex < pathwayQuestions.length-1) setCurrentQuestionIndex(i=>i+1);
+    else generateCareerAdviceReport(resumeText);
   };
 
   const handleFileUpload = (file:File) => {

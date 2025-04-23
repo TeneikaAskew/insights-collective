@@ -58,6 +58,7 @@ interface CareerReportData {
   keyTakeaways: string[];
 }
 
+// This would come from your API or props in real implementation
 const sampleReportData: CareerReportData = {
   userName: "Joshua B. Brown",
   summary: "Based on your quiz answers and resume, we have generated a comprehensive report to guide your career growth in the data field. Your experience in program management, data-driven marketing, and logistics has equipped you with a unique set of skills that can be leveraged to excel in various roles.",
@@ -139,7 +140,7 @@ interface InteractiveCareerReportSectionProps {
 }
 
 const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionProps> = ({ 
-  reportData = sampleReportData 
+  reportData = sampleReportData // Use sample data as fallback
 }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
@@ -150,15 +151,11 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
   };
 
   const startCareerChat = () => {
-    initiateCareerCoachChat({
-      "AI/ML": 0,
-      Analytics: 0,
-      "Data Engineering": 0,
-      "Business Intelligence": 0,
-    } as Record<CareerTrack, number>, {});
+    initiateCareerCoachChat({}, {});
   };
 
   const handleExploreRole = (roleTitle: string) => {
+    // Convert role title to URL-friendly format and navigate
     const roleSlug = roleTitle.toLowerCase().replace(/\s+/g, '-');
     navigate(`/explore-data-careers?role=${roleSlug}`);
   };

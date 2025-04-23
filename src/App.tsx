@@ -9,8 +9,7 @@ import { PageVisibilityProvider } from "./contexts/PageVisibilityContext";
 import { ToastProvider } from "@/hooks/use-toast";
 import React from "react";
 
-import ProtectedRoute from "./components/auth/ProtectedRoute";
-
+// Import page components
 import Index from "./pages/Index";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
@@ -32,8 +31,8 @@ import AssistantInterface from "./pages/AssistantInterface";
 import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
-import CareerAgent from "./pages/CareerAgent";
 
+// Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminActivity from "./pages/AdminActivity";
 import AdminCourses from "./pages/AdminCourses";
@@ -45,22 +44,33 @@ import AdminEvents from "./pages/AdminEvents";
 import AdminBlogPosts from "./pages/AdminBlogPosts";
 import CreateBlogPost from "./pages/CreateBlogPost";
 import AdminPageVisibility from "./pages/AdminPageVisibility";
-import AdminCourseEdit from "./pages/AdminCourseEdit";
 
+// Import guards and layout components
 import PageVisibilityGuard from "./components/PageVisibilityGuard";
+import AdminGuard from "./components/admin/AdminGuard";
 
+// Import course management components
 import CourseManagementDashboard from '@/components/course/management/CourseManagementDashboard';
 import CourseEditor from '@/components/course/management/CourseEditor';
 import CourseManageMaterials from './pages/CourseManageMaterials';
 
+// Import the new AdminCourseEdit component
+import AdminCourseEdit from "./pages/AdminCourseEdit";
+import CareerAgent from "./pages/CareerAgent";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
+
 function App() {
   return (
     <React.StrictMode>
-      <QueryClientProvider client={new QueryClient({
-        defaultOptions: {
-          queries: { retry: 1, refetchOnWindowFocus: false }
-        }
-      })}>
+      <QueryClientProvider client={queryClient}>
         <ToastProvider>
           <TooltipProvider>
             <Toaster />
@@ -69,61 +79,68 @@ function App() {
               <AuthProvider>
                 <PageVisibilityProvider>
                   <Routes>
-
-                    {/* Public routes */}
                     <Route path="/" element={<PageVisibilityGuard><Index /></PageVisibilityGuard>} />
+                    <Route path="/dashboard" element={<PageVisibilityGuard><Dashboard /></PageVisibilityGuard>} />
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
+                    <Route path="/courses" element={<PageVisibilityGuard><CourseList /></PageVisibilityGuard>} />
+                    <Route path="/courses/:courseId" element={<PageVisibilityGuard><CourseDetail /></PageVisibilityGuard>} />
+                    <Route path="/courses/:courseId/modules/:moduleId" element={<PageVisibilityGuard><ModuleDetail /></PageVisibilityGuard>} />
+                    <Route path="/resources" element={<PageVisibilityGuard><Resources /></PageVisibilityGuard>} />
+                    
+                    <Route path="/data-blueprint" element={<PageVisibilityGuard><DataBlueprintSeries /></PageVisibilityGuard>} />
+                    
                     <Route path="/blog" element={<PageVisibilityGuard><BlogList /></PageVisibilityGuard>} />
                     <Route path="/blog/:slug" element={<PageVisibilityGuard><BlogPost /></PageVisibilityGuard>} />
-                    <Route path="/career-agent" element={<CareerAgent />} />
+                    
+                    <Route path="/events" element={<PageVisibilityGuard><Events /></PageVisibilityGuard>} />
+                    <Route path="/notifications" element={<PageVisibilityGuard><Notifications /></PageVisibilityGuard>} />
                     <Route path="/explore-data-careers" element={<PageVisibilityGuard><ExploreDataCareers /></PageVisibilityGuard>} />
-
-                    {/* Redirects */}
+                    <Route path="/profile" element={<PageVisibilityGuard><Profile /></PageVisibilityGuard>} />
+                    <Route path="/calendar" element={<PageVisibilityGuard><Calendar /></PageVisibilityGuard>} />
+                    <Route path="/assistants" element={<PageVisibilityGuard><Assistants /></PageVisibilityGuard>} />
+                    <Route path="/assistant/:assistantId?" element={<PageVisibilityGuard><AssistantInterface /></PageVisibilityGuard>} />
+                    <Route path="/messages" element={<PageVisibilityGuard><Messages /></PageVisibilityGuard>} />
+                    <Route path="/messages/:conversationId?" element={<PageVisibilityGuard><Messages /></PageVisibilityGuard>} />
+                    <Route path="/resume" element={<PageVisibilityGuard><Resume /></PageVisibilityGuard>} />
+                    
                     <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
                     <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
+                    
+                    <Route path="/admin" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+                    <Route path="/admin/activity" element={<AdminGuard><AdminActivity /></AdminGuard>} />
+                    <Route path="/admin/courses" element={
+                      <AdminGuard>
+                        <CourseManagementDashboard />
+                      </AdminGuard>
+                    } />
+                    <Route path="/admin/courses/:courseId/edit" element={<AdminCourseEdit />} />
+                    <Route path="/admin/courses/new" element={<AdminCourseEdit />} />
+                    <Route path="/admin/users" element={<AdminGuard><AdminUsers /></AdminGuard>} />
+                    <Route path="/admin/enrollments" element={<AdminGuard><AdminEnrollments /></AdminGuard>} />
+                    <Route path="/admin/certificates" element={<AdminGuard><AdminCertificates /></AdminGuard>} />
+                    <Route path="/admin/resources" element={<AdminGuard><AdminResources /></AdminGuard>} />
+                    <Route path="/admin/events" element={<AdminGuard><AdminEvents /></AdminGuard>} />
+                    <Route path="/admin/settings" element={<AdminGuard><AdminDashboard /></AdminGuard>} />
+                    <Route path="/admin/blog" element={<AdminGuard><AdminBlogPosts /></AdminGuard>} />
+                    <Route path="/admin/blog/create" element={<AdminGuard><CreateBlogPost /></AdminGuard>} />
+                    <Route path="/admin/page-visibility" element={<AdminGuard><AdminPageVisibility /></AdminGuard>} />
+                    
+                    <Route path="/courses/:courseId/materials" element={
+                      <PageVisibilityGuard>
+                        <CourseManageMaterials />
+                      </PageVisibilityGuard>
+                    } />
 
-                    {/* Protected routes - require auth */}
-                    <Route element={<ProtectedRoute />}>
-                      <Route path="/dashboard" element={<Dashboard />} />
-                      <Route path="/courses" element={<CourseList />} />
-                      <Route path="/courses/:courseId" element={<CourseDetail />} />
-                      <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
-                      <Route path="/resources" element={<Resources />} />
-                      <Route path="/career-agent" element={<CareerAgent />} />
-                      <Route path="/data-blueprint" element={<DataBlueprintSeries />} />
-                      <Route path="/events" element={<Events />} />
-                      <Route path="/notifications" element={<Notifications />} />
-                      <Route path="/profile" element={<Profile />} />
-                      <Route path="/calendar" element={<Calendar />} />
-                      <Route path="/assistants" element={<Assistants />} />
-                      <Route path="/assistant/:assistantId?" element={<AssistantInterface />} />
-                      <Route path="/messages" element={<Messages />} />
-                      <Route path="/messages/:conversationId?" element={<Messages />} />
-                      <Route path="/resume" element={<Resume />} />
-                      <Route path="/courses/:courseId/materials" element={<CourseManageMaterials />} />
-                    </Route>
+                    {/* Add Route for Career Agent - public access */}
+                    <Route path="/career-agent" element={<CareerAgent />} />
 
-                    {/* Admin routes - require admin */}
-                    <Route element={<ProtectedRoute requireAdmin={true} />}>
-                      <Route path="/admin" element={<AdminDashboard />} />
-                      <Route path="/admin/activity" element={<AdminActivity />} />
-                      <Route path="/admin/courses" element={<CourseManagementDashboard />} />
-                      <Route path="/admin/courses/:courseId/edit" element={<AdminCourseEdit />} />
-                      <Route path="/admin/courses/new" element={<AdminCourseEdit />} />
-                      <Route path="/admin/users" element={<AdminUsers />} />
-                      <Route path="/admin/enrollments" element={<AdminEnrollments />} />
-                      <Route path="/admin/certificates" element={<AdminCertificates />} />
-                      <Route path="/admin/resources" element={<AdminResources />} />
-                      <Route path="/admin/events" element={<AdminEvents />} />
-                      <Route path="/admin/settings" element={<AdminDashboard />} />
-                      <Route path="/admin/blog" element={<AdminBlogPosts />} />
-                      <Route path="/admin/blog/create" element={<CreateBlogPost />} />
-                      <Route path="/admin/page-visibility" element={<AdminPageVisibility />} />
-                    </Route>
+                    {/* Removed Role Explorer route */}
+                    {/* <Route path="/role-explorer" element={<RoleExplorer />} /> */}
 
                     <Route path="*" element={<NotFound />} />
                   </Routes>
+                  {/* Temporarily removed ChatBot to fix console errors */}
                 </PageVisibilityProvider>
               </AuthProvider>
             </BrowserRouter>
@@ -135,3 +152,4 @@ function App() {
 }
 
 export default App;
+
