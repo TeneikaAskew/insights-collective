@@ -31,6 +31,7 @@ import AssistantInterface from "./pages/AssistantInterface";
 import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
+import local
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -49,6 +50,8 @@ import AdminPageVisibility from "./pages/AdminPageVisibility";
 // Remove old guards imports; use new ProtectedRoute instead
 // import PageVisibilityGuard from "./components/PageVisibilityGuard";
 // import AdminGuard from "./components/admin/AdminGuard";
+
+import LocalStorageDebug from "./components/LocalStorageDebug";
 
 import ProtectedRoute from "./components/ProtectedRoute";
 
