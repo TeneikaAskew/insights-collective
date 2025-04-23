@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,8 +10,6 @@ import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
-
-// import {redirectInProgressRef} from '/src/hooks/useAuth.ts';
 
 const Login = () => {
   const {
@@ -25,7 +24,6 @@ const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const redirectInProgressRef = useRef(false);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,7 +41,7 @@ const Login = () => {
   }, []);
 
   useEffect(() => {
-    if (isAuthenticated && !redirectInProgressRef.current) {
+    if (isAuthenticated) {
       console.log('[Login] isAuthenticated true. Calling handleRedirectAfterLogin...');
       handleRedirectAfterLogin();
     } else {
@@ -99,16 +97,12 @@ const Login = () => {
   if (isAuthenticated) {
     console.log('[Login] Already authenticated - showing "Redirecting..." screen');
     return (
-      // <div className="flex justify-center items-center h-screen">
-      //   Redirecting...
-      // </div>
-
-       <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
-      <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-        <p>Redirecting you...</p>
+      <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Redirecting you...</p>
+        </div>
       </div>
-    </div>
     );
   }
 
