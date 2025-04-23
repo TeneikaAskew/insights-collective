@@ -564,7 +564,7 @@ function formatResponse(raw) {
     /1\.\s*Professional Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/i,
     /Professional Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
     /^Elevator Pitch:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/im
-//   ]];
+  ];
 
   for (const pattern of elevatorPitchPatterns) {
     const match = text.match(pattern);
