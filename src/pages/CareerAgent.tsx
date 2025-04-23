@@ -770,7 +770,148 @@ const CareerAgent: React.FC = () => {
               >
                 <img
                   src={coachAvatarUrl}
-                  
+                  alt="Career Coach Avatar"
+                  className="w-full h-full rounded-full object-cover"
+                  draggable={false}
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    if (target.parentElement) {
+                      target.parentElement.textContent = "CC";
+                    }
+                  }}
+                />
+              </div>
+              <div className="italic text-gray-500 select-none">Coach is typing...</div>
+            </div>
+          )}
+        </div>
+
+        {/* First question quick replies */}
+        {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === 0 && (
+          <div className="flex flex-col space-y-3 mb-4">
+            {quickReplies.map((reply, idx) => (
+              <button
+                key={idx}
+                onClick={() => handleQuickReply(reply)}
+                className="rounded-full px-6 py-3 border border-gray-300 text-gray-900 text-left hover:bg-amber-100 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-300 max-w-full sm:max-w-md mx-auto"
+                type="button"
+              >
+                {reply}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Resume options at the end of assessment */}
+        {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === pathwayQuestions.length && (
+          <div className="flex flex-col space-y-2 mt-4">
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left"
+              type="button"
+              onClick={() => handleResumeUseConfirm(true)}
+            >
+              Use existing resume
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start text-left"
+              type="button"
+              onClick={() => handleResumeUseConfirm(false)}
+            >
+              Upload new resume
+            </Button>
+          </div>
+        )}
+
+        {/* Resume upload form when a new resume is needed */}
+        {currentQuestionIndex === pathwayQuestions.length && 
+         ((!resume) || (resumeUseConfirmed === false)) && (
+          <div className="flex flex-col space-y-4 mt-4">
+            <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
+            <input
+              type="file"
+              accept=".pdf,.docx"
+              onChange={handleFileChange}
+              disabled={isTyping || resumeUploading}
+              className="block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-900 hover:file:bg-amber-200 cursor-pointer"
+            />
+            <Button
+              onClick={() => void handleSubmit()}
+              disabled={isTyping || resumeUploading || !resumeFile}
+              variant="default"
+            >
+              {resumeUploading ? "Uploading..." : "Upload Resume"}
+            </Button>
+          </div>
+        )}
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleSubmit();
+          }}
+          className="flex items-center space-x-3 border-t border-gray-200 pt-3"
+        >
+          <input
+            className="flex-grow rounded-full border border-gray-300 px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+            type="text"
+            placeholder="Type your response…"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleInputKeyDown}
+            disabled={isTyping || resumeUploading || (currentQuestionIndex === pathwayQuestions.length && showQuickReplies)}
+            autoComplete="off"
+            aria-label="Chat input"
+          />
+          <Button
+            type="submit"
+            disabled={
+              isTyping ||
+              resumeUploading ||
+              !inputValue.trim() ||
+              (currentQuestionIndex === pathwayQuestions.length && showQuickReplies)
+            }
+            variant="default"
+            size="default"
+          >
+            Send
+          </Button>
+        </form>
+
+        {careerAdviceReport && (
+          <>
+            <style jsx>{`
+              @keyframes slideInUp {
+                from {
+                  transform: translateY(20px);
+                  opacity: 0;
+                }
+                to {
+                  transform: translateY(0);
+                  opacity: 1;
+                }
+              }
+              
+              .career-advice-report {
+                animation: slideInUp 0.5s ease-out forwards;
+              }
+            `}</style>
+            <div 
+              ref={reportRef}
+              className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-amber-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
+              dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+            />
+          </>
+        )}
+      </div>
+    </AppLayout>
+  );
+};
+
+export default CareerAgent;
+
 // import React, { useState, useEffect, useRef } from 'react';
 // import { useAuth } from '@/contexts/AuthContext';
 // import { Button } from '@/components/ui/button';
