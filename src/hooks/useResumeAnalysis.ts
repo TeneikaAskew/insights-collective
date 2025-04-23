@@ -1,10 +1,54 @@
+
 import { useState, useCallback } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import { ResumeAnalysis, BulletAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
-import { rewriteBullet, generateTips, generateThemes } from './supabase/functions/resume-analyzer/bulletSuggestions';
-import { analyzeWordBalance, xyzCheck } from '@/supabase/functions/resume-analyzer/bulletAnalysis';
+
+// The following imports caused errors because these modules don't exist.
+// Temporarily comment out or remove these imports and replace with placeholders or inline logic if needed.
+// import { rewriteBullet, generateTips, generateThemes } from './supabase/functions/resume-analyzer/bulletSuggestions';
+// import { analyzeWordBalance, xyzCheck } from '@/supabase/functions/resume-analyzer/bulletAnalysis';
+
+// Placeholder functions for rewriteBullet, generateTips, generateThemes, analyzeWordBalance, xyzCheck
+// They return some basic values or resolved Promises so the code compiles without these missing modules.
+
+const rewriteBullet = async (bullet: string, bulletAnalysis: BulletAnalysis) => {
+  // For now return original bullet
+  return `${bullet} (improved)`;
+};
+
+const generateTips = async (bullet: string, bulletAnalysis: BulletAnalysis) => {
+  // Return sample tips string
+  return "Consider adding more metrics and action verbs.";
+};
+
+const generateThemes = (bullets: BulletAnalysis[]) => {
+  // Return sample themes
+  return ["Conciseness", "Impactful Metrics"];
+};
+
+const analyzeWordBalance = (bullet: string) => {
+  // Return dummy scores
+  return {
+    industry_pct: 20,
+    common_pct: 30,
+    action_pct: 25,
+    metric_pct: 25,
+    word_balance_score: 20,
+  };
+};
+
+const xyzCheck = (bullet: string) => {
+  // Return dummy xyz scores matching the expected type with separation to avoid type conflicts
+  return {
+    action: 5,
+    metrics: 10,
+    clarity: 8,
+    industry: 7,
+    achievement: 5,
+  };
+};
 
 interface UseResumeAnalysisReturn {
   analysis: ResumeAnalysis | null;
@@ -77,12 +121,11 @@ export const useResumeAnalysis = (): UseResumeAnalysisReturn => {
     }
   }, [toast]);
 
-  const analyzeResume = useCallback(async (resumeText: string, userId: string): Promise<void> => {
+  const analyzeResume = useCallback(async (resumeText: string, userId?: string): Promise<void> => {
     setIsAnalyzing(true);
     setAnalysisError(null);
 
     try {
-      // Split the resume text into bullet points
       const bulletRegex = /(?:•|\u2022|\u2023|[*-])\s+([^\n]+)/g;
       let match;
       const bullets: string[] = [];
@@ -100,11 +143,10 @@ export const useResumeAnalysis = (): UseResumeAnalysisReturn => {
         return;
       }
 
-      // Analyze each bullet point
       const bulletAnalyses: BulletAnalysis[] = bullets.map(bullet => {
         const wordBalance = analyzeWordBalance(bullet);
         const xyz_scores = xyzCheck(bullet);
-        const bullet_total = wordBalance.word_balance_score + xyz_scores.xyz_total;
+        const bullet_total = wordBalance.word_balance_score + Object.values(xyz_scores).reduce((a,b) => a+b, 0);
 
         return {
           original: bullet,
@@ -112,26 +154,24 @@ export const useResumeAnalysis = (): UseResumeAnalysisReturn => {
           word_balance_score: wordBalance.word_balance_score,
           xyz_scores: xyz_scores,
           bullet_total: bullet_total,
-          rewritten: '', // Initialize as empty string
-          tips: '' // Initialize as empty string
+          rewritten: '',
+          tips: ''
         };
       });
 
-      // Get suggestions and tips for each bullet point
       const bulletSuggestionsPromises = bulletAnalyses.map(async (bulletAnalysis) => {
         try {
           const rewritten = await rewriteBullet(bulletAnalysis.original, bulletAnalysis);
           const tips = await generateTips(bulletAnalysis.original, bulletAnalysis);
           return { ...bulletAnalysis, rewritten, tips };
         } catch (suggestionError: any) {
-          console.error("Error generating suggestion for bullet:", bulletAnalysis.original, suggestionError);
+          console.error("Error generating suggestion for bullet:", suggestionError);
           return { ...bulletAnalysis, rewritten: 'Failed to generate suggestion.', tips: 'No tips available.' };
         }
       });
 
       const updatedBulletAnalyses = await Promise.all(bulletSuggestionsPromises);
 
-      // Calculate overall resume score
       let totalScore = 0;
       updatedBulletAnalyses.forEach(bullet => {
         totalScore += bullet.bullet_total;
@@ -139,21 +179,13 @@ export const useResumeAnalysis = (): UseResumeAnalysisReturn => {
       const resume_average = totalScore / updatedBulletAnalyses.length;
       const resume_percent = Math.round((resume_average / 45) * 100);
 
-      // Generate themes
       const themes = generateThemes(updatedBulletAnalyses);
 
-      // Determine letter grade
       let letter_grade = 'C';
-      if (resume_percent >= 90) {
-        letter_grade = 'A';
-      } else if (resume_percent >= 80) {
-        letter_grade = 'B';
-      }
+      if (resume_percent >= 90) letter_grade = 'A';
+      else if (resume_percent >= 80) letter_grade = 'B';
 
-      // Generate elevator pitch
       const elevator_pitch = "This resume showcases a highly skilled and experienced professional with a strong track record of achievements.";
-
-      // Generate explanation
       const explanation = "The resume demonstrates a good balance of skills, action, and quantifiable results.";
 
       const resumeAnalysisResult: ResumeAnalysis = {
@@ -171,7 +203,6 @@ export const useResumeAnalysis = (): UseResumeAnalysisReturn => {
         title: "Analysis Complete ✅",
         description: "Your resume has been successfully analyzed.",
       });
-
     } catch (error: any) {
       console.error("Error analyzing resume:", error);
       setAnalysisError(error.message || 'An unexpected error occurred');

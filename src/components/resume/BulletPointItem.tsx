@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { Badge } from '@/components/ui/badge';
@@ -23,16 +22,23 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   const [editedText, setEditedText] = useState(bullet?.rewritten || "");
   const [editedBullet, setEditedBullet] = useState<BulletAnalysis | null>(null);
 
-  // Destructure bullet ensuring xyz_scores shape consistent with types
   const {
     original = "",
     word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
     word_balance_score = 0,
-    xyz_scores = { action: 0, metrics: 0, clarity: 0, industry: 0, achievement: 0 },
+    xyz_scores,
     bullet_total = 0,
     rewritten = "",
     tips = ""
   } = bullet || {};
+
+  const normalizedXyzScores = {
+    action: (xyz_scores as any)?.action ?? (xyz_scores as any)?.action_words ?? 0,
+    metrics: (xyz_scores as any)?.metrics ?? (xyz_scores as any)?.measurable_results ?? 0,
+    clarity: (xyz_scores as any)?.clarity ?? (xyz_scores as any)?.clarity_focus ?? 0,
+    industry: (xyz_scores as any)?.industry ?? (xyz_scores as any)?.hard_soft ?? 0,
+    achievement: (xyz_scores as any)?.achievement ?? 0,
+  };
 
   const handleEdit = () => {
     setEditedText(rewritten);
@@ -40,17 +46,16 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   };
 
   const handleSave = () => {
-    // Compose improved bullet with correct xyz_scores keys and limits
     const improvedBullet: BulletAnalysis = {
       ...bullet,
       rewritten: editedText,
       bullet_total: Math.min(45, bullet_total + 10),
       xyz_scores: {
-        action: Math.min(10, (xyz_scores.action || 0) + 2),
-        metrics: Math.min(30, (xyz_scores.metrics || 0) + 5),
-        clarity: Math.min(15, (xyz_scores.clarity || 0) + 3),
-        industry: Math.min(25, (xyz_scores.industry || 0) + 5),
-        achievement: Math.min(20, (xyz_scores.achievement || 0) + 3)
+        action: Math.min(10, normalizedXyzScores.action + 2),
+        metrics: Math.min(30, normalizedXyzScores.metrics + 5),
+        clarity: Math.min(15, normalizedXyzScores.clarity + 3),
+        industry: Math.min(25, normalizedXyzScores.industry + 5),
+        achievement: Math.min(20, normalizedXyzScores.achievement + 3),
       },
       word_balance_score: Math.min(25, word_balance_score + 2),
       word_balance: {
@@ -139,7 +144,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <WordBalanceScore wordBalance={displayBullet.word_balance} wordBalanceScore={displayBullet.word_balance_score} />
 
-            <XYZQualityScore xyzScores={displayBullet.xyz_scores} />
+            <XYZQualityScore xyzScores={normalizedXyzScores} />
           </div>
 
           <div className="mt-4">

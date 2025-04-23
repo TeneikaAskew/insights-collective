@@ -155,7 +155,7 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
       Analytics: 0,
       "Data Engineering": 0,
       "Business Intelligence": 0,
-    } as Record<'AI/ML' | 'Analytics' | 'Data Engineering' | 'Business Intelligence', number>, {});
+    } as Record<CareerTrack, number>, {});
   };
 
   const handleExploreRole = (roleTitle: string) => {

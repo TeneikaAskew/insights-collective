@@ -9,6 +9,15 @@ export const BULLET_CATEGORIES = {
   ACHIEVEMENT: 'achievement'
 };
 
+// Helper to normalize xyz_scores shape for chart
+const normalizeXyzScores = (xyz_scores: any) => ({
+  action: xyz_scores?.action ?? xyz_scores?.action_words ?? 0,
+  metrics: xyz_scores?.metrics ?? xyz_scores?.measurable_results ?? 0,
+  clarity: xyz_scores?.clarity ?? xyz_scores?.clarity_focus ?? 0,
+  industry: xyz_scores?.industry ?? xyz_scores?.hard_soft ?? 0,
+  achievement: xyz_scores?.achievement ?? 0,
+});
+
 // Prepare bullet chart data with safety fallback
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   if (!bullet) {
@@ -28,10 +37,12 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     xyz_scores = { action: 0, metrics: 0, clarity: 0, industry: 0, achievement: 0 }
   } = bullet;
 
+  const normalScores = normalizeXyzScores(xyz_scores);
+
   const data = [
     {
       name: 'Action Words',
-      value: xyz_scores.action || 0,
+      value: normalScores.action,
       fill: '#D97706',
       category: BULLET_CATEGORIES.ACTION,
       target: 10,
@@ -39,7 +50,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     },
     {
       name: 'Metrics/Results',
-      value: xyz_scores.metrics || 0,
+      value: normalScores.metrics,
       fill: '#0D9488',
       category: BULLET_CATEGORIES.METRICS,
       target: 30,
@@ -47,7 +58,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     },
     {
       name: 'Clarity/Conciseness',
-      value: xyz_scores.clarity || 0,
+      value: normalScores.clarity,
       fill: '#2563EB',
       category: BULLET_CATEGORIES.CLARITY,
       target: 15,
@@ -55,7 +66,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     },
     {
       name: 'Industry Keywords',
-      value: xyz_scores.industry || 0,
+      value: normalScores.industry,
       fill: '#1E40AF',
       category: BULLET_CATEGORIES.INDUSTRY,
       target: 25,
@@ -63,7 +74,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     },
     {
       name: 'Achievement Focus',
-      value: xyz_scores.achievement || 0,
+      value: normalScores.achievement,
       fill: '#059669',
       category: BULLET_CATEGORIES.ACHIEVEMENT,
       target: 20,
@@ -80,8 +91,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   return {
     dataWithPercent,
     bullet_total,
-    xyz_scores,
-    word_balance,
+    xyz_scores: normalScores,
     totalScore
   };
 };
