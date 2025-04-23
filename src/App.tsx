@@ -47,6 +47,7 @@ import AdminEvents from "./pages/AdminEvents";
 import AdminBlogPosts from "./pages/AdminBlogPosts";
 import CreateBlogPost from "./pages/CreateBlogPost";
 import AdminPageVisibility from "./pages/AdminPageVisibility";
+import AdminCourseEdit from "./pages/AdminCourseEdit";
 
 // Import page visibility guard
 import PageVisibilityGuard from "./components/PageVisibilityGuard";
@@ -56,9 +57,7 @@ import CourseManagementDashboard from '@/components/course/management/CourseMana
 import CourseEditor from '@/components/course/management/CourseEditor';
 import CourseManageMaterials from './pages/CourseManageMaterials';
 
-// Import the new AdminCourseEdit component
-import AdminCourseEdit from "./pages/AdminCourseEdit";
-import CareerAgent from "./pages/CareerAgent";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
