@@ -9,7 +9,8 @@ import {
   pathwayQuestions,
   quickReplies,
   starterMessages,
-  careerAdvicePrompt
+  careerAdvicePrompt,
+  PathwayQuestion
 } from '@/data/careerPathwayData';
 import CareerPathwayForm from '@/components/CareerPathwayForm';
 
