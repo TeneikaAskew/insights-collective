@@ -203,32 +203,20 @@ const CareerPathway: React.FC = () => {
           <div className="space-y-4">
             {isLoading ? (
               <AlternativeRolesSkeleton />
-            ) : report?.recommendedRoles?.split('\n')
-                .filter(role => role.trim())
-                .map((roleString, index) => {
-                  // Parse the role string like "1. Data Analyst (95% match)"
-                  const match = roleString.match(/^\d+\.\s+(.+?)\s+\((\d+)% match\)$/);
-                  const title = match ? match[1] : roleString.replace(/^\d+\.\s*/, '');
-                  const matchPercentage = match ? parseInt(match[2]) : null;
-                  
-                  return (
-                    <Card key={index} className="bg-white">
-                      <CardContent className="p-6 flex items-start gap-4">
-                        <div className="bg-gray-100 p-2 rounded">
-                          <Briefcase className="h-6 w-6 text-gray-600" />
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{title}</h3>
-                          {matchPercentage && (
-                            <p className="text-blue-600 text-sm mb-1">{matchPercentage}% match</p>
-                          )}
-                          <p className="text-gray-600 text-sm mb-1">$80-120K</p>
-                          <p className="text-gray-600 text-sm">Explore opportunities in this role</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
+            ) : report?.recommendedRoles?.map((role, index) => (
+              <Card key={index} className="bg-white">
+                <CardContent className="p-6 flex items-start gap-4">
+                  <div className="bg-gray-100 p-2 rounded">
+                    <Briefcase className="h-6 w-6 text-gray-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{role.title}</h3>
+                    <p className="text-gray-600 text-sm mb-1">{role.salaryRange || '$80-120K'}</p>
+                    <p className="text-gray-600 text-sm">{role.description}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </motion.div>
 
