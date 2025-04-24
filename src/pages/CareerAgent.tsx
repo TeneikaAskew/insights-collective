@@ -308,13 +308,13 @@ const CareerAgent: React.FC = () => {
     });
 
     // Ensure payload is properly formatted
-    const payload = { 
-      prompt: careerAdvicePrompt || '', 
-      pathwayQuestions: pathwayQuestions || [], 
-      pathwayAnswers: pathwayAnswersPayload || {}, 
-      resumeText: resumeText || '' 
-    };
-    
+    // const payload = { 
+    //   prompt: careerAdvicePrompt || '', 
+    //   pathwayQuestions: pathwayQuestions || [], 
+    //   pathwayAnswers: pathwayAnswersPayload || {}, 
+    //   resumeText: resumeText || '' 
+    // };
+    const payload = "this is a test"
     console.log('Sending payload:', payload);
     
     try {
