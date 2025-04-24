@@ -620,10 +620,10 @@ const CareerAgent: React.FC = () => {
 
   return (
     <AppLayout>
-      {/* <div className="container mx-auto max-w-2xl px-4 py-6 flex flex-col h-screen"> */}
+      {/* <div className="container mx-auto max-w-2xl px-4 py-6 flex flex-col h-screen">
         <div className="container mx-auto max-w-2xl px-4 pt-[5.5rem] pb-[4.5rem] flex flex-col h-screen">
 
-        {/* Fixed Header */}
+       
         <div className="fixed top-0 left-0 right-0 z-10 bg-gray-50 border-b border-gray-200">
           <div className="container mx-auto max-w-2xl px-4 py-3 flex justify-between items-center">
             <div className="flex items-center space-x-3">
@@ -650,8 +650,32 @@ const CareerAgent: React.FC = () => {
               Reset Chat
             </Button>
           </div>
-        </div>
+        </div> */}
+          
+      <div className="flex justify-center items-start min-h-screen px-4 pt-[5.5rem] pb-[4.5rem]">
+        <div className="w-full max-w-2xl flex flex-col">
 
+          {/* Sticky Header */}
+          <div className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
+            <div className="flex justify-between items-center px-4 py-3">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full overflow-hidden">
+                  <img src={coachAvatarUrl} alt="Career Coach" className="w-full h-full object-cover" nError={(e) => {
+                    const target = e.currentTarget;
+                    target.style.display = "none";
+                    if (target.parentElement) {
+                      target.parentElement.textContent = "CC";
+                    }
+                  }}/>
+                </div>
+                <div>
+                  <h1 className="text-lg font-semibold text-gray-900">Career Coach</h1>
+                  <p className="text-sm text-green-500">Online</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleResetChat}>Reset Chat</Button>
+            </div>
+          </div>
         {/* Chat Messages Area */}
         <div 
           ref={scrollAreaRef}
