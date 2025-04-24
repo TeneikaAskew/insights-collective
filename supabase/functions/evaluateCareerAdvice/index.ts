@@ -15,6 +15,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
+    console.log("Body:", body)
 
     const prompt = body.prompt;
     console.log("Prompt: ", prompt)
