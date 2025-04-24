@@ -1,104 +1,76 @@
 
-import React, { useState, useEffect } from 'react';
-import { useToast } from "@/components/ui/use-toast";
-import CareerPathwayForm from '@/components/CareerPathwayForm';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PathwayQuestion } from '@/data/careerPathwayData';
+import React from 'react';
+import { motion } from 'framer-motion';
+import AppLayout from '@/components/layout/AppLayout';
+import CareerHeader from '@/components/career/CareerHeader';
+import SkillsSection from '@/components/career/SkillsSection';
+import CareerPathSection from '@/components/career/CareerPathSection';
 
 const CareerPathway: React.FC = () => {
-  const [questions, setQuestions] = useState<PathwayQuestion[]>([]);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [resumeText, setResumeText] = useState<string | undefined>();
-  const { toast } = useToast();
-  
-  // Example of how you might load questions
-  useEffect(() => {
-    // In a real app, you might fetch these from an API
-    const careerPathwayQuestions: PathwayQuestion[] = [
-      {
-        id: "skill",
-        label: "Skills",
-        placeholder: "What skills are you most proud of?"
-      },
-      {
-        id: "environment",
-        label: "Work Environment",
-        placeholder: "What type of work environment do you prefer?"
-      },
-      {
-        id: "goals",
-        label: "Career Goals",
-        placeholder: "What are your long-term career goals?"
-      }
-    ];
-    
-    setQuestions(careerPathwayQuestions);
-  }, []);
-  
-  const handleAnswerChange = (questionId: string, answer: string) => {
-    setAnswers(prev => ({
-      ...prev,
-      [questionId]: answer
-    }));
-  };
-  
-  const validateData = () => {
-    if (questions.length === 0) {
-      toast({
-        title: "Missing Questions",
-        description: "Career pathway questions haven't loaded yet.",
-        variant: "destructive"
-      });
-      return false;
+  // Example data - in a real app, this would come from your career report
+  const mockSkills = [
+    {
+      name: "Data Analytics",
+      type: "hard" as const,
+      course: "Data Science Specialization by Johns Hopkins University (Coursera)"
+    },
+    {
+      name: "Strategic Management",
+      type: "hard" as const,
+      course: "Strategic Management and Innovation by Copenhagen Business School (Coursera)"
+    },
+    {
+      name: "Advanced Leadership",
+      type: "soft" as const,
+      course: "Organizational Leadership Specialization by Northwestern University (Coursera)"
     }
-    
-    const answeredQuestions = Object.keys(answers).length;
-    if (answeredQuestions === 0) {
-      toast({
-        title: "No Answers Provided",
-        description: "Please answer at least one question to receive an analysis.",
-        variant: "destructive"
-      });
-      return false;
+  ];
+
+  const mockRoles = [
+    {
+      title: "Data Analyst",
+      salary: "$80-100K",
+      description: "Entry-level role focusing on data analysis and visualization"
+    },
+    {
+      title: "Senior Data Analyst",
+      salary: "$90-115K",
+      description: "Lead complex data projects with strategic impact"
+    },
+    {
+      title: "Analytics Manager",
+      salary: "$100-130K",
+      description: "Manage analytics teams and drive data strategies"
     }
-    
-    return true;
-  };
-  
+  ];
+
   return (
-    <div className="container mx-auto py-8 max-w-4xl">
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle>Career Pathway Assessment</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground mb-6">
-            Answer the following questions to receive personalized career advice and recommendations.
-          </p>
-          
-          {questions.map((question) => (
-            <div key={question.id} className="mb-6">
-              <h3 className="text-base font-medium mb-2">{question.label}</h3>
-              <textarea 
-                className="w-full min-h-[100px] p-2 border rounded"
-                value={answers[question.id] || ''}
-                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                placeholder={question.placeholder}
-              />
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-      
-      {validateData() && (
-        <CareerPathwayForm
-          prompt="Analyze the following career pathway questions and answers to provide personalized career advice."
-          pathwayQuestions={questions}
-          pathwayAnswers={answers}
-          resumeText={resumeText}
+    <AppLayout>
+      <div className="container mx-auto py-6 space-y-6 px-4">
+        <CareerHeader 
+          name="there"
+          summary="Your journey to success starts here"
         />
-      )}
-    </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <SkillsSection skills={mockSkills} />
+          </motion.div>
+          
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.4 }}
+          >
+            <CareerPathSection roles={mockRoles} />
+          </motion.div>
+        </div>
+      </div>
+    </AppLayout>
   );
 };
 
