@@ -1,9 +1,4 @@
-import { useAuth } from '@/contexts/AuthContext';
-const { user } = useAuth();
-const userName = user?.user_metadata?.first_name || 
-              user?.name || 
-              user?.email?.split('@')[0] || 
-              'there';
+
 /**
  * Utility functions to parse static career reports into structured data
  */
@@ -26,17 +21,6 @@ export interface CareerPathStep {
   title: string;
   description: string;
 }
-
-// export interface CareerReportData {
-//   userName: string;
-//   summary: string;
-//   recommendedRoles: RecommendedRole[];
-//   skillsAndCourses: SkillCourse[];
-//   nextStepRecommendations: string;
-//   potentialRoles: string[];
-//   careerPathSteps: CareerPathStep[];
-//   keyTakeaways: string[];
-// }
 
 export interface CareerReportData {
   userName: string;
@@ -65,55 +49,11 @@ export const extractSection = (text: string, start: string, ends: string[]): str
   return text.substring(i + start.length, endIdx).trim();
 };
 
-
 /**
  * Parses a static text report into structured data
  * This function handles the transformation of the raw text format
  * into a structured object the interactive UI can use
  */
-// export function parseCareerReport(reportText: string): CareerReportData {
-//   const report: CareerReportData = {
-//     userName: extractUserName(reportText),
-//     summary: extractSummary(reportText),
-//     recommendedRoles: extractRecommendedRoles(reportText),
-//     skillsAndCourses: extractSkillsAndCourses(reportText),
-//     nextStepRecommendations: extractNextStepRecommendations(reportText),
-//     potentialRoles: extractPotentialRoles(reportText),
-//     careerPathSteps: extractCareerPathSteps(reportText),
-//     keyTakeaways: extractKeyTakeaways(reportText)
-//   };
-  
-//   // Add match percentages if they don't exist in the original report
-//   if (report.recommendedRoles.length > 0) {
-//     report.recommendedRoles = report.recommendedRoles.map((role, index) => {
-//       if (!role.matchPercentage) {
-//         // Generate decreasing percentages for roles (95%, 88%, 81%, etc.)
-//         role.matchPercentage = Math.max(50, 95 - (index * 7));
-//       }
-//       return role;
-//     });
-//   }
-  
-//   // Add skill levels if they don't exist
-//   if (report.skillsAndCourses.length > 0) {
-//     const levels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
-//     report.skillsAndCourses = report.skillsAndCourses.map((item, index) => {
-//       if (!item.level) {
-//         // Randomly assign skill levels with a bias toward intermediate
-//         const levelIndex = Math.floor(Math.random() * 3);
-//         item.level = levels[levelIndex];
-//       }
-//       if (!item.provider) {
-//         // Assign default providers based on common platforms
-//         const providers = ['Coursera', 'edX', 'Udemy', 'LinkedIn Learning', 'Pluralsight'];
-//         item.provider = providers[index % providers.length];
-//       }
-//       return item;
-//     });
-//   }
-  
-//   return report;
-// }
 export function parseCareerReport(reportText: string): CareerReportData {
   const report: CareerReportData = {
     userName: extractUserName(reportText),
@@ -161,8 +101,11 @@ export function parseCareerReport(reportText: string): CareerReportData {
  * Extract the user name from the report title
  */
 function extractUserName(text: string): string {
+  // Default username if we can't extract it from the report
+  const defaultName = 'there';
+  
   const match = text.match(/Personalized Career Advice Report for ([\w\s\.]+)/i);
-  return match ? match[1].trim() : userName;
+  return match ? match[1].trim() : defaultName;
 }
 
 /**
@@ -249,73 +192,6 @@ function extractRecommendedRoles(text: string): RecommendedRole[] {
 /**
  * Extract skills and courses table
  */
-// function extractSkillsAndCourses(text: string): SkillCourse[] {
-//   const skillsCourses: SkillCourse[] = [];
-  
-//   // Find the skills and courses section
-//   const skillsSection = text.match(/Skills and Matching Courses:(.*?)(?=Next-Step Career Recommendations:|$)/is);
-  
-//   if (skillsSection) {
-//     // Try to extract table data
-//     // Look for markdown table format
-//     const tableLines = skillsSection[1].split('\n')
-//       .map(line => line.trim())
-//       .filter(line => line.startsWith('|') && line.endsWith('|'));
-    
-//     if (tableLines.length >= 3) {
-//       // Skip header and separator lines
-//       for (let i = 2; i < tableLines.length; i++) {
-//         const cells = tableLines[i].split('|')
-//           .map(cell => cell.trim())
-//           .filter(cell => cell !== '');
-        
-//         if (cells.length >= 2) {
-//           const item: SkillCourse = {
-//             skill: cells[0],
-//             course: cells[1],
-//           };
-          
-//           // If there's a third column, consider it the provider
-//           if (cells.length >= 3) {
-//             const providerMatch = cells[1].match(/\((.*?)\)$/);
-//             if (providerMatch) {
-//               item.provider = providerMatch[1];
-//               item.course = cells[1].replace(/\s*\(.*?\)$/, '');
-//             } else {
-//               item.provider = cells[2];
-//             }
-//           }
-          
-//           skillsCourses.push(item);
-//         }
-//       }
-//     }
-    
-//     // If table parsing failed, try alternative approach with bullet points
-//     if (skillsCourses.length === 0) {
-//       const listItemRegex = /[•*-]\s+([^:]+):\s+([^\n]+)/g;
-//       const matches = [...skillsSection[1].matchAll(listItemRegex)];
-      
-//       for (const match of matches) {
-//         const item: SkillCourse = {
-//           skill: match[1].trim(),
-//           course: match[2].trim(),
-//         };
-        
-//         // Try to extract provider if it's in parentheses
-//         const providerMatch = item.course.match(/\((.*?)\)$/);
-//         if (providerMatch) {
-//           item.provider = providerMatch[1];
-//           item.course = item.course.replace(/\s*\(.*?\)$/, '');
-//         }
-        
-//         skillsCourses.push(item);
-//       }
-//     }
-//   }
-  
-//   return skillsCourses;
-// }
 function extractSkillsAndCourses(text: string): SkillCourse[] {
   const skillsCourses: SkillCourse[] = [];
   
@@ -370,6 +246,7 @@ function extractSkillsAndCourses(text: string): SkillCourse[] {
   
   return skillsCourses;
 }
+
 /**
  * Extract next-step career recommendations
  */
@@ -516,6 +393,22 @@ function extractKeyTakeaways(text: string): string[] {
   return takeaways;
 }
 
+/**
+ * Extract remote work considerations
+ */
+function extractRemoteWorkConsiderations(text: string): string {
+  const remoteMatch = text.match(/Remote Work Considerations:(.*?)(?=By following|$)/is);
+  return remoteMatch ? remoteMatch[1].trim() : "";
+}
+
+/**
+ * Extract conclusion
+ */
+function extractConclusion(text: string): string {
+  const conclusionMatch = text.match(/By following(.*?)$/s);
+  return conclusionMatch ? "By following" + conclusionMatch[1].trim() : "";
+}
+
 // Update formatSkillsTable to be more robust
 export const formatSkillsTable = (tableText: string): string => {
   if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
@@ -564,115 +457,7 @@ export const formatNumberedList = (content: string): string => {
   }
 };
 
-// export const formatSkillsTable = (tableText: string): string => {
-//   if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
-  
-//   const rows = tableText.split('\n')
-//     .filter(r => r.startsWith('|') && !r.includes('---'));
-    
-//   return rows.map(row => {
-//     const cells = row.split('|').filter(c => c.trim());
-//     return cells.length >= 2
-//       ? `<tr>
-//         <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
-//         <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
-//       </tr>`
-//       : '';
-//   }).join('');
-// };
-
-// New function for formatting the report as HTML
-// export function formatCareerPathwayReport(raw: string): string {
-//   if (/<h|<div|<p>/.test(raw)) return raw;
-  
-//   const nameMatch = raw.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
-//   const userName = nameMatch?.[1] || 'You';
-  
-//   const sections = {
-//     summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
-//     recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
-//     skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
-//     nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
-//     rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
-//     path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
-//     remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
-//     conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
-//   };
-  
-//   let skillsTable = '';
-//   if (sections.skills) {
-//     const m = sections.skills.match(/\| Skill \| Course \|[\s\S]*?\|([^\n]*\n\|[^\n]*\n?)+/);
-//     skillsTable = m?.[0] || '';
-//   }
-  
-//   return `
-// <div class="career-pathway-report">
-//   <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
-//     <p class="mb-2">${cleanText(sections.summary)}</p>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.recommendedRoles)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
-//     <div class="overflow-x-auto">
-//       <table class="min-w-full border-collapse">
-//         <thead>
-//           <tr class="bg-blue-100">
-//             <th class="border border-blue-300 px-4 py-2 text-left">Skill</th>
-//             <th class="border border-blue-300 px-4 py-2 text-left">Course</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//           ${formatSkillsTable(skillsTable)}
-//         </tbody>
-//       </table>
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.nextSteps)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.rightRoles)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.path)}
-//     </div>
-//   </section>
-  
-//   ${sections.remote ? `
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Remote Work Considerations</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.remote)}
-//     </div>
-//   </section>
-//   ` : ''}
-  
-//   <section class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
-//     <p class="italic">${cleanText(sections.conclusion)}</p>
-//   </section>
-// </div>`;
-// }
+// Formatting function for the career report
 export function formatCareerPathwayReport(raw: string): string {
   if (/<h|<div|<p>/.test(raw)) return raw;
   
@@ -776,57 +561,3 @@ export function formatCareerPathwayReport(raw: string): string {
   </section>
 </div>`;
 }
-
-export const useCareerPathwayResults = () => {
-  const { user } = useAuth();
-  
-  return useQuery({
-    queryKey: ['careerPathwayResults', user?.id],
-    queryFn: async () => {
-      if (!user?.id) throw new Error('User not authenticated');
-      
-      const { data, error } = await supabase
-        .from('career_pathway_results')
-        .select('report')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      console.log('Query result:', data, error);
-      
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-      
-      if (!data || !data.report) {
-        return {
-          userName: user?.user_metadata?.first_name,
-          summary: 'You haven\'t completed your career assessment yet.',
-          recommendedRoles: [],
-          skillsAndCourses: [],
-          careerPathSteps: [],
-          keyTakeaways: []
-        };
-      }
-      
-      try {
-        const parsedReport = parseCareerReport(data.report);
-        console.log('Parsed report:', parsedReport);
-        return parsedReport;
-      } catch (parseError) {
-        console.error('Error parsing report:', parseError);
-        return {
-          userName: user?.user_metadata?.first_name,
-          summary: 'Error parsing career assessment. Please try again.',
-          recommendedRoles: [],
-          skillsAndCourses: [],
-          careerPathSteps: [],
-          keyTakeaways: []
-        };
-      }
-    },
-    enabled: !!user?.id,
-  });
-};

@@ -30,13 +30,8 @@ const CareerPathway: React.FC = () => {
     }
   };
 
-  
   // If there's an error or no report data found
   if (isError || (report && report.skillsAndCourses && report.skillsAndCourses.length === 0)) {
-    // console.log ("isError: ", isError, 
-    //              "\nReport", report, 
-    //              "\nMissing skills: ", (report && report.skillsAndCourses && report.skillsAndCourses.length === 0))
-
     return (
       <AppLayout>
         <div className="container mx-auto py-6 px-4">
@@ -56,9 +51,10 @@ const CareerPathway: React.FC = () => {
 
   // Get user name from available properties
   const userName = user?.user_metadata?.first_name || 
-                user?.name || 
+                user?.user_metadata?.name ||
                 user?.email?.split('@')[0] || 
                 'there';
+                
   return (
     <AppLayout>
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">

@@ -20,10 +20,10 @@ export const useCareerPathwayResults = () => {
         .limit(1)
         .maybeSingle();
       
-      console.log(data || error)
+      console.log(data || error);
       if (error) throw error;
 
-      console.log("Found career pathway results: ", data)
+      console.log("Found career pathway results: ", data);
       
       // If no data was found, return a default object structure
       // instead of throwing an error, to prevent null/undefined errors
