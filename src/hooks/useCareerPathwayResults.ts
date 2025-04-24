@@ -21,6 +21,8 @@ export const useCareerPathwayResults = () => {
         .maybeSingle();
 
       if (error) throw error;
+
+      console.log("Found career pathway results: ", data)
       
       // If no data was found, return a default object structure
       // instead of throwing an error, to prevent null/undefined errors
