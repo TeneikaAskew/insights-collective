@@ -18,38 +18,10 @@ serve(async (req) => {
   try {
     console.log("Career advice function called");
     
-    // Skip parsing the request body entirely and just generate a response
-    // This avoids all potential issues with parsing the request
-    const response = generateMockCareerAdviceResponse();
-    
-    console.log("Generated response successfully");
-    
-    // Return the result
-    return new Response(
-      JSON.stringify(response),
-      { status: 200, headers: corsHeaders }
-    );
-  } catch (error) {
-    console.error(`Error in evaluateCareerAdvice function: ${error.message}`);
-    console.error(`Stack trace: ${error.stack}`);
-    
-    return new Response(
-      JSON.stringify({ 
-        error: "Server error processing request", 
-        details: error.message 
-      }),
-      { status: 500, headers: corsHeaders }
-    );
-  }
-});
-
-// Helper function to generate a mock response
-function generateMockCareerAdviceResponse(answers = {}) {
-  const userName = answers.q1 ? answers.q1.split(' ')[0] : 'User';
-  
-  return {
-    generatedText: `
-      **Personalized Career Advice Report for ${userName}**
+    // Generate a mock response
+    const response = {
+      generatedText: `
+      **Personalized Career Advice Report**
       
       **Summary:** 
       Based on your responses, you show strong analytical skills and an interest in problem-solving. Your background suggests you would excel in roles that combine technical expertise with strategic thinking.
@@ -85,7 +57,20 @@ function generateMockCareerAdviceResponse(answers = {}) {
       **Remote Work Considerations:**
       Remote opportunities are abundant in data-focused careers. Consider highlighting your self-motivation and digital collaboration skills.
       
-      By following these recommendations and leveraging your unique strengths, you can build a fulfilling career path aligned with your interests and abilities.
-    `
-  };
-}
+      By following these recommendations and leveraging your unique strengths, you can build a fulfilling career path aligned with your interests and abilities.`
+    };
+    
+    console.log("Generated response successfully");
+    
+    return new Response(
+      JSON.stringify(response),
+      { status: 200, headers: corsHeaders }
+    );
+  } catch (error) {
+    console.error(`Error in evaluateCareerAdvice function: ${error.message}`);
+    return new Response(
+      JSON.stringify({ error: "Server error processing request" }),
+      { status: 500, headers: corsHeaders }
+    );
+  }
+});

@@ -298,13 +298,19 @@ const CareerAgent: React.FC = () => {
     try {
       console.log('Calling evaluateCareerAdvice edge function');
       
-      // Simplified: Just call the edge function without sending any payload
-      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice');
-      
-      if (error) {
-        console.error("Error calling evaluateCareerAdvice:", error);
-        throw new Error(`Error evaluating career advice: ${error.message || 'Unknown error'}`);
+      const response = await fetch('https://siuqvhscuiycvdrtiqsh.supabase.co/functions/v1/evaluateCareerAdvice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabase.auth.getSession()?.access_token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
       
       console.log("Response from evaluateCareerAdvice:", data);
       
