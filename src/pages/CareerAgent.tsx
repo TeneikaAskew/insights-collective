@@ -15,11 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 // CareerAgent.tsx
 import { 
-  parseformatCareerPathwayReport,
-  cleanText,
-  extractSection,
-  formatNumberedList,
-  formatSkillsTable
+  parseformatCareerPathwayReport
 } from '@/components/assistants/utils/CareerReportParser';
 
 
