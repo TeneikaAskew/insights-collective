@@ -2,6 +2,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
+interface PathwayQuestion {
+  id: string;
+  label: string;
+  placeholder: string;
+}
+
+interface RequestPayload {
+  prompt: string;
+  pathwayQuestions: PathwayQuestion[];
+  pathwayAnswers: Record<string, string>;
+  resumeText?: string;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -47,7 +60,7 @@ serve(async (req) => {
     }
 
     // Parse the JSON body
-    let body;
+    let body: RequestPayload;
     try {
       body = JSON.parse(rawBody);
     } catch (parseError) {
@@ -104,7 +117,7 @@ serve(async (req) => {
         "Your strength in communication would be valuable in project management."
       ],
       generatedText: `
-        **Personalized Career Advice Report for ${body.pathwayAnswers[0] || 'You'}**
+        **Personalized Career Advice Report for ${Object.values(body.pathwayAnswers)[0] || 'You'}**
         
         **Summary:** 
         Based on your responses, you show strong analytical skills and an interest in problem-solving. Your background suggests you would excel in roles that combine technical expertise with strategic thinking.

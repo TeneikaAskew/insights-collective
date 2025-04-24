@@ -1,7 +1,14 @@
+
 // Career Pathway Data
 // This file contains the questions and data structures for the Career Pathway feature
 
-export const pathwayQuestions = [
+export interface PathwayQuestion {
+  id: string;
+  label: string;
+  placeholder: string;
+}
+
+export const pathwayQuestions: PathwayQuestion[] = [
   {
     id: "q1",
     label: "Interest in Career Pathway",

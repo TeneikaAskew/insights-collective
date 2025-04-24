@@ -5,9 +5,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from '@/integrations/supabase/client';
 
+interface PathwayQuestion {
+  id: string;
+  label: string;
+  placeholder: string;
+}
+
 interface CareerPathwayFormProps {
   prompt: string;
-  pathwayQuestions: string[];
+  pathwayQuestions: PathwayQuestion[];
   pathwayAnswers: Record<string, string>;
   resumeText?: string;
 }
