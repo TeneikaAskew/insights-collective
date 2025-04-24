@@ -585,8 +585,8 @@ export function parseformatCareerPathwayReport(raw: string): { html: string; sec
   };
 
   // Add match percentages if they don't exist
-  if (report.recommendedRoles.length > 0) {
-    report.recommendedRoles = report.recommendedRoles.map((role, index) => {
+  if (sections.recommendedRoles.length > 0) {
+    sections.recommendedRoles = sections.recommendedRoles.map((role, index) => {
       if (!role.matchPercentage) {
         role.matchPercentage = Math.max(50, 95 - (index * 7));
       }
