@@ -15,8 +15,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 // CareerAgent.tsx
 import { 
-  formatCareerPathwayReport,
-  parseCareerReport,
+  parseformatCareerPathwayReport,
   cleanText,
   extractSection,
   formatNumberedList,
@@ -149,7 +148,7 @@ const CareerAgent: React.FC = () => {
           
         if (!reportError && reportData?.report) {
           const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-          const html = formatCareerPathwayReport(raw);
+          const html = parseformatCareerPathwayReport(raw);
           setCareerAdviceReport(html);
         }
         
@@ -371,7 +370,7 @@ const CareerAgent: React.FC = () => {
       
       const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
       console.log("Career Pathway Insights: ", raw);
-      const html = formatCareerPathwayReport(raw);
+      const html = parseformatCareerPathwayReport(raw);
       setCareerAdviceReport(html);
       
       // Save the report to career_pathway_results

@@ -561,3 +561,115 @@ export function formatCareerPathwayReport(raw: string): string {
   </section>
 </div>`;
 }
+
+
+export function parseformatCareerPathwayReport(raw: string): { html: string; sections: Record<string, string> } {
+  if (/<h|<div|<p>/.test(raw)) return { html: raw, sections: {} };
+  
+  const nameMatch = raw.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
+  const userName = nameMatch?.[1] || 'You';
+  
+  const sections = {
+    userName: userName,
+    summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
+    recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
+    skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
+    nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
+    rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
+    path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
+    keyTakeaways: extractSection(raw, 'Key Takeaways:', ['Remote Work Considerations:', 'By following']),
+    remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
+    conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
+  };
+  
+  let skillsTable = '';
+  if (sections.skills) {
+    const tablePattern = /\|\s*Skill\s*\|\s*Course\s*\|[\s\S]*?\n\s*\|\s*-+\s*\|\s*-+\s*\|[\s\S]*?(?:\n\s*\|[^\n]+\|)+/;
+    const tableMatch = sections.skills.match(tablePattern);
+    
+    if (tableMatch) {
+      skillsTable = tableMatch[0];
+    } else {
+      const lines = sections.skills.split('\n');
+      const tableLines = lines.filter(line => line.trim().startsWith('|') && line.trim().endsWith('|'));
+      if (tableLines.length > 0) {
+        skillsTable = tableLines.join('\n');
+      }
+    }
+  }
+  
+  const html = `
+<div class="career-pathway-report">
+  <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
+    <p class="mb-2">${cleanText(sections.summary)}</p>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.recommendedRoles)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full border-collapse">
+        <thead>
+          <tr class="bg-blue-100">
+            <th class="border border-blue-300 px-4 py-2 text-left">Skill</th>
+            <th class="border border-blue-300 px-4 py-2 text-left">Course</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${formatSkillsTable(skillsTable)}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.nextSteps)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.rightRoles)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.path)}
+    </div>
+  </section>
+  
+  ${sections.remote ? `
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Remote Work Considerations</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.remote)}
+    </div>
+  </section>
+  ` : ''}
+  
+  <section class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
+    <p class="italic">${cleanText(sections.conclusion)}</p>
+  </section>
+</div>`;
+
+  return {
+    html,
+    sections // Fixed: return sections, not report
+  };
+}
+// // Usage
+// const { html, sections } = formatCareerPathwayReport(rawReport);
