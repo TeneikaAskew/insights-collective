@@ -888,22 +888,7 @@ export type Database = {
           conversation_id: string | null
           user_id: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "conversation_participants_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_conversation_participant_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Functions: {
