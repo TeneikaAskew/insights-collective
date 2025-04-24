@@ -15,7 +15,7 @@ const CareerPathway: React.FC = () => {
   const { user } = useAuth();
   const { data: sections, isLoading, error, isError } = useCareerPathwayResults();
   
-  console.log(data)
+  console.log(sections)
   console.log(report)
   const [activeCareerStep, setActiveCareerStep] = useState(0);
 
