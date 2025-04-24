@@ -254,52 +254,52 @@ const CareerAgent: React.FC = () => {
   };
 
   // Helpers for report formatting
-  const extractSection = (text: string, start: string, ends: string[]): string => {
-    const i = text.indexOf(start);
-    if (i === -1) return '';
-    let endIdx = text.length;
-    for (const marker of ends) {
-      const idx = text.indexOf(marker, i + start.length);
-      if (idx !== -1 && idx < endIdx) endIdx = idx;
-    }
-    return text.substring(i + start.length, endIdx).trim();
-  };
+  // const extractSection = (text: string, start: string, ends: string[]): string => {
+  //   const i = text.indexOf(start);
+  //   if (i === -1) return '';
+  //   let endIdx = text.length;
+  //   for (const marker of ends) {
+  //     const idx = text.indexOf(marker, i + start.length);
+  //     if (idx !== -1 && idx < endIdx) endIdx = idx;
+  //   }
+  //   return text.substring(i + start.length, endIdx).trim();
+  // };
 
-  const cleanText = (text: string): string => text.replace(/\*\*/g, '').trim();
+  // const cleanText = (text: string): string => text.replace(/\*\*/g, '').trim();
 
-  const formatNumberedList = (content: string): string => {
-    if (!content) return '';
-    const hasNumbers = /\d+\.\s/.test(content);
+  // const formatNumberedList = (content: string): string => {
+  //   if (!content) return '';
+  //   const hasNumbers = /\d+\.\s/.test(content);
     
-    if (hasNumbers) {
-      const items = content.split(/\d+\.\s/).filter(item => item.trim());
-      return items.map((item, i) =>
-        `<div class="mb-2">
-          <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
-          ${cleanText(item)}
-        </div>`
-      ).join('');
-    } else {
-      return `<p>${cleanText(content)}</p>`;
-    }
-  };
+  //   if (hasNumbers) {
+  //     const items = content.split(/\d+\.\s/).filter(item => item.trim());
+  //     return items.map((item, i) =>
+  //       `<div class="mb-2">
+  //         <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
+  //         ${cleanText(item)}
+  //       </div>`
+  //     ).join('');
+  //   } else {
+  //     return `<p>${cleanText(content)}</p>`;
+  //   }
+  // };
 
-  const formatSkillsTable = (tableText: string): string => {
-    if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
+  // const formatSkillsTable = (tableText: string): string => {
+  //   if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
     
-    const rows = tableText.split('\n')
-      .filter(r => r.startsWith('|') && !r.includes('---'));
+  //   const rows = tableText.split('\n')
+  //     .filter(r => r.startsWith('|') && !r.includes('---'));
       
-    return rows.map(row => {
-      const cells = row.split('|').filter(c => c.trim());
-      return cells.length >= 2
-        ? `<tr>
-          <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
-          <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
-        </tr>`
-        : '';
-    }).join('');
-  };
+  //   return rows.map(row => {
+  //     const cells = row.split('|').filter(c => c.trim());
+  //     return cells.length >= 2
+  //       ? `<tr>
+  //         <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
+  //         <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
+  //       </tr>`
+  //       : '';
+  //   }).join('');
+  // };
 
 //   const formatCareerPathwayReport = (raw: string): string => {
 //     if (/<h|<div|<p>/.test(raw)) return raw;
@@ -393,250 +393,397 @@ const CareerAgent: React.FC = () => {
 // </div>`;
 //   };
 
+// const formatCareerPathwayReport = (raw: string): string => {
+//   // First check if we're getting pre-formatted HTML
+//   if (/<h|<div|<p>/.test(raw)) return raw;
+  
+//   // Clean up the input text
+//   const cleanedText = raw
+//     .replace(/\n\s+/g, '\n') // Remove leading spaces
+//     .replace(/\s+\n/g, '\n') // Remove trailing spaces
+//     .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newline
+//     .trim();
+  
+//   // Extract sections using the improved parser
+//   const extractSection = (text: string, startMarkers: string[], endMarkers?: string[]): string => {
+//     for (const startMarker of startMarkers) {
+//       let startIndex = text.indexOf(startMarker);
+      
+//       if (startIndex !== -1) {
+//         const start = startIndex + startMarker.length;
+//         let endIndex = text.length;
+        
+//         if (endMarkers) {
+//           for (const endMarker of endMarkers) {
+//             const idx = text.indexOf(endMarker, start);
+//             if (idx !== -1 && idx < endIndex) {
+//               endIndex = idx;
+//             }
+//           }
+//         }
+        
+//         return text.substring(start, endIndex).trim();
+//       }
+//     }
+    
+//     return '';
+//   };
+  
+//   // Clean text by removing markdown formatting and extra whitespace
+//   const cleanText = (text: string): string => {
+//     if (!text) return '';
+    
+//     return text
+//       .trim()
+//       .replace(/\*\*/g, '')
+//       .replace(/\n\s*\n/g, '\n')
+//       .replace(/\n+/g, '\n')
+//       .replace(/^\s+|\s+$/g, '')
+//       .replace(/\s+/g, ' ');
+//   };
+  
+//   // Parse numbered lists
+//   const parseNumberedList = (text: string): string => {
+//     if (!text) return '';
+    
+//     const items = text.split(/\d+\.\s+/).filter(item => item.trim());
+    
+//     return items.map((item, i) => `
+//       <div class="flex items-start gap-3 mb-3">
+//         <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-medium">
+//           ${i + 1}
+//         </div>
+//         <p class="text-gray-700 flex-1">${cleanText(item)}</p>
+//       </div>
+//     `).join('');
+//   };
+  
+//   // Parse roles
+//   const parseRoles = (text: string): string => {
+//     if (!text) return '';
+    
+//     const items = text.split(/\d+\.\s+/).filter(item => item.trim());
+    
+//     return items.map((item, i) => {
+//       const colonIndex = item.indexOf(':');
+//       if (colonIndex !== -1) {
+//         const title = cleanText(item.substring(0, colonIndex));
+//         const description = cleanText(item.substring(colonIndex + 1));
+        
+//         return `
+//           <div class="flex items-start gap-3 mb-3">
+//             <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-medium">
+//               ${i + 1}
+//             </div>
+//             <div>
+//               <h3 class="font-medium text-gray-900">${title}</h3>
+//               <p class="text-gray-600 mt-1">${description}</p>
+//             </div>
+//           </div>
+//         `;
+//       } else {
+//         return `
+//           <div class="flex items-start gap-3 mb-3">
+//             <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-medium">
+//               ${i + 1}
+//             </div>
+//             <p class="text-gray-700">${cleanText(item)}</p>
+//           </div>
+//         `;
+//       }
+//     }).join('');
+//   };
+  
+//   // Parse markdown table
+//   const parseMarkdownTable = (text: string): string => {
+//     if (!text) return '<p class="text-gray-500 italic">No skills data available</p>';
+    
+//     const rows = text.split('\n')
+//       .map(row => row.trim())
+//       .filter(row => row.startsWith('|') && row.endsWith('|') && !row.includes('---'));
+    
+//     if (rows.length <= 1) return '<p class="text-gray-500 italic">No skills data available</p>';
+    
+//     let tableHtml = `
+//       <table class="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
+//         <thead class="bg-blue-50">
+//           <tr>
+//             <th class="py-3 px-4 text-left font-medium text-gray-700 border-b">Skill</th>
+//             <th class="py-3 px-4 text-left font-medium text-gray-700 border-b">Course</th>
+//           </tr>
+//         </thead>
+//         <tbody>
+//     `;
+    
+//     for (let i = 1; i < rows.length; i++) {
+//       const cells = rows[i]
+//         .split('|')
+//         .map(cell => cell.trim())
+//         .filter(cell => cell);
+      
+//       if (cells.length >= 2) {
+//         tableHtml += `
+//           <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+//             <td class="py-3 px-4 border-b">${cleanText(cells[0])}</td>
+//             <td class="py-3 px-4 border-b">${cleanText(cells[1])}</td>
+//           </tr>
+//         `;
+//       }
+//     }
+    
+//     tableHtml += `
+//         </tbody>
+//       </table>
+//     `;
+    
+//     return tableHtml;
+//   };
+  
+//   // Extract sections
+//   const nameMatch = cleanedText.match(/(?:Personalized Career (?:Advice |Pathway )?Report)(?: for ([^*\n]+))?/i);
+//   const userName = nameMatch && nameMatch[1] ? cleanText(nameMatch[1]) : 'You';
+  
+//   const sections = {
+//     summary: extractSection(cleanedText, 
+//       ['Summary:', '**Summary:**'], 
+//       ['Recommended Roles:', '**Recommended Roles:**']
+//     ),
+//     recommendedRoles: extractSection(cleanedText,
+//       ['Recommended Roles:', '**Recommended Roles:**'],
+//       ['Skills and Matching Courses:', '**Skills and Matching Courses:**']
+//     ),
+//     skills: extractSection(cleanedText,
+//       ['Skills and Matching Courses:', '**Skills and Matching Courses:**'],
+//       ['Next-Step Career Recommendations:', '**Next-Step Career Recommendations:**']
+//     ),
+//     nextSteps: extractSection(cleanedText,
+//       ['Next-Step Career Recommendations:', '**Next-Step Career Recommendations:**'],
+//       ['Roles that Might be Right for You:', '**Roles that Might be Right for You:**']
+//     ),
+//     rightRoles: extractSection(cleanedText,
+//       ['Roles that Might be Right for You:', '**Roles that Might be Right for You:**'],
+//       ['Path to Your Aspirational Role:', '**Path to Your Aspirational Role:**']
+//     ),
+//     path: extractSection(cleanedText,
+//       ['Path to Your Aspirational Role:', '**Path to Your Aspirational Role:**'],
+//       ['Remote Work Considerations:', '**Remote Work Considerations:**', 'By following']
+//     ),
+//     remote: extractSection(cleanedText,
+//       ['Remote Work Considerations:', '**Remote Work Considerations:**'],
+//       ['By following']
+//     ),
+//     conclusion: extractSection(cleanedText,
+//       ['By following'],
+//       []
+//     )
+//   };
+  
+//   // Format the report with proper styling and spacing
+//   return `
+//     <div class="career-pathway-report">
+//       <h1 class="text-2xl font-bold text-blue-600 mb-6">Personalized Career Pathway Report for ${userName}</h1>
+      
+//       <section class="mb-8">
+//         <h2 class="text-xl font-semibold text-blue-700 mb-3">Summary</h2>
+//         <p class="text-gray-700 leading-relaxed">${cleanText(sections.summary)}</p>
+//       </section>
+      
+//       <section class="mb-8">
+//         <h2 class="text-xl font-semibold text-blue-700 mb-3">Recommended Roles</h2>
+//         <div class="space-y-2">
+//           ${parseRoles(sections.recommendedRoles)}
+//         </div>
+//       </section>
+      
+//       <section class="mb-8">
+//         <h2 class="text-xl font-semibold text-blue-700 mb-3">Skills and Matching Courses</h2>
+//         <div class="overflow-x-auto">
+//           ${parseMarkdownTable(sections.skills)}
+//         </div>
+//       </section>
+      
+//       <section class="mb-8">
+//         <h2 class="text-xl font-semibold text-blue-700 mb-3">Next-Step Career Recommendations</h2>
+//         <div class="space-y-2">
+//           ${parseNumberedList(sections.nextSteps)}
+//         </div>
+//       </section>
+      
+//       <section class="mb-8">
+//         <h2 class="text-xl font-semibold text-blue-700 mb-3">Roles that Might be Right for You</h2>
+//         <div class="space-y-2">
+//           ${parseNumberedList(sections.rightRoles)}
+//         </div>
+//       </section>
+      
+//       <section class="mb-8">
+//         <h2 class="text-xl font-semibold text-blue-700 mb-3">Path to Your Aspirational Role</h2>
+//         <div class="space-y-2">
+//           ${parseNumberedList(sections.path)}
+//         </div>
+//       </section>
+      
+//       ${sections.remote ? `
+//       <section class="mb-8">
+//         <h2 class="text-xl font-semibold text-blue-700 mb-3">Remote Work Considerations</h2>
+//         <p class="text-gray-700 leading-relaxed">${cleanText(sections.remote)}</p>
+//       </section>
+//       ` : ''}
+      
+//       ${sections.conclusion ? `
+//       <section class="mt-8 p-6 bg-blue-50 border-l-4 border-blue-500 rounded-r-md">
+//         <p class="text-gray-700 italic">${cleanText(sections.conclusion)}</p>
+//       </section>
+//       ` : ''}
+//     </div>
+//   `;
+// };
+  
 const formatCareerPathwayReport = (raw: string): string => {
   // First check if we're getting pre-formatted HTML
   if (/<h|<div|<p>/.test(raw)) return raw;
   
-  // Clean up the input text
-  const cleanedText = raw
-    .replace(/\n\s+/g, '\n') // Remove leading spaces
-    .replace(/\s+\n/g, '\n') // Remove trailing spaces
-    .replace(/\n{3,}/g, '\n\n') // Replace multiple newlines with double newline
-    .trim();
+  // Extract user name
+  const nameMatch = raw.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
+  const userName = nameMatch?.[1] || 'You';
   
-  // Extract sections using the improved parser
-  const extractSection = (text: string, startMarkers: string[], endMarkers?: string[]): string => {
-    for (const startMarker of startMarkers) {
-      let startIndex = text.indexOf(startMarker);
-      
-      if (startIndex !== -1) {
-        const start = startIndex + startMarker.length;
-        let endIndex = text.length;
-        
-        if (endMarkers) {
-          for (const endMarker of endMarkers) {
-            const idx = text.indexOf(endMarker, start);
-            if (idx !== -1 && idx < endIndex) {
-              endIndex = idx;
-            }
-          }
-        }
-        
-        return text.substring(start, endIndex).trim();
-      }
-    }
-    
-    return '';
+  // Extract sections with compact approach
+  const sections = {
+    summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
+    recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
+    skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
+    nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
+    rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
+    path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
+    remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
+    conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
   };
   
-  // Clean text by removing markdown formatting and extra whitespace
-  const cleanText = (text: string): string => {
-    if (!text) return '';
-    
-    return text
-      .trim()
-      .replace(/\*\*/g, '')
-      .replace(/\n\s*\n/g, '\n')
-      .replace(/\n+/g, '\n')
-      .replace(/^\s+|\s+$/g, '')
-      .replace(/\s+/g, ' ');
-  };
+  // Extract skills table if exists
+  let skillsTable = '';
+  if (sections.skills) {
+    const m = sections.skills.match(/\| Skill \| Course \|[\s\S]*?(?=\*\*|$)/);
+    skillsTable = m?.[0] || '';
+  }
   
-  // Parse numbered lists
-  const parseNumberedList = (text: string): string => {
-    if (!text) return '';
-    
-    const items = text.split(/\d+\.\s+/).filter(item => item.trim());
-    
-    return items.map((item, i) => `
-      <div class="flex items-start gap-3 mb-3">
-        <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-medium">
-          ${i + 1}
-        </div>
-        <p class="text-gray-700 flex-1">${cleanText(item)}</p>
-      </div>
-    `).join('');
-  };
+  // Format the report with compact spacing
+  return `
+<div class="career-pathway-report">
+  <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
   
-  // Parse roles
-  const parseRoles = (text: string): string => {
-    if (!text) return '';
-    
-    const items = text.split(/\d+\.\s+/).filter(item => item.trim());
-    
-    return items.map((item, i) => {
-      const colonIndex = item.indexOf(':');
-      if (colonIndex !== -1) {
-        const title = cleanText(item.substring(0, colonIndex));
-        const description = cleanText(item.substring(colonIndex + 1));
-        
-        return `
-          <div class="flex items-start gap-3 mb-3">
-            <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-medium">
-              ${i + 1}
-            </div>
-            <div>
-              <h3 class="font-medium text-gray-900">${title}</h3>
-              <p class="text-gray-600 mt-1">${description}</p>
-            </div>
-          </div>
-        `;
-      } else {
-        return `
-          <div class="flex items-start gap-3 mb-3">
-            <div class="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-800 font-medium">
-              ${i + 1}
-            </div>
-            <p class="text-gray-700">${cleanText(item)}</p>
-          </div>
-        `;
-      }
-    }).join('');
-  };
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
+    <p class="mb-2">${cleanText(sections.summary)}</p>
+  </section>
   
-  // Parse markdown table
-  const parseMarkdownTable = (text: string): string => {
-    if (!text) return '<p class="text-gray-500 italic">No skills data available</p>';
-    
-    const rows = text.split('\n')
-      .map(row => row.trim())
-      .filter(row => row.startsWith('|') && row.endsWith('|') && !row.includes('---'));
-    
-    if (rows.length <= 1) return '<p class="text-gray-500 italic">No skills data available</p>';
-    
-    let tableHtml = `
-      <table class="min-w-full bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <thead class="bg-blue-50">
-          <tr>
-            <th class="py-3 px-4 text-left font-medium text-gray-700 border-b">Skill</th>
-            <th class="py-3 px-4 text-left font-medium text-gray-700 border-b">Course</th>
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.recommendedRoles)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full border-collapse">
+        <thead>
+          <tr class="bg-blue-100">
+            <th class="border border-blue-300 px-4 py-2 text-left">Skill</th>
+            <th class="border border-blue-300 px-4 py-2 text-left">Course</th>
           </tr>
         </thead>
         <tbody>
-    `;
-    
-    for (let i = 1; i < rows.length; i++) {
-      const cells = rows[i]
-        .split('|')
-        .map(cell => cell.trim())
-        .filter(cell => cell);
-      
-      if (cells.length >= 2) {
-        tableHtml += `
-          <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-            <td class="py-3 px-4 border-b">${cleanText(cells[0])}</td>
-            <td class="py-3 px-4 border-b">${cleanText(cells[1])}</td>
-          </tr>
-        `;
-      }
-    }
-    
-    tableHtml += `
+          ${formatSkillsTable(skillsTable)}
         </tbody>
       </table>
-    `;
-    
-    return tableHtml;
-  };
-  
-  // Extract sections
-  const nameMatch = cleanedText.match(/(?:Personalized Career (?:Advice |Pathway )?Report)(?: for ([^*\n]+))?/i);
-  const userName = nameMatch && nameMatch[1] ? cleanText(nameMatch[1]) : 'You';
-  
-  const sections = {
-    summary: extractSection(cleanedText, 
-      ['Summary:', '**Summary:**'], 
-      ['Recommended Roles:', '**Recommended Roles:**']
-    ),
-    recommendedRoles: extractSection(cleanedText,
-      ['Recommended Roles:', '**Recommended Roles:**'],
-      ['Skills and Matching Courses:', '**Skills and Matching Courses:**']
-    ),
-    skills: extractSection(cleanedText,
-      ['Skills and Matching Courses:', '**Skills and Matching Courses:**'],
-      ['Next-Step Career Recommendations:', '**Next-Step Career Recommendations:**']
-    ),
-    nextSteps: extractSection(cleanedText,
-      ['Next-Step Career Recommendations:', '**Next-Step Career Recommendations:**'],
-      ['Roles that Might be Right for You:', '**Roles that Might be Right for You:**']
-    ),
-    rightRoles: extractSection(cleanedText,
-      ['Roles that Might be Right for You:', '**Roles that Might be Right for You:**'],
-      ['Path to Your Aspirational Role:', '**Path to Your Aspirational Role:**']
-    ),
-    path: extractSection(cleanedText,
-      ['Path to Your Aspirational Role:', '**Path to Your Aspirational Role:**'],
-      ['Remote Work Considerations:', '**Remote Work Considerations:**', 'By following']
-    ),
-    remote: extractSection(cleanedText,
-      ['Remote Work Considerations:', '**Remote Work Considerations:**'],
-      ['By following']
-    ),
-    conclusion: extractSection(cleanedText,
-      ['By following'],
-      []
-    )
-  };
-  
-  // Format the report with proper styling and spacing
-  return `
-    <div class="career-pathway-report">
-      <h1 class="text-2xl font-bold text-blue-600 mb-6">Personalized Career Pathway Report for ${userName}</h1>
-      
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-blue-700 mb-3">Summary</h2>
-        <p class="text-gray-700 leading-relaxed">${cleanText(sections.summary)}</p>
-      </section>
-      
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-blue-700 mb-3">Recommended Roles</h2>
-        <div class="space-y-2">
-          ${parseRoles(sections.recommendedRoles)}
-        </div>
-      </section>
-      
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-blue-700 mb-3">Skills and Matching Courses</h2>
-        <div class="overflow-x-auto">
-          ${parseMarkdownTable(sections.skills)}
-        </div>
-      </section>
-      
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-blue-700 mb-3">Next-Step Career Recommendations</h2>
-        <div class="space-y-2">
-          ${parseNumberedList(sections.nextSteps)}
-        </div>
-      </section>
-      
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-blue-700 mb-3">Roles that Might be Right for You</h2>
-        <div class="space-y-2">
-          ${parseNumberedList(sections.rightRoles)}
-        </div>
-      </section>
-      
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-blue-700 mb-3">Path to Your Aspirational Role</h2>
-        <div class="space-y-2">
-          ${parseNumberedList(sections.path)}
-        </div>
-      </section>
-      
-      ${sections.remote ? `
-      <section class="mb-8">
-        <h2 class="text-xl font-semibold text-blue-700 mb-3">Remote Work Considerations</h2>
-        <p class="text-gray-700 leading-relaxed">${cleanText(sections.remote)}</p>
-      </section>
-      ` : ''}
-      
-      ${sections.conclusion ? `
-      <section class="mt-8 p-6 bg-blue-50 border-l-4 border-blue-500 rounded-r-md">
-        <p class="text-gray-700 italic">${cleanText(sections.conclusion)}</p>
-      </section>
-      ` : ''}
     </div>
-  `;
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.nextSteps)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.rightRoles)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.path)}
+    </div>
+  </section>
+  
+  ${sections.remote ? `
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Remote Work Considerations</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.remote)}
+    </div>
+  </section>
+  ` : ''}
+  
+  <section class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
+    <p class="italic">${cleanText(sections.conclusion)}</p>
+  </section>
+</div>`;
+};
+
+// Helper functions with compact formatting
+const extractSection = (text: string, start: string, ends: string[]): string => {
+  const i = text.indexOf(start);
+  if (i === -1) return '';
+  let endIdx = text.length;
+  for (const marker of ends) {
+    const idx = text.indexOf(marker, i + start.length);
+    if (idx !== -1 && idx < endIdx) endIdx = idx;
+  }
+  return text.substring(i + start.length, endIdx).trim();
+};
+
+const cleanText = (text: string): string => {
+  return text.replace(/\*\*/g, '').trim();
+};
+
+const formatNumberedList = (content: string): string => {
+  if (!content) return '';
+  const hasNumbers = /\d+\.\s/.test(content);
+  
+  if (hasNumbers) {
+    const items = content.split(/\d+\.\s/).filter(item => item.trim());
+    return items.map((item, i) =>
+      `<div class="mb-2">
+        <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
+        ${cleanText(item)}
+      </div>`
+    ).join('');
+  } else {
+    return `<p>${cleanText(content)}</p>`;
+  }
+};
+
+const formatSkillsTable = (tableText: string): string => {
+  if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
+  
+  const rows = tableText.split('\n')
+    .filter(r => r.startsWith('|') && !r.includes('---'));
+    
+  return rows.map(row => {
+    const cells = row.split('|').filter(c => c.trim());
+    return cells.length >= 2
+      ? `<tr>
+        <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
+        <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
+      </tr>`
+      : '';
+  }).join('');
 };
   
   const handleReportError = (msg: string) => {
