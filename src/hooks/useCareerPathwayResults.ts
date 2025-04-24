@@ -36,7 +36,7 @@ export const useCareerPathwayResults = () => {
       }
       
       // Destructure the result to get only the sections
-      const { sections } = parseformatCareerPathwayReport(data.report);
+      const { sections } = parseformatCareerPathwayReport(data);
       return sections;
     },
     enabled: !!user?.id,
