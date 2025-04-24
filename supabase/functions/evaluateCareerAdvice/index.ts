@@ -13,6 +13,8 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  console.log(req)
+
 let body;
 try {
 //   body = await req.text();//json();
