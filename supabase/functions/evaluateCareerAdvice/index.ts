@@ -49,7 +49,7 @@ serve(async (req) => {
     let body: RequestPayload;
     try {
       body = JSON.parse(bodyText);
-      console.log("Successfully parsed request body");
+      console.log("Successfully parsed request body:", body);
     } catch (parseError) {
       console.error(`Error parsing JSON: ${parseError.message}`);
       console.error(`Raw body content: ${bodyText.substring(0, 200)}...`);

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -12,7 +13,6 @@ import {
   careerAdvicePrompt,
   PathwayQuestion
 } from '@/data/careerPathwayData';
-import CareerPathwayForm from '@/components/CareerPathwayForm';
 
 interface Message {
   id: string;
@@ -68,8 +68,6 @@ const CareerAgent: React.FC = () => {
     setSessionId(sid);
     initializeConversation();
   }, []);
-
-  // No localStorage saving - all data saved to database
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -288,6 +286,7 @@ const CareerAgent: React.FC = () => {
     }]);
   };
 
+  // Direct implementation of career advice generation without using CareerPathwayForm
   const generateCareerAdviceReport = async (resumeText?: string) => {
     setMessages(prev => [...prev, { 
       id: `bot_${Date.now()}`, 
@@ -326,23 +325,27 @@ const CareerAgent: React.FC = () => {
       resumeText: resumeText || '' 
     };
     
-    console.log('Sending payload:', JSON.stringify(payload, null, 2));
+    console.log('Sending payload to evaluateCareerAdvice:', JSON.stringify(payload, null, 2));
     
     try {
-      const formComponent = new CareerPathwayForm({
-        prompt: careerAdvicePrompt,
-        pathwayQuestions: pathwayQuestions,
-        pathwayAnswers: pathwayAnswersPayload,
-        resumeText: resumeText || ''
+      // Direct submission to the Edge Function
+      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json' }
       });
-
-      const result = await formComponent.processRequest();
       
-      if (!result) {
+      if (error) {
+        console.error("Error calling evaluateCareerAdvice:", error);
+        throw new Error(`Error evaluating career advice: ${error.message || 'Unknown error'}`);
+      }
+      
+      console.log("Response from evaluateCareerAdvice:", data);
+      
+      if (!data) {
         throw new Error("No result returned from career pathway form");
       }
       
-      const raw = typeof result === 'string' ? result : result.generatedText || result.message || JSON.stringify(result);
+      const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
       console.log("Career Pathway Insights: ", raw);
       const html = formatCareerPathwayReport(raw);
       setCareerAdviceReport(html);
