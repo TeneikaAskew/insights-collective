@@ -318,10 +318,14 @@ const CareerAgent: React.FC = () => {
     console.log('Sending payload:', payload);
     
     try {
-      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+       const response = await fetch(`${supabase.supabaseUrl}/functions/v1/evaluateCareerAdvice`, {
+        
+      // const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabase.supabaseKey}`,
+          'x-client-info': 'supabase-js-web/2.49.4'
         },
         body: payload //JSON.stringify(payload)
       });
