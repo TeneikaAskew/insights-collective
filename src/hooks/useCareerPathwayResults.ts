@@ -14,7 +14,7 @@ export const useCareerPathwayResults = () => {
       
       const { data, error } = await supabase
         .from('career_pathway_results')
-        .select('*')
+        .select('report')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
