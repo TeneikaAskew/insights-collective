@@ -20,7 +20,7 @@ serve(async (req) => {
     const prompt = body.prompt;
     console.log("Prompt: ", prompt)
     
-    const PathwayQuestions = body.pathwayQuestions || body.Quizquestions;
+    const pathwayQuestions = body.pathwayQuestions || body.quizQuestions;
     console.log("PathwayQuestions: ", PathwayQuestions)
     
     const pathwayAnswers = body.pathwayAnswers || body.quizAnswers;
@@ -29,7 +29,7 @@ serve(async (req) => {
     const resumeText = body.resumeText;    
     console.log("resumeText: ", resumeText)
 
-    if (!prompt || !PathwayQuestions || !pathwayAnswers) {
+    if (!prompt || !pathwayQuestions || !pathwayAnswers) {
       return new Response(
         JSON.stringify({ error: "Missing required fields." }),
         {
@@ -41,7 +41,7 @@ serve(async (req) => {
 
     // Construct prompt
     let combinedPrompt = `${prompt}\n\nUser's pathway answers:\n`;
-    for (const question of PathwayQuestions) {
+    for (const question of pathwayQuestions) {
       const answer = pathwayAnswers[question.id] || "";
       combinedPrompt += `${question.label || question.id}: ${answer}\n`;
     }
