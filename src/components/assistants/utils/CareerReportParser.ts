@@ -194,15 +194,69 @@ function extractRecommendedRoles(text: string): RecommendedRole[] {
 /**
  * Extract skills and courses table
  */
+// function extractSkillsAndCourses(text: string): SkillCourse[] {
+//   const skillsCourses: SkillCourse[] = [];
+  
+//   // Find the skills and courses section
+//   const skillsSection = text.match(/Skills and Matching Courses:(.*?)(?=Next-Step Career Recommendations:|$)/is);
+  
+//   if (skillsSection) {
+//     // Look for markdown table format with more flexible matching
+//     const tableContent = skillsSection[1].trim();
+//     const lines = tableContent.split('\n').map(line => line.trim());
+    
+//     // Find table data lines (skipping header and separator)
+//     let inTable = false;
+//     for (let i = 0; i < lines.length; i++) {
+//       const line = lines[i];
+      
+//       // Skip header and separator lines
+//       if (line.includes('| Skill | Course |') || line.includes('| ----- | ------ |')) {
+//         inTable = true;
+//         continue;
+//       }
+      
+//       // Process table rows
+//       if (inTable && line.startsWith('|') && line.endsWith('|')) {
+//         const cells = line.split('|')
+//           .map(cell => cell.trim())
+//           .filter(cell => cell !== '');
+        
+//         if (cells.length >= 2) {
+//           const item: SkillCourse = {
+//             skill: cells[0],
+//             course: cells[1],
+//           };
+          
+//           // If there's a third column, consider it the provider
+//           if (cells.length >= 3) {
+//             item.provider = cells[2];
+//           }
+          
+//           // Check if provider is embedded in course name
+//           const providerMatch = item.course.match(/\((.*?)\)$/);
+//           if (providerMatch) {
+//             item.provider = providerMatch[1];
+//             item.course = item.course.replace(/\s*\(.*?\)$/, '');
+//           }
+          
+//           skillsCourses.push(item);
+//         }
+//       }
+//     }
+//   }
+  
+//   return skillsCourses;
+// }
 function extractSkillsAndCourses(text: string): SkillCourse[] {
   const skillsCourses: SkillCourse[] = [];
   
-  // Find the skills and courses section
-  const skillsSection = text.match(/Skills and Matching Courses:(.*?)(?=Next-Step Career Recommendations:|$)/is);
+  // Use the same extraction logic as your parseformatCareerPathwayReport
+  const skillsSection = extractSection(text, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']);
   
   if (skillsSection) {
     // Look for markdown table format with more flexible matching
-    const tableContent = skillsSection[1].trim();
+    const tableContent = skillsSection.trim();
     const lines = tableContent.split('\n').map(line => line.trim());
     
     // Find table data lines (skipping header and separator)
@@ -246,9 +300,30 @@ function extractSkillsAndCourses(text: string): SkillCourse[] {
     }
   }
   
+  // If no skills were found in the table format, try alternative approaches
+  if (skillsCourses.length === 0 && skillsSection) {
+    const listItemRegex = /[•*-]\s+([^:]+):\s+([^\n]+)/g;
+    const matches = [...skillsSection.matchAll(listItemRegex)];
+    
+    for (const match of matches) {
+      const item: SkillCourse = {
+        skill: match[1].trim(),
+        course: match[2].trim(),
+      };
+      
+      // Try to extract provider if it's in parentheses
+      const providerMatch = item.course.match(/\((.*?)\)$/);
+      if (providerMatch) {
+        item.provider = providerMatch[1];
+        item.course = item.course.replace(/\s*\(.*?\)$/, '');
+      }
+      
+      skillsCourses.push(item);
+    }
+  }
+  
   return skillsCourses;
 }
-
 /**
  * Extract next-step career recommendations
  */
