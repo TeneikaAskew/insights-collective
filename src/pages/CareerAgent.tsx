@@ -147,6 +147,7 @@ ${sections.remote ? `<section><h2>Remote</h2>${formatNumberedList(sections.remot
     setMessages(prev=>[...prev,{ id:`bot_${Date.now()}`, sender:'bot', text:'Generating report…'}]);
     if (!user) return;
     const payload = { prompt:careerAdvicePrompt, PathwayQuestions:pathwayQuestions, pathwayAnswers:answers, resumeText:txt||null };
+    console.log(payload)
     try {
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice',{method:'POST',body:JSON.stringify(payload)});
       if (error) throw error;
