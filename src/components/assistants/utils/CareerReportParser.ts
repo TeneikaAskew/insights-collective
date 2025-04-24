@@ -324,6 +324,7 @@ function extractSkillsAndCourses(text: string): SkillCourse[] {
   
   return skillsCourses;
 }
+
 /**
  * Extract next-step career recommendations
  */
