@@ -108,28 +108,22 @@ export type Database = {
       }
       career_pathway_results: {
         Row: {
-          answer: string
           created_at: string
           id: string
-          question: string
           report: Json | null
           session_id: string
           user_id: string
         }
         Insert: {
-          answer: string
           created_at?: string
           id?: string
-          question: string
           report?: Json | null
           session_id: string
           user_id: string
         }
         Update: {
-          answer?: string
           created_at?: string
           id?: string
-          question?: string
           report?: Json | null
           session_id?: string
           user_id?: string

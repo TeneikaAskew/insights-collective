@@ -1,4 +1,4 @@
-// Updated: CareerPathwaySection now fetches saved career advice instead of generating it
+
 import React, { useEffect, useState } from 'react';
 import { pathwayQuestions } from '@/data/careerPathwayData';
 import { supabase } from '@/integrations/supabase/client';
@@ -59,7 +59,7 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
         }
 
         if (adviceData && adviceData.report) {
-          setCareerAdviceReport(adviceData.report);
+          setCareerAdviceReport(typeof adviceData.report === 'string' ? adviceData.report : JSON.stringify(adviceData.report));
         } else {
           setCareerAdviceReport('No career pathway report found. Please complete the career pathway chat first.');
         }
@@ -95,7 +95,10 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
                 Resume found and incorporated into career advice.
               </div>
             )}
-            <pre className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</pre>
+            <div 
+              className="career-advice-report whitespace-pre-wrap text-sm text-gray-800"
+              dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+            />
           </>
         )}
       </CardContent>

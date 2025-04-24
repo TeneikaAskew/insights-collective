@@ -285,6 +285,81 @@ const CareerAgent: React.FC = () => {
     }]);
   };
 
+  // Add new effect to load previous answers
+  useEffect(() => {
+    const loadPreviousAnswers = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data: previousAnswers, error } = await supabase
+          .from('career_pathway_answers')
+          .select('question, answer')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: true });
+          
+        if (error) {
+          console.error('Error loading previous answers:', error);
+          return;
+        }
+
+        if (previousAnswers && previousAnswers.length > 0) {
+          const answersMap: Record<string, string> = {};
+          previousAnswers.forEach(item => {
+            answersMap[item.question] = item.answer;
+          });
+          setAnswers(answersMap);
+        }
+      } catch (err) {
+        console.error('Error fetching previous answers:', err);
+      }
+    };
+
+    loadPreviousAnswers();
+  }, [user]);
+
+  const handleResetAnswers = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { error } = await supabase
+        .from('career_pathway_answers')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting answers:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to reset answers. Please try again.',
+          variant: 'destructive'
+        });
+        return;
+      }
+
+      setAnswers({});
+      setMessages(starterMessages.map((text, index) => ({
+        id: `bot_starter_${index}`,
+        sender: "bot",
+        text,
+      })));
+      setCurrentQuestionIndex(0);
+      setShowQuickReplies(true);
+      setCareerAdviceReport('');
+
+      toast({
+        title: 'Success',
+        description: 'Your answers have been reset.',
+      });
+    } catch (err) {
+      console.error('Error in reset:', err);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive'
+      });
+    }
+  };
+
   // Simplified implementation of career advice generation
   const generateCareerAdviceReport = async (resumeText?: string) => {
     setMessages(prev => [...prev, { 
@@ -331,14 +406,17 @@ const CareerAgent: React.FC = () => {
       const html = formatCareerPathwayReport(raw);
       setCareerAdviceReport(html);
       
-      try {
-        await supabase.from("career_pathway_results").insert({
-          user_id: user.id,
-          session_id: sessionId,
-          report: raw
-        });
-      } catch (saveError) {
-        console.error("Error saving career pathway report:", saveError);
+      // Save the report to career_pathway_results
+      if (user?.id) {
+        try {
+          await supabase.from("career_pathway_results").insert({
+            user_id: user.id,
+            session_id: sessionId,
+            report: raw
+          });
+        } catch (saveError) {
+          console.error("Error saving career pathway report:", saveError);
+        }
       }
       
       setMessages(prev => [...prev, { 
@@ -435,6 +513,7 @@ const CareerAgent: React.FC = () => {
     }
   };
 
+  // Update the handleSubmit function
   const handleSubmit = async () => {
     if (isTyping) return;
 
@@ -450,9 +529,23 @@ const CareerAgent: React.FC = () => {
       setIsTyping(true);
 
       const currentQuestion = pathwayQuestions[currentQuestionIndex];
-      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: inputValue.trim() }));
+      const answer = inputValue.trim();
       
-      await saveAnswerToDatabase(currentQuestion.id, inputValue.trim());
+      setAnswers(prev => ({ ...prev, [currentQuestion.id]: answer }));
+      
+      // Save answer to database
+      if (user?.id) {
+        try {
+          await supabase.from('career_pathway_answers').insert({
+            user_id: user.id,
+            session_id: sessionId,
+            question: currentQuestion.id,
+            answer: answer
+          });
+        } catch (err) {
+          console.error('Error saving answer:', err);
+        }
+      }
       
       setInputValue("");
 
@@ -613,14 +706,24 @@ const CareerAgent: React.FC = () => {
                 <p className="text-sm text-green-500">Online</p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              onClick={handleResetChat}
-              size="sm"
-              className="text-blue-600 hover:text-blue-700"
-            >
-              Reset Chat
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleResetAnswers}
+                size="sm"
+                className="text-red-600 hover:text-red-700"
+              >
+                Reset Answers
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={handleResetChat}
+                size="sm"
+                className="text-blue-600 hover:text-blue-700"
+              >
+                New Chat
+              </Button>
+            </div>
           </div>
         </div>
         <div 
@@ -779,87 +882,3 @@ const CareerAgent: React.FC = () => {
                   accept=".pdf,.docx"
                   onChange={handleFileChange}
                   disabled={isTyping || resumeUploading}
-                  className="block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                />
-                <Button
-                  onClick={() => void handleSubmit()}
-                  disabled={isTyping || resumeUploading || !resumeFile}
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
-                >
-                  {resumeUploading ? "Uploading..." : "Upload Resume"}
-                </Button>
-              </div>
-            )}
-
-            {careerAdviceReport && (
-              <>
-                <style>
-                  {`
-                  @keyframes slideInUp {
-                    from {
-                      transform: translateY(20px);
-                      opacity: 0;
-                    }
-                    to {
-                      transform: translateY(0);
-                      opacity: 1;
-                    }
-                  }
-                  
-                  .career-advice-report {
-                    animation: slideInUp 0.5s ease-out forwards;
-                  }
-                `}
-                </style>
-                <div 
-                  ref={reportRef}
-                  className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
-                  dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-                />
-              </>
-            )}
-            
-            <div ref={messagesEndRef} />
-          </div>
-        </div>
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
-          <div className="container mx-auto max-w-2xl px-4 py-3">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void handleSubmit();
-              }}
-              className="flex items-center space-x-3"
-            >
-              <input
-                className="flex-grow rounded-full border border-gray-300 px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300 text-sm"
-                type="text"
-                placeholder="Type your response…"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleInputKeyDown}
-                disabled={isTyping || resumeUploading || (currentQuestionIndex === pathwayQuestions.length && showQuickReplies)}
-                autoComplete="off"
-                aria-label="Chat input"
-              />
-              <Button
-                type="submit"
-                disabled={
-                  isTyping ||
-                  resumeUploading ||
-                  !inputValue.trim() ||
-                  (currentQuestionIndex === pathwayQuestions.length && showQuickReplies)
-                }
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded-full"
-              >
-                Send
-              </Button>
-            </form>
-          </div>
-        </div>
-      </div>
-    </AppLayout>
-  );
-};
-
-export default CareerAgent;
