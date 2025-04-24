@@ -308,6 +308,8 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       }
     });
 
+  console.log("pathwayAnswersPayload: ",pathwayAnswersPayload)
+
     // Ensure payload is properly formatted
     const payload = { 
       prompt: careerAdvicePrompt || '', 
