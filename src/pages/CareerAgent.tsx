@@ -9,6 +9,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -16,13 +17,10 @@ serve(async (req) => {
   try {
     // Parse the incoming request body
     const body = await req.json();
-    const { prompt, pathwayQuestions, pathwayAnswers, resumeText } = body;
-
+    
     console.log("Received body:", JSON.stringify(body, null, 2));
-    console.log("Prompt: ", prompt);
-    console.log("pathwayQuestions: ", pathwayQuestions);
-    console.log("pathwayAnswers: ", pathwayAnswers);
-    console.log("resumeText: ", resumeText);
+    
+    const { prompt, pathwayQuestions, pathwayAnswers, resumeText } = body;
 
     // Validate required fields
     if (!prompt || !pathwayQuestions || !pathwayAnswers) {
@@ -36,10 +34,9 @@ serve(async (req) => {
     }
 
     // Format the career analysis prompt
-    let formattedPrompt = prompt + '\n\n';
+    let formattedPrompt = `${prompt}\n\nUser Responses:\n`;
     
     // Add user's responses
-    formattedPrompt += 'User Responses:\n';
     if (Array.isArray(pathwayQuestions)) {
       pathwayQuestions.forEach((question) => {
         const answer = pathwayAnswers[question.id];
@@ -51,20 +48,20 @@ serve(async (req) => {
     
     // Add resume information if available
     if (resumeText) {
-      formattedPrompt += '\nResume Content:\n' + resumeText + '\n';
+      formattedPrompt += `\nResume Content:\n${resumeText}\n`;
     }
     
     // Add instructions for formatting
-    formattedPrompt += '\nPlease provide a detailed career pathway report with the following sections:\n';
-    formattedPrompt += '1. Summary\n';
-    formattedPrompt += '2. Recommended Roles\n';
-    formattedPrompt += '3. Skills and Matching Courses\n';
-    formattedPrompt += '4. Next-Step Career Recommendations\n';
-    formattedPrompt += '5. Roles that Might be Right for You\n';
-    formattedPrompt += '6. Path to Your Aspirational Role\n';
-    formattedPrompt += '7. Remote Work Considerations (if applicable)\n';
+    formattedPrompt += `\nPlease provide a detailed career pathway report with the following sections:
+1. Summary
+2. Recommended Roles
+3. Skills and Matching Courses
+4. Next-Step Career Recommendations
+5. Roles that Might be Right for You
+6. Path to Your Aspirational Role
+7. Remote Work Considerations (if applicable)`;
 
-    console.log("Formatted prompt:", formattedPrompt);
+    console.log("Formatted prompt length:", formattedPrompt.length);
 
     const messages = [
       {
@@ -111,8 +108,13 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Error in evaluateCareerAdvice function:", error);
+    console.error("Error stack:", error.stack);
+    
     return new Response(
-      JSON.stringify({ error: error.message || "Unexpected error occurred" }),
+      JSON.stringify({ 
+        error: error.message || "Unexpected error occurred",
+        details: error.toString()
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
