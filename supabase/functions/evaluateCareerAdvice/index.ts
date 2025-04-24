@@ -18,6 +18,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
+    console.log(body)
     const { prompt, Quizquestions, quizAnswers, resumeText } = body;
 
     if (!prompt || !Quizquestions || !quizAnswers) {
