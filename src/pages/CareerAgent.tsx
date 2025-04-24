@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -253,374 +254,232 @@ const CareerAgent: React.FC = () => {
     }
   };
 
-
-
-
-//   const formatCareerPathwayReport = (raw: string): string => {
-//   // First check if we're getting pre-formatted HTML
-//   if (/<h|<div|<p>/.test(raw)) return raw;
-  
-//   // Extract user name
-//   const nameMatch = raw.match(/\*\*Personalized Career (?:Advice |Pathway )?Report(?: for ([^*\n]+))?\*\*/i);
-//   const userName = nameMatch?.[1] ? nameMatch[1].trim() : 'You';
-  
-//   // Extract sections with improved matching
-//   const sections = {
-//     summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
-//     recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
-//     skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
-//     nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
-//     rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
-//     path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
-//     remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
-//     conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')).trim() : ''
-//   };
-  
-//   // Format the report with compact spacing and proper content display
-//   return `
-// <div class="career-pathway-report">
-//   <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
-//     <p class="text-gray-700">${cleanText(sections.summary)}</p>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.recommendedRoles)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
-//     <div class="overflow-x-auto">
-//       ${formatSkillsTable(sections.skills)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.nextSteps)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.rightRoles)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.path)}
-//     </div>
-//   </section>
-  
-//   ${sections.remote ? `
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Remote Work Considerations</h2>
-//     <p class="text-gray-700">${cleanText(sections.remote)}</p>
-//   </section>
-//   ` : ''}
-  
-//   <section class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
-//     <p class="italic text-gray-700">${cleanText(sections.conclusion)}</p>
-//   </section>
-// </div>`;
-// };
-
-// // Improved helper functions
-// const extractSection = (text: string, start: string, ends: string[]): string => {
-//   const i = text.indexOf(start);
-//   if (i === -1) return '';
-  
-//   let endIdx = text.length;
-//   for (const marker of ends) {
-//     const idx = text.indexOf(marker, i + start.length);
-//     if (idx !== -1 && idx < endIdx) endIdx = idx;
-//   }
-  
-//   return text.substring(i + start.length, endIdx).trim();
-// };
-
-// const cleanText = (text: string): string => {
-//   return text.replace(/\*\*/g, '').trim();
-// };
-
-// const formatNumberedList = (content: string): string => {
-//   if (!content) return '';
-  
-//   // Split by numbered pattern (1., 2., etc.)
-//   const items = content.split(/(\d+\.)/g);
-//   let formattedItems = [];
-  
-//   for (let i = 1; i < items.length; i += 2) {
-//     const number = items[i].trim();
-//     const text = items[i + 1]?.trim() || '';
+  const formatCareerPathwayReport = (raw: string): string => {
+    // First check if we're getting pre-formatted HTML
+    if (/<h|<div|<p>/.test(raw)) return raw;
     
-//     if (text) {
-//       const cleanedText = cleanText(text);
-//       const itemNumber = number.replace('.', '');
+    // Extract user name
+    const nameMatch = raw.match(/\*\*Personalized Career (?:Advice |Pathway )?Report(?: for ([^*\n]+))?\*\*/i);
+    const userName = nameMatch?.[1] ? nameMatch[1].trim() : 'You';
+    
+    // Extract sections with improved matching
+    const sections = {
+      summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
+      recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
+      skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
+      nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
+      rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
+      path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
+      remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
+      conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')).trim() : ''
+    };
+    
+    // Format the report with compact spacing and proper content display
+    return `
+  <div class="career-pathway-report">
+    <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
+    
+    <section class="mb-6">
+      <h2 class="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
+      <p class="text-gray-700">${cleanText(sections.summary)}</p>
+    </section>
+    
+    <section class="mb-6">
+      <h2 class="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
+      <div class="pl-4">
+        ${formatNumberedList(sections.recommendedRoles)}
+      </div>
+    </section>
+    
+    <section class="mb-6">
+      <h2 class="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
+      <div class="overflow-x-auto">
+        ${formatSkillsTable(sections.skills)}
+      </div>
+    </section>
+    
+    <section class="mb-6">
+      <h2 class="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
+      <div class="pl-4">
+        ${formatNumberedList(sections.nextSteps)}
+      </div>
+    </section>
+    
+    <section class="mb-6">
+      <h2 class="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
+      <div class="pl-4">
+        ${formatNumberedList(sections.rightRoles)}
+      </div>
+    </section>
+    
+    <section class="mb-6">
+      <h2 class="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
+      <div class="pl-4">
+        ${formatNumberedList(sections.path)}
+      </div>
+    </section>
+    
+    ${sections.remote ? `
+    <section class="mb-6">
+      <h2 class="text-lg font-semibold text-blue-700 mb-2">Remote Work Considerations</h2>
+      <p class="text-gray-700">${cleanText(sections.remote)}</p>
+    </section>
+    ` : ''}
+    
+    <section class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
+      <p class="italic text-gray-700">${cleanText(sections.conclusion)}</p>
+    </section>
+  </div>`;
+  };
+
+  // Improved helper functions
+  const extractSection = (text: string, start: string, ends: string[]): string => {
+    const i = text.indexOf(start);
+    if (i === -1) return '';
+    
+    let endIdx = text.length;
+    for (const marker of ends) {
+      const idx = text.indexOf(marker, i + start.length);
+      if (idx !== -1 && idx < endIdx) endIdx = idx;
+    }
+    
+    return text.substring(i + start.length, endIdx).trim();
+  };
+
+  const cleanText = (text: string): string => {
+    return text.replace(/\*\*/g, '').trim();
+  };
+
+  const formatNumberedList = (content: string): string => {
+    if (!content) return '';
+    
+    // Split by numbered pattern (1., 2., etc.)
+    const items = content.split(/(\d+\.)/g);
+    let formattedItems = [];
+    
+    for (let i = 1; i < items.length; i += 2) {
+      const number = items[i].trim();
+      const text = items[i + 1]?.trim() || '';
       
-//       formattedItems.push(`
-//         <div class="flex items-start mb-3">
-//           <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-sm mr-3">
-//             ${itemNumber}
-//           </span>
-//           <span class="text-gray-700">${cleanedText}</span>
-//         </div>
-//       `);
-//     }
-//   }
-  
-//   // If no numbered items were found, try bullet points
-//   if (formattedItems.length === 0) {
-//     const bulletItems = content.split(/[•\-\*]/).filter(item => item.trim());
-//     if (bulletItems.length > 0) {
-//       return bulletItems.map((item, i) => `
-//         <div class="flex items-start mb-3">
-//           <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-sm mr-3">
-//             ${i + 1}
-//           </span>
-//           <span class="text-gray-700">${cleanText(item)}</span>
-//         </div>
-//       `).join('');
-//     }
-//     // If still no items, return the content as a paragraph
-//     return `<p class="text-gray-700">${cleanText(content)}</p>`;
-//   }
-  
-//   return formattedItems.join('');
-// };
+      if (text) {
+        const cleanedText = cleanText(text);
+        const itemNumber = number.replace('.', '');
+        
+        formattedItems.push(`
+          <div class="flex items-start mb-3">
+            <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-sm mr-3">
+              ${itemNumber}
+            </span>
+            <span class="text-gray-700">${cleanedText}</span>
+          </div>
+        `);
+      }
+    }
+    
+    // If no numbered items were found, try bullet points
+    if (formattedItems.length === 0) {
+      const bulletItems = content.split(/[•\-\*]/).filter(item => item.trim());
+      if (bulletItems.length > 0) {
+        return bulletItems.map((item, i) => `
+          <div class="flex items-start mb-3">
+            <span class="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-800 rounded-full flex items-center justify-center text-sm mr-3">
+              ${i + 1}
+            </span>
+            <span class="text-gray-700">${cleanText(item)}</span>
+          </div>
+        `).join('');
+      }
+      // If still no items, return the content as a paragraph
+      return `<p class="text-gray-700">${cleanText(content)}</p>`;
+    }
+    
+    return formattedItems.join('');
+  };
 
-// const formatSkillsTable = (tableText: string): string => {
-//   if (!tableText) return '<p class="text-gray-700">No skills data available</p>';
-  
-//   // First try to find markdown table
-//   const tableMatch = tableText.match(/\|(?:.*?\|)+\n\|(?:[-\s:]*?\|)+\n((?:\|.*?\|\n?)*)/s);
-  
-//   if (tableMatch) {
-//     const rows = tableText.split('\n')
-//       .filter(row => row.trim().startsWith('|') && !row.includes('---'));
+  const formatSkillsTable = (tableText: string): string => {
+    if (!tableText) return '<p class="text-gray-700">No skills data available</p>';
     
-//     // Process header
-//     let headerRow = rows[0];
-//     if (headerRow) {
-//       const headers = headerRow.split('|').filter(cell => cell.trim());
+    // First try to find markdown table
+    const tableMatch = tableText.match(/\|(?:.*?\|)+\n\|(?:[-\s:]*?\|)+\n((?:\|.*?\|\n?)*)/);
+    
+    if (tableMatch) {
+      const rows = tableText.split('\n')
+        .filter(row => row.trim().startsWith('|') && !row.includes('---'));
       
-//       let tableHtml = `
-//         <table class="min-w-full border-collapse table-auto">
-//           <thead>
-//             <tr class="bg-blue-100">
-//               ${headers.map(header => `<th class="border border-blue-300 px-4 py-2 text-left font-medium text-gray-700">${header.trim()}</th>`).join('')}
-//             </tr>
-//           </thead>
-//           <tbody>
-//       `;
+      // Process header
+      let headerRow = rows[0];
+      if (headerRow) {
+        const headers = headerRow.split('|').filter(cell => cell.trim());
+        
+        let tableHtml = `
+          <table class="min-w-full border-collapse table-auto">
+            <thead>
+              <tr class="bg-blue-100">
+                ${headers.map(header => `<th class="border border-blue-300 px-4 py-2 text-left font-medium text-gray-700">${header.trim()}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        // Process data rows
+        for (let i = 1; i < rows.length; i++) {
+          const cells = rows[i].split('|').filter(cell => cell.trim());
+          if (cells.length >= 2) {
+            tableHtml += `
+              <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+                ${cells.map(cell => `<td class="border border-blue-300 px-4 py-2 text-gray-700">${cell.trim()}</td>`).join('')}
+              </tr>
+            `;
+          }
+        }
+        
+        tableHtml += `
+            </tbody>
+          </table>
+        `;
+        
+        return tableHtml;
+      }
+    }
+    
+    // If markdown table parsing fails, try to parse as key-value pairs
+    const lines = tableText.split('\n').filter(line => line.trim());
+    if (lines.length > 0) {
+      let tableHtml = `
+        <table class="min-w-full border-collapse table-auto">
+          <thead>
+            <tr class="bg-blue-100">
+              <th class="border border-blue-300 px-4 py-2 text-left font-medium text-gray-700">Skill</th>
+              <th class="border border-blue-300 px-4 py-2 text-left font-medium text-gray-700">Course</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
       
-//       // Process data rows
-//       for (let i = 1; i < rows.length; i++) {
-//         const cells = rows[i].split('|').filter(cell => cell.trim());
-//         if (cells.length >= 2) {
-//           tableHtml += `
-//             <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-//               ${cells.map(cell => `<td class="border border-blue-300 px-4 py-2 text-gray-700">${cell.trim()}</td>`).join('')}
-//             </tr>
-//           `;
-//         }
-//       }
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const parts = line.split(/[:\-]/);
+        if (parts.length >= 2) {
+          tableHtml += `
+            <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
+              <td class="border border-blue-300 px-4 py-2 text-gray-700">${parts[0].trim()}</td>
+              <td class="border border-blue-300 px-4 py-2 text-gray-700">${parts.slice(1).join(':').trim()}</td>
+            </tr>
+          `;
+        }
+      }
       
-//       tableHtml += `
-//           </tbody>
-//         </table>
-//       `;
+      tableHtml += `
+          </tbody>
+        </table>
+      `;
       
-//       return tableHtml;
-//     }
-//   }
-  
-//   // If markdown table parsing fails, try to parse as key-value pairs
-//   const lines = tableText.split('\n').filter(line => line.trim());
-//   if (lines.length > 0) {
-//     let tableHtml = `
-//       <table class="min-w-full border-collapse table-auto">
-//         <thead>
-//           <tr class="bg-blue-100">
-//             <th class="border border-blue-300 px-4 py-2 text-left font-medium text-gray-700">Skill</th>
-//             <th class="border border-blue-300 px-4 py-2 text-left font-medium text-gray-700">Course</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//     `;
+      return tableHtml;
+    }
     
-//     for (let i = 0; i < lines.length; i++) {
-//       const line = lines[i];
-//       const parts = line.split(/[:\-]/);
-//       if (parts.length >= 2) {
-//         tableHtml += `
-//           <tr class="${i % 2 === 0 ? 'bg-white' : 'bg-gray-50'}">
-//             <td class="border border-blue-300 px-4 py-2 text-gray-700">${parts[0].trim()}</td>
-//             <td class="border border-blue-300 px-4 py-2 text-gray-700">${parts.slice(1).join(':').trim()}</td>
-//           </tr>
-//         `;
-//       }
-//     }
-    
-//     tableHtml += `
-//         </tbody>
-//       </table>
-//     `;
-    
-//     return tableHtml;
-//   }
-  
-//   // If all else fails, return the original text
-//   return `<p class="text-gray-700">${cleanText(tableText)}</p>`;
-// };
-  // Helpers for report formatting
-//   const extractSection = (text: string, start: string, ends: string[]): string => {
-//     const i = text.indexOf(start);
-//     if (i === -1) return '';
-//     let endIdx = text.length;
-//     for (const marker of ends) {
-//       const idx = text.indexOf(marker, i + start.length);
-//       if (idx !== -1 && idx < endIdx) endIdx = idx;
-//     }
-//     return text.substring(i + start.length, endIdx).trim();
-//   };
-
-//   const cleanText = (text: string): string => text.replace(/\*\*/g, '').trim();
-
-//   const formatNumberedList = (content: string): string => {
-//     if (!content) return '';
-//     const hasNumbers = /\d+\.\s/.test(content);
-    
-//     if (hasNumbers) {
-//       const items = content.split(/\d+\.\s/).filter(item => item.trim());
-//       return items.map((item, i) =>
-//         `<div class="mb-2">
-//           <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
-//           ${cleanText(item)}
-//         </div>`
-//       ).join('');
-//     } else {
-//       return `<p>${cleanText(content)}</p>`;
-//     }
-//   };
-
-//   const formatSkillsTable = (tableText: string): string => {
-//     if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
-    
-//     const rows = tableText.split('\n')
-//       .filter(r => r.startsWith('|') && !r.includes('---'));
-      
-//     return rows.map(row => {
-//       const cells = row.split('|').filter(c => c.trim());
-//       return cells.length >= 2
-//         ? `<tr>
-//           <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
-//           <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
-//         </tr>`
-//         : '';
-//     }).join('');
-//   };
-
-//   const formatCareerPathwayReport = (raw: string): string => {
-//     if (/<h|<div|<p>/.test(raw)) return raw;
-    
-//     const nameMatch = raw.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
-//     const userName = nameMatch?.[1] || 'You';
-    
-//     const sections = {
-//       summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
-//       recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
-//       skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
-//       nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
-//       rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
-//       path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
-//       remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
-//       conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
-//     };
-    
-//     let skillsTable = '';
-//     if (sections.skills) {
-//       const m = sections.skills.match(/\| Skill \| Course \|[\s\S]*?(?=\*\*|$)/);
-//       skillsTable = m?.[0] || '';
-//     }
-    
-//     return `
-// <div class="career-pathway-report">
-//   <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
-//     <p class="mb-2">${cleanText(sections.summary)}</p>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.recommendedRoles)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
-//     <div class="overflow-x-auto">
-//       <table class="min-w-full border-collapse">
-//         <thead>
-//           <tr class="bg-blue-100">
-//             <th class="border border-blue-300 px-4 py-2 text-left">Skill</th>
-//             <th class="border border-blue-300 px-4 py-2 text-left">Course</th>
-//           </tr>
-//         </thead>
-//         <tbody>
-//           ${formatSkillsTable(skillsTable)}
-//         </tbody>
-//       </table>
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.nextSteps)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.rightRoles)}
-//     </div>
-//   </section>
-  
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.path)}
-//     </div>
-//   </section>
-  
-//   ${sections.remote ? `
-//   <section class="mb-6">
-//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Remote Work Considerations</h2>
-//     <div class="pl-4">
-//       ${formatNumberedList(sections.remote)}
-//     </div>
-//   </section>
-//   ` : ''}
-  
-//   <section class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
-//     <p class="italic">${cleanText(sections.conclusion)}</p>
-//   </section>
-// </div>`;
-//   };
+    // If all else fails, return the original text
+    return `<p class="text-gray-700">${cleanText(tableText)}</p>`;
+  };
 
   const handleReportError = (msg: string) => {
     let displayMessage = msg;
@@ -1198,43 +1057,31 @@ const CareerAgent: React.FC = () => {
                 </div>
               )}
 
-              {/* /* {careerAdviceReport && (
-                <div ref={reportRef} className="mt-8 bg-white rounded-lg shadow-lg p-4">
-                  <h2 className="text-xl font-bold text-center mb-4 text-gray-800">
-                    Your Career Pathway Report
-                  </h2>
+              {careerAdviceReport && (
+                <>
+                  <style jsx>{`
+                    @keyframes slideInUp {
+                      from {
+                        transform: translateY(20px);
+                        opacity: 0;
+                      }
+                      to {
+                        transform: translateY(0);
+                        opacity: 1;
+                      }
+                    }
+                    
+                    .career-advice-report {
+                      animation: slideInUp 0.5s ease-out forwards;
+                    }
+                  `}</style>
                   <div 
-                    className="career-advice-report whitespace-pre-wrap text-sm text-gray-800"
+                    ref={reportRef}
+                    className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
                     dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
                   />
-                </div>
-              )} */ */}
-
-            {careerAdviceReport && (
-              <>
-                <style jsx>{`
-                  @keyframes slideInUp {
-                    from {
-                      transform: translateY(20px);
-                      opacity: 0;
-                    }
-                    to {
-                      transform: translateY(0);
-                      opacity: 1;
-                    }
-                  }
-                  
-                  .career-advice-report {
-                    animation: slideInUp 0.5s ease-out forwards;
-                  }
-                `}</style>
-                <div 
-                  ref={reportRef}
-                  className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
-                  dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-                />
-              </>
-            )}
+                </>
+              )}
 
               <div ref={messagesEndRef}></div>
             </div>
