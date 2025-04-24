@@ -1,5 +1,4 @@
-
-
+import { useAuth } from '@/contexts/AuthContext';
 const { user } = useAuth();
 const userName = user?.user_metadata?.first_name || 
               user?.name || 
