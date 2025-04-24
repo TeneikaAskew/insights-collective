@@ -1,3 +1,5 @@
+// // Usage
+// const { html, sections } = parseformatCareerPathwayReport(rawReport);
 
 /**
  * Utility functions to parse static career reports into structured data
@@ -671,5 +673,3 @@ export function parseformatCareerPathwayReport(raw: string): { html: string; sec
     sections // Fixed: return sections, not report
   };
 }
-// // Usage
-// const { html, sections } = formatCareerPathwayReport(rawReport);

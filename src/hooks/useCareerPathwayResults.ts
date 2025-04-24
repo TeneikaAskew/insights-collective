@@ -38,7 +38,7 @@ export const useCareerPathwayResults = () => {
         };
       }
 
-      return parseCareerReport(data.report);
+      return parseformatCareerPathwayReport(data.report);
     },
     enabled: !!user?.id,
   });

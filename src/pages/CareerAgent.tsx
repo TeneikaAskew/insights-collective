@@ -14,9 +14,7 @@ import {
 } from '@/data/careerPathwayData';
 import { useNavigate } from 'react-router-dom';
 // CareerAgent.tsx
-import { 
-  parseformatCareerPathwayReport
-} from '@/components/assistants/utils/CareerReportParser';
+import { parseformatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
 
 
