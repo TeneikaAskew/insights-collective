@@ -163,7 +163,7 @@ export function parseCareerReport(reportText: string): CareerReportData {
  */
 function extractUserName(text: string): string {
   const match = text.match(/Personalized Career Advice Report for ([\w\s\.]+)/i);
-  return match ? match[1].trim() : userName : "User";
+  return match ? match[1].trim() : userName;
 }
 
 /**
