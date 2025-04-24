@@ -3,9 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { useToast } from "@/components/ui/use-toast";
 import CareerPathwayForm from '@/components/CareerPathwayForm';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PathwayQuestion } from '@/data/careerPathwayData';
 
 const CareerPathway: React.FC = () => {
-  const [questions, setQuestions] = useState<string[]>([]);
+  const [questions, setQuestions] = useState<PathwayQuestion[]>([]);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [resumeText, setResumeText] = useState<string | undefined>();
   const { toast } = useToast();
@@ -13,19 +14,31 @@ const CareerPathway: React.FC = () => {
   // Example of how you might load questions
   useEffect(() => {
     // In a real app, you might fetch these from an API
-    const careerPathwayQuestions = [
-      "What skills are you most proud of?",
-      "What type of work environment do you prefer?",
-      "What are your long-term career goals?",
+    const careerPathwayQuestions: PathwayQuestion[] = [
+      {
+        id: "skill",
+        label: "Skills",
+        placeholder: "What skills are you most proud of?"
+      },
+      {
+        id: "environment",
+        label: "Work Environment",
+        placeholder: "What type of work environment do you prefer?"
+      },
+      {
+        id: "goals",
+        label: "Career Goals",
+        placeholder: "What are your long-term career goals?"
+      }
     ];
     
     setQuestions(careerPathwayQuestions);
   }, []);
   
-  const handleAnswerChange = (questionIndex: number, answer: string) => {
+  const handleAnswerChange = (questionId: string, answer: string) => {
     setAnswers(prev => ({
       ...prev,
-      [questionIndex]: answer
+      [questionId]: answer
     }));
   };
   
@@ -63,14 +76,14 @@ const CareerPathway: React.FC = () => {
             Answer the following questions to receive personalized career advice and recommendations.
           </p>
           
-          {questions.map((question, index) => (
-            <div key={index} className="mb-6">
-              <h3 className="text-base font-medium mb-2">{question}</h3>
+          {questions.map((question) => (
+            <div key={question.id} className="mb-6">
+              <h3 className="text-base font-medium mb-2">{question.label}</h3>
               <textarea 
                 className="w-full min-h-[100px] p-2 border rounded"
-                value={answers[index] || ''}
-                onChange={(e) => handleAnswerChange(index, e.target.value)}
-                placeholder="Enter your answer..."
+                value={answers[question.id] || ''}
+                onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                placeholder={question.placeholder}
               />
             </div>
           ))}
