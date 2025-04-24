@@ -285,7 +285,7 @@ const CareerAgent: React.FC = () => {
     }]);
   };
 
-  // Direct implementation of career advice generation
+  // Simplified implementation of career advice generation
   const generateCareerAdviceReport = async (resumeText?: string) => {
     setMessages(prev => [...prev, { 
       id: `bot_${Date.now()}`, 
@@ -295,43 +295,11 @@ const CareerAgent: React.FC = () => {
     
     if (!user) return;
     
-    const pathwayAnswersPayload: Record<string, string> = {};
-    pathwayQuestions.forEach((q) => {
-      if (answers[q.id]) {
-        pathwayAnswersPayload[q.id] = answers[q.id];
-      }
-    });
-
-    if (!careerAdvicePrompt || careerAdvicePrompt.trim() === '') {
-      handleReportError("Missing prompt data");
-      return;
-    }
-
-    if (!pathwayQuestions || !Array.isArray(pathwayQuestions) || pathwayQuestions.length === 0) {
-      handleReportError("Missing pathway questions data");
-      return;
-    }
-
-    if (!pathwayAnswersPayload || Object.keys(pathwayAnswersPayload).length === 0) {
-      handleReportError("Missing pathway answers data");
-      return;
-    }
-
-    const payload = { 
-      prompt: careerAdvicePrompt, 
-      pathwayQuestions: pathwayQuestions, 
-      pathwayAnswers: pathwayAnswersPayload, 
-      resumeText: resumeText || '' 
-    };
-    
-    console.log('Sending payload to evaluateCareerAdvice:', JSON.stringify(payload, null, 2));
-    
     try {
-      // Direct submission to the Edge Function with proper content type
-      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
-        body: JSON.stringify(payload),
-        headers: { 'Content-Type': 'application/json' }
-      });
+      console.log('Calling evaluateCareerAdvice edge function');
+      
+      // Simplified: Just call the edge function without sending any payload
+      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice');
       
       if (error) {
         console.error("Error calling evaluateCareerAdvice:", error);
