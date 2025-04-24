@@ -35,9 +35,8 @@ export const useCareerPathwayResults = () => {
         };
       }
       
-      // Destructure the result to get only the sections
-      const { sections } = parseformatCareerPathwayReport(data.report);
-      return sections;
+      return parseCareerReport(data.report);
+      
     },
     enabled: !!user?.id,
   });
