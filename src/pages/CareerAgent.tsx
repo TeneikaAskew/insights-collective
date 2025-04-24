@@ -13,9 +13,10 @@ import {
   PathwayQuestion
 } from '@/data/careerPathwayData';
 import { useNavigate } from 'react-router-dom';
-
 // CareerAgent.tsx
 import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
+
+
 
 interface Message {
   id: string;
@@ -141,8 +142,8 @@ const CareerAgent: React.FC = () => {
           
         if (!reportError && reportData?.report) {
           const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-          const formattedReport = formatCareerPathwayReport(raw);
-          setCareerAdviceReport(formattedReport);
+          const html = formatCareerPathwayReport(raw);
+          setCareerAdviceReport(html);
         }
         
         // Reconstruct chat history from answers
@@ -363,8 +364,8 @@ const CareerAgent: React.FC = () => {
       
       const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
       console.log("Career Pathway Insights: ", raw);
-      const formattedReport = formatCareerPathwayReport(raw);
-      setCareerAdviceReport(formattedReport);
+      const html = parseformatCareerPathwayReport(raw);
+      setCareerAdviceReport(html);
       
       // Save the report to career_pathway_results
       if (user?.id) {

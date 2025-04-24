@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { parseCareerReport } from '@/components/assistants/utils/CareerReportParser';
+import { parseformatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const useCareerPathwayResults = () => {
@@ -38,6 +38,7 @@ export const useCareerPathwayResults = () => {
       return parseCareerReport(data.report);
       
     },
+    keepPreviousData: true,
     enabled: !!user?.id,
   });
 };

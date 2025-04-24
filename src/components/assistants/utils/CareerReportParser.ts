@@ -1,4 +1,3 @@
-
 // // Usage
 // const { html, sections } = parseformatCareerPathwayReport(rawReport);
 
@@ -195,6 +194,60 @@ function extractRecommendedRoles(text: string): RecommendedRole[] {
 /**
  * Extract skills and courses table
  */
+// function extractSkillsAndCourses(text: string): SkillCourse[] {
+//   const skillsCourses: SkillCourse[] = [];
+  
+//   // Find the skills and courses section
+//   const skillsSection = text.match(/Skills and Matching Courses:(.*?)(?=Next-Step Career Recommendations:|$)/is);
+  
+//   if (skillsSection) {
+//     // Look for markdown table format with more flexible matching
+//     const tableContent = skillsSection[1].trim();
+//     const lines = tableContent.split('\n').map(line => line.trim());
+    
+//     // Find table data lines (skipping header and separator)
+//     let inTable = false;
+//     for (let i = 0; i < lines.length; i++) {
+//       const line = lines[i];
+      
+//       // Skip header and separator lines
+//       if (line.includes('| Skill | Course |') || line.includes('| ----- | ------ |')) {
+//         inTable = true;
+//         continue;
+//       }
+      
+//       // Process table rows
+//       if (inTable && line.startsWith('|') && line.endsWith('|')) {
+//         const cells = line.split('|')
+//           .map(cell => cell.trim())
+//           .filter(cell => cell !== '');
+        
+//         if (cells.length >= 2) {
+//           const item: SkillCourse = {
+//             skill: cells[0],
+//             course: cells[1],
+//           };
+          
+//           // If there's a third column, consider it the provider
+//           if (cells.length >= 3) {
+//             item.provider = cells[2];
+//           }
+          
+//           // Check if provider is embedded in course name
+//           const providerMatch = item.course.match(/\((.*?)\)$/);
+//           if (providerMatch) {
+//             item.provider = providerMatch[1];
+//             item.course = item.course.replace(/\s*\(.*?\)$/, '');
+//           }
+          
+//           skillsCourses.push(item);
+//         }
+//       }
+//     }
+//   }
+  
+//   return skillsCourses;
+// }
 function extractSkillsAndCourses(text: string): SkillCourse[] {
   const skillsCourses: SkillCourse[] = [];
   
@@ -607,11 +660,14 @@ export function parseformatCareerPathwayReport(raw: string): { html: string; sec
     conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
   };
 
-  // Fix: Using sections instead of undefined 'report' variable
-  if (sections.recommendedRoles.length > 0) {
-    // This is just for compatibility with the older code
-    // In reality, we can't modify section.recommendedRoles like this
-    // because it's a string, not an array of RecommendedRole objects
+  // Add match percentages if they don't exist
+  if (report.recommendedRoles.length > 0) {
+    report.recommendedRoles = report.recommendedRoles.map((role, index) => {
+      if (!role.matchPercentage) {
+        role.matchPercentage = Math.max(50, 95 - (index * 7));
+      }
+      return role;
+    });
   }
   
   let skillsTable = '';
@@ -700,6 +756,6 @@ export function parseformatCareerPathwayReport(raw: string): { html: string; sec
 
   return {
     html,
-    sections
+    sections // Fixed: return sections, not report
   };
 }
