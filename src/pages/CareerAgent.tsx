@@ -622,7 +622,7 @@ const CareerAgent: React.FC = () => {
  <AppLayout>
       <div className="flex flex-col min-h-screen items-center justify-start pt-[8rem] pb-[5rem] px-4">
         {/* Sticky Header (offset to sit below the top navbar) */}
-        <div className="sticky top-[-0.15rem] z-10 bg-gray-50 border-b border-gray-200 w-full">
+        <div className="sticky top-[-0.25rem] z-10 bg-gray-50 border-b border-gray-200 w-full">
           {/* <div className="fixed top-[3.5rem] left-0 right-0 z-10 bg-gray-50 border-b border-gray-200"> */}
           {/* <div className="mx-auto w-full max-w-2xl px-4 py-3 flex justify-between items-center"> */}
           <div className="mx-auto max-w-2xl px-4 py-3 flex justify-between items-center">
