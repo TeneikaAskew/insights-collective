@@ -19,7 +19,13 @@ export const useCareerPathwayResults = () => {
         .limit(1)
         .maybeSingle();
       
-      console.log(data || error);
+      
+      console.log("data or error: ",data || error);
+
+      // Destructure the result to get only the sections
+      const { sections } = parseformatCareerPathwayReport(data);
+      console.log(sections)
+      
       if (error) throw error;
       console.log("Found career pathway results: ", data);
       
@@ -35,8 +41,7 @@ export const useCareerPathwayResults = () => {
         };
       }
       
-      // Destructure the result to get only the sections
-      const { sections } = parseformatCareerPathwayReport(data);
+      
       return sections;
     },
     enabled: !!user?.id,
