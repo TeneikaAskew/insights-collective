@@ -59,39 +59,6 @@ export const extractSection = (text: string, start: string, ends: string[]): str
   return text.substring(i + start.length, endIdx).trim();
 };
 
-export const formatNumberedList = (content: string): string => {
-  if (!content) return '';
-  const hasNumbers = /\d+\.\s/.test(content);
-  
-  if (hasNumbers) {
-    const items = content.split(/\d+\.\s/).filter(item => item.trim());
-    return items.map((item, i) =>
-      `<div class="mb-2">
-        <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
-        ${cleanText(item)}
-      </div>`
-    ).join('');
-  } else {
-    return `<p>${cleanText(content)}</p>`;
-  }
-};
-
-export const formatSkillsTable = (tableText: string): string => {
-  if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
-  
-  const rows = tableText.split('\n')
-    .filter(r => r.startsWith('|') && !r.includes('---'));
-    
-  return rows.map(row => {
-    const cells = row.split('|').filter(c => c.trim());
-    return cells.length >= 2
-      ? `<tr>
-        <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
-        <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
-      </tr>`
-      : '';
-  }).join('');
-};
 
 /**
  * Parses a static text report into structured data
@@ -276,6 +243,73 @@ function extractRecommendedRoles(text: string): RecommendedRole[] {
 /**
  * Extract skills and courses table
  */
+// function extractSkillsAndCourses(text: string): SkillCourse[] {
+//   const skillsCourses: SkillCourse[] = [];
+  
+//   // Find the skills and courses section
+//   const skillsSection = text.match(/Skills and Matching Courses:(.*?)(?=Next-Step Career Recommendations:|$)/is);
+  
+//   if (skillsSection) {
+//     // Try to extract table data
+//     // Look for markdown table format
+//     const tableLines = skillsSection[1].split('\n')
+//       .map(line => line.trim())
+//       .filter(line => line.startsWith('|') && line.endsWith('|'));
+    
+//     if (tableLines.length >= 3) {
+//       // Skip header and separator lines
+//       for (let i = 2; i < tableLines.length; i++) {
+//         const cells = tableLines[i].split('|')
+//           .map(cell => cell.trim())
+//           .filter(cell => cell !== '');
+        
+//         if (cells.length >= 2) {
+//           const item: SkillCourse = {
+//             skill: cells[0],
+//             course: cells[1],
+//           };
+          
+//           // If there's a third column, consider it the provider
+//           if (cells.length >= 3) {
+//             const providerMatch = cells[1].match(/\((.*?)\)$/);
+//             if (providerMatch) {
+//               item.provider = providerMatch[1];
+//               item.course = cells[1].replace(/\s*\(.*?\)$/, '');
+//             } else {
+//               item.provider = cells[2];
+//             }
+//           }
+          
+//           skillsCourses.push(item);
+//         }
+//       }
+//     }
+    
+//     // If table parsing failed, try alternative approach with bullet points
+//     if (skillsCourses.length === 0) {
+//       const listItemRegex = /[•*-]\s+([^:]+):\s+([^\n]+)/g;
+//       const matches = [...skillsSection[1].matchAll(listItemRegex)];
+      
+//       for (const match of matches) {
+//         const item: SkillCourse = {
+//           skill: match[1].trim(),
+//           course: match[2].trim(),
+//         };
+        
+//         // Try to extract provider if it's in parentheses
+//         const providerMatch = item.course.match(/\((.*?)\)$/);
+//         if (providerMatch) {
+//           item.provider = providerMatch[1];
+//           item.course = item.course.replace(/\s*\(.*?\)$/, '');
+//         }
+        
+//         skillsCourses.push(item);
+//       }
+//     }
+//   }
+  
+//   return skillsCourses;
+// }
 function extractSkillsAndCourses(text: string): SkillCourse[] {
   const skillsCourses: SkillCourse[] = [];
   
@@ -283,16 +317,24 @@ function extractSkillsAndCourses(text: string): SkillCourse[] {
   const skillsSection = text.match(/Skills and Matching Courses:(.*?)(?=Next-Step Career Recommendations:|$)/is);
   
   if (skillsSection) {
-    // Try to extract table data
-    // Look for markdown table format
-    const tableLines = skillsSection[1].split('\n')
-      .map(line => line.trim())
-      .filter(line => line.startsWith('|') && line.endsWith('|'));
+    // Look for markdown table format with more flexible matching
+    const tableContent = skillsSection[1].trim();
+    const lines = tableContent.split('\n').map(line => line.trim());
     
-    if (tableLines.length >= 3) {
+    // Find table data lines (skipping header and separator)
+    let inTable = false;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      
       // Skip header and separator lines
-      for (let i = 2; i < tableLines.length; i++) {
-        const cells = tableLines[i].split('|')
+      if (line.includes('| Skill | Course |') || line.includes('| ----- | ------ |')) {
+        inTable = true;
+        continue;
+      }
+      
+      // Process table rows
+      if (inTable && line.startsWith('|') && line.endsWith('|')) {
+        const cells = line.split('|')
           .map(cell => cell.trim())
           .filter(cell => cell !== '');
         
@@ -304,46 +346,24 @@ function extractSkillsAndCourses(text: string): SkillCourse[] {
           
           // If there's a third column, consider it the provider
           if (cells.length >= 3) {
-            const providerMatch = cells[1].match(/\((.*?)\)$/);
-            if (providerMatch) {
-              item.provider = providerMatch[1];
-              item.course = cells[1].replace(/\s*\(.*?\)$/, '');
-            } else {
-              item.provider = cells[2];
-            }
+            item.provider = cells[2];
+          }
+          
+          // Check if provider is embedded in course name
+          const providerMatch = item.course.match(/\((.*?)\)$/);
+          if (providerMatch) {
+            item.provider = providerMatch[1];
+            item.course = item.course.replace(/\s*\(.*?\)$/, '');
           }
           
           skillsCourses.push(item);
         }
       }
     }
-    
-    // If table parsing failed, try alternative approach with bullet points
-    if (skillsCourses.length === 0) {
-      const listItemRegex = /[•*-]\s+([^:]+):\s+([^\n]+)/g;
-      const matches = [...skillsSection[1].matchAll(listItemRegex)];
-      
-      for (const match of matches) {
-        const item: SkillCourse = {
-          skill: match[1].trim(),
-          course: match[2].trim(),
-        };
-        
-        // Try to extract provider if it's in parentheses
-        const providerMatch = item.course.match(/\((.*?)\)$/);
-        if (providerMatch) {
-          item.provider = providerMatch[1];
-          item.course = item.course.replace(/\s*\(.*?\)$/, '');
-        }
-        
-        skillsCourses.push(item);
-      }
-    }
   }
   
   return skillsCourses;
 }
-
 /**
  * Extract next-step career recommendations
  */
@@ -490,8 +510,163 @@ function extractKeyTakeaways(text: string): string[] {
   return takeaways;
 }
 
+// Update formatSkillsTable to be more robust
+export const formatSkillsTable = (tableText: string): string => {
+  if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
+  
+  const lines = tableText.split('\n').map(line => line.trim());
+  const rows: string[] = [];
+  
+  for (const line of lines) {
+    // Skip header and separator rows
+    if (line.includes('| Skill | Course |') || line.includes('| ----- | ------ |')) {
+      continue;
+    }
+    
+    if (line.startsWith('|') && line.endsWith('|')) {
+      const cells = line.split('|')
+        .map(cell => cell.trim())
+        .filter(cell => cell !== '');
+      
+      if (cells.length >= 2) {
+        rows.push(`<tr>
+          <td class="border border-blue-300 px-4 py-2">${cells[0]}</td>
+          <td class="border border-blue-300 px-4 py-2">${cells[1]}</td>
+        </tr>`);
+      }
+    }
+  }
+  
+  return rows.length > 0 ? rows.join('') : '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
+};
+
+
+export const formatNumberedList = (content: string): string => {
+  if (!content) return '';
+  const hasNumbers = /\d+\.\s/.test(content);
+  
+  if (hasNumbers) {
+    const items = content.split(/\d+\.\s/).filter(item => item.trim());
+    return items.map((item, i) =>
+      `<div class="mb-2">
+        <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
+        ${cleanText(item)}
+      </div>`
+    ).join('');
+  } else {
+    return `<p>${cleanText(content)}</p>`;
+  }
+};
+
+// export const formatSkillsTable = (tableText: string): string => {
+//   if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
+  
+//   const rows = tableText.split('\n')
+//     .filter(r => r.startsWith('|') && !r.includes('---'));
+    
+//   return rows.map(row => {
+//     const cells = row.split('|').filter(c => c.trim());
+//     return cells.length >= 2
+//       ? `<tr>
+//         <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
+//         <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
+//       </tr>`
+//       : '';
+//   }).join('');
+// };
 
 // New function for formatting the report as HTML
+// export function formatCareerPathwayReport(raw: string): string {
+//   if (/<h|<div|<p>/.test(raw)) return raw;
+  
+//   const nameMatch = raw.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
+//   const userName = nameMatch?.[1] || 'You';
+  
+//   const sections = {
+//     summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
+//     recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
+//     skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
+//     nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
+//     rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
+//     path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
+//     remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
+//     conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
+//   };
+  
+//   let skillsTable = '';
+//   if (sections.skills) {
+//     const m = sections.skills.match(/\| Skill \| Course \|[\s\S]*?\|([^\n]*\n\|[^\n]*\n?)+/);
+//     skillsTable = m?.[0] || '';
+//   }
+  
+//   return `
+// <div class="career-pathway-report">
+//   <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
+  
+//   <section class="mb-6">
+//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
+//     <p class="mb-2">${cleanText(sections.summary)}</p>
+//   </section>
+  
+//   <section class="mb-6">
+//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
+//     <div class="pl-4">
+//       ${formatNumberedList(sections.recommendedRoles)}
+//     </div>
+//   </section>
+  
+//   <section class="mb-6">
+//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
+//     <div class="overflow-x-auto">
+//       <table class="min-w-full border-collapse">
+//         <thead>
+//           <tr class="bg-blue-100">
+//             <th class="border border-blue-300 px-4 py-2 text-left">Skill</th>
+//             <th class="border border-blue-300 px-4 py-2 text-left">Course</th>
+//           </tr>
+//         </thead>
+//         <tbody>
+//           ${formatSkillsTable(skillsTable)}
+//         </tbody>
+//       </table>
+//     </div>
+//   </section>
+  
+//   <section class="mb-6">
+//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
+//     <div class="pl-4">
+//       ${formatNumberedList(sections.nextSteps)}
+//     </div>
+//   </section>
+  
+//   <section class="mb-6">
+//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
+//     <div class="pl-4">
+//       ${formatNumberedList(sections.rightRoles)}
+//     </div>
+//   </section>
+  
+//   <section class="mb-6">
+//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
+//     <div class="pl-4">
+//       ${formatNumberedList(sections.path)}
+//     </div>
+//   </section>
+  
+//   ${sections.remote ? `
+//   <section class="mb-6">
+//     <h2 class="text-lg font-semibold text-blue-700 mb-2">Remote Work Considerations</h2>
+//     <div class="pl-4">
+//       ${formatNumberedList(sections.remote)}
+//     </div>
+//   </section>
+//   ` : ''}
+  
+//   <section class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
+//     <p class="italic">${cleanText(sections.conclusion)}</p>
+//   </section>
+// </div>`;
+// }
 export function formatCareerPathwayReport(raw: string): string {
   if (/<h|<div|<p>/.test(raw)) return raw;
   
@@ -511,8 +686,20 @@ export function formatCareerPathwayReport(raw: string): string {
   
   let skillsTable = '';
   if (sections.skills) {
-    const m = sections.skills.match(/\| Skill \| Course \|[\s\S]*?\|([^\n]*\n\|[^\n]*\n?)+/);
-    skillsTable = m?.[0] || '';
+    // More flexible regex pattern to match the table
+    const tablePattern = /\|\s*Skill\s*\|\s*Course\s*\|[\s\S]*?\n\s*\|\s*-+\s*\|\s*-+\s*\|[\s\S]*?(?:\n\s*\|[^\n]+\|)+/;
+    const tableMatch = sections.skills.match(tablePattern);
+    
+    if (tableMatch) {
+      skillsTable = tableMatch[0];
+    } else {
+      // Fallback: try to extract by finding lines that start and end with pipes
+      const lines = sections.skills.split('\n');
+      const tableLines = lines.filter(line => line.trim().startsWith('|') && line.trim().endsWith('|'));
+      if (tableLines.length > 0) {
+        skillsTable = tableLines.join('\n');
+      }
+    }
   }
   
   return `
@@ -583,3 +770,4 @@ export function formatCareerPathwayReport(raw: string): string {
   </section>
 </div>`;
 }
+
