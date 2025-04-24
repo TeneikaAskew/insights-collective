@@ -19,61 +19,61 @@ export const pathwayQuestions: PathwayQuestion[] = [
     label: "Ideal Next Job",
     placeholder: "So if you woke up tomorrow in your ideal next job, what would that look like?",
   },
-  // {
-  //   id: "q3",
-  //   label: "Future Vision",
-  //   placeholder: "Fast forward 5 years, where do you see yourself?",
-  // },
-  // {
-  //   id: "q4",
-  //   label: "Desired Role",
-  //   placeholder: "What role would you really want to be in?",
-  // },
-  // {
-  //   id: "q5",
-  //   label: "Seniority Level",
-  //   placeholder: "How senior would this role be?",
-  // },
-  // {
-  //   id: "q6",
-  //   label: "Career Pivot",
-  //   placeholder: "Are you thinking about a career pivot? What role would make better use of your talents?",
-  // },
-  // {
-  //   id: "q7",
-  //   label: "Strengths",
-  //   placeholder: "What would you say are the strengths that set you apart?",
-  // },
-  // {
-  //   id: "q8",
-  //   label: "Weaknesses",
-  //   placeholder: "What are some skills or abilities that should not feature prominently in your next role?",
-  // },
-  // {
-  //   id: "q9",
-  //   label: "Career Obstacles",
-  //   placeholder: "What do you see as the biggest obstacle to moving ahead in your career?",
-  // },
-  // {
-  //   id: "q10",
-  //   label: "Past Role Insights",
-  //   placeholder: "What makes work exciting and satisfying? What makes it boring or frustrating?",
-  // },
-  // {
-  //   id: "q11",
-  //   label: "Self-Reflection",
-  //   placeholder: "What aspect of your personality is your biggest positive? What has hindered your success?",
-  // },
-  // {
-  //   id: "q12",
-  //   label: "Top Career Priorities",
-  //   placeholder: "What are your top priorities in your career at this time?",
-  // },
-  // {
-  //   id: "q13",
-  //   label: "Work Engagement",
-  //   placeholder: "When you get lost in your work, what are you working on? Activities you'd like to do more?",
-  // },
+  {
+    id: "q3",
+    label: "Future Vision",
+    placeholder: "Fast forward 5 years, where do you see yourself?",
+  },
+  {
+    id: "q4",
+    label: "Desired Role",
+    placeholder: "What role would you really want to be in?",
+  },
+  {
+    id: "q5",
+    label: "Seniority Level",
+    placeholder: "How senior would this role be?",
+  },
+  {
+    id: "q6",
+    label: "Career Pivot",
+    placeholder: "Are you thinking about a career pivot? What role would make better use of your talents?",
+  },
+  {
+    id: "q7",
+    label: "Strengths",
+    placeholder: "What would you say are the strengths that set you apart?",
+  },
+  {
+    id: "q8",
+    label: "Weaknesses",
+    placeholder: "What are some skills or abilities that should not feature prominently in your next role?",
+  },
+  {
+    id: "q9",
+    label: "Career Obstacles",
+    placeholder: "What do you see as the biggest obstacle to moving ahead in your career?",
+  },
+  {
+    id: "q10",
+    label: "Past Role Insights",
+    placeholder: "What makes work exciting and satisfying? What makes it boring or frustrating?",
+  },
+  {
+    id: "q11",
+    label: "Self-Reflection",
+    placeholder: "What aspect of your personality is your biggest positive? What has hindered your success?",
+  },
+  {
+    id: "q12",
+    label: "Top Career Priorities",
+    placeholder: "What are your top priorities in your career at this time?",
+  },
+  {
+    id: "q13",
+    label: "Work Engagement",
+    placeholder: "When you get lost in your work, what are you working on? Activities you'd like to do more?",
+  },
 ];
 
 export const quickReplies = [
