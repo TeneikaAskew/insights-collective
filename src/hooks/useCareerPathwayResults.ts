@@ -1,8 +1,3 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { parseformatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
-import { useAuth } from '@/contexts/AuthContext';
-
 export const useCareerPathwayResults = () => {
   const { user } = useAuth();
   
@@ -19,10 +14,9 @@ export const useCareerPathwayResults = () => {
         .limit(1)
         .maybeSingle();
       
-      console.log("Found career pathway results: ", data, "\nError? ",error);
-      if (error) throw error;      
+      console.log("Raw data:", data);
+      if (error) throw error;
       
-      // If no data was found, return a default object structure
       if (!data) {
         return {
           userName: 'there',
@@ -34,10 +28,14 @@ export const useCareerPathwayResults = () => {
         };
       }
       
+      console.log("Before parsing - data.report:", data.report);
+      
       // Destructure the result to get only the sections
-      const { sections } = parseformatCareerPathwayReport(data.report);
-      console.log("Hook: Sections: ", sections);
-      return sections;
+      const result = parseformatCareerPathwayReport(data.report);
+      console.log("Parse result:", result);
+      console.log("Hook: Sections:", result.sections);
+      
+      return result.sections;
     },
     enabled: !!user?.id,
   });
