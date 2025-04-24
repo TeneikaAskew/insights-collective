@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: report, isLoading, error, isError } = useCareerPathwayResults();
+  const { data: sections, isLoading, error, isError } = useCareerPathwayResults();
   
   console.log(data)
   console.log(report)
