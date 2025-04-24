@@ -298,11 +298,19 @@ const CareerAgent: React.FC = () => {
     try {
       console.log('Calling evaluateCareerAdvice edge function');
       
+      // Get the session properly using await
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        throw new Error("No valid authentication session found");
+      }
+      
       const response = await fetch('https://siuqvhscuiycvdrtiqsh.supabase.co/functions/v1/evaluateCareerAdvice', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.auth.getSession()?.access_token}`
+          'Authorization': `Bearer ${accessToken}`
         }
       });
 
