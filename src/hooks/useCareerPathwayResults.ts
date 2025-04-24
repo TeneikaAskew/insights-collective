@@ -41,4 +41,6 @@ export const useCareerPathwayResults = () => {
     },
     enabled: !!user?.id,
   });
+
+  console.log("Hook: Sections: ", sections)
 };
