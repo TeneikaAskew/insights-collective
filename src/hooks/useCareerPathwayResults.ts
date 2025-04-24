@@ -11,7 +11,6 @@ export const useCareerPathwayResults = () => {
     queryKey: ['careerPathwayResults', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
-      
       const { data, error } = await supabase
         .from('career_pathway_results')
         .select('report')
