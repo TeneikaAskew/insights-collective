@@ -60,10 +60,10 @@ const CareerPathway: React.FC = () => {
             <Users className="h-12 w-12 text-gray-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Hey {report?.userName || 'there'}, here are your career insights
+            Hey {report?.userName || 'there'}, let's discuss your career insights.
           </h1>
           <p className="text-gray-600 max-w-3xl mx-auto">
-            Begin a journey of self-discovery to align your professional goals with your personal strengths and interests.
+            <strong>The foundation for building and advancing your career is a deep understanding of your core values, beliefs, personal strengths, and authentic interests. </strong>Through self-discovery, you can uncover what truly drives you, identify your natural talents, and recognize the principles that guide your decisions. This self-awareness becomes your compass for making career choices that not only lead to professional success but also create genuine fulfillment and alignment with who you are at your core
           </p>
         </motion.div>
 
