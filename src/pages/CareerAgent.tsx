@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -882,3 +883,67 @@ const CareerAgent: React.FC = () => {
                   accept=".pdf,.docx"
                   onChange={handleFileChange}
                   disabled={isTyping || resumeUploading}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                />
+                {resumeFile && (
+                  <Button
+                    onClick={handleResumeUpload}
+                    disabled={isTyping || resumeUploading}
+                    className="mt-2"
+                  >
+                    {resumeUploading ? "Uploading..." : "Upload Resume"}
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {careerAdviceReport && (
+              <div ref={reportRef} className="mt-8 bg-white rounded-lg shadow-lg p-4">
+                <h2 className="text-xl font-bold text-center mb-4 text-gray-800">
+                  Your Career Pathway Report
+                </h2>
+                <div 
+                  className="career-advice-report whitespace-pre-wrap text-sm text-gray-800"
+                  dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+                />
+              </div>
+            )}
+
+            <div ref={messagesEndRef}></div>
+          </div>
+        </div>
+
+        {/* Input area */}
+        <div className="sticky bottom-0 bg-gradient-to-t from-white to-transparent pb-4 pt-2 w-full">
+          <div className="mx-auto max-w-2xl px-4">
+            <div className="relative flex items-center">
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleInputKeyDown}
+                disabled={isTyping}
+                className="flex-1 border border-gray-300 rounded-full py-3 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder={isTyping ? "Please wait..." : "Type your message..."}
+              />
+              <Button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!inputValue.trim() || isTyping}
+                className="absolute right-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center"
+              >
+                <span className="sr-only">Send message</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </AppLayout>
+  );
+};
+
+export default CareerAgent;
