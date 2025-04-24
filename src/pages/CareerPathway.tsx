@@ -33,9 +33,9 @@ const CareerPathway: React.FC = () => {
   
   // If there's an error or no report data found
   if (isError || (report && report.skillsAndCourses && report.skillsAndCourses.length === 0)) {
-    console.log ("isError: ", isError, 
-                 "\nReport", report, 
-                 "\nMissing skills: ", (report && report.skillsAndCourses && report.skillsAndCourses.length === 0))
+    // console.log ("isError: ", isError, 
+    //              "\nReport", report, 
+    //              "\nMissing skills: ", (report && report.skillsAndCourses && report.skillsAndCourses.length === 0))
 
     return (
       <AppLayout>
