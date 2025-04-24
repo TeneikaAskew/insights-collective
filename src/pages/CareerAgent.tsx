@@ -14,7 +14,7 @@ import {
 } from '@/data/careerPathwayData';
 import { useNavigate } from 'react-router-dom';
 // CareerAgent.tsx
-import { parseformatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
+import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
 
 
@@ -142,7 +142,7 @@ const CareerAgent: React.FC = () => {
           
         if (!reportError && reportData?.report) {
           const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-          const html = parseformatCareerPathwayReport(raw);
+          const html = formatCareerPathwayReport(raw);
           setCareerAdviceReport(html);
         }
         
