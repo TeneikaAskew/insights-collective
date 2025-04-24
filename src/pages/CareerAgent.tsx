@@ -1198,7 +1198,7 @@ const CareerAgent: React.FC = () => {
                 </div>
               )}
 
-              {careerAdviceReport && (
+              {/* /* {careerAdviceReport && (
                 <div ref={reportRef} className="mt-8 bg-white rounded-lg shadow-lg p-4">
                   <h2 className="text-xl font-bold text-center mb-4 text-gray-800">
                     Your Career Pathway Report
@@ -1208,7 +1208,33 @@ const CareerAgent: React.FC = () => {
                     dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
                   />
                 </div>
-              )}
+              )} */ */}
+
+               {careerAdviceReport && (
+              <>
+                <style jsx>{`
+                  @keyframes slideInUp {
+                    from {
+                      transform: translateY(20px);
+                      opacity: 0;
+                    }
+                    to {
+                      transform: translateY(0);
+                      opacity: 1;
+                    }
+                  }
+                  
+                  .career-advice-report {
+                    animation: slideInUp 0.5s ease-out forwards;
+                  }
+                `}</style>
+                <div 
+                  ref={reportRef}
+                  className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
+                  dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+                />
+              </>
+            )}
 
               <div ref={messagesEndRef}></div>
             </div>
