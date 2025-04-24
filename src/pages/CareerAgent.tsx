@@ -805,7 +805,7 @@ const CareerAgent: React.FC = () => {
                   .career-advice-report {
                     animation: slideInUp 0.5s ease-out forwards;
                   }
-                  `}
+                `}
                 </style>
                 <div 
                   ref={reportRef}

@@ -51,6 +51,7 @@ const CareerPathwayForm: React.FC<CareerPathwayFormProps> = ({
       
       // Call the Supabase Edge Function with proper headers
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+        method: 'POST',
         body: JSON.stringify(payload),
         headers: { 
           'Content-Type': 'application/json' 

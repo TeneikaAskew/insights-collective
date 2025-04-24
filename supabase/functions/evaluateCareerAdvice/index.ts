@@ -18,9 +18,28 @@ serve(async (req) => {
     console.log("Received request:", req.method, req.url);
     console.log("Request headers:", Object.fromEntries(req.headers.entries()));
 
+    // Check content type
+    const contentType = req.headers.get('content-type');
+    console.log("Content-Type:", contentType);
+    
     // Get the raw text body first for debugging
     const rawBody = await req.text();
-    console.log("Raw request body:", rawBody);
+    console.log("Raw request body length:", rawBody.length);
+    console.log("Raw request body (first 200 chars):", rawBody.substring(0, 200));
+
+    // If body is empty, return an error
+    if (!rawBody || rawBody.trim() === '') {
+      return new Response(
+        JSON.stringify({ 
+          error: "Empty request body", 
+          details: "The request body is empty or missing"
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
 
     // Parse the body
     let body;
