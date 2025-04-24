@@ -44,10 +44,9 @@ class CareerPathwayForm extends React.Component<CareerPathwayFormProps> {
       
       console.log("Sending payload to evaluateCareerAdvice:", payload);
       
-      // Call the Supabase Edge Function with proper headers
+      // Call the Supabase Edge Function
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
-        method: 'POST',
-        body: payload, // Do not stringify - let Supabase handle it
+        body: payload,
         headers: { 
           'Content-Type': 'application/json' 
         }
@@ -67,132 +66,8 @@ class CareerPathwayForm extends React.Component<CareerPathwayFormProps> {
   }
 
   render() {
-    // Component UI implementation
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [result, setResult] = useState<any>(null);
-    const { toast } = useToast();
-    
-    const handleSubmit = async () => {
-      try {
-        setIsSubmitting(true);
-        
-        const data = await this.processRequest();
-        setResult(data);
-        
-        toast({
-          title: "Analysis Complete",
-          description: "Your career pathway analysis has been completed.",
-        });
-      } catch (error) {
-        console.error("Error in handleSubmit:", error);
-        toast({
-          title: "Error",
-          description: error.message || "An error occurred while processing your request.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsSubmitting(false);
-      }
-    };
-
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium">Career Pathway Analysis</h3>
-              <p className="text-sm text-muted-foreground">
-                Complete this form to receive a personalized career assessment.
-              </p>
-              <Button 
-                onClick={handleSubmit} 
-                disabled={isSubmitting}
-                className="w-full"
-              >
-                {isSubmitting ? "Processing..." : "Analyze My Career Pathway"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {result && (
-          <Card>
-            <CardContent className="pt-6">
-              <h3 className="text-lg font-medium mb-4">Your Career Analysis</h3>
-              <pre className="bg-muted p-4 rounded text-sm overflow-auto">
-                {JSON.stringify(result, null, 2)}
-              </pre>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    );
+    return null; // This class is used primarily for its processRequest method
   }
 }
-
-// For functional component usage
-export const CareerPathwayFormFunctional: React.FC<CareerPathwayFormProps> = (props) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [result, setResult] = useState<any>(null);
-  const { toast } = useToast();
-  
-  const handleSubmit = async () => {
-    try {
-      setIsSubmitting(true);
-      
-      // Create an instance of the class component for processing
-      const formInstance = new CareerPathwayForm(props);
-      const data = await formInstance.processRequest();
-      setResult(data);
-      
-      toast({
-        title: "Analysis Complete",
-        description: "Your career pathway analysis has been completed.",
-      });
-    } catch (error) {
-      console.error("Error in handleSubmit:", error);
-      toast({
-        title: "Error",
-        description: error.message || "An error occurred while processing your request.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <Card>
-        <CardContent className="pt-6">
-          <div className="space-y-4">
-            <h3 className="text-lg font-medium">Career Pathway Analysis</h3>
-            <p className="text-sm text-muted-foreground">
-              Complete this form to receive a personalized career assessment.
-            </p>
-            <Button 
-              onClick={handleSubmit} 
-              disabled={isSubmitting}
-              className="w-full"
-            >
-              {isSubmitting ? "Processing..." : "Analyze My Career Pathway"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {result && (
-        <Card>
-          <CardContent className="pt-6">
-            <h3 className="text-lg font-medium mb-4">Your Career Analysis</h3>
-            <pre className="bg-muted p-4 rounded text-sm overflow-auto">
-              {JSON.stringify(result, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-};
 
 export default CareerPathwayForm;

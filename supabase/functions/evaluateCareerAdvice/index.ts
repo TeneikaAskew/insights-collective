@@ -27,49 +27,20 @@ serve(async (req) => {
   }
 
   try {
-    // Log the raw request for debugging
-    console.log("Received request:", req.method, req.url);
-    console.log("Request headers:", Object.fromEntries(req.headers.entries()));
-
-    // First try to get the request body as text to inspect it
-    let rawBody;
-    try {
-      // Clone the request to avoid consuming the body stream
-      const reqClone = req.clone();
-      rawBody = await reqClone.text();
-      console.log("Raw request body length:", rawBody.length);
-      console.log("Raw request body:", rawBody.substring(0, 500)); // Show more content for debugging
-    } catch (textError) {
-      console.error("Error reading raw request body:", textError);
-    }
-
-    // Check if body is empty
-    if (!rawBody || rawBody.trim() === '') {
-      return new Response(
-        JSON.stringify({ 
-          error: "Empty request body", 
-          details: "The request body is empty or missing",
-          method: req.method,
-          headers: Object.fromEntries(req.headers.entries())
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      );
-    }
-
-    // Parse the JSON body
+    // Log the incoming request for debugging
+    console.log("Request received:", req.method, req.url);
+    
+    // Parse the request body
     let body: RequestPayload;
     try {
-      body = JSON.parse(rawBody);
-    } catch (parseError) {
-      console.error("Error parsing JSON body:", parseError);
+      body = await req.json();
+      console.log("Successfully parsed request body");
+    } catch (error) {
+      console.error("Error parsing request body:", error);
       return new Response(
         JSON.stringify({ 
-          error: "Invalid JSON payload", 
-          details: parseError.message,
-          receivedBody: rawBody.substring(0, 500) // First 500 chars for debugging
+          error: "Invalid request body format", 
+          details: error.message 
         }),
         { 
           status: 400, 
@@ -77,26 +48,25 @@ serve(async (req) => {
         }
       );
     }
-
-    console.log("Parsed body:", body);
 
     // Validate required fields
-    const { prompt, pathwayQuestions, pathwayAnswers, resumeText } = body || {};
-    const missingFields = [];
+    const { prompt, pathwayQuestions, pathwayAnswers, resumeText } = body;
     
-    if (!prompt) missingFields.push("prompt");
-    if (!pathwayQuestions || !Array.isArray(pathwayQuestions) || pathwayQuestions.length === 0) {
-      missingFields.push("pathwayQuestions");
-    }
-    if (!pathwayAnswers || typeof pathwayAnswers !== 'object' || Object.keys(pathwayAnswers).length === 0) {
-      missingFields.push("pathwayAnswers");
-    }
-
-    if (missingFields.length > 0) {
+    if (!prompt || !pathwayQuestions || !pathwayAnswers) {
+      console.error("Missing required fields:", {
+        hasPrompt: !!prompt,
+        hasPathwayQuestions: !!pathwayQuestions,
+        hasPathwayAnswers: !!pathwayAnswers
+      });
+      
       return new Response(
         JSON.stringify({ 
-          error: `Missing or invalid fields: ${missingFields.join(", ")}`, 
-          receivedKeys: body ? Object.keys(body) : [] 
+          error: "Missing required fields",
+          received: {
+            prompt: !!prompt,
+            pathwayQuestions: !!pathwayQuestions,
+            pathwayAnswers: !!pathwayAnswers
+          }
         }),
         { 
           status: 400, 
@@ -105,58 +75,12 @@ serve(async (req) => {
       );
     }
 
-    // Process the career advice request
-    console.log("Processing career advice with valid data");
+    // For now, return a mock response for testing purposes
+    // In production, this would call an AI service or process the data
+    const result = generateMockCareerAdviceResponse(pathwayAnswers);
     
-    // For now, returning a mock response for testing purposes
-    // In a real implementation, this would be where your AI or analysis logic goes
-    const result = {
-      analysis: "This is a personalized career analysis based on your answers.",
-      recommendations: [
-        "Based on your skills and preferences, consider roles in data science.",
-        "Your strength in communication would be valuable in project management."
-      ],
-      generatedText: `
-        **Personalized Career Advice Report for ${Object.values(body.pathwayAnswers)[0] || 'You'}**
-        
-        **Summary:** 
-        Based on your responses, you show strong analytical skills and an interest in problem-solving. Your background suggests you would excel in roles that combine technical expertise with strategic thinking.
-        
-        **Recommended Roles:** 
-        1. Data Analyst
-        2. Business Intelligence Specialist
-        3. Project Manager with technical focus
-        
-        **Skills and Matching Courses:**
-        | Skill | Course |
-        | ----- | ------ |
-        | Data Analysis | Advanced SQL for Analysts |
-        | Project Management | Agile Certification Prep |
-        | Communication | Executive Presentation Skills |
-        
-        **Next-Step Career Recommendations:**
-        1. Gain certification in your primary technical area
-        2. Develop a portfolio showcasing your analytical projects
-        3. Connect with professionals in your target industry
-        
-        **Roles that Might be Right for You:**
-        1. Junior Data Scientist
-        2. Business Analyst
-        3. Research Associate
-        
-        **Path to Your Aspirational Role:**
-        1. Start in an entry-level analytical position
-        2. Gain 2-3 years of hands-on experience
-        3. Pursue advanced certification or education
-        4. Move into a specialized or senior role
-        
-        **Remote Work Considerations:**
-        Remote opportunities are abundant in data-focused careers. Consider highlighting your self-motivation and digital collaboration skills.
-        
-        By following these recommendations and leveraging your unique strengths, you can build a fulfilling career path aligned with your interests and abilities.
-      `
-    };
-
+    console.log("Successfully generated career advice response");
+    
     return new Response(
       JSON.stringify(result),
       { 
@@ -179,3 +103,50 @@ serve(async (req) => {
     );
   }
 });
+
+// Helper function to generate a mock response
+function generateMockCareerAdviceResponse(answers: Record<string, string>) {
+  const userName = answers.q1 ? answers.q1.split(' ')[0] : 'User';
+  
+  return {
+    generatedText: `
+      **Personalized Career Advice Report for ${userName}**
+      
+      **Summary:** 
+      Based on your responses, you show strong analytical skills and an interest in problem-solving. Your background suggests you would excel in roles that combine technical expertise with strategic thinking.
+      
+      **Recommended Roles:** 
+      1. Data Analyst
+      2. Business Intelligence Specialist
+      3. Project Manager with technical focus
+      
+      **Skills and Matching Courses:**
+      | Skill | Course |
+      | ----- | ------ |
+      | Data Analysis | Advanced SQL for Analysts |
+      | Project Management | Agile Certification Prep |
+      | Communication | Executive Presentation Skills |
+      
+      **Next-Step Career Recommendations:**
+      1. Gain certification in your primary technical area
+      2. Develop a portfolio showcasing your analytical projects
+      3. Connect with professionals in your target industry
+      
+      **Roles that Might be Right for You:**
+      1. Junior Data Scientist
+      2. Business Analyst
+      3. Research Associate
+      
+      **Path to Your Aspirational Role:**
+      1. Start in an entry-level analytical position
+      2. Gain 2-3 years of hands-on experience
+      3. Pursue advanced certification or education
+      4. Move into a specialized or senior role
+      
+      **Remote Work Considerations:**
+      Remote opportunities are abundant in data-focused careers. Consider highlighting your self-motivation and digital collaboration skills.
+      
+      By following these recommendations and leveraging your unique strengths, you can build a fulfilling career path aligned with your interests and abilities.
+    `
+  };
+}
