@@ -1210,7 +1210,7 @@ const CareerAgent: React.FC = () => {
                 </div>
               )} */ */}
 
-               {careerAdviceReport && (
+            {careerAdviceReport && (
               <>
                 <style jsx>{`
                   @keyframes slideInUp {
