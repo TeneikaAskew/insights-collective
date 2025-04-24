@@ -20,7 +20,7 @@ serve(async (req) => {
     const prompt = body.prompt;
     console.log("Prompt: ", prompt)
     
-    const PathwayQuestions = body.PathwayQuestions || body.Quizquestions;
+    const PathwayQuestions = body.pathwayQuestions || body.Quizquestions;
     console.log("PathwayQuestions: ", PathwayQuestions)
     
     const pathwayAnswers = body.pathwayAnswers || body.quizAnswers;
