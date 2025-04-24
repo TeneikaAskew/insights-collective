@@ -639,35 +639,78 @@ const CareerAgent: React.FC = () => {
 //   `;
 // };
   
-const formatCareerPathwayReport = (raw: string): string => {
-  // First check if we're getting pre-formatted HTML
-  if (/<h|<div|<p>/.test(raw)) return raw;
-  
-  // Extract user name
-  const nameMatch = raw.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
-  const userName = nameMatch?.[1] || 'You';
-  
-  // Extract sections with compact approach
-  const sections = {
-    summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
-    recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
-    skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
-    nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
-    rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
-    path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
-    remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
-    conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
+  // Helpers for report formatting
+  const extractSection = (text: string, start: string, ends: string[]): string => {
+    const i = text.indexOf(start);
+    if (i === -1) return '';
+    let endIdx = text.length;
+    for (const marker of ends) {
+      const idx = text.indexOf(marker, i + start.length);
+      if (idx !== -1 && idx < endIdx) endIdx = idx;
+    }
+    return text.substring(i + start.length, endIdx).trim();
   };
-  
-  // Extract skills table if exists
-  let skillsTable = '';
-  if (sections.skills) {
-    const m = sections.skills.match(/\| Skill \| Course \|[\s\S]*?(?=\*\*|$)/);
-    skillsTable = m?.[0] || '';
-  }
-  
-  // Format the report with compact spacing
-  return `
+
+  const cleanText = (text: string): string => text.replace(/\*\*/g, '').trim();
+
+  const formatNumberedList = (content: string): string => {
+    if (!content) return '';
+    const hasNumbers = /\d+\.\s/.test(content);
+    
+    if (hasNumbers) {
+      const items = content.split(/\d+\.\s/).filter(item => item.trim());
+      return items.map((item, i) =>
+        `<div class="mb-2">
+          <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
+          ${cleanText(item)}
+        </div>`
+      ).join('');
+    } else {
+      return `<p>${cleanText(content)}</p>`;
+    }
+  };
+
+  const formatSkillsTable = (tableText: string): string => {
+    if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
+    
+    const rows = tableText.split('\n')
+      .filter(r => r.startsWith('|') && !r.includes('---'));
+      
+    return rows.map(row => {
+      const cells = row.split('|').filter(c => c.trim());
+      return cells.length >= 2
+        ? `<tr>
+          <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
+          <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
+        </tr>`
+        : '';
+    }).join('');
+  };
+
+  const formatCareerPathwayReport = (raw: string): string => {
+    if (/<h|<div|<p>/.test(raw)) return raw;
+    
+    const nameMatch = raw.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
+    const userName = nameMatch?.[1] || 'You';
+    
+    const sections = {
+      summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
+      recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
+      skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
+      nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
+      rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
+      path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
+      remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
+      conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
+    };
+    
+    let skillsTable = '';
+    if (sections.skills) {
+      const m = sections.skills.match(/\| Skill \| Course \|[\s\S]*?(?=\*\*|$)/);
+      skillsTable = m?.[0] || '';
+    }
+    
+    return `
 <div class="career-pathway-report">
   <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
   
@@ -734,57 +777,7 @@ const formatCareerPathwayReport = (raw: string): string => {
     <p class="italic">${cleanText(sections.conclusion)}</p>
   </section>
 </div>`;
-};
-
-// Helper functions with compact formatting
-const extractSection = (text: string, start: string, ends: string[]): string => {
-  const i = text.indexOf(start);
-  if (i === -1) return '';
-  let endIdx = text.length;
-  for (const marker of ends) {
-    const idx = text.indexOf(marker, i + start.length);
-    if (idx !== -1 && idx < endIdx) endIdx = idx;
-  }
-  return text.substring(i + start.length, endIdx).trim();
-};
-
-const cleanText = (text: string): string => {
-  return text.replace(/\*\*/g, '').trim();
-};
-
-const formatNumberedList = (content: string): string => {
-  if (!content) return '';
-  const hasNumbers = /\d+\.\s/.test(content);
-  
-  if (hasNumbers) {
-    const items = content.split(/\d+\.\s/).filter(item => item.trim());
-    return items.map((item, i) =>
-      `<div class="mb-2">
-        <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
-        ${cleanText(item)}
-      </div>`
-    ).join('');
-  } else {
-    return `<p>${cleanText(content)}</p>`;
-  }
-};
-
-const formatSkillsTable = (tableText: string): string => {
-  if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
-  
-  const rows = tableText.split('\n')
-    .filter(r => r.startsWith('|') && !r.includes('---'));
-    
-  return rows.map(row => {
-    const cells = row.split('|').filter(c => c.trim());
-    return cells.length >= 2
-      ? `<tr>
-        <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
-        <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
-      </tr>`
-      : '';
-  }).join('');
-};
+  };
   
   const handleReportError = (msg: string) => {
     let displayMessage = msg;
