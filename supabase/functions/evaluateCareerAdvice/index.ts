@@ -18,6 +18,8 @@ interface RequestPayload {
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Content-Type': 'application/json'
 };
 
 serve(async (req) => {
@@ -28,92 +30,69 @@ serve(async (req) => {
 
   try {
     // Log the incoming request for debugging
-    console.log("Request received:", req.method, req.url);
-    console.log("Request headers:", Object.fromEntries(req.headers.entries()));
+    console.log(`Request received: ${req.method} ${req.url}`);
+    console.log(`Content-Type: ${req.headers.get('content-type')}`);
     
-    // Parse the request body
-    let body: RequestPayload;
-    const contentType = req.headers.get('content-type') || '';
+    // Read the request body as text
+    const bodyText = await req.text();
+    console.log(`Request body length: ${bodyText.length} bytes`);
     
-    try {
-      if (contentType.includes('application/json')) {
-        const text = await req.text();
-        console.log("Raw request body:", text);
-        
-        if (!text) {
-          throw new Error("Empty request body");
-        }
-        
-        body = JSON.parse(text);
-      } else {
-        body = await req.json();
-      }
-      console.log("Successfully parsed request body:", body);
-    } catch (error) {
-      console.error("Error parsing request body:", error);
+    if (!bodyText || bodyText.trim() === '') {
+      console.error("Empty request body received");
       return new Response(
-        JSON.stringify({ 
-          error: "Invalid request body format", 
-          details: error.message 
-        }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        JSON.stringify({ error: "Empty request body" }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+    
+    // Parse the JSON
+    let body: RequestPayload;
+    try {
+      body = JSON.parse(bodyText);
+      console.log("Successfully parsed request body");
+    } catch (parseError) {
+      console.error(`Error parsing JSON: ${parseError.message}`);
+      console.error(`Raw body content: ${bodyText.substring(0, 200)}...`);
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON in request body", details: parseError.message }),
+        { status: 400, headers: corsHeaders }
       );
     }
 
     // Validate required fields
-    const { prompt, pathwayQuestions, pathwayAnswers, resumeText } = body;
-    
-    if (!prompt || !pathwayQuestions || !pathwayAnswers) {
-      console.error("Missing required fields:", {
-        hasPrompt: !!prompt,
-        hasPathwayQuestions: !!pathwayQuestions,
-        hasPathwayAnswers: !!pathwayAnswers
-      });
-      
+    if (!body.prompt || !body.pathwayQuestions || !body.pathwayAnswers) {
       return new Response(
-        JSON.stringify({ 
+        JSON.stringify({
           error: "Missing required fields",
           received: {
-            prompt: !!prompt,
-            pathwayQuestions: !!pathwayQuestions,
-            pathwayAnswers: !!pathwayAnswers
+            hasPrompt: !!body.prompt,
+            hasPathwayQuestions: !!body.pathwayQuestions,
+            hasPathwayAnswers: !!body.pathwayAnswers
           }
         }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    // For now, return a mock response for testing purposes
-    // In production, this would call an AI service or process the data
-    const result = generateMockCareerAdviceResponse(pathwayAnswers);
+    // Generate career advice response
+    const result = generateMockCareerAdviceResponse(body.pathwayAnswers);
     
     console.log("Successfully generated career advice response");
     
     return new Response(
       JSON.stringify(result),
-      { 
-        status: 200, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 200, headers: corsHeaders }
     );
   } catch (error) {
-    console.error("Error in evaluateCareerAdvice function:", error);
+    console.error(`Error in evaluateCareerAdvice function: ${error.message}`);
+    console.error(`Stack trace: ${error.stack}`);
     
     return new Response(
       JSON.stringify({ 
         error: "Server error processing request", 
         details: error.message 
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { status: 500, headers: corsHeaders }
     );
   }
 });

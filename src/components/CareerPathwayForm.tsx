@@ -39,7 +39,8 @@ class CareerPathwayForm extends React.Component<CareerPathwayFormProps> {
         resumeText: this.props.resumeText || '' // Empty string instead of undefined
       };
       
-      console.log("Sending payload to evaluateCareerAdvice:", payload);
+      // Log the payload for debugging
+      console.log("Sending payload to evaluateCareerAdvice:", JSON.stringify(payload));
       
       // Call the Supabase Edge Function with explicit content-type
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
