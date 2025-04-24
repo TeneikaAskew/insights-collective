@@ -15,30 +15,46 @@ serve(async (req) => {
 
 let body;
 try {
-  body = await req.text();//json();
-} catch (err) {
-  console.error("Invalid JSON body:", err);
-  return new Response(
-    JSON.stringify({ error: "Invalid JSON body" }),
-    {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
-  );
-}
-    console.log("Body:", body)
+//   body = await req.text();//json();
+// } catch (err) {
+//   console.error("Invalid JSON body:", err);
+//   return new Response(
+//     JSON.stringify({ error: "Invalid JSON body" }),
+//     {
+//       status: 400,
+//       headers: { ...corsHeaders, "Content-Type": "application/json" },
+//     }
+//   );
+// }
 
-    const prompt = body.prompt;
+    const { prompt, pathwayQuestions, pathwayAnswers, resumeText } = await req.json()
+
     console.log("Prompt: ", prompt)
-    
-    const pathwayQuestions = body.pathwayQuestions || body.quizQuestions;
-    console.log("PathwayQuestions: ", PathwayQuestions)
-    
-    const pathwayAnswers = body.pathwayAnswers || body.quizAnswers;
+    console.log("pathwayQuestions: ", PathwayQuestions)
     console.log("pathwayAnswers: ", pathwayAnswers)
-    
-    const resumeText = body.resumeText;    
     console.log("resumeText: ", resumeText)
+
+    // Validate required fields
+    if (!prompt || !pathwayQuestions || !pathwayAnswers) {
+      throw new Error('Missing required fields: prompt, pathwayQuestions, or pathwayAnswers')
+    }
+  
+    // Format the career analysis prompt
+    const formattedPrompt = formatCareerPrompt(prompt, pathwayQuestions, pathwayAnswers, resumeText)
+
+    // console.log("Body:", body)
+
+    // // const prompt = body.prompt;
+    // console.log("Prompt: ", prompt)
+    
+    // // const pathwayQuestions = body.pathwayQuestions || body.quizQuestions;
+    // console.log("PathwayQuestions: ", PathwayQuestions)
+    
+    // // const pathwayAnswers = body.pathwayAnswers || body.quizAnswers;
+    // console.log("pathwayAnswers: ", pathwayAnswers)
+    
+    // // const resumeText = body.resumeText;    
+    // console.log("resumeText: ", resumeText)
 
     if (!prompt || !pathwayQuestions || !pathwayAnswers) {
       return new Response(
@@ -50,15 +66,15 @@ try {
       );
     }
 
-    // Construct prompt
-    let combinedPrompt = `${prompt}\n\nUser's pathway answers:\n`;
-    for (const question of pathwayQuestions) {
-      const answer = pathwayAnswers[question.id] || "";
-      combinedPrompt += `${question.label || question.id}: ${answer}\n`;
-    }
-    if (resumeText) {
-      combinedPrompt += `\nUser Resume Text:\n${resumeText}\n`;
-    }
+    // // Construct prompt
+    // let combinedPrompt = `${prompt}\n\nUser's pathway answers:\n`;
+    // for (const question of pathwayQuestions) {
+    //   const answer = pathwayAnswers[question.id] || "";
+    //   combinedPrompt += `${question.label || question.id}: ${answer}\n`;
+    // }
+    // if (resumeText) {
+    //   combinedPrompt += `\nUser Resume Text:\n${resumeText}\n`;
+    // }
 
     const messages = [
       {
@@ -130,3 +146,38 @@ try {
     );
   }
 });
+
+function formatCareerPrompt(
+  prompt: string, 
+  pathwayQuestions: any[], 
+  pathwayAnswers: Record<string, string>, 
+  resumeText?: string
+): string {
+  let formattedPrompt = prompt + '\n\n'
+  
+  // Add user's responses
+  formattedPrompt += 'User Responses:\n'
+  pathwayQuestions.forEach((question) => {
+    const answer = pathwayAnswers[question.id]
+    if (answer) {
+      formattedPrompt += `${question.label}: ${answer}\n`
+    }
+  })
+  
+  // Add resume information if available
+  if (resumeText) {
+    formattedPrompt += '\nResume Content:\n' + resumeText + '\n'
+  }
+  
+  // Add instructions for formatting
+  formattedPrompt += '\nPlease provide a detailed career pathway report with the following sections:\n'
+  formattedPrompt += '1. Summary\n'
+  formattedPrompt += '2. Recommended Roles\n'
+  formattedPrompt += '3. Skills and Matching Courses\n'
+  formattedPrompt += '4. Next-Step Career Recommendations\n'
+  formattedPrompt += '5. Roles that Might be Right for You\n'
+  formattedPrompt += '6. Path to Your Aspirational Role\n'
+  formattedPrompt += '7. Remote Work Considerations (if applicable)\n'
+  
+  return formattedPrompt
+}
