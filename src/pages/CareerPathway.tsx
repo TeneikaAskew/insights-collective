@@ -40,23 +40,23 @@ const CareerPathway: React.FC = () => {
   // console.log(report.skillsAndCourses, report.skillsAndCourses.length)
 
   // If there's an error or no report data found
-  if (isError || (report && report.skillsAndCourses && report.skillsAndCourses.length === 0)) {
-    return (
-      <AppLayout>
-        <div className="container mx-auto py-6 px-4">
-          <Card className="text-center p-6">
-            <h2 className="text-xl font-bold mb-4">No Career Report Found</h2>
-            <p className="text-muted-foreground mb-6">
-              Please complete the career pathway chat to generate your personalized report.
-            </p>
-            <Button onClick={() => navigate('/career-agent')}>
-              Take Career Assessment
-            </Button>
-          </Card>
-        </div>
-      </AppLayout>
-    );
-  }
+  // if (isError || (report && report.skillsAndCourses && report.skillsAndCourses.length === 0)) {
+  //   return (
+  //     <AppLayout>
+  //       <div className="container mx-auto py-6 px-4">
+  //         <Card className="text-center p-6">
+  //           <h2 className="text-xl font-bold mb-4">No Career Report Found</h2>
+  //           <p className="text-muted-foreground mb-6">
+  //             Please complete the career pathway chat to generate your personalized report.
+  //           </p>
+  //           <Button onClick={() => navigate('/career-agent')}>
+  //             Take Career Assessment
+  //           </Button>
+  //         </Card>
+  //       </div>
+  //     </AppLayout>
+  //   );
+  // }
 
   return (
     <AppLayout>
