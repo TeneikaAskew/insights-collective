@@ -585,13 +585,27 @@ export function parseformatCareerPathwayReport(raw: string): { html: string; sec
   };
 
   // Add match percentages if they don't exist
-  if (sections.recommendedRoles.length > 0) {
-    sections.recommendedRoles = sections.recommendedRoles.map((role, index) => {
-      if (!role.matchPercentage) {
-        role.matchPercentage = Math.max(50, 95 - (index * 7));
-      }
-      return role;
-    });
+  // if (sections.recommendedRoles.length > 0) {
+  //   sections.recommendedRoles = sections.recommendedRoles.map((role, index) => {
+  //     if (!role.matchPercentage) {
+  //       role.matchPercentage = Math.max(50, 95 - (index * 7));
+  //     }
+  //     return role;
+  //   });
+  // }  // Parse recommended roles and add match percentages
+ // Parse recommended roles and add match percentages
+  if (sections.recommendedRoles) {
+    const rolesLines = sections.recommendedRoles.split('\n').filter(line => line.trim().match(/^\d+\./));
+    if (rolesLines.length > 0) {
+      sections.recommendedRoles = rolesLines.map((line, index) => {
+        const percentage = Math.max(50, 95 - (index * 7));
+        // Extract the role name (everything after the number and before the colon or end of line)
+        const roleMatch = line.match(/^\d+\.\s+(.+?)(?:\s*:|$)/);
+        const roleName = roleMatch ? roleMatch[1].trim() : line;
+        
+        return `${index + 1}. ${roleName} (${percentage}% match)`;
+      }).join('\n');
+    }
   }
   
   let skillsTable = '';
