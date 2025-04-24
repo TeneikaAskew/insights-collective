@@ -21,6 +21,17 @@ export interface CareerPathStep {
   description: string;
 }
 
+// export interface CareerReportData {
+//   userName: string;
+//   summary: string;
+//   recommendedRoles: RecommendedRole[];
+//   skillsAndCourses: SkillCourse[];
+//   nextStepRecommendations: string;
+//   potentialRoles: string[];
+//   careerPathSteps: CareerPathStep[];
+//   keyTakeaways: string[];
+// }
+
 export interface CareerReportData {
   userName: string;
   summary: string;
@@ -30,13 +41,106 @@ export interface CareerReportData {
   potentialRoles: string[];
   careerPathSteps: CareerPathStep[];
   keyTakeaways: string[];
+  remoteWorkConsiderations?: string;
+  conclusion?: string;
 }
+
+// Helper functions for formatting
+export const cleanText = (text: string): string => text.replace(/\*\*/g, '').trim();
+
+export const extractSection = (text: string, start: string, ends: string[]): string => {
+  const i = text.indexOf(start);
+  if (i === -1) return '';
+  let endIdx = text.length;
+  for (const marker of ends) {
+    const idx = text.indexOf(marker, i + start.length);
+    if (idx !== -1 && idx < endIdx) endIdx = idx;
+  }
+  return text.substring(i + start.length, endIdx).trim();
+};
+
+export const formatNumberedList = (content: string): string => {
+  if (!content) return '';
+  const hasNumbers = /\d+\.\s/.test(content);
+  
+  if (hasNumbers) {
+    const items = content.split(/\d+\.\s/).filter(item => item.trim());
+    return items.map((item, i) =>
+      `<div class="mb-2">
+        <span class="inline-block bg-blue-100 text-blue-800 rounded-full w-6 h-6 text-center mr-2">${i + 1}</span>
+        ${cleanText(item)}
+      </div>`
+    ).join('');
+  } else {
+    return `<p>${cleanText(content)}</p>`;
+  }
+};
+
+export const formatSkillsTable = (tableText: string): string => {
+  if (!tableText) return '<tr><td colspan="2" class="border border-blue-300 px-4 py-2">No skills data available</td></tr>';
+  
+  const rows = tableText.split('\n')
+    .filter(r => r.startsWith('|') && !r.includes('---'));
+    
+  return rows.map(row => {
+    const cells = row.split('|').filter(c => c.trim());
+    return cells.length >= 2
+      ? `<tr>
+        <td class="border border-blue-300 px-4 py-2">${cells[0].trim()}</td>
+        <td class="border border-blue-300 px-4 py-2">${cells[1].trim()}</td>
+      </tr>`
+      : '';
+  }).join('');
+};
 
 /**
  * Parses a static text report into structured data
  * This function handles the transformation of the raw text format
  * into a structured object the interactive UI can use
  */
+// export function parseCareerReport(reportText: string): CareerReportData {
+//   const report: CareerReportData = {
+//     userName: extractUserName(reportText),
+//     summary: extractSummary(reportText),
+//     recommendedRoles: extractRecommendedRoles(reportText),
+//     skillsAndCourses: extractSkillsAndCourses(reportText),
+//     nextStepRecommendations: extractNextStepRecommendations(reportText),
+//     potentialRoles: extractPotentialRoles(reportText),
+//     careerPathSteps: extractCareerPathSteps(reportText),
+//     keyTakeaways: extractKeyTakeaways(reportText)
+//   };
+  
+//   // Add match percentages if they don't exist in the original report
+//   if (report.recommendedRoles.length > 0) {
+//     report.recommendedRoles = report.recommendedRoles.map((role, index) => {
+//       if (!role.matchPercentage) {
+//         // Generate decreasing percentages for roles (95%, 88%, 81%, etc.)
+//         role.matchPercentage = Math.max(50, 95 - (index * 7));
+//       }
+//       return role;
+//     });
+//   }
+  
+//   // Add skill levels if they don't exist
+//   if (report.skillsAndCourses.length > 0) {
+//     const levels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
+//     report.skillsAndCourses = report.skillsAndCourses.map((item, index) => {
+//       if (!item.level) {
+//         // Randomly assign skill levels with a bias toward intermediate
+//         const levelIndex = Math.floor(Math.random() * 3);
+//         item.level = levels[levelIndex];
+//       }
+//       if (!item.provider) {
+//         // Assign default providers based on common platforms
+//         const providers = ['Coursera', 'edX', 'Udemy', 'LinkedIn Learning', 'Pluralsight'];
+//         item.provider = providers[index % providers.length];
+//       }
+//       return item;
+//     });
+//   }
+  
+//   return report;
+// }
 export function parseCareerReport(reportText: string): CareerReportData {
   const report: CareerReportData = {
     userName: extractUserName(reportText),
@@ -46,14 +150,15 @@ export function parseCareerReport(reportText: string): CareerReportData {
     nextStepRecommendations: extractNextStepRecommendations(reportText),
     potentialRoles: extractPotentialRoles(reportText),
     careerPathSteps: extractCareerPathSteps(reportText),
-    keyTakeaways: extractKeyTakeaways(reportText)
+    keyTakeaways: extractKeyTakeaways(reportText),
+    remoteWorkConsiderations: extractRemoteWorkConsiderations(reportText),
+    conclusion: extractConclusion(reportText)
   };
   
-  // Add match percentages if they don't exist in the original report
+  // Add match percentages if they don't exist
   if (report.recommendedRoles.length > 0) {
     report.recommendedRoles = report.recommendedRoles.map((role, index) => {
       if (!role.matchPercentage) {
-        // Generate decreasing percentages for roles (95%, 88%, 81%, etc.)
         role.matchPercentage = Math.max(50, 95 - (index * 7));
       }
       return role;
@@ -65,12 +170,10 @@ export function parseCareerReport(reportText: string): CareerReportData {
     const levels = ['Beginner', 'Intermediate', 'Advanced', 'Expert'];
     report.skillsAndCourses = report.skillsAndCourses.map((item, index) => {
       if (!item.level) {
-        // Randomly assign skill levels with a bias toward intermediate
         const levelIndex = Math.floor(Math.random() * 3);
         item.level = levels[levelIndex];
       }
       if (!item.provider) {
-        // Assign default providers based on common platforms
         const providers = ['Coursera', 'edX', 'Udemy', 'LinkedIn Learning', 'Pluralsight'];
         item.provider = providers[index % providers.length];
       }
@@ -385,4 +488,98 @@ function extractKeyTakeaways(text: string): string[] {
   }
   
   return takeaways;
+}
+
+
+// New function for formatting the report as HTML
+export function formatCareerPathwayReport(raw: string): string {
+  if (/<h|<div|<p>/.test(raw)) return raw;
+  
+  const nameMatch = raw.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
+  const userName = nameMatch?.[1] || 'You';
+  
+  const sections = {
+    summary: extractSection(raw, 'Summary:', ['Recommended Roles:', 'Skills and Matching Courses:']),
+    recommendedRoles: extractSection(raw, 'Recommended Roles:', ['Skills and Matching Courses:']),
+    skills: extractSection(raw, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']),
+    nextSteps: extractSection(raw, 'Next-Step Career Recommendations:', ['Roles that Might be Right for You:']),
+    rightRoles: extractSection(raw, 'Roles that Might be Right for You:', ['Path to Your Aspirational Role:']),
+    path: extractSection(raw, 'Path to Your Aspirational Role:', ['Remote Work Considerations:', 'By following']),
+    remote: extractSection(raw, 'Remote Work Considerations:', ['By following']),
+    conclusion: raw.includes('By following') ? raw.substring(raw.indexOf('By following')) : ''
+  };
+  
+  let skillsTable = '';
+  if (sections.skills) {
+    const m = sections.skills.match(/\| Skill \| Course \|[\s\S]*?\|([^\n]*\n\|[^\n]*\n?)+/);
+    skillsTable = m?.[0] || '';
+  }
+  
+  return `
+<div class="career-pathway-report">
+  <h1 class="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
+    <p class="mb-2">${cleanText(sections.summary)}</p>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.recommendedRoles)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full border-collapse">
+        <thead>
+          <tr class="bg-blue-100">
+            <th class="border border-blue-300 px-4 py-2 text-left">Skill</th>
+            <th class="border border-blue-300 px-4 py-2 text-left">Course</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${formatSkillsTable(skillsTable)}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.nextSteps)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.rightRoles)}
+    </div>
+  </section>
+  
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.path)}
+    </div>
+  </section>
+  
+  ${sections.remote ? `
+  <section class="mb-6">
+    <h2 class="text-lg font-semibold text-blue-700 mb-2">Remote Work Considerations</h2>
+    <div class="pl-4">
+      ${formatNumberedList(sections.remote)}
+    </div>
+  </section>
+  ` : ''}
+  
+  <section class="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500">
+    <p class="italic">${cleanText(sections.conclusion)}</p>
+  </section>
+</div>`;
 }
