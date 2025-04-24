@@ -112,6 +112,7 @@ export type Database = {
           created_at: string
           id: string
           question: string
+          report: Json | null
           session_id: string
           user_id: string
         }
@@ -120,6 +121,7 @@ export type Database = {
           created_at?: string
           id?: string
           question: string
+          report?: Json | null
           session_id: string
           user_id: string
         }
@@ -128,6 +130,7 @@ export type Database = {
           created_at?: string
           id?: string
           question?: string
+          report?: Json | null
           session_id?: string
           user_id?: string
         }
