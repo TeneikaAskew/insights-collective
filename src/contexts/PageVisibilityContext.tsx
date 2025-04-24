@@ -1,7 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocation } from 'react-router-dom';
+import { extractRoutes, type RouteInfo } from '@/utils/routeUtils';
 
 type PageVisibility = {
   id: string;
@@ -66,27 +67,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   // This function will sync available routes with the page_visibility table
   const syncAvailablePages = async () => {
     try {
-      // Get all existing routes from App.tsx dynamically
-      // In a real implementation, this would need to be configured to match your routing system
-      // For this example, we'll use a hardcoded list
-      const availableRoutes = [
-        { path: '/', name: 'Home' },
-        { path: '/dashboard', name: 'Dashboard' },
-        { path: '/courses', name: 'Courses' },
-        { path: '/resources', name: 'Resources' },
-        { path: '/data-blueprint', name: 'Data Blueprint' },
-        { path: '/blog', name: 'Blog' },
-        { path: '/events', name: 'Events' },
-        { path: '/notifications', name: 'Notifications' },
-        { path: '/explore-data-careers', name: 'Explore Data Careers' },
-        { path: '/profile', name: 'Profile' },
-        { path: '/calendar', name: 'Calendar' },
-        { path: '/assistants', name: 'Assistants' },
-        { path: '/messages', name: 'Messages' },
-        { path: '/resume', name: 'Resume' },
-        { path: '/career-agent', name: 'Career Agent' },
-        { path: '/career-pathway', name: 'Career Pathway' },
-      ];
+      // Get all existing routes using the utility function
+      const routeElements = document.querySelector('#root')?.firstElementChild?.children;
+      if (!routeElements) {
+        console.error('Could not find routes in DOM');
+        return;
+      }
+      
+      const availableRoutes = extractRoutes(Array.from(routeElements) as any);
+      console.log('Extracted routes:', availableRoutes);
 
       // Get current routes in the visibility table
       const { data: existingRoutes, error: fetchError } = await supabase
