@@ -16,6 +16,11 @@ const CareerPathway: React.FC = () => {
   const { data: report, isLoading, error, isError } = useCareerPathwayResults();
   const [activeCareerStep, setActiveCareerStep] = useState(0);
 
+  // Get user name from available properties
+  const userName = user?.user_metadata?.name || 
+                  user?.email?.split('@')[0] || 
+                  'there';
+                
   // Career step carousel navigation
   const nextCareerStep = () => {
     if (report?.careerPathSteps && activeCareerStep < report.careerPathSteps.length - 1) {
@@ -48,12 +53,6 @@ const CareerPathway: React.FC = () => {
     );
   }
 
-  // Get user name from available properties
-  const userName = user?.user_metadata?.first_name ||
-                user?.user_metadata?.name || 
-                user?.email?.split('@')[0] || 
-                'there';
-                
   return (
     <AppLayout>
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
