@@ -1148,7 +1148,10 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     try {
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        headers: {
+      'Content-Type': 'application/json'
+    },
       });
       
       if (error) throw error;
