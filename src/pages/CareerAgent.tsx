@@ -44,6 +44,7 @@ const CareerAgent: React.FC = () => {
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [resumePromptShown, setResumePromptShown] = useState<boolean>(false);
   const [resumeUseConfirmed, setResumeUseConfirmed] = useState<boolean | null>(null);
+  const [previousChatLoaded, setPreviousChatLoaded] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -62,11 +63,10 @@ const CareerAgent: React.FC = () => {
     setCurrentQuestionIndex(0);
   };
 
-  // Initialize session ID and conversation
+  // Initialize session ID
   useEffect(() => {
     const sid = Date.now().toString();
     setSessionId(sid);
-    initializeConversation();
   }, []);
 
   // Scroll to bottom when messages change
@@ -87,6 +87,128 @@ const CareerAgent: React.FC = () => {
       setTimeout(() => reportRef.current?.scrollIntoView({ behavior: 'smooth' }), 500);
     }
   }, [careerAdviceReport]);
+
+  // Load previous answers and chat history
+  useEffect(() => {
+    if (user?.id && !previousChatLoaded) {
+      loadPreviousCareerPathwayData();
+    }
+  }, [user]);
+
+  // Load previous career pathway data
+  const loadPreviousCareerPathwayData = async () => {
+    if (!user?.id) return;
+    
+    try {
+      // Load previous answers
+      const { data: previousAnswers, error: answersError } = await supabase
+        .from('career_pathway_answers')
+        .select('question, answer')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+        
+      if (answersError) {
+        console.error('Error loading previous answers:', answersError);
+        initializeConversation();
+        return;
+      }
+
+      if (previousAnswers && previousAnswers.length > 0) {
+        // Map answers
+        const answersMap: Record<string, string> = {};
+        previousAnswers.forEach(item => {
+          answersMap[item.question] = item.answer;
+        });
+        setAnswers(answersMap);
+        
+        // Calculate how far they got in the quiz
+        const questionCount = Math.min(previousAnswers.length, pathwayQuestions.length);
+        setCurrentQuestionIndex(questionCount);
+        
+        // Load the latest report
+        const { data: reportData, error: reportError } = await supabase
+          .from('career_pathway_results')
+          .select('report')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        if (!reportError && reportData?.report) {
+          const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
+          const html = formatCareerPathwayReport(raw);
+          setCareerAdviceReport(html);
+        }
+        
+        // Reconstruct chat history from answers
+        const chatHistory: Message[] = [...starterMessages.map((text, index) => ({
+          id: `bot_starter_${index}`,
+          sender: "bot" as const,
+          text,
+        }))];
+        
+        // Add user answers and questions
+        pathwayQuestions.forEach((question, index) => {
+          if (answersMap[question.id]) {
+            // Add user answer
+            chatHistory.push({
+              id: `user_${question.id}`,
+              sender: 'user',
+              text: answersMap[question.id]
+            });
+            
+            // Add next question from bot if not the last question
+            if (index < pathwayQuestions.length - 1) {
+              const nextQ = pathwayQuestions[index + 1];
+              chatHistory.push({
+                id: `bot_q_${nextQ.id}`,
+                sender: 'bot',
+                text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`
+              });
+            }
+          }
+        });
+        
+        // Add final message if they completed all questions
+        if (questionCount >= pathwayQuestions.length) {
+          chatHistory.push({
+            id: `bot_done_${Date.now()}`,
+            sender: 'bot',
+            text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
+          });
+          
+          // Check if resume was used
+          const { data: resumeData } = await supabase
+            .from('resumes')
+            .select('text')
+            .eq('user_id', user.id)
+            .limit(1)
+            .maybeSingle();
+            
+          if (resumeData?.text) {
+            setResumePromptShown(true);
+            setResumeUseConfirmed(true);
+            chatHistory.push({
+              id: `bot_resume_use_confirm_${Date.now()}`,
+              sender: 'bot',
+              text: "Using your existing resume on file for personalized career advice."
+            });
+          }
+        } else {
+          setShowQuickReplies(currentQuestionIndex === 0);
+        }
+        
+        setMessages(chatHistory);
+        setPreviousChatLoaded(true);
+      } else {
+        // No previous answers, just initialize a new conversation
+        initializeConversation();
+      }
+    } catch (err) {
+      console.error('Error loading career pathway data:', err);
+      initializeConversation();
+    }
+  };
 
   // Guard: require authentication
   if (!isAuthenticated) {
@@ -286,38 +408,6 @@ const CareerAgent: React.FC = () => {
     }]);
   };
 
-  // Add new effect to load previous answers
-  useEffect(() => {
-    const loadPreviousAnswers = async () => {
-      if (!user?.id) return;
-      
-      try {
-        const { data: previousAnswers, error } = await supabase
-          .from('career_pathway_answers')
-          .select('question, answer')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: true });
-          
-        if (error) {
-          console.error('Error loading previous answers:', error);
-          return;
-        }
-
-        if (previousAnswers && previousAnswers.length > 0) {
-          const answersMap: Record<string, string> = {};
-          previousAnswers.forEach(item => {
-            answersMap[item.question] = item.answer;
-          });
-          setAnswers(answersMap);
-        }
-      } catch (err) {
-        console.error('Error fetching previous answers:', err);
-      }
-    };
-
-    loadPreviousAnswers();
-  }, [user]);
-
   const handleResetAnswers = async () => {
     if (!user?.id) return;
     
@@ -346,6 +436,9 @@ const CareerAgent: React.FC = () => {
       setCurrentQuestionIndex(0);
       setShowQuickReplies(true);
       setCareerAdviceReport('');
+      setResumePromptShown(false);
+      setResumeUseConfirmed(null);
+      setPreviousChatLoaded(false);
 
       toast({
         title: 'Success',
@@ -376,11 +469,11 @@ const CareerAgent: React.FC = () => {
       
       // Get the session properly using await
       const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
-      
-      if (!accessToken) {
+      if (!sessionData?.session?.access_token) {
         throw new Error("No valid authentication session found");
       }
+      
+      const accessToken = sessionData.session.access_token;
       
       const response = await fetch('https://siuqvhscuiycvdrtiqsh.supabase.co/functions/v1/evaluateCareerAdvice', {
         method: 'POST',
@@ -666,22 +759,6 @@ const CareerAgent: React.FC = () => {
     return currentQuestionIndex === pathwayQuestions.length && resume && resumePromptShown && resumeUseConfirmed === null;
   };
 
-  const handleResetChat = () => {
-    setMessages(starterMessages.map((text, index) => ({
-      id: `bot_starter_${index}`,
-      sender: "bot",
-      text,
-    })));
-    setShowQuickReplies(true);
-    setCurrentQuestionIndex(0);
-    setAnswers({});
-    setInputValue("");
-    setResumeFile(null);
-    setResumeUseConfirmed(null);
-    setCareerAdviceReport('');
-    setResumePromptShown(false);
-  };
-
   return (
     <AppLayout>
       <div className="flex flex-col min-h-screen items-center justify-start pt-[8rem] pb-[5rem] px-4">
@@ -707,7 +784,7 @@ const CareerAgent: React.FC = () => {
                 <p className="text-sm text-green-500">Online</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div>
               <Button
                 variant="outline"
                 onClick={handleResetAnswers}
@@ -715,14 +792,6 @@ const CareerAgent: React.FC = () => {
                 className="text-red-600 hover:text-red-700"
               >
                 Reset Answers
-              </Button>
-              <Button
-                variant="ghost"
-                onClick={handleResetChat}
-                size="sm"
-                className="text-blue-600 hover:text-blue-700"
-              >
-                New Chat
               </Button>
             </div>
           </div>
