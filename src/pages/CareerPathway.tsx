@@ -49,7 +49,8 @@ const CareerPathway: React.FC = () => {
   }
 
   // Get user name from available properties
-  const userName = user?.user_metadata?.name || 
+  const userName = user?.user_metadata?.first_name ||
+                user?.user_metadata?.name || 
                 user?.email?.split('@')[0] || 
                 'there';
                 
