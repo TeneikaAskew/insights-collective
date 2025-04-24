@@ -253,7 +253,7 @@ function extractSkillsAndCourses(text: string): SkillCourse[] {
   
   // Use the same extraction logic as your parseformatCareerPathwayReport
   const skillsSection = extractSection(text, 'Skills and Matching Courses:', ['Next-Step Career Recommendations:']);
-  
+  console.log("Skills found? ",skillsSection)
   if (skillsSection) {
     // Look for markdown table format with more flexible matching
     const tableContent = skillsSection.trim();
