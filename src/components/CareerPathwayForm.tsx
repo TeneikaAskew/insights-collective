@@ -1,8 +1,5 @@
 
-import React, { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { useToast } from "@/components/ui/use-toast";
+import React from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface PathwayQuestion {
@@ -44,9 +41,9 @@ class CareerPathwayForm extends React.Component<CareerPathwayFormProps> {
       
       console.log("Sending payload to evaluateCareerAdvice:", payload);
       
-      // Call the Supabase Edge Function
+      // Call the Supabase Edge Function with explicit content-type
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
-        body: payload,
+        body: JSON.stringify(payload),
         headers: { 
           'Content-Type': 'application/json' 
         }

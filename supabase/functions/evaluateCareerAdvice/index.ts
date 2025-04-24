@@ -29,12 +29,26 @@ serve(async (req) => {
   try {
     // Log the incoming request for debugging
     console.log("Request received:", req.method, req.url);
+    console.log("Request headers:", Object.fromEntries(req.headers.entries()));
     
     // Parse the request body
     let body: RequestPayload;
+    const contentType = req.headers.get('content-type') || '';
+    
     try {
-      body = await req.json();
-      console.log("Successfully parsed request body");
+      if (contentType.includes('application/json')) {
+        const text = await req.text();
+        console.log("Raw request body:", text);
+        
+        if (!text) {
+          throw new Error("Empty request body");
+        }
+        
+        body = JSON.parse(text);
+      } else {
+        body = await req.json();
+      }
+      console.log("Successfully parsed request body:", body);
     } catch (error) {
       console.error("Error parsing request body:", error);
       return new Response(
