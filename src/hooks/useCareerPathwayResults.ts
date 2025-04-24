@@ -1,3 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { parseformatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
+import { useAuth } from '@/contexts/AuthContext';
+
 export const useCareerPathwayResults = () => {
   const { user } = useAuth();
   
