@@ -51,7 +51,7 @@ const CareerPathway: React.FC = () => {
 
   // Get user name from available properties
   const userName = user?.name || 
-                  (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 
+                  (user?.firstName ? `${user.firstName}` : 
                   user?.email?.split('@')[0] || 'there');
 
   return (
