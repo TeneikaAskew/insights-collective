@@ -1,3 +1,10 @@
+
+
+const { user } = useAuth();
+const userName = user?.user_metadata?.first_name || 
+              user?.name || 
+              user?.email?.split('@')[0] || 
+              'there';
 /**
  * Utility functions to parse static career reports into structured data
  */
@@ -156,7 +163,7 @@ export function parseCareerReport(reportText: string): CareerReportData {
  */
 function extractUserName(text: string): string {
   const match = text.match(/Personalized Career Advice Report for ([\w\s\.]+)/i);
-  return match ? match[1].trim() : "User";
+  return match ? match[1].trim() : userName : "User";
 }
 
 /**
