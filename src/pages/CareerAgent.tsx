@@ -619,41 +619,41 @@ const CareerAgent: React.FC = () => {
   };
 
   return (
-  <AppLayout>
-      <div className="flex flex-col h-full">
-        <div className="flex flex-col items-center justify-start h-full">
-          <div className="w-full max-w-2xl flex flex-col h-full">
-            {/* Chat Header - part of the normal flow */}
-            <div className="bg-gray-50 border-b border-gray-200 px-4 py-3 flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 rounded-full overflow-hidden">
-                  <img
-                    src={coachAvatarUrl}
-                    alt="Career Coach"
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      target.style.display = "none";
-                      if (target.parentElement) {
-                        target.parentElement.textContent = "CC";
-                      }
-                    }}
-                  />
-                </div>
-                <div>
-                  <h1 className="text-lg font-semibold text-gray-900">Career Coach</h1>
-                  <p className="text-sm text-green-500">Online</p>
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                onClick={handleResetChat}
-                size="sm"
-                className="text-blue-600 hover:text-blue-700"
-              >
-                Reset Chat
-              </Button>
+ <AppLayout>
+    <div className="flex flex-col min-h-screen items-center justify-start pt-[8rem] pb-[5rem] px-4">
+      {/* Sticky Header (offset to sit below the top navbar) */}
+      <div className="fixed top-[3.5rem] left-0 right-0 z-10 bg-gray-50 border-b border-gray-200">
+        <div className="mx-auto w-full max-w-2xl px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden">
+              <img
+                src={coachAvatarUrl}
+                alt="Career Coach"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = "none";
+                  if (target.parentElement) {
+                    target.parentElement.textContent = "CC";
+                  }
+                }}
+              />
             </div>
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">Career Coach</h1>
+              <p className="text-sm text-green-500">Online</p>
+            </div>
+          </div>
+          <Button
+            variant="ghost"
+            onClick={handleResetChat}
+            size="sm"
+            className="text-blue-600 hover:text-blue-700"
+          >
+            Reset Chat
+          </Button>
+        </div>
+      </div>
         {/* Chat Messages Area */}
         <div 
           ref={scrollAreaRef}
