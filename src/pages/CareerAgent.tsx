@@ -619,11 +619,11 @@ const CareerAgent: React.FC = () => {
   };
 
   return (
-    <AppLayout>
-      <div className="flex flex-col h-screen">
-        {/* Fixed Header */}
-        <div className="fixed top-16 left-0 right-0 z-10 bg-gray-50 border-b border-gray-200">
-          <div className="container mx-auto max-w-2xl px-4 py-3 flex justify-between items-center">
+ <AppLayout>
+      <div className="flex flex-col min-h-screen items-center justify-start pt-[6rem] pb-[5rem] px-4">
+        {/* Sticky Header (offset to sit below the top navbar) */}
+        <div className="fixed top-[4.5rem] left-0 right-0 z-10 bg-gray-50 border-b border-gray-200">
+          <div className="mx-auto w-full max-w-2xl px-4 py-3 flex justify-between items-center">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full overflow-hidden">
                 <img
@@ -644,7 +644,12 @@ const CareerAgent: React.FC = () => {
                 <p className="text-sm text-green-500">Online</p>
               </div>
             </div>
-            <Button variant="ghost" onClick={handleResetChat} size="sm" className="text-blue-600 hover:text-blue-700">
+            <Button
+              variant="ghost"
+              onClick={handleResetChat}
+              size="sm"
+              className="text-blue-600 hover:text-blue-700"
+            >
               Reset Chat
             </Button>
           </div>
