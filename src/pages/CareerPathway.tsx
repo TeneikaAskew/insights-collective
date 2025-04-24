@@ -14,7 +14,7 @@ const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: report, isLoading, error, isError } = useCareerPathwayResults();
-  console.log(report)
+  console.log("data found?", report)
   const [activeCareerStep, setActiveCareerStep] = useState(0);
 
   // Get user name from available properties
@@ -37,7 +37,7 @@ const CareerPathway: React.FC = () => {
 
   console.log(isError)
   console.log(report)
-  console.log(report.skillsAndCourses, report.skillsAndCourses.length)
+  // console.log(report.skillsAndCourses, report.skillsAndCourses.length)
 
   // If there's an error or no report data found
   if (isError || (report && report.skillsAndCourses && report.skillsAndCourses.length === 0)) {
