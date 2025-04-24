@@ -103,6 +103,15 @@ const CareerAgent: React.FC = () => {
 
   // Save answer to database
   const saveAnswerToDatabase = async (questionId: string, answer: string) => {
+    console.log('Payload being sent to Supabase:', {
+      user_id: user.id,
+      session_id: sessionId,
+      question: questionId,
+      answer: answer
+    });
+
+
+    
     if (user && sessionId) {
       try {
         await supabase.from('career_pathway_answers').insert({
