@@ -19,7 +19,7 @@ export const useCareerPathwayResults = () => {
         .limit(1)
         .maybeSingle();
       
-      console.log(data || error);
+      console.log("career pathway: ", data || error);
       if (error) throw error;
       console.log("Found career pathway results: ", data);
       
