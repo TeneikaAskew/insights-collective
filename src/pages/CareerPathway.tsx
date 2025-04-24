@@ -49,13 +49,11 @@ const CareerPathway: React.FC = () => {
     );
   }
 
-  console.log(user)
-
   // Get user name from available properties
-  const userName = user?.name || 
-                  (user?.firstName ? `${user.firstName}` : 
-                  user?.email?.split('@')[0] || 'there');
-
+  const userName = user?.user_metadata?.first_name || 
+                user?.name || 
+                user?.email?.split('@')[0] || 
+                'there';
   return (
     <AppLayout>
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
