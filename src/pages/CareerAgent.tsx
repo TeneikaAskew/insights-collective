@@ -902,7 +902,6 @@ const CareerAgent: React.FC = () => {
               </Button>
           </div>
         </div>
-
         <div className="mt-6 text-center">
           <Button 
             onClick={() => navigate('/career-pathway')}
