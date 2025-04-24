@@ -323,7 +323,7 @@ const CareerAgent: React.FC = () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(payload)
+        body: payload //JSON.stringify(payload)
       });
       
       if (error) throw error;
