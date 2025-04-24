@@ -215,6 +215,40 @@ const CareerAgent: React.FC = () => {
   //     initializeConversation();
   //   }
   // };
+// const loadPreviousCareerPathwayData = async () => {
+//   if (!user?.id) return;
+
+//   try {
+//     const { data: previousAnswers, error: answersError } = await supabase
+//       .from('career_pathway_answers')
+//       .select('question, answer')
+//       .eq('user_id', user.id)
+//       .order('created_at', { ascending: true });
+
+//     if (answersError) {
+//       console.error('Error loading previous answers:', answersError);
+//       initializeConversation();
+//       setPreviousChatLoaded(true);      // ← add this
+//       return;
+//     }
+
+//     if (previousAnswers && previousAnswers.length > 0) {
+//       // … your existing “reconstruct chat” logic …
+//       setMessages(chatHistory);
+//       setPreviousChatLoaded(true);
+//     } else {
+//       // No previous answers, initialize a brand-new chat
+//       initializeConversation();
+//       setPreviousChatLoaded(true);      // ← and add this here
+//     }
+
+//   } catch (err) {
+//     console.error('Error loading career pathway data:', err);
+//     initializeConversation();
+//     setPreviousChatLoaded(true);        // ← and here too, just to be safe
+//   }
+// };
+
 const loadPreviousCareerPathwayData = async () => {
   if (!user?.id) return;
 
@@ -228,27 +262,67 @@ const loadPreviousCareerPathwayData = async () => {
     if (answersError) {
       console.error('Error loading previous answers:', answersError);
       initializeConversation();
-      setPreviousChatLoaded(true);      // ← add this
+      setPreviousChatLoaded(true);
       return;
     }
 
     if (previousAnswers && previousAnswers.length > 0) {
-      // … your existing “reconstruct chat” logic …
+      // 1) Start with starter messages
+      const chatHistory: Message[] = starterMessages.map((text, index) => ({
+        id: `bot_starter_${index}`,
+        sender: 'bot',
+        text,
+      }));
+
+      // 2) Interleave user answers and next questions
+      previousAnswers.forEach((ans, idx) => {
+        chatHistory.push({
+          id: `user_${ans.question}`,
+          sender: 'user',
+          text: ans.answer,
+        });
+
+        const nextQ = pathwayQuestions[idx + 1];
+        if (nextQ) {
+          chatHistory.push({
+            id: `bot_q_${nextQ.id}`,
+            sender: 'bot',
+            text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
+          });
+        }
+      });
+
+      // 3) If completed, add final "done" message
+      if (previousAnswers.length >= pathwayQuestions.length) {
+        chatHistory.push({
+          id: `bot_done_${Date.now()}`,
+          sender: 'bot',
+          text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume.",
+        });
+      }
+
       setMessages(chatHistory);
       setPreviousChatLoaded(true);
     } else {
-      // No previous answers, initialize a brand-new chat
+      // No previous answers → brand new conversation
       initializeConversation();
-      setPreviousChatLoaded(true);      // ← and add this here
+      setPreviousChatLoaded(true);
     }
-
   } catch (err) {
     console.error('Error loading career pathway data:', err);
     initializeConversation();
-    setPreviousChatLoaded(true);        // ← and here too, just to be safe
+    setPreviousChatLoaded(true);
   }
 };
 
+// Hook to invoke loader when user changes or on reset flag
+useEffect(() => {
+  if (user?.id && !previousChatLoaded) {
+    loadPreviousCareerPathwayData();
+  }
+}, [user, previousChatLoaded]);
+
+  
   // Guard: require authentication
   if (!isAuthenticated) {
     return (
