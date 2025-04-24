@@ -49,6 +49,8 @@ const CareerPathway: React.FC = () => {
     );
   }
 
+  console.log(user)
+
   // Get user name from available properties
   const userName = user?.name || 
                   (user?.firstName ? `${user.firstName}` : 
