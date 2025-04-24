@@ -629,8 +629,10 @@ const CareerAgent: React.FC = () => {
         {/* <div className="fixed top-0 left-0 right-0 z-10 bg-gray-50 border-b border-gray-200"> */}
           <div className="sticky top-0 z-10 bg-gray-50 border-b border-gray-200">
 
-          <div className="container mx-auto max-w-2xl px-4 py-3 flex justify-between items-center">
-            <div className="flex items-center space-x-3">
+          {/* <div className="container mx-auto max-w-2xl px-4 py-3 flex justify-between items-center">
+            <div className="flex items-center space-x-3"> */}
+            <div className="flex items-center justify-center min-h-screen px-4 py-6">
+            <div className="w-full max-w-2xl flex flex-col">
               <div className="w-10 h-10 rounded-full overflow-hidden">
                 <img
                   src={coachAvatarUrl}
