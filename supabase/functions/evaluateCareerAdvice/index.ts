@@ -17,9 +17,16 @@ serve(async (req) => {
     const body = await req.json();
 
     const prompt = body.prompt;
+    console.log("Prompt: ", prompt)
+    
     const PathwayQuestions = body.PathwayQuestions || body.Quizquestions;
+    console.log("PathwayQuestions: ", PathwayQuestions)
+    
     const pathwayAnswers = body.pathwayAnswers || body.quizAnswers;
-    const resumeText = body.resumeText;
+    console.log("pathwayAnswers: ", pathwayAnswers)
+    
+    const resumeText = body.resumeText;    
+    console.log("resumeText: ", resumeText)
 
     if (!prompt || !PathwayQuestions || !pathwayAnswers) {
       return new Response(
