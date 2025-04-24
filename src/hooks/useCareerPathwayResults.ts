@@ -21,7 +21,19 @@ export const useCareerPathwayResults = () => {
         .maybeSingle();
 
       if (error) throw error;
-      if (!data) throw new Error('No career pathway results found');
+      
+      // If no data was found, return a default object structure
+      // instead of throwing an error, to prevent null/undefined errors
+      if (!data) {
+        return {
+          userName: 'there',
+          summary: 'You haven\'t completed your career assessment yet.',
+          recommendedRoles: [],
+          skillsAndCourses: [],
+          careerPathSteps: [],
+          keyTakeaways: []
+        };
+      }
 
       return parseCareerReport(data.report);
     },
