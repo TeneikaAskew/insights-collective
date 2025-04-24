@@ -17,7 +17,7 @@ const CareerPathway: React.FC = () => {
   const [activeCareerStep, setActiveCareerStep] = useState(0);
 
   // Get user name from available properties
-  const userName = user?.user_metadata?.name || 
+  const userName = user?.user_metadata?.first_name || 
                   user?.email?.split('@')[0] || 
                   'there';
                 
