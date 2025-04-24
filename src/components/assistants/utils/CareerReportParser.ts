@@ -803,7 +803,7 @@ export const useCareerPathwayResults = () => {
       
       if (!data || !data.report) {
         return {
-          userName: 'there',
+          userName: user?.user_metadata?.first_name,
           summary: 'You haven\'t completed your career assessment yet.',
           recommendedRoles: [],
           skillsAndCourses: [],
