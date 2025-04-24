@@ -12,11 +12,6 @@ import {
   careerAdvicePrompt,
   PathwayQuestion
 } from '@/data/careerPathwayData';
-import { useNavigate } from 'react-router-dom';
-// CareerAgent.tsx
-import { parseformatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
-
-
 
 interface Message {
   id: string;
@@ -25,8 +20,6 @@ interface Message {
 }
 
 const CareerAgent: React.FC = () => {
-  const navigate = useNavigate();
-
   // Hooks
   const { user, isAuthenticated } = useAuth();
   const { toast } = useToast();
@@ -99,122 +92,416 @@ const CareerAgent: React.FC = () => {
     if (user?.id && !previousChatLoaded) {
       loadPreviousCareerPathwayData();
     }
-  }, [user, previousChatLoaded]);
+  }, [user]);
 
   // Load previous career pathway data
-  // const loadPreviousCareerPathwayData = async () => {
-  //   if (!user?.id) return;
+  const loadPreviousCareerPathwayData = async () => {
+    if (!user?.id) return;
     
-  //   try {
-  //     // Load previous answers
-  //     const { data: previousAnswers, error: answersError } = await supabase
-  //       .from('career_pathway_answers')
-  //       .select('question, answer')
-  //       .eq('user_id', user.id)
-  //       .order('created_at', { ascending: true });
+    try {
+      // Load previous answers
+      const { data: previousAnswers, error: answersError } = await supabase
+        .from('career_pathway_answers')
+        .select('question, answer')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
         
-  //     if (answersError) {
-  //       console.error('Error loading previous answers:', answersError);
-  //       initializeConversation();
-  //       return;
-  //     }
+      if (answersError) {
+        console.error('Error loading previous answers:', answersError);
+        initializeConversation();
+        return;
+      }
 
-  //     if (previousAnswers && previousAnswers.length > 0) {
-  //       // Map answers
-  //       const answersMap: Record<string, string> = {};
-  //       previousAnswers.forEach(item => {
-  //         answersMap[item.question] = item.answer;
-  //       });
-  //       setAnswers(answersMap);
+      if (previousAnswers && previousAnswers.length > 0) {
+        // Map answers
+        const answersMap: Record<string, string> = {};
+        previousAnswers.forEach(item => {
+          answersMap[item.question] = item.answer;
+        });
+        setAnswers(answersMap);
         
-  //       // Calculate how far they got in the quiz
-  //       const questionCount = Math.min(previousAnswers.length, pathwayQuestions.length);
-  //       setCurrentQuestionIndex(questionCount);
+        // Calculate how far they got in the quiz
+        const questionCount = Math.min(previousAnswers.length, pathwayQuestions.length);
+        setCurrentQuestionIndex(questionCount);
         
-  //       // Load the latest report
-  //       const { data: reportData, error: reportError } = await supabase
-  //         .from('career_pathway_results')
-  //         .select('report')
-  //         .eq('user_id', user.id)
-  //         .order('created_at', { ascending: false })
-  //         .limit(1)
-  //         .maybeSingle();
+        // Load the latest report
+        const { data: reportData, error: reportError } = await supabase
+          .from('career_pathway_results')
+          .select('report')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
           
-  //       if (!reportError && reportData?.report) {
-  //         const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-  //         const html = parseformatCareerPathwayReport(raw);
-  //         setCareerAdviceReport(html);
-  //       }
+        if (!reportError && reportData?.report) {
+          const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
+          const html = formatCareerPathwayReport(raw);
+          setCareerAdviceReport(html);
+        }
         
-  //       // Reconstruct chat history from answers
-  //       const chatHistory: Message[] = [...starterMessages.map((text, index) => ({
-  //         id: `bot_starter_${index}`,
-  //         sender: "bot" as const,
-  //         text,
-  //       }))];
+        // Reconstruct chat history from answers
+        const chatHistory: Message[] = [...starterMessages.map((text, index) => ({
+          id: `bot_starter_${index}`,
+          sender: "bot" as const,
+          text,
+        }))];
         
-  //       // Add user answers and questions
-  //       pathwayQuestions.forEach((question, index) => {
-  //         if (answersMap[question.id]) {
-  //           // Add user answer
-  //           chatHistory.push({
-  //             id: `user_${question.id}`,
-  //             sender: 'user',
-  //             text: answersMap[question.id]
-  //           });
+        // Add user answers and questions
+        pathwayQuestions.forEach((question, index) => {
+          if (answersMap[question.id]) {
+            // Add user answer
+            chatHistory.push({
+              id: `user_${question.id}`,
+              sender: 'user',
+              text: answersMap[question.id]
+            });
             
-  //           // Add next question from bot if not the last question
-  //           if (index < pathwayQuestions.length - 1) {
-  //             const nextQ = pathwayQuestions[index + 1];
-  //             chatHistory.push({
-  //               id: `bot_q_${nextQ.id}`,
-  //               sender: 'bot',
-  //               text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`
-  //             });
-  //           }
-  //         }
-  //       });
+            // Add next question from bot if not the last question
+            if (index < pathwayQuestions.length - 1) {
+              const nextQ = pathwayQuestions[index + 1];
+              chatHistory.push({
+                id: `bot_q_${nextQ.id}`,
+                sender: 'bot',
+                text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`
+              });
+            }
+          }
+        });
         
-  //       // Add final message if they completed all questions
-  //       if (questionCount >= pathwayQuestions.length) {
-  //         chatHistory.push({
-  //           id: `bot_done_${Date.now()}`,
-  //           sender: 'bot',
-  //           text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
-  //         });
+        // Add final message if they completed all questions
+        if (questionCount >= pathwayQuestions.length) {
+          chatHistory.push({
+            id: `bot_done_${Date.now()}`,
+            sender: 'bot',
+            text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
+          });
           
-  //         // Check if resume was used
-  //         const { data: resumeData } = await supabase
-  //           .from('resumes')
-  //           .select('text')
-  //           .eq('user_id', user.id)
-  //           .limit(1)
-  //           .maybeSingle();
+          // Check if resume was used
+          const { data: resumeData } = await supabase
+            .from('resumes')
+            .select('text')
+            .eq('user_id', user.id)
+            .limit(1)
+            .maybeSingle();
             
-  //         if (resumeData?.text) {
-  //           setResumePromptShown(true);
-  //           setResumeUseConfirmed(true);
-  //           chatHistory.push({
-  //             id: `bot_resume_use_confirm_${Date.now()}`,
-  //             sender: 'bot',
-  //             text: "Using your existing resume on file for personalized career advice."
-  //           });
-  //         }
-  //       } else {
-  //         setShowQuickReplies(currentQuestionIndex === 0);
-  //       }
+          if (resumeData?.text) {
+            setResumePromptShown(true);
+            setResumeUseConfirmed(true);
+            chatHistory.push({
+              id: `bot_resume_use_confirm_${Date.now()}`,
+              sender: 'bot',
+              text: "Using your existing resume on file for personalized career advice."
+            });
+          }
+        } else {
+          setShowQuickReplies(currentQuestionIndex === 0);
+        }
         
-  //       setMessages(chatHistory);
-  //       setPreviousChatLoaded(true);
-  //     } else {
-  //       // No previous answers, just initialize a new conversation
-  //       initializeConversation();
-  //     }
-  //   } catch (err) {
-  //     console.error('Error loading career pathway data:', err);
-  //     initializeConversation();
-  //   }
-  // };
+        setMessages(chatHistory);
+        setPreviousChatLoaded(true);
+      } else {
+        // No previous answers, just initialize a new conversation
+        initializeConversation();
+      }
+    } catch (err) {
+      console.error('Error loading career pathway data:', err);
+      initializeConversation();
+    }
+  };
+
+  // Guard: require authentication
+  if (!isAuthenticated) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen justify-center items-center">
+          <p className="text-lg text-center text-muted-foreground">
+            Please log in to access Building Your Career Roadmap.
+          </p>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Save answer to database
+  const saveAnswerToDatabase = async (questionId: string, answer: string) => {
+    console.log('Payload being sent to Supabase:', {
+      user_id: user.id,
+      session_id: sessionId,
+      question: questionId,
+      answer: answer
+    });
+
+    if (user && sessionId) {
+      try {
+        await supabase.from('career_pathway_answers').insert({
+          user_id: user.id,
+          session_id: sessionId,
+          question: questionId,
+          answer,
+        });
+      } catch (err) {
+        console.error('Error saving answer:', err);
+        toast({
+          title: 'Error',
+          description: 'Failed to save your answer. Please try again.',
+          variant: 'destructive'
+        });
+      }
+    }
+  };
+
+  
+  // import React, { useState, useEffect, useRef } from 'react';
+// import { useAuth } from '@/contexts/AuthContext';
+// import AppLayout from '@/components/layout/AppLayout';
+// import { Button } from '@/components/ui/button';
+// import { supabase } from '@/integrations/supabase/client';
+// import { useResume } from '@/hooks/resume/useResume';
+// import { useToast } from '@/hooks/use-toast';
+// import {
+//   pathwayQuestions,
+//   quickReplies,
+//   starterMessages,
+//   careerAdvicePrompt,
+//   PathwayQuestion
+// } from '@/data/careerPathwayData';
+// import { useNavigate } from 'react-router-dom';
+// // CareerAgent.tsx
+// import { parseformatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
+
+
+
+// interface Message {
+//   id: string;
+//   sender: 'user' | 'bot';
+//   text: string;
+// }
+
+// const CareerAgent: React.FC = () => {
+//   const navigate = useNavigate();
+
+//   // Hooks
+//   const { user, isAuthenticated } = useAuth();
+//   const { toast } = useToast();
+//   const { 
+//     resume, 
+//     loading: resumeLoading, 
+//     uploading: resumeUploading,
+//     uploadResume
+//   } = useResume();
+
+//   // State variables
+//   const [sessionId, setSessionId] = useState<string>('');
+//   const [messages, setMessages] = useState<Message[]>([]);
+//   const [answers, setAnswers] = useState<Record<string, string>>({});
+//   const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
+//   const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+//   const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
+//   const [showQuickReplies, setShowQuickReplies] = useState<boolean>(false);
+//   const [isTyping, setIsTyping] = useState<boolean>(false);
+//   const [inputValue, setInputValue] = useState<string>('');
+//   const [resumeFile, setResumeFile] = useState<File | null>(null);
+//   const [resumePromptShown, setResumePromptShown] = useState<boolean>(false);
+//   const [resumeUseConfirmed, setResumeUseConfirmed] = useState<boolean | null>(null);
+//   const [previousChatLoaded, setPreviousChatLoaded] = useState<boolean>(false);
+//   const reportRef = useRef<HTMLDivElement>(null);
+//   const scrollAreaRef = useRef<HTMLDivElement>(null);
+//   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+//   // Use proper coach avatar URL
+//   const coachAvatarUrl = "https://wp-aberdeen.s3.amazonaws.com/wp-content/uploads/2019/12/10043240/GettyImages-1017199998-e1654696271733.jpg";
+
+//   // Initialize conversation
+//   const initializeConversation = () => {
+//     setMessages(starterMessages.map((text, index) => ({
+//       id: `bot_starter_${index}`,
+//       sender: "bot",
+//       text,
+//     })));
+//     setShowQuickReplies(true);
+//     setCurrentQuestionIndex(0);
+//   };
+
+//   // Initialize session ID
+//   useEffect(() => {
+//     const sid = Date.now().toString();
+//     setSessionId(sid);
+//   }, []);
+
+//   // Scroll to bottom when messages change
+//   useEffect(() => {
+//     const scrollToBottom = () => {
+//       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+//     };
+    
+//     // Delay to ensure new message is rendered
+//     const timeoutId = setTimeout(scrollToBottom, 100);
+    
+//     return () => clearTimeout(timeoutId);
+//   }, [messages, isTyping]);
+
+//   // Scroll to report when ready
+//   useEffect(() => {
+//     if (careerAdviceReport && reportRef.current) {
+//       setTimeout(() => reportRef.current?.scrollIntoView({ behavior: 'smooth' }), 500);
+//     }
+//   }, [careerAdviceReport]);
+
+//   // Load previous answers and chat history
+//   useEffect(() => {
+//     if (user?.id && !previousChatLoaded) {
+//       loadPreviousCareerPathwayData();
+//     }
+//   }, [user, previousChatLoaded]);
+
+//   // Load previous career pathway data
+//   // const loadPreviousCareerPathwayData = async () => {
+//   //   if (!user?.id) return;
+    
+//   //   try {
+//   //     // Load previous answers
+//   //     const { data: previousAnswers, error: answersError } = await supabase
+//   //       .from('career_pathway_answers')
+//   //       .select('question, answer')
+//   //       .eq('user_id', user.id)
+//   //       .order('created_at', { ascending: true });
+        
+//   //     if (answersError) {
+//   //       console.error('Error loading previous answers:', answersError);
+//   //       initializeConversation();
+//   //       return;
+//   //     }
+
+//   //     if (previousAnswers && previousAnswers.length > 0) {
+//   //       // Map answers
+//   //       const answersMap: Record<string, string> = {};
+//   //       previousAnswers.forEach(item => {
+//   //         answersMap[item.question] = item.answer;
+//   //       });
+//   //       setAnswers(answersMap);
+        
+//   //       // Calculate how far they got in the quiz
+//   //       const questionCount = Math.min(previousAnswers.length, pathwayQuestions.length);
+//   //       setCurrentQuestionIndex(questionCount);
+        
+//   //       // Load the latest report
+//   //       const { data: reportData, error: reportError } = await supabase
+//   //         .from('career_pathway_results')
+//   //         .select('report')
+//   //         .eq('user_id', user.id)
+//   //         .order('created_at', { ascending: false })
+//   //         .limit(1)
+//   //         .maybeSingle();
+          
+//   //       if (!reportError && reportData?.report) {
+//   //         const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
+//   //         const html = parseformatCareerPathwayReport(raw);
+//   //         setCareerAdviceReport(html);
+//   //       }
+        
+//   //       // Reconstruct chat history from answers
+//   //       const chatHistory: Message[] = [...starterMessages.map((text, index) => ({
+//   //         id: `bot_starter_${index}`,
+//   //         sender: "bot" as const,
+//   //         text,
+//   //       }))];
+        
+//   //       // Add user answers and questions
+//   //       pathwayQuestions.forEach((question, index) => {
+//   //         if (answersMap[question.id]) {
+//   //           // Add user answer
+//   //           chatHistory.push({
+//   //             id: `user_${question.id}`,
+//   //             sender: 'user',
+//   //             text: answersMap[question.id]
+//   //           });
+            
+//   //           // Add next question from bot if not the last question
+//   //           if (index < pathwayQuestions.length - 1) {
+//   //             const nextQ = pathwayQuestions[index + 1];
+//   //             chatHistory.push({
+//   //               id: `bot_q_${nextQ.id}`,
+//   //               sender: 'bot',
+//   //               text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`
+//   //             });
+//   //           }
+//   //         }
+//   //       });
+        
+//   //       // Add final message if they completed all questions
+//   //       if (questionCount >= pathwayQuestions.length) {
+//   //         chatHistory.push({
+//   //           id: `bot_done_${Date.now()}`,
+//   //           sender: 'bot',
+//   //           text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
+//   //         });
+          
+//   //         // Check if resume was used
+//   //         const { data: resumeData } = await supabase
+//   //           .from('resumes')
+//   //           .select('text')
+//   //           .eq('user_id', user.id)
+//   //           .limit(1)
+//   //           .maybeSingle();
+            
+//   //         if (resumeData?.text) {
+//   //           setResumePromptShown(true);
+//   //           setResumeUseConfirmed(true);
+//   //           chatHistory.push({
+//   //             id: `bot_resume_use_confirm_${Date.now()}`,
+//   //             sender: 'bot',
+//   //             text: "Using your existing resume on file for personalized career advice."
+//   //           });
+//   //         }
+//   //       } else {
+//   //         setShowQuickReplies(currentQuestionIndex === 0);
+//   //       }
+        
+//   //       setMessages(chatHistory);
+//   //       setPreviousChatLoaded(true);
+//   //     } else {
+//   //       // No previous answers, just initialize a new conversation
+//   //       initializeConversation();
+//   //     }
+//   //   } catch (err) {
+//   //     console.error('Error loading career pathway data:', err);
+//   //     initializeConversation();
+//   //   }
+//   // };
+// // const loadPreviousCareerPathwayData = async () => {
+// //   if (!user?.id) return;
+
+// //   try {
+// //     const { data: previousAnswers, error: answersError } = await supabase
+// //       .from('career_pathway_answers')
+// //       .select('question, answer')
+// //       .eq('user_id', user.id)
+// //       .order('created_at', { ascending: true });
+
+// //     if (answersError) {
+// //       console.error('Error loading previous answers:', answersError);
+// //       initializeConversation();
+// //       setPreviousChatLoaded(true);      // ← add this
+// //       return;
+// //     }
+
+// //     if (previousAnswers && previousAnswers.length > 0) {
+// //       // … your existing “reconstruct chat” logic …
+// //       setMessages(chatHistory);
+// //       setPreviousChatLoaded(true);
+// //     } else {
+// //       // No previous answers, initialize a brand-new chat
+// //       initializeConversation();
+// //       setPreviousChatLoaded(true);      // ← and add this here
+// //     }
+
+// //   } catch (err) {
+// //     console.error('Error loading career pathway data:', err);
+// //     initializeConversation();
+// //     setPreviousChatLoaded(true);        // ← and here too, just to be safe
+// //   }
+// // };
+
 // const loadPreviousCareerPathwayData = async () => {
 //   if (!user?.id) return;
 
@@ -228,99 +515,65 @@ const CareerAgent: React.FC = () => {
 //     if (answersError) {
 //       console.error('Error loading previous answers:', answersError);
 //       initializeConversation();
-//       setPreviousChatLoaded(true);      // ← add this
+//       setPreviousChatLoaded(true);
 //       return;
 //     }
 
 //     if (previousAnswers && previousAnswers.length > 0) {
-//       // … your existing “reconstruct chat” logic …
+//       // 1) Start with starter messages
+//       const chatHistory: Message[] = starterMessages.map((text, index) => ({
+//         id: `bot_starter_${index}`,
+//         sender: 'bot',
+//         text,
+//       }));
+
+//       // 2) Interleave user answers and next questions
+//       previousAnswers.forEach((ans, idx) => {
+//         chatHistory.push({
+//           id: `user_${ans.question}`,
+//           sender: 'user',
+//           text: ans.answer,
+//         });
+
+//         const nextQ = pathwayQuestions[idx + 1];
+//         if (nextQ) {
+//           chatHistory.push({
+//             id: `bot_q_${nextQ.id}`,
+//             sender: 'bot',
+//             text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
+//           });
+//         }
+//       });
+
+//       // 3) If completed, add final "done" message
+//       if (previousAnswers.length >= pathwayQuestions.length) {
+//         chatHistory.push({
+//           id: `bot_done_${Date.now()}`,
+//           sender: 'bot',
+//           text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume.",
+//         });
+//       }
+
 //       setMessages(chatHistory);
 //       setPreviousChatLoaded(true);
 //     } else {
-//       // No previous answers, initialize a brand-new chat
+//       // No previous answers → brand new conversation
 //       initializeConversation();
-//       setPreviousChatLoaded(true);      // ← and add this here
+//       setPreviousChatLoaded(true);
 //     }
-
 //   } catch (err) {
 //     console.error('Error loading career pathway data:', err);
 //     initializeConversation();
-//     setPreviousChatLoaded(true);        // ← and here too, just to be safe
+//     setPreviousChatLoaded(true);
 //   }
 // };
 
-const loadPreviousCareerPathwayData = async () => {
-  if (!user?.id) return;
-
-  try {
-    const { data: previousAnswers, error: answersError } = await supabase
-      .from('career_pathway_answers')
-      .select('question, answer')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: true });
-
-    if (answersError) {
-      console.error('Error loading previous answers:', answersError);
-      initializeConversation();
-      setPreviousChatLoaded(true);
-      return;
-    }
-
-    if (previousAnswers && previousAnswers.length > 0) {
-      // 1) Start with starter messages
-      const chatHistory: Message[] = starterMessages.map((text, index) => ({
-        id: `bot_starter_${index}`,
-        sender: 'bot',
-        text,
-      }));
-
-      // 2) Interleave user answers and next questions
-      previousAnswers.forEach((ans, idx) => {
-        chatHistory.push({
-          id: `user_${ans.question}`,
-          sender: 'user',
-          text: ans.answer,
-        });
-
-        const nextQ = pathwayQuestions[idx + 1];
-        if (nextQ) {
-          chatHistory.push({
-            id: `bot_q_${nextQ.id}`,
-            sender: 'bot',
-            text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
-          });
-        }
-      });
-
-      // 3) If completed, add final "done" message
-      if (previousAnswers.length >= pathwayQuestions.length) {
-        chatHistory.push({
-          id: `bot_done_${Date.now()}`,
-          sender: 'bot',
-          text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume.",
-        });
-      }
-
-      setMessages(chatHistory);
-      setPreviousChatLoaded(true);
-    } else {
-      // No previous answers → brand new conversation
-      initializeConversation();
-      setPreviousChatLoaded(true);
-    }
-  } catch (err) {
-    console.error('Error loading career pathway data:', err);
-    initializeConversation();
-    setPreviousChatLoaded(true);
-  }
-};
-
-// Hook to invoke loader when user changes or on reset flag
-useEffect(() => {
-  if (user?.id && !previousChatLoaded) {
-    loadPreviousCareerPathwayData();
-  }
-}, [user, previousChatLoaded]);
+// // Hook to invoke loader when user changes or on reset flag
+// useEffect(() => {
+//   if (user?.id && !previousChatLoaded) {
+//     loadPreviousCareerPathwayData();
+//   }
+// }, [user, previousChatLoaded]);
 
   
   // Guard: require authentication
