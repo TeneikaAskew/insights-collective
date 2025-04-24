@@ -34,6 +34,10 @@ const CareerPathway: React.FC = () => {
     }
   };
 
+  console.log(isError)
+  console.log(report)
+  console.log(eport.skillsAndCourses, report.skillsAndCourses.length)
+
   // If there's an error or no report data found
   if (isError || (report && report.skillsAndCourses && report.skillsAndCourses.length === 0)) {
     return (
