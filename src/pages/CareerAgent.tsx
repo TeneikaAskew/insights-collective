@@ -290,7 +290,8 @@ const CareerAgent: React.FC = () => {
   };
 
   // Generate career report
-  const generateCareerAdviceReport = async (resumeText?: string) => {
+
+const generateCareerAdviceReport = async (resumeText?: string) => {
     setMessages(prev => [...prev, { 
       id: `bot_${Date.now()}`, 
       sender: 'bot', 
@@ -314,20 +315,16 @@ const CareerAgent: React.FC = () => {
       pathwayAnswers: pathwayAnswersPayload || {}, 
       resumeText: resumeText || '' 
     };
-    // const payload = "this is a test"
-    console.log('Sending payload:', payload);
+    
+    console.log('Sending payload:', JSON.stringify(payload, null, 2));
     
     try {
-       // const response = await fetch(`${supabase.supabaseUrl}/functions/v1/evaluateCareerAdvice`, {
-        
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
         method: 'POST',
-        // headers: {
-        //   'Content-Type': 'application/json'
-        //   // 'Authorization': `Bearer ${supabase.supabaseKey}`,
-        //   // 'x-client-info': 'supabase-js-web/2.49.4'
-        // },
-        body: payload //JSON.stringify(payload)
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
       });
       
       if (error) throw error;
@@ -358,6 +355,75 @@ const CareerAgent: React.FC = () => {
       handleReportError(e instanceof Error ? e.message : 'Failed to get career advice'); 
     }
   };
+
+  // const generateCareerAdviceReport = async (resumeText?: string) => {
+  //   setMessages(prev => [...prev, { 
+  //     id: `bot_${Date.now()}`, 
+  //     sender: 'bot', 
+  //     text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights..."
+  //   }]);
+    
+  //   if (!user) return;
+    
+  //   // Format answers for API - ensure proper structure
+  //   const pathwayAnswersPayload: Record<string, string> = {};
+  //   pathwayQuestions.forEach((q) => {
+  //     if (answers[q.id]) {
+  //       pathwayAnswersPayload[q.id] = answers[q.id];
+  //     }
+  //   });
+
+  //   // Ensure payload is properly formatted
+  //   const payload = { 
+  //     prompt: careerAdvicePrompt || '', 
+  //     pathwayQuestions: pathwayQuestions || [], 
+  //     pathwayAnswers: pathwayAnswersPayload || {}, 
+  //     resumeText: resumeText || '' 
+  //   };
+  //   // const payload = "this is a test"
+  //   console.log('Sending payload:', payload);
+    
+  //   try {
+  //      // const response = await fetch(`${supabase.supabaseUrl}/functions/v1/evaluateCareerAdvice`, {
+        
+  //     const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+  //       method: 'POST',
+  //       // headers: {
+  //       //   'Content-Type': 'application/json'
+  //       //   // 'Authorization': `Bearer ${supabase.supabaseKey}`,
+  //       //   // 'x-client-info': 'supabase-js-web/2.49.4'
+  //       // },
+  //       body: payload //JSON.stringify(payload)
+  //     });
+      
+  //     if (error) throw error;
+      
+  //     const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
+  //     console.log("Career Pathway Insights: ", raw);
+  //     const html = formatCareerPathwayReport(raw);
+  //     setCareerAdviceReport(html);
+      
+  //     // Save report to database
+  //     try {
+  //       await supabase.from("career_pathway_results").insert({
+  //         user_id: user.id,
+  //         session_id: sessionId,
+  //         report: raw
+  //       });
+  //     } catch (saveError) {
+  //       console.error("Error saving career pathway report:", saveError);
+  //     }
+      
+  //     setMessages(prev => [...prev, { 
+  //       id: `bot_done_${Date.now()}`, 
+  //       sender: 'bot', 
+  //       text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
+  //     }]);
+  //   } catch(e) { 
+  //     console.error("Full error:", e);
+  //     handleReportError(e instanceof Error ? e.message : 'Failed to get career advice'); 
+  //   }
+  // };
 
   // Handle quick reply selection for first question
   const handleQuickReply = (replyText: string) => {
