@@ -19,9 +19,11 @@ export const useCareerPathwayResults = () => {
         .limit(1)
         .maybeSingle();
       
-      console.log("Raw data:", data);
+      console.log(data || error);
       if (error) throw error;
+      console.log("Found career pathway results: ", data);
       
+      // If no data was found, return a default object structure
       if (!data) {
         return {
           userName: 'there',
@@ -33,24 +35,9 @@ export const useCareerPathwayResults = () => {
         };
       }
       
-      console.log("Before parsing - data.report:", data.report);
-      
-      try {
-        const result = parseformatCareerPathwayReport(data.report);
-        console.log("Parse result:", result);
-        console.log("Hook: Sections:", result.sections);
-        return result.sections;
-      } catch (parseError) {
-        console.error("Error parsing career report:", parseError);
-        return {
-          userName: 'there',
-          summary: 'Error parsing career assessment report.',
-          recommendedRoles: [],
-          skillsAndCourses: [],
-          careerPathSteps: [],
-          keyTakeaways: []
-        };
-      }
+      // Destructure the result to get only the sections
+      const { sections } = parseformatCareerPathwayReport(data.report);
+      return sections;
     },
     enabled: !!user?.id,
   });
