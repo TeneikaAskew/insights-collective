@@ -315,7 +315,7 @@ const CareerAgent: React.FC = () => {
       resumeText: resumeText || '' 
     };
     
-    console.log('Sending payload:', JSON.stringify(payload, null, 2));
+    console.log('Sending payload:', payload);
     
     try {
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
