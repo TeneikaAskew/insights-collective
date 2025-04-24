@@ -13,8 +13,19 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const body = await req.json();
+let body;
+try {
+  body = await req.json();
+} catch (err) {
+  console.error("Invalid JSON body:", err);
+  return new Response(
+    JSON.stringify({ error: "Invalid JSON body" }),
+    {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    }
+  );
+}
     console.log("Body:", body)
 
     const prompt = body.prompt;
