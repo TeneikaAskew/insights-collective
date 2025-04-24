@@ -15,7 +15,7 @@ serve(async (req) => {
 
 let body;
 try {
-  body = await req.json();
+  body = await req.text();//json();
 } catch (err) {
   console.error("Invalid JSON body:", err);
   return new Response(
