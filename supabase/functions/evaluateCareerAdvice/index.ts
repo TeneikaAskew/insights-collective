@@ -69,13 +69,55 @@ serve(async (req) => {
     }
 
     // Process the career advice request
-    // This is where your existing processing logic would go
     console.log("Processing career advice with valid data");
-
-    // Mock response for testing
+    
+    // For now, returning a mock response for testing purposes
+    // In a real implementation, this would be where your AI or analysis logic goes
     const result = {
-      analysis: "Career analysis based on provided data",
-      recommendations: ["Recommendation 1", "Recommendation 2"]
+      analysis: "This is a personalized career analysis based on your answers.",
+      recommendations: [
+        "Based on your skills and preferences, consider roles in data science.",
+        "Your strength in communication would be valuable in project management."
+      ],
+      generatedText: `
+        **Personalized Career Advice Report for ${body.pathwayAnswers[0] || 'You'}**
+        
+        **Summary:** 
+        Based on your responses, you show strong analytical skills and an interest in problem-solving. Your background suggests you would excel in roles that combine technical expertise with strategic thinking.
+        
+        **Recommended Roles:** 
+        1. Data Analyst
+        2. Business Intelligence Specialist
+        3. Project Manager with technical focus
+        
+        **Skills and Matching Courses:**
+        | Skill | Course |
+        | ----- | ------ |
+        | Data Analysis | Advanced SQL for Analysts |
+        | Project Management | Agile Certification Prep |
+        | Communication | Executive Presentation Skills |
+        
+        **Next-Step Career Recommendations:**
+        1. Gain certification in your primary technical area
+        2. Develop a portfolio showcasing your analytical projects
+        3. Connect with professionals in your target industry
+        
+        **Roles that Might be Right for You:**
+        1. Junior Data Scientist
+        2. Business Analyst
+        3. Research Associate
+        
+        **Path to Your Aspirational Role:**
+        1. Start in an entry-level analytical position
+        2. Gain 2-3 years of hands-on experience
+        3. Pursue advanced certification or education
+        4. Move into a specialized or senior role
+        
+        **Remote Work Considerations:**
+        Remote opportunities are abundant in data-focused careers. Consider highlighting your self-motivation and digital collaboration skills.
+        
+        By following these recommendations and leveraging your unique strengths, you can build a fulfilling career path aligned with your interests and abilities.
+      `
     };
 
     return new Response(

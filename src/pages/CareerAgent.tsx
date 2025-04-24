@@ -110,8 +110,6 @@ const CareerAgent: React.FC = () => {
       answer: answer
     });
 
-
-    
     if (user && sessionId) {
       try {
         await supabase.from('career_pathway_answers').insert({
@@ -272,7 +270,6 @@ const CareerAgent: React.FC = () => {
   };
 
   const handleReportError = (msg: string) => {
-    // Format rate limit error messages
     let displayMessage = msg;
     if (msg.includes("Rate limit reached")) {
       const timeMatch = msg.match(/Please try again in (\d+m\d+\.\d+s)/);
@@ -289,9 +286,7 @@ const CareerAgent: React.FC = () => {
     }]);
   };
 
-  // Generate career report
-
-const generateCareerAdviceReport = async (resumeText?: string) => {
+  const generateCareerAdviceReport = async (resumeText?: string) => {
     setMessages(prev => [...prev, { 
       id: `bot_${Date.now()}`, 
       sender: 'bot', 
@@ -300,7 +295,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     
     if (!user) return;
     
-    // Format answers for API - ensure proper structure
     const pathwayAnswersPayload: Record<string, string> = {};
     pathwayQuestions.forEach((q) => {
       if (answers[q.id]) {
@@ -308,9 +302,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       }
     });
 
-  console.log("pathwayAnswersPayload: ",pathwayAnswersPayload)
-
-    // Ensure payload is properly formatted
     const payload = { 
       prompt: careerAdvicePrompt || '', 
       pathwayQuestions: pathwayQuestions || [], 
@@ -336,7 +327,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       const html = formatCareerPathwayReport(raw);
       setCareerAdviceReport(html);
       
-      // Save report to database
       try {
         await supabase.from("career_pathway_results").insert({
           user_id: user.id,
@@ -358,76 +348,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     }
   };
 
-  // const generateCareerAdviceReport = async (resumeText?: string) => {
-  //   setMessages(prev => [...prev, { 
-  //     id: `bot_${Date.now()}`, 
-  //     sender: 'bot', 
-  //     text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights..."
-  //   }]);
-    
-  //   if (!user) return;
-    
-  //   // Format answers for API - ensure proper structure
-  //   const pathwayAnswersPayload: Record<string, string> = {};
-  //   pathwayQuestions.forEach((q) => {
-  //     if (answers[q.id]) {
-  //       pathwayAnswersPayload[q.id] = answers[q.id];
-  //     }
-  //   });
-
-  //   // Ensure payload is properly formatted
-  //   const payload = { 
-  //     prompt: careerAdvicePrompt || '', 
-  //     pathwayQuestions: pathwayQuestions || [], 
-  //     pathwayAnswers: pathwayAnswersPayload || {}, 
-  //     resumeText: resumeText || '' 
-  //   };
-  //   // const payload = "this is a test"
-  //   console.log('Sending payload:', payload);
-    
-  //   try {
-  //      // const response = await fetch(`${supabase.supabaseUrl}/functions/v1/evaluateCareerAdvice`, {
-        
-  //     const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
-  //       method: 'POST',
-  //       // headers: {
-  //       //   'Content-Type': 'application/json'
-  //       //   // 'Authorization': `Bearer ${supabase.supabaseKey}`,
-  //       //   // 'x-client-info': 'supabase-js-web/2.49.4'
-  //       // },
-  //       body: payload //JSON.stringify(payload)
-  //     });
-      
-  //     if (error) throw error;
-      
-  //     const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
-  //     console.log("Career Pathway Insights: ", raw);
-  //     const html = formatCareerPathwayReport(raw);
-  //     setCareerAdviceReport(html);
-      
-  //     // Save report to database
-  //     try {
-  //       await supabase.from("career_pathway_results").insert({
-  //         user_id: user.id,
-  //         session_id: sessionId,
-  //         report: raw
-  //       });
-  //     } catch (saveError) {
-  //       console.error("Error saving career pathway report:", saveError);
-  //     }
-      
-  //     setMessages(prev => [...prev, { 
-  //       id: `bot_done_${Date.now()}`, 
-  //       sender: 'bot', 
-  //       text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
-  //     }]);
-  //   } catch(e) { 
-  //     console.error("Full error:", e);
-  //     handleReportError(e instanceof Error ? e.message : 'Failed to get career advice'); 
-  //   }
-  // };
-
-  // Handle quick reply selection for first question
   const handleQuickReply = (replyText: string) => {
     if (isTyping) return;
 
@@ -446,10 +366,8 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       [pathwayQuestions[0].id]: replyText,
     }));
 
-    // Save answer to database
     saveAnswerToDatabase(pathwayQuestions[0].id, replyText);
 
-    // Send next question after delay
     setTimeout(() => {
       const nextQuestion = pathwayQuestions[1];
       const botMessage: Message = {
@@ -463,7 +381,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     }, 700);
   };
 
-  // Handle resume use confirmation
   const handleResumeUseConfirm = (useExisting: boolean) => {
     setResumeUseConfirmed(useExisting);
     const userText = useExisting ? "Use existing resume" : "Upload new resume";
@@ -476,7 +393,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     setShowQuickReplies(false);
 
     if (useExisting && resume) {
-      // Use existing resume
       const botMsg: Message = {
         id: `bot_resume_use_confirm_${Date.now()}`,
         sender: "bot",
@@ -484,10 +400,8 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       };
       setMessages((prev) => [...prev, botMsg]);
       
-      // Generate report with existing resume
       generateCareerAdviceReport(resume.text);
     } else {
-      // Show upload prompt for new resume
       const botMsg: Message = {
         id: `bot_resume_upload_prompt_${Date.now()}`,
         sender: "bot",
@@ -497,10 +411,8 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     }
   };
 
-  // Handle what happens when assessment is complete
   const handleAssessmentCompletion = () => {
     if (resume && !resumePromptShown) {
-      // If user has a resume, show the resume options
       const resumeFoundMsg: Message = {
         id: `bot_resume_found_${Date.now()}`,
         sender: "bot",
@@ -510,7 +422,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       setResumePromptShown(true);
       setShowQuickReplies(true);
     } else if (!resume) {
-      // If no existing resume, show upload prompt
       const noResumeMsg: Message = {
         id: `bot_no_resume_${Date.now()}`,
         sender: "bot",
@@ -520,7 +431,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     }
   };
 
-  // Chat input handling
   const handleSubmit = async () => {
     if (isTyping) return;
 
@@ -538,7 +448,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
       const currentQuestion = pathwayQuestions[currentQuestionIndex];
       setAnswers((prev) => ({ ...prev, [currentQuestion.id]: inputValue.trim() }));
       
-      // Save answer to database
       await saveAnswerToDatabase(currentQuestion.id, inputValue.trim());
       
       setInputValue("");
@@ -549,7 +458,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
         setCurrentQuestionIndex(nextIndex);
 
         if (nextIndex < pathwayQuestions.length) {
-          // Show next question
           const nextQ = pathwayQuestions[nextIndex];
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
@@ -558,17 +466,14 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
-          // We've reached the end of questions
           handleAssessmentCompletion();
         }
       }, 1200);
     } else if (currentQuestionIndex === pathwayQuestions.length && resumeFile) {
-      // Handle resume upload using existing functionality
       handleResumeUpload();
     }
   };
 
-  // Handle resume upload using existing functionality
   const handleResumeUpload = async () => {
     if (!resumeFile) {
       toast({
@@ -582,7 +487,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     setIsTyping(true);
 
     try {
-      // Use the existing uploadResume function from useResume hook
       const uploadSuccess = await uploadResume(resumeFile);
       
       if (uploadSuccess && resume?.text) {
@@ -594,7 +498,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
 
         setMessages((prev) => [...prev, botMessage]);
         
-        // Generate report with resume text
         generateCareerAdviceReport(resume.text);
       } else {
         const botMessage: Message = {
@@ -633,15 +536,11 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     }
   };
 
-  // Handle emoji reaction
   const handleEmojiClick = (msgId: string, emoji: string) => {
-    // Store the reaction (you'll need to implement this later with your database)
     console.log(`User reacted to message ${msgId} with ${emoji}`);
-    // Optionally, you can show a toast/notification here instead of an alert
     setReactingMessageId(null);
   };
 
-  // Handle keyboard input
   const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       e.preventDefault();
@@ -651,7 +550,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     }
   };
 
-  // Get user initials for avatar
   const getUserInitials = (name?: string) => {
     if (!name) return "U";
     const parts = name.trim().split(" ");
@@ -659,21 +557,17 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
     return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
   };
 
-  // Determine if quick replies should be shown
   const showQuickRepliesAtCorrectPlace = () => {
     if (!showQuickReplies) return false;
     
-    // Show the initial quick replies for the first question
     if (currentQuestionIndex === 0) {
       const botThirdMsg = messages.find((m) => m.text === starterMessages[2] && m.sender === "bot");
       return !!botThirdMsg;
     }
     
-    // Show resume options at the end
     return currentQuestionIndex === pathwayQuestions.length && resume && resumePromptShown && resumeUseConfirmed === null;
   };
 
-  // Reset chat to initial state
   const handleResetChat = () => {
     setMessages(starterMessages.map((text, index) => ({
       id: `bot_starter_${index}`,
@@ -691,12 +585,9 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
   };
 
   return (
- <AppLayout>
+    <AppLayout>
       <div className="flex flex-col min-h-screen items-center justify-start pt-[8rem] pb-[5rem] px-4">
-        {/* Sticky Header (offset to sit below the top navbar) */}
         <div className="sticky top-[-1.55rem] z-10 bg-gray-50 border-b border-gray-200 w-full">
-          {/* <div className="fixed top-[3.5rem] left-0 right-0 z-10 bg-gray-50 border-b border-gray-200"> */}
-          {/* <div className="mx-auto w-full max-w-2xl px-4 py-3 flex justify-between items-center"> */}
           <div className="mx-auto max-w-2xl px-4 py-3 flex justify-between items-center">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full overflow-hidden">
@@ -728,7 +619,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
             </Button>
           </div>
         </div>
-        {/* Chat Messages Area */}
         <div 
           ref={scrollAreaRef}
           className="flex-1 overflow-y-auto pt-20 pb-20 px-2"
@@ -786,7 +676,7 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
                     )}
                   </div>
 
-                                      {isUser && (
+                  {isUser && (
                     <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
                       {user?.user_metadata?.avatar_url ? (
                         <img
@@ -840,7 +730,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
               </div>
             )}
             
-            {/* First question quick replies */}
             {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === 0 && (
               <div className="flex flex-col space-y-3 mb-4">
                 {quickReplies.map((reply, idx) => (
@@ -856,7 +745,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
               </div>
             )}
 
-            {/* Resume options at the end of assessment */}
             {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === pathwayQuestions.length && (
               <div className="flex flex-col space-y-2 mt-4">
                 <Button
@@ -878,7 +766,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
               </div>
             )}
 
-            {/* Resume upload form when a new resume is needed */}
             {currentQuestionIndex === pathwayQuestions.length && 
              ((!resume) || (resumeUseConfirmed === false)) && (
               <div className="flex flex-col space-y-4 mt-4">
@@ -902,7 +789,8 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
 
             {careerAdviceReport && (
               <>
-                <style jsx>{`
+                <style>
+                  {`
                   @keyframes slideInUp {
                     from {
                       transform: translateY(20px);
@@ -917,7 +805,8 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
                   .career-advice-report {
                     animation: slideInUp 0.5s ease-out forwards;
                   }
-                `}</style>
+                  `}
+                </style>
                 <div 
                   ref={reportRef}
                   className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
@@ -929,8 +818,6 @@ const generateCareerAdviceReport = async (resumeText?: string) => {
             <div ref={messagesEndRef} />
           </div>
         </div>
-
-        {/* Fixed Bottom Input */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200">
           <div className="container mx-auto max-w-2xl px-4 py-3">
             <form

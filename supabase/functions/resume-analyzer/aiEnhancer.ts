@@ -1,4 +1,3 @@
-
 console.log('Resume scoring and feedback function hit');
 import { corsHeaders, callGroqWithRetry } from './utils.ts';
 // Use GROQ API to enhance analysis with AI
@@ -155,15 +154,15 @@ function formatResponse(raw: string): { elevatorPitch: string, themes: string[],
   }
 
   const explanationPatterns = [
-    r"(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))" ,
-        r"\*\*Resume Grade:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*)",
-        r"(?:\*\*)?Resume Grade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*)",
-        r"(?:\*\*)?Brief (?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*)",
-        r"3\.\s*(?:Brief )?(?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade:?\s*\n?([\s\S]*?)(?=\n\s*)",
-        r"\*\*Resume Grade Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)",
-        r"Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)",
-        r"3\.\s*Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)",
-        r"(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))"
+    /(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))/,
+        /\*\*Resume Grade:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*)/,
+        /(?:\*\*)?Resume Grade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*)/,
+        /(?:\*\*)?Brief (?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade(?:\*\*)?:?\s*\n?([\s\S]*?)(?=\n\s*)/,
+        /3\.\s*(?:Brief )?(?:E|e)xplanation of the (?:R|r)esume (?:G|g)rade:?\s*\n?([\s\S]*?)(?=\n\s*)/,
+        /\*\*Resume Grade Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/,
+        /Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/,
+        /3\.\s*Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/,
+        /(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))/
       ];
 
   for (const pattern of explanationPatterns) {
