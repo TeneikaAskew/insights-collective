@@ -778,3 +778,56 @@ export function formatCareerPathwayReport(raw: string): string {
 </div>`;
 }
 
+export const useCareerPathwayResults = () => {
+  const { user } = useAuth();
+  
+  return useQuery({
+    queryKey: ['careerPathwayResults', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      const { data, error } = await supabase
+        .from('career_pathway_results')
+        .select('report')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      console.log('Query result:', data, error);
+      
+      if (error) {
+        console.error('Supabase error:', error);
+        throw error;
+      }
+      
+      if (!data || !data.report) {
+        return {
+          userName: 'there',
+          summary: 'You haven\'t completed your career assessment yet.',
+          recommendedRoles: [],
+          skillsAndCourses: [],
+          careerPathSteps: [],
+          keyTakeaways: []
+        };
+      }
+      
+      try {
+        const parsedReport = parseCareerReport(data.report);
+        console.log('Parsed report:', parsedReport);
+        return parsedReport;
+      } catch (parseError) {
+        console.error('Error parsing report:', parseError);
+        return {
+          userName: user?.user_metadata?.first_name,
+          summary: 'Error parsing career assessment. Please try again.',
+          recommendedRoles: [],
+          skillsAndCourses: [],
+          careerPathSteps: [],
+          keyTakeaways: []
+        };
+      }
+    },
+    enabled: !!user?.id,
+  });
+};
