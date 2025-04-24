@@ -865,7 +865,7 @@ const CareerAgent: React.FC = () => {
               <div ref={messagesEndRef}></div>
               <Button 
               onClick={() => navigate('/career-pathway')}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+              className="block mx-auto mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
             >
               View Your Career Pathway
             </Button>
@@ -900,15 +900,6 @@ const CareerAgent: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>
-
-        <div className="mt-6 text-center">
-          <Button 
-            onClick={() => navigate('/career-pathway')}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-          >
-            View Your Career Pathway
-          </Button>
         </div>
       </div>
     </AppLayout>
