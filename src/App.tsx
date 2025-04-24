@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,6 +31,7 @@ import AssistantInterface from "./pages/AssistantInterface";
 import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
+import CareerPathway from "./pages/CareerPathway";
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -45,13 +47,9 @@ import CreateBlogPost from "./pages/CreateBlogPost";
 import AdminPageVisibility from "./pages/AdminPageVisibility";
 
 // Import guards and layout components
-// Remove old guards imports; use new ProtectedRoute instead
-// import PageVisibilityGuard from "./components/PageVisibilityGuard";
-// import AdminGuard from "./components/admin/AdminGuard";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import LocalStorageDebug from "./components/LocalStorageDebug";
-
-import ProtectedRoute from "./components/ProtectedRoute";
 
 // Import course management components
 import CourseManagementDashboard from '@/components/course/management/CourseManagementDashboard';
@@ -87,6 +85,7 @@ function App() {
                     <Route path="/login" element={<Login />} />
                     <Route path="/register" element={<Register />} />
                     <Route path="/career-agent" element={<CareerAgent />} />
+                    <Route path="/career-pathway" element={<CareerPathway />} />
 
                     {/* Protected public routes with visibility checks */}
                     <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />

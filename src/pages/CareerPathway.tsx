@@ -8,10 +8,31 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
 import { Skeleton } from '@/components/ui/skeleton';
+import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
   const { data: report, isLoading, error } = useCareerPathwayResults();
+  const { isPageVisible } = usePageVisibility();
+  
+  // Check if the page is visible
+  const pageIsVisible = isPageVisible('/career-pathway');
+
+  // If page is not visible, render nothing or a coming soon message
+  if (!pageIsVisible && !error) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto py-6 px-4">
+          <Card className="text-center p-6">
+            <CardTitle className="mb-4">Coming Soon</CardTitle>
+            <p className="text-muted-foreground mb-6">
+              This feature is currently under development.
+            </p>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
 
   if (error) {
     return (

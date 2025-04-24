@@ -27,7 +27,8 @@ import {
   Shield, 
   CheckCircle, 
   UserCheck,
-  Users
+  Users,
+  RefreshCw
 } from 'lucide-react';
 import {
   Tooltip,
@@ -39,10 +40,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 
 const AdminPageVisibility = () => {
-  const { pageVisibility, isLoading, updatePageVisibility } = usePageVisibility();
+  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages } = usePageVisibility();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
+  const [syncing, setSyncing] = useState(false);
 
   const filteredPages = pageVisibility.filter(page => 
     page.page_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -70,6 +72,27 @@ const AdminPageVisibility = () => {
     }
   };
 
+  const handleSyncPages = async () => {
+    try {
+      setSyncing(true);
+      await syncAvailablePages();
+      
+      toast({
+        title: "Pages synced",
+        description: "All available pages have been synced with the visibility settings.",
+      });
+    } catch (error) {
+      toast({
+        title: "Sync failed",
+        description: "There was an error syncing the page visibility.",
+        variant: "destructive",
+      });
+      console.error("Failed to sync pages:", error);
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -89,14 +112,24 @@ const AdminPageVisibility = () => {
                   Configure which user roles can access each page in the application.
                 </CardDescription>
               </div>
-              <div className="relative w-full md:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input 
-                  placeholder="Search pages..." 
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
+              <div className="flex flex-col md:flex-row gap-2 items-end">
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search pages..." 
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Button 
+                  onClick={handleSyncPages} 
+                  disabled={syncing}
+                  className="whitespace-nowrap"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync Pages'}
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -218,6 +251,7 @@ const AdminPageVisibility = () => {
               <p>
                 <strong>Notes:</strong> Pages not visible to a user role will show a "Coming Soon" overlay. 
                 Admin users will always have access to all pages regardless of these settings.
+                Click "Sync Pages" to detect newly added pages in the application.
               </p>
             </div>
           </CardContent>

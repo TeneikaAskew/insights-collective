@@ -17,9 +17,25 @@ type PageVisibilityContextType = {
   isPageVisible: (path: string) => boolean;
   updatePageVisibility: (id: string, updates: Partial<PageVisibility>) => Promise<void>;
   refreshPageVisibility: () => Promise<void>;
+  syncAvailablePages: () => Promise<void>;
 };
 
 const PageVisibilityContext = createContext<PageVisibilityContextType | undefined>(undefined);
+
+// Helper function to extract page names from paths
+const getPageNameFromPath = (path: string): string => {
+  // Remove leading slash and parameters
+  const cleanPath = path.replace(/^\//, '').split(':')[0].replace(/\/$/, '');
+  
+  // Handle empty path (root)
+  if (!cleanPath) return 'Home';
+  
+  // Convert kebab-case to Title Case
+  return cleanPath
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
 
 export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth(); // This hook must be used inside AuthProvider
@@ -47,9 +63,91 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     }
   };
 
+  // This function will sync available routes with the page_visibility table
+  const syncAvailablePages = async () => {
+    try {
+      // Get all existing routes from App.tsx dynamically
+      // In a real implementation, this would need to be configured to match your routing system
+      // For this example, we'll use a hardcoded list
+      const availableRoutes = [
+        { path: '/', name: 'Home' },
+        { path: '/dashboard', name: 'Dashboard' },
+        { path: '/courses', name: 'Courses' },
+        { path: '/resources', name: 'Resources' },
+        { path: '/data-blueprint', name: 'Data Blueprint' },
+        { path: '/blog', name: 'Blog' },
+        { path: '/events', name: 'Events' },
+        { path: '/notifications', name: 'Notifications' },
+        { path: '/explore-data-careers', name: 'Explore Data Careers' },
+        { path: '/profile', name: 'Profile' },
+        { path: '/calendar', name: 'Calendar' },
+        { path: '/assistants', name: 'Assistants' },
+        { path: '/messages', name: 'Messages' },
+        { path: '/resume', name: 'Resume' },
+        { path: '/career-agent', name: 'Career Agent' },
+        { path: '/career-pathway', name: 'Career Pathway' },
+      ];
+
+      // Get current routes in the visibility table
+      const { data: existingRoutes, error: fetchError } = await supabase
+        .from('page_visibility')
+        .select('page_path');
+
+      if (fetchError) {
+        console.error('Error fetching existing routes:', fetchError);
+        return;
+      }
+
+      // Find routes that need to be added
+      const existingPathsSet = new Set((existingRoutes || []).map(r => r.page_path));
+      const routesToAdd = availableRoutes.filter(route => !existingPathsSet.has(route.path));
+
+      if (routesToAdd.length > 0) {
+        // Insert new routes with default visibility settings
+        const { error: insertError } = await supabase
+          .from('page_visibility')
+          .insert(
+            routesToAdd.map(route => ({
+              page_path: route.path,
+              page_name: route.name,
+              visible_to_users: true,
+              visible_to_instructors: true,
+            }))
+          );
+
+        if (insertError) {
+          console.error('Error adding new routes to visibility table:', insertError);
+        } else {
+          console.log(`Added ${routesToAdd.length} new routes to visibility table`);
+          // Refresh the visibility data after update
+          await fetchPageVisibility();
+        }
+      }
+    } catch (error) {
+      console.error('Error in syncAvailablePages:', error);
+    }
+  };
+
   useEffect(() => {
     if (user) {
       fetchPageVisibility();
+      
+      // If user is admin, sync pages
+      if (user.role === 'admin') {
+        syncAvailablePages();
+      }
+      
+      // Set up interval to sync pages daily (for admins only)
+      let syncInterval: number | undefined;
+      if (user.role === 'admin') {
+        syncInterval = window.setInterval(() => {
+          syncAvailablePages();
+        }, 24 * 60 * 60 * 1000); // 24 hours
+      }
+      
+      return () => {
+        if (syncInterval) clearInterval(syncInterval);
+      };
     } else {
       // Handle case when user is not authenticated
       setIsLoading(false);
@@ -123,7 +221,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         isLoading, 
         isPageVisible, 
         updatePageVisibility,
-        refreshPageVisibility
+        refreshPageVisibility,
+        syncAvailablePages
       }}
     >
       {children}
