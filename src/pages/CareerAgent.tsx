@@ -308,13 +308,13 @@ const CareerAgent: React.FC = () => {
     });
 
     // Ensure payload is properly formatted
-    // const payload = { 
-    //   prompt: careerAdvicePrompt || '', 
-    //   pathwayQuestions: pathwayQuestions || [], 
-    //   pathwayAnswers: pathwayAnswersPayload || {}, 
-    //   resumeText: resumeText || '' 
-    // };
-    const payload = "this is a test"
+    const payload = { 
+      prompt: careerAdvicePrompt || '', 
+      pathwayQuestions: pathwayQuestions || [], 
+      pathwayAnswers: pathwayAnswersPayload || {}, 
+      resumeText: resumeText || '' 
+    };
+    // const payload = "this is a test"
     console.log('Sending payload:', payload);
     
     try {
@@ -322,11 +322,11 @@ const CareerAgent: React.FC = () => {
         
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-          // 'Authorization': `Bearer ${supabase.supabaseKey}`,
-          // 'x-client-info': 'supabase-js-web/2.49.4'
-        },
+        // headers: {
+        //   'Content-Type': 'application/json'
+        //   // 'Authorization': `Bearer ${supabase.supabaseKey}`,
+        //   // 'x-client-info': 'supabase-js-web/2.49.4'
+        // },
         body: payload //JSON.stringify(payload)
       });
       
