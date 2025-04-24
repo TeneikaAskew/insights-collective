@@ -99,7 +99,7 @@ const CareerAgent: React.FC = () => {
     if (user?.id && !previousChatLoaded) {
       loadPreviousCareerPathwayData();
     }
-  }, [user,previousChatLoaded]);
+  }, [user, previousChatLoaded]);
 
   // Load previous career pathway data
   const loadPreviousCareerPathwayData = async () => {
