@@ -13,9 +13,9 @@ import { useAuth } from '@/contexts/AuthContext';
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: sections, isLoading, error, isError } = useCareerPathwayResults();
+  const { data: report, isLoading, error, isError } = useCareerPathwayResults();
   
-  console.log(sections)
+  // console.log(sections)
   console.log(report)
   const [activeCareerStep, setActiveCareerStep] = useState(0);
 
