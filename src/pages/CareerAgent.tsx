@@ -620,7 +620,9 @@ const CareerAgent: React.FC = () => {
 
   return (
     <AppLayout>
-      <div className="container mx-auto max-w-2xl px-4 py-6 flex flex-col h-screen">
+      {/* <div className="container mx-auto max-w-2xl px-4 py-6 flex flex-col h-screen"> */}
+        <div className="container mx-auto max-w-2xl px-4 pt-[5.5rem] pb-[4.5rem] flex flex-col h-screen">
+
         {/* Fixed Header */}
         <div className="fixed top-0 left-0 right-0 z-10 bg-gray-50 border-b border-gray-200">
           <div className="container mx-auto max-w-2xl px-4 py-3 flex justify-between items-center">
