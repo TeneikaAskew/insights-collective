@@ -619,7 +619,6 @@ const CareerAgent: React.FC = () => {
   };
 
   return (
-
   <AppLayout>
       <div className="flex flex-col h-full">
         <div className="flex flex-col items-center justify-start h-full">
