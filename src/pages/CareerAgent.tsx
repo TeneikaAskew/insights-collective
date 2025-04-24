@@ -1,277 +1,827 @@
-// Changes to import statements at the top of CareerAgent.tsx
-import {
-  pathwayQuestions, 
-  quickReplies, 
-  starterMessages, 
-  careerAdvicePrompt, 
-  LOCAL_STORAGE_KEY
-} from '@/data/careerPathwayData';
+import React, { useState, useEffect, useRef } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { v4 as uuidv4 } from "uuid";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
+import { useResume } from "@/hooks/resume/useResume";
 
-// Replace any references to assessmentQuestions with pathwayQuestions
-// Replace any references to quizAnswers with pathwayAnswers
-// Replace any references to "career_assessments" with "career_pathway_answers"
+type SenderType = "system" | "user" | "bot";
 
-// Updated function for saving answer to database
-const saveAnswerToDatabase = async (questionId: string, answer: string) => {
-  if (sessionId && user) {
-    try {
-      await supabase.from("career_pathway_answers").insert({
-        user_id: user.id,
-        session_id: sessionId,
-        question: questionId,
-        answer: answer,
-      });
-    } catch (error) {
-      console.error("Error saving pathway answer:", error);
-    }
-  }
+type Message = {
+  id: string;
+  sender: SenderType;
+  text: string;
 };
 
-// Format the career pathway report to improve readability and structure
-const formatCareerPathwayReport = (rawReport: string): string => {
-  try {
-    // First check if the report already contains HTML formatting
-    if (rawReport.includes('<h') || rawReport.includes('<div') || rawReport.includes('<p>')) {
-      return rawReport; // Already formatted with HTML
+const quickReplies = [
+  "I am not happy in my current job (or I am currently in transition) and would like to find another one",
+  "I am interested in exploring other career paths aligned with my skills and experience",
+  "I would like to explore logical next steps and overcome obstacles in my current career path",
+  "I am a recent or soon-to-be college grad looking for potential career paths",
+];
+
+const starterMessages = [
+  "I will recommend the best route to your aspirational role, step-by-step. I'll also show you the most promising alternative career paths.",
+  "You'll find specific recommendations on how to fill gaps in your key skills. I will even create a dynamite first draft of your professional pitch! Sound good? Okay, let's do this. It should take less than 8 minutes to answer my questions.",
+  "Choose the statement that best describes your interest in taking a career assessment",
+];
+
+const assessmentQuestions = [
+  {
+    id: "q1",
+    label: "Interest in Career Assessment",
+    placeholder: "Choose the statement that best describes your interest in taking a career assessment?",
+  },
+  {
+    id: "q2",
+    label: "Ideal Next Job",
+    placeholder: "So if you woke up tomorrow in your ideal next job, what would that look like?",
+  },
+  {
+    id: "q3",
+    label: "Future Vision",
+    placeholder: "Fast forward 5 years, where do you see yourself?",
+  },
+  {
+    id: "q4",
+    label: "Desired Role",
+    placeholder: "What role would you really want to be in?",
+  },
+  {
+    id: "q5",
+    label: "Seniority Level",
+    placeholder: "How senior would this role be?",
+  },
+  {
+    id: "q6",
+    label: "Career Pivot",
+    placeholder: "Are you thinking about a career pivot? What role would make better use of your talents?",
+  },
+  {
+    id: "q7",
+    label: "Strengths",
+    placeholder: "What would you say are the strengths that set you apart?",
+  },
+  {
+    id: "q8",
+    label: "Weaknesses",
+    placeholder: "What are some skills or abilities that should not feature prominently in your next role?",
+  },
+  {
+    id: "q9",
+    label: "Career Obstacles",
+    placeholder: "What do you see as the biggest obstacle to moving ahead in your career?",
+  },
+  {
+    id: "q10",
+    label: "Past Role Insights",
+    placeholder: "What makes work exciting and satisfying? What makes it boring or frustrating?",
+  },
+  {
+    id: "q11",
+    label: "Self-Reflection",
+    placeholder: "What aspect of your personality is your biggest positive? What has hindered your success?",
+  },
+  {
+    id: "q12",
+    label: "Top Career Priorities",
+    placeholder: "What are your top priorities in your career at this time?",
+  },
+  {
+    id: "q13",
+    label: "Work Engagement",
+    placeholder: "When you get lost in your work, what are you working on? Activities you'd like to do more?",
+  },
+];
+
+// Use proper coach avatar URL instead of placeholder
+const coachAvatarUrl = "https://wp-aberdeen.s3.amazonaws.com/wp-content/uploads/2019/12/10043240/GettyImages-1017199998-e1654696271733.jpg";
+
+const LOCAL_STORAGE_KEY = "careerPathwayChat";
+
+const CareerAgent: React.FC = () => {
+  const { user, isAuthenticated } = useAuth();
+  const { 
+    resume, 
+    loading: resumeLoading, 
+    uploading: resumeUploading,
+    uploadResume,
+    deleteResume
+  } = useResume();
+
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [questionIndex, setQuestionIndex] = useState<number>(-1);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [resumeFile, setResumeFile] = useState<File | null>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [reactingMessageId, setReactingMessageId] = useState<string | null>(null);
+  const [resumeUseConfirmed, setResumeUseConfirmed] = useState<boolean | null>(null);
+  const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [inputValue, setInputValue] = useState("");
+  const [resumePromptShown, setResumePromptShown] = useState(false);
+
+  // Check if we previously showed the resume prompt
+  const checkResumePromptShown = () => {
+    const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (stored) {
+      const parsedMessages: Message[] = JSON.parse(stored);
+      const resumePromptExists = parsedMessages.some(msg => 
+        msg.sender === "bot" && msg.text.includes("found an existing resume on file")
+      );
+      setResumePromptShown(resumePromptExists);
     }
+  };
 
-    // Extract sections using regex for common section patterns
-    const nameMatch = rawReport.match(/\*\*Personalized Career Advice Report for (.*?)\*\*/);
-    const userName = nameMatch ? nameMatch[1] : "You";
+  // Handle scrolling when messages update
+  useEffect(() => {
+    scrollAreaRef.current?.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages, isTyping]);
 
-    const sections = {
-      summary: extractSection(rawReport, "Summary:", ["Recommended Roles:", "Skills and Matching Courses:"]),
-      recommendedRoles: extractSection(rawReport, "Recommended Roles:", ["Skills and Matching Courses:"]),
-      skills: extractSection(rawReport, "Skills and Matching Courses:", ["Next-Step Career Recommendations:"]),
-      nextSteps: extractSection(rawReport, "Next-Step Career Recommendations:", ["Roles that Might be Right for You:"]),
-      rightRoles: extractSection(rawReport, "Roles that Might be Right for You:", ["Path to Your Aspirational Role:"]),
-      path: extractSection(rawReport, "Path to Your Aspirational Role:", ["Remote Work Considerations:", "By following"]),
-      remote: extractSection(rawReport, "Remote Work Considerations:", ["By following"]),
-      conclusion: rawReport.includes("By following") ? 
-        rawReport.substring(rawReport.indexOf("By following")) : ""
+  // Initialize conversation
+  const initializeConversation = () => {
+    setMessages(starterMessages.map((text, index) => ({
+      id: `bot_starter_${index}`,
+      sender: "bot",
+      text,
+    })));
+    setShowQuickReplies(true);
+    setQuestionIndex(0);
+  };
+
+  // Initialize messages and check resume
+  useEffect(() => {
+    const hydrateMessagesAndCheck = async () => {
+      const stored = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) {
+        try {
+          const parsedMessages: Message[] = JSON.parse(stored);
+          const existingStarters = starterMessages.every((starter) =>
+            parsedMessages.some((msg) => msg.text === starter && msg.sender === "bot")
+          );
+          if (existingStarters) {
+            setMessages(parsedMessages);
+            const userAnswersCount = parsedMessages.filter((m) => m.sender === "user" && m.text).length;
+            setQuestionIndex(Math.min(userAnswersCount, assessmentQuestions.length));
+            setShowQuickReplies(userAnswersCount === 0);
+            // Check resume prompt status from stored messages
+            checkResumePromptShown();
+          } else {
+            initializeConversation();
+          }
+        } catch {
+          initializeConversation();
+        }
+      } else {
+        initializeConversation();
+      }
     };
 
-    // Parse skills table if it exists
-    let skillsTable = '';
-    if (sections.skills) {
-      const tableMatch = sections.skills.match(/\| Skill \| Course \|[\s\S]*?(?=\*\*|$)/);
-      if (tableMatch) {
-        skillsTable = tableMatch[0];
+    hydrateMessagesAndCheck();
+  }, [user]);
+
+  // Set session ID when authenticated
+  useEffect(() => {
+    if (isAuthenticated && !sessionId) {
+      setSessionId(uuidv4());
+    }
+  }, [isAuthenticated, sessionId]);
+
+  // Save messages to local storage
+  useEffect(() => {
+    if (messages.length === 0) return;
+    window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  // Reset chat to initial state
+  const handleResetChat = () => {
+    setMessages(starterMessages.map((text, index) => ({
+      id: `bot_starter_${index}`,
+      sender: "bot",
+      text,
+    })));
+    setShowQuickReplies(true);
+    setQuestionIndex(0);
+    setAnswers({});
+    setInputValue("");
+    setResumeFile(null);
+    setResumeUseConfirmed(null);
+    setCareerAdviceReport('');
+    setResumePromptShown(false);
+    window.localStorage.removeItem(LOCAL_STORAGE_KEY);
+  };
+
+  // Save answer to database
+  const saveAnswerToDatabase = async (questionId: string, answer: string) => {
+    if (sessionId && user) {
+      try {
+        await supabase.from("career_assessments").insert({
+          user_id: user.id,
+          session_id: sessionId,
+          question: questionId,
+          answer: answer,
+        });
+      } catch (error) {
+        console.error("Error saving assessment answer:", error);
       }
     }
+  };
 
-    // Format the report with improved HTML
-    return `
-<div class="career-pathway-report">
-  <h1 class="text-xl font-bold text-amber-600 mb-4">Personalized Career Pathway Report for ${userName}</h1>
-  
-  <section class="mb-6">
-    <h2 class="text-lg font-semibold text-amber-700 mb-2">Summary</h2>
-    <p class="mb-2">${cleanText(sections.summary)}</p>
-  </section>
-  
-  <section class="mb-6">
-    <h2 class="text-lg font-semibold text-amber-700 mb-2">Recommended Roles</h2>
-    <div class="pl-4">
-      ${formatNumberedList(sections.recommendedRoles)}
-    </div>
-  </section>
-  
-  <section class="mb-6">
-    <h2 class="text-lg font-semibold text-amber-700 mb-2">Skills and Matching Courses</h2>
-    <div class="overflow-x-auto">
-      <table class="min-w-full border-collapse">
-        <thead>
-          <tr class="bg-amber-100">
-            <th class="border border-amber-300 px-4 py-2 text-left">Skill</th>
-            <th class="border border-amber-300 px-4 py-2 text-left">Course</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${formatSkillsTable(skillsTable)}
-        </tbody>
-      </table>
-    </div>
-  </section>
-  
-  <section class="mb-6">
-    <h2 class="text-lg font-semibold text-amber-700 mb-2">Next-Step Career Recommendations</h2>
-    <div class="pl-4">
-      ${formatNumberedList(sections.nextSteps)}
-    </div>
-  </section>
-  
-  <section class="mb-6">
-    <h2 class="text-lg font-semibold text-amber-700 mb-2">Roles that Might be Right for You</h2>
-    <div class="pl-4">
-      ${formatNumberedList(sections.rightRoles)}
-    </div>
-  </section>
-  
-  <section class="mb-6">
-    <h2 class="text-lg font-semibold text-amber-700 mb-2">Path to Your Aspirational Role</h2>
-    <div class="pl-4">
-      ${formatNumberedList(sections.path)}
-    </div>
-  </section>
-  
-  ${sections.remote ? `
-  <section class="mb-6">
-    <h2 class="text-lg font-semibold text-amber-700 mb-2">Remote Work Considerations</h2>
-    <div class="pl-4">
-      ${formatNumberedList(sections.remote)}
-    </div>
-  </section>
-  ` : ''}
-  
-  <section class="mt-6 p-4 bg-amber-50 border-l-4 border-amber-500">
-    <p class="italic">${cleanText(sections.conclusion)}</p>
-  </section>
-</div>
-`;
-  } catch (error) {
-    console.error("Error formatting career pathway report:", error);
-    return rawReport; // Return original if formatting fails
-  }
-};
+  // Handle quick reply selection for first question
+  const handleQuickReply = (replyText: string) => {
+    if (isTyping) return;
 
-// Helper function to extract sections from the raw text
-function extractSection(text: string, sectionStart: string, possibleEnds: string[]): string {
-  if (!text.includes(sectionStart)) return '';
-  
-  const startIdx = text.indexOf(sectionStart) + sectionStart.length;
-  let endIdx = text.length;
-  
-  for (const endMarker of possibleEnds) {
-    const idx = text.indexOf(endMarker, startIdx);
-    if (idx !== -1 && idx < endIdx) {
-      endIdx = idx;
+    const userMessage: Message = {
+      id: `user_${Date.now()}`,
+      sender: "user",
+      text: replyText,
+    };
+
+    setMessages((prev) => [...prev, userMessage]);
+    setIsTyping(true);
+    setShowQuickReplies(false);
+
+    setAnswers((prev) => ({
+      ...prev,
+      [assessmentQuestions[0].id]: replyText,
+    }));
+
+    // Save answer to database
+    saveAnswerToDatabase(assessmentQuestions[0].id, replyText);
+
+    // Send next question after delay
+    setTimeout(() => {
+      const nextQuestion = assessmentQuestions[1];
+      const botMessage: Message = {
+        id: `bot_${Date.now()}`,
+        sender: "bot",
+        text: `Next question: ${nextQuestion.label}. ${nextQuestion.placeholder}`,
+      };
+      setMessages((prev) => [...prev, botMessage]);
+      setIsTyping(false);
+      setQuestionIndex(1);
+    }, 700);
+  };
+
+  // Handle resume use confirmation
+  const handleResumeUseConfirm = (useExisting: boolean) => {
+    setResumeUseConfirmed(useExisting);
+    const userText = useExisting ? "Use existing resume" : "Upload new resume";
+    const userMessage: Message = {
+      id: `user_resume_confirm_${Date.now()}`,
+      sender: "user",
+      text: userText,
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    setShowQuickReplies(false);
+
+    if (useExisting && resume) {
+      // Use existing resume
+      const botMsg: Message = {
+        id: `bot_resume_use_confirm_${Date.now()}`,
+        sender: "bot",
+        text: "Using your existing resume on file for personalized career advice.",
+      };
+      setMessages((prev) => [...prev, botMsg]);
+      
+      // Generate report with existing resume
+      generateCareerAdviceReport(resume.text);
+    } else {
+      // Show upload prompt for new resume
+      const botMsg: Message = {
+        id: `bot_resume_upload_prompt_${Date.now()}`,
+        sender: "bot",
+        text: "Please upload your resume to receive personalized career advice.",
+      };
+      setMessages((prev) => [...prev, botMsg]);
     }
-  }
-  
-  return text.substring(startIdx, endIdx).trim();
-}
+  };
 
-// Helper function to clean text
-function cleanText(text: string): string {
-  if (!text) return '';
-  return text.replace(/\*\*/g, '').trim();
-}
+  // Handle report generation error
+  const handleReportError = (errorMessage: string) => {
+    setCareerAdviceReport(errorMessage);
+    setMessages((prev) => [
+      ...prev,
+      { id: `bot_error_${Date.now()}`, sender: "bot", text: errorMessage },
+    ]);
+  };
 
-// Helper function to format numbered lists
-function formatNumberedList(content: string): string {
-  if (!content) return '';
-  
-  // Check if the content already has numbers (1., 2., etc.)
-  const hasNumbers = /\d+\.\s/.test(content);
-  
-  if (hasNumbers) {
-    // Split by numbered items
-    const items = content.split(/\d+\.\s/).filter(item => item.trim());
-    return items.map((item, index) => 
-      `<div class="mb-2">
-        <span class="inline-block bg-amber-200 text-amber-800 rounded-full w-6 h-6 text-center mr-2">${index + 1}</span>
-        ${cleanText(item)}
-      </div>`
-    ).join('');
-  } else {
-    // Return as a paragraph if not a numbered list
-    return `<p>${cleanText(content)}</p>`;
-  }
-}
-
-// Helper function to format the skills table
-function formatSkillsTable(tableText: string): string {
-  if (!tableText) return '<tr><td colspan="2" class="border border-amber-300 px-4 py-2">No skills data available</td></tr>';
-  
-  // Split the table into rows
-  const rows = tableText.split('\n')
-    .filter(line => line.trim().startsWith('|'))
-    .filter(line => !line.includes('---'));
+  // Generate career advice report
+  const generateCareerAdviceReport = async (resumeText?: string) => {
+    // Start report generation
+    const botMessageLoading: Message = {
+      id: `bot_${Date.now()}`,
+      sender: "bot",
+      text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights...",
+    };
+    setMessages((prev) => [...prev, botMessageLoading]);
     
-  return rows.map(row => {
-    const cells = row.split('|').filter(cell => cell.trim());
-    if (cells.length >= 2) {
-      return `<tr>
-        <td class="border border-amber-300 px-4 py-2">${cells[0].trim()}</td>
-        <td class="border border-amber-300 px-4 py-2">${cells[1].trim()}</td>
-      </tr>`;
-    }
-    return '';
-  }).join('');
-}
-
-// Updated generateCareerAdviceReport function
-const generateCareerAdviceReport = async (resumeText?: string) => {
-  // Start report generation
-  const botMessageLoading: Message = {
-    id: `bot_${Date.now()}`,
-    sender: "bot",
-    text: "Thank you for your answers! I'm working on your career pathway report now; it may take about 2 minutes to generate additional insights...",
-  };
-  setMessages((prev) => [...prev, botMessageLoading]);
-  
-  if (!user) return;
-  
-  // Format pathway answers for API
-  const pathwayAnswersPayload: Record<number, string> = {};
-  pathwayQuestions.forEach((q) => {
-    if (answers[q.id]) {
-      pathwayAnswersPayload[q.id] = answers[q.id];
-    }
-  });
-
-  const payload = {
-    prompt: careerAdvicePrompt,
-    PathwayQuestions: pathwayQuestions,
-    pathwayAnswers: pathwayAnswersPayload,
-    resumeText: resumeText || null,
-  };
-
-  try {
-    const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
-      method: 'POST',
-      body: JSON.stringify(payload),
+    if (!user) return;
+    
+    // Format quiz answers for API
+    const quizAnswersPayload: Record<number, string> = {};
+    assessmentQuestions.forEach((q) => {
+      if (answers[q.id]) {
+        quizAnswersPayload[q.id] = answers[q.id];
+      }
     });
 
-    if (error) {
-      console.error("Error invoking evaluateCareerAdvice:", error);
+    const prompt = `Here are outputs from a career chat:
+- A set of recommended roles with descriptions & salary bands
+- A table of skills and matching courses
+- A narrative of next-step career recommendations
+- A 'Roles that might be right for you' list
+- A 'Path to your aspirational role' carousel
+Please combine these data points with the user's quiz answers to generate a personalized career-advice report.`;
+
+    const payload = {
+      prompt,
+      Quizquestions: assessmentQuestions,
+      quizAnswers: quizAnswersPayload,
+      resumeText: resumeText || null,
+    };
+
+    try {
+      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      });
+
+      if (error) {
+        console.error("Error invoking evaluateCareerAdvice:", error);
+        handleReportError("Failed to get career advice. Please try again later.");
+        return;
+      }
+
+      const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+      setCareerAdviceReport(resultText);
+
+      const botMessageReport: Message = {
+        id: `bot_report_${Date.now()}`,
+        sender: "bot",
+        text: resultText,
+      };
+
+      setMessages((prev) => [...prev, botMessageReport]);
+    } catch (e) {
+      console.error("Error during career advice evaluation:", e);
       handleReportError("Failed to get career advice. Please try again later.");
+    }
+  };
+
+  // Use the actual resume upload function from useResume hook
+  const handleResumeUpload = async (file: File): Promise<boolean> => {
+    if (!user) return false;
+    
+    try {
+      setIsTyping(true);
+      const success = await uploadResume(file);
+      return success;
+    } catch (error) {
+      console.error("Error uploading resume:", error);
+      return false;
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  // Process resume upload from user
+  const processResumeUpload = async () => {
+    if (!resumeFile) {
+      alert("Please upload your resume file to continue.");
       return;
     }
 
-    const resultText = typeof data === "string" ? data : data.generatedText || JSON.stringify(data);
+    setIsTyping(true);
 
-    // Format the report to improve readability and structure
-    const formattedReport = formatCareerPathwayReport(resultText);
-    
-    // setCareerAdviceReport(resultText);
-    setCareerAdviceReport(formattedReport);
+    const userMessage: Message = {
+      id: `user_${Date.now()}`,
+      sender: "user",
+      text: `Uploaded resume file: ${resumeFile.name}`,
+    };
+    setMessages((prev) => [...prev, userMessage]);
 
-    // Save the report to the database
     try {
-      await supabase.from("career_pathway_results").insert({
-        user_id: user.id,
-        session_id: sessionId,
-        report: resultText
-      });
-    } catch (saveError) {
-      console.error("Error saving career pathway report:", saveError);
-      // Continue even if saving fails - we don't want to block the user experience
+      const uploadSuccess = await handleResumeUpload(resumeFile);
+      if (uploadSuccess && resume?.text) {
+        const botMessage: Message = {
+          id: `bot_${Date.now()}`,
+          sender: "bot",
+          text: "Resume uploaded successfully! Based on your inputs, here are some career recommendations:",
+        };
+
+        setMessages((prev) => [...prev, botMessage]);
+        
+        // Generate report with new resume
+        generateCareerAdviceReport(resume.text);
+      } else {
+        const botMessage: Message = {
+          id: `bot_${Date.now()}`,
+          sender: "bot",
+          text: "Failed to upload resume. Please try again.",
+        };
+        setMessages((prev) => [...prev, botMessage]);
+      }
+    } catch (error) {
+      console.error("Error uploading resume:", error);
+      const botMessage: Message = {
+        id: `bot_${Date.now()}`,
+        sender: "bot",
+        text: "An error occurred uploading your resume. Please try again later.",
+      };
+      setMessages((prev) => [...prev, botMessage]);
+    } finally {
+      setIsTyping(false);
+      setResumeFile(null);
+    }
+  };
+
+  // Handle what happens when assessment is complete
+  const handleAssessmentCompletion = () => {
+    if (resume && !resumePromptShown) {
+      // If user has a resume, show the resume options
+      const resumeFoundMsg: Message = {
+        id: `bot_resume_found_${Date.now()}`,
+        sender: "bot",
+        text: "I found an existing resume on file. Would you like to use this resume or upload a new one?",
+      };
+      setMessages((prev) => [...prev, resumeFoundMsg]);
+      setResumePromptShown(true);
+      setShowQuickReplies(true);
+    } else if (!resume) {
+      // If no existing resume, show upload prompt
+      const noResumeMsg: Message = {
+        id: `bot_no_resume_${Date.now()}`,
+        sender: "bot",
+        text: "Please upload your resume to receive personalized career advice.",
+      };
+      setMessages((prev) => [...prev, noResumeMsg]);
+    }
+  };
+
+  // Handle form submission
+  const handleSubmit = async () => {
+    if (isTyping) return;
+
+    // Check if we need to show resume options
+    if (questionIndex === assessmentQuestions.length && resume && !resumePromptShown) {
+      // Show resume options if we've completed questions and user has a resume
+      const resumeFoundMsg: Message = {
+        id: `bot_resume_found_${Date.now()}`,
+        sender: "bot",
+        text: "I found an existing resume on file. Would you like to use this resume or upload a new one?",
+      };
+      setMessages((prev) => [...prev, resumeFoundMsg]);
+      setResumePromptShown(true);
+      setShowQuickReplies(true);
+      return;
     }
 
-    const botMessageReport: Message = {
-      id: `bot_report_${Date.now()}`,
-      sender: "bot",
-      text: resultText,
-    };
+    if (questionIndex >= 0 && questionIndex < assessmentQuestions.length) {
+      // Handle regular assessment questions
+      if (!inputValue.trim()) return;
 
-    setMessages((prev) => [...prev, botMessageReport]);
-  } catch (e) {
-    console.error("Error during career advice evaluation:", e);
-    handleReportError("Failed to get career advice. Please try again later.");
+      const userMessage: Message = {
+        id: `user_${Date.now()}`,
+        sender: "user",
+        text: inputValue.trim(),
+      };
+      setMessages((prev) => [...prev, userMessage]);
+      setIsTyping(true);
+
+      const currentQuestion = assessmentQuestions[questionIndex];
+      setAnswers((prev) => ({ ...prev, [currentQuestion.id]: inputValue.trim() }));
+      
+      // Save answer to database
+      saveAnswerToDatabase(currentQuestion.id, inputValue.trim());
+      
+      setInputValue("");
+
+      setTimeout(() => {
+        const nextIndex = questionIndex + 1;
+        setIsTyping(false);
+        setQuestionIndex(nextIndex);
+
+        if (nextIndex < assessmentQuestions.length) {
+          // Show next question
+          const nextQ = assessmentQuestions[nextIndex];
+          const botMessage: Message = {
+            id: `bot_${Date.now()}`,
+            sender: "bot",
+            text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
+          };
+          setMessages((prev) => [...prev, botMessage]);
+        } else {
+          // We've reached the end of questions
+          handleAssessmentCompletion();
+        }
+      }, 1200);
+    } else if (questionIndex === assessmentQuestions.length && resumeFile) {
+      // Handle resume upload
+      processResumeUpload();
+    }
+  };
+
+  // Handle keyboard input
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (inputValue.trim()) {
+        void handleSubmit();
+      }
+    }
+  };
+
+  // Handle file selection
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setResumeFile(e.target.files[0]);
+    }
+  };
+
+  // Handle emoji reaction
+  const handleEmojiClick = (msgId: string, emoji: string) => {
+    alert(`You reacted to message ${msgId} with ${emoji}`);
+    setReactingMessageId(null);
+  };
+
+  // Determine if quick replies should be shown
+  const showQuickRepliesAtCorrectPlace = () => {
+    if (!showQuickReplies) return false;
+    
+    // Only show the initial quick replies when we're at question 0
+    if (questionIndex === 0) {
+      const botThirdMsg = messages.find((m) => m.text === starterMessages[2] && m.sender === "bot");
+      return !!botThirdMsg;
+    }
+    
+    // Show resume options when appropriate
+    return questionIndex === assessmentQuestions.length && resume && resumePromptShown && resumeUseConfirmed === null;
+  };
+
+  // Get user initials for avatar
+  const getUserInitials = (name: string | undefined) => {
+    if (!name) return "U";
+    const parts = name.trim().split(" ");
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
+  };
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen justify-center items-center bg-white">
+        <p className="text-lg text-center text-muted-foreground">
+          Please log in to access the Career Pathway Agent.
+        </p>
+      </div>
+    );
   }
+
+  return (
+    <div className="container mx-auto max-w-3xl p-6 flex flex-col min-h-screen bg-white rounded-lg shadow-md">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-4xl font-bold text-amber-600">Career Pathway Agent</h1>
+        <Button variant="outline" onClick={handleResetChat} size="sm" className="ml-4">
+          Reset Chat
+        </Button>
+      </div>
+
+      <div
+        ref={scrollAreaRef}
+        role="log"
+        aria-live="polite"
+        className="flex-1 overflow-y-auto space-y-4 max-h-[60vh] mb-6 pr-2"
+      >
+        {messages.map((msg, idx) => {
+          const isBot = msg.sender === "bot";
+          const isUser = msg.sender === "user";
+          const firstBotIndex = messages.findIndex((m) => m.sender === "bot");
+
+          return (
+<div
+              key={msg.id}
+              className={`flex items-end max-w-full ${
+                isBot ? "justify-start" : "justify-end"
+              } group`}
+              onMouseLeave={() => {
+                if (reactingMessageId === msg.id) {
+                  setReactingMessageId(null);
+                }
+              }}
+              onTouchEnd={() => {
+                if (reactingMessageId === msg.id) {
+                  setReactingMessageId(null);
+                }
+              }}
+            >
+              {isBot && (
+                <div
+                  className="w-9 h-9 rounded-full mr-3 flex items-center justify-center bg-amber-100 select-none text-amber-600 font-semibold text-sm overflow-hidden"
+                  aria-label="Coach Avatar"
+                >
+                  <img
+                    src={coachAvatarUrl}
+                    alt="Career Coach Avatar"
+                    className="w-full h-full rounded-full object-cover"
+                    draggable={false}
+                    onError={(e) => {
+                      const target = e.currentTarget as HTMLImageElement;
+                      target.style.display = "none";
+                      // Show fallback text when image fails to load
+                      target.parentElement!.textContent = "CC";
+                    }}
+                  />
+                </div>
+              )}
+
+              <div
+                className={`relative max-w-[75%] px-5 py-3 rounded-3xl break-words text-sm
+                  ${
+                    isBot
+                      ? "bg-amber-50 text-gray-900 shadow-md/[0_2px_8px_rgba(0,0,0,0.06)]"
+                      : "bg-gray-100 text-gray-900 shadow/[0_2px_6px_rgba(0,0,0,0.10)]"
+                  }
+                `}
+                onMouseEnter={() => {
+                  if (isBot) setReactingMessageId(msg.id);
+                }}
+                onTouchStart={() => {
+                  if (isBot) setReactingMessageId(msg.id);
+                }}
+              >
+                <p className="whitespace-pre-wrap">{msg.text}</p>
+                {reactingMessageId === msg.id && (
+                  <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
+                    {["👍", "❤️", "💡"].map((emoji) => (
+                      <button
+                        key={emoji}
+                        onClick={() => handleEmojiClick(msg.id, emoji)}
+                        className="hover:bg-gray-200 rounded-md p-1"
+                        type="button"
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {isUser && (
+                <div
+                  className="w-9 h-9 rounded-full ml-3 flex items-center justify-center bg-gray-300 select-none text-gray-700 font-semibold text-sm overflow-hidden"
+                  aria-label="User Avatar"
+                >
+                  {user?.user_metadata?.avatar_url ? (
+                    <img
+                      src={user.user_metadata.avatar_url}
+                      alt="User Avatar"
+                      className="w-full h-full rounded-full object-cover"
+                      draggable={false}
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        target.style.display = "none";
+                        // Show initials when avatar fails to load
+                        target.parentElement!.textContent = getUserInitials(user?.name);
+                      }}
+                    />
+                  ) : (
+                    <span>{getUserInitials(user?.name)}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+        
+        {isTyping && (
+          <div className="flex items-center space-x-3">
+            <div
+              className="w-9 h-9 rounded-full select-none flex items-center justify-center bg-amber-100 text-amber-600 font-semibold overflow-hidden"
+              aria-label="Coach Avatar Typing"
+            >
+              <img
+                src={coachAvatarUrl}
+                alt="Career Coach Avatar"
+                className="w-full h-full rounded-full object-cover"
+                draggable={false}
+                onError={(e) => {
+                  const target = e.currentTarget as HTMLImageElement;
+                  target.style.display = "none";
+                  target.parentElement!.textContent = "CC";
+                }}
+              />
+            </div>
+            <div className="italic text-gray-500 select-none">Coach is typing...</div>
+          </div>
+        )}
+      </div>
+
+      {/* First question quick replies */}
+      {showQuickRepliesAtCorrectPlace() && questionIndex === 0 && (
+        <div className="flex flex-col space-y-3 mb-4">
+          {quickReplies.map((reply, idx) => (
+            <button
+              key={idx}
+              onClick={() => handleQuickReply(reply)}
+              className="rounded-full px-6 py-3 border border-gray-300 text-gray-900 text-left hover:bg-amber-100 transition-colors focus:outline-none focus:ring-2 focus:ring-amber-300 max-w-full sm:max-w-md mx-auto"
+              type="button"
+            >
+              {reply}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Resume options at the end of assessment */}
+      {showQuickRepliesAtCorrectPlace() && questionIndex === assessmentQuestions.length && (
+        <div className="flex flex-col space-y-2 mt-4">
+          <Button
+            variant="outline"
+            className="w-full justify-start text-left"
+            type="button"
+            onClick={() => handleResumeUseConfirm(true)}
+          >
+            Use existing resume
+          </Button>
+          <Button
+            variant="outline"
+            className="w-full justify-start text-left"
+            type="button"
+            onClick={() => handleResumeUseConfirm(false)}
+          >
+            Upload new resume
+          </Button>
+        </div>
+      )}
+
+      {/* Resume upload form when a new resume is needed */}
+      {questionIndex === assessmentQuestions.length && 
+       ((!resume) || (resumeUseConfirmed === false)) && (
+        <div className="flex flex-col space-y-4 mt-4">
+          <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
+          <input
+            type="file"
+            accept=".pdf,.docx"
+            onChange={handleFileChange}
+            disabled={isTyping || resumeUploading}
+            className="block w-full text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-amber-100 file:text-amber-900 hover:file:bg-amber-200 cursor-pointer"
+          />
+          <Button
+            onClick={() => void handleSubmit()}
+            disabled={isTyping || resumeUploading || !resumeFile}
+            variant="default"
+          >
+            {resumeUploading ? "Uploading..." : "Upload Resume"}
+          </Button>
+        </div>
+      )}
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          void handleSubmit();
+        }}
+        className="flex items-center space-x-3 border-t border-gray-200 pt-3"
+      >
+        <input
+          className="flex-grow rounded-full border border-gray-300 px-4 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-amber-300 text-sm"
+          type="text"
+          placeholder="Type your response…"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyDown={handleInputKeyDown}
+          disabled={isTyping || resumeUploading || (questionIndex === assessmentQuestions.length && showQuickReplies)}
+          autoComplete="off"
+          aria-label="Chat input"
+        />
+        <Button
+          type="submit"
+          disabled={
+            isTyping ||
+            resumeUploading ||
+            !inputValue.trim() ||
+            (questionIndex === assessmentQuestions.length && showQuickReplies)
+          }
+          variant="default"
+          size="default"
+        >
+          Send
+        </Button>
+      </form>
+
+      {careerAdviceReport && (
+        <div className="career-advice-report p-4 mt-4 rounded-md bg-amber-50 border border-amber-200 max-w-full whitespace-pre-wrap text-gray-900 text-sm">
+          {careerAdviceReport}
+        </div>
+      )}
+    </div>
+  );
 };
+
+export default CareerAgent;
 
 // import React, { useState, useEffect, useRef } from 'react';
 // import { useAuth } from '@/contexts/AuthContext';
