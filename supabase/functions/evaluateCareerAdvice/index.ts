@@ -31,9 +31,9 @@ serve(async (req) => {
   try {
     // Log the incoming request for debugging
     console.log(`Request received: ${req.method} ${req.url}`);
-    console.log(`Content-Type: ${req.headers.get('content-type')}`);
+    console.log(`Headers:`, Object.fromEntries(req.headers.entries()));
     
-    // Read the request body as text
+    // Read the request body
     const bodyText = await req.text();
     console.log(`Request body length: ${bodyText.length} bytes`);
     
@@ -45,7 +45,7 @@ serve(async (req) => {
       );
     }
     
-    // Parse the JSON
+    // Parse the JSON body
     let body: RequestPayload;
     try {
       body = JSON.parse(bodyText);
@@ -58,18 +58,25 @@ serve(async (req) => {
         { status: 400, headers: corsHeaders }
       );
     }
-
+    
     // Validate required fields
-    if (!body.prompt || !body.pathwayQuestions || !body.pathwayAnswers) {
+    if (!body.prompt) {
       return new Response(
-        JSON.stringify({
-          error: "Missing required fields",
-          received: {
-            hasPrompt: !!body.prompt,
-            hasPathwayQuestions: !!body.pathwayQuestions,
-            hasPathwayAnswers: !!body.pathwayAnswers
-          }
-        }),
+        JSON.stringify({ error: "Missing prompt field" }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+    
+    if (!body.pathwayQuestions || !Array.isArray(body.pathwayQuestions)) {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid pathwayQuestions field" }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+    
+    if (!body.pathwayAnswers || typeof body.pathwayAnswers !== 'object') {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid pathwayAnswers field" }),
         { status: 400, headers: corsHeaders }
       );
     }
@@ -79,6 +86,7 @@ serve(async (req) => {
     
     console.log("Successfully generated career advice response");
     
+    // Return the result
     return new Response(
       JSON.stringify(result),
       { status: 200, headers: corsHeaders }

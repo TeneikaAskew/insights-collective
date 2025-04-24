@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -286,7 +285,7 @@ const CareerAgent: React.FC = () => {
     }]);
   };
 
-  // Direct implementation of career advice generation without using CareerPathwayForm
+  // Direct implementation of career advice generation
   const generateCareerAdviceReport = async (resumeText?: string) => {
     setMessages(prev => [...prev, { 
       id: `bot_${Date.now()}`, 
@@ -328,7 +327,7 @@ const CareerAgent: React.FC = () => {
     console.log('Sending payload to evaluateCareerAdvice:', JSON.stringify(payload, null, 2));
     
     try {
-      // Direct submission to the Edge Function
+      // Direct submission to the Edge Function with proper content type
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
         body: JSON.stringify(payload),
         headers: { 'Content-Type': 'application/json' }
