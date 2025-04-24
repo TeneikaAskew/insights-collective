@@ -11,6 +11,7 @@ import {
   starterMessages,
   careerAdvicePrompt
 } from '@/data/careerPathwayData';
+import CareerPathwayForm from '@/components/CareerPathwayForm';
 
 interface Message {
   id: string;
@@ -302,27 +303,45 @@ const CareerAgent: React.FC = () => {
       }
     });
 
+    if (!careerAdvicePrompt || careerAdvicePrompt.trim() === '') {
+      handleReportError("Missing prompt data");
+      return;
+    }
+
+    if (!pathwayQuestions || !Array.isArray(pathwayQuestions) || pathwayQuestions.length === 0) {
+      handleReportError("Missing pathway questions data");
+      return;
+    }
+
+    if (!pathwayAnswersPayload || Object.keys(pathwayAnswersPayload).length === 0) {
+      handleReportError("Missing pathway answers data");
+      return;
+    }
+
     const payload = { 
-      prompt: careerAdvicePrompt || '', 
-      pathwayQuestions: pathwayQuestions || [], 
-      pathwayAnswers: pathwayAnswersPayload || {}, 
+      prompt: careerAdvicePrompt, 
+      pathwayQuestions: pathwayQuestions, 
+      pathwayAnswers: pathwayAnswersPayload, 
       resumeText: resumeText || '' 
     };
     
     console.log('Sending payload:', JSON.stringify(payload, null, 2));
     
     try {
-      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+      const formComponent = new CareerPathwayForm({
+        prompt: careerAdvicePrompt,
+        pathwayQuestions: pathwayQuestions,
+        pathwayAnswers: pathwayAnswersPayload,
+        resumeText: resumeText || ''
       });
+
+      const result = await formComponent.processRequest();
       
-      if (error) throw error;
+      if (!result) {
+        throw new Error("No result returned from career pathway form");
+      }
       
-      const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
+      const raw = typeof result === 'string' ? result : result.generatedText || result.message || JSON.stringify(result);
       console.log("Career Pathway Insights: ", raw);
       const html = formatCareerPathwayReport(raw);
       setCareerAdviceReport(html);

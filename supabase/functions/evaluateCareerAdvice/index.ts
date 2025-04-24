@@ -18,21 +18,26 @@ serve(async (req) => {
     console.log("Received request:", req.method, req.url);
     console.log("Request headers:", Object.fromEntries(req.headers.entries()));
 
-    // Check content type
-    const contentType = req.headers.get('content-type');
-    console.log("Content-Type:", contentType);
-    
-    // Get the raw text body first for debugging
-    const rawBody = await req.text();
-    console.log("Raw request body length:", rawBody.length);
-    console.log("Raw request body (first 200 chars):", rawBody.substring(0, 200));
+    // First try to get the request body as text to inspect it
+    let rawBody;
+    try {
+      // Clone the request to avoid consuming the body stream
+      const reqClone = req.clone();
+      rawBody = await reqClone.text();
+      console.log("Raw request body length:", rawBody.length);
+      console.log("Raw request body:", rawBody.substring(0, 500)); // Show more content for debugging
+    } catch (textError) {
+      console.error("Error reading raw request body:", textError);
+    }
 
-    // If body is empty, return an error
+    // Check if body is empty
     if (!rawBody || rawBody.trim() === '') {
       return new Response(
         JSON.stringify({ 
           error: "Empty request body", 
-          details: "The request body is empty or missing"
+          details: "The request body is empty or missing",
+          method: req.method,
+          headers: Object.fromEntries(req.headers.entries())
         }),
         { 
           status: 400, 
@@ -41,7 +46,7 @@ serve(async (req) => {
       );
     }
 
-    // Parse the body
+    // Parse the JSON body
     let body;
     try {
       body = JSON.parse(rawBody);
@@ -51,7 +56,7 @@ serve(async (req) => {
         JSON.stringify({ 
           error: "Invalid JSON payload", 
           details: parseError.message,
-          receivedBody: rawBody.substring(0, 200) // First 200 chars for debugging
+          receivedBody: rawBody.substring(0, 500) // First 500 chars for debugging
         }),
         { 
           status: 400, 
