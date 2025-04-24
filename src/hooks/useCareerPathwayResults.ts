@@ -19,7 +19,8 @@ export const useCareerPathwayResults = () => {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-
+      
+      console.log(error)
       if (error) throw error;
 
       console.log("Found career pathway results: ", data)
