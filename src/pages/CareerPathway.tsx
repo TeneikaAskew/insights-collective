@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -48,6 +49,11 @@ const CareerPathway: React.FC = () => {
     );
   }
 
+  // Get user name from available properties
+  const userName = user?.name || 
+                  (user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : 
+                  user?.email?.split('@')[0] || 'there');
+
   return (
     <AppLayout>
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
@@ -62,7 +68,7 @@ const CareerPathway: React.FC = () => {
             <Users className="h-12 w-12 text-gray-600" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Hey {user?.displayName || user?.name || 'there'}, let's discuss your career insights.
+            Hey {userName}, let's discuss your career insights.
           </h1>
           <p className="text-gray-600 max-w-3xl mx-auto">
             <strong>The foundation for building and advancing your career is a deep understanding of your core values, beliefs, personal strengths, and authentic interests. </strong>Through self-discovery, you can uncover what truly drives you, identify your natural talents, and recognize the principles that guide your decisions. This self-awareness becomes your compass for making career choices that not only lead to professional success but also create genuine fulfillment and alignment with who you are at your core
