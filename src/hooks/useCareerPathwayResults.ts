@@ -1,0 +1,30 @@
+
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { parseCareerReport } from '@/components/assistants/utils/CareerReportParser';
+import { useAuth } from '@/contexts/AuthContext';
+
+export const useCareerPathwayResults = () => {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['careerPathwayResults', user?.id],
+    queryFn: async () => {
+      if (!user?.id) throw new Error('User not authenticated');
+      
+      const { data, error } = await supabase
+        .from('career_pathway_results')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (!data) throw new Error('No career pathway results found');
+
+      return parseCareerReport(data.report);
+    },
+    enabled: !!user?.id,
+  });
+};
