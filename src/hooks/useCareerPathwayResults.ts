@@ -22,7 +22,7 @@ export const useCareerPathwayResults = () => {
       console.log("Career pathway error check: ", data || error);
       if (error) throw error;
       console.log("Found career pathway results: ", data);
-      console.log("Parsed career pathway results: ", parseCareerReport(data.report);
+      console.log("Parsed career pathway results: ", parseCareerReport(data);
       
       const parsedReport = parseCareerReport(data.report);
       console.log("Parsed career pathway results: ", parsedReport);
