@@ -20,6 +20,8 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
 
   useEffect(() => {
     const allAnswersProvided = Object.keys(pathwayAnswers).length > 0;
+    console.log('All answers provided:', allAnswersProvided);
+    console.log('User exists:', !!user);
     if (!allAnswersProvided || !user) {
       setCareerAdviceReport('');
       setResumeFound(false);
@@ -50,6 +52,9 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
           .limit(1)
           .maybeSingle();
 
+        console.log('Advice data:', adviceData);
+        console.log('Advice error:', adviceError);
+
         if (adviceError) {
           console.error('Error fetching career advice:', adviceError);
           return;
@@ -59,6 +64,8 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
           const rawReport = typeof adviceData.report === 'string' 
             ? adviceData.report 
             : JSON.stringify(adviceData.report);
+
+          console.log('Raw report:', rawReport);
             
           const { html } = formatCareerPathwayReport(rawReport.trim());
           // const formattedReport = formatCareerPathwayReport(rawReport.trim());
