@@ -59,9 +59,10 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
           const rawReport = typeof adviceData.report === 'string' 
             ? adviceData.report 
             : JSON.stringify(adviceData.report);
-          
+            
           const formattedReport = formatCareerPathwayReport(rawReport.trim());
           setCareerAdviceReport(formattedReport);
+          console.log('Formatted career report:', formattedReport);
         }
       } catch (err) {
         console.error('Unknown error fetching career advice:', err);
@@ -97,10 +98,19 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
                 Resume analysis included in career advice
               </div>
             )}
-            <div 
-              className="career-advice-report prose prose-sm max-w-none"
-              dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-            />
+            {careerAdviceReport ? (
+              <div 
+                className="career-advice-report prose prose-sm max-w-none"
+                dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+              />
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-muted-foreground">No career advice report available yet.</p>
+                <Button asChild className="mt-4">
+                  <a href="/career-agent">Take Career Assessment</a>
+                </Button>
+              </div>
+            )}
           </>
         )}
       </CardContent>

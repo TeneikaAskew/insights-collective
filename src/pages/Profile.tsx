@@ -41,6 +41,7 @@ const Profile = () => {
   });
 
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string | number>>({});
+
   const { data: careerReportData, isLoading: careerReportLoading } = useCareerPathwayResults();
 
   useEffect(() => {
@@ -80,8 +81,23 @@ const Profile = () => {
         }
       };
 
+      const fetchQuizAnswers = async () => {
+        const { data, error } = await supabase
+          .from('career_pathway_answers')
+          .select('answers')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (data?.answers && !error) {
+          setQuizAnswers(data.answers);
+        }
+      };
+
       fetchProfile();
       fetchEnrolledCourses();
+      fetchQuizAnswers();
     }
   }, [user, isAuthenticated, navigate]);
 
