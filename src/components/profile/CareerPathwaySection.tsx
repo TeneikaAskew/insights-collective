@@ -60,7 +60,7 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
             ? adviceData.report 
             : JSON.stringify(adviceData.report);
             
-          const { html } = parseformatCareerPathwayReport(rawReport.trim());
+          const { html } = formatCareerPathwayReport(rawReport.trim());
           // const formattedReport = formatCareerPathwayReport(rawReport.trim());
           setCareerAdviceReport(html);
           console.log('Formatted career report:', html);
