@@ -718,6 +718,8 @@ export type Database = {
           first_name: string | null
           id: string
           last_name: string | null
+          notification_settings: Json | null
+          preferences: Json | null
           role: string | null
           updated_at: string | null
         }
@@ -728,6 +730,8 @@ export type Database = {
           first_name?: string | null
           id: string
           last_name?: string | null
+          notification_settings?: Json | null
+          preferences?: Json | null
           role?: string | null
           updated_at?: string | null
         }
@@ -738,6 +742,8 @@ export type Database = {
           first_name?: string | null
           id?: string
           last_name?: string | null
+          notification_settings?: Json | null
+          preferences?: Json | null
           role?: string | null
           updated_at?: string | null
         }
