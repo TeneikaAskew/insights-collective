@@ -14,7 +14,8 @@ const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: report, isLoading, error, isError } = useCareerPathwayResults();
-  console.log("Data from useCareerPathwayResults:", report)
+  console.log("Data from useCareerPathwayResults:", data)
+    console.log("Data from useCareerPathwayResults:", report)
   const [activeCareerStep, setActiveCareerStep] = useState(0);
 
   // Get user name from available properties
