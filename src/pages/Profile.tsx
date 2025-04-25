@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { User, Settings, LogOut, Award, Upload } from 'lucide-react';
+import { User, Settings, LogOut } from 'lucide-react';
 import QuizResultsSection from '@/components/profile/QuizResultsSection';
 import CareerPathwaySection from '@/components/profile/CareerPathwaySection';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
@@ -16,24 +16,30 @@ import { NotificationSettings } from '@/components/profile/NotificationSettings'
 import { useProfileUpdate } from '@/hooks/useProfileUpdate';
 import { supabase } from '@/integrations/supabase/client';
 import { quizQuestions } from '@/data/careerQuizData';
-import InteractiveCareerReportSection from '@/components/assistants/InteractiveCareerReportSection';
-import { parseCareerReport } from '@/components/assistants/utils/CareerReportParser';
-import { CareerReportData } from '@/components/assistants/utils/CareerReportParser';
+
+interface UserProfile {
+  first_name: string;
+  last_name: string;
+  bio: string;
+  notification_settings?: {
+    email: boolean;
+    browser: boolean;
+    frequency: 'daily' | 'weekly' | 'never';
+  };
+}
 
 const Profile = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const { updateProfile, loading } = useProfileUpdate();
   const [enrolledCourses, setEnrolledCourses] = useState([]);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<UserProfile>({
     first_name: '',
     last_name: '',
     bio: '',
   });
 
-  const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string | number>>({});
-  const [structuredReport, setStructuredReport] = useState<CareerReportData | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -182,24 +188,6 @@ const Profile = () => {
                 <QuizResultsSection />
               </CardContent>
             </Card>
-
-            {structuredReport ? (
-              <InteractiveCareerReportSection reportData={structuredReport} />
-            ) : careerAdviceReport ? (
-              <Card id="career-advice-report">
-                <CardHeader>
-                  <CardTitle>Personalized Career Advice</CardTitle>
-                  <CardDescription>
-                    Based on your quiz answers, here is your career advice report.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="whitespace-pre-wrap text-sm text-gray-800">{careerAdviceReport}</div>
-                </CardContent>
-              </Card>
-            ) : (
-              <CareerPathwaySection pathwayAnswers={quizAnswers} />
-            )}
 
             <Card>
               <CardHeader>

@@ -1,7 +1,26 @@
-
 import { CareerReport } from '../types';
 
-export const parseCareerReport = (reportData: any): CareerReport => {
+export interface CareerReportData {
+  userName: string;
+  summary: string;
+  recommendedRoles: Array<{
+    title: string;
+    description: string;
+    salaryRange: string;
+  }>;
+  skillsAndCourses: Array<{
+    skill: string;
+    course: string;
+    level?: string;
+  }>;
+  careerPathSteps: Array<{
+    title: string;
+    description: string;
+  }>;
+  keyTakeaways: string[];
+}
+
+export const parseCareerReport = (reportData: any): CareerReportData => {
   if (!reportData) {
     console.error("No report data provided to parser");
     return {

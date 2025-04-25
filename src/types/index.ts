@@ -1,4 +1,3 @@
-
 // Course interface with all required properties
 export interface Course {
   id: string;
@@ -43,6 +42,25 @@ export interface User {
   bio?: string;
   createdCourses?: string[];
   // Add any other properties needed
+}
+
+// User with profile interface
+export interface UserWithProfile {
+  id: string;
+  email?: string;
+  avatar_url?: string;
+  roles?: string[];
+  notification_settings?: {
+    email: boolean;
+    browser: boolean;
+    frequency: 'daily' | 'weekly' | 'never';
+  };
+  preferences?: {
+    language: string;
+    timezone: string;
+  };
+  first_name?: string;
+  last_name?: string;
 }
 
 // Module interface
