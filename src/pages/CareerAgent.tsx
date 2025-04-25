@@ -16,8 +16,6 @@ import { useNavigate } from 'react-router-dom';
 // CareerAgent.tsx
 import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
-
-
 interface Message {
   id: string;
   sender: 'user' | 'bot';
@@ -257,7 +255,7 @@ const CareerAgent: React.FC = () => {
     }
   };
 
-  // Helpers for report formatting
+  // Update the handleReportError function
   const handleReportError = (msg: string) => {
     let displayMessage = msg;
     if (msg.includes("Rate limit reached")) {
@@ -321,7 +319,7 @@ const CareerAgent: React.FC = () => {
     }
   };
 
-  // Simplified implementation of career advice generation
+  // Update the generateCareerAdviceReport function
   const generateCareerAdviceReport = async (resumeText?: string) => {
     setMessages(prev => [...prev, { 
       id: `bot_${Date.now()}`, 
@@ -364,7 +362,7 @@ const CareerAgent: React.FC = () => {
       
       const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
       console.log("Career Pathway Insights: ", raw);
-      const html = parseformatCareerPathwayReport(raw);
+      const html = formatCareerPathwayReport(raw);
       setCareerAdviceReport(html);
       
       // Save the report to career_pathway_results

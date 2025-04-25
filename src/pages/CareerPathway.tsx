@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -14,9 +15,9 @@ const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: report, isLoading, error, isError } = useCareerPathwayResults();
-  console.log("Data from useCareerPathwayResults:", data)
-    console.log("Data2 from useCareerPathwayResults:", report)
   const [activeCareerStep, setActiveCareerStep] = useState(0);
+
+  console.log("Career pathway report data:", report);
 
   // Get user name from available properties
   const userName = user?.user_metadata?.first_name || 
@@ -35,10 +36,6 @@ const CareerPathway: React.FC = () => {
       setActiveCareerStep(activeCareerStep - 1);
     }
   };
-
-  // console.log(isError)
-  // console.log(report)
-  // console.log(report.skillsAndCourses, report.skillsAndCourses.length)
 
   // If there's an error or no report data found
   if (isError || (report && report.skillsAndCourses && report.skillsAndCourses.length === 0)) {

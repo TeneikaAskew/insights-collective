@@ -1,3 +1,4 @@
+
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { parseCareerReport } from '@/components/assistants/utils/CareerReportParser';
@@ -7,7 +8,6 @@ export const useCareerPathwayResults = () => {
   const { user } = useAuth();
   
   return useQuery({
-    
     queryKey: ['careerPathwayResults', user?.id],
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
@@ -19,21 +19,13 @@ export const useCareerPathwayResults = () => {
         .limit(1)
         .maybeSingle();
 
-      console.log("success, found results: ", data)
+      console.log("Career pathway results query result:", data);
       
-      // console.log("Career pathway error check: ", data || error);
       if (error) throw error;
-      console.log("Found a career pathway result: ", data);
-      console.log("Parsed career pathway results: ", parseCareerReport(data);
-      
-      const parsedReport = parseCareerReport(data.report);
-      console.log("Parsed career pathway results: ", parsedReport);
-      
-      
       
       // If no data was found, return a default object structure
       if (!data) {
-        console.log("No data found")
+        console.log("No career pathway data found");
         return {
           userName: 'there',
           summary: 'You haven\'t completed your career assessment yet.',
@@ -44,13 +36,24 @@ export const useCareerPathwayResults = () => {
         };
       }
 
-      const report = parseCareerReport(data);
-      console.log("Post Parsing: ", report)
-      
-      return parseCareerReport(data.report);
-      
+      try {
+        // Parse the report data from the database
+        const parsedReport = parseCareerReport(data.report);
+        console.log("Successfully parsed career pathway results:", parsedReport);
+        return parsedReport;
+      } catch (err) {
+        console.error("Error parsing career report:", err);
+        // Return default structure in case of parsing error
+        return {
+          userName: 'there',
+          summary: 'There was an error processing your career assessment data.',
+          recommendedRoles: [],
+          skillsAndCourses: [],
+          careerPathSteps: [],
+          keyTakeaways: []
+        };
+      }
     },
-    keepPreviousData: true,
     enabled: !!user?.id,
   });
 };
