@@ -22,6 +22,7 @@ export const useCareerPathwayResults = () => {
       console.log("Career pathway error check: ", data || error);
       if (error) throw error;
       console.log("Found career pathway results: ", data);
+      console.log("Parsed career pathway results: ", parseCareerReport(data);
       
       // If no data was found, return a default object structure
       if (!data) {
