@@ -57,6 +57,7 @@ export const extractSection = (text: string, start: string, ends: string[]): str
  * into a structured object the interactive UI can use
  */
 export function parseCareerReport(reportText: string): CareerReportData {
+  console.log(reportText)
 
   console.log("Passed into parseCareerReport: ", reportText)
   const report: CareerReportData = {
