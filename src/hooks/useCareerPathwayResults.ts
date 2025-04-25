@@ -24,6 +24,11 @@ export const useCareerPathwayResults = () => {
       console.log("Found career pathway results: ", data);
       console.log("Parsed career pathway results: ", parseCareerReport(data.report);
       
+      const parsedReport = parseCareerReport(data.report);
+      console.log("Parsed career pathway results: ", parsedReport);
+      
+      
+      
       // If no data was found, return a default object structure
       if (!data) {
         console.log("No data found")
