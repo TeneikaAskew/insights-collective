@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -15,8 +16,8 @@ import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { NotificationSettings } from '@/components/profile/NotificationSettings';
 import { useProfileUpdate } from '@/hooks/useProfileUpdate';
 import { supabase } from '@/integrations/supabase/client';
-import { quizQuestions } from '@/data/careerQuizData';
 import { UserWithProfile } from '@/types/index';
+import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
 
 interface UserProfile {
   first_name: string;
@@ -41,6 +42,7 @@ const Profile = () => {
   });
 
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string | number>>({});
+  const { data: careerReportData, isLoading: careerReportLoading } = useCareerPathwayResults();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -169,7 +171,7 @@ const Profile = () => {
               </CardHeader>
               <CardContent>
                 <NotificationSettings
-                  initialSettings={(user?.notification_settings as any) || {
+                  initialSettings={(user as any)?.notification_settings || {
                     email: true,
                     browser: true,
                     frequency: 'daily'
@@ -187,6 +189,9 @@ const Profile = () => {
                 <QuizResultsSection />
               </CardContent>
             </Card>
+
+            {/* Career Pathway Section */}
+            <CareerPathwaySection pathwayAnswers={quizAnswers} />
 
             <Card>
               <CardHeader>

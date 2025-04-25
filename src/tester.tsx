@@ -63,12 +63,23 @@ By following these recommendations, you can create a successful career path in t
   const sampleReportData: CareerReportData = {
     userName: "Sample User",
     summary: "This is a sample career report summary.",
-    recommendedRoles: [],
-    skillsAndCourses: [],
-    careerPathSteps: [],
-    keyTakeaways: [],
-    nextStepRecommendations: "",
-    potentialRoles: []
+    recommendedRoles: [{
+      title: "Sample Role",
+      description: "Sample description",
+      salaryRange: "$80-120K",
+      matchPercentage: 90
+    }],
+    skillsAndCourses: [{
+      skill: "Sample Skill",
+      course: "Sample Course"
+    }],
+    careerPathSteps: [{
+      title: "Sample Step",
+      description: "Sample description"
+    }],
+    keyTakeaways: ["Sample takeaway"],
+    nextStepRecommendations: "Sample recommendations",
+    potentialRoles: ["Sample role"]
   };
 
   return (

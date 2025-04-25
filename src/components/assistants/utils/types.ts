@@ -6,7 +6,7 @@ export interface CareerReportData {
     title: string;
     description: string;
     salaryRange: string;
-    matchPercentage?: number;
+    matchPercentage: number;  // Making this required for consistency
   }>;
   skillsAndCourses: Array<{
     skill: string;
@@ -19,6 +19,6 @@ export interface CareerReportData {
     description: string;
   }>;
   keyTakeaways: string[];
-  nextStepRecommendations?: string;
-  potentialRoles?: string[];
+  nextStepRecommendations: string;  // Making this required
+  potentialRoles: string[];  // Making this required
 }

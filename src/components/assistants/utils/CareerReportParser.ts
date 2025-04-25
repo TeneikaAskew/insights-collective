@@ -7,6 +7,7 @@ export interface CareerReportData {
     title: string;
     description: string;
     salaryRange: string;
+    matchPercentage: number;
   }>;
   skillsAndCourses: Array<{
     skill: string;
@@ -18,6 +19,8 @@ export interface CareerReportData {
     description: string;
   }>;
   keyTakeaways: string[];
+  nextStepRecommendations: string;
+  potentialRoles: string[];
 }
 
 export const parseCareerReport = (reportData: any): CareerReportData => {
@@ -29,7 +32,9 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
       recommendedRoles: [],
       skillsAndCourses: [],
       careerPathSteps: [],
-      keyTakeaways: []
+      keyTakeaways: [],
+      nextStepRecommendations: "",
+      potentialRoles: []
     };
   }
 
@@ -54,7 +59,8 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
       .map(role => ({
         title: role.split(':')[0]?.trim() || role.trim(),
         description: role.split(':').slice(1).join(':').trim() || '',
-        salaryRange: '$80-120K' // Default salary range
+        salaryRange: '$80-120K', // Default salary range
+        matchPercentage: 85 // Default match percentage
       }));
     
     // Extract skills and courses
@@ -78,7 +84,9 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
       recommendedRoles,
       skillsAndCourses,
       careerPathSteps,
-      keyTakeaways: []
+      keyTakeaways: [],
+      nextStepRecommendations: "Follow these recommended steps to advance your career.",
+      potentialRoles: ["Data Analyst", "Business Analyst", "Data Scientist"]
     };
   } catch (error) {
     console.error("Error parsing career report:", error);
@@ -88,7 +96,9 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
       recommendedRoles: [],
       skillsAndCourses: [],
       careerPathSteps: [],
-      keyTakeaways: []
+      keyTakeaways: [],
+      nextStepRecommendations: "",
+      potentialRoles: []
     };
   }
 };
