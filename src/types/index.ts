@@ -50,6 +50,8 @@ export interface UserWithProfile {
   email?: string;
   avatar_url?: string;
   roles?: string[];
+  first_name?: string;
+  last_name?: string;
   notification_settings?: {
     email: boolean;
     browser: boolean;
@@ -59,8 +61,6 @@ export interface UserWithProfile {
     language: string;
     timezone: string;
   };
-  first_name?: string;
-  last_name?: string;
 }
 
 // Module interface

@@ -4,6 +4,7 @@ import { parseCareerReport } from '@/components/assistants/utils/CareerReportPar
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { CareerReportData } from '@/components/assistants/utils/types';
 
 const TestInteractiveReport = () => {
   const [rawReport, setRawReport] = useState<string>(
@@ -43,7 +44,8 @@ To achieve your goal of working in data, we recommend the following steps:
 * Developing your analytical and leadership skills will be crucial to success in your desired role.
 * Exploring different roles and industries will help you find the best fit for your skills and interests.
 
-By following these recommendations, you can create a successful career path in the data field and achieve your long-term goals.`
+By following these recommendations, you can create a successful career path in the data field and achieve your long-term goals.
+`
   );
 
   const [parsedReport, setParsedReport] = useState(() => parseCareerReport(rawReport));
@@ -56,6 +58,17 @@ By following these recommendations, you can create a successful career path in t
       console.error('Error parsing report:', error);
       alert('Error parsing report. Check console for details.');
     }
+  };
+
+  const sampleReportData: CareerReportData = {
+    userName: "Sample User",
+    summary: "This is a sample career report summary.",
+    recommendedRoles: [],
+    skillsAndCourses: [],
+    careerPathSteps: [],
+    keyTakeaways: [],
+    nextStepRecommendations: "",
+    potentialRoles: []
   };
 
   return (

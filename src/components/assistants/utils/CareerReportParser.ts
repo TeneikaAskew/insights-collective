@@ -1,4 +1,4 @@
-import { CareerReport } from '../types';
+import { CareerReportData } from './types';
 
 export interface CareerReportData {
   userName: string;

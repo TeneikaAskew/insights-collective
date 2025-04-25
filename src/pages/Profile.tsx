@@ -16,6 +16,7 @@ import { NotificationSettings } from '@/components/profile/NotificationSettings'
 import { useProfileUpdate } from '@/hooks/useProfileUpdate';
 import { supabase } from '@/integrations/supabase/client';
 import { quizQuestions } from '@/data/careerQuizData';
+import { UserWithProfile } from '@/types/index';
 
 interface UserProfile {
   first_name: string;
@@ -48,7 +49,6 @@ const Profile = () => {
     }
 
     if (user) {
-      // Fetch user profile data
       const fetchProfile = async () => {
         const { data, error } = await supabase
           .from('profiles')
@@ -65,7 +65,6 @@ const Profile = () => {
         }
       };
 
-      // Fetch enrolled courses
       const fetchEnrolledCourses = async () => {
         const { data, error } = await supabase
           .from('enrollments')
@@ -170,7 +169,7 @@ const Profile = () => {
               </CardHeader>
               <CardContent>
                 <NotificationSettings
-                  initialSettings={user.notification_settings || {
+                  initialSettings={(user?.notification_settings as any) || {
                     email: true,
                     browser: true,
                     frequency: 'daily'
