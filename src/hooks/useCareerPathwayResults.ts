@@ -25,6 +25,7 @@ export const useCareerPathwayResults = () => {
       
       // If no data was found, return a default object structure
       if (!data) {
+        console.log("No data found")
         return {
           userName: 'there',
           summary: 'You haven\'t completed your career assessment yet.',
