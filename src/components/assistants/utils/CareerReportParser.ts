@@ -58,7 +58,7 @@ export const extractSection = (text: string, start: string, ends: string[]): str
  */
 export function parseCareerReport(reportText: string): CareerReportData {
 
-  console.log(reportText)
+  console.log("Passed into parseCareerReport: ", reportText)
   const report: CareerReportData = {
     userName: extractUserName(reportText),
     summary: extractSummary(reportText),
