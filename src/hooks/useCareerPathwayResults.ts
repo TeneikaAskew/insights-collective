@@ -36,7 +36,7 @@ export const useCareerPathwayResults = () => {
         };
       }
 
-      const report = parseCareerReport(data.report);
+      const report = parseCareerReport(data);
       console.log("Post Parsing: ", report)
       
       return parseCareerReport(data.report);
