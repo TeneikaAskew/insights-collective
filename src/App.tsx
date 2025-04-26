@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -83,10 +82,10 @@ const ProtectedVisibleRoute = ({ children, requireAdmin = false }) => (
 
 function App() {
   return (
-    <React.StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <ToastProvider>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ToastProvider>
+          <React.StrictMode>
             <TooltipProvider>
               <AuthProvider>
                 <PageVisibilityProvider>
@@ -153,10 +152,10 @@ function App() {
                 </PageVisibilityProvider>
               </AuthProvider>
             </TooltipProvider>
-          </ToastProvider>
-        </BrowserRouter>
-      </QueryClientProvider>
-    </React.StrictMode>
+          </React.StrictMode>
+        </ToastProvider>
+      </BrowserRouter>
+    </QueryClientProvider>
   );
 }
 
