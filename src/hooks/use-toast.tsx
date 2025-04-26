@@ -127,7 +127,10 @@ export const reducer = (state: State, action: Action): State => {
   }
 }
 
-let memoryState: State = { toasts: [] }
+const initialState: State = { toasts: [] }
+
+// This ensures the state is initialized outside of component rendering
+let memoryState: State = initialState
 
 let listeners: Array<(state: State) => void> = []
 
@@ -138,10 +141,10 @@ function dispatch(action: Action) {
   })
 }
 
-// Creating a toast context
+// Create toast context
 const ToastContext = React.createContext<{
   toasts: ToasterToast[]
-  toast: (props: Omit<ToasterToast, "id">) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
+  toast: (props: Toast) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
   dismiss: (toastId?: string) => void
 }>({
   toasts: [],
@@ -150,7 +153,7 @@ const ToastContext = React.createContext<{
 })
 
 // Toast function to add new toasts
-function toast({ ...props }: Toast) {
+function toast(props: Toast) {
   const id = genId()
 
   const update = (props: ToasterToast) =>
@@ -158,6 +161,7 @@ function toast({ ...props }: Toast) {
       type: "UPDATE_TOAST",
       toast: { ...props, id },
     })
+  
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
 
   dispatch({
@@ -179,36 +183,36 @@ function toast({ ...props }: Toast) {
   }
 }
 
-// Component that provides toast context
-export const ToastProvider = React.memo(
-  ({ children }: { children: React.ReactNode }) => {
-    const [state, setState] = React.useState<State>(memoryState)
+// Fix: Define ToastProvider as a function component without React.memo
+export function ToastProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  const [state, setState] = React.useState<State>(memoryState)
 
-    React.useEffect(() => {
-      listeners.push(setState)
-      return () => {
-        const index = listeners.indexOf(setState)
-        if (index > -1) {
-          listeners.splice(index, 1)
-        }
+  React.useEffect(() => {
+    listeners.push(setState)
+    return () => {
+      const index = listeners.indexOf(setState)
+      if (index > -1) {
+        listeners.splice(index, 1)
       }
-    }, [state])
+    }
+  }, [])
 
-    return (
-      <ToastContext.Provider
-        value={{
-          toasts: state.toasts,
-          toast,
-          dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-        }}
-      >
-        {children}
-      </ToastContext.Provider>
-    )
-  }
-)
-
-ToastProvider.displayName = "ToastProvider"
+  return (
+    <ToastContext.Provider
+      value={{
+        toasts: state.toasts,
+        toast,
+        dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+      }}
+    >
+      {children}
+    </ToastContext.Provider>
+  )
+}
 
 // Hook for consuming toast context
 export function useToast() {

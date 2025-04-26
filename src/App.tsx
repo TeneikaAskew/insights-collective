@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -71,8 +72,9 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <React.StrictMode>
-      <ToastProvider>
-        <QueryClientProvider client={queryClient}>
+      {/* Fix: Ensure proper nesting of providers */}
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
@@ -131,13 +133,12 @@ function App() {
                     {/* Catch all NotFound */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
-                  {/* ChatBot is still removed temporarily */}
                 </PageVisibilityProvider>
               </AuthProvider>
             </BrowserRouter>
           </TooltipProvider>
-        </QueryClientProvider>
-      </ToastProvider>
+        </ToastProvider>
+      </QueryClientProvider>
     </React.StrictMode>
   );
 }
