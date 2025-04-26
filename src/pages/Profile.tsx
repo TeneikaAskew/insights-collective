@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -100,32 +101,6 @@ const Profile = () => {
       fetchQuizAnswers();
     }
   }, [user, isAuthenticated, navigate]);
-
-  // Load the latest report
-const loadPreviousCareerPathwayData = async () => {
-    if (!user?.id) return;
-    
-    try {
-        // Load the latest report
-        const { data: reportData, error: reportError } = await supabase
-          .from('career_pathway_results')
-          .select('report')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-          
-        if (!reportError && reportData?.report) {
-          const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-          const html = formatCareerPathwayReport(raw);
-          setCareerAdviceReport(html);
-        }
-
-    } catch (err) {
-      console.error('Error loading career pathway data:', err);
-      initializeConversation();
-    }
-  };
 
   const handleSaveProfile = async () => {
     await updateProfile(formData);
@@ -231,34 +206,7 @@ const loadPreviousCareerPathwayData = async () => {
               </CardContent>
             </Card>
 
-            <CareerPathwaySection pathwayAnswers={quizAnswers}
-            {careerAdviceReport && (
-              <>
-                <style>
-                  {`
-                    @keyframes slideInUp {
-                      from {
-                        transform: translateY(20px);
-                        opacity: 0;
-                      }
-                      to {
-                        transform: translateY(0);
-                        opacity: 1;
-                      }
-                    }
-                    
-                    .career-advice-report {
-                      animation: slideInUp 0.5s ease-out forwards;
-                    }
-                  `}
-                </style>
-                <div 
-                  ref={reportRef}
-                  className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
-                  dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-                />
-              </>
-            )}
+            <CareerPathwaySection pathwayAnswers={quizAnswers} />
 
             <Card>
               <CardHeader>
