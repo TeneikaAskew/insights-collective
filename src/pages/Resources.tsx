@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -10,6 +9,8 @@ import { Search, ExternalLink, Calendar, Twitter, FilterX } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import LoginWall from '@/components/common/LoginWall';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useResources, Resource } from '@/hooks/useResources';
+import { ResourceCard } from '@/components/resources/ResourceCard';
 
 // Mock resource data
 const mockResources = [
@@ -157,107 +158,14 @@ const allTweets = [...mockTweets, ...additionalTweets];
 const VISIBLE_RESOURCES = 5;
 const VISIBLE_TWEETS = 3;
 
-type ResourceProps = {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  link: string;
-  deadline: string | null;
-};
-
-const ResourceCard = ({ resource }: { resource: ResourceProps }) => {
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null;
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex justify-between items-start">
-          <div>
-            <CardTitle className="text-xl">{resource.name}</CardTitle>
-            <CardDescription className="mt-2">{resource.description}</CardDescription>
-          </div>
-          <Badge variant="outline" className="capitalize">
-            {resource.category}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        {resource.deadline && (
-          <div className="flex items-center text-sm text-muted-foreground mb-4">
-            <Calendar className="h-4 w-4 mr-2" />
-            <span>Deadline: {formatDate(resource.deadline)}</span>
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-between">
-        <Button variant="outline" asChild>
-          <a href={resource.link} target="_blank" rel="noopener noreferrer" className="flex items-center">
-            Visit Resource
-            <ExternalLink className="ml-2 h-4 w-4" />
-          </a>
-        </Button>
-      </CardFooter>
-    </Card>
-  );
-};
-
-const TweetCard = ({ tweet }: { tweet: any }) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  return (
-    <Card>
-      <CardContent className="pt-6">
-        <div className="flex items-start gap-4">
-          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <Twitter className="h-5 w-5 text-primary" />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-semibold">Insights Collective</span>
-              <span className="text-sm text-muted-foreground">@InsightsCol</span>
-              <span className="text-sm text-muted-foreground">·</span>
-              <span className="text-sm text-muted-foreground">{formatDate(tweet.date)}</span>
-            </div>
-            <p className="text-sm mb-4">{tweet.content}</p>
-            <div className="flex items-center gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-heart"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"></path></svg>
-                <span>{tweet.likes}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-repeat"><path d="m17 2 4 4-4 4"></path><path d="M3 11v-1a4 4 0 0 1 4-4h14"></path><path d="m7 22-4-4 4-4"></path><path d="M21 13v1a4 4 0 0 1-4 4H3"></path></svg>
-                <span>{tweet.retweets}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
 const Resources = () => {
-  const [resources, setResources] = useState<ResourceProps[]>(allResources);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [withDeadline, setWithDeadline] = useState(false);
   const { isAuthenticated } = useAuth();
+  const { resources, isLoading } = useResources();
   
-  const filteredResources = resources.filter((resource) => {
+  const filteredResources = resources.filter((resource: Resource) => {
     const matchesSearch = resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         resource.description.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -276,7 +184,7 @@ const Resources = () => {
     setCategoryFilter('all');
     setWithDeadline(false);
   };
-  
+
   return (
     <AppLayout>
       <div className="space-y-8">
