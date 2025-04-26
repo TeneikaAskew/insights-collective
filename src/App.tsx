@@ -105,6 +105,7 @@ function App() {
                   <Route path="/courses/:courseId" element={<CourseDetail />} />
                   <Route path="/data-blueprint" element={<DataBlueprintSeries />} />
                   <Route path="/events" element={<Events />} />
+                  <Route path="/forums" element={<ForumList />} />
                   
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />

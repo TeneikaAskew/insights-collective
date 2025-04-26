@@ -1,5 +1,4 @@
 
-import { mockService } from '@/lib/mock';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
 import QuizSection from '@/components/quiz/QuizSection';
@@ -11,6 +10,10 @@ import LearningJourney from '@/components/home/LearningJourney';
 import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 import { useInView } from 'react-intersection-observer';
 import { useEffect } from 'react';
+import { mockService } from '@/lib/mock';
+import PersonalizedPathway from '@/components/home/PersonalizedPathway';
+import InteractiveShowcase from '@/components/home/InteractiveShowcase';
+import CommunityShowcase from '@/components/home/CommunityShowcase';
 
 const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
@@ -19,11 +22,14 @@ const Index = () => {
   // Create sections with animation
   const sections = [
     { id: 'hero', Component: HeroSection, threshold: 0.1 },
+    { id: 'personalizedPathway', Component: PersonalizedPathway, threshold: 0.3 },
+    { id: 'interactiveShowcase', Component: InteractiveShowcase, threshold: 0.2 },
     { id: 'blueprint', Component: BlueprintBanner, threshold: 0.3 },
     { id: 'quiz', Component: QuizSection, threshold: 0.3 },
     { id: 'journey', Component: LearningJourney, threshold: 0.2 },
     { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses} />, threshold: 0.2 },
     { id: 'analytics', Component: AnalyticsDashboard, threshold: 0.2 },
+    { id: 'communityShowcase', Component: CommunityShowcase, threshold: 0.2 },
     { id: 'events', Component: () => <UpcomingEvents events={upcomingEvents} />, threshold: 0.2 },
     { id: 'cta', Component: CTASection, threshold: 0.3 },
   ];
