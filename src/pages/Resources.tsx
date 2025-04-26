@@ -13,6 +13,7 @@ import { useResources, Resource } from '@/hooks/useResources';
 import { ResourceCard } from '@/components/resources/ResourceCard';
 import { TweetCard } from '@/components/resources/TweetCard';
 import { LinkedInCard } from '@/components/resources/LinkedInCard';
+import { FeedbackSection } from '@/components/common/FeedbackSection';
 
 const mockResources = [
   {
@@ -339,6 +340,8 @@ const Resources = () => {
             </div>
           </TabsContent>
         </Tabs>
+        
+        <FeedbackSection pagePath="/resources" />
       </div>
     </AppLayout>
   );

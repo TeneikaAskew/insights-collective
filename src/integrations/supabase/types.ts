@@ -892,6 +892,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_feedback: {
+        Row: {
+          created_at: string
+          feedback_category: string | null
+          feedback_text: string | null
+          id: string
+          is_useful: boolean
+          page_path: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          feedback_category?: string | null
+          feedback_text?: string | null
+          id?: string
+          is_useful: boolean
+          page_path: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          feedback_category?: string | null
+          feedback_text?: string | null
+          id?: string
+          is_useful?: boolean
+          page_path?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       quiz_analytics: {
