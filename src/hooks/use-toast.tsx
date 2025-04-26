@@ -55,23 +55,16 @@ interface State {
   toasts: ToasterToast[]
 }
 
-const toastTimeouts = new Map<string, ReturnType<typeof setTimeout>>()
-
-const addToRemoveQueue = (toastId: string) => {
-  if (toastTimeouts.has(toastId)) {
-    return
-  }
-
-  const timeout = setTimeout(() => {
-    toastTimeouts.delete(toastId)
-    dispatch({
-      type: "REMOVE_TOAST",
-      toastId: toastId,
-    })
-  }, TOAST_REMOVE_DELAY)
-
-  toastTimeouts.set(toastId, timeout)
-}
+// Create a context for the toast
+const ToastContext = React.createContext<{
+  toasts: ToasterToast[]
+  toast: (props: Toast) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
+  dismiss: (toastId?: string) => void
+}>({
+  toasts: [],
+  toast: () => ({ id: "", dismiss: () => {}, update: () => {} }),
+  dismiss: () => {},
+})
 
 export const reducer = (state: State, action: Action): State => {
   switch (action.type) {
@@ -91,14 +84,6 @@ export const reducer = (state: State, action: Action): State => {
 
     case "DISMISS_TOAST": {
       const { toastId } = action
-
-      if (toastId) {
-        addToRemoveQueue(toastId)
-      } else {
-        state.toasts.forEach((toast) => {
-          addToRemoveQueue(toast.id)
-        })
-      }
 
       return {
         ...state,
@@ -126,26 +111,30 @@ export const reducer = (state: State, action: Action): State => {
   }
 }
 
-const initialState: State = { toasts: [] }
-
-// Create a context for the toast
-const ToastContext = React.createContext<{
-  toasts: ToasterToast[]
-  toast: (props: Toast) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
-  dismiss: (toastId?: string) => void
-}>({
-  toasts: [],
-  toast: () => ({ id: "", dismiss: () => {}, update: () => {} }),
-  dismiss: () => {},
-})
-
 // Create a proper provider component
 export function ToastProvider({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [state, dispatch] = React.useReducer(reducer, initialState)
+  const [state, dispatch] = React.useReducer(reducer, { toasts: [] })
+  const toastTimeouts = React.useRef(new Map<string, ReturnType<typeof setTimeout>>()).current
+
+  const addToRemoveQueue = React.useCallback((toastId: string) => {
+    if (toastTimeouts.has(toastId)) {
+      return
+    }
+
+    const timeout = setTimeout(() => {
+      toastTimeouts.delete(toastId)
+      dispatch({
+        type: "REMOVE_TOAST",
+        toastId: toastId,
+      })
+    }, TOAST_REMOVE_DELAY)
+
+    toastTimeouts.set(toastId, timeout)
+  }, [toastTimeouts, dispatch])
 
   const toast = React.useCallback((props: Toast) => {
     const id = genId()
@@ -175,11 +164,19 @@ export function ToastProvider({
       dismiss,
       update,
     }
-  }, [])
+  }, [dispatch])
 
   const dismiss = React.useCallback((toastId?: string) => {
     dispatch({ type: "DISMISS_TOAST", toastId })
-  }, [])
+  }, [dispatch])
+
+  React.useEffect(() => {
+    state.toasts.forEach(toast => {
+      if (!toast.open) {
+        addToRemoveQueue(toast.id)
+      }
+    })
+  }, [state.toasts, addToRemoveQueue])
 
   const contextValue = React.useMemo(() => ({
     toasts: state.toasts,
