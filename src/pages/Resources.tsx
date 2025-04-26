@@ -12,8 +12,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useResources, Resource } from '@/hooks/useResources';
 import { ResourceCard } from '@/components/resources/ResourceCard';
 import { TweetCard } from '@/components/resources/TweetCard';
+import { LinkedInCard } from '@/components/resources/LinkedInCard';
 
-// Mock resource data
 const mockResources = [
   {
     id: '1',
@@ -57,7 +57,6 @@ const mockResources = [
   },
 ];
 
-// Add more mock resources to demonstrate login wall
 const additionalResources = [
   {
     id: '6',
@@ -101,7 +100,6 @@ const additionalResources = [
   },
 ];
 
-// Define mock tweets
 const mockTweets = [
   {
     id: '1',
@@ -126,7 +124,6 @@ const mockTweets = [
   },
 ];
 
-// Add more mock tweets
 const additionalTweets = [
   {
     id: '4',
@@ -151,11 +148,26 @@ const additionalTweets = [
   },
 ];
 
-// Combine the mock data
+const mockLinkedInPosts = [
+  {
+    id: '1',
+    title: 'Data Science Career Paths',
+    description: 'Looking to start your journey in data science? Check out our comprehensive guide to different career paths and opportunities in the field.',
+    date: '2025-04-01T10:00:00Z',
+    url: 'https://linkedin.com/post/1',
+  },
+  {
+    id: '2',
+    title: 'AI Workshop Announcement',
+    description: 'Join us for an exciting workshop on practical applications of AI in business. Limited spots available!',
+    date: '2025-03-28T14:00:00Z',
+    url: 'https://linkedin.com/post/2',
+  },
+];
+
 const allResources = [...mockResources, ...additionalResources];
 const allTweets = [...mockTweets, ...additionalTweets];
 
-// Visible items count for non-authenticated users
 const VISIBLE_RESOURCES = 5;
 const VISIBLE_TWEETS = 3;
 
@@ -200,6 +212,7 @@ const Resources = () => {
           <TabsList>
             <TabsTrigger value="resources">Resource Directory</TabsTrigger>
             <TabsTrigger value="tweets">Top Tweets</TabsTrigger>
+            <TabsTrigger value="linkedin">LinkedIn Updates</TabsTrigger>
           </TabsList>
           
           <TabsContent value="resources" className="space-y-6">
@@ -293,6 +306,26 @@ const Resources = () => {
                       message="Sign in to view more curated insights from the IC community." 
                       visibleItems={VISIBLE_TWEETS}
                       totalItems={allTweets.length}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="linkedin" className="space-y-6">
+            <div className="max-w-3xl mx-auto">
+              <div className="space-y-4">
+                {mockLinkedInPosts.map((post) => (
+                  <LinkedInCard key={post.id} post={post} />
+                ))}
+                
+                {!isAuthenticated && mockLinkedInPosts.length > VISIBLE_RESOURCES && (
+                  <div className="relative mt-8">
+                    <LoginWall 
+                      message="Sign in to view more insights from our LinkedIn community." 
+                      visibleItems={VISIBLE_RESOURCES}
+                      totalItems={mockLinkedInPosts.length}
                     />
                   </div>
                 )}

@@ -8,6 +8,7 @@ interface Tweet {
   id: string;
   content: string;
   date: string;
+  url: string;
   likes: number;
   retweets: number;
 }
@@ -43,19 +44,26 @@ export const TweetCard = ({ tweet }: TweetCardProps) => {
               <Badge variant="secondary" className="text-xs">Data Science</Badge>
             </div>
             <p className="text-gray-800 mb-3">{tweet.content}</p>
-            <div className="flex items-center text-gray-500 text-sm space-x-4">
-              <div className="flex items-center">
-                <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                </svg>
-                <span>{tweet.likes}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center text-gray-500 text-sm space-x-4">
+                <div className="flex items-center">
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                  </svg>
+                  <span>{tweet.likes}</span>
+                </div>
+                <div className="flex items-center">
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>{tweet.retweets}</span>
+                </div>
               </div>
-              <div className="flex items-center">
-                <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                <span>{tweet.retweets}</span>
-              </div>
+              <Button variant="ghost" size="sm" asChild>
+                <a href={tweet.url} target="_blank" rel="noopener noreferrer">
+                  View Tweet
+                </a>
+              </Button>
             </div>
           </div>
         </div>

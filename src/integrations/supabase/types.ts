@@ -789,34 +789,52 @@ export type Database = {
       }
       resources: {
         Row: {
+          category: string
           created_at: string | null
           created_by: string | null
+          deadline: string | null
           description: string
           id: string
+          linkedin_url: string | null
           thumbnail: string | null
           title: string
+          tweet_likes: number | null
+          tweet_retweets: number | null
+          tweet_url: string | null
           type: string
           updated_at: string | null
           url: string | null
         }
         Insert: {
+          category?: string
           created_at?: string | null
           created_by?: string | null
+          deadline?: string | null
           description: string
           id?: string
+          linkedin_url?: string | null
           thumbnail?: string | null
           title: string
+          tweet_likes?: number | null
+          tweet_retweets?: number | null
+          tweet_url?: string | null
           type: string
           updated_at?: string | null
           url?: string | null
         }
         Update: {
+          category?: string
           created_at?: string | null
           created_by?: string | null
+          deadline?: string | null
           description?: string
           id?: string
+          linkedin_url?: string | null
           thumbnail?: string | null
           title?: string
+          tweet_likes?: number | null
+          tweet_retweets?: number | null
+          tweet_url?: string | null
           type?: string
           updated_at?: string | null
           url?: string | null
