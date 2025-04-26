@@ -10,7 +10,9 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 
 const ForumList: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  const { forums, isLoadingForums } = useForums(courseId!);
+  // Only use the hook if courseId exists, otherwise we'll pass undefined
+  // and handle that case in the hook
+  const { forums, isLoadingForums } = useForums(courseId);
 
   if (isLoadingForums) {
     return (
@@ -59,7 +61,7 @@ const ForumList: React.FC = () => {
                     <CardDescription>{forum.description}</CardDescription>
                   </div>
                   <div className="flex space-x-2">
-                    <Button variant="outline" size="sm" asChild>
+                    <Button variant="outline" size="sm">
                       <Link to={`/courses/${courseId}/forums/${forum.id}`} className="flex items-center gap-1">
                         <MessageSquare className="h-4 w-4" />
                         <span>View</span>

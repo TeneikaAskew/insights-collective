@@ -1,15 +1,18 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Forum, Thread, Post } from '@/types/forum';
 import { useToast } from '@/hooks/use-toast';
 
-export const useForums = (courseId: string) => {
+export const useForums = (courseId: string | undefined) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const { data: forums, isLoading: isLoadingForums } = useQuery({
     queryKey: ['forums', courseId],
     queryFn: async () => {
+      if (!courseId) return [];
+      
       const { data, error } = await supabase
         .from('forums')
         .select('*')
@@ -18,7 +21,9 @@ export const useForums = (courseId: string) => {
         
       if (error) throw error;
       return data as Forum[];
-    }
+    },
+    // Ensure the query is only enabled when courseId exists
+    enabled: !!courseId
   });
   
   return {

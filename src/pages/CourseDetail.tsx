@@ -323,7 +323,7 @@ const CourseDetail = () => {
 
   const overallProgress = course.modules.reduce((sum, module) => sum + (module.completionStatus || 0), 0) / (course.modules.length || 1);
   
-  const { forums, isLoadingForums } = useForums(courseId!);
+  const { forums, isLoadingForums } = useForums(courseId);
   
   return (
     <AppLayout>
