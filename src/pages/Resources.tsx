@@ -11,6 +11,7 @@ import LoginWall from '@/components/common/LoginWall';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useResources, Resource } from '@/hooks/useResources';
 import { ResourceCard } from '@/components/resources/ResourceCard';
+import { TweetCard } from '@/components/resources/TweetCard';
 
 // Mock resource data
 const mockResources = [

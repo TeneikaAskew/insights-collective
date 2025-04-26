@@ -67,10 +67,10 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
 
           console.log('Raw report:', rawReport);
             
-          const { html } = formatCareerPathwayReport(rawReport.trim());
-          // const formattedReport = formatCareerPathwayReport(rawReport.trim());
-          setCareerAdviceReport(html);
-          console.log('Formatted career report:', html);
+          const formattedReport = formatCareerPathwayReport(rawReport.trim());
+          // Fix here: Access the html property correctly from the return value
+          setCareerAdviceReport(formattedReport.html || '');
+          console.log('Formatted career report:', formattedReport);
         }
       } catch (err) {
         console.error('Unknown error fetching career advice:', err);
