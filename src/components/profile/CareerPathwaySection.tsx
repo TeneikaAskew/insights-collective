@@ -67,9 +67,9 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
 
           console.log('Raw report:', rawReport);
             
+          // The formatCareerPathwayReport function returns a string of HTML content, not an object with html property
           const formattedReport = formatCareerPathwayReport(rawReport.trim());
-          // Fix here: Access the html property correctly from the return value
-          setCareerAdviceReport(formattedReport.html || '');
+          setCareerAdviceReport(formattedReport);
           console.log('Formatted career report:', formattedReport);
         }
       } catch (err) {
