@@ -107,6 +107,7 @@ const mockTweets = [
     date: '2025-04-01T10:15:00Z',
     likes: 156,
     retweets: 42,
+    url: 'https://twitter.com/ICAcademy/status/1',
   },
   {
     id: '2',
@@ -114,6 +115,7 @@ const mockTweets = [
     date: '2025-03-28T14:30:00Z',
     likes: 98,
     retweets: 35,
+    url: 'https://twitter.com/ICAcademy/status/2',
   },
   {
     id: '3',
@@ -121,6 +123,7 @@ const mockTweets = [
     date: '2025-03-26T09:45:00Z',
     likes: 124,
     retweets: 51,
+    url: 'https://twitter.com/ICAcademy/status/3',
   },
 ];
 
@@ -131,6 +134,7 @@ const additionalTweets = [
     date: '2025-03-25T11:30:00Z',
     likes: 203,
     retweets: 89,
+    url: 'https://twitter.com/ICAcademy/status/4',
   },
   {
     id: '5',
@@ -138,6 +142,7 @@ const additionalTweets = [
     date: '2025-03-22T15:45:00Z',
     likes: 178,
     retweets: 56,
+    url: 'https://twitter.com/ICAcademy/status/5',
   },
   {
     id: '6',
@@ -145,6 +150,7 @@ const additionalTweets = [
     date: '2025-03-20T13:20:00Z',
     likes: 145,
     retweets: 78,
+    url: 'https://twitter.com/ICAcademy/status/6',
   },
 ];
 
