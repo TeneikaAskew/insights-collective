@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Forum, Thread, Post } from '@/types/forum';
@@ -45,7 +44,10 @@ export const useForumThreads = (forumId: string) => {
           last_post:posts(
             id,
             created_at,
-            user_id(first_name, last_name)
+            author:user_id(
+              first_name,
+              last_name
+            )
           )
         `)
         .eq('forum_id', forumId)

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useThreadPosts, useCreatePost, useThreadSubscription, useMarkThreadAsRead } from '@/hooks/useForums';
@@ -155,29 +154,24 @@ const ThreadDetail: React.FC<ThreadDetailProps> = ({ thread, courseName, forumNa
     setReplyContent('');
   };
   
-  // Organize posts into a tree structure
   const organizePostsHierarchy = (postsArray: Post[] | undefined) => {
     if (!postsArray) return [];
     
     const postMap = new Map<string, Post>();
     const rootPosts: Post[] = [];
     
-    // First pass: Create map of all posts
     postsArray.forEach(post => {
       postMap.set(post.id, { ...post, replies: [] });
     });
     
-    // Second pass: Organize into hierarchy
     postsArray.forEach(post => {
       const currentPost = postMap.get(post.id);
       if (!currentPost) return;
       
       if (post.parent_id && postMap.has(post.parent_id)) {
-        // This is a reply, add it to the parent's replies
         const parentPost = postMap.get(post.parent_id);
         parentPost!.replies = [...(parentPost!.replies || []), currentPost];
       } else {
-        // This is a root post
         rootPosts.push(currentPost);
       }
     });
@@ -204,26 +198,26 @@ const ThreadDetail: React.FC<ThreadDetailProps> = ({ thread, courseName, forumNa
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to="/courses">
-              Courses
+            <BreadcrumbLink>
+              <Link to="/courses">Courses</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to={`/courses/${courseId}`}>
-              {courseName || 'Course Details'}
+            <BreadcrumbLink>
+              <Link to={`/courses/${courseId}`}>{courseName || 'Course Details'}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to={`/courses/${courseId}/forums`}>
-              Forums
+            <BreadcrumbLink>
+              <Link to={`/courses/${courseId}/forums`}>Forums</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to={`/courses/${courseId}/forums/${forumId}`}>
-              {forumName || 'Forum'}
+            <BreadcrumbLink>
+              <Link to={`/courses/${courseId}/forums/${forumId}`}>{forumName || 'Forum'}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />

@@ -37,8 +37,8 @@ const ForumList: React.FC = () => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to="/courses">
-              Courses
+            <BreadcrumbLink>
+              <Link to="/courses">Courses</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />

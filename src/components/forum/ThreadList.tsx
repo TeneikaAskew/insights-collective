@@ -65,20 +65,20 @@ const ThreadList: React.FC<ThreadListProps> = ({ forum, courseName }) => {
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to="/courses">
-              Courses
+            <BreadcrumbLink>
+              <Link to="/courses">Courses</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to={`/courses/${courseId}`}>
-              {courseName || 'Course Details'}
+            <BreadcrumbLink>
+              <Link to={`/courses/${courseId}`}>{courseName || 'Course Details'}</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbLink as={Link} to={`/courses/${courseId}/forums`}>
-              Forums
+            <BreadcrumbLink>
+              <Link to={`/courses/${courseId}/forums`}>Forums</Link>
             </BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
@@ -209,7 +209,7 @@ const ThreadList: React.FC<ThreadListProps> = ({ forum, courseName }) => {
                         <>
                           <div>{new Date(thread.last_post.created_at).toLocaleDateString()}</div>
                           <div className="text-muted-foreground">
-                            by {thread.last_post.user_id?.first_name} {thread.last_post.user_id?.last_name}
+                            by {thread.last_post.author?.first_name || ''} {thread.last_post.author?.last_name || ''}
                           </div>
                         </>
                       ) : (
@@ -277,7 +277,7 @@ const ThreadList: React.FC<ThreadListProps> = ({ forum, courseName }) => {
                           <div className="text-right text-muted-foreground">
                             <div>Last reply on {new Date(thread.last_post.created_at).toLocaleDateString()}</div>
                             <div>
-                              by {thread.last_post.user_id?.first_name} {thread.last_post.user_id?.last_name}
+                              by {thread.last_post.author?.first_name || ''} {thread.last_post.author?.last_name || ''}
                             </div>
                           </div>
                         ) : (
