@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -48,7 +47,6 @@ import AdminPageVisibility from "./pages/AdminPageVisibility";
 
 // Import guards and layout components
 import ProtectedRoute from "./components/ProtectedRoute";
-
 import LocalStorageDebug from "./components/LocalStorageDebug";
 
 // Import course management components
@@ -72,15 +70,14 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <React.StrictMode>
-      {/* Fix: Ensure proper nesting of providers */}
       <QueryClientProvider client={queryClient}>
-        <ToastProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+        <BrowserRouter>
+          <ToastProvider>
+            <TooltipProvider>
               <AuthProvider>
                 <PageVisibilityProvider>
+                  <Toaster />
+                  <Sonner />
                   <Routes>
                     {/* Public routes */}
                     <Route path="/login" element={<Login />} />
@@ -135,9 +132,9 @@ function App() {
                   </Routes>
                 </PageVisibilityProvider>
               </AuthProvider>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ToastProvider>
+            </TooltipProvider>
+          </ToastProvider>
+        </BrowserRouter>
       </QueryClientProvider>
     </React.StrictMode>
   );

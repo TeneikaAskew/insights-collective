@@ -1,6 +1,5 @@
 
 import * as React from "react"
-
 import type {
   ToastActionElement,
   ToastProps,
@@ -129,19 +128,7 @@ export const reducer = (state: State, action: Action): State => {
 
 const initialState: State = { toasts: [] }
 
-// This ensures the state is initialized outside of component rendering
-let memoryState: State = initialState
-
-let listeners: Array<(state: State) => void> = []
-
-function dispatch(action: Action) {
-  memoryState = reducer(memoryState, action)
-  listeners.forEach((listener) => {
-    listener(memoryState)
-  })
-}
-
-// Create toast context
+// Create a context for the toast
 const ToastContext = React.createContext<{
   toasts: ToasterToast[]
   toast: (props: Toast) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
@@ -152,63 +139,60 @@ const ToastContext = React.createContext<{
   dismiss: () => {},
 })
 
-// Toast function to add new toasts
-function toast(props: Toast) {
-  const id = genId()
-
-  const update = (props: ToasterToast) =>
-    dispatch({
-      type: "UPDATE_TOAST",
-      toast: { ...props, id },
-    })
-  
-  const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
-
-  dispatch({
-    type: "ADD_TOAST",
-    toast: {
-      ...props,
-      id,
-      open: true,
-      onOpenChange: (open) => {
-        if (!open) dismiss()
-      },
-    },
-  })
-
-  return {
-    id: id,
-    dismiss,
-    update,
-  }
-}
-
-// Fix: Define ToastProvider as a function component without React.memo
+// Create a proper provider component
 export function ToastProvider({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const [state, setState] = React.useState<State>(memoryState)
+  const [state, setState] = React.useState<State>(initialState)
 
-  React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
-      }
-    }
+  const dispatch = React.useCallback((action: Action) => {
+    setState((prev) => reducer(prev, action))
   }, [])
 
+  const toast = React.useCallback((props: Toast) => {
+    const id = genId()
+
+    const update = (props: ToasterToast) =>
+      dispatch({
+        type: "UPDATE_TOAST",
+        toast: { ...props, id },
+      })
+    
+    const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id })
+
+    dispatch({
+      type: "ADD_TOAST",
+      toast: {
+        ...props,
+        id,
+        open: true,
+        onOpenChange: (open) => {
+          if (!open) dismiss()
+        },
+      },
+    })
+
+    return {
+      id: id,
+      dismiss,
+      update,
+    }
+  }, [dispatch])
+
+  const dismiss = React.useCallback((toastId?: string) => {
+    dispatch({ type: "DISMISS_TOAST", toastId })
+  }, [dispatch])
+
+  const contextValue = React.useMemo(() => ({
+    toasts: state.toasts,
+    toast,
+    dismiss,
+  }), [state.toasts, toast, dismiss])
+
   return (
-    <ToastContext.Provider
-      value={{
-        toasts: state.toasts,
-        toast,
-        dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-      }}
-    >
+    <ToastContext.Provider value={contextValue}>
       {children}
     </ToastContext.Provider>
   )
@@ -225,4 +209,9 @@ export function useToast() {
   return context
 }
 
-export { toast }
+// For backwards compatibility
+export const toast = (props: Toast) => {
+  // This should only be used in callbacks, not during rendering
+  const { toast: actualToast } = useToast()
+  return actualToast(props)
+}
