@@ -8,6 +8,7 @@ export const useForums = (courseId: string | undefined) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
+  // Always create the query, but only enable it when courseId exists
   const { data: forums, isLoading: isLoadingForums } = useQuery({
     queryKey: ['forums', courseId],
     queryFn: async () => {
@@ -22,12 +23,12 @@ export const useForums = (courseId: string | undefined) => {
       if (error) throw error;
       return data as Forum[];
     },
-    // Ensure the query is only enabled when courseId exists
-    enabled: !!courseId
+    // Use enabled option to control when the query runs
+    enabled: Boolean(courseId)
   });
   
   return {
-    forums,
+    forums: forums || [],
     isLoadingForums,
   };
 };

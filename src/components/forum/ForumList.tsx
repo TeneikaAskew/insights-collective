@@ -10,8 +10,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 
 const ForumList: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  // Only use the hook if courseId exists, otherwise we'll pass undefined
-  // and handle that case in the hook
+  // Always call the hook, regardless of courseId value
   const { forums, isLoadingForums } = useForums(courseId);
 
   if (isLoadingForums) {
