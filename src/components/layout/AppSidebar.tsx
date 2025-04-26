@@ -1,5 +1,4 @@
-
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -16,6 +15,9 @@ import {
   SidebarRail,
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
+import { motion } from 'framer-motion';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 
 const AppSidebar = () => {
   const location = useLocation();
@@ -49,14 +51,26 @@ const AppSidebar = () => {
     {
       title: "Explore Data Careers",
       url: "/explore-data-careers",
-      icon: Briefcase,
+      icon: Compass,
       active: location.pathname === '/explore-data-careers',
+    },
+    {
+      title: "Career Pathway",
+      url: "/career-pathway",
+      icon: Briefcase,
+      active: location.pathname === '/career-pathway',
     },
     {
       title: "Career Agent",
       url: "/career-agent",
       icon: Bot,
       active: location.pathname === '/career-agent',
+    },
+    {
+      title: "Forums",
+      url: "/forums",
+      icon: MessageSquare,
+      active: location.pathname === '/forums' || location.pathname.startsWith('/forums/'),
     },
     {
       title: "Events",
@@ -171,49 +185,92 @@ const AppSidebar = () => {
     menuItems.push(...authenticatedMenuItems);
   }
 
+  const menuItemVariants = {
+    hidden: { opacity: 0, x: -20 },
+    visible: (i: number) => ({
+      opacity: 1,
+      x: 0,
+      transition: {
+        delay: i * 0.05,
+        duration: 0.3,
+      }
+    })
+  };
+
   return (
-    <Sidebar className="bg-viraDeepBlue border-r border-gray-700 text-white">
-      <SidebarHeader className="border-b border-gray-700">
-        <div className="flex items-center space-x-2 px-4 py-3">
+    <Sidebar className="bg-gradient-to-b from-viraDeepBlue to-[#0a1628] border-r border-gray-800 text-white">
+      <SidebarHeader className="border-b border-gray-800 px-2">
+        <div className="flex items-center space-x-2 p-3">
           <Link to="/" className="flex items-center space-x-2">
-            <GraduationCap className="h-6 w-6 text-primary" />
+            <div className="relative w-8 h-8 flex items-center justify-center rounded-md bg-gradient-to-tr from-blue-500 to-primary">
+              <GraduationCap className="h-5 w-5 text-white" />
+            </div>
             <span className="font-bold text-lg text-white">Insights Collective</span>
           </Link>
         </div>
-        <SidebarTrigger className="text-gray-400 hover:text-white" />
+        <SidebarTrigger className="text-gray-400 hover:text-white absolute right-2 top-3" />
       </SidebarHeader>
       
-      <SidebarContent className="py-2">
+      <SidebarContent className="py-4 px-2">
+        {isAuthenticated && (
+          <div className="mb-6 px-2">
+            <div className="flex items-center space-x-3 mb-4">
+              <Avatar className="border-2 border-primary/20">
+                <AvatarImage src={user?.avatar_url || ''} alt="User avatar" />
+                <AvatarFallback className="bg-primary/10 text-primary">
+                  {user?.email?.charAt(0).toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-medium text-sm">
+                  {user?.display_name || user?.email?.split('@')[0] || 'User'}
+                </p>
+                <p className="text-xs text-gray-400">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      
         <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-400 font-medium px-4 py-2">Main Menu</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-gray-400 font-medium px-3 py-2 text-xs uppercase tracking-wider">
+            Main Menu
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton 
-                    asChild
-                    isActive={item.active}
-                    className={`transition-all duration-200 ${item.active 
-                      ? 'bg-white/10 text-white font-medium border-l-2 border-primary' 
-                      : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
-                  >
-                    <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                      <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-400'}`} />
-                      <span>{item.title}</span>
-                      {item.active && <div className="ml-auto">
-                        <ChevronRight className="h-4 w-4" />
-                      </div>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+              {menuItems.map((item, index) => (
+                <motion.div
+                  key={item.title}
+                  custom={index}
+                  initial="hidden"
+                  animate="visible"
+                  variants={menuItemVariants}
+                >
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      asChild
+                      isActive={item.active}
+                      className={`transition-all duration-200 ${item.active 
+                        ? 'bg-gradient-to-r from-primary/20 to-transparent text-white font-medium' 
+                        : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
+                    >
+                      <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-400'}`} />
+                        <span>{item.title}</span>
+                        {item.active && <div className="ml-auto">
+                          <ChevronRight className="h-4 w-4" />
+                        </div>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </motion.div>
               ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
         
         {isAuthenticated && (isAdmin || isInstructor) && (
-          <SidebarGroup>
-            <SidebarGroupLabel className="text-gray-400 font-medium px-4 py-2">
+          <SidebarGroup className="mt-6">
+            <SidebarGroupLabel className="text-gray-400 font-medium px-3 py-2 text-xs uppercase tracking-wider">
               {isAdmin ? 'Administration' : 'Instructor Tools'}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -224,7 +281,7 @@ const AppSidebar = () => {
                       asChild
                       isActive={item.active}
                       className={`transition-all duration-200 ${item.active 
-                        ? 'bg-white/10 text-white font-medium border-l-2 border-primary' 
+                        ? 'bg-gradient-to-r from-primary/20 to-transparent text-white font-medium' 
                         : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
                     >
                       <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
@@ -257,12 +314,19 @@ const AppSidebar = () => {
         )}
       </SidebarContent>
       
-      <SidebarFooter className="border-t border-gray-700 mt-auto">
-        <div className="px-4 py-3">
-          <div className="text-xs text-gray-400">
+      <SidebarFooter className="border-t border-gray-800 mt-auto p-4">
+        {!isAuthenticated ? (
+          <div className="space-y-2 px-2">
+            <Button variant="outline" className="w-full justify-start bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white">
+              Sign In
+            </Button>
+            <Button className="w-full justify-start">Create Account</Button>
+          </div>
+        ) : (
+          <div className="text-xs text-gray-400 px-2">
             <p>Insights Collective v1.0</p>
           </div>
-        </div>
+        )}
       </SidebarFooter>
       
       <SidebarRail />
