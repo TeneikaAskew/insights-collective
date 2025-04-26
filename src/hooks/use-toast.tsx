@@ -145,11 +145,7 @@ export function ToastProvider({
 }: {
   children: React.ReactNode
 }) {
-  const [state, setState] = React.useState<State>(initialState)
-
-  const dispatch = React.useCallback((action: Action) => {
-    setState((prev) => reducer(prev, action))
-  }, [])
+  const [state, dispatch] = React.useReducer(reducer, initialState)
 
   const toast = React.useCallback((props: Toast) => {
     const id = genId()
@@ -179,11 +175,11 @@ export function ToastProvider({
       dismiss,
       update,
     }
-  }, [dispatch])
+  }, [])
 
   const dismiss = React.useCallback((toastId?: string) => {
     dispatch({ type: "DISMISS_TOAST", toastId })
-  }, [dispatch])
+  }, [])
 
   const contextValue = React.useMemo(() => ({
     toasts: state.toasts,
@@ -209,9 +205,9 @@ export function useToast() {
   return context
 }
 
-// For backwards compatibility
+// For backwards compatibility - NOTE: This won't work outside of components
+// This is now a wrapper around the useToast hook
 export const toast = (props: Toast) => {
-  // This should only be used in callbacks, not during rendering
-  const { toast: actualToast } = useToast()
-  return actualToast(props)
+  console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
+  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
 }
