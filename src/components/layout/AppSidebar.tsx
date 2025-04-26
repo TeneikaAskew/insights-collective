@@ -1,3 +1,4 @@
+
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
@@ -216,14 +217,14 @@ const AppSidebar = () => {
           <div className="mb-6 px-2">
             <div className="flex items-center space-x-3 mb-4">
               <Avatar className="border-2 border-primary/20">
-                <AvatarImage src={user?.avatar_url || ''} alt="User avatar" />
+                <AvatarImage src={user?.avatar || ''} alt="User avatar" />
                 <AvatarFallback className="bg-primary/10 text-primary">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <p className="font-medium text-sm">
-                  {user?.display_name || user?.email?.split('@')[0] || 'User'}
+                  {user?.name || user?.email?.split('@')[0] || 'User'}
                 </p>
                 <p className="text-xs text-gray-400">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
               </div>

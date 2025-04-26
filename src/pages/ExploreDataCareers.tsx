@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -21,12 +20,10 @@ const ExploreDataCareers = () => {
   const [salaryFilter, setSalaryFilter] = useState('all');
   const [visibleRoles, setVisibleRoles] = useState(6);
   
-  // Get role from URL parameters
   useEffect(() => {
     const roleId = searchParams.get('role');
     const category = searchParams.get('category');
     
-    // Set category from URL if present, otherwise default to 'all'
     if (category && ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'].includes(category)) {
       setSelectedCategory(category);
     } else {
@@ -34,10 +31,8 @@ const ExploreDataCareers = () => {
     }
     
     if (roleId) {
-      // Find the role in the data
       const role = dataCareerRoles.find(r => r.id === roleId);
       if (role) {
-        // Scroll to the role card if it exists
         setTimeout(() => {
           const element = document.getElementById(`role-${roleId}`);
           if (element) {
@@ -48,10 +43,8 @@ const ExploreDataCareers = () => {
     }
   }, [searchParams]);
 
-  // Get standardized categories (AI/ML, Analytics, Data Engineering, Business Intelligence)
   const categories = ['all', 'AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
 
-  // All possible skills across roles
   const allSkills = Array.from(
     new Set(
       dataCareerRoles.flatMap(role => 
@@ -60,35 +53,10 @@ const ExploreDataCareers = () => {
     )
   ).sort();
   
-  // Filter roles based on search, category, skills and salary
-  const filteredRoles = dataCareerRoles.filter(role => {
-    const matchesSearch = 
-      role.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      role.shortDescription.toLowerCase().includes(searchQuery.toLowerCase());
+  const matchesSalaryFilter = (salary: string | undefined, filter: string) => {
+    if (!salary) return false;
     
-    const matchesCategory = 
-      selectedCategory === 'all' || 
-      role.category.split(',').some(cat => cat.trim() === selectedCategory);
-    
-    // Filter by skills if any are selected
-    const matchesSkills = 
-      skillFilters.length === 0 || 
-      (role.skills && skillFilters.every(skill => 
-        Array.isArray(role.skills) && role.skills.includes(skill)
-      ));
-    
-    // Filter by salary range
-    const matchesSalary = salaryFilter === 'all' || 
-      (role.salaryRange && matchesSalaryFilter(role.salaryRange, salaryFilter));
-    
-    return matchesSearch && matchesCategory && matchesSkills && matchesSalary;
-  });
-
-  // Helper function to match salary filter
-  const matchesSalaryFilter = (salaryRange: string, filter: string) => {
-    if (!salaryRange) return false;
-    
-    const numbers = salaryRange.match(/\d+/g)?.map(Number);
+    const numbers = salary.match(/\d+/g)?.map(Number);
     if (!numbers || numbers.length < 1) return false;
     
     const avgSalary = numbers.reduce((a, b) => a + b, 0) / numbers.length;
@@ -101,7 +69,27 @@ const ExploreDataCareers = () => {
     }
   };
 
-  // Group roles by category for tab view
+  const filteredRoles = dataCareerRoles.filter(role => {
+    const matchesSearch = 
+      role.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      role.shortDescription.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesCategory = 
+      selectedCategory === 'all' || 
+      role.category.split(',').some(cat => cat.trim() === selectedCategory);
+    
+    const matchesSkills = 
+      skillFilters.length === 0 || 
+      (role.skills && skillFilters.every(skill => 
+        Array.isArray(role.skills) && role.skills.includes(skill)
+      ));
+    
+    const matchesSalary = salaryFilter === 'all' || 
+      (role.salary && matchesSalaryFilter(role.salary, salaryFilter));
+    
+    return matchesSearch && matchesCategory && matchesSkills && matchesSalary;
+  });
+
   const rolesByCategory = categories.reduce((acc, category) => {
     if (category !== 'all') {
       acc[category] = dataCareerRoles.filter(role => 
@@ -111,7 +99,6 @@ const ExploreDataCareers = () => {
     return acc;
   }, {} as Record<string, typeof dataCareerRoles>);
 
-  // Toggle skill filter
   const toggleSkillFilter = (skill: string) => {
     setSkillFilters(prev => 
       prev.includes(skill) 
@@ -120,12 +107,10 @@ const ExploreDataCareers = () => {
     );
   };
 
-  // Load more roles
   const handleLoadMore = () => {
     setVisibleRoles(prev => Math.min(prev + 6, filteredRoles.length));
   };
 
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { 
@@ -145,7 +130,6 @@ const ExploreDataCareers = () => {
     }
   };
 
-  // Helper components
   const CategoryIcon = ({ category }: { category: string }) => {
     switch(category) {
       case 'AI/ML': return <Brain className="h-6 w-6" />;
@@ -177,7 +161,6 @@ const ExploreDataCareers = () => {
         </motion.div>
 
         <div className="grid gap-8 md:grid-cols-5">
-          {/* Filters - Desktop Sidebar */}
           <motion.div 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -281,7 +264,6 @@ const ExploreDataCareers = () => {
             </div>
           </motion.div>
 
-          {/* Mobile Filters */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -299,7 +281,7 @@ const ExploreDataCareers = () => {
                 />
               </div>
               <div className="flex justify-between gap-2">
-                <Select value={selectedCategory} onValueChange={setSelectedCategory} className="flex-1">
+                <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger>
                     <SelectValue placeholder="All Categories" />
                   </SelectTrigger>
@@ -311,7 +293,7 @@ const ExploreDataCareers = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={salaryFilter} onValueChange={setSalaryFilter} className="flex-1">
+                <Select value={salaryFilter} onValueChange={setSalaryFilter}>
                   <SelectTrigger>
                     <SelectValue placeholder="Salary" />
                   </SelectTrigger>
@@ -326,7 +308,6 @@ const ExploreDataCareers = () => {
             </div>
           </motion.div>
           
-          {/* Main Content */}
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
