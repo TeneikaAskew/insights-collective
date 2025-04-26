@@ -56,6 +56,11 @@ import CourseManagementDashboard from '@/components/course/management/CourseMana
 import CourseEditor from '@/components/course/management/CourseEditor';
 import CourseManageMaterials from './pages/CourseManageMaterials';
 
+// Import forum components
+import ForumList from './pages/ForumList';
+import ForumDetail from './pages/ForumDetail';
+import ThreadDetail from './pages/ThreadDetail';
+
 // Import the new AdminCourseEdit component
 import AdminCourseEdit from "./pages/AdminCourseEdit";
 import CareerAgent from "./pages/CareerAgent";
@@ -99,6 +104,12 @@ function App() {
                     <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />
                     <Route path="/courses" element={<ProtectedVisibleRoute><CourseList /></ProtectedVisibleRoute>} />
                     <Route path="/courses/:courseId" element={<ProtectedVisibleRoute><CourseDetail /></ProtectedVisibleRoute>} />
+                    
+                    {/* Forum routes */}
+                    <Route path="/courses/:courseId/forums" element={<ProtectedVisibleRoute><ForumList /></ProtectedVisibleRoute>} />
+                    <Route path="/courses/:courseId/forums/:forumId" element={<ProtectedVisibleRoute><ForumDetail /></ProtectedVisibleRoute>} />
+                    <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ProtectedVisibleRoute><ThreadDetail /></ProtectedVisibleRoute>} />
+                    
                     <Route path="/courses/:courseId/modules/:moduleId" element={<ProtectedVisibleRoute><ModuleDetail /></ProtectedVisibleRoute>} />
                     <Route path="/resources" element={<ProtectedVisibleRoute><Resources /></ProtectedVisibleRoute>} />
                     <Route path="/data-blueprint" element={<ProtectedVisibleRoute><DataBlueprintSeries /></ProtectedVisibleRoute>} />

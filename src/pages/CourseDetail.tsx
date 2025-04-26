@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -9,12 +8,13 @@ import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Share } from 'lucide-react';
+import { BookOpen, Clock, Users, Star, Calendar, GraduationCap, ChevronLeft, Share, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { isEnrolledInCourse, addEnrolledCourse, isWishlistedCourse, toggleWishlistedCourse, generatePersistentUUID, isValidUUID } from '@/utils/idUtils';
 import { Course } from '@/types';
+import { useForums } from '@/hooks/useForums';
 
 const CourseDetail = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -30,7 +30,6 @@ const CourseDetail = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
-  // Fetch course details from Supabase
   useEffect(() => {
     const fetchCourseData = async () => {
       if (!courseId) {
@@ -40,13 +39,11 @@ const CourseDetail = () => {
       }
 
       try {
-        // Validate UUID format for Supabase queries
         const courseUUID = generatePersistentUUID(courseId, 'course');
         if (!isValidUUID(courseUUID)) {
           throw new Error("Invalid course ID format");
         }
         
-        // Fetch course data
         const { data: courseData, error: courseError } = await supabase
           .from('courses')
           .select(`
@@ -64,7 +61,6 @@ const CourseDetail = () => {
         if (courseError) throw courseError;
         if (!courseData) throw new Error("Course not found");
 
-        // Fetch modules for this course
         const { data: modulesData, error: modulesError } = await supabase
           .from('modules')
           .select('*')
@@ -73,7 +69,6 @@ const CourseDetail = () => {
 
         if (modulesError) throw modulesError;
 
-        // Format course data to match the expected format
         const formattedCourse = {
           ...courseData,
           instructor: {
@@ -83,9 +78,9 @@ const CourseDetail = () => {
             role: 'instructor',
             avatar: courseData.instructor?.avatar_url || '',
           },
-          enrollmentCount: 0, // We'll get this in a separate query if needed
+          enrollmentCount: 0,
           modules: modulesData || [],
-          rating: 4.5, // Default if not available
+          rating: 4.5,
           createdAt: courseData.created_at,
           updatedAt: courseData.updated_at,
           thumbnail: courseData.image_url || courseData.thumbnail || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97',
@@ -109,20 +104,15 @@ const CourseDetail = () => {
     fetchCourseData();
   }, [courseId, toast]);
 
-  // Check enrollment and wishlist status
   useEffect(() => {
     if (!courseId) return;
     
-    // First check localStorage
     setIsEnrolled(isEnrolledInCourse(courseId));
     setIsWishlisted(isWishlistedCourse(courseId));
 
-    // If authenticated, also check Supabase
     if (isAuthenticated && user && courseId) {
-      // Check if user is enrolled
       const checkEnrollment = async () => {
         try {
-          // Generate consistent UUID for Supabase query
           const courseUUID = generatePersistentUUID(courseId, 'course');
           if (!isValidUUID(courseUUID)) {
             console.error(`Invalid course UUID: ${courseUUID} for course ID: ${courseId}`);
@@ -144,10 +134,8 @@ const CourseDetail = () => {
         }
       };
 
-      // Check if course is in wishlist
       const checkWishlist = async () => {
         try {
-          // Generate consistent UUID for Supabase query
           const courseUUID = generatePersistentUUID(courseId, 'course');
           if (!isValidUUID(courseUUID)) {
             console.error(`Invalid course UUID: ${courseUUID} for course ID: ${courseId}`);
@@ -194,10 +182,8 @@ const CourseDetail = () => {
       </AppLayout>;
   }
 
-  // Handle enrollment
   const handleEnroll = async () => {
     if (!isAuthenticated) {
-      // Store current path for redirect after login
       localStorage.setItem('redirectAfterLogin', `/courses/${courseId}`);
       navigate('/login', {
         state: {
@@ -211,19 +197,15 @@ const CourseDetail = () => {
     setEnrolling(true);
     
     try {
-      // Generate consistent UUID for Supabase
       const courseUUID = generatePersistentUUID(courseId, 'course');
       if (!isValidUUID(courseUUID)) {
         throw new Error(`Invalid course UUID format for course ID: ${courseId}`);
       }
       
-      // Update localStorage status first for immediate UI feedback
       addEnrolledCourse(courseId);
       setIsEnrolled(true);
 
-      // Then sync with Supabase if user is authenticated
       if (isAuthenticated && user) {
-        // Add enrollment to database
         const { error } = await supabase.from('enrollments').insert({
           user_id: user.id,
           course_id: courseUUID,
@@ -249,10 +231,8 @@ const CourseDetail = () => {
     }
   };
 
-  // Handle wishlist
   const handleWishlist = async () => {
     if (!isAuthenticated) {
-      // Store current path for redirect after login
       localStorage.setItem('redirectAfterLogin', `/courses/${courseId}`);
       navigate('/login', {
         state: {
@@ -266,20 +246,16 @@ const CourseDetail = () => {
     setAddingToWishlist(true);
     
     try {
-      // Generate consistent UUID for Supabase
       const courseUUID = generatePersistentUUID(courseId, 'course');
       if (!isValidUUID(courseUUID)) {
         throw new Error(`Invalid course UUID format for course ID: ${courseId}`);
       }
       
-      // Update localStorage status first for immediate UI feedback
       const newWishlistStatus = toggleWishlistedCourse(courseId);
       setIsWishlisted(newWishlistStatus);
 
-      // Then sync with Supabase if user is authenticated
       if (isAuthenticated && user) {
         if (newWishlistStatus) {
-          // Add to wishlist in Supabase
           const { error } = await supabase.from('course_wishlists').insert({
             user_id: user.id,
             course_id: courseUUID
@@ -287,7 +263,6 @@ const CourseDetail = () => {
           
           if (error) throw error;
         } else {
-          // Remove from wishlist in Supabase
           const { error } = await supabase.from('course_wishlists').delete()
             .eq('user_id', user.id)
             .eq('course_id', courseUUID);
@@ -308,14 +283,12 @@ const CourseDetail = () => {
         variant: "destructive"
       });
 
-      // Revert local state if Supabase operation failed
       setIsWishlisted(!isWishlisted);
     } finally {
       setAddingToWishlist(false);
     }
   };
 
-  // Handle sharing
   const handleShare = (platform: string) => {
     const url = window.location.href;
     const title = `Check out this course: ${course.title}`;
@@ -331,7 +304,6 @@ const CourseDetail = () => {
         window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, '_blank');
         break;
       case 'instagram':
-        // Instagram doesn't have a direct share URL, copy to clipboard instead
         navigator.clipboard.writeText(url).then(() => {
           toast({
             title: "Link copied",
@@ -349,8 +321,9 @@ const CourseDetail = () => {
     }
   };
 
-  // Calculate overall progress (would come from the database in a real app)
   const overallProgress = course.modules.reduce((sum, module) => sum + (module.completionStatus || 0), 0) / (course.modules.length || 1);
+  
+  const { forums, isLoadingForums } = useForums(courseId!);
   
   return (
     <AppLayout>
@@ -426,6 +399,7 @@ const CourseDetail = () => {
             <Tabs defaultValue="modules">
               <TabsList>
                 <TabsTrigger value="modules">Modules</TabsTrigger>
+                <TabsTrigger value="forums">Forums</TabsTrigger>
                 <TabsTrigger value="overview">Course Overview</TabsTrigger>
                 <TabsTrigger value="materials">Materials</TabsTrigger>
                 <TabsTrigger value="discussions">Discussions</TabsTrigger>
@@ -447,6 +421,73 @@ const CourseDetail = () => {
                   ) : (
                     <div className="text-center p-8 border rounded-lg bg-muted/20">
                       <p>No modules available for this course yet.</p>
+                    </div>
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="forums" className="space-y-6 mt-6">
+                <div>
+                  <div className="flex justify-between items-center mb-4">
+                    <div>
+                      <h2 className="text-2xl font-bold mb-2">Course Forums</h2>
+                      <p className="text-muted-foreground">
+                        Engage in discussions with fellow students and instructors.
+                      </p>
+                    </div>
+                    <Button asChild>
+                      <Link to={`/courses/${courseId}/forums`}>
+                        <MessageSquare className="h-4 w-4 mr-2" />
+                        View All Forums
+                      </Link>
+                    </Button>
+                  </div>
+                  
+                  {isLoadingForums ? (
+                    <div className="space-y-4">
+                      <Card className="p-8">
+                        <div className="animate-pulse flex space-x-4">
+                          <div className="flex-1 space-y-4 py-1">
+                            <div className="h-4 bg-muted rounded w-3/4"></div>
+                            <div className="h-4 bg-muted rounded"></div>
+                            <div className="h-4 bg-muted rounded w-5/6"></div>
+                          </div>
+                        </div>
+                      </Card>
+                    </div>
+                  ) : forums && forums.length > 0 ? (
+                    <div className="space-y-4">
+                      {forums.slice(0, 3).map(forum => (
+                        <Link key={forum.id} to={`/courses/${courseId}/forums/${forum.id}`}>
+                          <Card className="hover:bg-muted/50 transition-colors">
+                            <CardContent className="p-4">
+                              <h3 className="text-lg font-semibold mb-1">{forum.title}</h3>
+                              <p className="text-muted-foreground text-sm mb-2">{forum.description}</p>
+                              <div className="flex justify-end">
+                                <Button variant="outline" size="sm">
+                                  <MessageSquare className="h-4 w-4 mr-1" />
+                                  Browse Threads
+                                </Button>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
+                      {forums.length > 3 && (
+                        <div className="text-center mt-2">
+                          <Button variant="link" asChild>
+                            <Link to={`/courses/${courseId}/forums`}>
+                              View All {forums.length} Forums
+                            </Link>
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center p-8 border rounded-lg bg-muted/20">
+                      <MessageSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No Forums Yet</h3>
+                      <p className="text-muted-foreground">Forums for this course will appear here once they're available.</p>
                     </div>
                   )}
                 </div>
