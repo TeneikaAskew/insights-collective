@@ -127,16 +127,6 @@ export const reducer = (state: State, action: Action): State => {
   }
 }
 
-const ToastContext = React.createContext<{
-  toasts: ToasterToast[]
-  toast: (props: Omit<ToasterToast, "id">) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
-  dismiss: (toastId?: string) => void
-}>({
-  toasts: [],
-  toast: () => ({ id: "", dismiss: () => {}, update: () => {} }),
-  dismiss: () => {},
-})
-
 let memoryState: State = { toasts: [] }
 
 let listeners: Array<(state: State) => void> = []
@@ -148,6 +138,18 @@ function dispatch(action: Action) {
   })
 }
 
+// Creating a toast context
+const ToastContext = React.createContext<{
+  toasts: ToasterToast[]
+  toast: (props: Omit<ToasterToast, "id">) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
+  dismiss: (toastId?: string) => void
+}>({
+  toasts: [],
+  toast: () => ({ id: "", dismiss: () => {}, update: () => {} }),
+  dismiss: () => {},
+})
+
+// Toast function to add new toasts
 function toast({ ...props }: Toast) {
   const id = genId()
 
@@ -177,32 +179,38 @@ function toast({ ...props }: Toast) {
   }
 }
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<State>(memoryState)
+// Component that provides toast context
+export const ToastProvider = React.memo(
+  ({ children }: { children: React.ReactNode }) => {
+    const [state, setState] = React.useState<State>(memoryState)
 
-  React.useEffect(() => {
-    listeners.push(setState)
-    return () => {
-      const index = listeners.indexOf(setState)
-      if (index > -1) {
-        listeners.splice(index, 1)
+    React.useEffect(() => {
+      listeners.push(setState)
+      return () => {
+        const index = listeners.indexOf(setState)
+        if (index > -1) {
+          listeners.splice(index, 1)
+        }
       }
-    }
-  }, [state])
+    }, [state])
 
-  return (
-    <ToastContext.Provider
-      value={{
-        toasts: state.toasts,
-        toast,
-        dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
-      }}
-    >
-      {children}
-    </ToastContext.Provider>
-  )
-}
+    return (
+      <ToastContext.Provider
+        value={{
+          toasts: state.toasts,
+          toast,
+          dismiss: (toastId?: string) => dispatch({ type: "DISMISS_TOAST", toastId }),
+        }}
+      >
+        {children}
+      </ToastContext.Provider>
+    )
+  }
+)
 
+ToastProvider.displayName = "ToastProvider"
+
+// Hook for consuming toast context
 export function useToast() {
   const context = React.useContext(ToastContext)
   
