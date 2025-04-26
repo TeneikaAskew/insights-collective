@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -53,10 +54,10 @@ const ExploreDataCareers = () => {
     )
   ).sort();
   
-  const matchesSalaryFilter = (salary: string | undefined, filter: string) => {
-    if (!salary) return false;
+  const matchesSalaryFilter = (role: { compensation?: string } | undefined, filter: string) => {
+    if (!role || !role.compensation) return false;
     
-    const numbers = salary.match(/\d+/g)?.map(Number);
+    const numbers = role.compensation.match(/\d+/g)?.map(Number);
     if (!numbers || numbers.length < 1) return false;
     
     const avgSalary = numbers.reduce((a, b) => a + b, 0) / numbers.length;
@@ -84,8 +85,7 @@ const ExploreDataCareers = () => {
         Array.isArray(role.skills) && role.skills.includes(skill)
       ));
     
-    const matchesSalary = salaryFilter === 'all' || 
-      (role.salary && matchesSalaryFilter(role.salary, salaryFilter));
+    const matchesSalary = salaryFilter === 'all' || matchesSalaryFilter(role, salaryFilter);
     
     return matchesSearch && matchesCategory && matchesSkills && matchesSalary;
   });
