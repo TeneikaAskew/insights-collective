@@ -127,7 +127,6 @@ export const reducer = (state: State, action: Action): State => {
   }
 }
 
-// Create a separate context to avoid React Hook violations
 const ToastContext = React.createContext<{
   toasts: ToasterToast[]
   toast: (props: Omit<ToasterToast, "id">) => { id: string; dismiss: () => void; update: (props: ToasterToast) => void }
@@ -138,9 +137,9 @@ const ToastContext = React.createContext<{
   dismiss: () => {},
 })
 
-const listeners: Array<(state: State) => void> = []
-
 let memoryState: State = { toasts: [] }
+
+let listeners: Array<(state: State) => void> = []
 
 function dispatch(action: Action) {
   memoryState = reducer(memoryState, action)
@@ -178,7 +177,6 @@ function toast({ ...props }: Toast) {
   }
 }
 
-// Create a proper Provider component
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<State>(memoryState)
 
@@ -205,7 +203,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Update useToast to use the context properly
 export function useToast() {
   const context = React.useContext(ToastContext)
   
