@@ -55,12 +55,19 @@ const ExploreDataCareers = () => {
   ).sort();
   
   const matchesSalaryFilter = (role: typeof dataCareerRoles[0], filter: string) => {
-    if (!role || !role.compensation) return false;
+    if (!role) return false;
     
-    const numbers = role.compensation.match(/\d+/g)?.map(Number);
-    if (!numbers || numbers.length < 1) return false;
+    // Get salary range from the salary or salaryRange property
+    // Try to extract numbers from the description if needed
+    const salaryText = role.description || '';
+    const numbers = salaryText.match(/\d+k|\$\d+,\d+|\d+,\d+|\$\d+k/g);
+    if (!numbers || numbers.length < 1) return true; // If no salary info found, include it in results
     
-    const avgSalary = numbers.reduce((a, b) => a + b, 0) / numbers.length;
+    // Estimate an average salary based on extracted numbers
+    const cleanNumbers = numbers.map(num => 
+      parseInt(num.replace(/[$,k]/g, '')) * (num.includes('k') ? 1000 : 1)
+    );
+    const avgSalary = cleanNumbers.reduce((a, b) => a + b, 0) / cleanNumbers.length;
     
     switch(filter) {
       case 'under-80k': return avgSalary < 80000;
