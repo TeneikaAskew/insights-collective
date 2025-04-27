@@ -57,9 +57,9 @@ const ExploreDataCareers = () => {
   const matchesSalaryFilter = (role: typeof dataCareerRoles[0], filter: string) => {
     if (!role) return false;
     
-    // Get salary range from the salary or salaryRange property
-    // Try to extract numbers from the description if needed
-    const salaryText = role.description || '';
+    // Get salary range from the longDescription or shortDescription
+    // Try to extract numbers from these fields if needed
+    const salaryText = role.longDescription || role.shortDescription || '';
     const numbers = salaryText.match(/\d+k|\$\d+,\d+|\d+,\d+|\$\d+k/g);
     if (!numbers || numbers.length < 1) return true; // If no salary info found, include it in results
     
