@@ -35,7 +35,7 @@ const AppSidebar = () => {
       title: "Courses",
       url: "/courses",
       icon: BookOpen,
-      active: location.pathname.startsWith('/courses'),
+      active: location.pathname.startsWith('/courses') && !location.pathname.includes('/forums'),
     },
     {
       title: "Resources",
@@ -71,7 +71,7 @@ const AppSidebar = () => {
       title: "Forums",
       url: "/forums",
       icon: MessageSquare,
-      active: location.pathname === '/forums' || location.pathname.startsWith('/forums/'),
+      active: location.pathname === '/forums' || location.pathname.includes('/forums/') || location.pathname.includes('/threads/'),
     },
     {
       title: "Events",
@@ -199,20 +199,20 @@ const AppSidebar = () => {
   };
 
   return (
-    <Sidebar className="bg-gradient-to-b from-[#1A1F2C] to-[#0a1628] border-r border-gray-800 text-white">
-      <SidebarHeader className="border-b border-gray-800 px-2">
+    <Sidebar className="border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200">
+      <SidebarHeader className="border-b border-gray-200 dark:border-gray-800 px-2">
         <div className="flex items-center space-x-2 p-3">
           <Link to="/" className="flex items-center space-x-2">
             <div className="relative w-8 h-8 flex items-center justify-center rounded-md bg-gradient-to-tr from-[#9b87f5] to-[#7E69AB]">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
-            <span className="font-bold text-lg text-white">Insights Collective</span>
+            <span className="font-bold text-lg">Insights Collective</span>
           </Link>
         </div>
-        <SidebarTrigger className="text-gray-400 hover:text-white absolute right-2 top-3" />
+        <SidebarTrigger className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 absolute right-2 top-3" />
       </SidebarHeader>
       
-      <SidebarContent className="py-4 px-2">
+      <SidebarContent className="py-4 px-2 bg-gray-50 dark:bg-gray-900">
         {isAuthenticated && (
           <div className="mb-6 px-2">
             <div className="flex items-center space-x-3 mb-4">
@@ -226,14 +226,14 @@ const AppSidebar = () => {
                 <p className="font-medium text-sm">
                   {user?.name || user?.email?.split('@')[0] || 'User'}
                 </p>
-                <p className="text-xs text-gray-400">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
               </div>
             </div>
           </div>
         )}
       
         <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-400 font-medium px-3 py-2 text-xs uppercase tracking-wider">
+          <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-3 py-2 text-xs uppercase tracking-wider">
             Main Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -251,11 +251,11 @@ const AppSidebar = () => {
                       asChild
                       isActive={item.active}
                       className={`transition-all duration-200 ${item.active 
-                        ? 'bg-gradient-to-r from-[#9b87f5]/20 to-transparent text-white font-medium' 
-                        : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
+                        ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' 
+                        : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}
                     >
                       <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                        <item.icon className={`h-5 w-5 ${item.active ? 'text-[#9b87f5]' : 'text-gray-400'}`} />
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
                         <span>{item.title}</span>
                         {item.active && <div className="ml-auto">
                           <ChevronRight className="h-4 w-4 text-[#9b87f5]" />
@@ -271,7 +271,7 @@ const AppSidebar = () => {
         
         {isAuthenticated && (isAdmin || isInstructor) && (
           <SidebarGroup className="mt-6">
-            <SidebarGroupLabel className="text-gray-400 font-medium px-3 py-2 text-xs uppercase tracking-wider">
+            <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-3 py-2 text-xs uppercase tracking-wider">
               {isAdmin ? 'Administration' : 'Instructor Tools'}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -315,10 +315,10 @@ const AppSidebar = () => {
         )}
       </SidebarContent>
       
-      <SidebarFooter className="border-t border-gray-800 mt-auto p-4">
+      <SidebarFooter className="border-t border-gray-200 dark:border-gray-800 mt-auto p-4 bg-gray-50 dark:bg-gray-900">
         {!isAuthenticated ? (
           <div className="space-y-2 px-2">
-            <Button variant="outline" asChild className="w-full justify-start bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white">
+            <Button variant="outline" asChild className="w-full justify-start">
               <Link to="/login">Sign In</Link>
             </Button>
             <Button asChild className="w-full justify-start bg-[#9b87f5] hover:bg-[#8B5CF6] text-white">
@@ -326,7 +326,7 @@ const AppSidebar = () => {
             </Button>
           </div>
         ) : (
-          <div className="text-xs text-gray-400 px-2">
+          <div className="text-xs text-gray-500 dark:text-gray-400 px-2">
             <p>Insights Collective v1.0</p>
           </div>
         )}

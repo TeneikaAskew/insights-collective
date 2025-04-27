@@ -93,9 +93,9 @@ const ThreadDetailPage: React.FC = () => {
       <div className="container py-6 max-w-5xl">
         <div className="mb-4">
           <Button variant="ghost" size="sm" asChild className="mb-4">
-            <Link to="/forums">
+            <Link to={forumId ? `/courses/${courseId}/forums/${forumId}` : "/forums"}>
               <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Forums
+              Back to {forumId ? "Forum" : "Forums"}
             </Link>
           </Button>
         </div>

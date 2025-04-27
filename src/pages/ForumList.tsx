@@ -1,6 +1,6 @@
-
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import AppLayout from '@/components/layout/AppLayout';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -19,7 +19,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 
-// Mock forum categories
 const forumCategories = [
   {
     id: '1',
@@ -77,7 +76,6 @@ const forumCategories = [
   }
 ];
 
-// Mock recent threads
 const recentThreads = [
   {
     id: '101',
@@ -143,11 +141,9 @@ const NewThreadDialog = () => {
       return;
     }
     
-    // Here you would actually submit the new thread
     toast.success('Thread created successfully!');
     setOpen(false);
     
-    // Reset form
     setTitle('');
     setContent('');
     setCategory('');
@@ -240,7 +236,6 @@ const ForumListPage = () => {
   
   const applyFilters = () => {
     toast.success("Filters applied!");
-    // In a real app, this would trigger a data fetch with the selected filters
   };
   
   const filteredCategories = forumCategories.filter(category => 
@@ -258,10 +253,9 @@ const ForumListPage = () => {
      ))
   );
 
-  // If not authenticated, show a limited view with login wall
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <AppLayout>
         <Helmet>
           <title>Community Forums | Insights Collective</title>
         </Helmet>
@@ -273,7 +267,6 @@ const ForumListPage = () => {
               Join our community of data professionals to discuss techniques, share experiences, and grow together.
             </p>
             
-            {/* Preview of forum categories */}
             <div className="grid md:grid-cols-2 gap-4 mb-8">
               {forumCategories.slice(0, 4).map((category) => (
                 <Card key={category.id} className="border hover:border-primary/30 transition-colors duration-200">
@@ -320,12 +313,12 @@ const ForumListPage = () => {
         </div>
         
         <Footer />
-      </div>
+      </AppLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <AppLayout>
       <Helmet>
         <title>Community Forums | Insights Collective</title>
       </Helmet>
@@ -362,14 +355,14 @@ const ForumListPage = () => {
                           <div>
                             <CardTitle>
                               <span className="mr-2">{category.icon}</span>
-                              <Link to={`/forums/${category.id}`} className="hover:text-primary transition-colors">
+                              <Link to={`/courses/${category.id}/forums/${category.id}`} className="hover:text-primary transition-colors">
                                 {category.title}
                               </Link>
                             </CardTitle>
                             <CardDescription>{category.description}</CardDescription>
                           </div>
                           <Button variant="outline" size="sm" asChild>
-                            <Link to={`/forums/${category.id}`}>View Threads</Link>
+                            <Link to={`/courses/${category.id}/forums/${category.id}`}>View Threads</Link>
                           </Button>
                         </div>
                       </CardHeader>
@@ -408,7 +401,7 @@ const ForumListPage = () => {
                         <div className="flex justify-between">
                           <div>
                             <div className="flex items-center gap-2 mb-2">
-                              <Link to={`/forums/thread/${thread.id}`} className="font-medium text-lg hover:text-primary transition-colors">
+                              <Link to={`/courses/1/forums/1/threads/${thread.id}`} className="font-medium text-lg hover:text-primary transition-colors">
                                 {thread.title}
                               </Link>
                               {thread.isHot && (
@@ -429,7 +422,7 @@ const ForumListPage = () => {
                             </div>
                           </div>
                           <Button variant="ghost" size="sm" asChild>
-                            <Link to={`/forums/thread/${thread.id}`}>View</Link>
+                            <Link to={`/courses/1/forums/1/threads/${thread.id}`}>View</Link>
                           </Button>
                         </div>
                       </CardContent>
@@ -453,7 +446,7 @@ const ForumListPage = () => {
                         <div className="flex justify-between">
                           <div>
                             <div className="flex items-center gap-2 mb-2">
-                              <Link to={`/forums/thread/${thread.id}`} className="font-medium text-lg hover:text-primary transition-colors">
+                              <Link to={`/courses/1/forums/1/threads/${thread.id}`} className="font-medium text-lg hover:text-primary transition-colors">
                                 {thread.title}
                               </Link>
                               <Badge className="bg-blue-100 text-blue-600 hover:bg-blue-100">
@@ -470,7 +463,7 @@ const ForumListPage = () => {
                             </div>
                           </div>
                           <Button variant="ghost" size="sm" asChild>
-                            <Link to={`/forums/thread/${thread.id}`}>View</Link>
+                            <Link to={`/courses/1/forums/1/threads/${thread.id}`}>View</Link>
                           </Button>
                         </div>
                       </CardContent>
@@ -499,7 +492,7 @@ const ForumListPage = () => {
               </CardContent>
             </Card>
             
-            <Card>
+            <Card className="md:block hidden">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg">Filter Discussions</CardTitle>
               </CardHeader>
@@ -566,7 +559,7 @@ const ForumListPage = () => {
       </div>
       
       <Footer />
-    </div>
+    </AppLayout>
   );
 };
 
