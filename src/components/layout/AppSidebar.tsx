@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -66,6 +66,12 @@ const AppSidebar = () => {
       url: "/career-agent",
       icon: Bot,
       active: location.pathname === '/career-agent',
+    },
+    {
+      title: "AI & Automation Fellowship",
+      url: "/survey",
+      icon: FileCheck,
+      active: location.pathname === '/survey' || location.pathname === '/survey-confirmation',
     },
     {
       title: "Forums",

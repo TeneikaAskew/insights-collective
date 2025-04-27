@@ -32,6 +32,8 @@ import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
 import CareerPathway from "./pages/CareerPathway";
+import SurveyApplication from "./pages/SurveyApplication";
+import SurveyConfirmation from "./pages/SurveyConfirmation";
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -106,6 +108,8 @@ function App() {
                   <Route path="/data-blueprint" element={<DataBlueprintSeries />} />
                   <Route path="/events" element={<Events />} />
                   <Route path="/forums" element={<ForumList />} />
+                  <Route path="/survey" element={<SurveyApplication />} />
+                  <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
                   
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />
