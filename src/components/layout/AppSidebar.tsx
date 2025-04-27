@@ -50,7 +50,7 @@ const AppSidebar = () => {
       active: location.pathname === '/data-blueprint',
     },
     {
-      title: "Explore Data Careers",
+      title: "Explore Careers",
       url: "/explore-data-careers",
       icon: Compass,
       active: location.pathname === '/explore-data-careers',
@@ -199,11 +199,11 @@ const AppSidebar = () => {
   };
 
   return (
-    <Sidebar className="bg-gradient-to-b from-viraDeepBlue to-[#0a1628] border-r border-gray-800 text-white">
+    <Sidebar className="bg-gradient-to-b from-[#1A1F2C] to-[#0a1628] border-r border-gray-800 text-white">
       <SidebarHeader className="border-b border-gray-800 px-2">
         <div className="flex items-center space-x-2 p-3">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="relative w-8 h-8 flex items-center justify-center rounded-md bg-gradient-to-tr from-blue-500 to-primary">
+            <div className="relative w-8 h-8 flex items-center justify-center rounded-md bg-gradient-to-tr from-[#9b87f5] to-[#7E69AB]">
               <GraduationCap className="h-5 w-5 text-white" />
             </div>
             <span className="font-bold text-lg text-white">Insights Collective</span>
@@ -216,9 +216,9 @@ const AppSidebar = () => {
         {isAuthenticated && (
           <div className="mb-6 px-2">
             <div className="flex items-center space-x-3 mb-4">
-              <Avatar className="border-2 border-primary/20">
+              <Avatar className="border-2 border-[#9b87f5]/20">
                 <AvatarImage src={user?.avatar || ''} alt="User avatar" />
-                <AvatarFallback className="bg-primary/10 text-primary">
+                <AvatarFallback className="bg-[#9b87f5]/10 text-[#9b87f5]">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
@@ -251,14 +251,14 @@ const AppSidebar = () => {
                       asChild
                       isActive={item.active}
                       className={`transition-all duration-200 ${item.active 
-                        ? 'bg-gradient-to-r from-primary/20 to-transparent text-white font-medium' 
+                        ? 'bg-gradient-to-r from-[#9b87f5]/20 to-transparent text-white font-medium' 
                         : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
                     >
                       <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                        <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-400'}`} />
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-[#9b87f5]' : 'text-gray-400'}`} />
                         <span>{item.title}</span>
                         {item.active && <div className="ml-auto">
-                          <ChevronRight className="h-4 w-4" />
+                          <ChevronRight className="h-4 w-4 text-[#9b87f5]" />
                         </div>}
                       </Link>
                     </SidebarMenuButton>
@@ -282,14 +282,14 @@ const AppSidebar = () => {
                       asChild
                       isActive={item.active}
                       className={`transition-all duration-200 ${item.active 
-                        ? 'bg-gradient-to-r from-primary/20 to-transparent text-white font-medium' 
+                        ? 'bg-gradient-to-r from-[#9b87f5]/20 to-transparent text-white font-medium' 
                         : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
                     >
                       <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                        <item.icon className={`h-5 w-5 ${item.active ? 'text-primary' : 'text-gray-400'}`} />
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-[#9b87f5]' : 'text-gray-400'}`} />
                         <span>{item.title}</span>
                         {item.active && <div className="ml-auto">
-                          <ChevronRight className="h-4 w-4" />
+                          <ChevronRight className="h-4 w-4 text-[#9b87f5]" />
                         </div>}
                       </Link>
                     </SidebarMenuButton>
@@ -318,10 +318,12 @@ const AppSidebar = () => {
       <SidebarFooter className="border-t border-gray-800 mt-auto p-4">
         {!isAuthenticated ? (
           <div className="space-y-2 px-2">
-            <Button variant="outline" className="w-full justify-start bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white">
-              Sign In
+            <Button variant="outline" asChild className="w-full justify-start bg-white/5 border-white/10 text-white hover:bg-white/10 hover:text-white">
+              <Link to="/login">Sign In</Link>
             </Button>
-            <Button className="w-full justify-start">Create Account</Button>
+            <Button asChild className="w-full justify-start bg-[#9b87f5] hover:bg-[#8B5CF6] text-white">
+              <Link to="/register">Create Account</Link>
+            </Button>
           </div>
         ) : (
           <div className="text-xs text-gray-400 px-2">

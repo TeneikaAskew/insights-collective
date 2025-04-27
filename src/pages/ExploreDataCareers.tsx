@@ -54,7 +54,7 @@ const ExploreDataCareers = () => {
     )
   ).sort();
   
-  const matchesSalaryFilter = (role: { compensation?: string } | undefined, filter: string) => {
+  const matchesSalaryFilter = (role: typeof dataCareerRoles[0], filter: string) => {
     if (!role || !role.compensation) return false;
     
     const numbers = role.compensation.match(/\d+/g)?.map(Number);
@@ -143,7 +143,7 @@ const ExploreDataCareers = () => {
   return (
     <AppLayout>
       <Helmet>
-        <title>Explore Data Careers | Insights Collective</title>
+        <title>Explore Careers | Insights Collective</title>
         <meta name="description" content="Discover the wide range of career paths available in the data industry" />
       </Helmet>
       
@@ -154,7 +154,7 @@ const ExploreDataCareers = () => {
           transition={{ duration: 0.5 }}
           className="space-y-2"
         >
-          <h1 className="text-4xl font-bold tracking-tight text-energeticAmber">Explore Data Careers</h1>
+          <h1 className="text-4xl font-bold tracking-tight text-energeticAmber">Explore Careers</h1>
           <p className="text-xl text-muted-foreground max-w-3xl">
             Browse real-world roles across data science, analytics, engineering, and AI to see which one fits your strengths and interests.
           </p>
@@ -165,9 +165,9 @@ const ExploreDataCareers = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="hidden md:block space-y-6"
+            className="md:block space-y-6"
           >
-            <div className="bg-primary/5 rounded-xl p-5 space-y-5">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 space-y-5 shadow-md">
               <div className="space-y-3">
                 <h3 className="font-medium flex items-center">
                   <Filter className="h-4 w-4 mr-2" />
@@ -225,7 +225,7 @@ const ExploreDataCareers = () => {
               <div className="space-y-3">
                 <h3 className="font-medium">Salary Range</h3>
                 <Select value={salaryFilter} onValueChange={setSalaryFilter}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger>
                     <SelectValue placeholder="All Salary Ranges" />
                   </SelectTrigger>
                   <SelectContent>
@@ -253,13 +253,21 @@ const ExploreDataCareers = () => {
               )}
             </div>
 
-            <div className="bg-primary/5 rounded-xl p-5 space-y-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 space-y-4 shadow-md">
               <h3 className="font-medium">Career Resources</h3>
               <div className="space-y-3">
-                <Button variant="link" className="justify-start p-0 h-auto">Salary Guide 2025</Button>
-                <Button variant="link" className="justify-start p-0 h-auto">Skills Assessment</Button>
-                <Button variant="link" className="justify-start p-0 h-auto">Career Path Planner</Button>
-                <Button variant="link" className="justify-start p-0 h-auto">Interview Preparation</Button>
+                <Button variant="link" className="justify-start p-0 h-auto" asChild>
+                  <a href="/resources/salary-guide">Salary Guide 2025</a>
+                </Button>
+                <Button variant="link" className="justify-start p-0 h-auto" asChild>
+                  <a href="/career-pathway/skills-assessment">Skills Assessment</a>
+                </Button>
+                <Button variant="link" className="justify-start p-0 h-auto" asChild>
+                  <a href="/career-pathway/planner">Career Path Planner</a>
+                </Button>
+                <Button variant="link" className="justify-start p-0 h-auto" asChild>
+                  <a href="/resources/interview-prep">Interview Preparation</a>
+                </Button>
               </div>
             </div>
           </motion.div>

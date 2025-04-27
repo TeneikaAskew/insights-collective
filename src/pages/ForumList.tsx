@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import Footer from '@/components/layout/Footer';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import LoginWall from '@/components/common/LoginWall';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
 
 // Mock forum categories
 const forumCategories = [
@@ -126,9 +131,132 @@ const recentThreads = [
   }
 ];
 
+const NewThreadDialog = () => {
+  const [title, setTitle] = useState('');
+  const [content, setContent] = useState('');
+  const [category, setCategory] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const handleSubmit = () => {
+    if (!title || !content || !category) {
+      toast.error('Please fill in all fields.');
+      return;
+    }
+    
+    // Here you would actually submit the new thread
+    toast.success('Thread created successfully!');
+    setOpen(false);
+    
+    // Reset form
+    setTitle('');
+    setContent('');
+    setCategory('');
+  };
+  
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="flex items-center">
+          <PlusCircle className="mr-2 h-4 w-4" /> New Thread
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Create New Thread</DialogTitle>
+          <DialogDescription>
+            Start a new discussion in the community forum.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="thread-title" className="text-right">
+              Title
+            </Label>
+            <Input
+              id="thread-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="col-span-3"
+              placeholder="Enter a descriptive title"
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="thread-category" className="text-right">
+              Category
+            </Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {forumCategories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    {category.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="thread-content" className="text-right self-start">
+              Content
+            </Label>
+            <Textarea
+              id="thread-content"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              className="col-span-3"
+              placeholder="Write your thread content here..."
+              rows={5}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button type="submit" onClick={handleSubmit}>Create Thread</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 const ForumListPage = () => {
   const { isAuthenticated } = useAuth();
   const { navigateWithAuth } = useAuthenticatedNavigation();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedTimePeriod, setSelectedTimePeriod] = useState<string>('');
+  
+  const toggleCategory = (category: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(category) 
+        ? prev.filter(c => c !== category) 
+        : [...prev, category]
+    );
+  };
+  
+  const toggleTimePeriod = (period: string) => {
+    setSelectedTimePeriod(prev => prev === period ? '' : period);
+  };
+  
+  const applyFilters = () => {
+    toast.success("Filters applied!");
+    // In a real app, this would trigger a data fetch with the selected filters
+  };
+  
+  const filteredCategories = forumCategories.filter(category => 
+    category.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    category.description.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
+  const filteredThreads = recentThreads.filter(thread => 
+    (thread.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     thread.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+     thread.category.toLowerCase().includes(searchQuery.toLowerCase())) &&
+    (selectedCategories.length === 0 || 
+     selectedCategories.some(c => 
+      forumCategories.find(fc => fc.id === c)?.title === thread.category
+     ))
+  );
 
   // If not authenticated, show a limited view with login wall
   if (!isAuthenticated) {
@@ -212,9 +340,7 @@ const ForumListPage = () => {
           </div>
           
           <div className="flex gap-2">
-            <Button className="flex items-center" onClick={() => navigateWithAuth('/forums/new-post', { requireAuth: true })}>
-              <PlusCircle className="mr-2 h-4 w-4" /> New Thread
-            </Button>
+            <NewThreadDialog />
           </div>
         </div>
         
@@ -228,82 +354,98 @@ const ForumListPage = () => {
               </TabsList>
               
               <TabsContent value="categories" className="space-y-4">
-                {forumCategories.map((category) => (
-                  <Card key={category.id} className="border hover:border-primary/30 transition-colors duration-200">
-                    <CardHeader className="pb-2">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <CardTitle>
-                            <span className="mr-2">{category.icon}</span>
-                            <Link to={`/forums/${category.id}`} className="hover:text-primary transition-colors">
-                              {category.title}
-                            </Link>
-                          </CardTitle>
-                          <CardDescription>{category.description}</CardDescription>
+                {filteredCategories.length > 0 ? (
+                  filteredCategories.map((category) => (
+                    <Card key={category.id} className="border hover:border-primary/30 transition-colors duration-200">
+                      <CardHeader className="pb-2">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <CardTitle>
+                              <span className="mr-2">{category.icon}</span>
+                              <Link to={`/forums/${category.id}`} className="hover:text-primary transition-colors">
+                                {category.title}
+                              </Link>
+                            </CardTitle>
+                            <CardDescription>{category.description}</CardDescription>
+                          </div>
+                          <Button variant="outline" size="sm" asChild>
+                            <Link to={`/forums/${category.id}`}>View Threads</Link>
+                          </Button>
                         </div>
-                        <Button variant="outline" size="sm" asChild>
-                          <Link to={`/forums/${category.id}`}>View Threads</Link>
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="pb-4">
-                      <div className="flex gap-6 text-sm text-muted-foreground">
-                        <div className="flex items-center">
-                          <MessageSquare className="h-4 w-4 mr-1" />
-                          <span>{category.threads} threads</span>
+                      </CardHeader>
+                      <CardContent className="pb-4">
+                        <div className="flex gap-6 text-sm text-muted-foreground">
+                          <div className="flex items-center">
+                            <MessageSquare className="h-4 w-4 mr-1" />
+                            <span>{category.threads} threads</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Users className="h-4 w-4 mr-1" />
+                            <span>{category.participants} participants</span>
+                          </div>
+                          <div className="flex items-center">
+                            <Clock className="h-4 w-4 mr-1" />
+                            <span>Last post: {category.lastPost}</span>
+                          </div>
                         </div>
-                        <div className="flex items-center">
-                          <Users className="h-4 w-4 mr-1" />
-                          <span>{category.participants} participants</span>
-                        </div>
-                        <div className="flex items-center">
-                          <Clock className="h-4 w-4 mr-1" />
-                          <span>Last post: {category.lastPost}</span>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-12 bg-muted/50 rounded-lg">
+                    <MessageSquare className="h-16 w-16 text-muted-foreground/40 mx-auto mb-4" />
+                    <h3 className="text-xl font-medium mb-2">No categories match your search</h3>
+                    <p className="text-muted-foreground">Try adjusting your search criteria</p>
+                  </div>
+                )}
               </TabsContent>
               
               <TabsContent value="recent" className="space-y-4">
-                {recentThreads.map((thread) => (
-                  <Card key={thread.id} className="border hover:border-primary/30 transition-colors duration-200">
-                    <CardContent className="py-4">
-                      <div className="flex justify-between">
-                        <div>
-                          <div className="flex items-center gap-2 mb-2">
-                            <Link to={`/forums/thread/${thread.id}`} className="font-medium text-lg hover:text-primary transition-colors">
-                              {thread.title}
-                            </Link>
-                            {thread.isHot && (
-                              <Badge className="bg-red-100 text-red-600 hover:bg-red-100">Hot</Badge>
-                            )}
+                {filteredThreads.length > 0 ? (
+                  filteredThreads.map((thread) => (
+                    <Card key={thread.id} className="border hover:border-primary/30 transition-colors duration-200">
+                      <CardContent className="py-4">
+                        <div className="flex justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 mb-2">
+                              <Link to={`/forums/thread/${thread.id}`} className="font-medium text-lg hover:text-primary transition-colors">
+                                {thread.title}
+                              </Link>
+                              {thread.isHot && (
+                                <Badge className="bg-red-100 text-red-600 hover:bg-red-100">Hot</Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                              <span>By {thread.author}</span>
+                              <Badge variant="outline">{thread.category}</Badge>
+                              <span className="flex items-center">
+                                <MessageSquare className="h-3 w-3 mr-1" />
+                                {thread.replies} replies
+                              </span>
+                              <span className="flex items-center">
+                                <Clock className="h-3 w-3 mr-1" />
+                                {thread.lastActivity}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>By {thread.author}</span>
-                            <Badge variant="outline">{thread.category}</Badge>
-                            <span className="flex items-center">
-                              <MessageSquare className="h-3 w-3 mr-1" />
-                              {thread.replies} replies
-                            </span>
-                            <span className="flex items-center">
-                              <Clock className="h-3 w-3 mr-1" />
-                              {thread.lastActivity}
-                            </span>
-                          </div>
+                          <Button variant="ghost" size="sm" asChild>
+                            <Link to={`/forums/thread/${thread.id}`}>View</Link>
+                          </Button>
                         </div>
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/forums/thread/${thread.id}`}>View</Link>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="text-center py-12 bg-muted/50 rounded-lg">
+                    <MessageSquare className="h-16 w-16 text-muted-foreground/40 mx-auto mb-4" />
+                    <h3 className="text-xl font-medium mb-2">No threads match your search</h3>
+                    <p className="text-muted-foreground">Try adjusting your search criteria</p>
+                  </div>
+                )}
               </TabsContent>
               
               <TabsContent value="popular" className="space-y-4">
-                {recentThreads
+                {filteredThreads
                   .sort((a, b) => b.views - a.views)
                   .map((thread) => (
                     <Card key={thread.id} className="border hover:border-primary/30 transition-colors duration-200">
@@ -350,6 +492,8 @@ const ForumListPage = () => {
                     type="search"
                     placeholder="Search discussions..."
                     className="pl-8"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
               </CardContent>
@@ -363,9 +507,14 @@ const ForumListPage = () => {
                 <div>
                   <label className="text-sm font-medium mb-1 block">Categories</label>
                   <div className="flex flex-wrap gap-2">
-                    {['Data Engineering', 'ML/AI', 'Analytics', 'BI', 'Career'].map(cat => (
-                      <Badge key={cat} variant="outline" className="cursor-pointer hover:bg-muted">
-                        {cat}
+                    {forumCategories.map(cat => (
+                      <Badge 
+                        key={cat.id} 
+                        variant={selectedCategories.includes(cat.id) ? "default" : "outline"} 
+                        className="cursor-pointer"
+                        onClick={() => toggleCategory(cat.id)}
+                      >
+                        {cat.title.split(' & ')[0]}
                       </Badge>
                     ))}
                   </div>
@@ -374,13 +523,18 @@ const ForumListPage = () => {
                   <label className="text-sm font-medium mb-1 block">Time Period</label>
                   <div className="flex flex-wrap gap-2">
                     {['Today', 'This Week', 'This Month', 'All Time'].map(time => (
-                      <Badge key={time} variant="outline" className="cursor-pointer hover:bg-muted">
+                      <Badge 
+                        key={time} 
+                        variant={selectedTimePeriod === time ? "default" : "outline"} 
+                        className="cursor-pointer"
+                        onClick={() => toggleTimePeriod(time)}
+                      >
                         {time}
                       </Badge>
                     ))}
                   </div>
                 </div>
-                <Button variant="outline" size="sm" className="w-full">
+                <Button onClick={applyFilters} variant="outline" size="sm" className="w-full">
                   <Filter className="h-4 w-4 mr-2" /> Apply Filters
                 </Button>
               </CardContent>
