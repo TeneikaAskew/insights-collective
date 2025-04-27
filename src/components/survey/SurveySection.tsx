@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { useFormContext } from 'react-hook-form';
-import { SurveyField } from '@/components/survey/SurveyField';
+import SurveyField from '@/components/survey/SurveyField';
 import { SectionData } from '@/data/surveyData';
 
 interface SurveySectionProps {
