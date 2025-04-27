@@ -512,6 +512,42 @@ export type Database = {
         }
         Relationships: []
       }
+      forms: {
+        Row: {
+          created_at: string
+          deadline: string | null
+          description: string | null
+          form_data: Json | null
+          form_link: string
+          id: string
+          status: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deadline?: string | null
+          description?: string | null
+          form_data?: Json | null
+          form_link: string
+          id?: string
+          status?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deadline?: string | null
+          description?: string | null
+          form_data?: Json | null
+          form_link?: string
+          id?: string
+          status?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       forums: {
         Row: {
           allow_create_threads: boolean

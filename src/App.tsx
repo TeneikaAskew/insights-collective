@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,6 +46,7 @@ import AdminEvents from "./pages/AdminEvents";
 import AdminBlogPosts from "./pages/AdminBlogPosts";
 import CreateBlogPost from "./pages/CreateBlogPost";
 import AdminPageVisibility from "./pages/AdminPageVisibility";
+import AdminForms from "./pages/AdminForms";
 
 // Import guards and layout components
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -83,7 +83,7 @@ const ProtectedVisibleRoute = ({ children, requireAdmin = false }) => (
   </ProtectedRoute>
 );
 
-function App() {
+const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -145,6 +145,7 @@ function App() {
                   <Route path="/admin/blog/create" element={<ProtectedVisibleRoute requireAdmin><CreateBlogPost /></ProtectedVisibleRoute>} />
                   <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin><AdminPageVisibility /></ProtectedVisibleRoute>} />
                   <Route path="/components/LocalStorageDebug.tsx" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebug /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><AdminForms /></ProtectedVisibleRoute>} />
 
                   {/* Legacy redirects */}
                   <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
@@ -160,6 +161,6 @@ function App() {
       </BrowserRouter>
     </QueryClientProvider>
   );
-}
+};
 
 export default App;
