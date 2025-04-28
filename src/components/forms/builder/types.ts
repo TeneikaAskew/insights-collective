@@ -14,6 +14,7 @@ export interface FormBuilderProps {
     title: string;
     description: string;
     status: boolean;
+    slug?: string;
     form_structure?: FormStructure;
   } | null;
 }
@@ -34,4 +35,9 @@ export interface FieldEditorProps {
   fieldIndex: number;
   onUpdateField: (sectionId: string, fieldId: string, data: Partial<FormField>) => void;
   onRemoveField: (sectionId: string, fieldId: string) => void;
+}
+
+export interface FormListProps {
+  searchTerm?: string;
+  legacy?: boolean;
 }
