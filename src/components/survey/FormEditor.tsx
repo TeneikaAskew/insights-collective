@@ -17,9 +17,19 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
-export default function FormEditor() {
+interface FormEditorProps {
+  initialFormData?: {
+    id: string;
+    title: string;
+    description: string;
+    status: boolean;
+    form_structure?: FormStructure;
+  } | null;
+}
+
+export default function FormEditor({ initialFormData }: FormEditorProps) {
   const { slug } = useParams<{ slug: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialFormData);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -29,62 +39,69 @@ export default function FormEditor() {
     title: string;
     description: string;
     status: boolean;
-  } | null>(null);
+  } | null>(initialFormData || null);
 
   const [formStructure, setFormStructure] = useState<FormStructure>({
     sections: []
   });
 
-  // Load form data
   useEffect(() => {
-    const fetchForm = async () => {
-      if (!slug) return;
+    if (initialFormData) {
+      setFormData({
+        id: initialFormData.id,
+        title: initialFormData.title,
+        description: initialFormData.description,
+        status: initialFormData.status,
+      });
 
-      try {
-        const { data, error } = await supabase
-          .from('forms')
-          .select('*')
-          .eq('slug', slug)
-          .single();
-
-        if (error) throw error;
-
-        setFormData({
-          id: data.id,
-          title: data.title,
-          description: data.description || '',
-          status: data.status
+      if (initialFormData.form_structure && initialFormData.form_structure.sections) {
+        setFormStructure(initialFormData.form_structure);
+      } else {
+        setFormStructure({
+          sections: []
         });
-
-        // Initialize form structure
-        if (data.form_structure) {
-          setFormStructure(data.form_structure);
-        } else {
-          // Initialize with an empty section if no structure exists
-          setFormStructure({
-            sections: [
-              {
-                id: uuidv4(),
-                title: 'Section 1',
-                fields: []
-              }
-            ]
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching form:', error);
-        toast({
-          title: 'Error',
-          description: 'Could not load form data',
-          variant: 'destructive'
-        });
-      } finally {
-        setLoading(false);
       }
-    };
+      setLoading(false);
+    } else if (slug) {
+      const fetchForm = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('forms')
+            .select('*')
+            .eq('slug', slug)
+            .single();
 
-    fetchForm();
-  }, [slug, toast]);
+          if (error) throw error;
+
+          setFormData({
+            id: data.id,
+            title: data.title,
+            description: data.description || '',
+            status: data.status
+          });
+
+          if (data.form_structure && data.form_structure.sections) {
+            setFormStructure(data.form_structure);
+          } else {
+            setFormStructure({
+              sections: []
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching form:', error);
+          toast({
+            title: 'Error',
+            description: 'Could not load form data',
+            variant: 'destructive'
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchForm();
+    }
+  }, [initialFormData, slug, toast]);
 
   const handleSaveForm = async () => {
     if (!formData?.id) return;
@@ -117,16 +134,16 @@ export default function FormEditor() {
   };
 
   const addSection = () => {
-    setFormStructure({
+    setFormStructure(prevStructure => ({
       sections: [
-        ...formStructure.sections,
+        ...(prevStructure.sections || []),
         {
           id: uuidv4(),
-          title: `Section ${formStructure.sections.length + 1}`,
+          title: `Section ${(prevStructure.sections || []).length + 1}`,
           fields: []
         }
       ]
-    });
+    }));
   };
 
   const updateSection = (sectionId: string, data: Partial<FormSection>) => {
@@ -194,51 +211,48 @@ export default function FormEditor() {
     });
   };
 
-  // Handle drag and drop reordering
   const onDragEnd = (result: any) => {
     const { source, destination, type } = result;
     
-    // Dropped outside the list
     if (!destination) return;
 
-    // Handle sections reordering
     if (type === 'section') {
-      const newSections = Array.from(formStructure.sections);
-      const [removed] = newSections.splice(source.index, 1);
-      newSections.splice(destination.index, 0, removed);
-      
-      setFormStructure({
-        sections: newSections
-      });
+      const sections = Array.from(formStructure.sections || []);
+      if (sections.length > 0) {
+        const [removed] = sections.splice(source.index, 1);
+        sections.splice(destination.index, 0, removed);
+        
+        setFormStructure({
+          sections: sections
+        });
+      }
       return;
     }
     
-    // Handle fields reordering
-    const sourceSection = formStructure.sections.find(s => s.id === source.droppableId);
-    const destSection = formStructure.sections.find(s => s.id === destination.droppableId);
+    const sections = formStructure.sections || [];
+    const sourceSection = sections.find(s => s.id === source.droppableId);
+    const destSection = sections.find(s => s.id === destination.droppableId);
     
     if (!sourceSection || !destSection) return;
     
-    // If moving within the same section
     if (source.droppableId === destination.droppableId) {
-      const newFields = Array.from(sourceSection.fields);
+      const newFields = Array.from(sourceSection.fields || []);
       const [removed] = newFields.splice(source.index, 1);
       newFields.splice(destination.index, 0, removed);
       
       setFormStructure({
-        sections: formStructure.sections.map(section => 
+        sections: sections.map(section => 
           section.id === source.droppableId ? { ...section, fields: newFields } : section
         )
       });
     } else {
-      // Moving between sections
-      const sourceFields = Array.from(sourceSection.fields);
-      const destFields = Array.from(destSection.fields);
+      const sourceFields = Array.from(sourceSection.fields || []);
+      const destFields = Array.from(destSection.fields || []);
       const [removed] = sourceFields.splice(source.index, 1);
       destFields.splice(destination.index, 0, removed);
       
       setFormStructure({
-        sections: formStructure.sections.map(section => {
+        sections: sections.map(section => {
           if (section.id === source.droppableId) {
             return { ...section, fields: sourceFields };
           }
@@ -279,6 +293,8 @@ export default function FormEditor() {
       </div>
     );
   }
+
+  const sections = formStructure?.sections || [];
 
   return (
     <div className="container py-8">
@@ -366,8 +382,8 @@ export default function FormEditor() {
                 ref={provided.innerRef}
                 className="space-y-8"
               >
-                {formStructure.sections && formStructure.sections.length > 0 ? (
-                  formStructure.sections.map((section, index) => (
+                {sections && sections.length > 0 ? (
+                  sections.map((section, index) => (
                     <Draggable key={section.id} draggableId={section.id} index={index}>
                       {(provided) => (
                         <div 
@@ -671,7 +687,7 @@ export default function FormEditor() {
             )}
           </Droppable>
           
-          {formStructure.sections && formStructure.sections.length > 0 && (
+          {sections && sections.length > 0 && (
             <Button
               variant="outline"
               onClick={addSection}
