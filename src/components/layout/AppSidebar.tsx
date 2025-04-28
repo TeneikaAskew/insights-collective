@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
   Sidebar,
@@ -140,6 +140,12 @@ const AppSidebar = () => {
       active: location.pathname === '/admin/users',
     },
     {
+      title: "Manage Forms",
+      url: "/admin/forms",
+      icon: FormInput,
+      active: location.pathname === '/admin/forms',
+    },
+    {
       title: "Manage Enrollments",
       url: "/admin/enrollments",
       icon: FileText,
@@ -206,7 +212,7 @@ const AppSidebar = () => {
 
   return (
     <Sidebar className="border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200">
-      <SidebarHeader className="border-b border-gray-200 dark:border-gray-800 px-2">
+      <SidebarHeader className="border-b border-gray-200 dark:border-gray-800 px-2 bg-transparent">
         <div className="flex items-center space-x-2 p-3">
           <Link to="/" className="flex items-center space-x-2">
             <div className="relative w-8 h-8 flex items-center justify-center rounded-md bg-gradient-to-tr from-[#9b87f5] to-[#7E69AB]">
@@ -288,11 +294,11 @@ const AppSidebar = () => {
                       asChild
                       isActive={item.active}
                       className={`transition-all duration-200 ${item.active 
-                        ? 'bg-gradient-to-r from-[#9b87f5]/20 to-transparent text-white font-medium' 
-                        : 'text-gray-300 hover:text-white hover:bg-white/5'}`}
+                        ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' 
+                        : 'text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}
                     >
                       <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
-                        <item.icon className={`h-5 w-5 ${item.active ? 'text-[#9b87f5]' : 'text-gray-400'}`} />
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />
                         <span>{item.title}</span>
                         {item.active && <div className="ml-auto">
                           <ChevronRight className="h-4 w-4 text-[#9b87f5]" />
@@ -306,10 +312,10 @@ const AppSidebar = () => {
                   <SidebarMenuItem>
                     <SidebarMenuButton 
                       asChild
-                      className="text-gray-300 hover:text-white hover:bg-white/5"
+                      className="text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5"
                     >
                       <Link to="/instructor/courses" className="flex items-center space-x-3 rounded-md px-3 py-2">
-                        <BookOpen className="h-5 w-5 text-gray-400" />
+                        <BookOpen className="h-5 w-5 text-gray-500" />
                         <span>My Courses</span>
                       </Link>
                     </SidebarMenuButton>
