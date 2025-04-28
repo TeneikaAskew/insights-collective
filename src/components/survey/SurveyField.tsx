@@ -11,7 +11,8 @@ import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/comp
 
 interface FieldData {
   label: string;
-  type: 'text' | 'textarea' | 'dropdown' | 'radio' | 'checkbox' | 'date';
+  type: 'text' | 'textarea' | 'dropdown' | 'radio' | 'checkbox' | 'date' | 
+        'short_text' | 'long_text' | 'multi_select' | 'slider' | 'date_picker' | 'file_upload';
   required?: boolean;
   options?: string[];
   validation?: {
@@ -28,6 +29,13 @@ interface FieldData {
       message: string;
     };
   };
+  max_select?: number;
+  min?: number;
+  max?: number;
+  max_words?: number;
+  file_types?: string[];
+  max_size_mb?: number;
+  text?: string;
 }
 
 interface SurveyFieldProps {
@@ -40,7 +48,17 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
   const { control } = useFormContext();
   
   const renderField = () => {
-    switch (field.type) {
+    // Map survey data types to SurveyField types
+    const fieldType = (() => {
+      switch (field.type) {
+        case 'short_text': return 'text';
+        case 'long_text': return 'textarea';
+        case 'date_picker': return 'date';
+        default: return field.type;
+      }
+    })();
+
+    switch (fieldType) {
       case 'text':
         return (
           <FormField
@@ -175,24 +193,89 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
                   {field.required && <span className="text-red-500">*</span>}
                 </FormLabel>
                 <div className="space-y-2">
-                  {field.options?.map(option => (
-                    <div key={option} className="flex items-center space-x-2">
+                  {field.options ? (
+                    // For multiple checkboxes (selecting from options)
+                    field.options.map(option => (
+                      <div key={option} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`${fieldName}-${option}`} 
+                          checked={formField.value?.includes(option)}
+                          onCheckedChange={(checked) => {
+                            const value = formField.value || [];
+                            if (checked) {
+                              formField.onChange([...value, option]);
+                            } else {
+                              formField.onChange(value.filter((v: string) => v !== option));
+                            }
+                          }}
+                        />
+                        <Label htmlFor={`${fieldName}-${option}`}>{option}</Label>
+                      </div>
+                    ))
+                  ) : (
+                    // For a single checkbox agreement
+                    <div className="flex items-start space-x-2">
                       <Checkbox 
-                        id={`${fieldName}-${option}`} 
-                        checked={formField.value?.includes(option)}
-                        onCheckedChange={(checked) => {
-                          const value = formField.value || [];
-                          if (checked) {
-                            formField.onChange([...value, option]);
-                          } else {
-                            formField.onChange(value.filter((v: string) => v !== option));
-                          }
-                        }}
+                        id={fieldName} 
+                        checked={formField.value}
+                        onCheckedChange={formField.onChange}
                       />
-                      <Label htmlFor={`${fieldName}-${option}`}>{option}</Label>
+                      <Label className="leading-normal" htmlFor={fieldName}>
+                        {field.text || field.label}
+                      </Label>
                     </div>
-                  ))}
+                  )}
                 </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+      
+      case 'date':
+        return (
+          <FormField
+            control={control}
+            name={fieldName}
+            rules={{
+              required: field.required ? "This field is required" : false
+            }}
+            render={({ field: formField }) => (
+              <FormItem>
+                <FormLabel className="flex items-start gap-2">
+                  {field.label}
+                  {field.required && <span className="text-red-500">*</span>}
+                </FormLabel>
+                <FormControl>
+                  <Input type="date" {...formField} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+      
+      // Handle additional field types - for now they'll render as text inputs
+      case 'multi_select':
+      case 'slider':
+      case 'file_upload':
+        return (
+          <FormField
+            control={control}
+            name={fieldName}
+            rules={{
+              required: field.required ? "This field is required" : false
+            }}
+            render={({ field: formField }) => (
+              <FormItem>
+                <FormLabel className="flex items-start gap-2">
+                  {field.label}
+                  {field.required && <span className="text-red-500">*</span>}
+                  <span className="text-xs text-muted-foreground">(This field type is not fully implemented yet)</span>
+                </FormLabel>
+                <FormControl>
+                  <Input placeholder={`${field.type} field (not fully implemented)`} {...formField} />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

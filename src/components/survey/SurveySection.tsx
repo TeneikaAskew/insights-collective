@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import SurveyField from '@/components/survey/SurveyField';
@@ -26,7 +25,7 @@ const SurveySection: React.FC<SurveySectionProps> = ({ section, formData }) => {
     }
   }, [user?.id]);
 
-  // Function to save draft data to localStorage
+  // Function to save draft data to localStorage and database
   const saveDraft = async () => {
     const currentValues = getValues();
     try {
@@ -63,9 +62,10 @@ const SurveySection: React.FC<SurveySectionProps> = ({ section, formData }) => {
 
   // Add a global event listener for the "Save Draft" button click
   useEffect(() => {
-    const handleSaveDraftClick = (event: Event) => {
+    const handleSaveDraftClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (target.textContent?.includes('Save Draft')) {
+      if (target.textContent?.includes('Save Draft') || 
+          target.parentElement?.textContent?.includes('Save Draft')) {
         saveDraft();
       }
     };
@@ -106,10 +106,11 @@ const SurveySection: React.FC<SurveySectionProps> = ({ section, formData }) => {
               key={`${section.section}-${index}`}
               field={{
                 ...field,
-                validation: {
-                  ...field.validation,
-                  ...validationProps
-                }
+                validation: field.validation ? 
+                  // If field already has validation, merge it with zip code validation if needed
+                  { ...field.validation, ...validationProps } : 
+                  // Otherwise just use the zip code validation if needed
+                  Object.keys(validationProps).length > 0 ? validationProps : undefined
               }}
               fieldName={fieldName}
               defaultValue={formData[fieldName]}
