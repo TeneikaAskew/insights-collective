@@ -8,6 +8,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { FormStructure } from '@/types/forms';
 import { useToast } from '@/hooks/use-toast';
 import { Spinner } from '@/components/ui/spinner';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft } from 'lucide-react';
 
 export default function SurveyFormEdit() {
   const { user, isAdmin } = useAuth();
@@ -20,11 +23,16 @@ export default function SurveyFormEdit() {
     form_structure?: FormStructure;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     const fetchForm = async () => {
-      if (!slug) return;
+      if (!slug) {
+        setError("No form slug provided");
+        setLoading(false);
+        return;
+      }
 
       try {
         const { data, error } = await supabase
@@ -33,7 +41,10 @@ export default function SurveyFormEdit() {
           .eq('slug', slug)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          setError(`Error loading form: ${error.message}`);
+          throw error;
+        }
 
         // Initialize empty sections array if form_structure is null or undefined
         if (!data.form_structure || !data.form_structure.sections) {
@@ -76,6 +87,32 @@ export default function SurveyFormEdit() {
             <Spinner size="lg" />
             <p className="text-muted-foreground">Loading form data...</p>
           </div>
+        </div>
+      </AppLayout>
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return (
+      <AppLayout>
+        <div className="container py-10">
+          <Card>
+            <CardHeader>
+              <CardTitle>Error</CardTitle>
+              <CardDescription>We encountered a problem loading the form.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-red-500">{error}</p>
+              <Button 
+                onClick={() => window.location.href = '/admin/forms'}
+                className="mt-4"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Forms
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </AppLayout>
     );

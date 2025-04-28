@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { Spinner } from '@/components/ui/spinner';
 
 interface FormEditorProps {
   initialFormData?: {
@@ -98,6 +100,9 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
       };
 
       fetchForm();
+    } else {
+      // Handle case where there's no initialFormData and no slug
+      setLoading(false);
     }
   }, [initialFormData, slug, toast]);
 
@@ -145,17 +150,19 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
   };
 
   const updateSection = (sectionId: string, data: Partial<FormSection>) => {
-    setFormStructure({
-      sections: formStructure.sections.map(section => 
+    setFormStructure(prev => ({
+      ...prev,
+      sections: prev.sections?.map(section => 
         section.id === sectionId ? { ...section, ...data } : section
-      )
-    });
+      ) || []
+    }));
   };
 
   const removeSection = (sectionId: string) => {
-    setFormStructure({
-      sections: formStructure.sections.filter(section => section.id !== sectionId)
-    });
+    setFormStructure(prev => ({
+      ...prev,
+      sections: prev.sections?.filter(section => section.id !== sectionId) || []
+    }));
   };
 
   const addField = (sectionId: string) => {
@@ -166,53 +173,65 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
       required: false
     };
 
-    setFormStructure({
-      sections: formStructure.sections.map(section => {
+    setFormStructure(prev => ({
+      ...prev,
+      sections: prev.sections?.map(section => {
         if (section.id === sectionId) {
           return {
             ...section,
-            fields: [...section.fields, newField]
+            fields: [...(section.fields || []), newField]
           };
         }
         return section;
-      })
-    });
+      }) || []
+    }));
   };
 
   const updateField = (sectionId: string, fieldId: string, data: Partial<FormField>) => {
-    setFormStructure({
-      sections: formStructure.sections.map(section => {
+    setFormStructure(prev => ({
+      ...prev,
+      sections: prev.sections?.map(section => {
         if (section.id === sectionId) {
           return {
             ...section,
-            fields: section.fields.map(field => 
+            fields: section.fields?.map(field => 
               field.id === fieldId ? { ...field, ...data } : field
-            )
+            ) || []
           };
         }
         return section;
-      })
-    });
+      }) || []
+    }));
   };
 
   const removeField = (sectionId: string, fieldId: string) => {
-    setFormStructure({
-      sections: formStructure.sections.map(section => {
+    setFormStructure(prev => ({
+      ...prev,
+      sections: prev.sections?.map(section => {
         if (section.id === sectionId) {
           return {
             ...section,
-            fields: section.fields.filter(field => field.id !== fieldId)
+            fields: section.fields?.filter(field => field.id !== fieldId) || []
           };
         }
         return section;
-      })
-    });
+      }) || []
+    }));
   };
 
   const onDragEnd = (result: any) => {
     const { source, destination, type } = result;
     
-    if (!destination) return;
+    // If there is no destination or source is the same as destination, do nothing
+    if (!destination || 
+      (source.droppableId === destination.droppableId && source.index === destination.index)) {
+      return;
+    }
+
+    // Make sure formStructure and its sections are defined
+    if (!formStructure || !formStructure.sections) {
+      return;
+    }
 
     if (type === 'section') {
       const sections = Array.from(formStructure.sections || []);
@@ -233,19 +252,20 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
     
     if (!sourceSection || !destSection) return;
     
+    // Ensure fields arrays exist
+    const sourceFields = Array.from(sourceSection.fields || []);
+    const destFields = Array.from(destSection.fields || []);
+
     if (source.droppableId === destination.droppableId) {
-      const newFields = Array.from(sourceSection.fields || []);
-      const [removed] = newFields.splice(source.index, 1);
-      newFields.splice(destination.index, 0, removed);
+      const [removed] = sourceFields.splice(source.index, 1);
+      sourceFields.splice(destination.index, 0, removed);
       
       setFormStructure({
         sections: sections.map(section => 
-          section.id === source.droppableId ? { ...section, fields: newFields } : section
+          section.id === source.droppableId ? { ...section, fields: sourceFields } : section
         )
       });
     } else {
-      const sourceFields = Array.from(sourceSection.fields || []);
-      const destFields = Array.from(destSection.fields || []);
       const [removed] = sourceFields.splice(source.index, 1);
       destFields.splice(destination.index, 0, removed);
       
@@ -267,7 +287,10 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
     return (
       <div className="container py-10">
         <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <div className="flex flex-col items-center gap-4">
+            <Spinner size="lg" />
+            <p className="text-muted-foreground">Loading form data...</p>
+          </div>
         </div>
       </div>
     );
@@ -292,6 +315,7 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
     );
   }
 
+  // Ensure sections is always an array
   const sections = formStructure?.sections || [];
 
   return (
