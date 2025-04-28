@@ -8,11 +8,13 @@ import { AuthProvider } from './contexts/AuthContext';
 import './index.css';  // Make sure CSS is imported
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
-  <HelmetProvider>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
-  </HelmetProvider>
+  <React.StrictMode>
+    <HelmetProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </HelmetProvider>
+  </React.StrictMode>
 );

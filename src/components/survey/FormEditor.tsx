@@ -54,13 +54,12 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
         status: initialFormData.status,
       });
 
-      if (initialFormData.form_structure && initialFormData.form_structure.sections) {
-        setFormStructure(initialFormData.form_structure);
-      } else {
-        setFormStructure({
-          sections: []
-        });
+      const formStructData = initialFormData.form_structure || { sections: [] };
+      if (!formStructData.sections) {
+        formStructData.sections = [];
       }
+      
+      setFormStructure(formStructData);
       setLoading(false);
     } else if (slug) {
       const fetchForm = async () => {
@@ -80,13 +79,12 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
             status: data.status
           });
 
-          if (data.form_structure && data.form_structure.sections) {
-            setFormStructure(data.form_structure);
-          } else {
-            setFormStructure({
-              sections: []
-            });
+          const formStructData = data.form_structure || { sections: [] };
+          if (!formStructData.sections) {
+            formStructData.sections = [];
           }
+          
+          setFormStructure(formStructData);
         } catch (error) {
           console.error('Error fetching form:', error);
           toast({
