@@ -1,6 +1,7 @@
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { CalendarPlus, Award, Upload, FileSpreadsheet, Activity, BookOpen } from 'lucide-react';
+import { CalendarPlus, Award, Upload, FileSpreadsheet, Activity, BookOpen, FormInput } from 'lucide-react';
 import { AddEventModal } from '@/components/events/modals/AddEventModal';
 import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +17,14 @@ const adminActions = [
     href: "/admin/courses",
     color: "bg-orange-100 dark:bg-orange-900",
     iconColor: "text-orange-600 dark:text-orange-300",
+  },
+  {
+    title: "Form Management",
+    description: "Create, edit, and manage forms and surveys",
+    icon: <FormInput className="h-5 w-5" />,
+    href: "/admin/forms",
+    color: "bg-blue-100 dark:bg-blue-900",
+    iconColor: "text-blue-600 dark:text-blue-300",
   },
 ];
 
@@ -69,6 +78,11 @@ export const AdminDashboardActions = () => {
             </Button>
           </IssueCertificatesModal>
           
+          <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/forms')}>
+            <FormInput className="mr-2 h-4 w-4" />
+            <span>Manage Forms</span>
+          </Button>
+          
           <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/admin/courses')}>
             <Upload className="mr-2 h-4 w-4" />
             <span>Upload Course</span>
@@ -87,6 +101,27 @@ export const AdminDashboardActions = () => {
           </Button>
         </CardContent>
       </Card>
+      
+      {adminActions.map((action, index) => (
+        <Card key={index} className="overflow-hidden">
+          <CardHeader className={`${action.color} pb-2`}>
+            <div className={`${action.iconColor} mb-2`}>
+              {action.icon}
+            </div>
+            <CardTitle className="text-md font-semibold">{action.title}</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-4">
+            <CardDescription className="mb-3">{action.description}</CardDescription>
+            <Button 
+              variant="outline" 
+              className="w-full"
+              onClick={() => navigate(action.href)}
+            >
+              Go to {action.title}
+            </Button>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 };

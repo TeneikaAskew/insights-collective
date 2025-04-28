@@ -2,7 +2,7 @@
 import React from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import FormEditor from '@/components/survey/FormEditor';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 
 export default function SurveyFormEdit() {
