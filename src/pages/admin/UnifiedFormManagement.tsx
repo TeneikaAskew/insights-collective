@@ -13,7 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 
-export default function UnifiedFormManagement() {
+interface UnifiedFormManagementProps {
+  legacyView?: boolean;
+}
+
+export default function UnifiedFormManagement({ legacyView = false }: UnifiedFormManagementProps) {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -23,6 +27,8 @@ export default function UnifiedFormManagement() {
   if (!user || !isAdmin) {
     return <Navigate to="/" />;
   }
+
+  const initialTab = legacyView ? 'legacy-forms' : 'all-forms';
 
   return (
     <AppLayout>
@@ -55,7 +61,7 @@ export default function UnifiedFormManagement() {
           </div>
         </div>
 
-        <Tabs defaultValue="all-forms" className="w-full">
+        <Tabs defaultValue={initialTab} className="w-full">
           <TabsList className="grid grid-cols-4 mb-8">
             <TabsTrigger value="all-forms" className="flex items-center">
               <ListFilter className="mr-2 h-4 w-4" />
@@ -76,14 +82,14 @@ export default function UnifiedFormManagement() {
           </TabsList>
           
           <TabsContent value="all-forms" className="mt-0">
-            <FormList searchTerm={searchTerm} />
+            <FormList searchTerm={searchTerm} legacy={false} />
           </TabsContent>
           
           <TabsContent value="legacy-forms" className="mt-0">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Legacy Forms</h2>
-              <Button variant="outline" onClick={() => navigate('/admin/forms/legacy')}>
-                Manage Legacy Forms
+              <Button variant="outline" onClick={() => navigate('/admin/forms')}>
+                New Forms Interface
               </Button>
             </div>
             <p className="text-muted-foreground mb-4">
