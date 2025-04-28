@@ -107,8 +107,8 @@ const SurveySection: React.FC<SurveySectionProps> = ({ section, formData }) => {
               field={{
                 ...field,
                 validation: field.validation ? 
-                  // If field already has validation, merge it with zip code validation if needed
-                  { ...field.validation, ...validationProps } : 
+                  // If field already has validation, merge with zip code validation if needed
+                  { ...validationProps, ...(typeof field.validation === 'object' ? field.validation : {}) } : 
                   // Otherwise just use the zip code validation if needed
                   Object.keys(validationProps).length > 0 ? validationProps : undefined
               }}
