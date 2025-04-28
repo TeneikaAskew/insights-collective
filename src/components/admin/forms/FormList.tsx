@@ -51,7 +51,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormListProps } from '@/components/forms/builder/types';
 
-export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
+export function FormList({ searchTerm = '' }: FormListProps) {
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -61,6 +61,7 @@ export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
   const [selectedForms, setSelectedForms] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
+  // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [formLink, setFormLink] = useState('');
@@ -68,18 +69,10 @@ export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
 
   const fetchForms = async () => {
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from('forms')
         .select('*')
         .order('created_at', { ascending: false });
-
-      if (legacy) {
-        query = query.eq('is_legacy', true);
-      } else {
-        query = query.or('is_legacy.eq.false, is_legacy.is.NULL');
-      }
-
-      const { data, error } = await query;
 
       if (error) throw error;
       setForms(data || []);
@@ -247,6 +240,7 @@ export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
 
   const duplicateForm = async (form: FormData) => {
     try {
+      // Create new form with same data but different title/slug
       const newTitle = `${form.title} (Copy)`;
       const newSlug = slugify(newTitle);
       
@@ -266,6 +260,7 @@ export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
 
       if (error) throw error;
 
+      // Add the new form to the list
       setForms([data, ...forms]);
       
       toast({
@@ -283,6 +278,7 @@ export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
   };
 
   const handleEditFormStructure = (slug: string) => {
+    // Explicitly navigate to the edit page with the correct slug
     navigate(`/survey/${slug}/edit`);
   };
 
@@ -313,6 +309,7 @@ export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
   };
 
   const viewSubmissions = (form: FormData) => {
+    // Navigate to submissions view
     toast({
       title: "Coming Soon",
       description: "Form submissions view will be available soon",
@@ -327,12 +324,13 @@ export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
   };
 
   const getSubmissionCount = (formId: string) => {
+    // This would typically be a real count from the database
     return Math.floor(Math.random() * 50);
   };
 
   useEffect(() => {
     fetchForms();
-  }, [legacy]);
+  }, []);
 
   if (loading) {
     return (
@@ -649,6 +647,7 @@ export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
       
       {viewMode === 'table' ? renderTableView() : renderGridView()}
 
+      {/* Edit Form Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-[550px]">
           <DialogHeader>
