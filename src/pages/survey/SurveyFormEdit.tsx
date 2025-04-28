@@ -35,6 +35,7 @@ export default function SurveyFormEdit() {
       }
 
       try {
+        console.log("Fetching form data for slug:", slug);
         const { data, error } = await supabase
           .from('forms')
           .select('*')
@@ -42,21 +43,32 @@ export default function SurveyFormEdit() {
           .single();
 
         if (error) {
+          console.error("Supabase error:", error);
           setError(`Error loading form: ${error.message}`);
           throw error;
         }
 
-        // Initialize empty sections array if form_structure is null or undefined
-        if (!data.form_structure || !data.form_structure.sections) {
-          data.form_structure = { sections: [] };
+        if (!data) {
+          console.error("No data returned for slug:", slug);
+          setError(`Form with slug "${slug}" not found`);
+          setLoading(false);
+          return;
         }
+
+        console.log("Form data retrieved:", data);
+
+        // Initialize form structure with safe defaults
+        const safeFormStructure: FormStructure = {
+          sections: Array.isArray(data.form_structure?.sections) ? 
+            data.form_structure.sections : []
+        };
 
         setFormData({
           id: data.id,
-          title: data.title,
+          title: data.title || '',
           description: data.description || '',
-          status: data.status,
-          form_structure: data.form_structure
+          status: Boolean(data.status),
+          form_structure: safeFormStructure
         });
       } catch (error: any) {
         console.error('Error fetching form:', error);
