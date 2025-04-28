@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -57,6 +56,7 @@ export default function FormEditor() {
           status: data.status
         });
 
+        // Initialize form structure
         if (data.form_structure) {
           setFormStructure(data.form_structure);
         } else {
@@ -366,303 +366,321 @@ export default function FormEditor() {
                 ref={provided.innerRef}
                 className="space-y-8"
               >
-                {formStructure.sections.map((section, index) => (
-                  <Draggable key={section.id} draggableId={section.id} index={index}>
-                    {(provided) => (
-                      <div 
-                        ref={provided.innerRef}
-                        {...provided.draggableProps}
-                        className="border rounded-lg p-4 bg-white shadow-sm"
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center">
-                            <div {...provided.dragHandleProps} className="mr-2 cursor-grab">
-                              <GripVertical />
+                {formStructure.sections && formStructure.sections.length > 0 ? (
+                  formStructure.sections.map((section, index) => (
+                    <Draggable key={section.id} draggableId={section.id} index={index}>
+                      {(provided) => (
+                        <div 
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          className="border rounded-lg p-4 bg-white shadow-sm"
+                        >
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center">
+                              <div {...provided.dragHandleProps} className="mr-2 cursor-grab">
+                                <GripVertical />
+                              </div>
+                              <Input
+                                value={section.title}
+                                onChange={(e) => updateSection(section.id, { title: e.target.value })}
+                                className="text-xl font-medium bg-transparent border-none focus-visible:ring-0 focus-visible:border-b focus-visible:rounded-none"
+                                placeholder="Section Title"
+                              />
                             </div>
-                            <Input
-                              value={section.title}
-                              onChange={(e) => updateSection(section.id, { title: e.target.value })}
-                              className="text-xl font-medium bg-transparent border-none focus-visible:ring-0 focus-visible:border-b focus-visible:rounded-none"
-                              placeholder="Section Title"
-                            />
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            onClick={() => removeSection(section.id)}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        <Textarea
-                          value={section.description || ''}
-                          onChange={(e) => updateSection(section.id, { description: e.target.value })}
-                          placeholder="Section Description (optional)"
-                          className="mb-4"
-                        />
-
-                        <Droppable droppableId={section.id} type="field">
-                          {(provided) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className="space-y-4"
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              onClick={() => removeSection(section.id)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10"
                             >
-                              {section.fields.map((field, fieldIndex) => (
-                                <Draggable key={field.id} draggableId={field.id} index={fieldIndex}>
-                                  {(provided) => (
-                                    <div 
-                                      ref={provided.innerRef}
-                                      {...provided.draggableProps}
-                                      className="border rounded-md p-4 bg-gray-50"
-                                    >
-                                      <div className="flex items-center justify-between mb-3">
-                                        <div className="flex items-center flex-1">
-                                          <div {...provided.dragHandleProps} className="mr-2 cursor-grab">
-                                            <GripVertical className="h-5 w-5 text-gray-400" />
-                                          </div>
-                                          <Input
-                                            value={field.label}
-                                            onChange={(e) => updateField(section.id, field.id, { label: e.target.value })}
-                                            className="bg-transparent"
-                                            placeholder="Question Label"
-                                          />
-                                        </div>
-                                        <Button 
-                                          variant="ghost" 
-                                          size="sm" 
-                                          onClick={() => removeField(section.id, field.id)}
-                                          className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+
+                          <Textarea
+                            value={section.description || ''}
+                            onChange={(e) => updateSection(section.id, { description: e.target.value })}
+                            placeholder="Section Description (optional)"
+                            className="mb-4"
+                          />
+
+                          <Droppable droppableId={section.id} type="field">
+                            {(provided) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className="space-y-4"
+                              >
+                                {section.fields && section.fields.length > 0 ? (
+                                  section.fields.map((field, fieldIndex) => (
+                                    <Draggable key={field.id} draggableId={field.id} index={fieldIndex}>
+                                      {(provided) => (
+                                        <div 
+                                          ref={provided.innerRef}
+                                          {...provided.draggableProps}
+                                          className="border rounded-md p-4 bg-gray-50"
                                         >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
+                                          <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center flex-1">
+                                              <div {...provided.dragHandleProps} className="mr-2 cursor-grab">
+                                                <GripVertical className="h-5 w-5 text-gray-400" />
+                                              </div>
+                                              <Input
+                                                value={field.label}
+                                                onChange={(e) => updateField(section.id, field.id, { label: e.target.value })}
+                                                className="bg-transparent"
+                                                placeholder="Question Label"
+                                              />
+                                            </div>
+                                            <Button 
+                                              variant="ghost" 
+                                              size="sm" 
+                                              onClick={() => removeField(section.id, field.id)}
+                                              className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                            >
+                                              <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                          </div>
 
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-                                        <div>
-                                          <Label htmlFor={`field-type-${field.id}`}>Question Type</Label>
-                                          <Select
-                                            value={field.type}
-                                            onValueChange={(value: any) => {
-                                              // Reset options if changing to/from option-based field types
-                                              const needsOptions = ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(value);
-                                              const hadOptions = ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type);
-                                              
-                                              let updates: Partial<FormField> = { type: value };
-                                              
-                                              // Initialize options if needed
-                                              if (needsOptions && !hadOptions) {
-                                                updates.options = ['Option 1', 'Option 2', 'Option 3'];
-                                              }
-                                              
-                                              updateField(section.id, field.id, updates);
-                                            }}
-                                          >
-                                            <SelectTrigger id={`field-type-${field.id}`}>
-                                              <SelectValue placeholder="Select field type" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectGroup>
-                                                <SelectLabel>Text</SelectLabel>
-                                                <SelectItem value="short_text">Short Text</SelectItem>
-                                                <SelectItem value="long_text">Long Text</SelectItem>
-                                              </SelectGroup>
-                                              <SelectGroup>
-                                                <SelectLabel>Options</SelectLabel>
-                                                <SelectItem value="dropdown">Dropdown</SelectItem>
-                                                <SelectItem value="radio">Radio Buttons</SelectItem>
-                                                <SelectItem value="checkbox">Checkboxes</SelectItem>
-                                                <SelectItem value="multi_select">Multi-Select</SelectItem>
-                                              </SelectGroup>
-                                              <SelectGroup>
-                                                <SelectLabel>Other</SelectLabel>
-                                                <SelectItem value="date">Date Picker</SelectItem>
-                                              </SelectGroup>
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
+                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
+                                            <div>
+                                              <Label htmlFor={`field-type-${field.id}`}>Question Type</Label>
+                                              <Select
+                                                value={field.type}
+                                                onValueChange={(value: any) => {
+                                                  const needsOptions = ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(value);
+                                                  const hadOptions = ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type);
+                                                  
+                                                  let updates: Partial<FormField> = { type: value };
+                                                  
+                                                  if (needsOptions && !hadOptions) {
+                                                    updates.options = ['Option 1', 'Option 2', 'Option 3'];
+                                                  }
+                                                  
+                                                  updateField(section.id, field.id, updates);
+                                                }}
+                                              >
+                                                <SelectTrigger id={`field-type-${field.id}`}>
+                                                  <SelectValue placeholder="Select field type" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                  <SelectGroup>
+                                                    <SelectLabel>Text</SelectLabel>
+                                                    <SelectItem value="short_text">Short Text</SelectItem>
+                                                    <SelectItem value="long_text">Long Text</SelectItem>
+                                                  </SelectGroup>
+                                                  <SelectGroup>
+                                                    <SelectLabel>Options</SelectLabel>
+                                                    <SelectItem value="dropdown">Dropdown</SelectItem>
+                                                    <SelectItem value="radio">Radio Buttons</SelectItem>
+                                                    <SelectItem value="checkbox">Checkboxes</SelectItem>
+                                                    <SelectItem value="multi_select">Multi-Select</SelectItem>
+                                                  </SelectGroup>
+                                                  <SelectGroup>
+                                                    <SelectLabel>Other</SelectLabel>
+                                                    <SelectItem value="date">Date Picker</SelectItem>
+                                                  </SelectGroup>
+                                                </SelectContent>
+                                              </Select>
+                                            </div>
 
-                                        <div className="flex items-center space-x-2">
-                                          <Switch 
-                                            id={`required-${field.id}`}
-                                            checked={!!field.required}
-                                            onCheckedChange={(checked) => updateField(section.id, field.id, { required: checked })}
-                                          />
-                                          <Label htmlFor={`required-${field.id}`}>Required</Label>
-                                        </div>
-                                      </div>
+                                            <div className="flex items-center space-x-2">
+                                              <Switch 
+                                                id={`required-${field.id}`}
+                                                checked={!!field.required}
+                                                onCheckedChange={(checked) => updateField(section.id, field.id, { required: checked })}
+                                              />
+                                              <Label htmlFor={`required-${field.id}`}>Required</Label>
+                                            </div>
+                                          </div>
 
-                                      {/* Options editor for dropdown, radio, checkbox, and multi-select fields */}
-                                      {['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type) && (
-                                        <div className="mt-4">
-                                          <Accordion type="single" collapsible defaultValue="options">
-                                            <AccordionItem value="options">
-                                              <AccordionTrigger>Options</AccordionTrigger>
-                                              <AccordionContent>
-                                                <div className="space-y-2">
-                                                  {field.options?.map((option, optionIndex) => (
-                                                    <div key={optionIndex} className="flex items-center">
-                                                      <Input
-                                                        value={option}
-                                                        onChange={(e) => {
-                                                          const newOptions = [...(field.options || [])];
-                                                          newOptions[optionIndex] = e.target.value;
-                                                          updateField(section.id, field.id, { options: newOptions });
-                                                        }}
-                                                        placeholder={`Option ${optionIndex + 1}`}
-                                                        className="flex-1"
-                                                      />
+                                          {['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type) && (
+                                            <div className="mt-4">
+                                              <Accordion type="single" collapsible defaultValue="options">
+                                                <AccordionItem value="options">
+                                                  <AccordionTrigger>Options</AccordionTrigger>
+                                                  <AccordionContent>
+                                                    <div className="space-y-2">
+                                                      {field.options?.map((option, optionIndex) => (
+                                                        <div key={optionIndex} className="flex items-center">
+                                                          <Input
+                                                            value={option}
+                                                            onChange={(e) => {
+                                                              const newOptions = [...(field.options || [])];
+                                                              newOptions[optionIndex] = e.target.value;
+                                                              updateField(section.id, field.id, { options: newOptions });
+                                                            }}
+                                                            placeholder={`Option ${optionIndex + 1}`}
+                                                            className="flex-1"
+                                                          />
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => {
+                                                              const newOptions = [...(field.options || [])];
+                                                              newOptions.splice(optionIndex, 1);
+                                                              updateField(section.id, field.id, { options: newOptions });
+                                                            }}
+                                                          >
+                                                            <Trash2 className="h-4 w-4" />
+                                                          </Button>
+                                                        </div>
+                                                      ))}
                                                       <Button
-                                                        variant="ghost"
+                                                        variant="outline"
                                                         size="sm"
                                                         onClick={() => {
-                                                          const newOptions = [...(field.options || [])];
-                                                          newOptions.splice(optionIndex, 1);
+                                                          const newOptions = [...(field.options || []), `Option ${(field.options?.length || 0) + 1}`];
                                                           updateField(section.id, field.id, { options: newOptions });
                                                         }}
+                                                        className="w-full mt-2"
                                                       >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        Add Option
                                                       </Button>
                                                     </div>
-                                                  ))}
-                                                  <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                      const newOptions = [...(field.options || []), `Option ${(field.options?.length || 0) + 1}`];
-                                                      updateField(section.id, field.id, { options: newOptions });
-                                                    }}
-                                                    className="w-full mt-2"
-                                                  >
-                                                    Add Option
-                                                  </Button>
-                                                </div>
+                                                  </AccordionContent>
+                                                </AccordionItem>
+                                              </Accordion>
+                                            </div>
+                                          )}
+                                          
+                                          <Accordion type="single" collapsible className="mt-2">
+                                            <AccordionItem value="validation">
+                                              <AccordionTrigger>Validation</AccordionTrigger>
+                                              <AccordionContent>
+                                                {['short_text', 'long_text'].includes(field.type) && (
+                                                  <div className="space-y-4 mt-2">
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                      <div>
+                                                        <Label htmlFor={`min-length-${field.id}`}>Min Length</Label>
+                                                        <Input
+                                                          id={`min-length-${field.id}`}
+                                                          type="number"
+                                                          value={field.validation?.minLength || ''}
+                                                          onChange={(e) => {
+                                                            const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                                            updateField(section.id, field.id, { 
+                                                              validation: {
+                                                                ...(field.validation || {}),
+                                                                minLength: value
+                                                              }
+                                                            });
+                                                          }}
+                                                          min="0"
+                                                          placeholder="No minimum"
+                                                        />
+                                                      </div>
+                                                      <div>
+                                                        <Label htmlFor={`max-length-${field.id}`}>Max Length</Label>
+                                                        <Input
+                                                          id={`max-length-${field.id}`}
+                                                          type="number"
+                                                          value={field.validation?.maxLength || ''}
+                                                          onChange={(e) => {
+                                                            const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                                            updateField(section.id, field.id, { 
+                                                              validation: {
+                                                                ...(field.validation || {}),
+                                                                maxLength: value
+                                                              }
+                                                            });
+                                                          }}
+                                                          min="0"
+                                                          placeholder="No maximum"
+                                                        />
+                                                      </div>
+                                                    </div>
+                                                    <div>
+                                                      <Label htmlFor={`pattern-${field.id}`}>Pattern (Regex)</Label>
+                                                      <Input
+                                                        id={`pattern-${field.id}`}
+                                                        value={field.validation?.pattern || ''}
+                                                        onChange={(e) => {
+                                                          updateField(section.id, field.id, { 
+                                                            validation: {
+                                                              ...(field.validation || {}),
+                                                              pattern: e.target.value || undefined
+                                                            }
+                                                          });
+                                                        }}
+                                                        placeholder="e.g., ^[A-Za-z0-9]+$"
+                                                      />
+                                                    </div>
+                                                    <div>
+                                                      <Label htmlFor={`message-${field.id}`}>Error Message</Label>
+                                                      <Input
+                                                        id={`message-${field.id}`}
+                                                        value={field.validation?.message || ''}
+                                                        onChange={(e) => {
+                                                          updateField(section.id, field.id, { 
+                                                            validation: {
+                                                              ...(field.validation || {}),
+                                                              message: e.target.value
+                                                            }
+                                                          });
+                                                        }}
+                                                        placeholder="Custom error message"
+                                                      />
+                                                    </div>
+                                                  </div>
+                                                )}
                                               </AccordionContent>
                                             </AccordionItem>
                                           </Accordion>
                                         </div>
                                       )}
-                                      
-                                      {/* Validation settings */}
-                                      <Accordion type="single" collapsible className="mt-2">
-                                        <AccordionItem value="validation">
-                                          <AccordionTrigger>Validation</AccordionTrigger>
-                                          <AccordionContent>
-                                            {['short_text', 'long_text'].includes(field.type) && (
-                                              <div className="space-y-4 mt-2">
-                                                <div className="grid grid-cols-2 gap-2">
-                                                  <div>
-                                                    <Label htmlFor={`min-length-${field.id}`}>Min Length</Label>
-                                                    <Input
-                                                      id={`min-length-${field.id}`}
-                                                      type="number"
-                                                      value={field.validation?.minLength || ''}
-                                                      onChange={(e) => {
-                                                        const value = e.target.value ? parseInt(e.target.value) : undefined;
-                                                        updateField(section.id, field.id, { 
-                                                          validation: {
-                                                            ...(field.validation || {}),
-                                                            minLength: value
-                                                          }
-                                                        });
-                                                      }}
-                                                      min="0"
-                                                      placeholder="No minimum"
-                                                    />
-                                                  </div>
-                                                  <div>
-                                                    <Label htmlFor={`max-length-${field.id}`}>Max Length</Label>
-                                                    <Input
-                                                      id={`max-length-${field.id}`}
-                                                      type="number"
-                                                      value={field.validation?.maxLength || ''}
-                                                      onChange={(e) => {
-                                                        const value = e.target.value ? parseInt(e.target.value) : undefined;
-                                                        updateField(section.id, field.id, { 
-                                                          validation: {
-                                                            ...(field.validation || {}),
-                                                            maxLength: value
-                                                          }
-                                                        });
-                                                      }}
-                                                      min="0"
-                                                      placeholder="No maximum"
-                                                    />
-                                                  </div>
-                                                </div>
-                                                <div>
-                                                  <Label htmlFor={`pattern-${field.id}`}>Pattern (Regex)</Label>
-                                                  <Input
-                                                    id={`pattern-${field.id}`}
-                                                    value={field.validation?.pattern || ''}
-                                                    onChange={(e) => {
-                                                      updateField(section.id, field.id, { 
-                                                        validation: {
-                                                          ...(field.validation || {}),
-                                                          pattern: e.target.value || undefined
-                                                        }
-                                                      });
-                                                    }}
-                                                    placeholder="e.g., ^[A-Za-z0-9]+$"
-                                                  />
-                                                </div>
-                                                <div>
-                                                  <Label htmlFor={`message-${field.id}`}>Error Message</Label>
-                                                  <Input
-                                                    id={`message-${field.id}`}
-                                                    value={field.validation?.message || ''}
-                                                    onChange={(e) => {
-                                                      updateField(section.id, field.id, { 
-                                                        validation: {
-                                                          ...(field.validation || {}),
-                                                          message: e.target.value
-                                                        }
-                                                      });
-                                                    }}
-                                                    placeholder="Custom error message"
-                                                  />
-                                                </div>
-                                              </div>
-                                            )}
-                                          </AccordionContent>
-                                        </AccordionItem>
-                                      </Accordion>
-                                    </div>
-                                  )}
-                                </Draggable>
-                              ))}
-                              {provided.placeholder}
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => addField(section.id)}
-                                className="w-full"
-                              >
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Add Question
-                              </Button>
-                            </div>
-                          )}
-                        </Droppable>
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
+                                    </Draggable>
+                                  ))
+                                ) : (
+                                  <div className="text-center py-4 text-muted-foreground">
+                                    No questions added yet
+                                  </div>
+                                )}
+                                {provided.placeholder}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => addField(section.id)}
+                                  className="w-full"
+                                >
+                                  <PlusCircle className="mr-2 h-4 w-4" />
+                                  Add Question
+                                </Button>
+                              </div>
+                            )}
+                          </Droppable>
+                        </div>
+                      )}
+                    </Draggable>
+                  ))
+                ) : (
+                  <div className="text-center py-8 border rounded-lg">
+                    <p className="text-muted-foreground">No sections added yet</p>
+                    <Button 
+                      variant="outline" 
+                      onClick={addSection}
+                      className="mt-4"
+                    >
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Add First Section
+                    </Button>
+                  </div>
+                )}
                 {provided.placeholder}
               </div>
             )}
           </Droppable>
           
-          <Button
-            variant="outline"
-            onClick={addSection}
-            className="w-full"
-          >
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Section
-          </Button>
+          {formStructure.sections && formStructure.sections.length > 0 && (
+            <Button
+              variant="outline"
+              onClick={addSection}
+              className="w-full"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Section
+            </Button>
+          )}
         </div>
       </DragDropContext>
 
