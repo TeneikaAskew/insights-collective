@@ -1,4 +1,3 @@
-
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import {
@@ -96,6 +95,12 @@ const AppSidebar = () => {
       url: "/notifications",
       icon: Bell,
       active: location.pathname === '/notifications',
+    },
+    {
+      title: "Form Management",
+      url: "/admin/forms",
+      icon: FormInput,
+      active: location.pathname === '/admin/forms',
     },
   ];
 

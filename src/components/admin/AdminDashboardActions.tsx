@@ -19,7 +19,7 @@ const adminActions = [
   },
   {
     title: "Form Management",
-    description: "Create, edit, and manage forms and surveys",
+    description: "Create and manage forms using our new unified interface",
     icon: <FormInput className="h-5 w-5" />,
     href: "/admin/forms",
     color: "bg-blue-100 dark:bg-blue-900",
