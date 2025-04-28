@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -325,7 +326,8 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
     
     // Ensure fields arrays exist
     const sourceFields = Array.isArray(sourceSection.fields) ? [...sourceSection.fields] : [];
-    const destFields = Array.isArray(destSection.fields) ? [...destFields] : [];
+    // FIX: Define destFields properly before using it
+    const destFields = Array.isArray(destSection.fields) ? [...destSection.fields] : [];
 
     if (source.droppableId === destination.droppableId) {
       // Moving within the same section
