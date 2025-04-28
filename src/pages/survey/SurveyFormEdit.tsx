@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import FormEditor from '@/components/survey/FormEditor';
+import FormBuilder from '@/components/forms/builder';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, useParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,6 +20,7 @@ export default function SurveyFormEdit() {
     title: string;
     description: string;
     status: boolean;
+    slug: string;
     form_structure?: FormStructure;
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -68,6 +69,7 @@ export default function SurveyFormEdit() {
           title: data.title || '',
           description: data.description || '',
           status: Boolean(data.status),
+          slug: data.slug,
           form_structure: safeFormStructure
         });
       } catch (error: any) {
@@ -132,7 +134,9 @@ export default function SurveyFormEdit() {
 
   return (
     <AppLayout>
-      <FormEditor initialFormData={formData} />
+      <div className="container py-8">
+        <FormBuilder initialFormData={formData} />
+      </div>
     </AppLayout>
   );
 }
