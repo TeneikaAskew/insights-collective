@@ -278,7 +278,6 @@ export function FormList({ searchTerm = '' }: FormListProps) {
   };
 
   const handleEditFormStructure = (slug: string) => {
-    // Explicitly navigate to the edit page with the correct slug
     navigate(`/survey/${slug}/edit`);
   };
 
