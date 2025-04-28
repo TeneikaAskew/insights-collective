@@ -67,6 +67,11 @@ import ThreadDetail from './pages/ThreadDetail';
 import AdminCourseEdit from "./pages/AdminCourseEdit";
 import CareerAgent from "./pages/CareerAgent";
 
+// Import survey pages
+import SurveyPage from "./pages/survey/SurveyPage";
+import SurveyFormEdit from "./pages/survey/SurveyFormEdit";
+import SurveyFormCreate from "./pages/survey/SurveyFormCreate";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -110,6 +115,12 @@ const App = () => {
                   <Route path="/forums" element={<ForumList />} />
                   <Route path="/survey" element={<SurveyApplication />} />
                   <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
+                  
+                  {/* Survey Routes */}
+                  <Route path="/survey/:slug" element={<SurveyPage />} />
+                  <Route path="/survey-confirmation/:slug?" element={<SurveyConfirmation />} />
+                  <Route path="/survey/create" element={<ProtectedVisibleRoute requireAdmin><SurveyFormCreate /></ProtectedVisibleRoute>} />
+                  <Route path="/survey/:slug/edit" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
                   
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />

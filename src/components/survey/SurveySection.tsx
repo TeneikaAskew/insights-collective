@@ -1,47 +1,57 @@
-import React, { useEffect } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import SurveyField from '@/components/survey/SurveyField';
 import { SectionData } from '@/data/surveyData';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Save } from 'lucide-react';
 
 interface SurveySectionProps {
   section: SectionData;
   formData: Record<string, any>;
+  formId?: string;
 }
 
-const SurveySection: React.FC<SurveySectionProps> = ({ section, formData }) => {
+const SurveySection: React.FC<SurveySectionProps> = ({ section, formData, formId }) => {
   const { formState: { errors }, getValues } = useFormContext();
   const { user } = useAuth();
   const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
+  const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Load saved draft data from localStorage when component mounts
   useEffect(() => {
-    const savedDraft = localStorage.getItem(`survey_draft_${user?.id}`);
+    const savedDraft = localStorage.getItem(`survey_draft_${user?.id}_${formId || 'default'}`);
     if (savedDraft) {
       const parsedDraft = JSON.parse(savedDraft);
       // We don't need to do anything here as the parent component handles loading the draft
     }
-  }, [user?.id]);
+  }, [user?.id, formId]);
 
   // Function to save draft data to localStorage and database
   const saveDraft = async () => {
+    if (isSaving) return;
+    
+    setIsSaving(true);
     const currentValues = getValues();
     try {
       // Save to localStorage
-      localStorage.setItem(`survey_draft_${user?.id}`, JSON.stringify(currentValues));
+      localStorage.setItem(`survey_draft_${user?.id}_${formId || 'default'}`, JSON.stringify(currentValues));
       
-      // Save to database if user is authenticated
-      if (user?.id) {
+      // Save to database if user is authenticated and formId is available
+      if (user?.id && formId) {
         const { error } = await supabase
           .from('survey_drafts')
           .upsert({
             user_id: user.id,
+            form_id: formId,
             form_data: currentValues,
             updated_at: new Date().toISOString()
           }, {
-            onConflict: 'user_id'
+            onConflict: 'user_id,form_id'
           });
         
         if (error) throw error;
@@ -52,34 +62,64 @@ const SurveySection: React.FC<SurveySectionProps> = ({ section, formData }) => {
         description: 'Your responses have been saved as a draft.',
       });
     } catch (error) {
+      console.error("Error saving draft:", error);
       toast({
         title: 'Error',
         description: 'Failed to save draft. Please try again.',
         variant: 'destructive'
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // Add a global event listener for the "Save Draft" button click
+  // Set up auto-save
   useEffect(() => {
-    const handleSaveDraftClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.textContent?.includes('Save Draft') || 
-          target.parentElement?.textContent?.includes('Save Draft')) {
+    // Clear any existing timer when component mounts or unmounts
+    if (autoSaveTimer) {
+      clearInterval(autoSaveTimer);
+    }
+
+    // Set up auto-save every 2 minutes if user is logged in
+    if (user?.id) {
+      const timer = setInterval(() => {
         saveDraft();
+      }, 120000); // 2 minutes
+      
+      setAutoSaveTimer(timer);
+    }
+
+    return () => {
+      if (autoSaveTimer) {
+        clearInterval(autoSaveTimer);
       }
     };
-
-    document.addEventListener('click', handleSaveDraftClick);
-    
-    return () => {
-      document.removeEventListener('click', handleSaveDraftClick);
-    };
-  }, [user?.id]);
+  }, [user?.id, formId]);
 
   return (
     <div className="space-y-8">
-      <h2 className="text-2xl font-semibold">{section.section}</h2>
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-semibold">{section.section}</h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={saveDraft}
+          disabled={isSaving}
+          className="flex items-center gap-2"
+        >
+          {isSaving ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent"></div>
+              <span>Saving...</span>
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4" />
+              <span>Save Draft</span>
+            </>
+          )}
+        </Button>
+      </div>
       
       <div className="space-y-6">
         {section.fields.map((field, index) => {

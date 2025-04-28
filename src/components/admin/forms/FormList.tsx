@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Link as LinkIcon } from 'lucide-react';
+import { Edit, Trash2, Link as LinkIcon, Copy, Copy2, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -21,24 +21,17 @@ import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
-
-interface Form {
-  id: string;
-  title: string;
-  status: boolean;
-  form_link: string;
-  description?: string;
-  deadline: string | null;
-}
+import { cn, slugify } from '@/lib/utils';
+import { FormData } from '@/types/forms';
+import { useNavigate } from 'react-router-dom';
 
 export function FormList() {
-  const [forms, setForms] = React.useState<Form[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const [forms, setForms] = useState<FormData[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const [editingForm, setEditingForm] = useState<Form | null>(null);
+  const [editingForm, setEditingForm] = useState<FormData | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [date, setDate] = React.useState<Date | undefined>();
+  const navigate = useNavigate();
 
   // Form state
   const [title, setTitle] = useState('');
@@ -117,11 +110,11 @@ export function FormList() {
     }
   };
 
-  const openEditDialog = (form: Form) => {
+  const openEditDialog = (form: FormData) => {
     setEditingForm(form);
     setTitle(form.title);
     setDescription(form.description || '');
-    setFormLink(form.form_link);
+    setFormLink(form.slug || '');
     setDeadline(form.deadline ? new Date(form.deadline) : null);
     setEditDialogOpen(true);
   };
@@ -138,12 +131,15 @@ export function FormList() {
     }
 
     try {
+      const slug = slugify(formLink);
+      
       const { error } = await supabase
         .from('forms')
         .update({
           title,
           description,
-          form_link: formLink,
+          form_link: `/survey/${slug}`,
+          slug,
           deadline: deadline ? deadline.toISOString() : null
         })
         .eq('id', editingForm.id);
@@ -154,8 +150,9 @@ export function FormList() {
         form.id === editingForm.id ? { 
           ...form, 
           title, 
-          description, 
-          form_link: formLink, 
+          description,
+          slug,
+          form_link: `/survey/${slug}`, 
           deadline: deadline ? deadline.toISOString() : null 
         } : form
       ));
@@ -167,6 +164,7 @@ export function FormList() {
       
       setEditDialogOpen(false);
     } catch (error) {
+      console.error("Error updating form:", error);
       toast({
         title: "Error",
         description: "Failed to update form",
@@ -175,7 +173,60 @@ export function FormList() {
     }
   };
 
-  React.useEffect(() => {
+  const duplicateForm = async (form: FormData) => {
+    try {
+      // Create new form with same data but different title/slug
+      const newTitle = `${form.title} (Copy)`;
+      const newSlug = slugify(newTitle);
+      
+      const { data, error } = await supabase
+        .from('forms')
+        .insert({
+          title: newTitle,
+          description: form.description,
+          form_link: `/survey/${newSlug}`,
+          slug: newSlug,
+          status: false,
+          form_structure: form.form_structure || { sections: [] },
+          deadline: form.deadline
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Add the new form to the list
+      setForms([data, ...forms]);
+      
+      toast({
+        title: "Success",
+        description: "Form duplicated successfully",
+      });
+    } catch (error) {
+      console.error("Error duplicating form:", error);
+      toast({
+        title: "Error",
+        description: "Failed to duplicate form",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditFormStructure = (slug: string) => {
+    navigate(`/survey/${slug}/edit`);
+  };
+
+  const copyLinkToClipboard = (link: string) => {
+    const baseUrl = window.location.origin;
+    const fullUrl = `${baseUrl}${link}`;
+    navigator.clipboard.writeText(fullUrl);
+    toast({
+      title: "Link Copied",
+      description: "Form link copied to clipboard",
+    });
+  };
+
+  useEffect(() => {
     fetchForms();
   }, []);
 
@@ -194,43 +245,101 @@ export function FormList() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {forms.map((form) => (
-            <TableRow key={form.id}>
-              <TableCell className="font-medium">{form.title}</TableCell>
-              <TableCell>
-                <Switch
-                  checked={form.status}
-                  onCheckedChange={() => toggleStatus(form.id, form.status)}
-                />
-              </TableCell>
-              <TableCell>
-                <Button variant="ghost" size="sm" asChild>
-                  <a href={form.form_link} target="_blank" rel="noopener noreferrer">
-                    <LinkIcon className="h-4 w-4" />
-                  </a>
-                </Button>
-              </TableCell>
-              <TableCell>
-                {form.deadline ? format(new Date(form.deadline), 'PPP') : 'No deadline'}
-              </TableCell>
-              <TableCell className="space-x-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => openEditDialog(form)}
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => deleteForm(form.id)}
-                >
-                  <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+          {forms.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={5} className="text-center py-8">
+                No forms found. Create your first form by clicking "New Form".
               </TableCell>
             </TableRow>
-          ))}
+          ) : (
+            forms.map((form) => (
+              <TableRow key={form.id}>
+                <TableCell className="font-medium">
+                  <div>
+                    <div className="font-medium">{form.title}</div>
+                    {form.description && (
+                      <div className="text-sm text-muted-foreground truncate max-w-xs">
+                        {form.description}
+                      </div>
+                    )}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={form.status}
+                      onCheckedChange={() => toggleStatus(form.id, form.status)}
+                    />
+                    <span className={form.status ? "text-green-600" : "text-slate-500"}>
+                      {form.status ? "Active" : "Inactive"}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center space-x-2">
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="rounded-full"
+                      onClick={() => copyLinkToClipboard(form.form_link)}
+                    >
+                      <Copy className="h-4 w-4 mr-2" />
+                      <span className="hidden md:inline">{form.slug}</span>
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      asChild
+                    >
+                      <a href={form.form_link} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    </Button>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  {form.deadline ? format(new Date(form.deadline), 'PPP') : 'No deadline'}
+                </TableCell>
+                <TableCell>
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => openEditDialog(form)}
+                      title="Quick Edit"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEditFormStructure(form.slug)}
+                      title="Edit Form Structure"
+                    >
+                      <span className="hidden md:inline mr-1">Edit Form</span>
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => duplicateForm(form)}
+                      title="Duplicate Form"
+                    >
+                      <Copy2 className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => deleteForm(form.id)}
+                      title="Delete Form"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
 
@@ -268,7 +377,7 @@ export function FormList() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit-link" className="text-right">
-                Form Link*
+                Form Slug*
               </Label>
               <Input
                 id="edit-link"
@@ -295,12 +404,16 @@ export function FormList() {
                       {deadline ? format(deadline, "PPP") : <span>Pick a date</span>}
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0">
+                  <PopoverContent className="w-auto p-0 pointer-events-auto">
                     <Calendar
                       mode="single"
                       selected={deadline || undefined}
-                      onSelect={(date) => setDeadline(date)}
+                      onSelect={(date) => {
+                        setDeadline(date);
+                        // Don't close the popover
+                      }}
                       initialFocus
+                      className="pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>

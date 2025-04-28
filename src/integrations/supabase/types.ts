@@ -512,6 +512,44 @@ export type Database = {
         }
         Relationships: []
       }
+      form_submissions: {
+        Row: {
+          created_at: string
+          draft: boolean
+          form_id: string | null
+          id: string
+          submission_data: Json
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          draft?: boolean
+          form_id?: string | null
+          id?: string
+          submission_data: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          draft?: boolean
+          form_id?: string | null
+          id?: string
+          submission_data?: Json
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "form_submissions_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       forms: {
         Row: {
           created_at: string
@@ -519,7 +557,9 @@ export type Database = {
           description: string | null
           form_data: Json | null
           form_link: string
+          form_structure: Json | null
           id: string
+          slug: string | null
           status: boolean
           title: string
           updated_at: string
@@ -530,7 +570,9 @@ export type Database = {
           description?: string | null
           form_data?: Json | null
           form_link: string
+          form_structure?: Json | null
           id?: string
+          slug?: string | null
           status?: boolean
           title: string
           updated_at?: string
@@ -541,7 +583,9 @@ export type Database = {
           description?: string | null
           form_data?: Json | null
           form_link?: string
+          form_structure?: Json | null
           id?: string
+          slug?: string | null
           status?: boolean
           title?: string
           updated_at?: string
@@ -1013,6 +1057,38 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      survey_drafts: {
+        Row: {
+          form_data: Json
+          form_id: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          form_data: Json
+          form_id: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          form_data?: Json
+          form_id?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "survey_drafts_form_id_fkey"
+            columns: ["form_id"]
+            isOneToOne: false
+            referencedRelation: "forms"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       thread_read_status: {
         Row: {
