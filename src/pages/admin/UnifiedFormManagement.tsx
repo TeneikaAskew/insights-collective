@@ -6,29 +6,21 @@ import { FormTemplates } from '@/components/admin/forms/FormTemplates';
 import FormAnalytics from '@/components/admin/forms/FormAnalytics';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate, useNavigate } from 'react-router-dom';
-import { PlusCircle, BarChart3, ListFilter, BookTemplate, FileText } from 'lucide-react';
+import { Navigate } from 'react-router-dom';
+import { PlusCircle, BarChart3, ListFilter, BookTemplate } from 'lucide-react';
 import CreateFormDialog from '@/components/admin/forms/CreateFormDialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 
-interface UnifiedFormManagementProps {
-  legacyView?: boolean;
-}
-
-export default function UnifiedFormManagement({ legacyView = false }: UnifiedFormManagementProps) {
+export default function UnifiedFormManagement() {
   const { user, isAdmin } = useAuth();
-  const navigate = useNavigate();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Only allow admin users to access this page
   if (!user || !isAdmin) {
     return <Navigate to="/" />;
   }
-
-  const initialTab = legacyView ? 'legacy-forms' : 'all-forms';
 
   return (
     <AppLayout>
@@ -61,15 +53,11 @@ export default function UnifiedFormManagement({ legacyView = false }: UnifiedFor
           </div>
         </div>
 
-        <Tabs defaultValue={initialTab} className="w-full">
-          <TabsList className="grid grid-cols-4 mb-8">
+        <Tabs defaultValue="all-forms" className="w-full">
+          <TabsList className="grid grid-cols-3 mb-8">
             <TabsTrigger value="all-forms" className="flex items-center">
               <ListFilter className="mr-2 h-4 w-4" />
               All Forms
-            </TabsTrigger>
-            <TabsTrigger value="legacy-forms" className="flex items-center">
-              <FileText className="mr-2 h-4 w-4" />
-              Legacy Forms
             </TabsTrigger>
             <TabsTrigger value="templates" className="flex items-center">
               <BookTemplate className="mr-2 h-4 w-4" />
@@ -82,20 +70,7 @@ export default function UnifiedFormManagement({ legacyView = false }: UnifiedFor
           </TabsList>
           
           <TabsContent value="all-forms" className="mt-0">
-            <FormList searchTerm={searchTerm} legacy={false} />
-          </TabsContent>
-          
-          <TabsContent value="legacy-forms" className="mt-0">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Legacy Forms</h2>
-              <Button variant="outline" onClick={() => navigate('/admin/forms')}>
-                New Forms Interface
-              </Button>
-            </div>
-            <p className="text-muted-foreground mb-4">
-              These are forms created using the legacy form system. We recommend migrating to the new form system for better features and performance.
-            </p>
-            <FormList searchTerm={searchTerm} legacy={true} />
+            <FormList searchTerm={searchTerm} />
           </TabsContent>
           
           <TabsContent value="templates" className="mt-0">
