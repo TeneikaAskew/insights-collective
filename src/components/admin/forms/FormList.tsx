@@ -51,7 +51,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
 import { FormListProps } from '@/components/forms/builder/types';
 
-export function FormList({ searchTerm = '' }: FormListProps) {
+export function FormList({ searchTerm = '', legacy = false }: FormListProps) {
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -69,10 +69,18 @@ export function FormList({ searchTerm = '' }: FormListProps) {
 
   const fetchForms = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('forms')
         .select('*')
         .order('created_at', { ascending: false });
+
+      if (legacy) {
+        query = query.eq('is_legacy', true);
+      } else {
+        query = query.or('is_legacy.eq.false, is_legacy.is.NULL');
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setForms(data || []);
@@ -330,7 +338,7 @@ export function FormList({ searchTerm = '' }: FormListProps) {
 
   useEffect(() => {
     fetchForms();
-  }, []);
+  }, [legacy]);
 
   if (loading) {
     return (
