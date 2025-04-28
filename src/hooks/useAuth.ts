@@ -18,6 +18,9 @@ export const useAuthProvider = () => {
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
   const isAuthenticated = !!enrichedUser;
+  
+  // Add explicit isAdmin property
+  const isAdmin = enrichedUser?.roles?.includes('admin') || false;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
   // Centralized redirect path state in Auth context
@@ -180,6 +183,7 @@ export const useAuthProvider = () => {
     githubSignIn: () => socialSignIn('github'),
     twitterSignIn: () => socialSignIn('twitter'),
     isAuthenticated,
+    isAdmin, // Explicitly include isAdmin property
     isAdminAuthenticated,
     storeRedirectPath,
     handleRedirectAfterLogin,

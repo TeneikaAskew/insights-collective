@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,7 +11,7 @@ import {
 } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
-import { Edit, Trash2, Link as LinkIcon, Copy, Copy2, ExternalLink } from 'lucide-react';
+import { Edit, Trash2, Link as LinkIcon, Copy, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -325,7 +324,7 @@ export function FormList() {
                       onClick={() => duplicateForm(form)}
                       title="Duplicate Form"
                     >
-                      <Copy2 className="h-4 w-4" />
+                      <Copy className="h-4 w-4" />
                     </Button>
                     <Button 
                       variant="outline" 

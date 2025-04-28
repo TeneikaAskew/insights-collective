@@ -30,7 +30,7 @@ import {
   FileCode,
   FileSpreadsheet,
   FileQuestion,
-  Form,
+  FormInput,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -69,11 +69,12 @@ const adminNavItems = [
       {
         title: 'All Courses',
         path: '/admin/courses',
+        icon: BookOpen,
       },
       {
         title: 'Forms',
         path: '/admin/forms',
-        icon: Form,
+        icon: FormInput,
       },
     ]
   },
@@ -115,10 +116,12 @@ const adminNavItems = [
 ];
 
 const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false, onClose }) => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isMounted, setIsMounted] = useState(false);
+
+  const isAdmin = user?.roles?.includes('admin');
 
   useEffect(() => {
     setIsMounted(true);
