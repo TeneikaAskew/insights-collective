@@ -19,10 +19,11 @@ function App() {
         <Route path="/" element={<Index />} />
         <Route path="/admin" element={<AdminDashboard />} />
         <Route path="/admin/forms" element={<UnifiedFormManagement />} />
-        {/* Redirect old form routes to the new unified interface */}
-        <Route path="/survey/:slug/edit" element={<Navigate to="/admin/forms" replace />} />
-        <Route path="/survey/:slug/confirmation" element={<Navigate to="/admin/forms" replace />} />
-        <Route path="/survey/:slug" element={<Navigate to="/admin/forms" replace />} />
+        <Route path="/survey/:slug/edit" element={<SurveyFormEdit />} />
+        <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
+        <Route path="/survey/:slug" element={<SurveyFormEdit />} />
+        
+        {/* Handle login route that's causing errors in console logs */}
         <Route path="/login" element={<Navigate to="/" replace />} />
         <Route path="/register" element={<Navigate to="/" replace />} />
       </Routes>
