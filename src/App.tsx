@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -120,13 +119,9 @@ const App = () => {
                   <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
                   <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
                   
-                  {/* Survey Routes */}
-                  <Route path="/survey/:slug" element={<SurveyPage />} />
-                  <Route path="/survey/create" element={<ProtectedVisibleRoute requireAdmin><SurveyFormCreate /></ProtectedVisibleRoute>} />
-                  <Route path="/survey/:slug/edit" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
-                  <Route path="/survey/:slug/submissions" element={<ProtectedVisibleRoute requireAdmin><Navigate to={`/admin/forms/submissions/:slug`} replace /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
+                  {/* Form routes */}
                   <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
                   <Route path="/admin/form-management/*" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
                   
                   {/* Protected routes - require authentication */}
@@ -168,6 +163,11 @@ const App = () => {
                   {/* Legacy redirects */}
                   <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
                   <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
+
+                  {/* Redirect old survey routes to new admin forms */}
+                  <Route path="/survey/create" element={<Navigate to="/admin/forms" replace />} />
+                  <Route path="/survey/:slug/edit" element={<Navigate to="/admin/forms" replace />} />
+                  <Route path="/survey/:slug/submissions" element={<Navigate to="/admin/forms/submissions/:slug" replace />} />
 
                   {/* Catch all NotFound */}
                   <Route path="*" element={<NotFound />} />

@@ -8,9 +8,12 @@ export default function FormManagement() {
   
   // Check if we're trying to access form submissions
   if (pathSegments.length > 3 && pathSegments[3] === 'submissions') {
-    const formSlug = pathSegments[2];
-    // Redirect to the unified form management submissions page
-    return <Navigate to={`/admin/forms/submissions/${formSlug}`} replace />;
+    const formSlug = pathSegments[4];
+    
+    // If we have a form slug, redirect to the submissions page with that slug
+    if (formSlug) {
+      return <Navigate to={`/admin/forms/submissions/${formSlug}`} replace />;
+    }
   }
   
   // Default redirect to the main forms management page

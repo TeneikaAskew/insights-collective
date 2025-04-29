@@ -1,9 +1,8 @@
-
 import React, { useEffect, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import FormBuilder from '@/components/forms/builder';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate, useParams, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { FormStructure } from '@/types/forms';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +15,7 @@ import { createFellowshipForm } from '@/components/forms/builder';
 export default function SurveyFormEdit() {
   const { user, isAdmin } = useAuth();
   const { slug } = useParams<{ slug: string }>();
+  const location = useLocation();
   const [formData, setFormData] = useState<{
     id: string;
     title: string;
@@ -27,6 +27,9 @@ export default function SurveyFormEdit() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  // Check if we're viewing submissions based on the URL path
+  const isSubmissionsView = location.pathname.includes('/submissions');
 
   useEffect(() => {
     const fetchForm = async () => {
@@ -179,7 +182,10 @@ export default function SurveyFormEdit() {
   return (
     <AppLayout>
       <div className="container py-8">
-        <FormBuilder initialFormData={formData} />
+        <FormBuilder 
+          initialFormData={formData} 
+          viewMode={isSubmissionsView}
+        />
       </div>
     </AppLayout>
   );
