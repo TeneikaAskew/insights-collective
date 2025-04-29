@@ -41,14 +41,45 @@ export function FormList({ searchTerm }: FormListProps) {
 
       if (error) throw error;
 
-      // Include the fellowship form if it's not already in the database
+      // Include the fellowship form
       const formsList = data || [];
+      
+      // Check if the fellowship form exists in the database
       const hasFellowshipForm = formsList.some(form => form.slug === 'ai-fellowship');
       
       if (!hasFellowshipForm) {
-        // Add the fellowship form to the forms list
-        setForms([fellowshipForm, ...formsList]);
+        // If not in database, try to insert it
+        try {
+          const { data: insertedForm, error: insertError } = await supabase
+            .from('forms')
+            .upsert({
+              id: fellowshipForm.id,
+              slug: fellowshipForm.slug,
+              title: fellowshipForm.title,
+              description: fellowshipForm.description,
+              status: fellowshipForm.status,
+              form_link: fellowshipForm.form_link,
+              form_structure: fellowshipForm.form_structure,
+              created_at: fellowshipForm.created_at,
+              updated_at: fellowshipForm.updated_at
+            })
+            .select();
+
+          if (insertError) {
+            console.error("Error inserting fellowship form:", insertError);
+            // Add the form to the UI anyway even if insert failed
+            setForms([fellowshipForm, ...formsList]);
+          } else if (insertedForm) {
+            // Add the inserted form to the list
+            setForms([...formsList, ...insertedForm]);
+          }
+        } catch (insertErr) {
+          console.error("Exception inserting fellowship form:", insertErr);
+          // Add the form to the UI anyway
+          setForms([fellowshipForm, ...formsList]);
+        }
       } else {
+        // Form exists in database, use the database version
         setForms(formsList);
       }
     } catch (error) {
@@ -58,6 +89,8 @@ export function FormList({ searchTerm }: FormListProps) {
         description: "Failed to load forms",
         variant: "destructive"
       });
+      // Fallback: Add fellowship form to UI even if fetch fails
+      setForms([fellowshipForm]);
     } finally {
       setLoading(false);
     }

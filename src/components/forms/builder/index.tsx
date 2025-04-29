@@ -23,11 +23,21 @@ export const fellowshipForm = {
               field.type === 'dropdown' ? 'dropdown' : 
               field.type === 'radio' ? 'radio' : 
               field.type === 'checkbox' ? 'checkbox' : 
-              field.type === 'multi_select' ? 'multi_select' : 'short_text',
+              field.type === 'multi_select' ? 'multi_select' : 
+              field.type === 'slider' ? 'slider' :
+              field.type === 'date_picker' ? 'date' :
+              field.type === 'file_upload' ? 'file_upload' : 'short_text',
         required: field.required || false,
         options: field.options || [],
         validation: field.validation || undefined,
-        placeholder: field.placeholder !== undefined ? field.placeholder : ''
+        placeholder: field.placeholder !== undefined ? field.placeholder : '',
+        max_select: field.max_select,
+        min: field.min,
+        max: field.max,
+        max_words: field.max_words,
+        file_types: field.file_types,
+        max_size_mb: field.max_size_mb,
+        text: field.text
       }))
     }))
   },
