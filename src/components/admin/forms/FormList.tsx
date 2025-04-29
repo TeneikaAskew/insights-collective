@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -60,8 +61,13 @@ export function FormList({ searchTerm }: FormListProps) {
 
           if (insertError) {
             console.error("Error inserting fellowship form:", insertError);
-            // Show the form in UI anyway
-            setForms([...formsList, fellowshipFormTemplate]);
+            // Add to the list with required properties for FormData
+            setForms([...formsList, {
+              ...fellowshipFormTemplate,
+              id: 'temp-' + Date.now(), // Generate a temporary ID
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            } as FormData]);
           } else if (insertedForm) {
             // Add to the list
             console.log("Fellowship form inserted:", insertedForm);
@@ -69,9 +75,14 @@ export function FormList({ searchTerm }: FormListProps) {
           }
         } catch (insertErr) {
           console.error("Exception inserting fellowship form:", insertErr);
-          // Show in UI anyway
+          // Add to the list with required properties for FormData
           const fellowshipFormTemplate = createFellowshipForm();
-          setForms([...formsList, fellowshipFormTemplate]);
+          setForms([...formsList, {
+            ...fellowshipFormTemplate,
+            id: 'temp-' + Date.now(), // Generate a temporary ID
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          } as FormData]);
         }
       } else {
         // Form exists in database
@@ -87,7 +98,12 @@ export function FormList({ searchTerm }: FormListProps) {
       
       // Fallback: Show at least the fellowship form template
       const fellowshipFormTemplate = createFellowshipForm();
-      setForms([fellowshipFormTemplate]);
+      setForms([{
+        ...fellowshipFormTemplate,
+        id: 'temp-' + Date.now(), // Generate a temporary ID
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } as FormData]);
     } finally {
       setLoading(false);
     }

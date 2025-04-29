@@ -17,7 +17,7 @@ export interface FormBuilderProps {
     slug?: string;
     form_structure?: FormStructure;
   } | null;
-  viewMode?: boolean; // Add this property
+  viewMode?: boolean;
 }
 
 export interface SectionEditorProps {
@@ -33,7 +33,7 @@ export interface SectionEditorProps {
 export interface FieldEditorProps {
   field: FormField;
   sectionId: string;
-  index: number;  // Changed from fieldIndex to index to match FieldEditor.tsx
+  index: number;
   onUpdateField: (sectionId: string, fieldId: string, data: Partial<FormField>) => void;
   onRemoveField: (sectionId: string, fieldId: string) => void;
 }

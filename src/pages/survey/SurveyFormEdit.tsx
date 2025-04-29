@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import FormBuilder from '@/components/forms/builder';
@@ -28,8 +29,9 @@ export default function SurveyFormEdit() {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   
-  // Check if we're viewing submissions based on the URL path
-  const isSubmissionsView = location.pathname.includes('/submissions');
+  // Check if we're viewing submissions based on the URL query parameters
+  const searchParams = new URLSearchParams(location.search);
+  const isSubmissionsView = searchParams.get('view') === 'submissions';
 
   useEffect(() => {
     const fetchForm = async () => {
