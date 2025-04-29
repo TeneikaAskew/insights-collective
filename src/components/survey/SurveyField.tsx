@@ -132,8 +132,12 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
                   </FormControl>
                   <SelectContent>
                     {field.options?.map(option => (
-                      <SelectItem key={option} value={option}>
-                        {option}
+                      // Ensure option is not empty string
+                      <SelectItem 
+                        key={option} 
+                        value={option || "empty-option-placeholder"} // Use placeholder for empty options
+                      >
+                        {option || "—"}
                       </SelectItem>
                     ))}
                   </SelectContent>

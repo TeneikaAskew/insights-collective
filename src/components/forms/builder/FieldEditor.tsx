@@ -115,7 +115,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                             value={option}
                             onChange={(e) => {
                               const newOptions = Array.isArray(field.options) ? [...field.options] : [];
-                              newOptions[optionIndex] = e.target.value;
+                              newOptions[optionIndex] = e.target.value || `Option ${optionIndex + 1}`; // Don't allow empty options
                               onUpdateField(sectionId, field.id, { options: newOptions });
                             }}
                             placeholder={`Option ${optionIndex + 1}`}
@@ -244,6 +244,14 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                         value={typeof field.validation === 'object' ? field.validation?.type : 
                                typeof field.validation === 'string' ? field.validation : ''}
                         onValueChange={(value) => {
+                          if (!value) {
+                            // Handle empty selection
+                            const validation = typeof field.validation === 'object' ? {...field.validation} : {};
+                            delete validation.type;
+                            onUpdateField(sectionId, field.id, { validation });
+                            return;
+                          }
+                          
                           const validation = typeof field.validation === 'object' ? {...field.validation} : {};
                           onUpdateField(sectionId, field.id, { 
                             validation: {
@@ -257,7 +265,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                           <SelectValue placeholder="Select validation type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="none">None</SelectItem>
                           <SelectItem value="numeric_only">Numbers Only</SelectItem>
                           <SelectItem value="url">URL</SelectItem>
                           <SelectItem value="email">Email</SelectItem>
