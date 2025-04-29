@@ -32,7 +32,7 @@ export interface SectionEditorProps {
 export interface FieldEditorProps {
   field: FormField;
   sectionId: string;
-  fieldIndex: number;
+  index: number;  // Changed from fieldIndex to index to match FieldEditor.tsx
   onUpdateField: (sectionId: string, fieldId: string, data: Partial<FormField>) => void;
   onRemoveField: (sectionId: string, fieldId: string) => void;
 }

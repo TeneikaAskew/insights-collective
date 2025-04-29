@@ -67,7 +67,7 @@ const SectionEditor: React.FC<SectionEditorProps> = ({
                       key={field.id}
                       field={field}
                       sectionId={section.id}
-                      fieldIndex={fieldIndex}
+                      index={fieldIndex}
                       onUpdateField={onUpdateField}
                       onRemoveField={onRemoveField}
                     />
