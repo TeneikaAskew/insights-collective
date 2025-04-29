@@ -13,11 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 
-interface UnifiedFormManagementProps {
-  legacyView?: boolean;
-}
-
-export default function UnifiedFormManagement({ legacyView = false }: UnifiedFormManagementProps) {
+export default function UnifiedFormManagement() {
   const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -27,8 +23,6 @@ export default function UnifiedFormManagement({ legacyView = false }: UnifiedFor
   if (!user || !isAdmin) {
     return <Navigate to="/" />;
   }
-
-  const initialTab = legacyView ? 'legacy-forms' : 'all-forms';
 
   return (
     <AppLayout>
@@ -61,7 +55,7 @@ export default function UnifiedFormManagement({ legacyView = false }: UnifiedFor
           </div>
         </div>
 
-        <Tabs defaultValue={initialTab} className="w-full">
+        <Tabs defaultValue="all-forms" className="w-full">
           <TabsList className="grid grid-cols-4 mb-8">
             <TabsTrigger value="all-forms" className="flex items-center">
               <ListFilter className="mr-2 h-4 w-4" />
@@ -82,14 +76,14 @@ export default function UnifiedFormManagement({ legacyView = false }: UnifiedFor
           </TabsList>
           
           <TabsContent value="all-forms" className="mt-0">
-            <FormList searchTerm={searchTerm} legacy={false} />
+            <FormList searchTerm={searchTerm} />
           </TabsContent>
           
           <TabsContent value="legacy-forms" className="mt-0">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold">Legacy Forms</h2>
-              <Button variant="outline" onClick={() => navigate('/admin/forms')}>
-                New Forms Interface
+              <Button variant="outline" onClick={() => navigate('/admin/forms/legacy')}>
+                Manage Legacy Forms
               </Button>
             </div>
             <p className="text-muted-foreground mb-4">
