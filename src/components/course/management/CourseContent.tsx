@@ -102,27 +102,36 @@ export default function CourseContent({ courseId }: CourseContentProps) {
     try {
       const { data, error } = await supabase
         .from('modules')
-        .select(`
-          id, 
-          title, 
-          description, 
-          week, 
-          position,
-          (
-            SELECT count(*) 
-            FROM module_content 
-            WHERE module_id = modules.id
-          ) as content_count
-        `)
+        .select('id, title, description, week, position')
         .eq('course_id', courseId)
         .order('position', { ascending: true });
 
       if (error) throw error;
-      setModules(data || []);
       
-      // Select the first module by default
-      if (data && data.length > 0 && !selectedModule) {
-        setSelectedModule(data[0].id);
+      // Get content count for each module
+      if (data && data.length > 0) {
+        const modulesWithContentCount: Module[] = await Promise.all(
+          data.map(async (module) => {
+            const { count, error: countError } = await supabase
+              .from('module_content')
+              .select('id', { count: 'exact', head: true })
+              .eq('module_id', module.id);
+              
+            return {
+              ...module,
+              content_count: count || 0
+            } as Module;
+          })
+        );
+        
+        setModules(modulesWithContentCount);
+        
+        // Select the first module by default
+        if (!selectedModule) {
+          setSelectedModule(modulesWithContentCount[0]?.id);
+        }
+      } else {
+        setModules([]);
       }
     } catch (error: any) {
       console.error('Error fetching modules:', error);

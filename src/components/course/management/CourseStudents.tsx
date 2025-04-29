@@ -80,11 +80,11 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       // Transform data into the Student format
       const transformedData = data?.map((enrollment) => ({
         enrollment_id: enrollment.id,
-        id: enrollment.profiles.id,
-        email: enrollment.profiles.email || '',
-        first_name: enrollment.profiles.first_name || '',
-        last_name: enrollment.profiles.last_name || '',
-        avatar_url: enrollment.profiles.avatar_url,
+        id: enrollment.profiles?.id || '',
+        email: enrollment.profiles?.email || '',
+        first_name: enrollment.profiles?.first_name || '',
+        last_name: enrollment.profiles?.last_name || '',
+        avatar_url: enrollment.profiles?.avatar_url,
         enrolled_at: enrollment.created_at,
         progress: enrollment.progress || 0,
         last_activity: enrollment.last_activity,
