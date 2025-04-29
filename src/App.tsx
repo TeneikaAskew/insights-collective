@@ -117,12 +117,13 @@ const App = () => {
                   <Route path="/forums" element={<ForumList />} />
                   <Route path="/survey" element={<SurveyApplication />} />
                   <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
+                  <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
                   
                   {/* Survey Routes */}
                   <Route path="/survey/:slug" element={<SurveyPage />} />
-                  <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
                   <Route path="/survey/create" element={<ProtectedVisibleRoute requireAdmin><SurveyFormCreate /></ProtectedVisibleRoute>} />
                   <Route path="/survey/:slug/edit" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
+                  <Route path="/survey/:slug/submissions" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
                   
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />

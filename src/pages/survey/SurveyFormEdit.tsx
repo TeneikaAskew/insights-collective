@@ -52,6 +52,9 @@ export default function SurveyFormEdit() {
             console.log("Creating fellowship form...");
             const fellowshipForm = createFellowshipForm();
             
+            // Log the form for debugging
+            console.log("Fellowship form to be inserted:", fellowshipForm);
+            
             // Insert the fellowship form into the database
             const { data: insertedForm, error: insertError } = await supabase
               .from('forms')

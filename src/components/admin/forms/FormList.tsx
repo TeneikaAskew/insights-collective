@@ -10,7 +10,7 @@ import { Pencil, Eye, Trash2, FileText, BarChart } from 'lucide-react';
 import { FormData } from '@/types/forms';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { fellowshipForm } from '@/components/forms/builder';
+import { createFellowshipForm } from '@/components/forms/builder';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 
@@ -41,45 +41,41 @@ export function FormList({ searchTerm }: FormListProps) {
 
       if (error) throw error;
 
-      // Include the fellowship form
+      // Check if the ai-fellowship form exists in the database
       const formsList = data || [];
+      const fellowshipFormIndex = formsList.findIndex(form => form.slug === 'ai-fellowship');
       
-      // Check if the fellowship form exists in the database
-      const hasFellowshipForm = formsList.some(form => form.slug === 'ai-fellowship');
-      
-      if (!hasFellowshipForm) {
-        // If not in database, try to insert it
+      if (fellowshipFormIndex === -1) {
+        // If not in database, create it
         try {
+          console.log("Creating fellowship form in FormList component...");
+          const fellowshipFormTemplate = createFellowshipForm();
+          
+          console.log("Fellowship form to be inserted:", fellowshipFormTemplate);
+          
           const { data: insertedForm, error: insertError } = await supabase
             .from('forms')
-            .upsert({
-              id: fellowshipForm.id,
-              slug: fellowshipForm.slug,
-              title: fellowshipForm.title,
-              description: fellowshipForm.description,
-              status: fellowshipForm.status,
-              form_link: fellowshipForm.form_link,
-              form_structure: fellowshipForm.form_structure,
-              created_at: fellowshipForm.created_at,
-              updated_at: fellowshipForm.updated_at
-            })
-            .select();
+            .insert(fellowshipFormTemplate)
+            .select()
+            .single();
 
           if (insertError) {
             console.error("Error inserting fellowship form:", insertError);
-            // Add the form to the UI anyway even if insert failed
-            setForms([fellowshipForm, ...formsList]);
+            // Show the form in UI anyway
+            setForms([...formsList, fellowshipFormTemplate]);
           } else if (insertedForm) {
-            // Add the inserted form to the list
-            setForms([...formsList, ...insertedForm]);
+            // Add to the list
+            console.log("Fellowship form inserted:", insertedForm);
+            setForms([...formsList, insertedForm]);
           }
         } catch (insertErr) {
           console.error("Exception inserting fellowship form:", insertErr);
-          // Add the form to the UI anyway
-          setForms([fellowshipForm, ...formsList]);
+          // Show in UI anyway
+          const fellowshipFormTemplate = createFellowshipForm();
+          setForms([...formsList, fellowshipFormTemplate]);
         }
       } else {
-        // Form exists in database, use the database version
+        // Form exists in database
         setForms(formsList);
       }
     } catch (error) {
@@ -89,8 +85,10 @@ export function FormList({ searchTerm }: FormListProps) {
         description: "Failed to load forms",
         variant: "destructive"
       });
-      // Fallback: Add fellowship form to UI even if fetch fails
-      setForms([fellowshipForm]);
+      
+      // Fallback: Show at least the fellowship form template
+      const fellowshipFormTemplate = createFellowshipForm();
+      setForms([fellowshipFormTemplate]);
     } finally {
       setLoading(false);
     }
@@ -189,7 +187,7 @@ export function FormList({ searchTerm }: FormListProps) {
           </TableHeader>
           <TableBody>
             {filteredForms.map((form) => (
-              <TableRow key={form.id || form.slug}>
+              <TableRow key={form.id}>
                 <TableCell>
                   <div className="font-medium">{form.title}</div>
                   {form.description && (

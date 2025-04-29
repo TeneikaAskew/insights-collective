@@ -2,13 +2,17 @@
 import FormBuilder from './FormBuilder';
 import { surveyData } from '@/data/surveyData';
 import { FormData } from '@/types/forms';
+import { v4 as uuidv4 } from 'uuid';
 
 // Create a default form structure from the fellowship survey data
 export const createFellowshipForm = (): FormData => {
+  // Generate a proper UUID for the form id
+  const formId = uuidv4();
+  
   return {
-    id: 'ai-fellowship',
+    id: formId,
     title: 'AI & Automation Skills Fellowship',
-    slug: 'ai-fellowship',
+    slug: 'ai-fellowship', // Keep the slug as 'ai-fellowship'
     description: 'Complete all sections to submit your application for the fellowship program.',
     status: true,
     form_link: '/survey',

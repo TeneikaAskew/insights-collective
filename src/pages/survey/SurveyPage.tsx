@@ -51,6 +51,8 @@ export default function SurveyPage() {
             console.log("Fellowship form not found, creating it...");
             const fellowshipForm = createFellowshipForm();
             
+            console.log("Fellowship form to be created:", fellowshipForm);
+            
             // Insert the fellowship form into the database
             const { data: insertedForm, error: insertError } = await supabase
               .from('forms')
