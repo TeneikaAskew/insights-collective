@@ -27,7 +27,7 @@ export const fellowshipForm = {
         required: field.required || false,
         options: field.options || [],
         validation: field.validation || undefined,
-        placeholder: field.placeholder || ''
+        placeholder: field.placeholder !== undefined ? field.placeholder : ''
       }))
     }))
   },
