@@ -18,6 +18,7 @@ export const fellowshipForm = {
       fields: section.fields.map((field, idx) => ({
         id: `${section.section.toLowerCase().replace(/\s+/g, '_')}_${idx}`,
         label: field.label,
+        // Map the field types to match the FormField type definition
         type: field.type === 'short_text' ? 'short_text' : 
               field.type === 'long_text' ? 'long_text' : 
               field.type === 'dropdown' ? 'dropdown' : 
