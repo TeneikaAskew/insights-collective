@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -123,7 +122,8 @@ const App = () => {
                   <Route path="/survey/:slug" element={<SurveyPage />} />
                   <Route path="/survey/create" element={<ProtectedVisibleRoute requireAdmin><SurveyFormCreate /></ProtectedVisibleRoute>} />
                   <Route path="/survey/:slug/edit" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
-                  <Route path="/survey/:slug/submissions" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
+                  <Route path="/survey/:slug/submissions" element={<ProtectedVisibleRoute requireAdmin><Navigate to={`/admin/forms/submissions/:slug`} replace /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit submissionsView={true} /></ProtectedVisibleRoute>} />
                   
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />

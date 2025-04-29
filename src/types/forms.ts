@@ -48,3 +48,12 @@ export interface FormData {
   created_at: string;
   updated_at: string;
 }
+
+export interface FormSubmission {
+  id: string;
+  form_id: string;
+  user_id?: string;
+  submission_data: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
