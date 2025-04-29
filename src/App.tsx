@@ -1,23 +1,13 @@
 
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
-import { Toaster } from './components/ui/toaster';
-import AdminDashboard from './pages/AdminDashboard';
-import SurveyFormEdit from './pages/survey/SurveyFormEdit';
-import SurveyConfirmation from './pages/SurveyConfirmation';
-import UnifiedFormManagement from './pages/admin/UnifiedFormManagement';
-import { useAuth } from './contexts/AuthContext';
-
-
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PageVisibilityProvider } from "./contexts/PageVisibilityContext";
 import { ToastProvider } from "@/hooks/use-toast";
-import React from "react";
 
 // Import page components
 import Index from "./pages/Index";
@@ -82,6 +72,7 @@ import CareerAgent from "./pages/CareerAgent";
 import SurveyPage from "./pages/survey/SurveyPage";
 import SurveyFormEdit from "./pages/survey/SurveyFormEdit";
 import SurveyFormCreate from "./pages/survey/SurveyFormCreate";
+import UnifiedFormManagement from "./pages/admin/UnifiedFormManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -126,12 +117,10 @@ const App = () => {
                   <Route path="/forums" element={<ForumList />} />
                   <Route path="/survey" element={<SurveyApplication />} />
                   <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
-                  <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
-                  <Route path="/survey/:slug" element={<SurveyFormEdit />} />
                   
                   {/* Survey Routes */}
                   <Route path="/survey/:slug" element={<SurveyPage />} />
-                  <Route path="/survey-confirmation/:slug?" element={<SurveyConfirmation />} />
+                  <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
                   <Route path="/survey/create" element={<ProtectedVisibleRoute requireAdmin><SurveyFormCreate /></ProtectedVisibleRoute>} />
                   <Route path="/survey/:slug/edit" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
                   
@@ -154,11 +143,6 @@ const App = () => {
                   <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ProtectedVisibleRoute><ThreadDetail /></ProtectedVisibleRoute>} />
                   
                   {/* Admin routes */}
-                  <Route path="/" element={<AdminDashboard />} />
-                  <Route path="/admin/forms" element={<UnifiedFormManagement />} />
-                  <Route path="/survey/:slug/edit" element={<SurveyFormEdit />} />
-                  <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
-                  <Route path="/survey/:slug" element={<SurveyFormEdit />} />
                   <Route path="/admin" element={<ProtectedVisibleRoute requireAdmin><AdminDashboard /></ProtectedVisibleRoute>} />
                   <Route path="/admin/activity" element={<ProtectedVisibleRoute requireAdmin><AdminActivity /></ProtectedVisibleRoute>} />
                   <Route path="/admin/courses" element={<ProtectedVisibleRoute requireAdmin><CourseManagementDashboard /></ProtectedVisibleRoute>} />
@@ -174,7 +158,7 @@ const App = () => {
                   <Route path="/admin/blog/create" element={<ProtectedVisibleRoute requireAdmin><CreateBlogPost /></ProtectedVisibleRoute>} />
                   <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin><AdminPageVisibility /></ProtectedVisibleRoute>} />
                   <Route path="/components/LocalStorageDebug.tsx" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebug /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><AdminForms /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
 
                   {/* Legacy redirects */}
                   <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
