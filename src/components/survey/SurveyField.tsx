@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,11 @@ interface FieldData {
   file_types?: string[];
   max_size_mb?: number;
   text?: string;
+  subtitle?: string;
+  depends_on?: {
+    field: string;
+    value: string | string[] | boolean;
+  };
 }
 
 interface SurveyFieldProps {
@@ -51,6 +57,47 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
   const [existingResume, setExistingResume] = useState<{ id: string; file_path: string } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
+  // For handling dependencies between fields
+  const formValues = watch();
+  
+  // Check if this field should be shown based on dependencies
+  const shouldShowField = () => {
+    if (!field.depends_on) return true;
+    
+    const dependencyValue = formValues[field.depends_on.field];
+    
+    if (Array.isArray(field.depends_on.value)) {
+      return field.depends_on.value.includes(dependencyValue);
+    }
+    
+    return dependencyValue === field.depends_on.value;
+  };
+  
+  // For auto-filling income range based on the amount entered
+  useEffect(() => {
+    if (field.label === "Please select the income range that matches the amount you entered") {
+      const incomeAmount = formValues["What is your annual household income amount?"];
+      if (!incomeAmount) return;
+      
+      const amount = Number(incomeAmount);
+      let selectedRange = "";
+      
+      if (amount < 25000) {
+        selectedRange = "<$25,000";
+      } else if (amount <= 50000) {
+        selectedRange = "$25,001–$50,000";
+      } else if (amount <= 75000) {
+        selectedRange = "$50,001–$75,000";
+      } else if (amount <= 100000) {
+        selectedRange = "$75,001–$100,000";
+      } else {
+        selectedRange = "$100,001+";
+      }
+      
+      setValue(fieldName, selectedRange);
+    }
+  }, [formValues["What is your annual household income amount?"]]);
   
   // Check if the user has a resume already (for resume upload fields)
   useEffect(() => {
@@ -219,6 +266,11 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
 
     return rules;
   };
+  
+  // If this field should be hidden due to dependencies, don't render it
+  if (!shouldShowField()) {
+    return null;
+  }
   
   const renderField = () => {
     // Map survey data types to SurveyField types
@@ -468,6 +520,9 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
                   {field.label}
                   {field.required && <span className="text-red-500">*</span>}
                 </FormLabel>
+                {field.subtitle && (
+                  <p className="text-sm text-muted-foreground -mt-2">{field.subtitle}</p>
+                )}
                 <div className="space-y-2">
                   <div className="pt-4">
                     <Slider

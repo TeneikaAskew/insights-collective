@@ -12,7 +12,7 @@ export default function FormManagement() {
     
     // If we have a form slug, redirect to the submissions page with that slug
     if (formSlug) {
-      // We'll redirect to SurveyFormEdit with the slug and set viewMode to true through the route
+      // We'll redirect to SurveyFormEdit with the slug and set viewMode to true through the query parameter
       return <Navigate to={`/survey/${formSlug}/edit?view=submissions`} replace />;
     }
   }

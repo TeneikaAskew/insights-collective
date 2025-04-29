@@ -18,6 +18,11 @@ export interface FieldData {
   } | 'numeric_only' | 'url' | 'email';
   text?: string;
   placeholder?: string;
+  subtitle?: string;
+  depends_on?: {
+    field: string;
+    value: string | string[] | boolean;
+  };
 }
 
 export interface SectionData {
@@ -233,14 +238,16 @@ export const surveyData: SectionData[] = [
         type: "slider",
         min: 1,
         max: 5,
-        required: true
+        required: true,
+        subtitle: "1 represents 'Beginner' and 5 represents 'Expert'"
       },
       {
         label: "How would you rate your Python proficiency?",
         type: "slider",
         min: 1,
         max: 5,
-        required: true
+        required: true,
+        subtitle: "1 represents 'Beginner' and 5 represents 'Expert'"
       },
       {
         label: "Why do you want to attend this program?",
@@ -324,10 +331,22 @@ export const surveyData: SectionData[] = [
         ]
       },
       {
-        label: "Do you currently support dependents (children, elderly family, etc.)?",
+        label: "Do you currently support dependents or family members (children, elderly family, etc.)?",
         type: "radio",
         required: false,
         options: ["Yes", "No"]
+      },
+      {
+        label: "How many dependents or family members do you support?",
+        type: "short_text",
+        required: false,
+        depends_on: {
+          field: "Do you currently support dependents or family members (children, elderly family, etc.)?",
+          value: "Yes"
+        },
+        validation: {
+          type: "numeric_only"
+        }
       }
     ]
   },

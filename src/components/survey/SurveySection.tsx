@@ -31,6 +31,13 @@ const SurveySection: React.FC<SurveySectionProps> = ({
   // Watch form values to trigger auto-save
   const formValues = watch();
   
+  // Function to generate a consistent fieldName for each field
+  const generateFieldName = (field: any, index: number) => {
+    // Use the field label as the field name for easier identification
+    // This makes dependent fields easier to implement
+    return field.label;
+  };
+  
   // Function to save draft data to localStorage and database
   const saveDraft = async () => {
     if (isSaving) return;
@@ -140,8 +147,8 @@ const SurveySection: React.FC<SurveySectionProps> = ({
       
       <div className="space-y-6">
         {section.fields.map((field, index) => {
-          // Generate a unique field name
-          const fieldName = `${section.section.toLowerCase().replace(/\s+/g, '_')}_${index}`;
+          // Generate a unique field name using the field's label for easier identification
+          const fieldName = generateFieldName(field, index);
           
           // Add validation for zip code fields
           let validationProps = {};
