@@ -21,12 +21,13 @@ export function useCourseData(courseId?: string) {
       setError(null);
       
       try {
-        // Fetch course details
+        // Fetch course details with a revised query
+        // Modified query to use proper join syntax
         const { data, error: courseError } = await supabase
           .from('courses')
           .select(`
             *,
-            instructor:profiles(id, first_name, last_name, avatar_url, email)
+            instructor:profiles(id, first_name, last_name, avatar_url)
           `)
           .eq('id', courseId)
           .single();
@@ -60,7 +61,7 @@ export function useCourseData(courseId?: string) {
             firstName: data.instructor.first_name,
             lastName: data.instructor.last_name,
             avatar: data.instructor.avatar_url,
-            email: data.instructor.email,
+            // Note: We're no longer trying to access email as it doesn't exist in the profiles table
           } : undefined,
         };
 
