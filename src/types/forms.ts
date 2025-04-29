@@ -56,4 +56,11 @@ export interface FormSubmission {
   submission_data: Record<string, any>;
   created_at: string;
   updated_at: string;
+  profiles?: {
+    first_name?: string;
+    last_name?: string;
+    email?: {
+      email: string;
+    };
+  };
 }
