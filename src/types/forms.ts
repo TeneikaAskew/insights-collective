@@ -4,7 +4,7 @@ export type FormStatus = 'active' | 'inactive';
 export type FormField = {
   id: string;
   label: string;
-  type: 'short_text' | 'long_text' | 'dropdown' | 'radio' | 'checkbox' | 'date' | 'multi_select' | 'slider' | 'file_upload';
+  type: 'short_text' | 'long_text' | 'dropdown' | 'radio' | 'checkbox' | 'date' | 'multi_select' | 'slider' | 'date_picker' | 'file_upload';
   required?: boolean;
   options?: string[];
   validation?: {

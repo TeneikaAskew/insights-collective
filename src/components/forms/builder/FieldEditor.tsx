@@ -1,282 +1,329 @@
 
-import React from 'react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Trash2 } from 'lucide-react';
-import { FieldEditorProps } from './types';
+import React, { useState } from 'react';
 import { Draggable } from 'react-beautiful-dnd';
-import { GripVertical } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { 
+  Select, SelectContent, SelectGroup, 
+  SelectItem, SelectLabel, SelectTrigger, SelectValue 
+} from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { FormField } from '@/types/forms';
+import { GripVertical, Trash2, Plus, X } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
+interface FieldEditorProps {
+  field: FormField;
+  index: number;
+  sectionId: string;
+  onUpdateField: (sectionId: string, fieldId: string, data: Partial<FormField>) => void;
+  onRemoveField: (sectionId: string, fieldId: string) => void;
+}
 
 const FieldEditor: React.FC<FieldEditorProps> = ({ 
   field, 
-  sectionId, 
-  fieldIndex, 
-  onUpdateField, 
-  onRemoveField 
+  index, 
+  sectionId,
+  onUpdateField,
+  onRemoveField
 }) => {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [newOption, setNewOption] = useState('');
+
+  const handleFieldTypeChange = (value: string) => {
+    // Convert string value to the appropriate FormField type
+    const fieldType = value as FormField['type'];
+    
+    let updatedField: Partial<FormField> = { type: fieldType };
+    
+    // Add default options for select types
+    if (['dropdown', 'radio', 'checkbox', 'multi_select'].includes(fieldType)) {
+      updatedField.options = field.options?.length ? field.options : ['Option 1', 'Option 2', 'Option 3'];
+    }
+    
+    // Add file types for file uploads
+    if (fieldType === 'file_upload') {
+      updatedField.file_types = field.file_types?.length ? field.file_types : ['.pdf', '.docx', '.doc'];
+      updatedField.max_size_mb = field.max_size_mb || 5;
+    }
+    
+    onUpdateField(sectionId, field.id, updatedField);
+  };
+
+  const addOption = () => {
+    if (!newOption.trim()) return;
+    
+    const updatedOptions = [...(field.options || []), newOption.trim()];
+    onUpdateField(sectionId, field.id, { options: updatedOptions });
+    setNewOption('');
+  };
+
+  const removeOption = (index: number) => {
+    const updatedOptions = field.options?.filter((_, i) => i !== index);
+    onUpdateField(sectionId, field.id, { options: updatedOptions });
+  };
+
+  const addFileType = () => {
+    if (!newOption.trim()) return;
+    
+    let fileType = newOption.trim();
+    // Add dot prefix if missing
+    if (!fileType.startsWith('.')) {
+      fileType = '.' + fileType;
+    }
+    
+    const updatedFileTypes = [...(field.file_types || []), fileType];
+    onUpdateField(sectionId, field.id, { file_types: updatedFileTypes });
+    setNewOption('');
+  };
+
+  const removeFileType = (index: number) => {
+    const updatedFileTypes = field.file_types?.filter((_, i) => i !== index);
+    onUpdateField(sectionId, field.id, { file_types: updatedFileTypes });
+  };
+
   return (
-    <Draggable key={field.id} draggableId={field.id} index={fieldIndex}>
+    <Draggable draggableId={field.id} index={index}>
       {(provided) => (
-        <div 
+        <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className="border rounded-md p-4 bg-gray-50"
+          className="mb-4"
         >
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center flex-1">
-              <div {...provided.dragHandleProps} className="mr-2 cursor-grab">
-                <GripVertical className="h-5 w-5 text-gray-400" />
-              </div>
-              <Input
-                value={field.label || ''}
-                onChange={(e) => onUpdateField(sectionId, field.id, { label: e.target.value })}
-                className="bg-transparent"
-                placeholder="Question Label"
-              />
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => onRemoveField(sectionId, field.id)}
-              className="ml-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                <div {...provided.dragHandleProps} className="flex items-center cursor-grab">
+                  <GripVertical className="h-6 w-6 text-gray-400" />
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
-            <div>
-              <Label htmlFor={`field-type-${field.id}`}>Question Type</Label>
-              <Select
-                value={field.type}
-                onValueChange={(value: any) => {
-                  const needsOptions = ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(value);
-                  const hadOptions = field.type && ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type);
-                  
-                  let updates: Partial<any> = { type: value };
-                  
-                  if (needsOptions && !hadOptions) {
-                    updates.options = ['Option 1', 'Option 2', 'Option 3'];
-                  }
-                  
-                  onUpdateField(sectionId, field.id, updates);
-                }}
-              >
-                <SelectTrigger id={`field-type-${field.id}`}>
-                  <SelectValue placeholder="Select field type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectLabel>Text</SelectLabel>
-                    <SelectItem value="short_text">Short Text</SelectItem>
-                    <SelectItem value="long_text">Long Text</SelectItem>
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Options</SelectLabel>
-                    <SelectItem value="dropdown">Dropdown</SelectItem>
-                    <SelectItem value="radio">Radio Buttons</SelectItem>
-                    <SelectItem value="checkbox">Checkboxes</SelectItem>
-                    <SelectItem value="multi_select">Multi-Select</SelectItem>
-                  </SelectGroup>
-                  <SelectGroup>
-                    <SelectLabel>Other</SelectLabel>
-                    <SelectItem value="date">Date Picker</SelectItem>
-                    <SelectItem value="slider">Slider</SelectItem>
-                    <SelectItem value="file_upload">File Upload</SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch 
-                id={`required-${field.id}`}
-                checked={!!field.required}
-                onCheckedChange={(checked) => onUpdateField(sectionId, field.id, { required: checked })}
-              />
-              <Label htmlFor={`required-${field.id}`}>Required</Label>
-            </div>
-          </div>
-
-          {field.type && ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type) && (
-            <div className="mt-4">
-              <Accordion type="single" collapsible defaultValue="options">
-                <AccordionItem value="options">
-                  <AccordionTrigger>Options</AccordionTrigger>
-                  <AccordionContent>
-                    <div className="space-y-2">
-                      {Array.isArray(field.options) && field.options.map((option, optionIndex) => (
-                        <div key={optionIndex} className="flex items-center">
-                          <Input
-                            value={option}
-                            onChange={(e) => {
-                              const newOptions = Array.isArray(field.options) ? [...field.options] : [];
-                              newOptions[optionIndex] = e.target.value || `Option ${optionIndex + 1}`; // Don't allow empty options
-                              onUpdateField(sectionId, field.id, { options: newOptions });
-                            }}
-                            placeholder={`Option ${optionIndex + 1}`}
-                            className="flex-1"
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const newOptions = Array.isArray(field.options) ? [...field.options] : [];
-                              if (newOptions.length > 0) {
-                                newOptions.splice(optionIndex, 1);
-                                onUpdateField(sectionId, field.id, { options: newOptions });
-                              }
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const newOptions = Array.isArray(field.options) ? 
-                            [...field.options, `Option ${(field.options.length || 0) + 1}`] : 
-                            [`Option 1`];
-                          onUpdateField(sectionId, field.id, { options: newOptions });
-                        }}
-                        className="w-full mt-2"
-                      >
-                        Add Option
-                      </Button>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            </div>
-          )}
-          
-          <Accordion type="single" collapsible className="mt-2">
-            <AccordionItem value="validation">
-              <AccordionTrigger>Validation</AccordionTrigger>
-              <AccordionContent>
-                {field.type && ['short_text', 'long_text'].includes(field.type) && (
-                  <div className="space-y-4 mt-2">
-                    <div className="grid grid-cols-2 gap-2">
-                      <div>
-                        <Label htmlFor={`min-length-${field.id}`}>Min Length</Label>
-                        <Input
-                          id={`min-length-${field.id}`}
-                          type="number"
-                          value={field.validation?.minLength || ''}
-                          onChange={(e) => {
-                            const value = e.target.value ? parseInt(e.target.value) : undefined;
-                            const validation = typeof field.validation === 'object' ? field.validation || {} : {};
-                            onUpdateField(sectionId, field.id, { 
-                              validation: {
-                                ...validation,
-                                minLength: value
-                              }
-                            });
-                          }}
-                          min="0"
-                          placeholder="No minimum"
-                        />
-                      </div>
-                      <div>
-                        <Label htmlFor={`max-length-${field.id}`}>Max Length</Label>
-                        <Input
-                          id={`max-length-${field.id}`}
-                          type="number"
-                          value={field.validation?.maxLength || ''}
-                          onChange={(e) => {
-                            const value = e.target.value ? parseInt(e.target.value) : undefined;
-                            const validation = typeof field.validation === 'object' ? field.validation || {} : {};
-                            onUpdateField(sectionId, field.id, { 
-                              validation: {
-                                ...validation,
-                                maxLength: value
-                              }
-                            });
-                          }}
-                          min="0"
-                          placeholder="No maximum"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor={`pattern-${field.id}`}>Pattern (Regex)</Label>
+                <div className="flex-1 space-y-4">
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="flex-1">
+                      <Label htmlFor={`field-label-${field.id}`} className="mb-2 block">Question Text</Label>
                       <Input
-                        id={`pattern-${field.id}`}
-                        value={typeof field.validation === 'object' ? field.validation?.pattern || '' : ''}
-                        onChange={(e) => {
-                          const validation = typeof field.validation === 'object' ? field.validation || {} : {};
-                          onUpdateField(sectionId, field.id, { 
-                            validation: {
-                              ...validation,
-                              pattern: e.target.value || undefined
-                            }
-                          });
-                        }}
-                        placeholder="e.g., ^[A-Za-z0-9]+$"
+                        id={`field-label-${field.id}`}
+                        value={field.label}
+                        onChange={(e) => onUpdateField(sectionId, field.id, { label: e.target.value })}
+                        placeholder="Enter question text"
                       />
                     </div>
-                    <div>
-                      <Label htmlFor={`message-${field.id}`}>Error Message</Label>
-                      <Input
-                        id={`message-${field.id}`}
-                        value={typeof field.validation === 'object' ? field.validation?.message || '' : ''}
-                        onChange={(e) => {
-                          const validation = typeof field.validation === 'object' ? field.validation || {} : {};
-                          onUpdateField(sectionId, field.id, { 
-                            validation: {
-                              ...validation,
-                              message: e.target.value
-                            }
-                          });
-                        }}
-                        placeholder="Custom error message"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor={`validation-type-${field.id}`}>Validation Type</Label>
-                      <Select
-                        value={typeof field.validation === 'object' ? field.validation?.type : 
-                               typeof field.validation === 'string' ? field.validation : ''}
-                        onValueChange={(value) => {
-                          if (!value) {
-                            // Handle empty selection
-                            const validation = typeof field.validation === 'object' ? {...field.validation} : {};
-                            delete validation.type;
-                            onUpdateField(sectionId, field.id, { validation });
-                            return;
-                          }
-                          
-                          const validation = typeof field.validation === 'object' ? {...field.validation} : {};
-                          onUpdateField(sectionId, field.id, { 
-                            validation: {
-                              ...validation,
-                              type: value as 'numeric_only' | 'url' | 'email'
-                            }
-                          });
-                        }}
+                    
+                    <div className="w-full sm:w-1/3">
+                      <Label htmlFor={`field-type-${field.id}`} className="mb-2 block">Field Type</Label>
+                      <Select 
+                        value={field.type} 
+                        onValueChange={handleFieldTypeChange}
                       >
-                        <SelectTrigger id={`validation-type-${field.id}`}>
-                          <SelectValue placeholder="Select validation type" />
+                        <SelectTrigger id={`field-type-${field.id}`}>
+                          <SelectValue placeholder="Select field type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          <SelectItem value="numeric_only">Numbers Only</SelectItem>
-                          <SelectItem value="url">URL</SelectItem>
-                          <SelectItem value="email">Email</SelectItem>
+                          <SelectGroup>
+                            <SelectLabel>Text Fields</SelectLabel>
+                            <SelectItem value="short_text">Short Text</SelectItem>
+                            <SelectItem value="long_text">Long Text</SelectItem>
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel>Choice Fields</SelectLabel>
+                            <SelectItem value="dropdown">Dropdown</SelectItem>
+                            <SelectItem value="radio">Radio Buttons</SelectItem>
+                            <SelectItem value="checkbox">Checkboxes</SelectItem>
+                            <SelectItem value="multi_select">Multi-select</SelectItem>
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel>Other Fields</SelectLabel>
+                            <SelectItem value="date_picker">Date Picker</SelectItem>
+                            <SelectItem value="slider">Slider</SelectItem>
+                            <SelectItem value="file_upload">File Upload</SelectItem>
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id={`field-required-${field.id}`}
+                      checked={field.required}
+                      onCheckedChange={(checked) => onUpdateField(sectionId, field.id, { required: checked })}
+                    />
+                    <Label htmlFor={`field-required-${field.id}`}>Required field</Label>
+                  </div>
+
+                  {/* Options Editor for Select/Radio/Checkbox Types */}
+                  {['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type) && (
+                    <div className="mt-4 border border-gray-200 rounded-lg p-4">
+                      <Label className="mb-2 block">Options</Label>
+                      <ScrollArea className="max-h-[200px]">
+                        <div className="space-y-2">
+                          {field.options?.map((option, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <Input
+                                value={option}
+                                onChange={(e) => {
+                                  const updatedOptions = [...(field.options || [])];
+                                  updatedOptions[i] = e.target.value;
+                                  onUpdateField(sectionId, field.id, { options: updatedOptions });
+                                }}
+                              />
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                onClick={() => removeOption(i)}
+                                type="button"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                      <div className="flex gap-2 mt-4">
+                        <Input
+                          value={newOption}
+                          onChange={(e) => setNewOption(e.target.value)}
+                          placeholder="Add new option"
+                          className="flex-1"
+                        />
+                        <Button onClick={addOption} size="sm" type="button">
+                          <Plus className="h-4 w-4 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* File Upload Options */}
+                  {field.type === 'file_upload' && (
+                    <div className="mt-4 border border-gray-200 rounded-lg p-4">
+                      <div className="mb-4">
+                        <Label htmlFor={`field-max-size-${field.id}`} className="mb-2 block">Max File Size (MB)</Label>
+                        <Input
+                          id={`field-max-size-${field.id}`}
+                          type="number"
+                          value={field.max_size_mb || 5}
+                          onChange={(e) => onUpdateField(sectionId, field.id, { max_size_mb: Number(e.target.value) })}
+                        />
+                      </div>
+                      
+                      <Label className="mb-2 block">Allowed File Types</Label>
+                      <ScrollArea className="max-h-[200px]">
+                        <div className="space-y-2">
+                          {field.file_types?.map((fileType, i) => (
+                            <div key={i} className="flex items-center gap-2">
+                              <Input
+                                value={fileType}
+                                onChange={(e) => {
+                                  const updatedFileTypes = [...(field.file_types || [])];
+                                  updatedFileTypes[i] = e.target.value;
+                                  onUpdateField(sectionId, field.id, { file_types: updatedFileTypes });
+                                }}
+                              />
+                              <Button 
+                                size="icon" 
+                                variant="ghost" 
+                                onClick={() => removeFileType(i)}
+                                type="button"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                      <div className="flex gap-2 mt-4">
+                        <Input
+                          value={newOption}
+                          onChange={(e) => setNewOption(e.target.value)}
+                          placeholder="Add file type (e.g., .pdf)"
+                          className="flex-1"
+                        />
+                        <Button onClick={addFileType} size="sm" type="button">
+                          <Plus className="h-4 w-4 mr-1" /> Add
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Additional field settings could go here */}
+                  {field.type === 'long_text' && (
+                    <div className="mt-4">
+                      <Label htmlFor={`field-max-words-${field.id}`}>Maximum Words (optional)</Label>
+                      <Input
+                        id={`field-max-words-${field.id}`}
+                        type="number"
+                        min={0}
+                        value={field.max_words || ''}
+                        onChange={(e) => {
+                          const value = e.target.value ? Number(e.target.value) : undefined;
+                          onUpdateField(sectionId, field.id, { max_words: value });
+                        }}
+                        placeholder="No limit"
+                      />
+                    </div>
+                  )}
+                  
+                  {field.type === 'checkbox' && !field.options?.length && (
+                    <div className="mt-4">
+                      <Label htmlFor={`field-text-${field.id}`}>Checkbox Label Text</Label>
+                      <Textarea
+                        id={`field-text-${field.id}`}
+                        value={field.text || ''}
+                        onChange={(e) => onUpdateField(sectionId, field.id, { text: e.target.value })}
+                        placeholder="Enter checkbox label text"
+                        rows={3}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    type="button"
+                    onClick={() => setShowDeleteDialog(true)}
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this field and all associated data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={() => onRemoveField(sectionId, field.id)}
+                  className="bg-red-600 hover:bg-red-700"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
     </Draggable>
