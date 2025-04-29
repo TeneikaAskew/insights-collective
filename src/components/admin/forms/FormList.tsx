@@ -1,734 +1,260 @@
-import React, { useState, useEffect, useMemo } from 'react';
+
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Switch } from '@/components/ui/switch';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Edit, 
-  Trash2, 
-  Copy, 
-  ExternalLink, 
-  MoreHorizontal, 
-  ChevronDown, 
-  Eye, 
-  CheckCircle,
-  BarChart2,
-  FileDown,
-  Clipboard,
-  Clock,
-  Check
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { CalendarIcon } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
-import { cn, slugify } from '@/lib/utils';
-import { FormData } from '@/types/forms';
-import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuGroup,
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Card, CardContent } from '@/components/ui/card';
-import { FormListProps } from '@/components/forms/builder/types';
+import { Pencil, Eye, Trash2, FileText, BarChart } from 'lucide-react';
+import { FormData } from '@/types/forms';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { fellowshipForm } from '@/components/forms/builder';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { format } from 'date-fns';
 
-export function FormList({ searchTerm = '' }: FormListProps) {
+interface FormListProps {
+  searchTerm: string;
+}
+
+export function FormList({ searchTerm }: FormListProps) {
   const [forms, setForms] = useState<FormData[]>([]);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
-  const [editingForm, setEditingForm] = useState<FormData | null>(null);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [formToDelete, setFormToDelete] = useState<FormData | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
-  const [selectedForms, setSelectedForms] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
+  const { toast } = useToast();
 
-  // Form state
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [formLink, setFormLink] = useState('');
-  const [deadline, setDeadline] = useState<Date | null>(null);
+  useEffect(() => {
+    fetchForms();
+  }, []);
 
   const fetchForms = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('forms')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('updated_at', { ascending: false });
 
       if (error) throw error;
-      setForms(data || []);
+
+      // Include the fellowship form if it's not already in the database
+      const formsList = data || [];
+      const hasFellowshipForm = formsList.some(form => form.slug === 'ai-fellowship');
+      
+      if (!hasFellowshipForm) {
+        // Add the fellowship form to the forms list
+        setForms([fellowshipForm, ...formsList]);
+      } else {
+        setForms(formsList);
+      }
     } catch (error) {
+      console.error('Error fetching forms:', error);
       toast({
         title: "Error",
         description: "Failed to load forms",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const filteredForms = useMemo(() => {
-    if (!searchTerm) return forms;
+  const handleDeleteForm = async () => {
+    if (!formToDelete) return;
     
-    return forms.filter(form => 
-      form.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (form.description && form.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      form.slug.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [forms, searchTerm]);
-
-  const toggleStatus = async (id: string, currentStatus: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('forms')
-        .update({ status: !currentStatus })
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setForms(forms.map(form => 
-        form.id === id ? { ...form, status: !currentStatus } : form
-      ));
-
+    // Don't allow deleting the fellowship form
+    if (formToDelete.slug === 'ai-fellowship') {
       toast({
-        title: "Success",
-        description: `Form ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
+        title: "Cannot Delete",
+        description: "The AI & Automation Skills Fellowship form cannot be deleted.",
+        variant: "destructive"
       });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update form status",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const deleteForm = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this form?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('forms')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
-      setForms(forms.filter(form => form.id !== id));
-      toast({
-        title: "Success",
-        description: "Form deleted successfully",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete form",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const deleteSelectedForms = async () => {
-    if (!window.confirm(`Are you sure you want to delete ${selectedForms.length} forms?`)) return;
-
-    try {
-      const { error } = await supabase
-        .from('forms')
-        .delete()
-        .in('id', selectedForms);
-
-      if (error) throw error;
-
-      setForms(forms.filter(form => !selectedForms.includes(form.id)));
-      setSelectedForms([]);
-      
-      toast({
-        title: "Success",
-        description: `${selectedForms.length} forms deleted successfully`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete selected forms",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const openEditDialog = (form: FormData) => {
-    setEditingForm(form);
-    setTitle(form.title);
-    setDescription(form.description || '');
-    setFormLink(form.slug || '');
-    setDeadline(form.deadline ? new Date(form.deadline) : null);
-    setEditDialogOpen(true);
-  };
-
-  const handleUpdateForm = async () => {
-    if (!editingForm) return;
-    if (!title || !formLink) {
-      toast({
-        title: "Error",
-        description: "Please fill in all required fields",
-        variant: "destructive",
-      });
+      setDeleteDialogOpen(false);
+      setFormToDelete(null);
       return;
     }
 
+    setDeleting(true);
     try {
-      const slug = slugify(formLink);
-      
       const { error } = await supabase
         .from('forms')
-        .update({
-          title,
-          description,
-          form_link: `/survey/${slug}`,
-          slug,
-          deadline: deadline ? deadline.toISOString() : null
-        })
-        .eq('id', editingForm.id);
+        .delete()
+        .eq('id', formToDelete.id);
 
       if (error) throw error;
 
-      setForms(forms.map(form => 
-        form.id === editingForm.id ? { 
-          ...form, 
-          title, 
-          description,
-          slug,
-          form_link: `/survey/${slug}`, 
-          deadline: deadline ? deadline.toISOString() : null 
-        } : form
-      ));
-
+      // Update the forms list
+      setForms(forms.filter(form => form.id !== formToDelete.id));
       toast({
         title: "Success",
-        description: "Form updated successfully",
-      });
-      
-      setEditDialogOpen(false);
-    } catch (error) {
-      console.error("Error updating form:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update form",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const duplicateForm = async (form: FormData) => {
-    try {
-      // Create new form with same data but different title/slug
-      const newTitle = `${form.title} (Copy)`;
-      const newSlug = slugify(newTitle);
-      
-      const { data, error } = await supabase
-        .from('forms')
-        .insert({
-          title: newTitle,
-          description: form.description,
-          form_link: `/survey/${newSlug}`,
-          slug: newSlug,
-          status: false,
-          form_structure: form.form_structure || { sections: [] },
-          deadline: form.deadline
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      // Add the new form to the list
-      setForms([data, ...forms]);
-      
-      toast({
-        title: "Success",
-        description: "Form duplicated successfully",
+        description: "Form deleted successfully"
       });
     } catch (error) {
-      console.error("Error duplicating form:", error);
+      console.error('Error deleting form:', error);
       toast({
         title: "Error",
-        description: "Failed to duplicate form",
-        variant: "destructive",
+        description: "Failed to delete form",
+        variant: "destructive"
       });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+      setFormToDelete(null);
     }
   };
 
-  const handleEditFormStructure = (slug: string) => {
-    // Explicitly navigate to the edit page with the correct slug
-    navigate(`/survey/${slug}/edit`);
+  const confirmDelete = (form: FormData) => {
+    setFormToDelete(form);
+    setDeleteDialogOpen(true);
   };
 
-  const copyLinkToClipboard = (link: string) => {
-    const baseUrl = window.location.origin;
-    const fullUrl = `${baseUrl}${link}`;
-    navigator.clipboard.writeText(fullUrl);
-    toast({
-      title: "Link Copied",
-      description: "Form link copied to clipboard",
-    });
-  };
-
-  const handleSelectForm = (formId: string) => {
-    if (selectedForms.includes(formId)) {
-      setSelectedForms(selectedForms.filter(id => id !== formId));
-    } else {
-      setSelectedForms([...selectedForms, formId]);
-    }
-  };
-
-  const handleSelectAll = () => {
-    if (selectedForms.length === filteredForms.length) {
-      setSelectedForms([]);
-    } else {
-      setSelectedForms(filteredForms.map(form => form.id));
-    }
-  };
-
-  const viewSubmissions = (form: FormData) => {
-    // Navigate to submissions view
-    toast({
-      title: "Coming Soon",
-      description: "Form submissions view will be available soon",
-    });
-  };
-
-  const exportFormData = (formId: string) => {
-    toast({
-      title: "Exporting Data",
-      description: "Form data export will be available soon",
-    });
-  };
-
-  const getSubmissionCount = (formId: string) => {
-    // This would typically be a real count from the database
-    return Math.floor(Math.random() * 50);
-  };
-
-  useEffect(() => {
-    fetchForms();
-  }, []);
+  const filteredForms = forms.filter(form => 
+    form.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (form.description && form.description.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
 
   if (loading) {
     return (
-      <div className="flex justify-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
       </div>
     );
   }
 
-  const renderBulkActions = () => {
-    if (selectedForms.length === 0) return null;
-    
+  if (filteredForms.length === 0 && !loading) {
     return (
-      <div className="bg-muted p-2 rounded-md flex items-center justify-between mb-4 animate-fadeIn">
-        <div className="flex items-center space-x-2">
-          <CheckCircle className="h-5 w-5 text-green-600" />
-          <span>{selectedForms.length} forms selected</span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button variant="outline" size="sm" onClick={() => setSelectedForms([])}>
-            Cancel
-          </Button>
-          <Button variant="outline" size="sm">
-            <Copy className="mr-2 h-4 w-4" />
-            Duplicate
-          </Button>
-          <Button variant="outline" size="sm" className="text-destructive hover:text-destructive" onClick={deleteSelectedForms}>
-            <Trash2 className="mr-2 h-4 w-4" />
-            Delete
-          </Button>
-        </div>
-      </div>
+      <Card className="border-dashed">
+        <CardContent className="py-12">
+          <div className="flex flex-col items-center justify-center text-center">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <h3 className="text-lg font-medium">No forms found</h3>
+            <p className="text-muted-foreground mt-2">
+              {searchTerm ? "No forms match your search criteria." : "Create your first form to get started."}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
     );
-  };
-
-  const renderTableView = () => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="w-12">
-            <Checkbox 
-              checked={selectedForms.length === filteredForms.length && filteredForms.length > 0}
-              onCheckedChange={handleSelectAll}
-              aria-label="Select all forms"
-            />
-          </TableHead>
-          <TableHead className="w-1/4">Form Name</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Submissions</TableHead>
-          <TableHead>Deadline</TableHead>
-          <TableHead className="text-right">Actions</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {filteredForms.length === 0 ? (
-          <TableRow>
-            <TableCell colSpan={6} className="text-center py-8">
-              {searchTerm ? 'No forms found matching your search.' : 'No forms found. Create your first form by clicking "New Form".'}
-            </TableCell>
-          </TableRow>
-        ) : (
-          filteredForms.map((form) => {
-            const submissionCount = getSubmissionCount(form.id);
-            
-            return (
-              <TableRow key={form.id} className={selectedForms.includes(form.id) ? "bg-muted/50" : ""}>
-                <TableCell>
-                  <Checkbox 
-                    checked={selectedForms.includes(form.id)} 
-                    onCheckedChange={() => handleSelectForm(form.id)}
-                    aria-label={`Select ${form.title}`}
-                  />
-                </TableCell>
-                <TableCell>
-                  <div>
-                    <div className="font-medium">{form.title}</div>
-                    {form.description && (
-                      <div className="text-sm text-muted-foreground truncate max-w-xs">
-                        {form.description}
-                      </div>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={form.status}
-                      onCheckedChange={() => toggleStatus(form.id, form.status)}
-                    />
-                    <Badge variant={form.status ? "success" : "outline"}>
-                      {form.status ? "Active" : "Inactive"}
-                    </Badge>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center space-x-2">
-                    <Badge variant="secondary">{submissionCount}</Badge>
-                    {submissionCount > 0 && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => viewSubmissions(form)}
-                      >
-                        View
-                      </Button>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {form.deadline ? (
-                    <div className="flex items-center space-x-2">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                      <span>{format(new Date(form.deadline), 'MMM d, yyyy')}</span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">No deadline</span>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Actions</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
-                      <DropdownMenuLabel>Form Actions</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem onSelect={() => handleEditFormStructure(form.slug)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Edit Form Structure</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => openEditDialog(form)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          <span>Edit Form Details</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem asChild>
-                          <a href={form.form_link} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                            <Eye className="mr-2 h-4 w-4" />
-                            <span>Preview Form</span>
-                          </a>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => copyLinkToClipboard(form.form_link)}>
-                          <Clipboard className="mr-2 h-4 w-4" />
-                          <span>Copy Link</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => viewSubmissions(form)}>
-                          <BarChart2 className="mr-2 h-4 w-4" />
-                          <span>View Responses</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuGroup>
-                        <DropdownMenuItem onSelect={() => duplicateForm(form)}>
-                          <Copy className="mr-2 h-4 w-4" />
-                          <span>Duplicate</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => exportFormData(form.id)}>
-                          <FileDown className="mr-2 h-4 w-4" />
-                          <span>Export Responses</span>
-                        </DropdownMenuItem>
-                      </DropdownMenuGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onSelect={() => deleteForm(form.id)}
-                        className="text-destructive"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Delete</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            );
-          })
-        )}
-      </TableBody>
-    </Table>
-  );
-
-  const renderGridView = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {filteredForms.length === 0 ? (
-        <div className="col-span-full text-center py-8 text-muted-foreground">
-          {searchTerm ? 'No forms found matching your search.' : 'No forms found. Create your first form by clicking "New Form".'}
-        </div>
-      ) : (
-        filteredForms.map((form) => {
-          const submissionCount = getSubmissionCount(form.id);
-          
-          return (
-            <Card key={form.id} className="relative overflow-hidden">
-              {form.status && (
-                <div className="absolute top-0 right-0">
-                  <Badge variant="success" className="rounded-tl-none rounded-br-none">
-                    Active
-                  </Badge>
-                </div>
-              )}
-              <CardContent className="p-4">
-                <div className="mb-4 flex justify-between items-start">
-                  <div>
-                    <h3 className="font-semibold truncate pr-8">{form.title}</h3>
-                    {form.description && (
-                      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                        {form.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex">
-                    <Checkbox 
-                      checked={selectedForms.includes(form.id)} 
-                      onCheckedChange={() => handleSelectForm(form.id)}
-                      aria-label={`Select ${form.title}`}
-                      className="ml-2"
-                    />
-                  </div>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-2 mb-4 text-sm">
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground">Responses</span>
-                    <Badge variant="secondary" className="mt-1 w-fit">
-                      {submissionCount}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex flex-col">
-                    <span className="text-muted-foreground">Deadline</span>
-                    <span className="mt-1">
-                      {form.deadline ? format(new Date(form.deadline), 'MMM d') : 'None'}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="flex justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      checked={form.status}
-                      onCheckedChange={() => toggleStatus(form.id, form.status)}
-                    />
-                    <span className="text-sm">{form.status ? 'Active' : 'Inactive'}</span>
-                  </div>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <span>Actions</span>
-                        <ChevronDown className="ml-1 h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onSelect={() => handleEditFormStructure(form.slug)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        <span>Edit Structure</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => openEditDialog(form)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        <span>Edit Details</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <a href={form.form_link} target="_blank" rel="noopener noreferrer" className="flex items-center">
-                          <Eye className="mr-2 h-4 w-4" />
-                          <span>Preview</span>
-                        </a>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => copyLinkToClipboard(form.form_link)}>
-                        <Clipboard className="mr-2 h-4 w-4" />
-                        <span>Copy Link</span>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onSelect={() => deleteForm(form.id)} className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        <span>Delete</span>
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })
-      )}
-    </div>
-  );
+  }
 
   return (
-    <div className="w-full">
-      {renderBulkActions()}
-      
-      <div className="mb-4 flex justify-end space-x-2">
-        <Button 
-          variant={viewMode === 'table' ? 'default' : 'outline'} 
-          size="sm" 
-          onClick={() => setViewMode('table')}
-        >
-          Table View
-        </Button>
-        <Button 
-          variant={viewMode === 'grid' ? 'default' : 'outline'} 
-          size="sm"
-          onClick={() => setViewMode('grid')}
-        >
-          Grid View
-        </Button>
+    <>
+      <div className="space-y-6">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Form Name</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Last Updated</TableHead>
+              <TableHead>Submissions</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredForms.map((form) => (
+              <TableRow key={form.id || form.slug}>
+                <TableCell>
+                  <div className="font-medium">{form.title}</div>
+                  {form.description && (
+                    <div className="text-sm text-muted-foreground line-clamp-1">{form.description}</div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={form.status ? "default" : "secondary"}>
+                    {form.status ? "Active" : "Inactive"}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {form.updated_at ? format(new Date(form.updated_at), 'MMM d, yyyy') : 'N/A'}
+                </TableCell>
+                <TableCell>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="flex items-center gap-1"
+                    onClick={() => navigate(`/survey/${form.slug}/submissions`)}
+                  >
+                    <BarChart className="h-4 w-4" />
+                    <span>View</span>
+                  </Button>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => navigate(`/survey/${form.slug}/edit`)}
+                      className="flex items-center gap-1"
+                    >
+                      <Pencil className="h-4 w-4" />
+                      <span className="sr-only sm:not-sr-only sm:inline-block">Edit</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.open(`/survey/${form.slug}`, '_blank')}
+                      className="flex items-center gap-1"
+                    >
+                      <Eye className="h-4 w-4" />
+                      <span className="sr-only sm:not-sr-only sm:inline-block">Preview</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => confirmDelete(form)}
+                      disabled={form.slug === 'ai-fellowship'}
+                      className="flex items-center gap-1 text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span className="sr-only sm:not-sr-only sm:inline-block">Delete</span>
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
-      
-      {viewMode === 'table' ? renderTableView() : renderGridView()}
 
-      {/* Edit Form Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[550px]">
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Form</DialogTitle>
+            <DialogTitle>Delete Form</DialogTitle>
             <DialogDescription>
-              Update the form details. Click save when you're done.
+              Are you sure you want to delete this form? This action cannot be undone, and all associated submissions will be deleted.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-title" className="text-right">
-                Title*
-              </Label>
-              <Input
-                id="edit-title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-description" className="text-right">
-                Description
-              </Label>
-              <Textarea
-                id="edit-description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-link" className="text-right">
-                Form Slug*
-              </Label>
-              <Input
-                id="edit-link"
-                value={formLink}
-                onChange={(e) => setFormLink(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit-deadline" className="text-right">
-                Deadline
-              </Label>
-              <div className="col-span-3">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !deadline && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {deadline ? format(deadline, "PPP") : <span>Pick a date</span>}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0 pointer-events-auto">
-                    <Calendar
-                      mode="single"
-                      selected={deadline || undefined}
-                      onSelect={(date) => setDeadline(date)}
-                      initialFocus
-                      className="pointer-events-auto"
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-          </div>
+          
+          {formToDelete && (
+            <Alert variant="destructive" className="mt-4">
+              <AlertDescription>
+                You are about to delete "{formToDelete.title}".
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+            <Button 
+              variant="outline" 
+              onClick={() => setDeleteDialogOpen(false)}
+              disabled={deleting}
+            >
               Cancel
             </Button>
-            <Button onClick={handleUpdateForm}>Save Changes</Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleDeleteForm}
+              disabled={deleting}
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

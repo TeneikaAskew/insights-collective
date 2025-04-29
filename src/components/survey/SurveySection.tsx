@@ -13,24 +13,24 @@ interface SurveySectionProps {
   section: SectionData;
   formData: Record<string, any>;
   formId?: string;
+  onSaveDraft?: (data: Record<string, any>) => void;
 }
 
-const SurveySection: React.FC<SurveySectionProps> = ({ section, formData, formId }) => {
-  const { formState: { errors }, getValues } = useFormContext();
+const SurveySection: React.FC<SurveySectionProps> = ({ 
+  section, 
+  formData, 
+  formId,
+  onSaveDraft 
+}) => {
+  const { formState: { errors }, getValues, watch } = useFormContext();
   const { user } = useAuth();
   const { toast } = useToast();
   const [isSaving, setIsSaving] = useState(false);
   const [autoSaveTimer, setAutoSaveTimer] = useState<NodeJS.Timeout | null>(null);
 
-  // Load saved draft data from localStorage when component mounts
-  useEffect(() => {
-    const savedDraft = localStorage.getItem(`survey_draft_${user?.id}_${formId || 'default'}`);
-    if (savedDraft) {
-      const parsedDraft = JSON.parse(savedDraft);
-      // We don't need to do anything here as the parent component handles loading the draft
-    }
-  }, [user?.id, formId]);
-
+  // Watch form values to trigger auto-save
+  const formValues = watch();
+  
   // Function to save draft data to localStorage and database
   const saveDraft = async () => {
     if (isSaving) return;
@@ -39,7 +39,7 @@ const SurveySection: React.FC<SurveySectionProps> = ({ section, formData, formId
     const currentValues = getValues();
     try {
       // Save to localStorage
-      localStorage.setItem(`survey_draft_${user?.id}_${formId || 'default'}`, JSON.stringify(currentValues));
+      localStorage.setItem(`survey_draft_${user?.id || 'guest'}_${formId || 'fellowship'}`, JSON.stringify(currentValues));
       
       // Save to database if user is authenticated and formId is available
       if (user?.id && formId) {
@@ -57,6 +57,11 @@ const SurveySection: React.FC<SurveySectionProps> = ({ section, formData, formId
         if (error) throw error;
       }
       
+      // Call the parent's onSaveDraft if provided
+      if (onSaveDraft) {
+        onSaveDraft(currentValues);
+      }
+      
       toast({
         title: 'Draft Saved',
         description: 'Your responses have been saved as a draft.',
@@ -72,6 +77,18 @@ const SurveySection: React.FC<SurveySectionProps> = ({ section, formData, formId
       setIsSaving(false);
     }
   };
+
+  // Set up auto-save when form values change
+  useEffect(() => {
+    const debounceSave = setTimeout(() => {
+      // Only auto-save if there are actual changes
+      if (Object.keys(formValues).length > 0) {
+        saveDraft();
+      }
+    }, 3000); // 3 second debounce
+    
+    return () => clearTimeout(debounceSave);
+  }, [JSON.stringify(formValues)]);
 
   // Set up auto-save
   useEffect(() => {
