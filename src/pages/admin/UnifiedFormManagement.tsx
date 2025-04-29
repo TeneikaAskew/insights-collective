@@ -9,7 +9,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import { PlusCircle, BarChart3, ListFilter, BookTemplate } from 'lucide-react';
 import CreateFormDialog from '@/components/admin/forms/CreateFormDialog';
-import { PlusCircle, BarChart3, ListFilter, BookTemplate } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
