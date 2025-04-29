@@ -119,6 +119,9 @@ const App = () => {
                   <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
                   <Route path="/survey/:slug" element={<SurveyPage />} />
                   
+                  {/* Protected form routes - need special handling for correct redirect flow */}
+                  <Route path="/survey/:slug/edit" element={<ProtectedRoute requireAdmin={true}><SurveyFormEdit /></ProtectedRoute>} />
+                  
                   {/* Form routes */}
                   <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
                   <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
@@ -170,7 +173,8 @@ const App = () => {
 
                   {/* Redirect old admin survey routes to new admin forms */}
                   <Route path="/survey/create" element={<Navigate to="/admin/forms" replace />} />
-                  <Route path="/survey/:slug/edit" element={<Navigate to="/admin/forms" replace />} />
+                  {/* Instead of redirecting to /admin/forms, leave this route to be protected by the ProtectedRoute above */}
+                  {/* <Route path="/survey/:slug/edit" element={<Navigate to="/admin/forms" replace />} /> */}
                   <Route path="/survey/:slug/submissions" element={<Navigate to="/admin/forms/submissions/:slug" replace />} />
 
                   {/* Catch all NotFound */}

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -13,6 +12,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { createFellowshipForm } from '@/components/forms/builder';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
+import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface FormListProps {
   searchTerm: string;
@@ -26,6 +27,8 @@ export function FormList({ searchTerm }: FormListProps) {
   const [deleting, setDeleting] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { navigateWithAuth } = useAuthenticatedNavigation();
+  const { isAdmin } = useAuth();
 
   useEffect(() => {
     fetchForms();
@@ -158,6 +161,22 @@ export function FormList({ searchTerm }: FormListProps) {
     setDeleteDialogOpen(true);
   };
 
+  const handleEditForm = (form: FormData) => {
+    const editUrl = `/survey/${form.slug}/edit`;
+    
+    // If we're already authenticated as admin, use normal navigation
+    if (isAdmin) {
+      navigate(editUrl);
+    } else {
+      // Otherwise use authenticated navigation to preserve the redirect path
+      navigateWithAuth(editUrl, { 
+        requireAuth: true,
+        message: "You need to be logged in as an admin to edit forms",
+        title: "Authentication Required"
+      });
+    }
+  };
+
   const filteredForms = forms.filter(form => 
     form.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (form.description && form.description.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -233,7 +252,7 @@ export function FormList({ searchTerm }: FormListProps) {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => window.location.href = `/survey/${form.slug}/edit`}
+                      onClick={() => handleEditForm(form)}
                       className="flex items-center gap-1"
                     >
                       <Pencil className="h-4 w-4" />

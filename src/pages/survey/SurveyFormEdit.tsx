@@ -34,6 +34,11 @@ export default function SurveyFormEdit() {
   const isSubmissionsView = searchParams.get('view') === 'submissions';
 
   useEffect(() => {
+    // If user is not admin, we'll let the ProtectedRoute handle the redirect
+    if (!user || !isAdmin) {
+      return;
+    }
+
     const fetchForm = async () => {
       if (!slug) {
         setError("No form slug provided");
@@ -134,11 +139,13 @@ export default function SurveyFormEdit() {
     };
 
     fetchForm();
-  }, [slug, toast]);
+  }, [slug, toast, user, isAdmin]);
 
-  // Only allow admin users to access this page
+  // Only allow admin users to access this page, but don't redirect immediately
+  // to allow the auth system to properly store the redirect path
   if (!user || !isAdmin) {
-    return <Navigate to="/" />;
+    console.log("User not authenticated as admin, will be handled by ProtectedRoute");
+    return null; // Let ProtectedRoute handle the redirect
   }
 
   // Show loading state
