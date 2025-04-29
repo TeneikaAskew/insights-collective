@@ -17,6 +17,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 interface Student {
   enrollment_id: string;
@@ -30,13 +32,13 @@ interface Student {
   last_activity?: string;
 }
 
-// Define the structure of enrollment data from Supabase
+// Updated interface to match the actual Supabase response structure
 interface EnrollmentData {
   id: string;
   created_at: string;
   progress?: number;
   last_activity?: string;
-  profiles?: {
+  profiles: {
     id: string;
     email: string;
     first_name: string | null;
@@ -92,8 +94,13 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       
       if (error) throw error;
 
-      // Transform data into the Student format, properly typing the data
-      const transformedData: Student[] = (data as EnrollmentData[] || []).map((enrollment) => ({
+      console.log('Raw enrollment data:', data);
+
+      // First cast to unknown then to EnrollmentData[] to satisfy TypeScript
+      const enrollmentData = data as unknown as EnrollmentData[];
+      
+      // Transform data into the Student format
+      const transformedData: Student[] = enrollmentData.map((enrollment) => ({
         enrollment_id: enrollment.id,
         id: enrollment.profiles?.id || '',
         email: enrollment.profiles?.email || '',
@@ -364,19 +371,18 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
                   <TableRow key={student.enrollment_id}>
                     <TableCell className="font-medium">
                       <div className="flex items-center">
-                        <div className="h-8 w-8 rounded-full bg-gray-200 mr-3 overflow-hidden">
+                        <Avatar className="h-8 w-8 mr-3">
                           {student.avatar_url ? (
-                            <img 
+                            <AvatarImage 
                               src={student.avatar_url} 
                               alt={`${student.first_name} ${student.last_name}`}
-                              className="h-full w-full object-cover" 
                             />
                           ) : (
-                            <div className="h-full w-full flex items-center justify-center bg-primary/10 text-primary font-medium">
+                            <AvatarFallback className="bg-primary/10 text-primary">
                               {student.first_name?.charAt(0) || student.email.charAt(0).toUpperCase()}
-                            </div>
+                            </AvatarFallback>
                           )}
-                        </div>
+                        </Avatar>
                         <div>
                           {student.first_name || student.last_name ? (
                             `${student.first_name} ${student.last_name}`
@@ -429,6 +435,3 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
     </div>
   );
 }
-
-import { Label } from "@/components/ui/label";
-
