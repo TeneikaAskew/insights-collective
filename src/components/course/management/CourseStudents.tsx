@@ -30,6 +30,21 @@ interface Student {
   last_activity?: string;
 }
 
+// Define the structure of enrollment data from Supabase
+interface EnrollmentData {
+  id: string;
+  created_at: string;
+  progress?: number;
+  last_activity?: string;
+  profiles?: {
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  } | null;
+}
+
 interface CourseStudentsProps {
   courseId?: string;
 }
@@ -77,18 +92,18 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
       
       if (error) throw error;
 
-      // Transform data into the Student format
-      const transformedData = data?.map((enrollment) => ({
+      // Transform data into the Student format, properly typing the data
+      const transformedData: Student[] = (data as EnrollmentData[] || []).map((enrollment) => ({
         enrollment_id: enrollment.id,
         id: enrollment.profiles?.id || '',
         email: enrollment.profiles?.email || '',
         first_name: enrollment.profiles?.first_name || '',
         last_name: enrollment.profiles?.last_name || '',
-        avatar_url: enrollment.profiles?.avatar_url,
+        avatar_url: enrollment.profiles?.avatar_url || undefined,
         enrolled_at: enrollment.created_at,
         progress: enrollment.progress || 0,
         last_activity: enrollment.last_activity,
-      })) || [];
+      }));
 
       setStudents(transformedData);
       setFilteredStudents(transformedData);
@@ -416,3 +431,4 @@ export default function CourseStudents({ courseId }: CourseStudentsProps) {
 }
 
 import { Label } from "@/components/ui/label";
+
