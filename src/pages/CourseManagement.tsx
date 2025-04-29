@@ -3,14 +3,13 @@ import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import CourseDetails from '@/components/course/management/CourseDetails';
-import CourseContent from '@/components/course/management/CourseContent';
 import CourseStudents from '@/components/course/management/CourseStudents';
 import CourseAnalytics from '@/components/course/management/CourseAnalytics';
 import CourseSettings from '@/components/course/management/CourseSettings';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useCourseData } from '@/hooks/useCourseData';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, File } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -18,6 +17,16 @@ export default function CourseManagement() {
   const { courseId } = useParams<{ courseId: string }>();
   const { course, isLoading, error } = useCourseData(courseId);
   const [activeTab, setActiveTab] = useState('details');
+  const navigate = useNavigate();
+
+  // Handle content tab click to redirect to materials page
+  const handleTabChange = (value: string) => {
+    if (value === 'content') {
+      navigate(`/courses/${courseId}/materials`);
+      return;
+    }
+    setActiveTab(value);
+  };
 
   if (isLoading) {
     return (
@@ -65,7 +74,7 @@ export default function CourseManagement() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="details">Course Details</TabsTrigger>
             <TabsTrigger value="content">Content</TabsTrigger>
@@ -78,8 +87,14 @@ export default function CourseManagement() {
             <CourseDetails course={course} />
           </TabsContent>
 
+          {/* Content tab is handled by redirect in handleTabChange */}
           <TabsContent value="content" className="w-full">
-            <CourseContent courseId={courseId} />
+            <div className="flex justify-center items-center py-8">
+              <Button onClick={() => navigate(`/courses/${courseId}/materials`)}>
+                <File className="h-4 w-4 mr-2" />
+                Manage Course Materials
+              </Button>
+            </div>
           </TabsContent>
 
           <TabsContent value="students" className="w-full">

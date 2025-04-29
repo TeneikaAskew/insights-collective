@@ -7,11 +7,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useCoursePermissions } from '@/hooks/useCoursePermissions';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import AppLayout from '@/components/layout/AppLayout';
 import ModuleManager from '@/components/course/management/ModuleManager';
-import AIContentGenerator from '@/components/ai/AIContentGenerator';
-import { ArrowLeft, Save, Plus, Trash } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash, File, Users } from 'lucide-react';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
 import {
   Table,
@@ -35,13 +33,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Spinner } from '@/components/ui/spinner';
 
 const AdminCourseEdit = () => {
   const { courseId } = useParams<{ courseId: string }>();
+  const isNewCourse = courseId === 'new';
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { canEdit, isInstructor, isAdmin, loading: permissionsLoading } = useCoursePermissions(courseId);
-  const [course, setCourse] = useState<Partial<Course>>();
+  const { canEdit, isInstructor, isAdmin, loading: permissionsLoading } = useCoursePermissions(isNewCourse ? undefined : courseId);
+  const [course, setCourse] = useState<Partial<Course>>({}); // Initialize with an empty object
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   
@@ -50,8 +50,20 @@ const AdminCourseEdit = () => {
   const [selectedProfileId, setSelectedProfileId] = useState<string>('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
 
+  // Fetch course data for existing courses or initialize a new one
   useEffect(() => {
-    if (!courseId) {
+    if (isNewCourse) {
+      // Initialize with default values for a new course
+      setCourse({
+        title: '',
+        description: '',
+        category: '',
+        level: 'Beginner',
+        tags: [],
+        enrollmentStatus: 'open',
+        published: false,
+        duration: '',
+      });
       setLoading(false);
       return;
     }
@@ -77,16 +89,16 @@ const AdminCourseEdit = () => {
         if (data) {
           const transformedCourse: Partial<Course> = {
             id: data.id,
-            title: data.title,
-            description: data.description,
-            category: data.category,
-            level: data.level,
-            duration: data.duration,
-            tags: data.tags,
-            thumbnail: data.thumbnail,
-            imageUrl: data.image_url,
-            enrollmentStatus: data.enrollment_status,
-            published: data.published,
+            title: data.title || '',
+            description: data.description || '',
+            category: data.category || '',
+            level: data.level || '',
+            duration: data.duration || '',
+            tags: data.tags || [],
+            thumbnail: data.thumbnail || '',
+            imageUrl: data.image_url || '',
+            enrollmentStatus: data.enrollment_status || 'open',
+            published: data.published || false,
             instructor: data.instructor ? {
               id: data.instructor.id,
               name: `${data.instructor.first_name || ''} ${data.instructor.last_name || ''}`.trim(),
@@ -110,10 +122,10 @@ const AdminCourseEdit = () => {
     };
     
     fetchCourse();
-  }, [courseId, toast]);
+  }, [courseId, isNewCourse, toast]);
 
   useEffect(() => {
-    if (!courseId || !isAdmin) return;
+    if (!courseId || !isAdmin || isNewCourse) return;
     
     const fetchInstructors = async () => {
       try {
@@ -156,7 +168,7 @@ const AdminCourseEdit = () => {
     };
 
     fetchInstructors();
-  }, [courseId, isAdmin]);
+  }, [courseId, isAdmin, isNewCourse]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -210,36 +222,56 @@ const AdminCourseEdit = () => {
         published: updatedCourse.published,
       };
       
-      const { data, error } = await supabase
-        .from('courses')
-        .update(dbCourse)
-        .eq('id', courseId as string)
-        .select()
-        .single();
-      
-      if (error) throw error;
-      
-      const transformedData: Partial<Course> = {
-        ...updatedCourse,
-        id: data.id,
-        title: data.title,
-        description: data.description,
-        category: data.category,
-        level: data.level,
-        duration: data.duration,
-        tags: data.tags,
-        thumbnail: data.thumbnail,
-        imageUrl: data.image_url,
-        enrollmentStatus: data.enrollment_status,
-        published: data.published
-      };
-      
-      setCourse(transformedData);
-      
-      toast({
-        title: 'Success',
-        description: 'Course updated successfully',
-      });
+      if (isNewCourse) {
+        // Create new course
+        const { data, error } = await supabase
+          .from('courses')
+          .insert(dbCourse)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        toast({
+          title: 'Success',
+          description: 'Course created successfully',
+        });
+        
+        // Redirect to edit the newly created course
+        navigate(`/admin/courses/${data.id}/edit`);
+      } else {
+        // Update existing course
+        const { data, error } = await supabase
+          .from('courses')
+          .update(dbCourse)
+          .eq('id', courseId as string)
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        const transformedData: Partial<Course> = {
+          ...updatedCourse,
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          category: data.category,
+          level: data.level,
+          duration: data.duration,
+          tags: data.tags,
+          thumbnail: data.thumbnail,
+          imageUrl: data.image_url,
+          enrollmentStatus: data.enrollment_status,
+          published: data.published
+        };
+        
+        setCourse(transformedData);
+        
+        toast({
+          title: 'Success',
+          description: 'Course updated successfully',
+        });
+      }
     } catch (error: any) {
       console.error('Error saving course:', error);
       toast({
@@ -339,14 +371,22 @@ const AdminCourseEdit = () => {
       console.error('Error removing instructor:', error);
     }
   };
+  
+  const handleMaterialsClick = () => {
+    if (courseId && courseId !== 'new') {
+      navigate(`/courses/${courseId}/materials`);
+    }
+  };
 
   if (loading || permissionsLoading) {
     return (
       <AppLayout>
-        <div className="flex items-center justify-center h-[60vh]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-            <p className="mt-4 text-muted-foreground">Loading course data...</p>
+        <div className="container mx-auto py-8">
+          <div className="flex items-center justify-center h-[60vh]">
+            <div className="text-center">
+              <Spinner size="lg" />
+              <p className="mt-4 text-muted-foreground">Loading course data...</p>
+            </div>
           </div>
         </div>
       </AppLayout>
@@ -367,14 +407,14 @@ const AdminCourseEdit = () => {
             
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-2xl font-semibold tracking-tight">Edit Course</h1>
+                <h1 className="text-2xl font-semibold tracking-tight">{isNewCourse ? 'Create New Course' : 'Edit Course'}</h1>
                 {course?.title && (
                   <p className="text-lg text-muted-foreground mt-1">{course.title}</p>
                 )}
               </div>
-              <Button onClick={() => handleSave(course as Course)} disabled={saving}>
+              <Button onClick={() => handleSave(course)} disabled={saving}>
                 <Save className="h-4 w-4 mr-2" />
-                {saving ? 'Saving...' : 'Save Course'}
+                {saving ? 'Saving...' : isNewCourse ? 'Create Course' : 'Save Course'}
               </Button>
             </div>
           </div>
@@ -382,8 +422,8 @@ const AdminCourseEdit = () => {
           <Tabs defaultValue="details" className="w-full">
             <TabsList className="w-full justify-start border-b">
               <TabsTrigger value="details" className="flex-1">Course Details</TabsTrigger>
-              <TabsTrigger value="modules" className="flex-1">Modules & Content</TabsTrigger>
-              {isAdmin && <TabsTrigger value="instructors" className="flex-1">Instructors</TabsTrigger>}
+              {!isNewCourse && <TabsTrigger value="modules" className="flex-1">Modules & Content</TabsTrigger>}
+              {isAdmin && !isNewCourse && <TabsTrigger value="instructors" className="flex-1">Instructors</TabsTrigger>}
             </TabsList>
 
             <div className="mt-6 space-y-6 w-full">
@@ -397,11 +437,20 @@ const AdminCourseEdit = () => {
                 )}
               </TabsContent>
 
-              <TabsContent value="modules" className="w-full mt-0">
-                {courseId && <ModuleManager courseId={courseId} />}
-              </TabsContent>
+              {!isNewCourse && (
+                <TabsContent value="modules" className="w-full mt-0">
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-semibold">Course Modules</h2>
+                    <Button onClick={handleMaterialsClick}>
+                      <File className="h-4 w-4 mr-2" />
+                      Manage Materials
+                    </Button>
+                  </div>
+                  {courseId && <ModuleManager courseId={courseId} />}
+                </TabsContent>
+              )}
 
-              {isAdmin && (
+              {isAdmin && !isNewCourse && (
                 <TabsContent value="instructors" className="w-full mt-0">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center">
