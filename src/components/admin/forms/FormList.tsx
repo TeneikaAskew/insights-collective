@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -50,10 +49,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
-
-interface FormListProps {
-  searchTerm?: string;
-}
+import { FormListProps } from '@/components/forms/builder/types';
 
 export function FormList({ searchTerm = '' }: FormListProps) {
   const [forms, setForms] = useState<FormData[]>([]);
@@ -282,6 +278,7 @@ export function FormList({ searchTerm = '' }: FormListProps) {
   };
 
   const handleEditFormStructure = (slug: string) => {
+    // Explicitly navigate to the edit page with the correct slug
     navigate(`/survey/${slug}/edit`);
   };
 

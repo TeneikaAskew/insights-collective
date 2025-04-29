@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,10 +17,21 @@ import { Switch } from '@/components/ui/switch';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { Spinner } from '@/components/ui/spinner';
 
-export default function FormEditor() {
+interface FormEditorProps {
+  initialFormData?: {
+    id: string;
+    title: string;
+    description: string;
+    status: boolean;
+    form_structure?: FormStructure;
+  } | null;
+}
+
+export default function FormEditor({ initialFormData }: FormEditorProps) {
   const { slug } = useParams<{ slug: string }>();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialFormData);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -35,62 +47,94 @@ export default function FormEditor() {
     sections: []
   });
 
-  // Load form data
   useEffect(() => {
-    const fetchForm = async () => {
-      if (!slug) return;
+    if (initialFormData) {
+      setFormData({
+        id: initialFormData.id,
+        title: initialFormData.title || '',
+        description: initialFormData.description || '',
+        status: Boolean(initialFormData.status),
+      });
 
-      try {
-        const { data, error } = await supabase
-          .from('forms')
-          .select('*')
-          .eq('slug', slug)
-          .single();
+      // Safely initialize the form structure
+      const safeFormStructure: FormStructure = {
+        sections: Array.isArray(initialFormData.form_structure?.sections) ? 
+          initialFormData.form_structure.sections : []
+      };
+      
+      setFormStructure(safeFormStructure);
+      setLoading(false);
+    } else if (slug) {
+      const fetchForm = async () => {
+        try {
+          console.log("Fetching form data for slug:", slug);
+          const { data, error } = await supabase
+            .from('forms')
+            .select('*')
+            .eq('slug', slug)
+            .single();
 
-        if (error) throw error;
+          if (error) {
+            console.error("Error fetching form:", error);
+            throw error;
+          }
 
-        setFormData({
-          id: data.id,
-          title: data.title,
-          description: data.description || '',
-          status: data.status
-        });
+          if (!data) {
+            console.error("No data returned for slug:", slug);
+            throw new Error(`Form with slug "${slug}" not found`);
+          }
 
-        // Initialize form structure
-        if (data.form_structure) {
-          setFormStructure(data.form_structure);
-        } else {
-          // Initialize with an empty section if no structure exists
-          setFormStructure({
-            sections: [
-              {
-                id: uuidv4(),
-                title: 'Section 1',
-                fields: []
-              }
-            ]
+          console.log("Form data received:", data);
+
+          setFormData({
+            id: data.id,
+            title: data.title || '',
+            description: data.description || '',
+            status: Boolean(data.status)
           });
-        }
-      } catch (error) {
-        console.error('Error fetching form:', error);
-        toast({
-          title: 'Error',
-          description: 'Could not load form data',
-          variant: 'destructive'
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchForm();
-  }, [slug, toast]);
+          // Safely initialize the form structure
+          const formStructData: FormStructure = {
+            sections: Array.isArray(data.form_structure?.sections) ? 
+              data.form_structure.sections : []
+          };
+          
+          console.log("Form structure initialized:", formStructData);
+          setFormStructure(formStructData);
+        } catch (error: any) {
+          console.error('Error fetching form:', error);
+          toast({
+            title: 'Error',
+            description: 'Could not load form data: ' + (error.message || 'Unknown error'),
+            variant: 'destructive'
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchForm();
+    } else {
+      // Handle case where there's no initialFormData and no slug
+      console.log("No initial form data or slug provided");
+      setLoading(false);
+    }
+  }, [initialFormData, slug, toast]);
 
   const handleSaveForm = async () => {
-    if (!formData?.id) return;
+    if (!formData?.id) {
+      console.error("No form ID available for saving");
+      toast({
+        title: 'Error',
+        description: 'Cannot save: Form ID is missing',
+        variant: 'destructive'
+      });
+      return;
+    }
     
     setSaving(true);
     try {
+      console.log("Saving form structure:", formStructure);
       const { error } = await supabase
         .from('forms')
         .update({
@@ -104,11 +148,11 @@ export default function FormEditor() {
         title: 'Success',
         description: 'Form structure saved successfully'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving form:', error);
       toast({
         title: 'Error',
-        description: 'Failed to save form structure',
+        description: 'Failed to save form structure: ' + (error.message || 'Unknown error'),
         variant: 'destructive'
       });
     } finally {
@@ -117,29 +161,46 @@ export default function FormEditor() {
   };
 
   const addSection = () => {
-    setFormStructure({
-      sections: [
-        ...formStructure.sections,
-        {
-          id: uuidv4(),
-          title: `Section ${formStructure.sections.length + 1}`,
-          fields: []
-        }
-      ]
+    setFormStructure(prevStructure => {
+      const newSections = Array.isArray(prevStructure.sections) ? [...prevStructure.sections] : [];
+      return {
+        sections: [
+          ...newSections,
+          {
+            id: uuidv4(),
+            title: `Section ${newSections.length + 1}`,
+            fields: []
+          }
+        ]
+      };
     });
   };
 
   const updateSection = (sectionId: string, data: Partial<FormSection>) => {
-    setFormStructure({
-      sections: formStructure.sections.map(section => 
-        section.id === sectionId ? { ...section, ...data } : section
-      )
+    setFormStructure(prev => {
+      if (!prev || !Array.isArray(prev.sections)) {
+        return { sections: [] };
+      }
+      
+      return {
+        ...prev,
+        sections: prev.sections.map(section => 
+          section.id === sectionId ? { ...section, ...data } : section
+        )
+      };
     });
   };
 
   const removeSection = (sectionId: string) => {
-    setFormStructure({
-      sections: formStructure.sections.filter(section => section.id !== sectionId)
+    setFormStructure(prev => {
+      if (!prev || !Array.isArray(prev.sections)) {
+        return { sections: [] };
+      }
+      
+      return {
+        ...prev,
+        sections: prev.sections.filter(section => section.id !== sectionId)
+      };
     });
   };
 
@@ -151,103 +212,153 @@ export default function FormEditor() {
       required: false
     };
 
-    setFormStructure({
-      sections: formStructure.sections.map(section => {
-        if (section.id === sectionId) {
-          return {
-            ...section,
-            fields: [...section.fields, newField]
-          };
-        }
-        return section;
-      })
+    setFormStructure(prev => {
+      if (!prev || !Array.isArray(prev.sections)) {
+        return { sections: [] };
+      }
+      
+      return {
+        ...prev,
+        sections: prev.sections.map(section => {
+          if (section.id === sectionId) {
+            const fields = Array.isArray(section.fields) ? [...section.fields] : [];
+            return {
+              ...section,
+              fields: [...fields, newField]
+            };
+          }
+          return section;
+        })
+      };
     });
   };
 
   const updateField = (sectionId: string, fieldId: string, data: Partial<FormField>) => {
-    setFormStructure({
-      sections: formStructure.sections.map(section => {
-        if (section.id === sectionId) {
-          return {
-            ...section,
-            fields: section.fields.map(field => 
-              field.id === fieldId ? { ...field, ...data } : field
-            )
-          };
-        }
-        return section;
-      })
+    setFormStructure(prev => {
+      if (!prev || !Array.isArray(prev.sections)) {
+        return { sections: [] };
+      }
+      
+      return {
+        ...prev,
+        sections: prev.sections.map(section => {
+          if (section.id === sectionId) {
+            if (!Array.isArray(section.fields)) {
+              return { ...section, fields: [] };
+            }
+            
+            return {
+              ...section,
+              fields: section.fields.map(field => 
+                field.id === fieldId ? { ...field, ...data } : field
+              )
+            };
+          }
+          return section;
+        })
+      };
     });
   };
 
   const removeField = (sectionId: string, fieldId: string) => {
-    setFormStructure({
-      sections: formStructure.sections.map(section => {
-        if (section.id === sectionId) {
-          return {
-            ...section,
-            fields: section.fields.filter(field => field.id !== fieldId)
-          };
-        }
-        return section;
-      })
-    });
-  };
-
-  // Handle drag and drop reordering
-  const onDragEnd = (result: any) => {
-    const { source, destination, type } = result;
-    
-    // Dropped outside the list
-    if (!destination) return;
-
-    // Handle sections reordering
-    if (type === 'section') {
-      const newSections = Array.from(formStructure.sections);
-      const [removed] = newSections.splice(source.index, 1);
-      newSections.splice(destination.index, 0, removed);
+    setFormStructure(prev => {
+      if (!prev || !Array.isArray(prev.sections)) {
+        return { sections: [] };
+      }
       
-      setFormStructure({
-        sections: newSections
-      });
-      return;
-    }
-    
-    // Handle fields reordering
-    const sourceSection = formStructure.sections.find(s => s.id === source.droppableId);
-    const destSection = formStructure.sections.find(s => s.id === destination.droppableId);
-    
-    if (!sourceSection || !destSection) return;
-    
-    // If moving within the same section
-    if (source.droppableId === destination.droppableId) {
-      const newFields = Array.from(sourceSection.fields);
-      const [removed] = newFields.splice(source.index, 1);
-      newFields.splice(destination.index, 0, removed);
-      
-      setFormStructure({
-        sections: formStructure.sections.map(section => 
-          section.id === source.droppableId ? { ...section, fields: newFields } : section
-        )
-      });
-    } else {
-      // Moving between sections
-      const sourceFields = Array.from(sourceSection.fields);
-      const destFields = Array.from(destSection.fields);
-      const [removed] = sourceFields.splice(source.index, 1);
-      destFields.splice(destination.index, 0, removed);
-      
-      setFormStructure({
-        sections: formStructure.sections.map(section => {
-          if (section.id === source.droppableId) {
-            return { ...section, fields: sourceFields };
-          }
-          if (section.id === destination.droppableId) {
-            return { ...section, fields: destFields };
+      return {
+        ...prev,
+        sections: prev.sections.map(section => {
+          if (section.id === sectionId) {
+            if (!Array.isArray(section.fields)) {
+              return { ...section, fields: [] };
+            }
+            
+            return {
+              ...section,
+              fields: section.fields.filter(field => field.id !== fieldId)
+            };
           }
           return section;
         })
-      });
+      };
+    });
+  };
+
+  const onDragEnd = (result: any) => {
+    const { source, destination, type } = result;
+    
+    // If there is no destination or source is the same as destination, do nothing
+    if (!destination || 
+      (source.droppableId === destination.droppableId && source.index === destination.index)) {
+      return;
+    }
+
+    // Make sure formStructure exists and sections is an array
+    if (!formStructure || !Array.isArray(formStructure.sections)) {
+      console.error("Invalid form structure for drag and drop");
+      return;
+    }
+
+    // Handle section drag and drop
+    if (type === 'section') {
+      const sections = Array.from(formStructure.sections);
+      if (sections.length > 0) {
+        const [removed] = sections.splice(source.index, 1);
+        sections.splice(destination.index, 0, removed);
+        
+        setFormStructure({
+          sections: sections
+        });
+      }
+      return;
+    }
+    
+    // Handle field drag and drop
+    const sections = formStructure.sections;
+    const sourceSection = sections.find(s => s.id === source.droppableId);
+    const destSection = sections.find(s => s.id === destination.droppableId);
+    
+    if (!sourceSection || !destSection) {
+      console.error("Source or destination section not found");
+      return;
+    }
+    
+    // Ensure fields arrays exist
+    const sourceFields = Array.isArray(sourceSection.fields) ? [...sourceSection.fields] : [];
+    // FIX: Define destFields properly before using it
+    const destFields = Array.isArray(destSection.fields) ? [...destSection.fields] : [];
+
+    if (source.droppableId === destination.droppableId) {
+      // Moving within the same section
+      if (sourceFields.length > 0) {
+        const [removed] = sourceFields.splice(source.index, 1);
+        sourceFields.splice(destination.index, 0, removed);
+        
+        setFormStructure({
+          sections: sections.map(section => 
+            section.id === source.droppableId ? { ...section, fields: sourceFields } : section
+          )
+        });
+      }
+    } else {
+      // Moving between different sections
+      if (sourceFields.length > 0) {
+        const [removed] = sourceFields.splice(source.index, 1);
+        destFields.splice(destination.index, 0, removed);
+        
+        setFormStructure({
+          sections: sections.map(section => {
+            if (section.id === source.droppableId) {
+              return { ...section, fields: sourceFields };
+            }
+            if (section.id === destination.droppableId) {
+              return { ...section, fields: destFields };
+            }
+            return section;
+          })
+        });
+      }
     }
   };
 
@@ -255,7 +366,10 @@ export default function FormEditor() {
     return (
       <div className="container py-10">
         <div className="flex justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+          <div className="flex flex-col items-center gap-4">
+            <Spinner size="lg" />
+            <p className="text-muted-foreground">Loading form data...</p>
+          </div>
         </div>
       </div>
     );
@@ -280,6 +394,10 @@ export default function FormEditor() {
     );
   }
 
+  // Ensure sections is always a valid array
+  const sections = Array.isArray(formStructure?.sections) ? formStructure.sections : [];
+  console.log("Rendering form with sections:", sections);
+
   return (
     <div className="container py-8">
       <div className="flex justify-between items-center mb-6">
@@ -288,9 +406,9 @@ export default function FormEditor() {
             <Button variant="ghost" onClick={() => navigate('/admin/forms')}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            {formData.title}
+            {formData.title || 'Untitled Form'}
           </h1>
-          <p className="text-muted-foreground mt-2">{formData.description}</p>
+          <p className="text-muted-foreground mt-2">{formData.description || 'No description'}</p>
         </div>
         <div className="flex gap-2">
           <Button 
@@ -342,11 +460,11 @@ export default function FormEditor() {
                 title: 'Success',
                 description: `Form is now ${checked ? 'published' : 'unpublished'}`
               });
-            } catch (error) {
+            } catch (error: any) {
               console.error('Error updating form status:', error);
               toast({
                 title: 'Error',
-                description: 'Failed to update form status',
+                description: 'Failed to update form status: ' + (error.message || 'Unknown error'),
                 variant: 'destructive'
               });
             }
@@ -366,8 +484,8 @@ export default function FormEditor() {
                 ref={provided.innerRef}
                 className="space-y-8"
               >
-                {formStructure.sections && formStructure.sections.length > 0 ? (
-                  formStructure.sections.map((section, index) => (
+                {sections && sections.length > 0 ? (
+                  sections.map((section, index) => (
                     <Draggable key={section.id} draggableId={section.id} index={index}>
                       {(provided) => (
                         <div 
@@ -381,7 +499,7 @@ export default function FormEditor() {
                                 <GripVertical />
                               </div>
                               <Input
-                                value={section.title}
+                                value={section.title || ''}
                                 onChange={(e) => updateSection(section.id, { title: e.target.value })}
                                 className="text-xl font-medium bg-transparent border-none focus-visible:ring-0 focus-visible:border-b focus-visible:rounded-none"
                                 placeholder="Section Title"
@@ -411,7 +529,7 @@ export default function FormEditor() {
                                 {...provided.droppableProps}
                                 className="space-y-4"
                               >
-                                {section.fields && section.fields.length > 0 ? (
+                                {Array.isArray(section.fields) && section.fields.length > 0 ? (
                                   section.fields.map((field, fieldIndex) => (
                                     <Draggable key={field.id} draggableId={field.id} index={fieldIndex}>
                                       {(provided) => (
@@ -420,13 +538,14 @@ export default function FormEditor() {
                                           {...provided.draggableProps}
                                           className="border rounded-md p-4 bg-gray-50"
                                         >
+                                          
                                           <div className="flex items-center justify-between mb-3">
                                             <div className="flex items-center flex-1">
                                               <div {...provided.dragHandleProps} className="mr-2 cursor-grab">
                                                 <GripVertical className="h-5 w-5 text-gray-400" />
                                               </div>
                                               <Input
-                                                value={field.label}
+                                                value={field.label || ''}
                                                 onChange={(e) => updateField(section.id, field.id, { label: e.target.value })}
                                                 className="bg-transparent"
                                                 placeholder="Question Label"
@@ -449,7 +568,7 @@ export default function FormEditor() {
                                                 value={field.type}
                                                 onValueChange={(value: any) => {
                                                   const needsOptions = ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(value);
-                                                  const hadOptions = ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type);
+                                                  const hadOptions = field.type && ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type);
                                                   
                                                   let updates: Partial<FormField> = { type: value };
                                                   
@@ -494,19 +613,19 @@ export default function FormEditor() {
                                             </div>
                                           </div>
 
-                                          {['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type) && (
+                                          {field.type && ['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type) && (
                                             <div className="mt-4">
                                               <Accordion type="single" collapsible defaultValue="options">
                                                 <AccordionItem value="options">
                                                   <AccordionTrigger>Options</AccordionTrigger>
                                                   <AccordionContent>
                                                     <div className="space-y-2">
-                                                      {field.options?.map((option, optionIndex) => (
+                                                      {Array.isArray(field.options) && field.options.map((option, optionIndex) => (
                                                         <div key={optionIndex} className="flex items-center">
                                                           <Input
                                                             value={option}
                                                             onChange={(e) => {
-                                                              const newOptions = [...(field.options || [])];
+                                                              const newOptions = Array.isArray(field.options) ? [...field.options] : [];
                                                               newOptions[optionIndex] = e.target.value;
                                                               updateField(section.id, field.id, { options: newOptions });
                                                             }}
@@ -517,9 +636,11 @@ export default function FormEditor() {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => {
-                                                              const newOptions = [...(field.options || [])];
-                                                              newOptions.splice(optionIndex, 1);
-                                                              updateField(section.id, field.id, { options: newOptions });
+                                                              const newOptions = Array.isArray(field.options) ? [...field.options] : [];
+                                                              if (newOptions.length > 0) {
+                                                                newOptions.splice(optionIndex, 1);
+                                                                updateField(section.id, field.id, { options: newOptions });
+                                                              }
                                                             }}
                                                           >
                                                             <Trash2 className="h-4 w-4" />
@@ -530,7 +651,9 @@ export default function FormEditor() {
                                                         variant="outline"
                                                         size="sm"
                                                         onClick={() => {
-                                                          const newOptions = [...(field.options || []), `Option ${(field.options?.length || 0) + 1}`];
+                                                          const newOptions = Array.isArray(field.options) ? 
+                                                            [...field.options, `Option ${(field.options.length || 0) + 1}`] : 
+                                                            [`Option 1`];
                                                           updateField(section.id, field.id, { options: newOptions });
                                                         }}
                                                         className="w-full mt-2"
@@ -544,12 +667,14 @@ export default function FormEditor() {
                                             </div>
                                           )}
                                           
+                                          
                                           <Accordion type="single" collapsible className="mt-2">
                                             <AccordionItem value="validation">
                                               <AccordionTrigger>Validation</AccordionTrigger>
                                               <AccordionContent>
-                                                {['short_text', 'long_text'].includes(field.type) && (
+                                                {field.type && ['short_text', 'long_text'].includes(field.type) && (
                                                   <div className="space-y-4 mt-2">
+                                                    
                                                     <div className="grid grid-cols-2 gap-2">
                                                       <div>
                                                         <Label htmlFor={`min-length-${field.id}`}>Min Length</Label>
@@ -671,7 +796,7 @@ export default function FormEditor() {
             )}
           </Droppable>
           
-          {formStructure.sections && formStructure.sections.length > 0 && (
+          {sections && sections.length > 0 && (
             <Button
               variant="outline"
               onClick={addSection}
