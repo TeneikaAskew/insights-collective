@@ -37,7 +37,6 @@ import SurveyConfirmation from "./pages/SurveyConfirmation";
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminActivity from "./pages/AdminActivity";
-import AdminCourses from "./pages/AdminCourses";
 import AdminUsers from "./pages/AdminUsers";
 import AdminEnrollments from "./pages/AdminEnrollments";
 import AdminCertificates from "./pages/AdminCertificates";
@@ -54,6 +53,7 @@ import PageVisibilityGuard from "./components/PageVisibilityGuard";
 import LocalStorageDebug from "./components/LocalStorageDebug";
 
 // Import course management components
+import CourseManagement from './pages/CourseManagement';
 import CourseManagementDashboard from '@/components/course/management/CourseManagementDashboard';
 import CourseEditor from '@/components/course/management/CourseEditor';
 import CourseManageMaterials from './pages/CourseManageMaterials';
@@ -150,7 +150,7 @@ const App = () => {
                   <Route path="/admin" element={<ProtectedVisibleRoute requireAdmin><AdminDashboard /></ProtectedVisibleRoute>} />
                   <Route path="/admin/activity" element={<ProtectedVisibleRoute requireAdmin><AdminActivity /></ProtectedVisibleRoute>} />
                   <Route path="/admin/courses" element={<ProtectedVisibleRoute requireAdmin><CourseManagementDashboard /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/courses/:courseId/edit" element={<ProtectedVisibleRoute requireAdmin><AdminCourseEdit /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/courses/:courseId/edit" element={<ProtectedVisibleRoute requireAdmin><CourseManagement /></ProtectedVisibleRoute>} />
                   <Route path="/admin/courses/new" element={<ProtectedVisibleRoute requireAdmin><AdminCourseEdit /></ProtectedVisibleRoute>} />
                   <Route path="/courses/:courseId/materials" element={<ProtectedVisibleRoute><CourseManageMaterials /></ProtectedVisibleRoute>} />
                   <Route path="/admin/users" element={<ProtectedVisibleRoute requireAdmin><AdminUsers /></ProtectedVisibleRoute>} />
