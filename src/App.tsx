@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -72,6 +73,7 @@ import SurveyPage from "./pages/survey/SurveyPage";
 import SurveyFormEdit from "./pages/survey/SurveyFormEdit";
 import SurveyFormCreate from "./pages/survey/SurveyFormCreate";
 import UnifiedFormManagement from "./pages/admin/UnifiedFormManagement";
+import FormManagement from "./pages/admin/FormManagement"; // Make sure this is imported
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -123,7 +125,9 @@ const App = () => {
                   <Route path="/survey/create" element={<ProtectedVisibleRoute requireAdmin><SurveyFormCreate /></ProtectedVisibleRoute>} />
                   <Route path="/survey/:slug/edit" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
                   <Route path="/survey/:slug/submissions" element={<ProtectedVisibleRoute requireAdmin><Navigate to={`/admin/forms/submissions/:slug`} replace /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit submissionsView={true} /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/form-management/*" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
                   
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />
