@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -31,7 +32,6 @@ import Messages from "./pages/Messages";
 import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
 import CareerPathway from "./pages/CareerPathway";
-import SurveyApplication from "./pages/SurveyApplication";
 import SurveyConfirmation from "./pages/SurveyConfirmation";
 
 // Import admin pages
@@ -63,7 +63,7 @@ import ForumList from './pages/ForumList';
 import ForumDetail from './pages/ForumDetail';
 import ThreadDetail from './pages/ThreadDetail';
 
-// Import the new AdminCourseEdit component
+// Import the AdminCourseEdit component
 import AdminCourseEdit from "./pages/AdminCourseEdit";
 import CareerAgent from "./pages/CareerAgent";
 
@@ -72,7 +72,7 @@ import SurveyPage from "./pages/survey/SurveyPage";
 import SurveyFormEdit from "./pages/survey/SurveyFormEdit";
 import SurveyFormCreate from "./pages/survey/SurveyFormCreate";
 import UnifiedFormManagement from "./pages/admin/UnifiedFormManagement";
-import FormManagement from "./pages/admin/FormManagement"; // Make sure this is imported
+import FormManagement from "./pages/admin/FormManagement";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -115,13 +115,13 @@ const App = () => {
                   <Route path="/data-blueprint" element={<DataBlueprintSeries />} />
                   <Route path="/events" element={<Events />} />
                   <Route path="/forums" element={<ForumList />} />
-                  <Route path="/survey" element={<SurveyApplication />} />
                   <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
                   <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
+                  <Route path="/survey/:slug" element={<SurveyPage />} />
                   
                   {/* Form routes */}
                   <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><SurveyFormEdit /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
                   <Route path="/admin/form-management/*" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
                   
                   {/* Protected routes - require authentication */}
@@ -164,7 +164,10 @@ const App = () => {
                   <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
                   <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
 
-                  {/* Redirect old survey routes to new admin forms */}
+                  {/* Redirect old survey route to new form page */}
+                  <Route path="/survey" element={<Navigate to="/survey/ai-fellowship" replace />} />
+
+                  {/* Redirect old admin survey routes to new admin forms */}
                   <Route path="/survey/create" element={<Navigate to="/admin/forms" replace />} />
                   <Route path="/survey/:slug/edit" element={<Navigate to="/admin/forms" replace />} />
                   <Route path="/survey/:slug/submissions" element={<Navigate to="/admin/forms/submissions/:slug" replace />} />
