@@ -30,6 +30,10 @@ const CourseDetail = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   
+  // Always call useForums with courseId (which might be undefined)
+  // The hook itself will handle the case when courseId is undefined
+  const { forums, isLoadingForums } = useForums(courseId);
+  
   useEffect(() => {
     const fetchCourseData = async () => {
       if (!courseId) {
@@ -322,8 +326,6 @@ const CourseDetail = () => {
   };
 
   const overallProgress = course.modules.reduce((sum, module) => sum + (module.completionStatus || 0), 0) / (course.modules.length || 1);
-  
-  const { forums, isLoadingForums } = useForums(courseId);
   
   return (
     <AppLayout>
