@@ -4,7 +4,7 @@ export type FormStatus = 'active' | 'inactive';
 export type FormField = {
   id: string;
   label: string;
-  type: 'short_text' | 'long_text' | 'dropdown' | 'radio' | 'checkbox' | 'date' | 'multi_select' | 'slider' | 'date_picker' | 'file_upload';
+  type: 'short_text' | 'long_text' | 'dropdown' | 'radio' | 'checkbox' | 'date' | 'multi_select' | 'slider' | 'date_picker' | 'file_upload' | 'url';
   required?: boolean;
   options?: string[];
   validation?: {
@@ -12,7 +12,7 @@ export type FormField = {
     maxLength?: number;
     pattern?: string;
     message?: string;
-    type?: 'numeric_only' | 'url' | 'email';
+    type?: 'numeric_only' | 'url' | 'email' | 'gpa' | 'linkedin_url';
   };
   placeholder?: string;
   max_select?: number;

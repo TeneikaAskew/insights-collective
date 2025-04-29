@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
@@ -10,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FileUp, Upload } from 'lucide-react';
+import { FileUp, Upload, Link as LinkIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +18,7 @@ import { Slider } from '@/components/ui/slider';
 interface FieldData {
   label: string;
   type: 'text' | 'textarea' | 'dropdown' | 'radio' | 'checkbox' | 'date' | 
-        'short_text' | 'long_text' | 'multi_select' | 'slider' | 'date_picker' | 'file_upload';
+        'short_text' | 'long_text' | 'multi_select' | 'slider' | 'date_picker' | 'file_upload' | 'url';
   required?: boolean;
   options?: string[];
   validation?: {
@@ -27,7 +26,7 @@ interface FieldData {
     maxLength?: number;
     pattern?: string;
     message?: string;
-    type?: 'numeric_only' | 'url' | 'email';
+    type?: 'numeric_only' | 'url' | 'email' | 'gpa' | 'linkedin_url';
   };
   max_select?: number;
   min?: number;
@@ -200,6 +199,18 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
             rules.pattern = {
               value: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w.-]*)*\/?$/,
               message: field.validation.message || "Please enter a valid URL"
+            };
+            break;
+          case 'gpa':
+            rules.pattern = {
+              value: /^[0-4](\.[0-9]{0,2})?$/,
+              message: field.validation.message || "Please enter a valid GPA between 0.00 and 4.00"
+            };
+            break;
+          case 'linkedin_url':
+            rules.pattern = {
+              value: /.*linkedin\.com.*/,
+              message: field.validation.message || "Please enter a valid LinkedIn URL"
             };
             break;
         }
@@ -550,6 +561,34 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
                   
                   <FormMessage />
                 </div>
+              </FormItem>
+            )}
+          />
+        );
+      
+      case 'url':
+        return (
+          <FormField
+            control={control}
+            name={fieldName}
+            rules={getValidationRules()}
+            render={({ field: formField }) => (
+              <FormItem>
+                <FormLabel className="flex items-start gap-2">
+                  {field.label}
+                  {field.required && <span className="text-red-500">*</span>}
+                </FormLabel>
+                <FormControl>
+                  <div className="relative">
+                    <LinkIcon className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder={`Enter URL`} 
+                      {...formField} 
+                      className="pl-8"
+                    />
+                  </div>
+                </FormControl>
+                <FormMessage />
               </FormItem>
             )}
           />

@@ -22,7 +22,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { FormField } from '@/types/forms';
-import { GripVertical, Trash2, Plus, X, List, SlidersHorizontal, ListCheck } from 'lucide-react';
+import { GripVertical, Trash2, Plus, X, List, SlidersHorizontal, ListCheck, Link } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
@@ -68,6 +68,15 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
       updatedField.max = field.max !== undefined ? field.max : 100;
     }
     
+    // Add validation for URL type
+    if (fieldType === 'url') {
+      updatedField.validation = { 
+        type: 'url',
+        pattern: '^(https?:\\/\\/)?([\\da-z.-]+)\\.([a-z.]{2,6})([/\\w .-]*)*\\/?$',
+        message: 'Please enter a valid URL'
+      };
+    }
+    
     onUpdateField(sectionId, field.id, updatedField);
   };
 
@@ -104,7 +113,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
   };
 
   const renderValidationOptions = () => {
-    if (['short_text', 'long_text'].includes(field.type)) {
+    if (['short_text', 'long_text', 'url'].includes(field.type)) {
       return (
         <div className="space-y-4">
           <div className="flex flex-col gap-2">
@@ -112,7 +121,26 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
             <Select 
               value={field.validation?.type || ''} 
               onValueChange={(value) => {
-                const validation = { ...(field.validation || {}), type: value as any };
+                let validation: any = { ...(field.validation || {}), type: value as any };
+                
+                // Set default patterns and messages based on validation type
+                if (value === 'numeric_only') {
+                  validation.pattern = '^[0-9]*$';
+                  validation.message = 'Please enter numbers only';
+                } else if (value === 'email') {
+                  validation.pattern = '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$';
+                  validation.message = 'Please enter a valid email address';
+                } else if (value === 'url') {
+                  validation.pattern = '^(https?:\\/\\/)?([\\da-z.-]+)\\.([a-z.]{2,6})([/\\w .-]*)*\\/?$';
+                  validation.message = 'Please enter a valid URL';
+                } else if (value === 'gpa') {
+                  validation.pattern = '^[0-4](\\.[0-9]{0,2})?$';
+                  validation.message = 'Please enter a valid GPA between 0.00 and 4.00';
+                } else if (value === 'linkedin_url') {
+                  validation.pattern = '.*linkedin\\.com.*';
+                  validation.message = 'Please enter a valid LinkedIn URL';
+                }
+                
                 onUpdateField(sectionId, field.id, { validation });
               }}
             >
@@ -124,6 +152,8 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                 <SelectItem value="numeric_only">Numbers only</SelectItem>
                 <SelectItem value="email">Email</SelectItem>
                 <SelectItem value="url">URL</SelectItem>
+                <SelectItem value="gpa">GPA (0.00-4.00)</SelectItem>
+                <SelectItem value="linkedin_url">LinkedIn URL</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -239,6 +269,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                             <SelectLabel>Text Fields</SelectLabel>
                             <SelectItem value="short_text">Short Text</SelectItem>
                             <SelectItem value="long_text">Long Text</SelectItem>
+                            <SelectItem value="url">URL</SelectItem>
                           </SelectGroup>
                           <SelectGroup>
                             <SelectLabel>Choice Fields</SelectLabel>
