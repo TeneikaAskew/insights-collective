@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -636,11 +635,10 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                                                             variant="ghost"
                                                             size="sm"
                                                             onClick={() => {
-                                                              const newOptions = Array.isArray(field.options) ? [...field.options] : [];
-                                                              if (newOptions.length > 0) {
-                                                                newOptions.splice(optionIndex, 1);
-                                                                updateField(section.id, field.id, { options: newOptions });
-                                                              }
+                                                              const newOptions = Array.isArray(field.options) ? 
+                                                                [...field.options, `Option ${(field.options.length || 0) + 1}`] : 
+                                                                [`Option 1`];
+                                                              updateField(section.id, field.id, { options: newOptions });
                                                             }}
                                                           >
                                                             <Trash2 className="h-4 w-4" />
@@ -674,7 +672,6 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                                               <AccordionContent>
                                                 {field.type && ['short_text', 'long_text'].includes(field.type) && (
                                                   <div className="space-y-4 mt-2">
-                                                    
                                                     <div className="grid grid-cols-2 gap-2">
                                                       <div>
                                                         <Label htmlFor={`min-length-${field.id}`}>Min Length</Label>
@@ -684,9 +681,10 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                                                           value={field.validation?.minLength || ''}
                                                           onChange={(e) => {
                                                             const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                                            const validation = field.validation || {};
                                                             updateField(section.id, field.id, { 
                                                               validation: {
-                                                                ...(field.validation || {}),
+                                                                ...validation,
                                                                 minLength: value
                                                               }
                                                             });
@@ -703,9 +701,10 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                                                           value={field.validation?.maxLength || ''}
                                                           onChange={(e) => {
                                                             const value = e.target.value ? parseInt(e.target.value) : undefined;
+                                                            const validation = field.validation || {};
                                                             updateField(section.id, field.id, { 
                                                               validation: {
-                                                                ...(field.validation || {}),
+                                                                ...validation,
                                                                 maxLength: value
                                                               }
                                                             });
@@ -721,9 +720,10 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                                                         id={`pattern-${field.id}`}
                                                         value={field.validation?.pattern || ''}
                                                         onChange={(e) => {
+                                                          const validation = field.validation || {};
                                                           updateField(section.id, field.id, { 
                                                             validation: {
-                                                              ...(field.validation || {}),
+                                                              ...validation,
                                                               pattern: e.target.value || undefined
                                                             }
                                                           });
@@ -737,9 +737,10 @@ export default function FormEditor({ initialFormData }: FormEditorProps) {
                                                         id={`message-${field.id}`}
                                                         value={field.validation?.message || ''}
                                                         onChange={(e) => {
+                                                          const validation = field.validation || {};
                                                           updateField(section.id, field.id, { 
                                                             validation: {
-                                                              ...(field.validation || {}),
+                                                              ...validation,
                                                               message: e.target.value
                                                             }
                                                           });

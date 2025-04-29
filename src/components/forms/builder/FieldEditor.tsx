@@ -169,9 +169,10 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                           value={field.validation?.minLength || ''}
                           onChange={(e) => {
                             const value = e.target.value ? parseInt(e.target.value) : undefined;
+                            const validation = field.validation || {};
                             onUpdateField(sectionId, field.id, { 
                               validation: {
-                                ...(field.validation || {}),
+                                ...validation,
                                 minLength: value
                               }
                             });
@@ -188,9 +189,10 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                           value={field.validation?.maxLength || ''}
                           onChange={(e) => {
                             const value = e.target.value ? parseInt(e.target.value) : undefined;
+                            const validation = field.validation || {};
                             onUpdateField(sectionId, field.id, { 
                               validation: {
-                                ...(field.validation || {}),
+                                ...validation,
                                 maxLength: value
                               }
                             });
@@ -206,9 +208,10 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                         id={`pattern-${field.id}`}
                         value={field.validation?.pattern || ''}
                         onChange={(e) => {
+                          const validation = field.validation || {};
                           onUpdateField(sectionId, field.id, { 
                             validation: {
-                              ...(field.validation || {}),
+                              ...validation,
                               pattern: e.target.value || undefined
                             }
                           });
@@ -222,9 +225,10 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                         id={`message-${field.id}`}
                         value={field.validation?.message || ''}
                         onChange={(e) => {
+                          const validation = field.validation || {};
                           onUpdateField(sectionId, field.id, { 
                             validation: {
-                              ...(field.validation || {}),
+                              ...validation,
                               message: e.target.value
                             }
                           });

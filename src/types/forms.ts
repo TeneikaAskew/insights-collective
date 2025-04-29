@@ -12,7 +12,8 @@ export type FormField = {
     maxLength?: number;
     pattern?: string;
     message?: string;
-  } | 'numeric_only' | 'url' | 'email';
+    type?: 'numeric_only' | 'url' | 'email';
+  };
   placeholder?: string;
   max_select?: number;
   min?: number;

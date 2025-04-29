@@ -30,7 +30,11 @@ export const fellowshipForm = {
               field.type === 'file_upload' ? 'file_upload' : 'short_text',
         required: field.required || false,
         options: field.options || [],
-        validation: field.validation || undefined,
+        validation: field.validation ? 
+          (typeof field.validation === 'string' ? 
+            { type: field.validation } : 
+            field.validation) : 
+          undefined,
         placeholder: field.placeholder !== undefined ? field.placeholder : '',
         max_select: field.max_select,
         min: field.min,
