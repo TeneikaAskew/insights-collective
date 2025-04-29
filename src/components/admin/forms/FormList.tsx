@@ -222,7 +222,7 @@ export function FormList({ searchTerm }: FormListProps) {
                     variant="ghost" 
                     size="sm" 
                     className="flex items-center gap-1"
-                    onClick={() => navigate(`/admin/forms/submissions/${form.slug}`)}
+                    onClick={() => navigate(`/survey/${form.slug}/edit?view=submissions`)}
                   >
                     <BarChart className="h-4 w-4" />
                     <span>View</span>
