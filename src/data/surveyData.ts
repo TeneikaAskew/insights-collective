@@ -1,4 +1,3 @@
-
 export interface FieldData {
   label: string;
   type: 'short_text' | 'long_text' | 'dropdown' | 'radio' | 'checkbox' | 'multi_select' | 'slider' | 'date_picker' | 'file_upload';
@@ -12,6 +11,7 @@ export interface FieldData {
   max_size_mb?: number;
   validation?: 'numeric_only' | 'url' | 'email';
   text?: string;
+  placeholder?: string;
 }
 
 export interface SectionData {
