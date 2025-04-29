@@ -17,6 +17,9 @@ function App() {
       <Routes>
         <Route path="/" element={<AdminDashboard />} />
         <Route path="/admin/forms" element={<UnifiedFormManagement />} />
+        {/* Redirect legacy routes to the new unified form management */}
+        <Route path="/admin/forms/legacy" element={<UnifiedFormManagement legacyView={true} />} />
+        <Route path="/admin/forms/old" element={<UnifiedFormManagement />} />
         <Route path="/survey/:slug/edit" element={<SurveyFormEdit />} />
         <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
         <Route path="/survey/:slug" element={<SurveyFormEdit />} />
