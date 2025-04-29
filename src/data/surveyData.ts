@@ -1,4 +1,3 @@
-
 export interface FieldData {
   label: string;
   type: 'short_text' | 'long_text' | 'dropdown' | 'radio' | 'checkbox' | 'multi_select' | 'slider' | 'date_picker' | 'file_upload';
@@ -16,7 +15,7 @@ export interface FieldData {
     maxLength?: number;
     pattern?: string;
     message?: string;
-  };
+  } | 'numeric_only' | 'url' | 'email';
   text?: string;
   placeholder?: string;
 }
@@ -153,7 +152,9 @@ export const surveyData: SectionData[] = [
         label: "What is/was your GPA? (4.0 Scale)",
         type: "short_text",
         required: false,
-        validation: "numeric_only"
+        validation: {
+          type: "numeric_only"
+        }
       },
       {
         label: "What is/was your graduation year?",
@@ -310,7 +311,9 @@ export const surveyData: SectionData[] = [
         label: "What is your annual household income amount?",
         type: "short_text",
         required: true,
-        validation: "numeric_only"
+        validation: {
+          type: "numeric_only"
+        }
       },
       {
         label: "Please select the income range that matches the amount you entered",

@@ -85,6 +85,8 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                   <SelectGroup>
                     <SelectLabel>Other</SelectLabel>
                     <SelectItem value="date">Date Picker</SelectItem>
+                    <SelectItem value="slider">Slider</SelectItem>
+                    <SelectItem value="file_upload">File Upload</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>
@@ -169,7 +171,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                           value={field.validation?.minLength || ''}
                           onChange={(e) => {
                             const value = e.target.value ? parseInt(e.target.value) : undefined;
-                            const validation = field.validation || {};
+                            const validation = typeof field.validation === 'object' ? field.validation || {} : {};
                             onUpdateField(sectionId, field.id, { 
                               validation: {
                                 ...validation,
@@ -189,7 +191,7 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                           value={field.validation?.maxLength || ''}
                           onChange={(e) => {
                             const value = e.target.value ? parseInt(e.target.value) : undefined;
-                            const validation = field.validation || {};
+                            const validation = typeof field.validation === 'object' ? field.validation || {} : {};
                             onUpdateField(sectionId, field.id, { 
                               validation: {
                                 ...validation,
@@ -206,9 +208,9 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                       <Label htmlFor={`pattern-${field.id}`}>Pattern (Regex)</Label>
                       <Input
                         id={`pattern-${field.id}`}
-                        value={field.validation?.pattern || ''}
+                        value={typeof field.validation === 'object' ? field.validation?.pattern || '' : ''}
                         onChange={(e) => {
-                          const validation = field.validation || {};
+                          const validation = typeof field.validation === 'object' ? field.validation || {} : {};
                           onUpdateField(sectionId, field.id, { 
                             validation: {
                               ...validation,
@@ -223,9 +225,9 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                       <Label htmlFor={`message-${field.id}`}>Error Message</Label>
                       <Input
                         id={`message-${field.id}`}
-                        value={field.validation?.message || ''}
+                        value={typeof field.validation === 'object' ? field.validation?.message || '' : ''}
                         onChange={(e) => {
-                          const validation = field.validation || {};
+                          const validation = typeof field.validation === 'object' ? field.validation || {} : {};
                           onUpdateField(sectionId, field.id, { 
                             validation: {
                               ...validation,
@@ -235,6 +237,32 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                         }}
                         placeholder="Custom error message"
                       />
+                    </div>
+                    <div>
+                      <Label htmlFor={`validation-type-${field.id}`}>Validation Type</Label>
+                      <Select
+                        value={typeof field.validation === 'object' ? field.validation?.type : 
+                               typeof field.validation === 'string' ? field.validation : ''}
+                        onValueChange={(value) => {
+                          const validation = typeof field.validation === 'object' ? {...field.validation} : {};
+                          onUpdateField(sectionId, field.id, { 
+                            validation: {
+                              ...validation,
+                              type: value as 'numeric_only' | 'url' | 'email'
+                            }
+                          });
+                        }}
+                      >
+                        <SelectTrigger id={`validation-type-${field.id}`}>
+                          <SelectValue placeholder="Select validation type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">None</SelectItem>
+                          <SelectItem value="numeric_only">Numbers Only</SelectItem>
+                          <SelectItem value="url">URL</SelectItem>
+                          <SelectItem value="email">Email</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 )}
