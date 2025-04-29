@@ -39,4 +39,5 @@ export interface FieldEditorProps {
 
 export interface FormListProps {
   searchTerm?: string;
+  legacy?: boolean;
 }
