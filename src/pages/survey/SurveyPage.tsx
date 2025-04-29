@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import SurveySection from '@/components/survey/SurveySection';
 import { ArrowLeft, ArrowRight, Loader2 } from 'lucide-react';
 import { FormData, FormSection, FormStructure } from '@/types/forms';
+import { createFellowshipForm } from '@/components/forms/builder';
 
 export default function SurveyPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -34,39 +34,73 @@ export default function SurveyPage() {
       if (!slug) return;
 
       try {
+        // Try to fetch the existing form
         const { data, error } = await supabase
           .from('forms')
           .select('*')
           .eq('slug', slug)
           .single();
 
-        if (error) throw error;
-
-        // Check if form is active
-        if (!data.status) {
+        // If there's an error and the form doesn't exist but the slug is 'ai-fellowship'
+        if (error && error.code === 'PGRST116' && slug === 'ai-fellowship') {
+          console.log("Fellowship form not found, creating it...");
+          const fellowshipForm = createFellowshipForm();
+          
+          // Insert the fellowship form into the database
+          const { data: insertedForm, error: insertError } = await supabase
+            .from('forms')
+            .insert(fellowshipForm)
+            .select()
+            .single();
+            
+          if (insertError) {
+            console.error("Error creating fellowship form:", insertError);
+            throw insertError;
+          }
+          
+          setFormData(insertedForm);
+          
+          if (insertedForm.form_structure && insertedForm.form_structure.sections) {
+            setFormSections(insertedForm.form_structure.sections);
+          }
+          
           toast({
-            title: 'Form Unavailable',
-            description: 'This form is currently not active.',
-            variant: 'destructive'
+            title: 'Form Created',
+            description: 'The fellowship form has been created successfully.',
           });
-          navigate('/');
-          return;
+        } else if (error) {
+          throw error;
+        } else {
+          // If form was fetched successfully
+          // Check if form is active
+          if (!data.status) {
+            toast({
+              title: 'Form Unavailable',
+              description: 'This form is currently not active.',
+              variant: 'destructive'
+            });
+            navigate('/');
+            return;
+          }
+
+          setFormData(data);
+
+          if (data.form_structure && data.form_structure.sections) {
+            setFormSections(data.form_structure.sections);
+          }
         }
 
-        setFormData(data);
-
-        if (data.form_structure && data.form_structure.sections) {
-          setFormSections(data.form_structure.sections);
-        }
-
+        // At this point, we should have a valid form, either existing or newly created
+        const currentForm = formData || data;
+        
         // Load draft data if user is logged in
-        if (user?.id && data.id) {
+        if (user?.id && currentForm?.id) {
           // Try to load from database first
           const { data: draftData, error: draftError } = await supabase
             .from('survey_drafts')
             .select('form_data')
             .eq('user_id', user.id)
-            .eq('form_id', data.id)
+            .eq('form_id', currentForm.id)
             .single();
 
           if (draftData) {
@@ -74,7 +108,7 @@ export default function SurveyPage() {
             setDraftLoaded(true);
           } else {
             // Fall back to localStorage if no draft in database
-            const savedDraft = localStorage.getItem(`survey_draft_${user.id}_${data.id}`);
+            const savedDraft = localStorage.getItem(`survey_draft_${user.id}_${currentForm.id}`);
             if (savedDraft) {
               try {
                 const parsedDraft = JSON.parse(savedDraft);
@@ -103,23 +137,23 @@ export default function SurveyPage() {
   }, [slug, user, toast, navigate, reset]);
 
   // Function to go to next section
-  const goToNextSection = () => {
+  function goToNextSection() {
     if (currentSectionIndex < formSections.length - 1) {
       setCurrentSectionIndex(currentSectionIndex + 1);
       window.scrollTo(0, 0);
     }
-  };
+  }
 
   // Function to go to previous section
-  const goToPrevSection = () => {
+  function goToPrevSection() {
     if (currentSectionIndex > 0) {
       setCurrentSectionIndex(currentSectionIndex - 1);
       window.scrollTo(0, 0);
     }
-  };
+  }
 
   // Function to handle form submission
-  const onSubmit = async (data: any) => {
+  async function onSubmit(data: any) {
     if (!formData) return;
     
     setSubmitting(true);
@@ -162,7 +196,7 @@ export default function SurveyPage() {
       });
       setSubmitting(false);
     }
-  };
+  }
 
   if (loading) {
     return (

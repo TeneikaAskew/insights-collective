@@ -11,6 +11,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { createFellowshipForm } from '@/components/forms/builder';
 
 export default function SurveyFormEdit() {
   const { user, isAdmin } = useAuth();
@@ -37,16 +38,53 @@ export default function SurveyFormEdit() {
 
       try {
         console.log("Fetching form data for slug:", slug);
-        const { data, error } = await supabase
+        const { data, error: fetchError } = await supabase
           .from('forms')
           .select('*')
           .eq('slug', slug)
           .single();
 
-        if (error) {
-          console.error("Supabase error:", error);
-          setError(`Error loading form: ${error.message}`);
-          throw error;
+        if (fetchError) {
+          console.error("Supabase error:", fetchError);
+          
+          // If the form doesn't exist and the slug is ai-fellowship, create it
+          if (fetchError.code === 'PGRST116' && slug === 'ai-fellowship') {
+            const fellowshipForm = createFellowshipForm();
+            
+            // Insert the fellowship form into the database
+            const { data: insertedForm, error: insertError } = await supabase
+              .from('forms')
+              .insert(fellowshipForm)
+              .select()
+              .single();
+              
+            if (insertError) {
+              console.error("Error inserting fellowship form:", insertError);
+              setError(`Error creating fellowship form: ${insertError.message}`);
+              setLoading(false);
+              return;
+            }
+            
+            setFormData({
+              id: insertedForm.id,
+              title: insertedForm.title,
+              description: insertedForm.description || '',
+              status: Boolean(insertedForm.status),
+              slug: insertedForm.slug,
+              form_structure: insertedForm.form_structure
+            });
+            
+            toast({
+              title: 'Fellowship Form Created',
+              description: 'The AI & Automation Skills Fellowship form has been created.',
+            });
+            
+            setLoading(false);
+            return;
+          }
+          
+          setError(`Error loading form: ${fetchError.message}`);
+          throw fetchError;
         }
 
         if (!data) {
