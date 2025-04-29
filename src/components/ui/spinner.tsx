@@ -1,26 +1,12 @@
 
-import React from "react";
-import { cn } from "@/lib/utils";
+// Fix import to use correct icon from lucide-react
+import React from 'react';
+import { Loader } from 'lucide-react';
 
-interface SpinnerProps extends React.HTMLAttributes<HTMLDivElement> {
-  size?: "sm" | "md" | "lg" | "xl";
-}
-
-export function Spinner({ className, size = "md", ...props }: SpinnerProps) {
+const Spinner = ({ className }: { className?: string }) => {
   return (
-    <div
-      className={cn(
-        "animate-spin rounded-full border-2 border-t-transparent",
-        {
-          "h-4 w-4": size === "sm",
-          "h-6 w-6": size === "md",
-          "h-8 w-8": size === "lg",
-          "h-12 w-12": size === "xl",
-        },
-        "border-current",
-        className
-      )}
-      {...props}
-    />
+    <Loader className={`animate-spin text-primary ${className || ''}`} aria-label="Loading" />
   );
-}
+};
+
+export { Spinner };

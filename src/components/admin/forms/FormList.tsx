@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -49,7 +50,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent } from '@/components/ui/card';
-import { FormListProps } from '@/components/forms/builder/types';
+
+interface FormListProps {
+  searchTerm?: string;
+}
 
 export function FormList({ searchTerm = '' }: FormListProps) {
   const [forms, setForms] = useState<FormData[]>([]);
