@@ -17,6 +17,7 @@ export interface FormBuilderProps {
     slug?: string;
     form_structure?: FormStructure;
   } | null;
+  viewMode?: boolean; // Add this property
 }
 
 export interface SectionEditorProps {

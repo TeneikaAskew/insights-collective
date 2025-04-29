@@ -15,9 +15,11 @@ import SectionEditor from './SectionEditor';
 import { Spinner } from '@/components/ui/spinner';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 
-const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData }) => {
+const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData, viewMode = false }) => {
   const [loading, setLoading] = useState(!initialFormData);
   const [saving, setSaving] = useState(false);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -53,6 +55,40 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData }) => {
       setLoading(false);
     }
   }, [initialFormData]);
+
+  useEffect(() => {
+    // Load submissions if in viewMode and we have a form ID
+    if (viewMode && formData?.id) {
+      fetchSubmissions();
+    }
+  }, [viewMode, formData?.id]);
+
+  const fetchSubmissions = async () => {
+    if (!formData?.id) return;
+    
+    setLoadingSubmissions(true);
+    try {
+      const { data, error } = await supabase
+        .from('form_submissions')
+        .select('*')
+        .eq('form_id', formData.id)
+        .eq('draft', false)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      setSubmissions(data || []);
+    } catch (error) {
+      console.error('Error fetching submissions:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load form submissions',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
 
   const handleSaveForm = async () => {
     if (!formData?.id) {
@@ -320,6 +356,70 @@ const FormBuilder: React.FC<FormBuilderProps> = ({ initialFormData }) => {
             </Button>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (viewMode) {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+              <Button variant="ghost" onClick={() => navigate('/admin/forms')}>
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              {formData.title || 'Untitled Form'} - Submissions
+            </h1>
+            <p className="text-muted-foreground mt-2">{formData.description || 'No description'}</p>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline"
+              onClick={() => navigate(`/survey/${formData.slug}/edit`)}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Edit Form
+            </Button>
+          </div>
+        </div>
+
+        {loadingSubmissions ? (
+          <div className="flex justify-center py-10">
+            <div className="flex flex-col items-center gap-4">
+              <Spinner size="lg" />
+              <p className="text-muted-foreground">Loading submissions...</p>
+            </div>
+          </div>
+        ) : submissions.length === 0 ? (
+          <Card>
+            <CardContent className="py-10 text-center">
+              <p>No submissions yet.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {submissions.map((submission) => (
+              <Card key={submission.id} className="overflow-hidden">
+                <CardHeader className="bg-muted/50">
+                  <div className="flex justify-between">
+                    <CardTitle className="text-lg">
+                      Submission #{submission.id.slice(0, 8)}
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                      {new Date(submission.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <pre className="whitespace-pre-wrap bg-muted p-4 rounded-md text-sm overflow-auto max-h-96">
+                    {JSON.stringify(submission.submission_data, null, 2)}
+                  </pre>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
