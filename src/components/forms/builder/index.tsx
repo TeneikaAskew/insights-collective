@@ -35,14 +35,16 @@ export const createFellowshipForm = (): FormData => {
           };
 
           // Process validation to ensure it's an object
-          let validationObj = undefined;
-          if (field.validation) {
-            if (typeof field.validation === 'string') {
-              validationObj = { type: field.validation as 'numeric_only' | 'url' | 'email' };
-            } else {
-              validationObj = field.validation;
+          const getValidationObject = (validation: any) => {
+            if (!validation) return undefined;
+            
+            if (typeof validation === 'string') {
+              return { type: validation as 'numeric_only' | 'url' | 'email' };
+            } else if (typeof validation === 'object') {
+              return validation;
             }
-          }
+            return undefined;
+          };
 
           return {
             id: `${section.section.toLowerCase().replace(/\s+/g, '_')}_${idx}`,
@@ -50,7 +52,7 @@ export const createFellowshipForm = (): FormData => {
             type: mapFieldType(field.type),
             required: field.required || false,
             options: field.options || [],
-            validation: validationObj,
+            validation: getValidationObject(field.validation),
             placeholder: field.placeholder !== undefined ? field.placeholder : '',
             max_select: field.max_select,
             min: field.min,

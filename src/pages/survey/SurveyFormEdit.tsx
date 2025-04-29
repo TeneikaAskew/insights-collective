@@ -49,6 +49,7 @@ export default function SurveyFormEdit() {
           
           // If the form doesn't exist and the slug is ai-fellowship, create it
           if (fetchError.code === 'PGRST116' && slug === 'ai-fellowship') {
+            console.log("Creating fellowship form...");
             const fellowshipForm = createFellowshipForm();
             
             // Insert the fellowship form into the database
@@ -64,6 +65,8 @@ export default function SurveyFormEdit() {
               setLoading(false);
               return;
             }
+
+            console.log("Fellowship form created successfully:", insertedForm);
             
             setFormData({
               id: insertedForm.id,
