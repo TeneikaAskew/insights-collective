@@ -233,7 +233,7 @@ export function FormList({ searchTerm }: FormListProps) {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => navigate(`/survey/${form.slug}/edit`)}
+                      onClick={() => window.location.href = `/survey/${form.slug}/edit`}
                       className="flex items-center gap-1"
                     >
                       <Pencil className="h-4 w-4" />

@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
 import { PlusCircle, Save, Copy, MoreHorizontal, Edit } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Skeleton } from '@/components/ui/skeleton';
 
 const templates = [
   {
@@ -326,22 +325,7 @@ export function FormTemplates() {
           </Card>
         ))}
         
-        {/* Skeleton for loading state */}
-        <Card>
-          <CardHeader>
-            <Skeleton className="h-5 w-3/4 mb-2" />
-            <Skeleton className="h-4 w-5/6" />
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-4/5" />
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Skeleton className="h-9 w-full" />
-          </CardFooter>
-        </Card>
+        {/* Removed the empty skeleton template card that was causing the issue */}
       </div>
       
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
