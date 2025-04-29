@@ -18,6 +18,7 @@ export type FormField = {
   max_select?: number;
   min?: number;
   max?: number;
+  step?: number;
   max_words?: number;
   file_types?: string[];
   max_size_mb?: number;

@@ -14,6 +14,7 @@ import { FileUp, Upload } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { Slider } from '@/components/ui/slider';
 
 interface FieldData {
   label: string;
@@ -22,22 +23,16 @@ interface FieldData {
   required?: boolean;
   options?: string[];
   validation?: {
-    minLength?: {
-      value: number;
-      message: string;
-    };
-    maxLength?: {
-      value: number;
-      message: string;
-    };
-    pattern?: {
-      value: RegExp;
-      message: string;
-    };
+    minLength?: number;
+    maxLength?: number;
+    pattern?: string;
+    message?: string;
+    type?: 'numeric_only' | 'url' | 'email';
   };
   max_select?: number;
   min?: number;
   max?: number;
+  step?: number;
   max_words?: number;
   file_types?: string[];
   max_size_mb?: number;
@@ -51,7 +46,7 @@ interface SurveyFieldProps {
 }
 
 const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValue }) => {
-  const { control, setValue } = useFormContext();
+  const { control, setValue, register, watch } = useFormContext();
   const { user } = useAuth();
   const { toast } = useToast();
   const [existingResume, setExistingResume] = useState<{ id: string; file_path: string } | null>(null);
@@ -157,6 +152,63 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
     }
   };
   
+  // Build validation rules based on field configuration
+  const getValidationRules = () => {
+    const rules: Record<string, any> = {
+      required: field.required ? "This field is required" : false
+    };
+
+    // Add validation based on the field settings
+    if (field.validation) {
+      if (field.validation.minLength) {
+        rules.minLength = {
+          value: field.validation.minLength,
+          message: field.validation.message || `Minimum length is ${field.validation.minLength} characters`
+        };
+      }
+      
+      if (field.validation.maxLength) {
+        rules.maxLength = {
+          value: field.validation.maxLength,
+          message: field.validation.message || `Maximum length is ${field.validation.maxLength} characters`
+        };
+      }
+      
+      if (field.validation.pattern) {
+        rules.pattern = {
+          value: new RegExp(field.validation.pattern),
+          message: field.validation.message || "Input doesn't match the required pattern"
+        };
+      }
+      
+      // Special validation types
+      if (field.validation.type) {
+        switch (field.validation.type) {
+          case 'numeric_only':
+            rules.pattern = {
+              value: /^[0-9]*$/,
+              message: field.validation.message || "Please enter numbers only"
+            };
+            break;
+          case 'email':
+            rules.pattern = {
+              value: /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+              message: field.validation.message || "Please enter a valid email address"
+            };
+            break;
+          case 'url':
+            rules.pattern = {
+              value: /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w.-]*)*\/?$/,
+              message: field.validation.message || "Please enter a valid URL"
+            };
+            break;
+        }
+      }
+    }
+
+    return rules;
+  };
+  
   const renderField = () => {
     // Map survey data types to SurveyField types
     const fieldType = (() => {
@@ -174,10 +226,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
           <FormField
             control={control}
             name={fieldName}
-            rules={{
-              required: field.required ? "This field is required" : false,
-              ...field.validation
-            }}
+            rules={getValidationRules()}
             render={({ field: formField }) => (
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
@@ -198,10 +247,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
           <FormField
             control={control}
             name={fieldName}
-            rules={{
-              required: field.required ? "This field is required" : false,
-              ...field.validation
-            }}
+            rules={getValidationRules()}
             render={({ field: formField }) => (
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
@@ -222,9 +268,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
           <FormField
             control={control}
             name={fieldName}
-            rules={{
-              required: field.required ? "This field is required" : false
-            }}
+            rules={getValidationRules()}
             render={({ field: formField }) => (
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
@@ -263,9 +307,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
           <FormField
             control={control}
             name={fieldName}
-            rules={{
-              required: field.required ? "This field is required" : false
-            }}
+            rules={getValidationRules()}
             render={({ field: formField }) => (
               <FormItem className="space-y-3">
                 <FormLabel className="flex items-start gap-2">
@@ -297,9 +339,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
           <FormField
             control={control}
             name={fieldName}
-            rules={{
-              required: field.required ? "This field is required" : false
-            }}
+            rules={getValidationRules()}
             render={({ field: formField }) => (
               <FormItem className="space-y-3">
                 <FormLabel className="flex items-start gap-2">
@@ -351,9 +391,7 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
           <FormField
             control={control}
             name={fieldName}
-            rules={{
-              required: field.required ? "This field is required" : false
-            }}
+            rules={getValidationRules()}
             render={({ field: formField }) => (
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
@@ -369,14 +407,86 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
           />
         );
       
+      case 'multi_select':
+        return (
+          <FormField
+            control={control}
+            name={fieldName}
+            rules={getValidationRules()}
+            render={({ field: formField }) => (
+              <FormItem className="space-y-3">
+                <FormLabel className="flex items-start gap-2">
+                  {field.label}
+                  {field.required && <span className="text-red-500">*</span>}
+                </FormLabel>
+                <FormControl>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {field.options?.map((option) => (
+                      <div key={option} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`${fieldName}-${option}`}
+                          checked={(formField.value || []).includes(option)}
+                          onCheckedChange={(checked) => {
+                            const currentValues = formField.value || [];
+                            const newValues = checked
+                              ? [...currentValues, option]
+                              : currentValues.filter((value: string) => value !== option);
+                            formField.onChange(newValues);
+                          }}
+                        />
+                        <Label htmlFor={`${fieldName}-${option}`}>{option}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+        
+      case 'slider':
+        return (
+          <FormField
+            control={control}
+            name={fieldName}
+            rules={getValidationRules()}
+            render={({ field: formField }) => (
+              <FormItem className="space-y-4">
+                <FormLabel className="flex items-start gap-2">
+                  {field.label}
+                  {field.required && <span className="text-red-500">*</span>}
+                </FormLabel>
+                <div className="space-y-2">
+                  <div className="pt-4">
+                    <Slider
+                      defaultValue={[formField.value || field.min || 0]}
+                      min={field.min || 0}
+                      max={field.max || 100}
+                      step={field.step || 1}
+                      onValueChange={([value]) => formField.onChange(value)}
+                      className="w-full"
+                      aria-label={field.label}
+                    />
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>{field.min || 0}</span>
+                    <span>Selected: {formField.value || field.min || 0}</span>
+                    <span>{field.max || 100}</span>
+                  </div>
+                </div>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        );
+      
       case 'file_upload':
         return (
           <FormField
             control={control}
             name={fieldName}
-            rules={{
-              required: field.required ? "This field is required" : false
-            }}
+            rules={getValidationRules()}
             render={({ field: formField }) => (
               <FormItem>
                 <FormLabel className="flex items-start gap-2">
@@ -434,38 +544,12 @@ const SurveyField: React.FC<SurveyFieldProps> = ({ field, fieldName, defaultValu
                   
                   {formField.value && (
                     <p className="text-sm text-muted-foreground">
-                      File: {formField.value.split('/').pop()}
+                      File: {typeof formField.value === 'string' ? formField.value.split('/').pop() : 'Unknown file'}
                     </p>
                   )}
                   
                   <FormMessage />
                 </div>
-              </FormItem>
-            )}
-          />
-        );
-      
-      // Handle additional field types - for now they'll render as text inputs
-      case 'multi_select':
-      case 'slider':
-        return (
-          <FormField
-            control={control}
-            name={fieldName}
-            rules={{
-              required: field.required ? "This field is required" : false
-            }}
-            render={({ field: formField }) => (
-              <FormItem>
-                <FormLabel className="flex items-start gap-2">
-                  {field.label}
-                  {field.required && <span className="text-red-500">*</span>}
-                  <span className="text-xs text-muted-foreground">(This field type is not fully implemented yet)</span>
-                </FormLabel>
-                <FormControl>
-                  <Input placeholder={`${field.type} field (not fully implemented)`} {...formField} />
-                </FormControl>
-                <FormMessage />
               </FormItem>
             )}
           />
