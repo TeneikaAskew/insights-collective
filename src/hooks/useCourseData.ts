@@ -11,6 +11,7 @@ export function useCourseData(courseId?: string) {
   const { toast } = useToast();
 
   useEffect(() => {
+    // If no courseId or it's 'new', we're creating a new course
     if (!courseId || courseId === 'new') {
       setIsLoading(false);
       return;

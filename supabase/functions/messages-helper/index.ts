@@ -32,7 +32,7 @@ serve(async (req) => {
           throw new Error('userId is required');
         }
         
-        // Fetch conversations for the user using direct SQL to avoid infinite recursion
+        // Use the database function to get conversations for the user
         const { data: conversations, error: conversationsError } = await supabaseAdmin.rpc(
           'get_user_conversations',
           { user_id_param: userId }

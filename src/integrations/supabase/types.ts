@@ -1265,6 +1265,19 @@ export type Database = {
         Args: { quiz_attempt_id: string }
         Returns: string
       }
+      get_user_conversations: {
+        Args: { user_id_param: string }
+        Returns: {
+          id: string
+          subject: string
+          is_group: boolean
+          archived: boolean
+          created_at: string
+          updated_at: string
+          created_by: string
+          participants: Json
+        }[]
+      }
       get_user_id: {
         Args: { email: string }
         Returns: string
