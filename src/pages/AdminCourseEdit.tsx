@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import AppLayout from '@/components/layout/AppLayout';
 import ModuleManager from '@/components/course/management/ModuleManager';
-import { ArrowLeft, Save, Plus, Trash, File, Users } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Trash, File } from 'lucide-react';
 import { CourseDetailsForm } from '@/components/course/CourseDetailsForm';
 import {
   Table,
@@ -137,8 +137,7 @@ const AdminCourseEdit = () => {
               id,
               first_name,
               last_name,
-              avatar_url,
-              email
+              avatar_url
             )
           `)
           .eq('course_id', courseId)
@@ -381,7 +380,7 @@ const AdminCourseEdit = () => {
   if (loading || permissionsLoading) {
     return (
       <AppLayout>
-        <div className="container mx-auto py-8">
+        <div className="container mx-auto py-8 max-w-none">
           <div className="flex items-center justify-center h-[60vh]">
             <div className="text-center">
               <Spinner size="lg" />
@@ -395,7 +394,7 @@ const AdminCourseEdit = () => {
 
   return (
     <AppLayout>
-      <div className="container max-w-full py-6">
+      <div className="container max-w-none py-6">
         <div className="space-y-6">
           <div className="border-b pb-4">
             <div className="flex items-center gap-2 mb-4">

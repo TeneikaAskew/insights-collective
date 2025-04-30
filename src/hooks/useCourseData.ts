@@ -11,7 +11,7 @@ export function useCourseData(courseId?: string) {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (!courseId) {
+    if (!courseId || courseId === 'new') {
       setIsLoading(false);
       return;
     }
@@ -61,7 +61,6 @@ export function useCourseData(courseId?: string) {
             firstName: data.instructor.first_name,
             lastName: data.instructor.last_name,
             avatar: data.instructor.avatar_url,
-            // Note: We're no longer trying to access email as it doesn't exist in the profiles table
           } : undefined,
         };
 

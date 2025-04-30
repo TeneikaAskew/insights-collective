@@ -9,7 +9,7 @@ import CourseSettings from '@/components/course/management/CourseSettings';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCourseData } from '@/hooks/useCourseData';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, File } from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Spinner } from '@/components/ui/spinner';
 
@@ -19,7 +19,7 @@ export default function CourseManagement() {
   const [activeTab, setActiveTab] = useState('details');
   const navigate = useNavigate();
 
-  // Handle content tab click to redirect to materials page
+  // Handle tab change to redirect to materials page when content tab is clicked
   const handleTabChange = (value: string) => {
     if (value === 'content') {
       navigate(`/courses/${courseId}/materials`);
@@ -77,7 +77,7 @@ export default function CourseManagement() {
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="details">Course Details</TabsTrigger>
-            <TabsTrigger value="content">Content</TabsTrigger>
+            <TabsTrigger value="content">Materials</TabsTrigger>
             <TabsTrigger value="students">Students</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -88,14 +88,6 @@ export default function CourseManagement() {
           </TabsContent>
 
           {/* Content tab is handled by redirect in handleTabChange */}
-          <TabsContent value="content" className="w-full">
-            <div className="flex justify-center items-center py-8">
-              <Button onClick={() => navigate(`/courses/${courseId}/materials`)}>
-                <File className="h-4 w-4 mr-2" />
-                Manage Course Materials
-              </Button>
-            </div>
-          </TabsContent>
 
           <TabsContent value="students" className="w-full">
             <CourseStudents courseId={courseId} />
