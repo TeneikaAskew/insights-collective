@@ -239,6 +239,13 @@ export type Database = {
             foreignKeyName: "conversation_participants_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
+            referencedRelation: "user_conversation_view"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
             referencedRelation: "user_conversations"
             referencedColumns: ["id"]
           },
@@ -718,6 +725,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "user_conversation_view"
             referencedColumns: ["id"]
           },
           {
@@ -1257,6 +1271,27 @@ export type Database = {
           unique_users: number | null
         }
         Relationships: []
+      }
+      user_conversation_view: {
+        Row: {
+          archived: boolean | null
+          created_at: string | null
+          created_by: string | null
+          id: string | null
+          is_group: boolean | null
+          subject: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_conversation_participant_user"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_conversations: {
         Row: {
