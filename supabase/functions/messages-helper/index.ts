@@ -75,7 +75,7 @@ serve(async (req) => {
         
         // Fetch archived conversations for the user from the view
         const { data: archivedConversations, error: archivedError } = await supabaseAdmin
-          .from('user_conversation_view')
+          .from('conversation')
           .select('*')
           .eq('user_id', userId)
           .eq('archived', true);
