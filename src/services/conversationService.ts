@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -85,6 +84,76 @@ export const createConversation = async (subject: string, participantIds: string
 };
 
 /**
+ * Wrapper function for createConversation that matches the expected interface in useConversationCreate.ts
+ */
+export const createNewConversation = async (subject: string, participantIds: string[]) => {
+  try {
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('No authenticated user found');
+    }
+    
+    const conversation = await createConversation(subject, participantIds, user.id);
+    return conversation.id;
+  } catch (error) {
+    console.error('Error in createNewConversation:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get or create a one-on-one conversation between two users
+ */
+export const getOrCreateOneOnOneConversation = async (currentUserId: string, otherUserId: string) => {
+  try {
+    console.log('Checking for existing conversation between', currentUserId, 'and', otherUserId);
+    
+    // First, check if there's already a one-on-one conversation between these users
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { 
+        action: 'checkOneOnOneConversation',
+        currentUserId,
+        otherUserId
+      },
+    });
+    
+    if (error) {
+      console.error('Error checking for existing conversations:', error);
+      throw error;
+    }
+    
+    // If a conversation exists, return its ID
+    if (data?.conversation?.id) {
+      console.log('Found existing conversation:', data.conversation.id);
+      return data.conversation.id;
+    }
+    
+    // Otherwise, create a new one-on-one conversation
+    console.log('No existing conversation found, creating new one');
+    const otherUser = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', otherUserId)
+      .single();
+      
+    if (otherUser.error) {
+      throw otherUser.error;
+    }
+    
+    const subject = `Chat with ${otherUser.data.first_name} ${otherUser.data.last_name}`;
+    const conversation = await createConversation(subject, [otherUserId], currentUserId);
+    
+    console.log('Created new conversation:', conversation.id);
+    return conversation.id;
+  } catch (error) {
+    console.error('Error in getOrCreateOneOnOneConversation:', error);
+    throw error;
+  }
+};
+
+/**
  * Fetch messages for a specific conversation
  */
 export const fetchMessages = async (conversationId: string) => {
@@ -132,6 +201,13 @@ export const sendMessage = async (conversationId: string, content: string, sende
 };
 
 /**
+ * Wrapper for sendMessage that matches the expected interface in useMessageSend.ts
+ */
+export const sendConversationMessage = async (senderId: string, conversationId: string, content: string, attachmentUrl?: string) => {
+  return sendMessage(conversationId, content, senderId);
+};
+
+/**
  * Archive or unarchive a conversation
  */
 export const updateConversationArchiveStatus = async (conversationId: string, archived: boolean) => {
@@ -149,4 +225,42 @@ export const updateConversationArchiveStatus = async (conversationId: string, ar
     console.error('Error updating conversation archive status:', error);
     throw error;
   }
+};
+
+/**
+ * Archive a conversation - wrapper function for updateConversationArchiveStatus
+ */
+export const archiveConversation = async (conversationId: string, userId: string) => {
+  // Check if user is allowed to archive this conversation
+  const { data: participant, error: checkError } = await supabase
+    .from('conversation_participants')
+    .select()
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+    .single();
+    
+  if (checkError || !participant) {
+    throw new Error('You do not have permission to archive this conversation');
+  }
+  
+  return updateConversationArchiveStatus(conversationId, true);
+};
+
+/**
+ * Unarchive a conversation - wrapper function for updateConversationArchiveStatus
+ */
+export const unarchiveConversation = async (conversationId: string, userId: string) => {
+  // Check if user is allowed to unarchive this conversation
+  const { data: participant, error: checkError } = await supabase
+    .from('conversation_participants')
+    .select()
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+    .single();
+    
+  if (checkError || !participant) {
+    throw new Error('You do not have permission to unarchive this conversation');
+  }
+  
+  return updateConversationArchiveStatus(conversationId, false);
 };

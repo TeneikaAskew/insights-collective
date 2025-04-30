@@ -15,7 +15,7 @@ serve(async (req) => {
   }
 
   try {
-    const { action, userId, conversationId } = await req.json();
+    const { action, userId, conversationId, currentUserId, otherUserId } = await req.json();
     
     // Get supabase client
     const supabaseAdmin = createClient(
@@ -86,6 +86,49 @@ serve(async (req) => {
         }
         
         result = { conversations: archivedConversations };
+        break;
+        
+      case 'checkOneOnOneConversation':
+        if (!currentUserId || !otherUserId) {
+          throw new Error('Both currentUserId and otherUserId are required');
+        }
+        
+        console.log('Checking for one-on-one conversation between', currentUserId, 'and', otherUserId);
+        
+        // Find conversations where both users are participants and it's not a group conversation
+        const { data: existingConversations, error: existingConvError } = await supabaseAdmin
+          .from('conversations')
+          .select(`
+            id,
+            is_group,
+            created_at,
+            conversation_participants!inner(user_id)
+          `)
+          .eq('is_group', false)
+          .eq('archived', false);
+        
+        if (existingConvError) {
+          console.error('Error checking for existing conversations:', existingConvError);
+          throw existingConvError;
+        }
+        
+        // Filter to find conversations where both users are participants
+        const oneOnOneConversation = existingConversations?.find(conv => {
+          // Check if this conversation has exactly 2 participants
+          if (conv.conversation_participants?.length !== 2) return false;
+          
+          // Check if both users are participants in this conversation
+          const userIds = conv.conversation_participants.map(p => p.user_id);
+          return userIds.includes(currentUserId) && userIds.includes(otherUserId);
+        });
+        
+        if (oneOnOneConversation) {
+          console.log('Found one-on-one conversation:', oneOnOneConversation.id);
+          result = { conversation: { id: oneOnOneConversation.id } };
+        } else {
+          console.log('No one-on-one conversation found');
+          result = { conversation: null };
+        }
         break;
         
       default:
