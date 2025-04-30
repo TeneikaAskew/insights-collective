@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message, Profile, ConversationParticipant } from '@/types/supabase';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
@@ -944,7 +943,7 @@ export const deleteConversation = async (conversationId: string, userId: string)
 };
 
 /**
- * Get archived conversations for a user
+ * Fetches archived conversations for a user
  */
 export const fetchArchivedUserConversations = async (userId: string) => {
   try {
@@ -953,70 +952,20 @@ export const fetchArchivedUserConversations = async (userId: string) => {
       return [];
     }
     
-    // Get conversation IDs for the user where not deleted
-    const { data: participantData, error: participantError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', userId);
+    // Call our edge function to get archived conversations
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { 
+        action: 'getArchivedConversations',
+        userId 
+      }
+    });
     
-    if (participantError) {
-      console.error('Error fetching participant data:', participantError);
-      throw participantError;
+    if (error) {
+      console.error('Error fetching archived conversations:', error);
+      throw error;
     }
     
-    if (!participantData || participantData.length === 0) {
-      return [];
-    }
-    
-    const conversationIds = participantData.map(p => p.conversation_id);
-    
-    // Get all archived conversations that the user is a part of
-    const { data: archivedConversations, error: conversationsError } = await supabase
-      .from('conversations')
-      .select(`
-        id,
-        subject,
-        is_group,
-        created_by,
-        updated_at,
-        created_at,
-        participants:conversation_participants(
-          id,
-          user_id,
-          conversation_id,
-          added_at
-        ),
-        last_message:messages(
-          id,
-          sender_id,
-          content,
-          read,
-          created_at
-        )
-      `)
-      .in('id', conversationIds)
-      .eq('archived', true)
-      .is('deleted_at', null);
-    
-    if (conversationsError) {
-      console.error('Error fetching archived conversations:', conversationsError);
-      throw conversationsError;
-    }
-    
-    if (!archivedConversations || archivedConversations.length === 0) {
-      return [];
-    }
-    
-    // Process the archived conversations similar to fetchUserConversations
-    // This is a simplified version since we're just returning the archived conversations
-    const enhancedConversations = archivedConversations.map(conversation => ({
-      ...conversation,
-      last_message: conversation.last_message && conversation.last_message.length > 0 
-        ? conversation.last_message[0] 
-        : null
-    }));
-    
-    return enhancedConversations;
+    return data?.conversations || [];
   } catch (error) {
     console.error('Error in fetchArchivedUserConversations:', error);
     throw error;

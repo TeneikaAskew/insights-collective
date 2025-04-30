@@ -32,16 +32,20 @@ serve(async (req) => {
           throw new Error('userId is required');
         }
         
-        // Use the database function to get conversations for the user
+        console.log('Getting conversations for user:', userId);
+        
+        // Use the improved database function to get conversations for the user
         const { data: conversations, error: conversationsError } = await supabaseAdmin.rpc(
           'get_user_conversations',
           { user_id_param: userId }
         );
         
         if (conversationsError) {
+          console.error('Error fetching conversations:', conversationsError);
           throw conversationsError;
         }
         
+        console.log(`Retrieved ${conversations?.length || 0} conversations`);
         result = { conversations };
         break;
         
@@ -62,6 +66,26 @@ serve(async (req) => {
         }
         
         result = { messages };
+        break;
+        
+      case 'getArchivedConversations':
+        if (!userId) {
+          throw new Error('userId is required');
+        }
+        
+        // Fetch archived conversations for the user
+        const { data: archivedConversations, error: archivedError } = await supabaseAdmin
+          .from('user_conversation_view')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('archived', true);
+          
+        if (archivedError) {
+          console.error('Error fetching archived conversations:', archivedError);
+          throw archivedError;
+        }
+        
+        result = { conversations: archivedConversations };
         break;
         
       default:
