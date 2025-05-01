@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation } from '@/types/supabase'; // Import Conversation type
 
@@ -242,11 +243,17 @@ export const updateConversationArchiveStatus = async (conversationId: string, ar
       .from('conversations')
       .update({ archived })
       .eq('id', conversationId)
-      .select()
-      .single();
-    
+      .select(); // Removed .single()
+
     if (error) throw error;
-    return data;
+
+    if (!data || data.length === 0) {
+      // Log a warning instead of throwing an error if no rows were updated
+      console.warn(`No conversation found with ID ${conversationId} to update archive status, or RLS prevented the update.`);
+    }
+
+    // Return the first updated item if exists, otherwise null
+    return data && data.length > 0 ? data[0] : null;
   } catch (error) {
     console.error('Error updating conversation archive status:', error);
     throw error;
@@ -318,12 +325,18 @@ export const deleteConversation = async (conversationId: string, userId: string)
       .from('conversations')
       .update({ deleted_at: new Date().toISOString() }) // Set deleted_at timestamp
       .eq('id', conversationId)
-      .select()
-      .single();
+      .select(); // Removed .single()
 
     if (error) throw error;
-    console.log(`Conversation ${conversationId} marked as deleted.`);
-    return data;
+
+    if (!data || data.length === 0) {
+      // Log a warning if no rows were updated
+       console.warn(`No conversation found with ID ${conversationId} to delete, or RLS prevented the update.`);
+    } else {
+      console.log(`Conversation ${conversationId} marked as deleted.`);
+    }
+    // Return the first updated item if exists, otherwise null
+    return data && data.length > 0 ? data[0] : null;
   } catch (error) {
     console.error('Error deleting conversation:', error);
     throw error;
@@ -357,12 +370,18 @@ export const restoreConversation = async (conversationId: string, userId: string
       .from('conversations')
       .update({ deleted_at: null }) // Set deleted_at to null
       .eq('id', conversationId)
-      .select()
-      .single();
+      .select(); // Removed .single()
 
     if (error) throw error;
-    console.log(`Conversation ${conversationId} restored.`);
-    return data;
+
+    if (!data || data.length === 0) {
+      // Log a warning if no rows were updated
+       console.warn(`No conversation found with ID ${conversationId} to restore, or RLS prevented the update.`);
+    } else {
+      console.log(`Conversation ${conversationId} restored.`);
+    }
+    // Return the first updated item if exists, otherwise null
+    return data && data.length > 0 ? data[0] : null;
   } catch (error) {
     console.error('Error restoring conversation:', error);
     throw error;
