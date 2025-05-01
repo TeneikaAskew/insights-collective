@@ -17,24 +17,79 @@ export const parseTextComponents = (text: string): TextComponent[] => {
   
   // Enhanced rule-based parsing to identify key components
   // Action words (usually at start)
-  const actionWords = ['Enforced', 'Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed', 'Achieved', 
-    'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained', 'Directed', 'Transformed', 'Generated', 'Optimized'];
-  
+  // const actionWords = ['Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed', 'Achieved', 
+  //   'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained', 'Directed', 'Transformed', 'Generated', 'Optimized'];
+  const actionWords = [
+    'Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed',
+    'Achieved', 'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained',
+    'Directed', 'Transformed', 'Generated', 'Optimized', 'Initiated', 'Produced', 'Engineered', 'Deployed',
+    'Upgraded', 'Streamlined', 'Consolidated', 'Facilitated', 'Automated', 'Launched', 'Orchestrated', 'Resolved',
+    'Designed', 'Modernized', 'Piloted', 'Enabled', 'Restructured', 'Enhanced', 'Instituted', 'Mobilized',
+    'Influenced', 'Refined', 'Simplified', 'Overhauled', 'Shaped', 'Monitored', 'Elevated', 'Instituted',
+    'Integrated', 'Revamped', 'Analyzed', 'Identified', 'Forecasted', 'Tested', 'Tracked', 'Audited', 'Reported'
+  ];
+
   // Achievement words
-  const achievementWords = ['success', 'successful', 'achievement', 'improved', 'reduced', 'increased', 'generated', 'saved', 'exceeded', 'surpassed', 
-    'maximized', 'accomplished', 'attained', 'delivered', 'grew', 'expanded', 'strengthened', 'enhanced', 'accelerated', 'boosted'];
-  
+  // const achievementWords = ['success', 'successful', 'achievement', 'improved', 'reduced', 'increased', 'generated', 'saved', 'exceeded', 'surpassed', 
+  //   'maximized', 'accomplished', 'attained', 'delivered', 'grew', 'expanded', 'strengthened', 'enhanced', 'accelerated', 'boosted'];
+  const achievementWords = [
+    'success', 'successful', 'achievement', 'accomplishment', 'milestone', 'breakthrough',
+    'improved', 'reduced', 'increased', 'generated', 'saved', 'cut', 'exceeded', 'surpassed',
+    'maximized', 'optimized', 'attained', 'delivered', 'grew', 'expanded', 'strengthened',
+    'enhanced', 'accelerated', 'boosted', 'outperformed', 'reached', 'elevated', 'surged',
+    'streamlined', 'minimized', 'conserved', 'stabilized', 'capitalized', 'realized', 'advanced',
+    'scaled', 'mobilized', 'transitioned', 'retained', 'converted', 'secured', 'closed', 'won'
+  ];
+
   // Industry/domain-specific terms
-  const industryTerms = ['payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental', 'company', 'corporate', 
-    'technical', 'strategy', 'framework', 'system', 'platform', 'database', 'architecture', 'process', 'standards', 'protocol', 'integration'];
-  
+  // const industryTerms = ['payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental', 'company', 'corporate', 
+  //   'technical', 'strategy', 'framework', 'system', 'platform', 'database', 'architecture', 'process', 'standards', 'protocol', 'integration'];
+  const industryTerms = [
+    'payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental',
+    'corporate', 'technical', 'strategy', 'framework', 'system', 'platform', 'architecture',
+    'database', 'pipeline', 'infrastructure', 'deployment', 'integration', 'security', 'data',
+    'analytics', 'reporting', 'visualization', 'machine learning', 'AI', 'cloud', 'DevOps',
+    'finance', 'budget', 'forecast', 'operations', 'procurement', 'supply chain', 'inventory',
+    'logistics', 'transportation', 'customer service', 'CRM', 'marketing', 'SEO', 'salesforce',
+    'comms', 'compliance', 'productivity', 'sustainability', 'talent', 'engagement', 'onboarding'
+  ];
+
   // Metrics/results - measurement terms and numbers
-  const measurableResults = /\d+%|\$\d+|\d+x|\d+ percent|\d+K|\d+M|\d+ million|\d+ thousand/g;
+  // const measurableResults = /\d+%|\$\d+|\d+x|\d+ percent|\d+K|\d+M|\d+ million|\d+ thousand/g;
+  const measurableRegex = new RegExp(
+    [
+      '\\$?\\d{1,3}(,\\d{3})*(\\.\\d+)?\\s?(million|billion|thousand|M|B|K)?', // $3.5 million, 1,000,000
+      '\\b\\d+\\s?(%|percent)\\b',                   // 45%, 12 percent
+      '\\b\\d+(x| times)\\b',                        // 3x, 5 times
+      '\\b\\d+\\s?(hours?|days?|weeks?|months?|years?)\\b', // duration
+      '\\b\\d+\\s?(units|customers|clients|users|transactions|projects|sales|visits|downloads|installs|members|subscribers|views)\\b',
+      '\\$\\d+[KMB]?',                               // $50K, $3M
+      'revenue of \\$?\\d+[KMB%]?',                  // revenue phrases
+      'ROI of \\$?\\d+%?',                           // ROI
+      'saved (\\$?\\d+|\\d+%)',                      // saved $ or %
+      'increased .* by \\$?\\d+%?',                  // increased by $ or %
+      'reduced .* by \\$?\\d+%?',                    // reduced by $ or %
+      'achieved .* of \\$?\\d+[KMB%]?',              // achieved metric
+      'cut .* by \\d+%',                             // cut something by a percentage
+      'boosted .* to \\$?\\d+[KMB%]?',               // boosted something to a measurable amount
+      '\\b(\\d{4})\\b',                              // year (used for historical reporting)
+      '\\d+ out of \\d+',                            // ratios like 9 out of 10
+      '\\d+\\.\\d+\\s?(score|rating|stars?)'         // 4.8 rating
+    ].join('|'),
+    'gi'
+  );
+
   
   // Clarity/conciseness terms - clear and direct expressions
-  const clarityTerms = ['clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized', 'documented', 'outlined', 'delineated',
-    'established', 'formalized'];
-  
+  // const clarityTerms = ['clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized', 'documented', 'outlined', 'delineated',
+  //   'established', 'formalized'];
+  const clarityTerms = [
+    'clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized',
+    'documented', 'outlined', 'delineated', 'formalized', 'codified', 'visualized',
+    'summarized', 'clarified', 'organized', 'mapped', 'structured', 'tracked', 'recorded',
+    'blueprinted', 'categorized', 'indexed', 'workflowed'
+  ];
+
   let remainingText = text;
   
   // Find action words at the beginning
