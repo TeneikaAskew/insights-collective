@@ -1,92 +1,39 @@
 
 import { BulletAnalysis } from '@/components/assistants/types';
 
-// Define categories for consistent use across components
+// Define bullet categories
 export const BULLET_CATEGORIES = {
-  ACTION: 'action',
-  METRICS: 'metrics',
-  CLARITY: 'clarity',
-  INDUSTRY: 'industry',
-  ACHIEVEMENT: 'achievement',
-  COMMON: 'common'  // Added missing COMMON category
+  action: { label: 'Action', color: '#3498db' },
+  metrics: { label: 'Metrics', color: '#2ecc71' },
+  clarity: { label: 'Clarity', color: '#9b59b6' },
+  industry: { label: 'Industry', color: '#e67e22' },
+  achievement: { label: 'Achievement', color: '#f1c40f' }
 };
 
-// Helper function to prepare chart data
+// Function to prepare chart data from bullet analysis
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
-  if (!bullet) {
-    console.error("Received null or undefined bullet data");
-    // Return default safe values to prevent crashes
-    return {
-      dataWithPercent: [],
-      bullet_total: 0,
-      xyz_scores: { action: 0, metrics: 0, clarity: 0, industry: 0, achievement: 0 },
-      totalScore: 0
-    };
-  }
+  // Use existing calculated percentages from the bullet
+  const { xyz_scores = {} } = bullet;
   
-  // Add fallback for when bullet properties are undefined
-  const {
-    word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
-    bullet_total = 0,
-    xyz_scores = { action: 0, metrics: 0, clarity: 0, industry: 0, achievement: 0 },
-  } = bullet || {};
+  // Format the data for the charts
+  const donutChartData = Object.entries(xyz_scores).map(([key, value]) => {
+    const category = key as keyof typeof BULLET_CATEGORIES;
+    return {
+      name: BULLET_CATEGORIES[category]?.label || key,
+      value: value || 0,
+      color: BULLET_CATEGORIES[category]?.color || '#cccccc'
+    };
+  });
 
-  // Format data for the chart with colors matching the brand theme
-  const data = [
-    {
-      name: 'Action Words',
-      value: xyz_scores.action || 0,
-      fill: '#D97706', // amber
-      category: BULLET_CATEGORIES.ACTION,
-      target: 10,
-      percent: 0
-    },
-    {
-      name: 'Metrics/Results',
-      value: xyz_scores.metrics || 0,
-      fill: '#0D9488', // teal
-      category: BULLET_CATEGORIES.METRICS,
-      target: 30,
-      percent: 0
-    },
-    {
-      name: 'Clarity/Conciseness',
-      value: xyz_scores.clarity || 0,
-      fill: '#2563EB', // blue
-      category: BULLET_CATEGORIES.CLARITY,
-      target: 15,
-      percent: 0
-    },
-    {
-      name: 'Industry Keywords',
-      value: xyz_scores.industry || 0,
-      fill: '#1E40AF', // dark blue
-      category: BULLET_CATEGORIES.INDUSTRY,
-      target: 25,
-      percent: 0
-    },
-    {
-      name: 'Achievement Focus',
-      value: xyz_scores.achievement || 0,
-      fill: '#059669', // green
-      category: BULLET_CATEGORIES.ACHIEVEMENT,
-      target: 20,
-      percent: 0
-    }
-  ];
-
-  // Calculate actual percentages (with safety check to avoid division by zero)
-  const totalScore = data.reduce((sum, item) => sum + item.value, 0);
-  const dataWithPercent = data.map(item => ({
-    ...item,
-    percent: Math.round(item.value) // / (totalScore || 1) * 100)
-  }));
-
+  // Return the chart data
   return {
-    dataWithPercent,
-    bullet_total,
-    xyz_scores,
-    word_balance,
-    totalScore
+    donutChartData,
+    distributionData: [
+      { name: 'Action', value: xyz_scores.action || 0 },
+      { name: 'Metrics', value: xyz_scores.metrics || 0 },
+      { name: 'Clarity', value: xyz_scores.clarity || 0 },
+      { name: 'Industry', value: xyz_scores.industry || 0 },
+      { name: 'Achievement', value: xyz_scores.achievement || 0 }
+    ]
   };
 };

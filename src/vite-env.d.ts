@@ -1,7 +1,4 @@
 
 /// <reference types="vite/client" />
 
-// Explicitly declare module for date-fns to resolve type issues
-declare module 'date-fns';
-declare module 'date-fns/format';
-declare module 'date-fns/formatDistanceToNow';
+// No need for separate date-fns module declarations since we now have @types/date-fns
