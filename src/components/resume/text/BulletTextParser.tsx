@@ -19,31 +19,65 @@ export const parseTextComponents = (text: string): TextComponent[] => {
   // Action words (usually at start)
   // const actionWords = ['Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed', 'Achieved', 
   //   'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained', 'Directed', 'Transformed', 'Generated', 'Optimized'];
+  // const actionWords = [
+  //   'Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed',
+  //   'Achieved', 'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained',
+  //   'Directed', 'Transformed', 'Generated', 'Optimized', 'Initiated', 'Produced', 'Engineered', 'Deployed',
+  //   'Upgraded', 'Streamlined', 'Consolidated', 'Facilitated', 'Automated', 'Launched', 'Orchestrated', 'Resolved',
+  //   'Designed', 'Modernized', 'Piloted', 'Enabled', 'Restructured', 'Enhanced', 'Instituted', 'Mobilized',
+  //   'Influenced', 'Refined', 'Simplified', 'Overhauled', 'Shaped', 'Monitored', 'Elevated', 'Instituted',
+  //   'Integrated', 'Revamped', 'Analyzed', 'Identified', 'Forecasted', 'Tested', 'Tracked', 'Audited', 'Reported'
+  // ];
   const actionWords = [
     'Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed',
     'Achieved', 'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained',
     'Directed', 'Transformed', 'Generated', 'Optimized', 'Initiated', 'Produced', 'Engineered', 'Deployed',
     'Upgraded', 'Streamlined', 'Consolidated', 'Facilitated', 'Automated', 'Launched', 'Orchestrated', 'Resolved',
     'Designed', 'Modernized', 'Piloted', 'Enabled', 'Restructured', 'Enhanced', 'Instituted', 'Mobilized',
-    'Influenced', 'Refined', 'Simplified', 'Overhauled', 'Shaped', 'Monitored', 'Elevated', 'Instituted',
-    'Integrated', 'Revamped', 'Analyzed', 'Identified', 'Forecasted', 'Tested', 'Tracked', 'Audited', 'Reported'
+    'Influenced', 'Refined', 'Simplified', 'Overhauled', 'Shaped', 'Monitored', 'Elevated', 'Integrated',
+    'Revamped', 'Analyzed', 'Identified', 'Forecasted', 'Tested', 'Tracked', 'Audited', 'Reported', 'Formulated',
+    'Mentored', 'Trained', 'Negotiated', 'Supervised', 'Contributed', 'Partnered', 'Delegated', 'Validated',
+    'Budgeted', 'Estimated', 'Collaborated', 'Reviewed', 'Championed', 'Adapted', 'Advocated', 'Improvised',
+    'Assessed', 'Allocated', 'Resolved', 'Documented', 'Filed', 'Audited', 'Researched', 'Strengthened',
+    'Streamed', 'Assumed', 'Coded', 'Programmed', 'Investigated', 'Scheduled', 'Tested', 'Executed', 'Led teams',
+    'Drafted', 'Outlined', 'Launched', 'Rolled out'
   ];
+
 
   // Achievement words
   // const achievementWords = ['success', 'successful', 'achievement', 'improved', 'reduced', 'increased', 'generated', 'saved', 'exceeded', 'surpassed', 
   //   'maximized', 'accomplished', 'attained', 'delivered', 'grew', 'expanded', 'strengthened', 'enhanced', 'accelerated', 'boosted'];
+  // const achievementWords = [
+  //   'success', 'successful', 'achievement', 'accomplishment', 'milestone', 'breakthrough',
+  //   'improved', 'reduced', 'increased', 'generated', 'saved', 'cut', 'exceeded', 'surpassed',
+  //   'maximized', 'optimized', 'attained', 'delivered', 'grew', 'expanded', 'strengthened',
+  //   'enhanced', 'accelerated', 'boosted', 'outperformed', 'reached', 'elevated', 'surged',
+  //   'streamlined', 'minimized', 'conserved', 'stabilized', 'capitalized', 'realized', 'advanced',
+  //   'scaled', 'mobilized', 'transitioned', 'retained', 'converted', 'secured', 'closed', 'won'
+  // ];
+  
   const achievementWords = [
-    'success', 'successful', 'achievement', 'accomplishment', 'milestone', 'breakthrough',
-    'improved', 'reduced', 'increased', 'generated', 'saved', 'cut', 'exceeded', 'surpassed',
-    'maximized', 'optimized', 'attained', 'delivered', 'grew', 'expanded', 'strengthened',
-    'enhanced', 'accelerated', 'boosted', 'outperformed', 'reached', 'elevated', 'surged',
-    'streamlined', 'minimized', 'conserved', 'stabilized', 'capitalized', 'realized', 'advanced',
-    'scaled', 'mobilized', 'transitioned', 'retained', 'converted', 'secured', 'closed', 'won'
+    'success', 'successful', 'achievement', 'accomplishment', 'milestone', 'breakthrough', 'win', 'recognition',
+    'award', 'certified', 'honored', 'top performer', 'pioneer', 'champion', 'leader', 'promoted',
+    'improved', 'reduced', 'increased', 'generated', 'saved', 'cut', 'exceeded', 'surpassed', 'maximized',
+    'optimized', 'attained', 'delivered', 'grew', 'expanded', 'strengthened', 'enhanced', 'accelerated',
+    'boosted', 'outperformed', 'elevated', 'surged', 'streamlined', 'minimized', 'conserved', 'stabilized',
+    'capitalized', 'realized', 'advanced', 'scaled', 'mobilized', 'retained', 'converted', 'secured', 'won'
   ];
+
 
   // Industry/domain-specific terms
   // const industryTerms = ['payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental', 'company', 'corporate', 
   //   'technical', 'strategy', 'framework', 'system', 'platform', 'database', 'architecture', 'process', 'standards', 'protocol', 'integration'];
+  // const industryTerms = [
+  //   'payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental',
+  //   'corporate', 'technical', 'strategy', 'framework', 'system', 'platform', 'architecture',
+  //   'database', 'pipeline', 'infrastructure', 'deployment', 'integration', 'security', 'data',
+  //   'analytics', 'reporting', 'visualization', 'machine learning', 'AI', 'cloud', 'DevOps',
+  //   'finance', 'budget', 'forecast', 'operations', 'procurement', 'supply chain', 'inventory',
+  //   'logistics', 'transportation', 'customer service', 'CRM', 'marketing', 'SEO', 'salesforce',
+  //   'comms', 'compliance', 'productivity', 'sustainability', 'talent', 'engagement', 'onboarding'
+  // ];
   const industryTerms = [
     'payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental',
     'corporate', 'technical', 'strategy', 'framework', 'system', 'platform', 'architecture',
@@ -51,8 +85,12 @@ export const parseTextComponents = (text: string): TextComponent[] => {
     'analytics', 'reporting', 'visualization', 'machine learning', 'AI', 'cloud', 'DevOps',
     'finance', 'budget', 'forecast', 'operations', 'procurement', 'supply chain', 'inventory',
     'logistics', 'transportation', 'customer service', 'CRM', 'marketing', 'SEO', 'salesforce',
-    'comms', 'compliance', 'productivity', 'sustainability', 'talent', 'engagement', 'onboarding'
+    'communication', 'compliance', 'productivity', 'sustainability', 'talent', 'engagement', 'onboarding',
+    'risk management', 'cybersecurity', 'governance', 'automation', 'IoT', 'blockchain', 'BI', 'KPI'
   ];
+
+
+
 
   // Metrics/results - measurement terms and numbers
   // const measurableResults = /\d+%|\$\d+|\d+x|\d+ percent|\d+K|\d+M|\d+ million|\d+ thousand/g;
@@ -83,11 +121,18 @@ export const parseTextComponents = (text: string): TextComponent[] => {
   // Clarity/conciseness terms - clear and direct expressions
   // const clarityTerms = ['clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized', 'documented', 'outlined', 'delineated',
   //   'established', 'formalized'];
+  // const clarityTerms = [
+  //   'clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized',
+  //   'documented', 'outlined', 'delineated', 'formalized', 'codified', 'visualized',
+  //   'summarized', 'clarified', 'organized', 'mapped', 'structured', 'tracked', 'recorded',
+  //   'blueprinted', 'categorized', 'indexed', 'workflowed'
+  // ];
   const clarityTerms = [
     'clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized',
     'documented', 'outlined', 'delineated', 'formalized', 'codified', 'visualized',
     'summarized', 'clarified', 'organized', 'mapped', 'structured', 'tracked', 'recorded',
-    'blueprinted', 'categorized', 'indexed', 'workflowed'
+    'blueprinted', 'categorized', 'indexed', 'workflowed', 'charted', 'benchmarked',
+    'explained', 'clarified', 'transparent', 'articulated', 'declared'
   ];
 
   let remainingText = text;
