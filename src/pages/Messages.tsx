@@ -25,7 +25,8 @@ const Messages = () => {
   const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState('inbox');
+  // Determine initial tab based on URL or default to inbox
+  const [activeTab, setActiveTab] = useState('inbox'); // Default to inbox
   const [messageContent, setMessageContent] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -102,12 +103,15 @@ const Messages = () => {
 
     // Refresh appropriate conversation lists based on action
     // Always refresh the inbox
+    console.log('[Messages] Action success, refreshing inbox...');
     refreshInbox();
 
     if (actionType === 'archive' || actionType === 'unarchive' || actionType === 'restore') {
+       console.log('[Messages] Action success, refreshing archived...');
       refreshArchived(); // Refresh archived if archiving, unarchiving, or restoring
     }
     if (actionType === 'delete' || actionType === 'restore') {
+       console.log('[Messages] Action success, refreshing deleted...');
       refreshDeleted(); // Refresh deleted if deleting or restoring
     }
 
@@ -122,23 +126,42 @@ const Messages = () => {
   const filteredArchivedConversations = filterConversations(archivedConversations);
   const filteredDeletedConversations = filterConversations(deletedConversations);
 
-  // Check if the current conversation belongs to the active tab
-  const isInInbox = inboxConversations?.some(c => c.id === conversationId);
-  const isInArchived = archivedConversations?.some(c => c.id === conversationId);
-  const isInDeleted = deletedConversations?.some(c => c.id === conversationId);
+  // Determine if the current conversation belongs to *any* of the lists for initial tab setting
+   useEffect(() => {
+     if (conversationId) {
+       const isInArchivedInitial = archivedConversations?.some(c => c.id === conversationId);
+       const isInDeletedInitial = deletedConversations?.some(c => c.id === conversationId);
+       // Default to inbox if not found elsewhere or if no conversationId
+       if (isInDeletedInitial) {
+         setActiveTab('deleted');
+       } else if (isInArchivedInitial) {
+         setActiveTab('archived');
+       } else {
+          // This could be inbox or a conversation not yet loaded/filtered
+          // Let's default to inbox and rely on user interaction or explicit navigation
+          // Keep the default or previously set activeTab unless found elsewhere
+       }
+     } else {
+        setActiveTab('inbox'); // Reset to inbox if no conversation ID
+     }
+     // Run only when conversationId or the initial lists change
+   }, [conversationId, archivedConversations, deletedConversations]);
 
-  // If the conversation doesn't belong to the active tab, update the tab
-  useEffect(() => {
-    if (conversationId) {
-      if (isInArchived && activeTab !== 'archived') {
-        setActiveTab('archived');
-      } else if (isInDeleted && activeTab !== 'deleted') {
-        setActiveTab('deleted');
-      } else if (isInInbox && activeTab !== 'inbox') {
-        setActiveTab('inbox');
-      }
+  // Check if the current conversation *should* be displayed in the active tab's list
+  // This is used for conditional rendering of the thread view
+  const isCurrentConversationInActiveTabList = () => {
+    if (!conversationId) return false;
+    switch(activeTab) {
+      case 'inbox':
+        return inboxConversations?.some(c => c.id === conversationId);
+      case 'archived':
+        return archivedConversations?.some(c => c.id === conversationId);
+      case 'deleted':
+        return deletedConversations?.some(c => c.id === conversationId);
+      default:
+        return false;
     }
-  }, [conversationId, isInInbox, isInArchived, isInDeleted, activeTab]);
+  };
 
   if (!isAuthenticated) {
     return <LoginWall 
@@ -157,7 +180,8 @@ const Messages = () => {
             <NewConversationButton />
           </div>
           
-          <Tabs defaultValue={activeTab} value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs defaultValue="inbox" value={activeTab} onValueChange={setActiveTab} className="w-full">
+             {/* Use value and onValueChange for controlled mode */}
             <TabsList>
               <TabsTrigger value="inbox"><Inbox className="h-4 w-4 mr-2" />Inbox</TabsTrigger>
               <TabsTrigger value="archived"><Archive className="h-4 w-4 mr-2" />Archived</TabsTrigger>
@@ -166,43 +190,45 @@ const Messages = () => {
             
             {/* INBOX TAB */}
             <TabsContent value="inbox" className="space-y-4">
+              {/* ... keep existing code (Search input) ... */}
               <div className="relative">
-                <Input 
-                  placeholder="Search messages..." 
+                <Input
+                  placeholder="Search messages..."
                   className="pl-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
                 <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-1 h-full">
-                  <ConversationList 
-                    conversations={filteredInboxConversations} 
+                  <ConversationList
+                    conversations={filteredInboxConversations}
                     loading={loadingInbox}
-                    error={inboxError} 
+                    error={inboxError}
                   />
                 </div>
                 
-                {conversationId && isInInbox ? (
+                {conversationId && isCurrentConversationInActiveTabList() ? (
+                  // ... keep existing code (Message thread view for Inbox) ...
                   <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
-                    <MessageActions 
+                    <MessageActions
                       conversationId={conversationId}
                       onSuccess={handleActionSuccess}
-                      currentTab={activeTab}
+                      currentTab={activeTab} // Pass currentTab for conditional actions
                     />
-                    
+
                     <div className="flex-1 overflow-y-auto">
                       <MessageThread messages={messages || []} loading={loadingMessages} />
                     </div>
-                    
+
                     <MessageSuggestions
                       onSelectMessage={handleSuggestedMessage}
                       conversationId={conversationId}
                       messages={messages}
                     />
-                    
+
                     <div className="p-4 border-t">
                       <div className="flex space-x-2">
                         <Input
@@ -217,7 +243,7 @@ const Messages = () => {
                             }
                           }}
                         />
-                        
+
                         <Button
                           onClick={handleSendMessage}
                           disabled={!messageContent.trim()}
@@ -230,6 +256,7 @@ const Messages = () => {
                     </div>
                   </div>
                 ) : (
+                  // ... keep existing code (Placeholder view for Inbox) ...
                   <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
                     <div className="text-center p-6">
                       <MessageSquare className="h-12 w-12 text-amber-500 mx-auto mb-4" />
@@ -246,45 +273,48 @@ const Messages = () => {
             
             {/* ARCHIVED TAB */}
             <TabsContent value="archived" className="space-y-4">
-              <div className="relative">
-                <Input 
-                  placeholder="Search archived messages..." 
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-              </div>
-              
+               {/* ... keep existing code (Search input) ... */}
+               <div className="relative">
+                 <Input
+                   placeholder="Search archived messages..."
+                   className="pl-10"
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                 />
+                 <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-1 h-full">
-                  <ConversationList 
-                    conversations={filteredArchivedConversations} 
+                  <ConversationList
+                    conversations={filteredArchivedConversations}
                     loading={loadingArchived}
-                    error={null} 
+                    error={null} // Assuming no specific error handling needed here yet
                   />
                 </div>
                 
-                {conversationId && isInArchived ? (
-                  <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
-                    <MessageActions 
-                      conversationId={conversationId}
-                      onSuccess={handleActionSuccess}
-                      isArchived={true}
-                      currentTab={activeTab}
-                    />
-                    
-                    <div className="flex-1 overflow-y-auto">
-                      <MessageThread messages={messages || []} loading={loadingMessages} />
-                    </div>
-                    
-                    <div className="p-4 border-t bg-gray-50">
-                      <p className="text-sm text-gray-500 italic text-center">
-                        This conversation is archived. Unarchive it to send new messages.
-                      </p>
-                    </div>
-                  </div>
+                {conversationId && isCurrentConversationInActiveTabList() ? (
+                   // ... keep existing code (Message thread view for Archived) ...
+                   <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
+                     <MessageActions
+                       conversationId={conversationId}
+                       onSuccess={handleActionSuccess}
+                       isArchived={true} // Indicate this is for an archived convo
+                       currentTab={activeTab}
+                     />
+
+                     <div className="flex-1 overflow-y-auto">
+                       <MessageThread messages={messages || []} loading={loadingMessages} />
+                     </div>
+
+                     <div className="p-4 border-t bg-gray-50">
+                       <p className="text-sm text-gray-500 italic text-center">
+                         This conversation is archived. Unarchive it to send new messages.
+                       </p>
+                     </div>
+                   </div>
                 ) : (
+                  // ... keep existing code (Placeholder view for Archived) ...
                   <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
                     <div className="text-center p-6">
                       <Archive className="h-12 w-12 text-amber-500 mx-auto mb-4" />
@@ -300,45 +330,48 @@ const Messages = () => {
             
             {/* DELETED TAB */}
             <TabsContent value="deleted" className="space-y-4">
-              <div className="relative">
-                <Input 
-                  placeholder="Search deleted messages..." 
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-              </div>
-              
+               {/* ... keep existing code (Search input) ... */}
+               <div className="relative">
+                 <Input
+                   placeholder="Search deleted messages..."
+                   className="pl-10"
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                 />
+                 <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
+               </div>
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-1 h-full">
-                  <ConversationList 
-                    conversations={filteredDeletedConversations} 
+                  <ConversationList
+                    conversations={filteredDeletedConversations}
                     loading={loadingDeleted}
-                    error={null}
+                    error={null} // Assuming no specific error handling needed here yet
                   />
                 </div>
                 
-                {conversationId && isInDeleted ? (
-                  <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
-                    <MessageActions 
-                      conversationId={conversationId}
-                      onSuccess={handleActionSuccess}
-                      isDeleted={true}
-                      currentTab={activeTab}
-                    />
-                    
-                    <div className="flex-1 overflow-y-auto">
-                      <MessageThread messages={messages || []} loading={loadingMessages} />
-                    </div>
-                    
-                    <div className="p-4 border-t bg-gray-50">
-                      <p className="text-sm text-gray-500 italic text-center">
-                        This conversation is deleted. Restore it to send new messages.
-                      </p>
-                    </div>
-                  </div>
+                {conversationId && isCurrentConversationInActiveTabList() ? (
+                   // ... keep existing code (Message thread view for Deleted) ...
+                   <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
+                     <MessageActions
+                       conversationId={conversationId}
+                       onSuccess={handleActionSuccess}
+                       isDeleted={true} // Indicate this is for a deleted convo
+                       currentTab={activeTab}
+                     />
+
+                     <div className="flex-1 overflow-y-auto">
+                       <MessageThread messages={messages || []} loading={loadingMessages} />
+                     </div>
+
+                     <div className="p-4 border-t bg-gray-50">
+                       <p className="text-sm text-gray-500 italic text-center">
+                         This conversation is deleted. Restore it to send new messages.
+                       </p>
+                     </div>
+                   </div>
                 ) : (
+                  // ... keep existing code (Placeholder view for Deleted) ...
                   <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
                     <div className="text-center p-6">
                       <Trash2 className="h-12 w-12 text-amber-500 mx-auto mb-4" />
