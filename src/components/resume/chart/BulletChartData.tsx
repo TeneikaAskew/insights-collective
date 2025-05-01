@@ -62,8 +62,8 @@ export const prepareBulletChartData = (bullet: any) => {
   const achievementTarget = 20;
 
   // Use percentages provided by the data or calculate if needed
-  const actionPercent = xyz_scores.action_percent || (actionScore / actionTarget * 100);
-  const metricsPercent = xyz_scores.metrics_percent || (metricsScore / metricsTarget * 100);
+  const actionPercent = xyz_scores.action_percent ;
+  const metricsPercent = xyz_scores.metrics_percent ;
   const industryPercent = xyz_scores.industry_percent || (industryScore / industryTarget * 100);
   const clarityPercent = xyz_scores.clarity_percent || (clarityScore / clarityTarget * 100);
   const achievementPercent = xyz_scores.achievement_percent || (achievementScore / achievementTarget * 100);
