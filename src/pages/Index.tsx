@@ -17,8 +17,8 @@ import InteractiveShowcase from '@/components/home/InteractiveShowcase';
 import CommunityShowcase from '@/components/home/CommunityShowcase';
 
 const Index = () => {
-  const featuredCourses = mockService.getAllCourses().slice(0, 3);
-  const upcomingEvents = mockService.getEvents().slice(0, 3);
+  // const featuredCourses = mockService.getAllCourses().slice(0, 3);
+  // const upcomingEvents = mockService.getEvents().slice(0, 3);
   
   // Create sections with animation
   const sections = [
@@ -28,10 +28,10 @@ const Index = () => {
     { id: 'blueprint', Component: BlueprintBanner, threshold: 0.3 },
     { id: 'quiz', Component: QuizSection, threshold: 0.3 },
     { id: 'journey', Component: LearningJourney, threshold: 0.2 },
-    { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses} />, threshold: 0.2 },
+    // { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses} />, threshold: 0.2 },
     { id: 'analytics', Component: AnalyticsDashboard, threshold: 0.2 },
     { id: 'communityShowcase', Component: CommunityShowcase, threshold: 0.2 },
-    { id: 'events', Component: () => <UpcomingEvents events={upcomingEvents} />, threshold: 0.2 },
+    // { id: 'events', Component: () => <UpcomingEvents events={upcomingEvents} />, threshold: 0.2 },
     { id: 'cta', Component: CTASection, threshold: 0.3 },
   ];
   
