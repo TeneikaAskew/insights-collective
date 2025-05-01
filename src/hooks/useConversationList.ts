@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 // Make sure Message and ConversationParticipant are imported here
 import { Conversation, Message, ConversationParticipant } from '@/types/supabase';
@@ -220,8 +219,8 @@ export function useConversationList() {
       .subscribe((status: REALTIME_SUBSCRIBE_STATES, err?: Error) => { // Explicit type annotation for status
         console.log(`[useConversationList] Realtime subscription status: ${status}`);
 
-        // Compare status directly against string literals
-        if (status === 'SUBSCRIPTION_ERROR') { // Direct string comparison
+        // Compare status by casting string literals to the REALTIME_SUBSCRIBE_STATES type
+        if (status === ('SUBSCRIPTION_ERROR' as REALTIME_SUBSCRIBE_STATES)) {
           console.error('[useConversationList] Realtime subscription error:', err);
            toast({
              title: 'Connection Issue',
@@ -229,13 +228,13 @@ export function useConversationList() {
              variant: 'destructive',
            });
         } else if (
-            status === 'CHANNEL_ERROR' || // Direct string comparison
-            status === 'TIMED_OUT' || // Direct string comparison
-            status === 'CLOSED' // Direct string comparison
+            status === ('CHANNEL_ERROR' as REALTIME_SUBSCRIBE_STATES) ||
+            status === ('TIMED_OUT' as REALTIME_SUBSCRIBE_STATES) ||
+            status === ('CLOSED' as REALTIME_SUBSCRIBE_STATES)
             ) {
              console.warn(`[useConversationList] Realtime channel issue: ${status}`, err);
              // Optionally attempt to resubscribe or notify user
-        } else if (status !== 'SUBSCRIBED') { // Direct string comparison
+        } else if (status !== ('SUBSCRIBED' as REALTIME_SUBSCRIBE_STATES)) {
              console.log('[useConversationList] Realtime status:', status);
         }
       });
