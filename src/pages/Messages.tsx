@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageSquare, Send, Search, Inbox, Archive, Trash2, ArchiveRestore, Undo2 } from 'lucide-react';
@@ -31,7 +30,8 @@ const Messages = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // Use dedicated hooks for different conversation types
-  const { conversations: inboxConversations, loading: loadingInbox, error: inboxError } = useConversationList();
+  // Get refreshConversations from useConversationList
+  const { conversations: inboxConversations, loading: loadingInbox, error: inboxError, refreshConversations: refreshInbox } = useConversationList();
   const { conversations: archivedConversations, loading: loadingArchived, refreshConversations: refreshArchived } = useArchivedConversations();
   const { conversations: deletedConversations, loading: loadingDeleted, refreshConversations: refreshDeleted } = useDeletedConversations();
   const { sendMessage } = useMessageSend();
@@ -99,18 +99,18 @@ const Messages = () => {
   const handleActionSuccess = (actionType: 'archive' | 'unarchive' | 'delete' | 'restore') => {
     // Navigate back to messages list view
     navigate('/messages');
-    
+
     // Refresh appropriate conversation lists based on action
-    if (actionType === 'archive') {
-      refreshArchived();
-    } else if (actionType === 'delete') {
-      refreshDeleted();
-    } else if (actionType === 'unarchive' || actionType === 'restore') {
-      // Refresh both archived and deleted lists as needed
-      refreshArchived();
-      refreshDeleted();
+    // Always refresh the inbox
+    refreshInbox();
+
+    if (actionType === 'archive' || actionType === 'unarchive' || actionType === 'restore') {
+      refreshArchived(); // Refresh archived if archiving, unarchiving, or restoring
     }
-    
+    if (actionType === 'delete' || actionType === 'restore') {
+      refreshDeleted(); // Refresh deleted if deleting or restoring
+    }
+
     toast({
       title: 'Success',
       description: `Conversation ${actionType}d.`,
