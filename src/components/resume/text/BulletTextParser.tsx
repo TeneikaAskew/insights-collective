@@ -17,17 +17,6 @@ export const parseTextComponents = (text: string): TextComponent[] => {
   
   // Enhanced rule-based parsing to identify key components
   // Action words (usually at start)
-  // const actionWords = ['Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed', 'Achieved', 
-  //   'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained', 'Directed', 'Transformed', 'Generated', 'Optimized'];
-  // const actionWords = [
-  //   'Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed',
-  //   'Achieved', 'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained',
-  //   'Directed', 'Transformed', 'Generated', 'Optimized', 'Initiated', 'Produced', 'Engineered', 'Deployed',
-  //   'Upgraded', 'Streamlined', 'Consolidated', 'Facilitated', 'Automated', 'Launched', 'Orchestrated', 'Resolved',
-  //   'Designed', 'Modernized', 'Piloted', 'Enabled', 'Restructured', 'Enhanced', 'Instituted', 'Mobilized',
-  //   'Influenced', 'Refined', 'Simplified', 'Overhauled', 'Shaped', 'Monitored', 'Elevated', 'Instituted',
-  //   'Integrated', 'Revamped', 'Analyzed', 'Identified', 'Forecasted', 'Tested', 'Tracked', 'Audited', 'Reported'
-  // ];
   const actionWords = [
     'Spearheaded', 'Implemented', 'Developed', 'Led', 'Managed', 'Coordinated', 'Created', 'Built', 'Executed',
     'Achieved', 'Delivered', 'Improved', 'Increased', 'Reduced', 'Enforced', 'Established', 'Maintained',
@@ -43,19 +32,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
     'Drafted', 'Outlined', 'Launched', 'Rolled out'
   ];
 
-
   // Achievement words
-  // const achievementWords = ['success', 'successful', 'achievement', 'improved', 'reduced', 'increased', 'generated', 'saved', 'exceeded', 'surpassed', 
-  //   'maximized', 'accomplished', 'attained', 'delivered', 'grew', 'expanded', 'strengthened', 'enhanced', 'accelerated', 'boosted'];
-  // const achievementWords = [
-  //   'success', 'successful', 'achievement', 'accomplishment', 'milestone', 'breakthrough',
-  //   'improved', 'reduced', 'increased', 'generated', 'saved', 'cut', 'exceeded', 'surpassed',
-  //   'maximized', 'optimized', 'attained', 'delivered', 'grew', 'expanded', 'strengthened',
-  //   'enhanced', 'accelerated', 'boosted', 'outperformed', 'reached', 'elevated', 'surged',
-  //   'streamlined', 'minimized', 'conserved', 'stabilized', 'capitalized', 'realized', 'advanced',
-  //   'scaled', 'mobilized', 'transitioned', 'retained', 'converted', 'secured', 'closed', 'won'
-  // ];
-  
   const achievementWords = [
     'success', 'successful', 'achievement', 'accomplishment', 'milestone', 'breakthrough', 'win', 'recognition',
     'award', 'certified', 'honored', 'top performer', 'pioneer', 'champion', 'leader', 'promoted',
@@ -65,19 +42,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
     'capitalized', 'realized', 'advanced', 'scaled', 'mobilized', 'retained', 'converted', 'secured', 'won'
   ];
 
-
   // Industry/domain-specific terms
-  // const industryTerms = ['payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental', 'company', 'corporate', 
-  //   'technical', 'strategy', 'framework', 'system', 'platform', 'database', 'architecture', 'process', 'standards', 'protocol', 'integration'];
-  // const industryTerms = [
-  //   'payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental',
-  //   'corporate', 'technical', 'strategy', 'framework', 'system', 'platform', 'architecture',
-  //   'database', 'pipeline', 'infrastructure', 'deployment', 'integration', 'security', 'data',
-  //   'analytics', 'reporting', 'visualization', 'machine learning', 'AI', 'cloud', 'DevOps',
-  //   'finance', 'budget', 'forecast', 'operations', 'procurement', 'supply chain', 'inventory',
-  //   'logistics', 'transportation', 'customer service', 'CRM', 'marketing', 'SEO', 'salesforce',
-  //   'comms', 'compliance', 'productivity', 'sustainability', 'talent', 'engagement', 'onboarding'
-  // ];
   const industryTerms = [
     'payroll', 'regulations', 'policies', 'procedures', 'compliance', 'adherence', 'governmental',
     'corporate', 'technical', 'strategy', 'framework', 'system', 'platform', 'architecture',
@@ -89,44 +54,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
     'risk management', 'cybersecurity', 'governance', 'automation', 'IoT', 'blockchain', 'BI', 'KPI'
   ];
 
-
-
-
-  // Metrics/results - measurement terms and numbers
-  // const measurableResults = /\d+%|\$\d+|\d+x|\d+ percent|\d+K|\d+M|\d+ million|\d+ thousand/g;
-  const measurableRegex = new RegExp(
-    [
-      '\\$?\\d{1,3}(,\\d{3})*(\\.\\d+)?\\s?(million|billion|thousand|M|B|K)?', // $3.5 million, 1,000,000
-      '\\b\\d+\\s?(%|percent)\\b',                   // 45%, 12 percent
-      '\\b\\d+(x| times)\\b',                        // 3x, 5 times
-      '\\b\\d+\\s?(hours?|days?|weeks?|months?|years?)\\b', // duration
-      '\\b\\d+\\s?(units|customers|clients|users|transactions|projects|sales|visits|downloads|installs|members|subscribers|views)\\b',
-      '\\$\\d+[KMB]?',                               // $50K, $3M
-      'revenue of \\$?\\d+[KMB%]?',                  // revenue phrases
-      'ROI of \\$?\\d+%?',                           // ROI
-      'saved (\\$?\\d+|\\d+%)',                      // saved $ or %
-      'increased .* by \\$?\\d+%?',                  // increased by $ or %
-      'reduced .* by \\$?\\d+%?',                    // reduced by $ or %
-      'achieved .* of \\$?\\d+[KMB%]?',              // achieved metric
-      'cut .* by \\d+%',                             // cut something by a percentage
-      'boosted .* to \\$?\\d+[KMB%]?',               // boosted something to a measurable amount
-      '\\b(\\d{4})\\b',                              // year (used for historical reporting)
-      '\\d+ out of \\d+',                            // ratios like 9 out of 10
-      '\\d+\\.\\d+\\s?(score|rating|stars?)'         // 4.8 rating
-    ].join('|'),
-    'gi'
-  );
-
-  
-  // Clarity/conciseness terms - clear and direct expressions
-  // const clarityTerms = ['clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized', 'documented', 'outlined', 'delineated',
-  //   'established', 'formalized'];
-  // const clarityTerms = [
-  //   'clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized',
-  //   'documented', 'outlined', 'delineated', 'formalized', 'codified', 'visualized',
-  //   'summarized', 'clarified', 'organized', 'mapped', 'structured', 'tracked', 'recorded',
-  //   'blueprinted', 'categorized', 'indexed', 'workflowed'
-  // ];
+  // Clarity/conciseness terms
   const clarityTerms = [
     'clear', 'concise', 'specific', 'defined', 'streamlined', 'simplified', 'standardized',
     'documented', 'outlined', 'delineated', 'formalized', 'codified', 'visualized',
@@ -143,7 +71,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
       components.push({
         text: text.substring(0, word.length),
         type: 'action',
-        category: BULLET_CATEGORIES.ACTION
+        category: BULLET_CATEGORIES.action.label // Fixed: using lowercase property
       });
       remainingText = text.substring(word.length);
       break;
@@ -169,7 +97,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.COMMON
+            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
           });
           currentSegment = '';
         }
@@ -177,7 +105,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'action',
-          category: BULLET_CATEGORIES.ACTION
+          category: BULLET_CATEGORIES.action.label // Fixed: using lowercase property
         });
       }
       // Check if word is a metric
@@ -187,7 +115,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.COMMON
+            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
           });
           currentSegment = '';
         }
@@ -195,7 +123,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'measurable',
-          category: BULLET_CATEGORIES.METRICS
+          category: BULLET_CATEGORIES.metrics.label // Fixed: using lowercase property
         });
       }
       // Check if word is an industry term
@@ -205,7 +133,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.COMMON
+            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
           });
           currentSegment = '';
         }
@@ -213,7 +141,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'industry',
-          category: BULLET_CATEGORIES.INDUSTRY
+          category: BULLET_CATEGORIES.industry.label // Fixed: using lowercase property
         });
       }
       // Check if word is an achievement word
@@ -223,7 +151,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.COMMON
+            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
           });
           currentSegment = '';
         }
@@ -231,7 +159,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'skill',
-          category: BULLET_CATEGORIES.ACHIEVEMENT
+          category: BULLET_CATEGORIES.achievement.label // Fixed: using lowercase property
         });
       }
       // Check if word is a clarity term
@@ -241,7 +169,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.COMMON
+            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
           });
           currentSegment = '';
         }
@@ -249,7 +177,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'skill',
-          category: BULLET_CATEGORIES.CLARITY
+          category: BULLET_CATEGORIES.clarity.label // Fixed: using lowercase property
         });
       }
       else {
@@ -268,7 +196,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: currentSegment,
           type: 'normal',
-          category: BULLET_CATEGORIES.COMMON
+          category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
         });
       }
     }
@@ -285,7 +213,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
       finalComponents.push({
         text: ' ',
         type: 'normal',
-        category: BULLET_CATEGORIES.COMMON
+        category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
       });
     }
   });
@@ -304,15 +232,15 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
           <span 
             key={idx} 
             className={`transition-colors duration-200 ${
-              part.category === BULLET_CATEGORIES.INDUSTRY 
+              part.category === BULLET_CATEGORIES.industry.label // Fixed: using lowercase property
                 ? 'text-[#1E40AF] font-bold' : 
-              part.category === BULLET_CATEGORIES.ACTION 
+              part.category === BULLET_CATEGORIES.action.label // Fixed: using lowercase property 
                 ? 'text-[#D97706] font-bold' : 
-              part.category === BULLET_CATEGORIES.METRICS 
+              part.category === BULLET_CATEGORIES.metrics.label // Fixed: using lowercase property
                 ? 'text-[#0D9488] font-bold' : 
-              part.category === BULLET_CATEGORIES.CLARITY
+              part.category === BULLET_CATEGORIES.clarity.label // Fixed: using lowercase property
                 ? 'text-[#2563EB] font-bold' :
-              part.category === BULLET_CATEGORIES.ACHIEVEMENT
+              part.category === BULLET_CATEGORIES.achievement.label // Fixed: using lowercase property
                 ? 'text-[#059669] font-bold' :
               'text-gray-600'
             }`}

@@ -20,6 +20,15 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
     bullet_total
   } = prepareBulletChartData(bullet);
 
+  // Extra safety check for dataWithPercent
+  if (!dataWithPercent || !Array.isArray(dataWithPercent)) {
+    return (
+      <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
+        <p>No chart data available.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
       <style>{`
@@ -45,7 +54,7 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
           </div>
           
           <div className="space-y-4">
-            {dataWithPercent && dataWithPercent.map((item, index) => (
+            {dataWithPercent.map((item, index) => (
               <DistributionBar key={`distribution-${item.name}-${index}`} item={item} />
             ))}
           </div>

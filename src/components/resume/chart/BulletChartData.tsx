@@ -11,6 +11,15 @@ export const BULLET_CATEGORIES = {
   common: { label: 'Common', color: '#95a5a6' } // Adding common category that was missing
 };
 
+// Define type for xyz_scores to avoid empty object type error
+interface XYZScores {
+  action?: number;
+  metrics?: number;
+  clarity?: number;
+  industry?: number;
+  achievement?: number;
+}
+
 // Function to prepare chart data from bullet analysis
 export const prepareBulletChartData = (bullet: BulletAnalysis) => {
   if (!bullet) {
@@ -22,8 +31,9 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
     };
   }
 
-  // Use existing calculated percentages from the bullet
-  const { xyz_scores = {}, bullet_total = 0 } = bullet;
+  // Use existing calculated percentages from the bullet with proper type
+  const xyz_scores: XYZScores = bullet.xyz_scores || {};
+  const bullet_total: number = bullet.bullet_total || 0;
   
   // Format the data for the charts
   const dataWithPercent = [
