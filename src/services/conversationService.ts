@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Conversation } from '@/types/supabase'; // Import Conversation type
+import { Conversation, Message } from '@/types/supabase'; // Import Conversation and Message types
 
 /**
  * Fetch conversations for a specific user (non-archived, non-deleted)
@@ -12,17 +12,22 @@ export const fetchUserConversations = async (userId: string): Promise<Conversati
   }
   try {
     console.log('[fetchUserConversations] Invoking messages-helper with action: getConversations');
-    const { data, error, status } = await supabase.functions.invoke('messages-helper', {
+    // Destructure only data and error, as status is not directly available here
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getConversations', userId },
     });
 
+    // Check for invocation errors first
     if (error) {
-      console.error('[fetchUserConversations] Edge function invocation error:', { status, error });
+      console.error('[fetchUserConversations] Edge function invocation error:', error);
+      // The error object often contains details, including potentially a status if it was an HTTP-level issue during invoke
       throw new Error(error.message || 'Failed to invoke messages-helper');
     }
-     if (status && status >= 400) {
-       console.error('[fetchUserConversations] Edge function returned error status:', { status, data });
-       throw new Error(data?.error || `Edge function failed with status ${status}`);
+
+     // Check if the function returned an error structure within its data payload
+     if (data?.error) {
+       console.error('[fetchUserConversations] Edge function returned error message:', data.error);
+       throw new Error(data.error || 'Edge function failed');
      }
 
     console.log('[fetchUserConversations] Active conversations fetched:', data?.conversations?.length || 0);
@@ -45,18 +50,23 @@ export const fetchArchivedUserConversations = async (userId: string): Promise<Co
   }
   try {
      console.log('[fetchArchivedUserConversations] Invoking messages-helper with action: getArchivedConversations');
-    const { data, error, status } = await supabase.functions.invoke('messages-helper', {
+     // Destructure only data and error
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getArchivedConversations', userId },
     });
 
+     // Check for invocation errors first
     if (error) {
-      console.error('[fetchArchivedUserConversations] Edge function invocation error:', { status, error });
+      console.error('[fetchArchivedUserConversations] Edge function invocation error:', error);
       throw new Error(error.message || 'Failed to invoke messages-helper');
     }
-     if (status && status >= 400) {
-       console.error('[fetchArchivedUserConversations] Edge function returned error status:', { status, data });
-       throw new Error(data?.error || `Edge function failed with status ${status}`);
+
+      // Check if the function returned an error structure within its data payload
+     if (data?.error) {
+       console.error('[fetchArchivedUserConversations] Edge function returned error message:', data.error);
+       throw new Error(data.error || 'Edge function failed');
      }
+
      console.log('[fetchArchivedUserConversations] Archived conversations fetched:', data?.conversations?.length || 0); // Log count
 
     return (data?.conversations as Conversation[]) || []; // Cast to Conversation[]
@@ -77,18 +87,23 @@ export const fetchDeletedUserConversations = async (userId: string): Promise<Con
    }
   try {
     console.log('[fetchDeletedUserConversations] Invoking messages-helper with action: getDeletedConversations');
-    const { data, error, status } = await supabase.functions.invoke('messages-helper', {
+    // Destructure only data and error
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getDeletedConversations', userId }, // Use new action
     });
 
+     // Check for invocation errors first
     if (error) {
-      console.error('[fetchDeletedUserConversations] Edge function invocation error:', { status, error });
+      console.error('[fetchDeletedUserConversations] Edge function invocation error:', error);
       throw new Error(error.message || 'Failed to invoke messages-helper');
     }
-    if (status && status >= 400) {
-      console.error('[fetchDeletedUserConversations] Edge function returned error status:', { status, data });
-      throw new Error(data?.error || `Edge function failed with status ${status}`);
-    }
+
+     // Check if the function returned an error structure within its data payload
+     if (data?.error) {
+       console.error('[fetchDeletedUserConversations] Edge function returned error message:', data.error);
+       throw new Error(data.error || 'Edge function failed');
+     }
+
     console.log('[fetchDeletedUserConversations] Deleted conversations fetched:', data?.conversations?.length || 0); // Log count
 
     return (data?.conversations as Conversation[]) || []; // Cast to Conversation[]
@@ -210,14 +225,22 @@ export const getOrCreateOneOnOneConversation = async (currentUserId: string, oth
 /**
  * Fetch messages for a specific conversation
  */
-export const fetchMessages = async (conversationId: string) => {
+export const fetchMessages = async (conversationId: string): Promise<Message[]> => { // Added return type
   try {
     const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getMessages', conversationId },
     });
-    
-    if (error) throw new Error(error.message);
-    return data?.messages || [];
+
+    if (error) {
+       console.error('[fetchMessages] Edge function invocation error:', error);
+       throw new Error(error.message || 'Failed to invoke messages-helper');
+    }
+     if (data?.error) {
+         console.error('[fetchMessages] Edge function returned error message:', data.error);
+         throw new Error(data.error || 'Edge function failed');
+     }
+
+    return (data?.messages as Message[]) || []; // Cast to Message[]
   } catch (error) {
     console.error('Error fetching messages:', error);
     throw error;
@@ -272,7 +295,8 @@ const updateConversationViaEdgeFunction = async (conversationId: string, userId:
    }
   try {
     console.log('[updateConversationViaEdgeFunction] Invoking messages-helper with action: updateConversation');
-    const { data, error, status } = await supabase.functions.invoke('messages-helper', {
+    // Destructure only data and error
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: {
         action: 'updateConversation',
         conversationId,
@@ -281,23 +305,27 @@ const updateConversationViaEdgeFunction = async (conversationId: string, userId:
       },
     });
 
+     // Check for invocation errors first
     if (error) {
-       console.error('[updateConversationViaEdgeFunction] Edge function invocation error:', { status, error });
-      throw error;
+       console.error('[updateConversationViaEdgeFunction] Edge function invocation error:', error);
+      throw new Error(error.message || 'Failed to invoke messages-helper');
     }
-    if (status && status >= 400) {
-       console.error('[updateConversationViaEdgeFunction] Edge function returned error status:', { status, data });
-       throw new Error(data?.error || `Edge function failed with status ${status}`);
+
+     // Check if the function returned an error structure within its data payload
+     if (data?.error) {
+       console.error('[updateConversationViaEdgeFunction] Edge function returned error message:', data.error);
+       throw new Error(data.error || `Edge function failed`);
      }
 
      // Log warning if the update didn't return data (might indicate RLS issue or non-existent convo)
+     // Note: The edge function might return null even on success if no conversation matched
      if (!data?.conversation) {
-       console.warn(`[updateConversationViaEdgeFunction] Update for conv ${conversationId} might have failed or returned no data. Status: ${status}`);
+       console.warn(`[updateConversationViaEdgeFunction] Update for conv ${conversationId} might have failed or returned no data. Check if conversation exists and user has permissions.`);
      } else {
         console.log(`[updateConversationViaEdgeFunction] Successfully updated conv ${conversationId}.`);
      }
 
-    return data?.conversation || null;
+    return data?.conversation || null; // Return null if no conversation was updated/returned
   } catch (error) {
     console.error('[updateConversationViaEdgeFunction] Unexpected error:', error);
     throw error instanceof Error ? error : new Error('An unknown error occurred while updating conversation.');

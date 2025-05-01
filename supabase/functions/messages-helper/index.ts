@@ -1,4 +1,3 @@
-
 // deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.0';
@@ -40,7 +39,11 @@ serve(async (req: Request) => {
     // Validate action
     if (!action) {
         console.error('[messages-helper] Error: Action is required in payload.');
-        throw new Error('Action is required');
+        // Return a proper JSON error response
+        return new Response(JSON.stringify({ error: 'Action is required' }), {
+             status: 400,
+             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+         });
     }
      console.log(`[messages-helper] Processing action: ${action}`);
 
@@ -61,19 +64,25 @@ serve(async (req: Request) => {
          console.log(`[messages-helper/${action}] Starting for user: ${userId}`);
         if (!userId) {
           console.error(`[messages-helper/${action}] Error: userId is required.`);
-          throw new Error('userId is required');
+          // Return a proper JSON error response
+           return new Response(JSON.stringify({ error: 'userId is required' }), {
+               status: 400,
+               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+           });
         }
 
         // 1. Find conversation IDs where the user is a participant
         console.log(`[messages-helper/${action}] Fetching participant records for user: ${userId}`);
-        const { data: participantRecords, error: partError } = await supabaseAdmin
+         // Rename the error variable here to avoid conflict
+        const { data: participantRecords, error: participantFetchError } = await supabaseAdmin
           .from('conversation_participants')
           .select('conversation_id')
           .eq('user_id', userId);
 
-        if (partError) {
-          console.error(`[messages-helper/${action}] Error fetching participant records:`, partError);
-          throw partError;
+        if (participantFetchError) {
+          console.error(`[messages-helper/${action}] Error fetching participant records:`, participantFetchError);
+          // Throwing here will be caught by the main try/catch block
+          throw participantFetchError;
         }
         console.log(`[messages-helper/${action}] Found ${participantRecords?.length || 0} participation records.`);
 
@@ -158,12 +167,15 @@ serve(async (req: Request) => {
         break;
       } // End of combined conversation fetching cases
 
-
       case 'getMessages':
         console.log(`[messages-helper/getMessages] Starting for conversation: ${conversationId}`);
         if (!conversationId) {
           console.error('[messages-helper/getMessages] Error: conversationId is required.');
-          throw new Error('conversationId is required');
+          // Return JSON error
+           return new Response(JSON.stringify({ error: 'conversationId is required' }), {
+               status: 400,
+               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+           });
         }
 
         // Fetch messages for the conversation, including sender profile
@@ -210,7 +222,11 @@ serve(async (req: Request) => {
          console.log(`[messages-helper/checkOneOnOneConversation] Checking between ${currentUserId} and ${otherUserId}`);
         if (!currentUserId || !otherUserId) {
            console.error('[messages-helper/checkOneOnOneConversation] Error: Both currentUserId and otherUserId are required.');
-          throw new Error('Both currentUserId and otherUserId are required');
+           // Return JSON error
+           return new Response(JSON.stringify({ error: 'Both currentUserId and otherUserId are required' }), {
+               status: 400,
+               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+           });
         }
 
         // Find conversations where both users are participants and it's not a group conversation, not archived, not deleted
@@ -259,7 +275,11 @@ serve(async (req: Request) => {
         console.log(`[messages-helper/updateConversation] Updating conv ${conversationId} for user ${userId}`);
         if (!conversationId || !userId || !updates) {
            console.error('[messages-helper/updateConversation] Error: conversationId, userId, and updates are required.');
-          throw new Error('conversationId, userId, and updates are required');
+           // Return JSON error
+            return new Response(JSON.stringify({ error: 'conversationId, userId, and updates are required' }), {
+               status: 400,
+               headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+           });
         }
 
         // 1. Verify user is a participant (using admin client)
@@ -313,7 +333,11 @@ serve(async (req: Request) => {
 
       default:
          console.error(`[messages-helper] Error: Unsupported action: ${action}`);
-        throw new Error(`Unsupported action: ${action}`);
+         // Return JSON error
+         return new Response(JSON.stringify({ error: `Unsupported action: ${action}` }), {
+             status: 400,
+             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+         });
     }
 
      console.log(`[messages-helper] Action ${action} completed successfully. Returning result.`);
@@ -331,10 +355,13 @@ serve(async (req: Request) => {
     console.error('[messages-helper] General Error:', error);
     // Ensure error is an Error object
     const errorMessage = error instanceof Error ? error.message : String(error);
+     // Determine appropriate status code based on error type if possible, default to 500 for server errors
+     const status = (error.message === 'Action is required' || error.message.includes('required')) ? 400 : 500;
+
     return new Response(
       JSON.stringify({ error: errorMessage }),
       {
-        status: 400, // Use 400 for client errors, 500 for server errors if distinguishable
+        status: status,
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
