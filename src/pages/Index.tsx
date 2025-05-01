@@ -11,7 +11,7 @@ import LearningJourney from '@/components/home/LearningJourney';
 import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 import { useInView } from 'react-intersection-observer';
 import { useEffect } from 'react';
-import { mockService } from '@/lib/mock';
+// import { mockService } from '@/lib/mock';
 import PersonalizedPathway from '@/components/home/PersonalizedPathway';
 import InteractiveShowcase from '@/components/home/InteractiveShowcase';
 import CommunityShowcase from '@/components/home/CommunityShowcase';
