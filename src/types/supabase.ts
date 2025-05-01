@@ -1,4 +1,3 @@
-
 export interface Profile {
   id: string;
   first_name: string | null;
@@ -18,6 +17,8 @@ export interface Conversation {
   updated_at: string;
   participants?: ConversationParticipant[];
   last_message?: Message;
+  archived?: boolean; // Ensure this field exists and is optional boolean
+  deleted_at?: string | null; // Ensure this field exists and is optional string or null
 }
 
 export interface ConversationParticipant {
