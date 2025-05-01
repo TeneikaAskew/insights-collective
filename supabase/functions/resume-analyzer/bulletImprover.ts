@@ -110,7 +110,7 @@ function processGroqResponse(response: any, originalBullet: any): any {
     }
     
     // Last resort fallback
-    console.warn("Could not parse GROQ response, returning original bullet");
+    console.warn("Could not parse GROQ response, returning original bullet", error);
     return {
       rewritten: originalBullet.original,
       tips: "Could not generate specific tips. Consider adding metrics and using stronger action verbs."
