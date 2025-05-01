@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MessageSquare, Send, Search, Inbox, ExternalLink, Archive, Trash2, ArchiveRestore, Undo2 } from 'lucide-react';
@@ -17,6 +18,7 @@ import MessageSuggestions from '@/components/messages/MessageSuggestions';
 import MessageActions from '@/components/messages/MessageActions';
 import { fetchArchivedUserConversations, fetchDeletedUserConversations } from '@/services/conversationService';
 import { useConversationList } from '@/hooks/useConversationList';
+import { useMessageSend } from '@/hooks/useMessageSend'; // Add this import
 import { Conversation } from '@/types/supabase';
 
 const Messages = () => {
@@ -29,7 +31,8 @@ const Messages = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   // State for different conversation lists
-  const { conversations: inboxConversations, loading: loadingInbox, error: inboxError, sendMessage } = useConversationList();
+  const { conversations: inboxConversations, loading: loadingInbox, error: inboxError } = useConversationList();
+  const { sendMessage } = useMessageSend(); // Use the dedicated message sending hook
   const [archivedConversations, setArchivedConversations] = useState<Conversation[]>([]);
   const [loadingArchived, setLoadingArchived] = useState(false);
   const [deletedConversations, setDeletedConversations] = useState<Conversation[]>([]);
@@ -156,7 +159,7 @@ const Messages = () => {
     return <LoginWall 
       message="Sign in to access your messages and connect with instructors and classmates."
       visibleItems={0}
-      totalItems={conversations?.length ?? 0}
+      totalItems={inboxConversations?.length ?? 0}
     />;
   }
 
