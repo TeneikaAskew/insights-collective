@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation } from '@/types/supabase'; // Import Conversation type
 
@@ -51,7 +50,7 @@ export const fetchArchivedUserConversations = async (userId: string): Promise<Co
 /**
  * Fetch deleted conversations for a specific user
  */
-export const fetchDeletedUserConversations = async (userId: string): Promise<Conversation[]> => { // Add return type and new function
+export const fetchDeletedUserConversations = async (userId: string): Promise<Conversation[]> => { // Add return type
   try {
     console.log('Fetching deleted conversations for user:', userId);
     const { data, error } = await supabase.functions.invoke('messages-helper', {
@@ -235,25 +234,40 @@ export const sendConversationMessage = async (senderId: string, conversationId: 
 };
 
 /**
+ * Helper function to update conversation properties using the Edge Function
+ */
+const updateConversationViaEdgeFunction = async (conversationId: string, userId: string, updates: any) => {
+  try {
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { 
+        action: 'updateConversation', 
+        conversationId, 
+        userId,
+        updates
+      },
+    });
+
+    if (error) throw error;
+    return data?.conversation || null;
+  } catch (error) {
+    console.error('Error updating conversation via edge function:', error);
+    throw error;
+  }
+};
+
+/**
  * Archive or unarchive a conversation
  */
 export const updateConversationArchiveStatus = async (conversationId: string, archived: boolean) => {
   try {
-    const { data, error } = await supabase
-      .from('conversations')
-      .update({ archived })
-      .eq('id', conversationId)
-      .select(); // Removed .single()
-
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      // Log a warning instead of throwing an error if no rows were updated
-      console.warn(`No conversation found with ID ${conversationId} to update archive status, or RLS prevented the update.`);
+    // Get the current user ID
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      throw new Error('No authenticated user found');
     }
-
-    // Return the first updated item if exists, otherwise null
-    return data && data.length > 0 ? data[0] : null;
+    
+    return await updateConversationViaEdgeFunction(conversationId, user.id, { archived });
   } catch (error) {
     console.error('Error updating conversation archive status:', error);
     throw error;
@@ -264,79 +278,74 @@ export const updateConversationArchiveStatus = async (conversationId: string, ar
  * Archive a conversation - wrapper function for updateConversationArchiveStatus
  */
 export const archiveConversation = async (conversationId: string, userId: string) => {
-  // Check if user is allowed to archive this conversation
-  const { data: participant, error: checkError } = await supabase
-    .from('conversation_participants')
-    .select()
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId)
-    .single();
+  try {
+    // Check if user is allowed to archive this conversation
+    const { data: participant, error: checkError } = await supabase
+      .from('conversation_participants')
+      .select()
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .single();
+      
+    if (checkError || !participant) {
+      throw new Error('You do not have permission to archive this conversation');
+    }
     
-  if (checkError || !participant) {
-    throw new Error('You do not have permission to archive this conversation');
+    return updateConversationViaEdgeFunction(conversationId, userId, { archived: true });
+  } catch (error) {
+    console.error('Error archiving conversation:', error);
+    throw error;
   }
-  
-  return updateConversationArchiveStatus(conversationId, true);
 };
 
 /**
  * Unarchive a conversation - wrapper function for updateConversationArchiveStatus
  */
 export const unarchiveConversation = async (conversationId: string, userId: string) => {
-  // Check if user is allowed to unarchive this conversation
-  const { data: participant, error: checkError } = await supabase
-    .from('conversation_participants')
-    .select()
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId)
-    .single();
+  try {
+    // Check if user is allowed to unarchive this conversation
+    const { data: participant, error: checkError } = await supabase
+      .from('conversation_participants')
+      .select()
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .single();
+      
+    if (checkError || !participant) {
+      throw new Error('You do not have permission to unarchive this conversation');
+    }
     
-  if (checkError || !participant) {
-    throw new Error('You do not have permission to unarchive this conversation');
+    return updateConversationViaEdgeFunction(conversationId, userId, { archived: false });
+  } catch (error) {
+    console.error('Error unarchiving conversation:', error);
+    throw error;
   }
-  
-  return updateConversationArchiveStatus(conversationId, false);
 };
 
 /**
 * Delete a conversation (sets deleted_at) - New Function
 */
 export const deleteConversation = async (conversationId: string, userId: string) => {
-  // Optional: Check if user is allowed to delete this conversation (e.g., participant)
-  const { data: participant, error: checkError } = await supabase
-    .from('conversation_participants')
-    .select()
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId)
-    .maybeSingle(); // Use maybeSingle to handle case where participant might not exist
-
-  if (checkError) {
-     console.error("Error checking participation:", checkError);
-     throw new Error('Could not verify participation to delete conversation.');
-  }
-
-  if (!participant) {
-    console.warn(`User ${userId} attempted to delete conversation ${conversationId} they are not part of.`);
-    throw new Error('You do not have permission to delete this conversation');
-  }
-
   try {
-    const { data, error } = await supabase
-      .from('conversations')
-      .update({ deleted_at: new Date().toISOString() }) // Set deleted_at timestamp
-      .eq('id', conversationId)
-      .select(); // Removed .single()
+    // Check if user is allowed to delete this conversation
+    const { data: participant, error: checkError } = await supabase
+      .from('conversation_participants')
+      .select()
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      // Log a warning if no rows were updated
-       console.warn(`No conversation found with ID ${conversationId} to delete, or RLS prevented the update.`);
-    } else {
-      console.log(`Conversation ${conversationId} marked as deleted.`);
+    if (checkError) {
+      console.error("Error checking participation:", checkError);
+      throw new Error('Could not verify participation to delete conversation.');
     }
-    // Return the first updated item if exists, otherwise null
-    return data && data.length > 0 ? data[0] : null;
+
+    if (!participant) {
+      console.warn(`User ${userId} attempted to delete conversation ${conversationId} they are not part of.`);
+      throw new Error('You do not have permission to delete this conversation');
+    }
+
+    return updateConversationViaEdgeFunction(conversationId, userId, { deleted_at: new Date().toISOString() });
   } catch (error) {
     console.error('Error deleting conversation:', error);
     throw error;
@@ -347,41 +356,26 @@ export const deleteConversation = async (conversationId: string, userId: string)
 * Restore a conversation (sets deleted_at to null) - New Function
 */
 export const restoreConversation = async (conversationId: string, userId: string) => {
-   // Optional: Check if user is allowed to restore this conversation
-   const { data: participant, error: checkError } = await supabase
-    .from('conversation_participants')
-    .select()
-    .eq('conversation_id', conversationId)
-    .eq('user_id', userId)
-    .maybeSingle();
-
-   if (checkError) {
-     console.error("Error checking participation:", checkError);
-     throw new Error('Could not verify participation to restore conversation.');
-   }
-
-   if (!participant) {
-     console.warn(`User ${userId} attempted to restore conversation ${conversationId} they are not part of.`);
-     throw new Error('You do not have permission to restore this conversation');
-   }
-
   try {
-    const { data, error } = await supabase
-      .from('conversations')
-      .update({ deleted_at: null }) // Set deleted_at to null
-      .eq('id', conversationId)
-      .select(); // Removed .single()
+    // Check if user is allowed to restore this conversation
+    const { data: participant, error: checkError } = await supabase
+      .from('conversation_participants')
+      .select()
+      .eq('conversation_id', conversationId)
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    if (error) throw error;
-
-    if (!data || data.length === 0) {
-      // Log a warning if no rows were updated
-       console.warn(`No conversation found with ID ${conversationId} to restore, or RLS prevented the update.`);
-    } else {
-      console.log(`Conversation ${conversationId} restored.`);
+    if (checkError) {
+      console.error("Error checking participation:", checkError);
+      throw new Error('Could not verify participation to restore conversation.');
     }
-    // Return the first updated item if exists, otherwise null
-    return data && data.length > 0 ? data[0] : null;
+
+    if (!participant) {
+      console.warn(`User ${userId} attempted to restore conversation ${conversationId} they are not part of.`);
+      throw new Error('You do not have permission to restore this conversation');
+    }
+
+    return updateConversationViaEdgeFunction(conversationId, userId, { deleted_at: null });
   } catch (error) {
     console.error('Error restoring conversation:', error);
     throw error;

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.0';
 
@@ -320,6 +319,53 @@ serve(async (req) => {
         }
         break;
         
+      case 'updateConversation':
+        if (!conversationId || !userId) {
+          throw new Error('Both conversationId and userId are required');
+        }
+        
+        console.log(`Updating conversation ${conversationId} for user ${userId}`);
+        
+        // 1. Check if user is a participant
+        const { data: participant, error: partError } = await supabaseAdmin
+          .from('conversation_participants')
+          .select('*')
+          .eq('conversation_id', conversationId)
+          .eq('user_id', userId)
+          .single();
+        
+        if (partError) {
+          console.error('Error checking participation:', partError);
+          throw new Error('Failed to verify your permission to update this conversation.');
+        }
+        
+        if (!participant) {
+          throw new Error('You do not have permission to update this conversation.');
+        }
+        
+        // 2. Get the update payload from the request
+        const { updates } = await req.json();
+        
+        if (!updates) {
+          throw new Error('No updates provided');
+        }
+        
+        // 3. Perform the update with admin privileges
+        const { data: updatedConversation, error: updateError } = await supabaseAdmin
+          .from('conversations')
+          .update(updates)
+          .eq('id', conversationId)
+          .select();
+        
+        if (updateError) {
+          console.error('Error updating conversation:', updateError);
+          throw updateError;
+        }
+        
+        console.log(`Successfully updated conversation ${conversationId}`);
+        result = { conversation: updatedConversation[0] || null };
+        break;
+
       default:
         throw new Error(`Unsupported action: ${action}`);
     }
@@ -348,4 +394,3 @@ serve(async (req) => {
     );
   }
 });
-
