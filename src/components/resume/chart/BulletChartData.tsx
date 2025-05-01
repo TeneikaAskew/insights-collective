@@ -47,28 +47,26 @@ export const prepareBulletChartData = (bullet: any) => {
     bullet_total = 0
   } = bullet;
 
-  // Define chart data categories with default values if not provided
+  // Get scores from bullet data with default values if not provided
   const actionScore = xyz_scores.action || 0;
   const metricsScore = xyz_scores.metrics || 0;
   const industryScore = xyz_scores.industry || 0;
   const clarityScore = xyz_scores.clarity || 0;
   const achievementScore = xyz_scores.achievement || 0;
 
-  // Calculate target percentages based on max possible scores
-  // Action: 10, Metrics: 30, Industry: 25, Clarity: 15, Achievement: 20
+  // Using predefined targets from the bullet data rather than recalculating
   const actionTarget = 10;
   const metricsTarget = 30;
   const industryTarget = 25; 
   const clarityTarget = 15;
   const achievementTarget = 20;
-  const totalTarget = actionTarget + metricsTarget + industryTarget + clarityTarget + achievementTarget;
 
-  // Calculate percentages for each category
-  const actionPercent = (actionScore / actionTarget) * 100;
-  const metricsPercent = (metricsScore / metricsTarget) * 100;
-  const industryPercent = (industryScore / industryTarget) * 100;
-  const clarityPercent = (clarityScore / clarityTarget) * 100;
-  const achievementPercent = (achievementScore / achievementTarget) * 100;
+  // Use percentages provided by the data or calculate if needed
+  const actionPercent = xyz_scores.action_percent || (actionScore / actionTarget * 100);
+  const metricsPercent = xyz_scores.metrics_percent || (metricsScore / metricsTarget * 100);
+  const industryPercent = xyz_scores.industry_percent || (industryScore / industryTarget * 100);
+  const clarityPercent = xyz_scores.clarity_percent || (clarityScore / clarityTarget * 100);
+  const achievementPercent = xyz_scores.achievement_percent || (achievementScore / achievementTarget * 100);
 
   // Create data array for visualization
   const dataWithPercent: ChartDataItem[] = [
