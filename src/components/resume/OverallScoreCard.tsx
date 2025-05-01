@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -34,8 +34,10 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   userId
 }) => {
   const [isFlashing, setIsFlashing] = useState(false);
+  const [hasBeenClicked, setHasBeenClicked] = useState(false); // New state for click tracking
   const [hasRoast, setHasRoast] = useState(false);
-  
+  const flashIntervalRef = useRef<NodeJS.Timeout | null>(null); // Ref to hold interval ID
+
   // Check if initial_assessment exists for this user
   useEffect(() => {
     console.log("Checking if roast exists yet for: ", userId);
@@ -67,15 +69,38 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   // Setup flashing effect with interval
   useEffect(() => {
     console.log("Does the analysis exist? ", hasAnalysis);
-    if (!hasAnalysis) return;
-    
-    const flashInterval = setInterval(() => {
+    if (!hasAnalysis || hasBeenClicked) { // Don't start flashing if already clicked
+      if (flashIntervalRef.current) {
+        clearInterval(flashIntervalRef.current); // Clear existing interval if conditions change
+      }
+      return;
+    };
+
+    // Clear any previous interval before setting a new one
+    if (flashIntervalRef.current) {
+      clearInterval(flashIntervalRef.current);
+    }
+
+    flashIntervalRef.current = setInterval(() => {
       setIsFlashing(prev => !prev);
-    }, 1000); // Toggle every 1.5 seconds
-    
-    return () => clearInterval(flashInterval);
-  }, [hasAnalysis]);
+    }, 1000); // Toggle every 1 second
+
+    return () => {
+      if (flashIntervalRef.current) {
+        clearInterval(flashIntervalRef.current); // Cleanup interval on unmount or dependency change
+      }
+    };
+  }, [hasAnalysis, hasBeenClicked]); // Add hasBeenClicked dependency
   
+  const handleButtonClick = () => {
+    setHasBeenClicked(true); // Set clicked state to true
+    if (flashIntervalRef.current) {
+      clearInterval(flashIntervalRef.current); // Stop flashing immediately on click
+      setIsFlashing(false); // Ensure flashing state is off
+    }
+    onStartCareerChat(); // Call the original handler
+  };
+
   const getLetterGradeColor = (grade: string) => {
     switch (grade) {
       case 'A':
@@ -91,8 +116,23 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     }
   };
   
-  console.log("Button should flash: ", hasAnalysis && isFlashing);
-  
+  console.log("Button should flash: ", hasAnalysis && isFlashing && !hasBeenClicked);
+  console.log("Button clicked state: ", hasBeenClicked);
+
+  // Determine button classes based on state
+  const getButtonClass = () => {
+    if (hasAnalysis && hasBeenClicked) {
+      // Green after clicked
+      return 'bg-green-600 hover:bg-green-700';
+    } else if (hasAnalysis && isFlashing && !hasBeenClicked) {
+      // Flashing teal before click
+      return 'bg-teal-600 hover:bg-teal-700';
+    } else {
+       // Default blue (or non-flashing teal state before click)
+      return 'bg-blue-600 hover:bg-blue-700';
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -136,16 +176,12 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         </div>
       </CardContent>
       <CardFooter>
-        <Button 
-          onClick={onStartCareerChat} 
-          className={`w-full gap-2 transition-colors duration-300 ${
-            hasAnalysis && isFlashing 
-              ? 'bg-teal-600 hover:bg-teal-700' 
-              : 'bg-blue-600 hover:bg-blue-700'
-          }`}
+        <Button
+          onClick={handleButtonClick} // Use the new handler
+          className={`w-full gap-2 transition-colors duration-300 ${getButtonClass()}`} // Dynamic classes
         >
           <MessageSquare className="h-4 w-4" />
-          Resume Roast is Available!
+          {hasAnalysis && hasBeenClicked ? 'Start Career Chat' : 'Resume Roast is Available!'} {/* Change text after click */}
         </Button>
       </CardFooter>
     </Card>
