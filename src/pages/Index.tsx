@@ -8,7 +8,7 @@ import UpcomingEvents from '@/components/home/UpcomingEvents';
 import CTASection from '@/components/home/CTASection';
 import Footer from '@/components/layout/Footer';
 import LearningJourney from '@/components/home/LearningJourney';
-import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
+// import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
 import { useInView } from 'react-intersection-observer';
 import { useEffect } from 'react';
 // import { mockService } from '@/lib/mock';
