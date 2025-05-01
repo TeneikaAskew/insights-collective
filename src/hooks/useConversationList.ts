@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 // Make sure Message and ConversationParticipant are imported here
 import { Conversation, Message, ConversationParticipant } from '@/types/supabase';
@@ -218,11 +217,11 @@ export function useConversationList() {
           }
        )
       .subscribe((status, err) => {
-        // status type is REALTIME_SUBSCRIBE_STATES which is a string enum
+        // status type is REALTIME_SUBSCRIBE_STATES which is a string literal union type
         console.log(`[useConversationList] Realtime subscription status: ${status}`);
 
-        // Compare against the enum members correctly
-        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIPTION_ERROR) {
+        // Compare against the string literal values
+        if (status === 'SUBSCRIPTION_ERROR') { // Use string literal
           console.error('[useConversationList] Realtime subscription error:', err);
            toast({
              title: 'Connection Issue',
@@ -230,13 +229,13 @@ export function useConversationList() {
              variant: 'destructive',
            });
         } else if (
-             status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
-             status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT ||
-             status === REALTIME_SUBSCRIBE_STATES.CLOSED
-             ) {
+            status === 'CHANNEL_ERROR' || // Use string literal
+            status === 'TIMED_OUT' || // Use string literal
+            status === 'CLOSED' // Use string literal
+            ) {
              console.warn(`[useConversationList] Realtime channel issue: ${status}`, err);
              // Optionally attempt to resubscribe or notify user
-        } else if (status !== REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
+        } else if (status !== 'SUBSCRIBED') { // Use string literal
              console.log('[useConversationList] Realtime status:', status);
         }
       });
