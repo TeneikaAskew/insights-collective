@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 // Make sure Message and ConversationParticipant are imported here
 import { Conversation, Message, ConversationParticipant } from '@/types/supabase';
@@ -5,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { fetchUserConversations } from '@/services/conversationService';
 import { supabase } from '@/integrations/supabase/client';
-// Make sure REALTIME_SUBSCRIBE_STATES is imported
+// Make sure REALTIME_SUBSCRIBE_STATES is imported for type annotation
 import { RealtimeChannel, RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 
 /**
@@ -216,12 +217,11 @@ export function useConversationList() {
                });
           }
        )
-      .subscribe((status, err) => {
-        // status type is REALTIME_SUBSCRIBE_STATES which is a string literal union type
+      .subscribe((status: REALTIME_SUBSCRIBE_STATES, err?: Error) => { // Explicit type annotation for status
         console.log(`[useConversationList] Realtime subscription status: ${status}`);
 
-        // Compare against the string literal values
-        if (status === 'SUBSCRIPTION_ERROR') { // Use string literal
+        // Compare status directly against string literals
+        if (status === 'SUBSCRIPTION_ERROR') { // Direct string comparison
           console.error('[useConversationList] Realtime subscription error:', err);
            toast({
              title: 'Connection Issue',
@@ -229,13 +229,13 @@ export function useConversationList() {
              variant: 'destructive',
            });
         } else if (
-            status === 'CHANNEL_ERROR' || // Use string literal
-            status === 'TIMED_OUT' || // Use string literal
-            status === 'CLOSED' // Use string literal
+            status === 'CHANNEL_ERROR' || // Direct string comparison
+            status === 'TIMED_OUT' || // Direct string comparison
+            status === 'CLOSED' // Direct string comparison
             ) {
              console.warn(`[useConversationList] Realtime channel issue: ${status}`, err);
              // Optionally attempt to resubscribe or notify user
-        } else if (status !== 'SUBSCRIBED') { // Use string literal
+        } else if (status !== 'SUBSCRIBED') { // Direct string comparison
              console.log('[useConversationList] Realtime status:', status);
         }
       });
