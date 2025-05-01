@@ -1,10 +1,11 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Conversation } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { fetchUserConversations } from '@/services/conversationService';
 import { supabase } from '@/integrations/supabase/client';
+import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 /**
  * Hook for fetching and subscribing to conversations
@@ -15,36 +16,44 @@ export function useConversationList() {
   const [error, setError] = useState<any>(null);
   const { user } = useAuth();
   const { toast } = useToast();
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const loadingRef = useRef(false); // Use ref to prevent race conditions in load
 
   useEffect(() => {
     console.log('[useConversationList] useEffect fired. User:', user?.id);
     if (!user) {
       console.log('[useConversationList] No user found, skipping load.');
       setLoading(false);
+      loadingRef.current = false;
       setConversations([]); // Clear conversations if no user
+      // Clean up existing channel if user logs out
+      if (channelRef.current) {
+        console.log('[useConversationList] Removing channel due to user logout.');
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
       return;
     }
 
     const loadConversations = async () => {
-      // Avoid concurrent loads
-      if (loading) {
+      // Avoid concurrent loads using ref
+      if (loadingRef.current) {
           console.log('[useConversationList] Load already in progress, skipping.');
           return;
       }
       console.log('[useConversationList] Loading inbox conversations for user:', user.id);
       setLoading(true);
+      loadingRef.current = true; // Set loading flag
       setError(null);
       try {
         const conversationsData = await fetchUserConversations(user.id);
-        // ADDED: Log received conversation IDs and their archived/deleted status
         console.log('[useConversationList] Raw conversations received from fetchUserConversations:',
           conversationsData.map(c => ({ id: c.id, archived: !!c.archived, deleted: !!c.deleted_at }))
         );
 
-        // Check if the problematic conversation is present *before* setting state
         const problematicConvo = conversationsData.find(c => c.id === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88');
         if (problematicConvo) {
-            console.warn(`[useConversationList] PROBLEM: Conversation 10fb00f9... (Archived: ${!!problematicConvo.archived}) received from fetchUserConversations!`, problematicConvo);
+            console.warn(`[useConversationList] PROBLEM: Conversation 10fb00f9... (Archived: ${!!problematicConvo.archived}, Deleted: ${!!problematicConvo.deleted_at}) received from fetchUserConversations!`, problematicConvo);
         } else {
              console.log('[useConversationList] Conversation 10fb00f9... not found in received inbox data.');
         }
@@ -54,7 +63,6 @@ export function useConversationList() {
       } catch (error) {
         console.error('[useConversationList] Error loading conversations:', error);
         setError(error);
-        // Avoid toast for auth errors handled elsewhere
         if (!(error instanceof Error && error.message.includes('JWT'))) {
           toast({
             title: 'Error',
@@ -64,6 +72,7 @@ export function useConversationList() {
         }
       } finally {
         setLoading(false);
+        loadingRef.current = false; // Reset loading flag
         console.log('[useConversationList] Finished loading inbox');
       }
     };
@@ -71,15 +80,19 @@ export function useConversationList() {
     loadConversations();
 
     // Realtime handler
-     const handleRealtimeChange = (payload: any, source: string) => {
+     const handleRealtimeChange = (payload: RealtimePostgresChangesPayload<any>, source: string) => {
        console.log(`[useConversationList] Realtime change detected from ${source}:`, { event: payload.eventType, table: payload.table, id: payload.new?.id || payload.old?.id });
 
-       // Check if the change involves the problematic conversation ID for debugging
+       // Use optional chaining for safer access
+       const newId = payload.new?.id;
+       const oldId = payload.old?.id;
+       const conversationId = payload.new?.conversation_id;
+
        let relevantId: string | null = null;
-       if (payload.new?.id === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88' || payload.old?.id === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88') {
+       if (newId === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88' || oldId === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88') {
            relevantId = '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88';
            console.warn(`[useConversationList] Realtime event related to conversation ${relevantId} detected from ${source}. Reloading inbox.`);
-       } else if (payload.new?.conversation_id === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88') {
+       } else if (conversationId === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88') {
             relevantId = '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88';
             console.warn(`[useConversationList] Realtime event (participant/message) related to conversation ${relevantId} detected from ${source}. Reloading inbox.`);
        } else {
@@ -91,107 +104,127 @@ export function useConversationList() {
 
 
     console.log('[useConversationList] Setting up realtime channel...');
-    // Ensure only one channel instance exists
+    // Ensure only one channel instance exists per user ID
     const channelKey = `conversation-changes-${user.id}`;
-    let channel = supabase.channel(channelKey);
 
-     // Remove existing listeners before adding new ones
-    channel.off('postgres_changes');
+    // If channel exists for this key, remove previous listeners before re-subscribing
+    if (channelRef.current && channelRef.current.topic === channelKey) {
+        console.log('[useConversationList] Removing old listeners from existing channel:', channelKey);
+        channelRef.current.off('postgres_changes');
+    } else {
+        // If channel doesn't exist or key changed, remove old one (if any) and create new
+        if (channelRef.current) {
+            console.log('[useConversationList] Removing different channel:', channelRef.current.topic);
+            supabase.removeChannel(channelRef.current);
+        }
+        console.log('[useConversationList] Creating new channel:', channelKey);
+        channelRef.current = supabase.channel(channelKey);
+    }
 
+    const currentChannel = channelRef.current; // Use a stable variable inside the effect
 
-    channel = channel.on(
+     // Subscribe to changes
+    currentChannel.on<any>( // Use <any> for payload type flexibility if specific types cause issues
         'postgres_changes',
         {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
           table: 'conversations',
-          // Filter for conversations where the user IS a participant (more reliable than created_by)
-          // This requires checking the participants table, ideally via a function or by reloading on any change and filtering client-side/service-side
-          // Let's refine this: listen to updates and check participation in the handler
         },
          (payload) => {
-            // Check if user is involved *before* calling handler
+            // Safe access to IDs
+            const convId = payload.new?.id || payload.old?.id;
+            if (!convId) return;
+
             supabase
               .from('conversation_participants')
               .select('user_id', { count: 'exact', head: true })
-              .eq('conversation_id', payload.new?.id || payload.old?.id)
+              .eq('conversation_id', convId)
               .eq('user_id', user.id)
               .then(({ count }) => {
                 if (count && count > 0) {
                   handleRealtimeChange(payload, 'conversations table (*)');
                 } else {
-                   console.log('[useConversationList] Ignoring conversation change (user not participant):', payload.new?.id || payload.old?.id);
+                   console.log('[useConversationList] Ignoring conversation change (user not participant):', convId);
                 }
               });
          }
       )
-      .on(
+      .on<any>(
         'postgres_changes',
         {
-          event: '*', // Listen to INSERT, DELETE (UPDATE handled by conversation listener)
+          event: '*',
           schema: 'public',
           table: 'conversation_participants',
-          filter: `user_id=eq.${user.id}`, // User added or removed
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => handleRealtimeChange(payload, 'conversation_participants table')
       )
-       .on(
+       .on<any>(
          'postgres_changes',
          {
-           event: 'INSERT', // Only care about new messages for inbox update trigger
+           event: 'INSERT',
            schema: 'public',
            table: 'messages',
-           // Cannot filter by participant directly here, filter in handler
          },
           (payload) => {
-             // Check if the message belongs to a conversation the user is part of
+             const convId = payload.new?.conversation_id;
+             if (!convId) return;
+
              supabase
                .from('conversation_participants')
                .select('user_id', { count: 'exact', head: true })
-               .eq('conversation_id', payload.new?.conversation_id)
+               .eq('conversation_id', convId)
                .eq('user_id', user.id)
                .then(({ count }) => {
                  if (count && count > 0) {
-                     // Only reload if the conversation *should* be in the inbox (not archived/deleted)
-                     const currentConvoState = conversations.find(c => c.id === payload.new?.conversation_id);
+                     const currentConvoState = conversations.find(c => c.id === convId);
+                     // Check includes deleted_at
                      if (!currentConvoState || (!currentConvoState.archived && !currentConvoState.deleted_at)) {
-                        console.log('[useConversationList] New message detected for relevant conversation:', payload.new?.conversation_id);
+                        console.log('[useConversationList] New message detected for relevant conversation:', convId);
                         handleRealtimeChange(payload, 'messages table (INSERT)');
                      } else {
-                         console.log('[useConversationList] New message for conversation not currently in inbox:', payload.new?.conversation_id);
-                         // Potentially trigger refresh of archived/deleted lists if needed elsewhere
+                         console.log('[useConversationList] New message for conversation not currently in inbox (archived/deleted):', convId);
                      }
                  } else {
-                    console.log('[useConversationList] Ignoring new message (user not participant):', payload.new?.conversation_id);
+                    console.log('[useConversationList] Ignoring new message (user not participant):', convId);
                  }
                });
           }
        )
       .subscribe((status, err) => {
         console.log(`[useConversationList] Realtime subscription status: ${status}`);
-        if (status === 'SUBSCRIPTION_ERROR') {
+        // status type is REALTIME_SUBSCRIBE_STATES which is a string enum
+        if (status === 'SUBSCRIPTION_ERROR') { // This comparison is correct
           console.error('[useConversationList] Realtime subscription error:', err);
-          // Maybe add a toast here
            toast({
              title: 'Connection Issue',
              description: 'Could not connect to live message updates. Please refresh.',
              variant: 'destructive',
            });
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+             console.warn(`[useConversationList] Realtime channel issue: ${status}`, err);
+             // Optionally attempt to resubscribe or notify user
+        } else if (status !== 'SUBSCRIBED') {
+             console.log('[useConversationList] Realtime status:', status);
         }
-         if (status !== 'SUBSCRIBED' && status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT' && status !== 'CLOSED') {
-            console.warn('[useConversationList] Unexpected realtime status:', status);
-         }
       });
 
+    // Cleanup function
     return () => {
-      console.log('[useConversationList] Cleaning up channel...');
-      if (channel) {
-        supabase.removeChannel(channel);
+      console.log('[useConversationList] useEffect cleanup running...');
+      if (currentChannel) {
+        console.log('[useConversationList] Removing channel during cleanup:', currentChannel.topic);
+        supabase.removeChannel(currentChannel);
+        // Important: Clear the ref only if it matches the channel being removed
+        if (channelRef.current === currentChannel) {
+           channelRef.current = null;
+        }
       }
     };
-    // Add conversations to dependency array if used inside checks (like message insert check)
-    // Add loading to prevent concurrent loads triggered by dependency changes
-  }, [user, toast, loading]); // Removed 'conversations' from deps to avoid loop, filtering logic improved
+    // Ensure dependencies cover user changes and potentially toast function
+    // Removed 'loading' and 'conversations' to prevent loops, managed loading with ref
+  }, [user, toast]);
 
 
   return {
