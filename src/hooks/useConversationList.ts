@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { fetchUserConversations } from '@/services/conversationService';
 import { supabase } from '@/integrations/supabase/client';
-import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import { RealtimeChannel, RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 
 /**
  * Hook for fetching and subscribing to conversations
@@ -51,6 +51,7 @@ export function useConversationList() {
           conversationsData.map(c => ({ id: c.id, archived: !!c.archived, deleted: !!c.deleted_at }))
         );
 
+        // Enhanced logging for the specific problematic conversation
         const problematicConvo = conversationsData.find(c => c.id === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88');
         if (problematicConvo) {
             console.warn(`[useConversationList] PROBLEM: Conversation 10fb00f9... (Archived: ${!!problematicConvo.archived}, Deleted: ${!!problematicConvo.deleted_at}) received from fetchUserConversations!`, problematicConvo);
@@ -81,25 +82,44 @@ export function useConversationList() {
 
     // Realtime handler
      const handleRealtimeChange = (payload: RealtimePostgresChangesPayload<any>, source: string) => {
-       console.log(`[useConversationList] Realtime change detected from ${source}:`, { event: payload.eventType, table: payload.table, id: payload.new?.id || payload.old?.id });
-
        // Use optional chaining for safer access
-       const newId = payload.new?.id;
-       const oldId = payload.old?.id;
-       const conversationId = payload.new?.conversation_id;
+       const newRecord = payload.new as Partial<Conversation & Message & ConversationParticipant>;
+       const oldRecord = payload.old as Partial<Conversation & Message & ConversationParticipant>;
+       const eventType = payload.eventType;
 
-       let relevantId: string | null = null;
-       if (newId === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88' || oldId === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88') {
-           relevantId = '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88';
-           console.warn(`[useConversationList] Realtime event related to conversation ${relevantId} detected from ${source}. Reloading inbox.`);
-       } else if (conversationId === '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88') {
-            relevantId = '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88';
-            console.warn(`[useConversationList] Realtime event (participant/message) related to conversation ${relevantId} detected from ${source}. Reloading inbox.`);
+       const newId = newRecord?.id;
+       const oldId = oldRecord?.id;
+       // For messages or participants, the relevant conversation ID is on the record itself
+       const conversationId = newRecord?.conversation_id || oldRecord?.conversation_id;
+       // For conversation updates, the ID is directly on the record
+       const directConversationId = newId || oldId;
+
+       console.log(`[useConversationList] Realtime change detected from ${source}:`, {
+         event: eventType,
+         table: payload.table,
+         newId: newId,
+         oldId: oldId,
+         conversationId: conversationId,
+         directConversationId: directConversationId,
+         newArchived: (newRecord as Partial<Conversation>)?.archived,
+         newDeleted: (newRecord as Partial<Conversation>)?.deleted_at,
+       });
+
+
+       const PROBLEM_ID = '10fb00f9-a8e1-4c84-ae72-3f332cfc8b88';
+       let isRelevantToProblem = false;
+
+       if (directConversationId === PROBLEM_ID) {
+         isRelevantToProblem = true;
+         console.warn(`[useConversationList] Realtime event directly on conversation ${PROBLEM_ID} from ${source}. Reloading inbox.`);
+       } else if (conversationId === PROBLEM_ID) {
+         isRelevantToProblem = true;
+         console.warn(`[useConversationList] Realtime event (participant/message) related to conversation ${PROBLEM_ID} from ${source}. Reloading inbox.`);
        } else {
-           console.log(`[useConversationList] Realtime event from ${source} detected. Reloading inbox.`);
+         console.log(`[useConversationList] Realtime event from ${source} detected (Not ${PROBLEM_ID}). Reloading inbox.`);
        }
 
-       loadConversations(); // Reload inbox on any relevant change
+       loadConversations(); // Reload inbox on any relevant change for simplicity for now
      };
 
 
@@ -107,35 +127,34 @@ export function useConversationList() {
     // Ensure only one channel instance exists per user ID
     const channelKey = `conversation-changes-${user.id}`;
 
-    // If channel exists for this key, remove previous listeners before re-subscribing
-    if (channelRef.current && channelRef.current.topic === channelKey) {
-        console.log('[useConversationList] Removing old listeners from existing channel:', channelKey);
-        channelRef.current.off('postgres_changes');
-    } else {
-        // If channel doesn't exist or key changed, remove old one (if any) and create new
-        if (channelRef.current) {
-            console.log('[useConversationList] Removing different channel:', channelRef.current.topic);
-            supabase.removeChannel(channelRef.current);
-        }
-        console.log('[useConversationList] Creating new channel:', channelKey);
-        channelRef.current = supabase.channel(channelKey);
+    // If channel exists for this key, it might be reused, but listeners need careful handling.
+    // Safest approach: Remove old channel completely and create a new one ensures clean state.
+    if (channelRef.current) {
+        console.log('[useConversationList] Removing previous channel before creating new one:', channelRef.current.topic);
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null; // Clear the ref
     }
+
+    console.log('[useConversationList] Creating new channel:', channelKey);
+    channelRef.current = supabase.channel(channelKey);
 
     const currentChannel = channelRef.current; // Use a stable variable inside the effect
 
      // Subscribe to changes
-    currentChannel.on<any>( // Use <any> for payload type flexibility if specific types cause issues
+    currentChannel.on<any>( // Use <any> for payload type flexibility
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'conversations',
+          // No user_id filter here, we check participation below
         },
          (payload) => {
             // Safe access to IDs
-            const convId = payload.new?.id || payload.old?.id;
+            const convId = (payload.new as any)?.id || (payload.old as any)?.id;
             if (!convId) return;
 
+            // Check if the current user is still a participant
             supabase
               .from('conversation_participants')
               .select('user_id', { count: 'exact', head: true })
@@ -156,7 +175,7 @@ export function useConversationList() {
           event: '*',
           schema: 'public',
           table: 'conversation_participants',
-          filter: `user_id=eq.${user.id}`,
+          filter: `user_id=eq.${user.id}`, // Filter directly for efficiency
         },
         (payload) => handleRealtimeChange(payload, 'conversation_participants table')
       )
@@ -166,11 +185,13 @@ export function useConversationList() {
            event: 'INSERT',
            schema: 'public',
            table: 'messages',
+           // No conversation_id filter here, check participation below
          },
           (payload) => {
-             const convId = payload.new?.conversation_id;
+             const convId = (payload.new as any)?.conversation_id;
              if (!convId) return;
 
+             // Check if the user is a participant in the message's conversation
              supabase
                .from('conversation_participants')
                .select('user_id', { count: 'exact', head: true })
@@ -178,13 +199,15 @@ export function useConversationList() {
                .eq('user_id', user.id)
                .then(({ count }) => {
                  if (count && count > 0) {
+                     // Check if the conversation is currently visible in the inbox (not archived/deleted)
+                     // We use the local state `conversations` which `loadConversations` will update
+                     // This check prevents reloading if a message arrives for an already archived/deleted convo
                      const currentConvoState = conversations.find(c => c.id === convId);
-                     // Check includes deleted_at
-                     if (!currentConvoState || (!currentConvoState.archived && !currentConvoState.deleted_at)) {
-                        console.log('[useConversationList] New message detected for relevant conversation:', convId);
+                     if (currentConvoState) { // Only proceed if the convo is currently in the inbox list
+                        console.log('[useConversationList] New message detected for inbox conversation:', convId);
                         handleRealtimeChange(payload, 'messages table (INSERT)');
                      } else {
-                         console.log('[useConversationList] New message for conversation not currently in inbox (archived/deleted):', convId);
+                         console.log('[useConversationList] New message for conversation not currently in inbox (archived/deleted/filtered?):', convId);
                      }
                  } else {
                     console.log('[useConversationList] Ignoring new message (user not participant):', convId);
@@ -193,9 +216,11 @@ export function useConversationList() {
           }
        )
       .subscribe((status, err) => {
-        console.log(`[useConversationList] Realtime subscription status: ${status}`);
         // status type is REALTIME_SUBSCRIBE_STATES which is a string enum
-        if (status === 'SUBSCRIPTION_ERROR') { // This comparison is correct
+        console.log(`[useConversationList] Realtime subscription status: ${status}`);
+
+        // Compare against the string values of the enum
+        if (status === 'SUBSCRIPTION_ERROR') {
           console.error('[useConversationList] Realtime subscription error:', err);
            toast({
              title: 'Connection Issue',
@@ -215,16 +240,18 @@ export function useConversationList() {
       console.log('[useConversationList] useEffect cleanup running...');
       if (currentChannel) {
         console.log('[useConversationList] Removing channel during cleanup:', currentChannel.topic);
-        supabase.removeChannel(currentChannel);
+        supabase.removeChannel(currentChannel)
+          .catch(removeError => {
+             console.error('[useConversationList] Error removing channel during cleanup:', removeError);
+          });
         // Important: Clear the ref only if it matches the channel being removed
         if (channelRef.current === currentChannel) {
            channelRef.current = null;
         }
       }
     };
-    // Ensure dependencies cover user changes and potentially toast function
-    // Removed 'loading' and 'conversations' to prevent loops, managed loading with ref
-  }, [user, toast]);
+    // Dependencies: user and toast. loadConversations depends on user.id and toast.
+  }, [user, toast]); // Removed conversations from deps
 
 
   return {
@@ -233,3 +260,4 @@ export function useConversationList() {
     error,
   };
 }
+
