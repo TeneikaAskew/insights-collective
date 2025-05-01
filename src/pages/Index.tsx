@@ -1,14 +1,16 @@
-es/Index.tsx
-+4
--14
-Original file line number	Original file line	Diff line number	Diff line change
-@@ -1,5 +1,4 @@
 
 import React from 'react';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
 import QuizSection from '@/components/quiz/QuizSection';
-@@ -15,65 +14,56 @@
+import LearningJourney from '@/components/home/LearningJourney';
+import FeaturedCourses from '@/components/home/FeaturedCourses';
+import CTASection from '@/components/home/CTASection';
+import AnalyticsDashboard from '@/components/home/AnalyticsDashboard';
+import UpcomingEvents from '@/components/home/UpcomingEvents';
+import * as mockService from '@/lib/mock';
+import { useInView } from 'react-intersection-observer';
+import { useEffect } from 'react';
 import PersonalizedPathway from '@/components/home/PersonalizedPathway';
 import InteractiveShowcase from '@/components/home/InteractiveShowcase';
 import CommunityShowcase from '@/components/home/CommunityShowcase';
@@ -74,3 +76,9 @@ const Index = () => {
         >
           <Component />
         </div>
+      ))}
+    </div>
+  );
+};
+
+export default Index;
