@@ -1,10 +1,12 @@
 
 import { useState, useEffect, useRef } from 'react';
-import { Conversation } from '@/types/supabase';
+// Make sure Message and ConversationParticipant are imported here
+import { Conversation, Message, ConversationParticipant } from '@/types/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from './use-toast';
 import { fetchUserConversations } from '@/services/conversationService';
 import { supabase } from '@/integrations/supabase/client';
+// Make sure REALTIME_SUBSCRIBE_STATES is imported
 import { RealtimeChannel, RealtimePostgresChangesPayload, REALTIME_SUBSCRIBE_STATES } from '@supabase/supabase-js';
 
 /**
@@ -82,7 +84,7 @@ export function useConversationList() {
 
     // Realtime handler
      const handleRealtimeChange = (payload: RealtimePostgresChangesPayload<any>, source: string) => {
-       // Use optional chaining for safer access
+       // Apply imported types correctly
        const newRecord = payload.new as Partial<Conversation & Message & ConversationParticipant>;
        const oldRecord = payload.old as Partial<Conversation & Message & ConversationParticipant>;
        const eventType = payload.eventType;
@@ -219,18 +221,22 @@ export function useConversationList() {
         // status type is REALTIME_SUBSCRIBE_STATES which is a string enum
         console.log(`[useConversationList] Realtime subscription status: ${status}`);
 
-        // Compare against the string values of the enum
-        if (status === 'SUBSCRIPTION_ERROR') {
+        // Compare against the enum members correctly
+        if (status === REALTIME_SUBSCRIBE_STATES.SUBSCRIPTION_ERROR) {
           console.error('[useConversationList] Realtime subscription error:', err);
            toast({
              title: 'Connection Issue',
              description: 'Could not connect to live message updates. Please refresh.',
              variant: 'destructive',
            });
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+        } else if (
+             status === REALTIME_SUBSCRIBE_STATES.CHANNEL_ERROR ||
+             status === REALTIME_SUBSCRIBE_STATES.TIMED_OUT ||
+             status === REALTIME_SUBSCRIBE_STATES.CLOSED
+             ) {
              console.warn(`[useConversationList] Realtime channel issue: ${status}`, err);
              // Optionally attempt to resubscribe or notify user
-        } else if (status !== 'SUBSCRIBED') {
+        } else if (status !== REALTIME_SUBSCRIBE_STATES.SUBSCRIBED) {
              console.log('[useConversationList] Realtime status:', status);
         }
       });
@@ -260,4 +266,3 @@ export function useConversationList() {
     error,
   };
 }
-
