@@ -1,22 +1,23 @@
 import { supabase } from '@/integrations/supabase/client';
+import { Conversation } from '@/types/supabase'; // Import Conversation type
 
 /**
- * Fetch conversations for a specific user
+ * Fetch conversations for a specific user (non-archived, non-deleted)
  */
-export const fetchUserConversations = async (userId: string) => {
+export const fetchUserConversations = async (userId: string): Promise<Conversation[]> => { // Add return type
   try {
-    console.log('Fetching conversations for user:', userId);
+    console.log('Fetching active conversations for user:', userId);
     const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getConversations', userId },
     });
-    
+
     if (error) {
-      console.error('Error fetching conversations:', error);
+      console.error('Error fetching active conversations:', error);
       throw new Error(error.message);
     }
-    
-    console.log('Conversations fetched:', data?.conversations?.length || 0);
-    return data?.conversations || [];
+
+    console.log('Active conversations fetched:', data?.conversations?.length || 0);
+    return (data?.conversations as Conversation[]) || []; // Cast to Conversation[]
   } catch (error) {
     console.error('Error in fetchUserConversations:', error);
     throw error;
@@ -24,22 +25,47 @@ export const fetchUserConversations = async (userId: string) => {
 };
 
 /**
- * Fetch archived conversations for a specific user
+ * Fetch archived conversations for a specific user (non-deleted)
  */
-export const fetchArchivedUserConversations = async (userId: string) => {
+export const fetchArchivedUserConversations = async (userId: string): Promise<Conversation[]> => { // Add return type
   try {
+    console.log('Fetching archived conversations for user:', userId); // Log clarification
     const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { action: 'getArchivedConversations', userId },
     });
-    
+
     if (error) {
       console.error('Error fetching archived conversations:', error);
       throw new Error(error.message);
     }
-    
-    return data?.conversations || [];
+     console.log('Archived conversations fetched:', data?.conversations?.length || 0); // Log count
+
+    return (data?.conversations as Conversation[]) || []; // Cast to Conversation[]
   } catch (error) {
     console.error('Error in fetchArchivedUserConversations:', error);
+    throw error;
+  }
+};
+
+/**
+ * Fetch deleted conversations for a specific user
+ */
+export const fetchDeletedUserConversations = async (userId: string): Promise<Conversation[]> => { // Add return type and new function
+  try {
+    console.log('Fetching deleted conversations for user:', userId);
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { action: 'getDeletedConversations', userId }, // Use new action
+    });
+
+    if (error) {
+      console.error('Error fetching deleted conversations:', error);
+      throw new Error(error.message);
+    }
+    console.log('Deleted conversations fetched:', data?.conversations?.length || 0); // Log count
+
+    return (data?.conversations as Conversation[]) || []; // Cast to Conversation[]
+  } catch (error) {
+    console.error('Error in fetchDeletedUserConversations:', error);
     throw error;
   }
 };
@@ -263,4 +289,82 @@ export const unarchiveConversation = async (conversationId: string, userId: stri
   }
   
   return updateConversationArchiveStatus(conversationId, false);
+};
+
+/**
+* Delete a conversation (sets deleted_at) - New Function
+*/
+export const deleteConversation = async (conversationId: string, userId: string) => {
+  // Optional: Check if user is allowed to delete this conversation (e.g., participant)
+  const { data: participant, error: checkError } = await supabase
+    .from('conversation_participants')
+    .select()
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+    .maybeSingle(); // Use maybeSingle to handle case where participant might not exist
+
+  if (checkError) {
+     console.error("Error checking participation:", checkError);
+     throw new Error('Could not verify participation to delete conversation.');
+  }
+
+  if (!participant) {
+    console.warn(`User ${userId} attempted to delete conversation ${conversationId} they are not part of.`);
+    throw new Error('You do not have permission to delete this conversation');
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .update({ deleted_at: new Date().toISOString() }) // Set deleted_at timestamp
+      .eq('id', conversationId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    console.log(`Conversation ${conversationId} marked as deleted.`);
+    return data;
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
+    throw error;
+  }
+};
+
+/**
+* Restore a conversation (sets deleted_at to null) - New Function
+*/
+export const restoreConversation = async (conversationId: string, userId: string) => {
+   // Optional: Check if user is allowed to restore this conversation
+   const { data: participant, error: checkError } = await supabase
+    .from('conversation_participants')
+    .select()
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+   if (checkError) {
+     console.error("Error checking participation:", checkError);
+     throw new Error('Could not verify participation to restore conversation.');
+   }
+
+   if (!participant) {
+     console.warn(`User ${userId} attempted to restore conversation ${conversationId} they are not part of.`);
+     throw new Error('You do not have permission to restore this conversation');
+   }
+
+  try {
+    const { data, error } = await supabase
+      .from('conversations')
+      .update({ deleted_at: null }) // Set deleted_at to null
+      .eq('id', conversationId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    console.log(`Conversation ${conversationId} restored.`);
+    return data;
+  } catch (error) {
+    console.error('Error restoring conversation:', error);
+    throw error;
+  }
 };
