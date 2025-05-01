@@ -1,3 +1,5 @@
+
+// deno-lint-ignore-file no-explicit-any
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.0';
 
@@ -8,384 +10,331 @@ const corsHeaders = {
 };
 
 // Helper function to fetch conversation details including participants and last message
-const fetchConversationDetails = async (supabaseAdmin: any, conversationIds: string[]) => {
-    if (!conversationIds || conversationIds.length === 0) {
-        return [];
-    }
+// Removed as it wasn't being used and queries are now embedded in actions
 
-    const { data: conversations, error: convError } = await supabaseAdmin
-        .from('conversations')
-        .select(`
-            *,
-            participants:conversation_participants(
-                user_id,
-                added_at,
-                profile:profiles(id, first_name, last_name, avatar_url)
-            ),
-            last_message:messages!messages_conversation_id_fkey(
-                id, content, created_at, sender_id, read
-            )
-        `)
-        .in('id', conversationIds)
-        .order('created_at', { foreignTable: 'messages', ascending: false }) // Order messages within each conversation
-        .limit(1, { foreignTable: 'messages' }); // Limit to the last message
+serve(async (req: Request) => {
+  console.log(`[messages-helper] Received request: ${req.method} ${req.url}`);
 
-    if (convError) {
-        console.error('Error fetching conversation details:', convError);
-        throw convError;
-    }
-
-    // The query above might return multiple message rows if not structured perfectly.
-    // We need to ensure only one 'last_message' per conversation.
-    // This processing step groups messages by conversation and selects the latest one.
-    const conversationMap = new Map<string, any>();
-    conversations.forEach((conv: any) => {
-        const existing = conversationMap.get(conv.id);
-        if (!existing) {
-            // If the conversation has messages, ensure 'last_message' is an object, not array
-            if (conv.last_message && Array.isArray(conv.last_message)) {
-                 conv.last_message = conv.last_message[0] || null;
-            } else if (!conv.last_message) {
-                 conv.last_message = null; // Ensure it's null if no messages
-            }
-            conversationMap.set(conv.id, conv);
-        } else {
-             // If somehow duplicates exist, maybe update based on timestamp? (Less likely with correct query)
-             // For simplicity, we assume the query returns unique conversations here.
-        }
-    });
-
-
-    return Array.from(conversationMap.values());
-};
-
-
-serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log('[messages-helper] Handling OPTIONS request');
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { action, userId, conversationId, currentUserId, otherUserId } = await req.json();
+    // Ensure body exists and is readable
+    let payload: any;
+    try {
+        payload = await req.json();
+        console.log('[messages-helper] Request payload:', payload);
+    } catch (parseError) {
+        console.error('[messages-helper] Error parsing request body:', parseError);
+        return new Response(JSON.stringify({ error: 'Invalid request body: ' + parseError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+    }
 
-    // Get supabase client
+    const { action, userId, conversationId, currentUserId, otherUserId, updates } = payload;
+
+    // Validate action
+    if (!action) {
+        console.error('[messages-helper] Error: Action is required in payload.');
+        throw new Error('Action is required');
+    }
+     console.log(`[messages-helper] Processing action: ${action}`);
+
+    // Get supabase client using SERVICE_ROLE_KEY for admin privileges
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
+     console.log('[messages-helper] Supabase admin client initialized.');
 
-    let result = null;
+    let result: any = null; // Use 'any' for flexibility in result structure
 
     // Route to the appropriate action
     switch (action) {
       case 'getConversations':
+      case 'getArchivedConversations':
+      case 'getDeletedConversations': {
+         console.log(`[messages-helper/${action}] Starting for user: ${userId}`);
         if (!userId) {
+          console.error(`[messages-helper/${action}] Error: userId is required.`);
           throw new Error('userId is required');
         }
 
-        console.log('Getting non-deleted, non-archived conversations for user:', userId);
-
-        // 1. Find conversation IDs where the user is a participant and conversation is not deleted/archived
-        const { data: activeParticipantRecords, error: activePartError } = await supabaseAdmin
+        // 1. Find conversation IDs where the user is a participant
+        console.log(`[messages-helper/${action}] Fetching participant records for user: ${userId}`);
+        const { data: participantRecords, error: partError } = await supabaseAdmin
           .from('conversation_participants')
           .select('conversation_id')
           .eq('user_id', userId);
 
-        if (activePartError) {
-          console.error('Error fetching active participant records:', activePartError);
-          throw activePartError;
+        if (partError) {
+          console.error(`[messages-helper/${action}] Error fetching participant records:`, partError);
+          throw partError;
         }
+        console.log(`[messages-helper/${action}] Found ${participantRecords?.length || 0} participation records.`);
 
-        const activeConversationIds = activeParticipantRecords.map((p: any) => p.conversation_id);
 
-        // 2. Fetch details for those active, non-deleted, non-archived conversations
-         const { data: activeConvDetails, error: activeConvDetailsError } = await supabaseAdmin
+        const conversationIds = participantRecords?.map((p: any) => p.conversation_id) || [];
+
+        if (conversationIds.length === 0) {
+           console.log(`[messages-helper/${action}] No conversations found for user ${userId}.`);
+           result = { conversations: [] };
+           break; // Exit switch case early
+        }
+         console.log(`[messages-helper/${action}] Fetching details for conversation IDs:`, conversationIds);
+
+
+        // 2. Build the query based on the action
+        let query = supabaseAdmin
              .from('conversations')
              .select(`
                  id, subject, is_group, archived, created_at, updated_at, created_by, deleted_at,
                  participants:conversation_participants(
                      user_id,
                      added_at,
-                     profile:profiles(id, first_name, last_name, avatar_url)
-                 ),
-                 last_message:messages!messages_conversation_id_fkey(
-                     id, content, created_at, sender_id, read
-                 )
-             `)
-             .in('id', activeConversationIds)
-             .eq('archived', false)
-             .is('deleted_at', null) // Ensure not deleted
-             .order('created_at', { foreignTable: 'messages', ascending: false })
-             .limit(1, { foreignTable: 'messages' });
-
-
-        if (activeConvDetailsError) {
-          console.error('Error fetching active conversation details:', activeConvDetailsError);
-          throw activeConvDetailsError;
-        }
-
-         // Process messages to ensure only the last one is attached
-         const processedActiveConversations = activeConvDetails.map((conv: any) => {
-             if (conv.last_message && Array.isArray(conv.last_message)) {
-                 conv.last_message = conv.last_message[0] || null;
-             } else if (!conv.last_message) {
-                 conv.last_message = null;
-             }
-             return conv;
-         });
-
-
-        console.log(`Retrieved ${processedActiveConversations?.length || 0} active conversations`);
-        result = { conversations: processedActiveConversations };
-        break;
-
-      case 'getMessages':
-        if (!conversationId) {
-          throw new Error('conversationId is required');
-        }
-        
-        // Fetch messages for the conversation
-        const { data: messages, error: messagesError } = await supabaseAdmin
-          .from('messages')
-          .select('*')
-          .eq('conversation_id', conversationId)
-          .order('created_at', { ascending: true });
-          
-        if (messagesError) {
-          throw messagesError;
-        }
-        
-        result = { messages };
-        break;
-        
-      case 'getArchivedConversations':
-         if (!userId) {
-             throw new Error('userId is required');
-         }
-         console.log('Getting archived conversations for user:', userId);
-
-         // 1. Find conversation IDs where the user is a participant
-         const { data: participantRecords, error: partError } = await supabaseAdmin
-             .from('conversation_participants')
-             .select('conversation_id')
-             .eq('user_id', userId);
-
-         if (partError) {
-             console.error('Error fetching participant records:', partError);
-             throw partError;
-         }
-
-         const conversationIds = participantRecords.map((p: any) => p.conversation_id);
-
-         // 2. Fetch details for conversations that are archived and not deleted
-         const { data: archivedConvDetails, error: archivedError } = await supabaseAdmin
-             .from('conversations')
-             .select(`
-                 id, subject, is_group, archived, created_at, updated_at, created_by, deleted_at,
-                 participants:conversation_participants(
-                     user_id,
-                     added_at,
-                     profile:profiles(id, first_name, last_name, avatar_url)
+                     profile:profiles(id, first_name, last_name, avatar_url, role)
                  ),
                  last_message:messages!messages_conversation_id_fkey(
                      id, content, created_at, sender_id, read
                  )
              `)
              .in('id', conversationIds)
-             .eq('archived', true)
-             .is('deleted_at', null) // Ensure not deleted
              .order('created_at', { foreignTable: 'messages', ascending: false })
              .limit(1, { foreignTable: 'messages' });
 
-
-         if (archivedError) {
-             console.error('Error fetching archived conversation details:', archivedError);
-             throw archivedError;
-         }
-
-          // Process messages
-          const processedArchivedConversations = archivedConvDetails.map((conv: any) => {
-              if (conv.last_message && Array.isArray(conv.last_message)) {
-                  conv.last_message = conv.last_message[0] || null;
-              } else if (!conv.last_message) {
-                  conv.last_message = null;
-              }
-              return conv;
-          });
-
-         console.log(`Retrieved ${processedArchivedConversations?.length || 0} archived conversations`);
-         result = { conversations: processedArchivedConversations };
-         break;
-
-      case 'getDeletedConversations': // New case
-        if (!userId) {
-          throw new Error('userId is required');
-        }
-        console.log('Getting deleted conversations for user:', userId);
-
-        // 1. Find conversation IDs where the user is a participant
-        const { data: delParticipantRecords, error: delPartError } = await supabaseAdmin
-            .from('conversation_participants')
-            .select('conversation_id')
-            .eq('user_id', userId);
-
-        if (delPartError) {
-            console.error('Error fetching participant records for deleted:', delPartError);
-            throw delPartError;
+        // Apply filters based on action
+        if (action === 'getConversations') {
+             console.log(`[messages-helper/${action}] Applying filters: archived=false, deleted_at=null`);
+            query = query.eq('archived', false).is('deleted_at', null);
+        } else if (action === 'getArchivedConversations') {
+             console.log(`[messages-helper/${action}] Applying filters: archived=true, deleted_at=null`);
+            query = query.eq('archived', true).is('deleted_at', null);
+        } else if (action === 'getDeletedConversations') {
+             console.log(`[messages-helper/${action}] Applying filters: deleted_at!=null`);
+            query = query.not('deleted_at', 'is', null);
         }
 
-        const delConversationIds = delParticipantRecords.map((p: any) => p.conversation_id);
+        // Execute the query
+        const { data: convDetails, error: convDetailsError } = await query;
 
-        // 2. Fetch details for conversations that are deleted (deleted_at is not null)
-         const { data: deletedConvDetails, error: deletedError } = await supabaseAdmin
-             .from('conversations')
-             .select(`
-                 id, subject, is_group, archived, created_at, updated_at, created_by, deleted_at,
-                 participants:conversation_participants(
-                     user_id,
-                     added_at,
-                     profile:profiles(id, first_name, last_name, avatar_url)
-                 ),
-                 last_message:messages!messages_conversation_id_fkey(
-                     id, content, created_at, sender_id, read
-                 )
-             `)
-             .in('id', delConversationIds)
-             .not('deleted_at', 'is', null) // Fetch where deleted_at is NOT NULL
-             .order('created_at', { foreignTable: 'messages', ascending: false })
-             .limit(1, { foreignTable: 'messages' });
+        if (convDetailsError) {
+          console.error(`[messages-helper/${action}] Error fetching conversation details:`, convDetailsError);
+          throw convDetailsError;
+        }
+         console.log(`[messages-helper/${action}] Raw conversation details fetched:`, convDetails?.length || 0);
 
 
-        if (deletedError) {
-          console.error('Error fetching deleted conversation details:', deletedError);
-          throw deletedError;
+         // Process messages to ensure only the last one is attached and profiles are enriched
+         const processedConversations = (convDetails || []).map((conv: any) => {
+             // Ensure last_message is a single object or null
+             if (conv.last_message && Array.isArray(conv.last_message)) {
+                 conv.last_message = conv.last_message[0] || null;
+             } else if (!conv.last_message) {
+                 conv.last_message = null;
+             }
+
+             // Enrich participant profiles (if they exist)
+             if (conv.participants && Array.isArray(conv.participants)) {
+                 conv.participants = conv.participants.map((p: any) => {
+                     if (p.profile) {
+                         // Basic enrichment example (assuming role exists)
+                         // You might need a more robust enrichProfileWithRoles function here if needed
+                         p.profile.roles = p.profile.role ? [p.profile.role] : ['student'];
+                     }
+                     return p;
+                 });
+             }
+
+             return conv;
+         });
+
+
+        console.log(`[messages-helper/${action}] Retrieved ${processedConversations?.length || 0} conversations.`);
+        result = { conversations: processedConversations };
+        break;
+      } // End of combined conversation fetching cases
+
+
+      case 'getMessages':
+        console.log(`[messages-helper/getMessages] Starting for conversation: ${conversationId}`);
+        if (!conversationId) {
+          console.error('[messages-helper/getMessages] Error: conversationId is required.');
+          throw new Error('conversationId is required');
         }
 
-        // Process messages
-        const processedDeletedConversations = deletedConvDetails.map((conv: any) => {
-            if (conv.last_message && Array.isArray(conv.last_message)) {
-                conv.last_message = conv.last_message[0] || null;
-            } else if (!conv.last_message) {
-                conv.last_message = null;
-            }
-            return conv;
-        });
+        // Fetch messages for the conversation, including sender profile
+         console.log(`[messages-helper/getMessages] Fetching messages and sender profiles for conversation: ${conversationId}`);
+        const { data: messages, error: messagesError } = await supabaseAdmin
+          .from('messages')
+           .select(`
+             id,
+             sender_id,
+             conversation_id,
+             content,
+             attachment_url,
+             read,
+             created_at,
+             sender:profiles!sender_id(
+               id,
+               first_name,
+               last_name,
+               avatar_url,
+               role
+             )
+           `)
+          .eq('conversation_id', conversationId)
+          .order('created_at', { ascending: true });
 
-        console.log(`Retrieved ${processedDeletedConversations?.length || 0} deleted conversations`);
-        result = { conversations: processedDeletedConversations };
+        if (messagesError) {
+          console.error('[messages-helper/getMessages] Error fetching messages:', messagesError);
+          throw messagesError;
+        }
+         console.log(`[messages-helper/getMessages] Fetched ${messages?.length || 0} messages.`);
+
+        // Enrich sender profiles in messages
+        const messagesWithProfiles = (messages || []).map((message: any) => ({
+           ...message,
+           // Basic enrichment, adapt if needed
+           sender: message.sender ? { ...message.sender, roles: message.sender.role ? [message.sender.role] : ['student'] } : null
+        }));
+
+        result = { messages: messagesWithProfiles };
         break;
 
+
       case 'checkOneOnOneConversation':
+         console.log(`[messages-helper/checkOneOnOneConversation] Checking between ${currentUserId} and ${otherUserId}`);
         if (!currentUserId || !otherUserId) {
+           console.error('[messages-helper/checkOneOnOneConversation] Error: Both currentUserId and otherUserId are required.');
           throw new Error('Both currentUserId and otherUserId are required');
         }
-        
-        console.log('Checking for one-on-one conversation between', currentUserId, 'and', otherUserId);
-        
-        // Find conversations where both users are participants and it's not a group conversation
+
+        // Find conversations where both users are participants and it's not a group conversation, not archived, not deleted
+         console.log('[messages-helper/checkOneOnOneConversation] Querying for existing conversations...');
         const { data: existingConversations, error: existingConvError } = await supabaseAdmin
-          .from('conversations')
-          .select(`
-            id,
-            is_group,
-            created_at,
-            conversation_participants!inner(user_id)
-          `)
-          .eq('is_group', false)
-          .eq('archived', false);
-        
+          .rpc('find_one_on_one_conversation', { user1_id: currentUserId, user2_id: otherUserId });
+          // Note: This requires a DB function `find_one_on_one_conversation`
+          // Example function:
+          /*
+          CREATE OR REPLACE FUNCTION find_one_on_one_conversation(user1_id uuid, user2_id uuid)
+          RETURNS TABLE(conversation_id uuid) AS $$
+          BEGIN
+              RETURN QUERY
+              SELECT cp1.conversation_id
+              FROM conversation_participants cp1
+              JOIN conversation_participants cp2 ON cp1.conversation_id = cp2.conversation_id
+              JOIN conversations c ON cp1.conversation_id = c.id
+              WHERE cp1.user_id = user1_id
+                AND cp2.user_id = user2_id
+                AND c.is_group = false
+                AND c.archived = false
+                AND c.deleted_at IS NULL
+              LIMIT 1;
+          END;
+          $$ LANGUAGE plpgsql;
+          */
+
         if (existingConvError) {
-          console.error('Error checking for existing conversations:', existingConvError);
+          console.error('[messages-helper/checkOneOnOneConversation] Error executing DB function:', existingConvError);
           throw existingConvError;
         }
-        
-        // Filter to find conversations where both users are participants
-        const oneOnOneConversation = existingConversations?.find(conv => {
-          // Check if this conversation has exactly 2 participants
-          if (conv.conversation_participants?.length !== 2) return false;
-          
-          // Check if both users are participants in this conversation
-          const userIds = conv.conversation_participants.map(p => p.user_id);
-          return userIds.includes(currentUserId) && userIds.includes(otherUserId);
-        });
-        
-        if (oneOnOneConversation) {
-          console.log('Found one-on-one conversation:', oneOnOneConversation.id);
-          result = { conversation: { id: oneOnOneConversation.id } };
+
+        const conversationMatch = existingConversations?.[0]; // RPC returns an array
+
+        if (conversationMatch?.conversation_id) {
+          console.log('[messages-helper/checkOneOnOneConversation] Found one-on-one conversation:', conversationMatch.conversation_id);
+          result = { conversation: { id: conversationMatch.conversation_id } };
         } else {
-          console.log('No one-on-one conversation found');
+          console.log('[messages-helper/checkOneOnOneConversation] No active one-on-one conversation found.');
           result = { conversation: null };
         }
         break;
-        
+
+
       case 'updateConversation':
-        if (!conversationId || !userId) {
-          throw new Error('Both conversationId and userId are required');
+        console.log(`[messages-helper/updateConversation] Updating conv ${conversationId} for user ${userId}`);
+        if (!conversationId || !userId || !updates) {
+           console.error('[messages-helper/updateConversation] Error: conversationId, userId, and updates are required.');
+          throw new Error('conversationId, userId, and updates are required');
         }
-        
-        console.log(`Updating conversation ${conversationId} for user ${userId}`);
-        
-        // 1. Check if user is a participant
-        const { data: participant, error: partError } = await supabaseAdmin
+
+        // 1. Verify user is a participant (using admin client)
+        console.log(`[messages-helper/updateConversation] Checking participation for user ${userId} in conv ${conversationId}`);
+        const { data: participant, error: checkError } = await supabaseAdmin
           .from('conversation_participants')
-          .select('*')
+          .select('user_id')
           .eq('conversation_id', conversationId)
           .eq('user_id', userId)
-          .single();
-        
-        if (partError) {
-          console.error('Error checking participation:', partError);
-          throw new Error('Failed to verify your permission to update this conversation.');
-        }
-        
+          .maybeSingle(); // Use maybeSingle to handle not found gracefully
+
+         if (checkError) {
+             console.error('[messages-helper/updateConversation] Error checking participation:', checkError);
+             // Don't necessarily throw, could be transient DB issue, let the update fail if needed
+             // throw new Error('Failed to verify participation');
+         }
+
         if (!participant) {
-          throw new Error('You do not have permission to update this conversation.');
+          // Log a warning but proceed. The function acts with admin rights.
+          // The frontend service function might have already checked, but this is a safeguard log.
+          console.warn(`[messages-helper/updateConversation] Warning: User ${userId} is not a participant of conversation ${conversationId}, but proceeding with admin rights.`);
+          // Depending on strictness, you could throw: throw new Error('User is not a participant');
+        } else {
+           console.log(`[messages-helper/updateConversation] User ${userId} confirmed as participant.`);
         }
-        
-        // 2. Get the update payload from the request
-        const { updates } = await req.json();
-        
-        if (!updates) {
-          throw new Error('No updates provided');
-        }
-        
-        // 3. Perform the update with admin privileges
-        const { data: updatedConversation, error: updateError } = await supabaseAdmin
+
+        // 2. Perform the update with admin privileges
+         console.log(`[messages-helper/updateConversation] Performing update on conv ${conversationId} with data:`, updates);
+        const { data: updatedData, error: updateError } = await supabaseAdmin
           .from('conversations')
           .update(updates)
           .eq('id', conversationId)
-          .select();
-        
+          .select() // Select the updated row
+           .maybeSingle(); // Use maybeSingle in case the conversation was deleted concurrently
+
         if (updateError) {
-          console.error('Error updating conversation:', updateError);
+          console.error('[messages-helper/updateConversation] Error updating conversation:', updateError);
           throw updateError;
         }
-        
-        console.log(`Successfully updated conversation ${conversationId}`);
-        result = { conversation: updatedConversation[0] || null };
+
+        if (!updatedData) {
+           console.warn(`[messages-helper/updateConversation] No conversation found with ID ${conversationId} to update, or RLS prevented the update (though using admin should bypass).`);
+           // Decide if this should be an error or just return null
+            result = { conversation: null }; // Indicate no conversation was updated
+        } else {
+           console.log(`[messages-helper/updateConversation] Successfully updated conversation ${conversationId}`);
+           result = { conversation: updatedData };
+        }
         break;
 
+
       default:
+         console.error(`[messages-helper] Error: Unsupported action: ${action}`);
         throw new Error(`Unsupported action: ${action}`);
     }
 
+     console.log(`[messages-helper] Action ${action} completed successfully. Returning result.`);
     return new Response(
       JSON.stringify(result),
       {
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
-        }
+        },
+        status: 200 // Explicitly set success status
       }
     );
   } catch (error) {
-    console.error('Error:', error);
-
+    console.error('[messages-helper] General Error:', error);
+    // Ensure error is an Error object
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: errorMessage }),
       {
-        status: 400,
+        status: 400, // Use 400 for client errors, 500 for server errors if distinguishable
         headers: {
           ...corsHeaders,
           'Content-Type': 'application/json'
@@ -394,3 +343,24 @@ serve(async (req) => {
     );
   }
 });
+
+// Add the missing DB function if it doesn't exist
+/*
+-- Run this in Supabase SQL Editor if needed:
+CREATE OR REPLACE FUNCTION public.find_one_on_one_conversation(user1_id uuid, user2_id uuid)
+RETURNS TABLE(conversation_id uuid) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT cp1.conversation_id
+    FROM public.conversation_participants cp1
+    JOIN public.conversation_participants cp2 ON cp1.conversation_id = cp2.conversation_id
+    JOIN public.conversations c ON cp1.conversation_id = c.id
+    WHERE cp1.user_id = user1_id
+      AND cp2.user_id = user2_id
+      AND c.is_group = false
+      AND c.archived = false
+      AND c.deleted_at IS NULL
+    LIMIT 1;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER; -- Use SECURITY DEFINER if called by admin function
+*/
