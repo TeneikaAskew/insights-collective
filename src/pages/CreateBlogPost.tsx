@@ -53,7 +53,7 @@ const CreateBlogPost = () => {
             <ArrowLeft className="h-4 w-4" />
             Back to Blog Admin
           </Button>
-          <PageTitle>Create New Blog Post</PageTitle>
+          <PageTitle title="Create New Blog Post" />
         </div>
 
         <div className="bg-card border rounded-md">

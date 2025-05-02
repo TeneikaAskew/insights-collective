@@ -33,7 +33,8 @@ Data science is transforming industries from healthcare to finance, enabling bet
 As AI and machine learning continue to advance, data science will play an increasingly crucial role in solving complex problems and driving innovation across industries.
     `,
     publishedAt: "2025-03-15",
-    tags: ["Fundamentals", "Overview", "Beginners"]
+    tags: ["Fundamentals", "Overview", "Beginners"],
+    status: "published" // Added status property
   },
   {
     id: "2",
@@ -70,7 +71,8 @@ Data product managers guide the strategic direction of data initiatives, balanci
 The most effective data teams maintain clear communication channels and collaborative workflows between these specialized roles, often using agile methodologies to deliver value incrementally.
     `,
     publishedAt: "2025-03-22",
-    tags: ["Team Dynamics", "Roles", "Career"]
+    tags: ["Team Dynamics", "Roles", "Career"],
+    status: "published" // Added status property
   },
   {
     id: "3",
@@ -107,7 +109,8 @@ Continuously tracking model performance, retraining as needed, and ensuring the 
 Data science is rarely linear—teams often move back and forth between these stages as they gain new insights or encounter challenges.
     `,
     publishedAt: "2025-03-29",
-    tags: ["Processes", "Methodology", "Best Practices"]
+    tags: ["Processes", "Methodology", "Best Practices"],
+    status: "published" // Added status property
   },
   {
     id: "4",
@@ -151,7 +154,8 @@ Engage with the data science community through meetups, conferences, online foru
 Consider starting with internships, entry-level analyst positions, or contributing to open-source projects to build experience that will help you transition into more specialized data science roles.
     `,
     publishedAt: "2025-04-05",
-    tags: ["Career Entry", "Skills", "Education"]
+    tags: ["Career Entry", "Skills", "Education"],
+    status: "published" // Added status property
   },
   {
     id: "5",
@@ -200,7 +204,8 @@ Building ethics committees, review processes, and documentation requirements tha
 Staying informed about evolving regulations like GDPR, the EU AI Act, and industry-specific requirements that govern AI development and deployment.
     `,
     publishedAt: "2025-04-12",
-    tags: ["Ethics", "Responsible AI", "Bias"]
+    tags: ["Ethics", "Responsible AI", "Bias"],
+    status: "published" // Added status property
   },
   {
     id: "6",
@@ -241,7 +246,8 @@ Experienced data scientists share insights gained through years of solving compl
 "My most successful projects weren't just technically sound but had strong champions across product, engineering, and business teams." - Retail Data Science Manager
     `,
     publishedAt: "2025-04-19",
-    tags: ["Industry Insights", "Career Growth", "Advice"]
+    tags: ["Industry Insights", "Career Growth", "Advice"],
+    status: "published" // Added status property
   },
   {
     id: "7",
@@ -321,7 +327,8 @@ Interactive computing environment that combines code, outputs, and documentation
 New frameworks and platforms continue to emerge, automate routine tasks, and enable more sophisticated analyses with less effort.
     `,
     publishedAt: "2025-04-26",
-    tags: ["Technology", "Tools", "Software"]
+    tags: ["Technology", "Tools", "Software"],
+    status: "published" // Added status property
   },
   {
     id: "8",
@@ -397,7 +404,8 @@ Data science skills can also create opportunities to transition into adjacent fi
 - Developer Advocacy and Education
     `,
     publishedAt: "2025-05-03",
-    tags: ["Career Growth", "Career Paths", "Professional Development"]
+    tags: ["Career Growth", "Career Paths", "Professional Development"],
+    status: "published" // Added status property
   },
   {
     id: "9",
@@ -469,7 +477,8 @@ Use your portfolio as interview preparation by:
 Regularly update your portfolio with new skills and projects, highlighting your growth and adaptability in this rapidly evolving field.
     `,
     publishedAt: "2025-05-10",
-    tags: ["Job Search", "Resume", "Portfolio"]
+    tags: ["Job Search", "Resume", "Portfolio"],
+    status: "published" // Added status property
   },
   {
     id: "10",
@@ -560,7 +569,8 @@ A major city implemented natural language processing to analyze 911 call transcr
 - Diverted appropriate cases to mental health professionals instead of police
     `,
     publishedAt: "2025-05-17",
-    tags: ["Applications", "Case Studies", "Industry Examples"]
+    tags: ["Applications", "Case Studies", "Industry Examples"],
+    status: "published" // Added status property
   }
 ];
 
