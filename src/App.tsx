@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -43,7 +42,8 @@ import AdminCertificates from "./pages/AdminCertificates";
 import AdminResources from "./pages/AdminResources";
 import AdminEvents from "./pages/AdminEvents";
 import AdminBlogPosts from "./pages/AdminBlogPosts";
-import CreateBlogPost from "./pages/CreateBlogPost";
+import CreateBlogPost from './pages/CreateBlogPost';
+import EditBlogPost from './pages/EditBlogPost';
 import AdminPageVisibility from "./pages/AdminPageVisibility";
 import AdminForms from "./pages/AdminForms";
 
@@ -90,7 +90,7 @@ const ProtectedVisibleRoute = ({ children, requireAdmin = false }) => (
   </ProtectedRoute>
 );
 
-const App = () => {
+function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -160,6 +160,7 @@ const App = () => {
                   <Route path="/admin/events" element={<ProtectedVisibleRoute requireAdmin><AdminEvents /></ProtectedVisibleRoute>} />
                   <Route path="/admin/blog" element={<ProtectedVisibleRoute requireAdmin><AdminBlogPosts /></ProtectedVisibleRoute>} />
                   <Route path="/admin/blog/create" element={<ProtectedVisibleRoute requireAdmin><CreateBlogPost /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/blog/edit/:slug" element={<ProtectedVisibleRoute requireAdmin><EditBlogPost /></ProtectedVisibleRoute>} />
                   <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin><AdminPageVisibility /></ProtectedVisibleRoute>} />
                   <Route path="/components/LocalStorageDebug.tsx" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebug /></ProtectedVisibleRoute>} />
                   <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
@@ -187,6 +188,6 @@ const App = () => {
       </BrowserRouter>
     </QueryClientProvider>
   );
-};
+}
 
 export default App;
