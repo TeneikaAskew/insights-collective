@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -24,8 +23,12 @@ import {
   AlertDialogTitle, AlertDialogTrigger
 } from "@/components/ui/alert-dialog";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import {
   Eye, EyeOff, FileCheck, FileX, SaveAll, Archive, Globe, Tag, Plus,
-  X, CalendarIcon, Check, AlertTriangle, BookOpen, Clock, Info, Image
+  X, Calendar as CalendarIcon, Check, AlertTriangle, BookOpen, Clock, Info, Image
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { Calendar } from '@/components/ui/calendar';
@@ -41,6 +44,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { BlogPost, BlogFormData } from '@/types/blog';
 import RichTextEditor from '@/components/ui/rich-text-editor';
+import ReactMarkdown from 'react-markdown';
 
 const formSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters").max(100, "Title is too long"),
@@ -197,7 +201,21 @@ const BlogPostForm = ({ initialData, onSubmit, isLoading }: BlogPostFormProps) =
 
   const handleFormSubmit = async (data: z.infer<typeof formSchema>) => {
     try {
-      await onSubmit(data);
+      // Ensure we're passing all required fields from BlogFormData
+      const blogFormData: BlogFormData = {
+        title: data.title,
+        content: data.content,
+        excerpt: data.excerpt,
+        slug: data.slug,
+        imageUrl: data.imageUrl,
+        tags: data.tags,
+        category: data.category,
+        status: data.status,
+        featured: data.featured,
+        seoTitle: data.seoTitle,
+        seoDescription: data.seoDescription
+      };
+      await onSubmit(blogFormData);
       toast({
         title: 'Success',
         description: `Blog post ${initialData ? 'updated' : 'created'} successfully!`,

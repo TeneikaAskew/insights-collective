@@ -46,7 +46,7 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
   }
 };
 
-export const createBlogPost = async (blogPost: Omit<BlogFormData, 'id'>): Promise<BlogPost | null> => {
+export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost | null> => {
   try {
     // Generate a mock ID
     const mockId = `temp-${Date.now()}`;
