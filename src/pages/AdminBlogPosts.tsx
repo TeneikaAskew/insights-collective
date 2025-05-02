@@ -6,58 +6,197 @@ import {
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { 
-  Plus, Search, Edit, Trash2, Eye, ArrowUpDown, Calendar 
+  Plus, Search, Edit, Trash2, Eye, ArrowUpDown, Calendar, 
+  Filter, BarChart2, ListFilter, Star, StarOff, FileCheck, FileX, Archive
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { 
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue 
+} from '@/components/ui/select';
+import { 
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, 
+  DropdownMenuTrigger, DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
+import { 
+  Card, CardContent, CardDescription, CardHeader, CardTitle 
+} from '@/components/ui/card';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter, 
+  DialogHeader, DialogTitle, DialogTrigger
+} from '@/components/ui/dialog';
+import { toast } from '@/hooks/use-toast';
 import AppLayout from '@/components/layout/AppLayout';
 import { BlogPost } from '@/types/blog';
-import { getAllBlogPosts } from '@/services/blogService';
+import { getAllBlogPosts, deleteBlogPost } from '@/services/blogService';
 import { format } from 'date-fns';
 
 const AdminBlogPosts = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortField, setSortField] = useState<'title' | 'publishedAt'>('publishedAt');
+  const [sortField, setSortField] = useState<'title' | 'publishedAt' | 'views'>('publishedAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isLoading, setIsLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  
+  // Analytics overview data
+  const [analyticsData, setAnalyticsData] = useState({
+    totalPosts: 0,
+    publishedPosts: 0,
+    draftPosts: 0,
+    archivedPosts: 0,
+    totalViews: 0,
+    categoriesCount: 0,
+    tagsCount: 0
+  });
 
   useEffect(() => {
-    const fetchBlogPosts = async () => {
-      setIsLoading(true);
-      try {
-        const posts = await getAllBlogPosts();
-        setBlogPosts(posts);
-      } catch (error) {
-        console.error('Error fetching blog posts:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchBlogPosts();
   }, []);
 
-  const handleSort = (field: 'title' | 'publishedAt') => {
+  const fetchBlogPosts = async () => {
+    setIsLoading(true);
+    try {
+      const posts = await getAllBlogPosts();
+      setBlogPosts(posts);
+      
+      // Calculate analytics
+      const publishedPosts = posts.filter(post => post.status === 'published').length;
+      const draftPosts = posts.filter(post => post.status === 'draft').length;
+      const archivedPosts = posts.filter(post => post.status === 'archived').length;
+      const totalViews = posts.reduce((sum, post) => sum + (post.views || 0), 0);
+      
+      // Get unique categories and tags
+      const categories = new Set(posts.map(post => post.category || 'Uncategorized'));
+      const tags = new Set(posts.flatMap(post => post.tags || []));
+      
+      setAnalyticsData({
+        totalPosts: posts.length,
+        publishedPosts,
+        draftPosts,
+        archivedPosts,
+        totalViews,
+        categoriesCount: categories.size,
+        tagsCount: tags.size
+      });
+    } catch (error) {
+      console.error('Error fetching blog posts:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load blog posts. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSort = (field: 'title' | 'publishedAt' | 'views') => {
     if (field === sortField) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortDirection('asc');
+      setSortDirection('desc');
     }
   };
 
-  const filteredPosts = blogPosts.filter(post => 
-    post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    post.excerpt.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleDeleteConfirm = async () => {
+    if (!postToDelete) return;
+    
+    try {
+      const success = await deleteBlogPost(postToDelete.slug);
+      if (success) {
+        setBlogPosts(blogPosts.filter(post => post.id !== postToDelete.id));
+        toast({
+          title: "Success",
+          description: `"${postToDelete.title}" has been deleted.`,
+        });
+      } else {
+        throw new Error("Failed to delete post");
+      }
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete the post. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setShowDeleteDialog(false);
+      setPostToDelete(null);
+    }
+  };
+
+  const handleDeleteClick = (post: BlogPost) => {
+    setPostToDelete(post);
+    setShowDeleteDialog(true);
+  };
+
+  const handleToggleFeatured = (post: BlogPost) => {
+    const updatedPosts = blogPosts.map(p => {
+      if (p.id === post.id) {
+        return { ...p, featured: !p.featured };
+      }
+      return p;
+    });
+    
+    setBlogPosts(updatedPosts);
+    
+    toast({
+      title: "Success",
+      description: `"${post.title}" has been ${post.featured ? 'removed from' : 'marked as'} featured.`,
+    });
+  };
+
+  const handleStatusChange = (post: BlogPost, status: 'draft' | 'published' | 'archived') => {
+    const updatedPosts = blogPosts.map(p => {
+      if (p.id === post.id) {
+        return { ...p, status };
+      }
+      return p;
+    });
+    
+    setBlogPosts(updatedPosts);
+    
+    toast({
+      title: "Status Changed",
+      description: `"${post.title}" is now ${status}.`,
+    });
+  };
+
+  // Apply all filters and sorting
+  const filteredPosts = blogPosts.filter(post => {
+    const matchesSearch = searchQuery
+      ? post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        post.excerpt.toLowerCase().includes(searchQuery.toLowerCase())
+      : true;
+    
+    const matchesStatus = filterStatus === 'all' 
+      ? true 
+      : filterStatus === 'featured'
+        ? !!post.featured
+        : post.status === filterStatus;
+    
+    const matchesCategory = filterCategory === 'all'
+      ? true
+      : (post.category || 'Uncategorized') === filterCategory;
+    
+    return matchesSearch && matchesStatus && matchesCategory;
+  });
 
   const sortedPosts = [...filteredPosts].sort((a, b) => {
     if (sortField === 'title') {
       return sortDirection === 'asc' 
         ? a.title.localeCompare(b.title)
         : b.title.localeCompare(a.title);
+    } else if (sortField === 'views') {
+      const viewsA = a.views || 0;
+      const viewsB = b.views || 0;
+      return sortDirection === 'asc' ? viewsA - viewsB : viewsB - viewsA;
     } else {
       const dateA = new Date(a.publishedAt).getTime();
       const dateB = new Date(b.publishedAt).getTime();
@@ -70,6 +209,22 @@ const AdminBlogPosts = () => {
       return format(new Date(dateString), 'MMM d, yyyy');
     } catch (e) {
       return dateString;
+    }
+  };
+
+  // Get unique categories for filter
+  const categories = ['all', ...new Set(blogPosts.map(post => post.category || 'Uncategorized'))];
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'published':
+        return <Badge variant="success" className="bg-green-600">Published</Badge>;
+      case 'draft':
+        return <Badge variant="outline">Draft</Badge>;
+      case 'archived':
+        return <Badge variant="secondary">Archived</Badge>;
+      default:
+        return <Badge variant="outline">Unknown</Badge>;
     }
   };
 
@@ -92,17 +247,110 @@ const AdminBlogPosts = () => {
           </Link>
         </div>
 
+        {/* Analytics Overview */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Posts</p>
+                  <p className="text-3xl font-bold">{analyticsData.totalPosts}</p>
+                </div>
+                <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center">
+                  <FileCheck className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Published</p>
+                  <p className="text-3xl font-bold">{analyticsData.publishedPosts}</p>
+                </div>
+                <div className="h-12 w-12 bg-green-500/10 rounded-full flex items-center justify-center">
+                  <FileCheck className="h-6 w-6 text-green-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Drafts</p>
+                  <p className="text-3xl font-bold">{analyticsData.draftPosts}</p>
+                </div>
+                <div className="h-12 w-12 bg-orange-500/10 rounded-full flex items-center justify-center">
+                  <FileX className="h-6 w-6 text-orange-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Total Views</p>
+                  <p className="text-3xl font-bold">{analyticsData.totalViews.toLocaleString()}</p>
+                </div>
+                <div className="h-12 w-12 bg-blue-500/10 rounded-full flex items-center justify-center">
+                  <BarChart2 className="h-6 w-6 text-blue-500" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="bg-card rounded-lg border shadow-sm">
           <div className="p-4">
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                type="text"
-                placeholder="Search blog posts..."
-                className="pl-10"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Search blog posts..."
+                  className="pl-10"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+              
+              <Select 
+                value={filterStatus} 
+                onValueChange={setFilterStatus}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Posts</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="draft">Drafts</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                  <SelectItem value="featured">Featured</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Select 
+                value={filterCategory} 
+                onValueChange={setFilterCategory}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category === 'all' ? 'All Categories' : category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <Separator className="my-4" />
@@ -111,7 +359,7 @@ const AdminBlogPosts = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[50%]">
+                    <TableHead className="w-[40%]">
                       <Button 
                         variant="ghost" 
                         className="p-0 font-semibold hover:bg-transparent"
@@ -121,7 +369,18 @@ const AdminBlogPosts = () => {
                         <ArrowUpDown className={`ml-2 h-4 w-4 ${sortField === 'title' ? 'opacity-100' : 'opacity-30'}`} />
                       </Button>
                     </TableHead>
-                    <TableHead>Tags</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>
+                      <Button 
+                        variant="ghost" 
+                        className="p-0 font-semibold hover:bg-transparent"
+                        onClick={() => handleSort('views')}
+                      >
+                        Views
+                        <ArrowUpDown className={`ml-2 h-4 w-4 ${sortField === 'views' ? 'opacity-100' : 'opacity-30'}`} />
+                      </Button>
+                    </TableHead>
                     <TableHead>
                       <Button 
                         variant="ghost" 
@@ -138,7 +397,7 @@ const AdminBlogPosts = () => {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         <div className="flex justify-center">
                           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
                         </div>
@@ -148,10 +407,11 @@ const AdminBlogPosts = () => {
                     sortedPosts.map((post) => (
                       <TableRow key={post.id}>
                         <TableCell className="font-medium">
-                          {post.title}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex items-center gap-2">
+                            {post.featured && <Star className="h-4 w-4 text-amber-500" />}
+                            {post.title}
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1">
                             {post.tags && post.tags.slice(0, 2).map(tag => (
                               <Badge key={tag} variant="outline" className="text-xs">
                                 {tag}
@@ -164,35 +424,82 @@ const AdminBlogPosts = () => {
                             )}
                           </div>
                         </TableCell>
+                        <TableCell>{getStatusBadge(post.status || 'published')}</TableCell>
+                        <TableCell>{post.category || 'Uncategorized'}</TableCell>
+                        <TableCell>{post.views?.toLocaleString() || '0'}</TableCell>
                         <TableCell className="flex items-center text-muted-foreground">
                           <Calendar className="h-3 w-3 mr-1" />
                           {formatDate(post.publishedAt)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button variant="ghost" size="icon" asChild>
-                              <Link to={`/blog/${post.slug}`}>
-                                <Eye className="h-4 w-4" />
-                                <span className="sr-only">View</span>
-                              </Link>
-                            </Button>
-                            <Button variant="ghost" size="icon" asChild>
-                              <Link to={`/admin/blog/edit/${post.slug}`}>
-                                <Edit className="h-4 w-4" />
-                                <span className="sr-only">Edit</span>
-                              </Link>
-                            </Button>
-                            <Button variant="ghost" size="icon">
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                              <span className="sr-only">Delete</span>
-                            </Button>
-                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon">
+                                <ListFilter className="h-4 w-4" />
+                                <span className="sr-only">Actions</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem asChild>
+                                <Link to={`/blog/${post.slug}`} className="flex items-center">
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link to={`/admin/blog/edit/${post.slug}`} className="flex items-center">
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleToggleFeatured(post)}>
+                                {post.featured ? (
+                                  <>
+                                    <StarOff className="mr-2 h-4 w-4" />
+                                    Unmark as Featured
+                                  </>
+                                ) : (
+                                  <>
+                                    <Star className="mr-2 h-4 w-4" />
+                                    Mark as Featured
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              {post.status !== 'published' && (
+                                <DropdownMenuItem onClick={() => handleStatusChange(post, 'published')}>
+                                  <FileCheck className="mr-2 h-4 w-4" />
+                                  Publish
+                                </DropdownMenuItem>
+                              )}
+                              {post.status !== 'draft' && (
+                                <DropdownMenuItem onClick={() => handleStatusChange(post, 'draft')}>
+                                  <FileX className="mr-2 h-4 w-4" />
+                                  Save as Draft
+                                </DropdownMenuItem>
+                              )}
+                              {post.status !== 'archived' && (
+                                <DropdownMenuItem onClick={() => handleStatusChange(post, 'archived')}>
+                                  <Archive className="mr-2 h-4 w-4" />
+                                  Archive
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                onClick={() => handleDeleteClick(post)}
+                                className="text-destructive"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8">
+                      <TableCell colSpan={6} className="text-center py-8">
                         <p className="text-muted-foreground">No blog posts found</p>
                       </TableCell>
                     </TableRow>
@@ -203,6 +510,26 @@ const AdminBlogPosts = () => {
           </div>
         </div>
       </div>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Blog Post</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{postToDelete?.title}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </AppLayout>
   );
 };

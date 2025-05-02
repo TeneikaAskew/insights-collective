@@ -11,6 +11,13 @@ export interface BlogPost {
   authorName?: string;
   imageUrl?: string;
   tags: string[];
+  category?: string;
+  status: 'draft' | 'published' | 'archived';
+  featured?: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+  views?: number;
+  readTime?: number;
 }
 
 export interface BlogFormData {
@@ -20,4 +27,24 @@ export interface BlogFormData {
   slug: string;
   imageUrl?: string;
   tags: string[];
+  category?: string;
+  status: 'draft' | 'published' | 'archived';
+  featured?: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
+}
+
+export interface BlogCategory {
+  name: string;
+  slug: string;
+  description?: string;
+  count?: number;
+}
+
+export interface BlogAnalytics {
+  views: number;
+  uniqueVisitors: number;
+  averageTimeOnPage: number;
+  bounceRate: number;
+  conversionRate: number;
 }
