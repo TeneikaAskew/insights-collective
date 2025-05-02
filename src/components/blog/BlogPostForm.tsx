@@ -25,7 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { BlogFormData } from '@/types/blog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tag, Plus, Save, Eye, Settings, FileText, ChevronDown, Image } from 'lucide-react';
+import { Tag, Plus, Save, Eye, Settings, FileText, ChevronDown, Image, Upload } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import ReactMarkdown from 'react-markdown';
@@ -156,6 +156,31 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
   // Toggle image preview
   const toggleImagePreview = () => {
     setShowImagePreview(prev => !prev);
+  };
+
+  // Function to handle image file upload
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const result = await uploadFile(file, 'blog-images', 'posts');
+      if (result?.publicUrl) {
+        form.setValue('imageUrl', result.publicUrl);
+        setShowImagePreview(true);
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully"
+        });
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast({
+        title: "Error",
+        description: "Failed to upload image",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -388,7 +413,7 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
                 render={({ field }) => (
                   <FormItem>
                     <div className="flex justify-between items-center">
-                      <FormLabel>Featured Image URL</FormLabel>
+                      <FormLabel>Featured Image</FormLabel>
                       <Button 
                         type="button" 
                         variant="ghost" 
@@ -399,30 +424,52 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
                         {showImagePreview ? 'Hide Preview' : 'Show Preview'}
                       </Button>
                     </div>
-                    <FormControl>
-                      <Input 
-                        placeholder="https://example.com/image.jpg" 
-                        {...field} 
-                      />
-                    </FormControl>
-                    {showImagePreview && imageUrl && (
-                      <div className="mt-2 border rounded-md overflow-hidden">
-                        <img 
-                          src={imageUrl} 
-                          alt="Preview" 
-                          className="max-h-64 object-cover w-full"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/placeholder.svg';
-                            toast({
-                              title: "Image Error",
-                              description: "Could not load image. Please check the URL.",
-                              variant: "destructive"
-                            });
-                          }}
-                        />
+                    <div className="space-y-3">
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input 
+                            placeholder="https://example.com/image.jpg" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <Button 
+                          type="button" 
+                          variant="outline"
+                          size="icon"
+                          className="flex-shrink-0"
+                          asChild
+                        >
+                          <label htmlFor="image-upload" className="cursor-pointer">
+                            <Upload className="h-4 w-4" />
+                            <input 
+                              id="image-upload" 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*"
+                              onChange={handleImageUpload}
+                            />
+                          </label>
+                        </Button>
                       </div>
-                    )}
+                      {showImagePreview && field.value && (
+                        <div className="mt-2 border rounded-md overflow-hidden">
+                          <img 
+                            src={field.value} 
+                            alt="Preview" 
+                            className="max-h-64 object-cover w-full"
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/placeholder.svg';
+                              toast({
+                                title: "Image Error",
+                                description: "Could not load image. Please check the URL.",
+                                variant: "destructive"
+                              });
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}

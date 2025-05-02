@@ -61,7 +61,8 @@ const EditBlogPost = () => {
           title: "Success",
           description: "Blog post updated successfully!"
         });
-        navigate('/admin/blog');
+        // Navigate to the blog post page instead of the admin blog page
+        navigate(`/blog/${updatedPost.slug}`);
       } else {
         throw new Error('Failed to update post');
       }
