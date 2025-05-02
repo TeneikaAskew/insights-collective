@@ -4,40 +4,11 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Form } from '@/components/ui/form';
 import { BlogFormData } from '@/types/blog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent } from '@/components/ui/card';
-import { Tag, Plus, Save, Eye, Settings, FileText, ChevronDown, Image, Upload } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import ReactMarkdown from 'react-markdown';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem
-} from '@/components/ui/dropdown-menu';
-import { useStorageUpload } from '@/hooks/useStorageUpload';
-import { toast } from '@/hooks/use-toast';
+import { Save } from 'lucide-react';
+import { FormTabs } from './form/FormTabs';
+import { StatusDropdown } from './form/StatusDropdown';
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -67,9 +38,7 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
   initialData 
 }) => {
   const [activeTab, setActiveTab] = useState('edit');
-  const [tagInput, setTagInput] = useState('');
   const [showImagePreview, setShowImagePreview] = useState(false);
-  const { uploadFile, uploading } = useStorageUpload();
 
   // Initialize form with default values or initialData if provided
   const form = useForm<BlogFormData>({
@@ -89,34 +58,6 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
     },
   });
 
-  // Watch content field for preview
-  const content = form.watch('content');
-  const title = form.watch('title');
-  const imageUrl = form.watch('imageUrl');
-
-  // Handler for form submission
-  const handleFormSubmit = (data: BlogFormData) => {
-    onSubmit(data);
-  };
-
-  // Add a tag to the list
-  const addTag = () => {
-    if (tagInput.trim() && !form.getValues('tags').includes(tagInput.trim())) {
-      const currentTags = form.getValues('tags');
-      form.setValue('tags', [...currentTags, tagInput.trim()]);
-      setTagInput('');
-    }
-  };
-
-  // Remove a tag from the list
-  const removeTag = (tagToRemove: string) => {
-    const currentTags = form.getValues('tags');
-    form.setValue(
-      'tags',
-      currentTags.filter(tag => tag !== tagToRemove)
-    );
-  };
-
   // Generate slug from title
   const generateSlug = () => {
     const titleValue = form.getValues('title');
@@ -127,6 +68,11 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
         .replace(/\s+/g, '-');
       form.setValue('slug', slug);
     }
+  };
+
+  // Toggle image preview
+  const toggleImagePreview = () => {
+    setShowImagePreview(prev => !prev);
   };
 
   // Auto-generate slug when title changes (only if slug is empty or user hasn't modified it)
@@ -153,421 +99,52 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
     return () => subscription.unsubscribe();
   }, [form]);
 
-  // Toggle image preview
-  const toggleImagePreview = () => {
-    setShowImagePreview(prev => !prev);
-  };
-
-  // Function to handle image file upload
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
-    try {
-      const result = await uploadFile(file, 'blog-images', 'posts');
-      if (result?.publicUrl) {
-        form.setValue('imageUrl', result.publicUrl);
-        setShowImagePreview(true);
-        toast({
-          title: "Success",
-          description: "Image uploaded successfully"
-        });
-      }
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast({
-        title: "Error",
-        description: "Failed to upload image",
-        variant: "destructive"
-      });
-    }
+  // Handler for form submission
+  const handleFormSubmit = (data: BlogFormData) => {
+    onSubmit(data);
   };
 
   return (
     <div className="p-6">
-      <Tabs
-        defaultValue="edit"
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="w-full"
-      >
-        <div className="flex justify-between items-center mb-6">
-          <TabsList>
-            <TabsTrigger value="edit" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Editor
-            </TabsTrigger>
-            <TabsTrigger value="preview" className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              Preview
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </TabsTrigger>
-          </TabsList>
-          
-          <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  {form.getValues('status') === 'published' ? 'Published' : 
-                   form.getValues('status') === 'draft' ? 'Draft' : 'Archived'}
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => form.setValue('status', 'published')}>
-                  Publish
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => form.setValue('status', 'draft')}>
-                  Save as Draft
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => form.setValue('status', 'archived')}>
-                  Archive
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+      <Form {...form}>
+        <form 
+          id="blogPostForm" 
+          onSubmit={form.handleSubmit(handleFormSubmit)} 
+          className="space-y-6"
+        >
+          <div className="flex justify-between items-center mb-6">
+            <FormTabs 
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+              form={form}
+              showImagePreview={showImagePreview}
+              toggleImagePreview={toggleImagePreview}
+              generateSlug={generateSlug}
+            />
             
-            <Button 
-              type="submit" 
-              form="blogPostForm"
-              disabled={isLoading}
-              className="gap-2"
-            >
-              {isLoading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
-              ) : (
-                <Save className="h-4 w-4" />
-              )}
-              {initialData ? 'Update Post' : 'Create Post'}
-            </Button>
+            <div className="flex items-center gap-2">
+              <StatusDropdown 
+                status={form.getValues('status') as 'draft' | 'published' | 'archived'}
+                onStatusChange={(status) => form.setValue('status', status)}
+              />
+              
+              <Button 
+                type="submit" 
+                form="blogPostForm"
+                disabled={isLoading}
+                className="gap-2"
+              >
+                {isLoading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                {initialData ? 'Update Post' : 'Create Post'}
+              </Button>
+            </div>
           </div>
-        </div>
-
-        <Form {...form}>
-          <form 
-            id="blogPostForm" 
-            onSubmit={form.handleSubmit(handleFormSubmit)} 
-            className="space-y-6"
-          >
-            <TabsContent value="edit" className="space-y-6 mt-6">
-              <FormField
-                control={form.control}
-                name="title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Title</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Enter blog post title" 
-                        {...field}
-                        className="text-lg font-semibold" 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="excerpt"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Excerpt</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Write a brief summary of your blog post" 
-                        rows={2}
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="content"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Content (Markdown)</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Write your blog post content in Markdown format" 
-                        className="min-h-[300px] font-mono"
-                        {...field} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="flex flex-col sm:flex-row gap-6">
-                <div className="w-full sm:w-1/2">
-                  <FormField
-                    control={form.control}
-                    name="slug"
-                    render={({ field }) => (
-                      <FormItem>
-                        <div className="flex justify-between">
-                          <FormLabel>Slug</FormLabel>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm" 
-                            className="h-6 text-xs"
-                            onClick={generateSlug}
-                          >
-                            Generate from title
-                          </Button>
-                        </div>
-                        <FormControl>
-                          <Input placeholder="blog-post-url-slug" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="w-full sm:w-1/2">
-                  <FormField
-                    control={form.control}
-                    name="category"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Category</FormLabel>
-                        <Select 
-                          onValueChange={field.onChange} 
-                          defaultValue={field.value}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a category" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="Fundamentals">Fundamentals</SelectItem>
-                            <SelectItem value="Career">Career</SelectItem>
-                            <SelectItem value="Technical">Technical</SelectItem>
-                            <SelectItem value="Industry">Industry</SelectItem>
-                            <SelectItem value="Case Studies">Case Studies</SelectItem>
-                            <SelectItem value="Tools">Tools</SelectItem>
-                            <SelectItem value="Ethics">Ethics</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </div>
-
-              <FormItem>
-                <FormLabel>Tags</FormLabel>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {form.getValues('tags').map((tag, index) => (
-                    <Badge key={index} variant="secondary" className="gap-1">
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => removeTag(tag)}
-                        className="text-muted-foreground hover:text-foreground ml-1"
-                      >
-                        &times;
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    placeholder="Add a tag"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        addTag();
-                      }
-                    }}
-                  />
-                  <Button
-                    type="button"
-                    onClick={addTag}
-                    variant="outline"
-                    size="icon"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </FormItem>
-
-              <FormField
-                control={form.control}
-                name="imageUrl"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex justify-between items-center">
-                      <FormLabel>Featured Image</FormLabel>
-                      <Button 
-                        type="button" 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-6 text-xs"
-                        onClick={toggleImagePreview}
-                      >
-                        {showImagePreview ? 'Hide Preview' : 'Show Preview'}
-                      </Button>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex gap-2">
-                        <FormControl>
-                          <Input 
-                            placeholder="https://example.com/image.jpg" 
-                            {...field} 
-                          />
-                        </FormControl>
-                        <Button 
-                          type="button" 
-                          variant="outline"
-                          size="icon"
-                          className="flex-shrink-0"
-                          asChild
-                        >
-                          <label htmlFor="image-upload" className="cursor-pointer">
-                            <Upload className="h-4 w-4" />
-                            <input 
-                              id="image-upload" 
-                              type="file" 
-                              className="hidden" 
-                              accept="image/*"
-                              onChange={handleImageUpload}
-                            />
-                          </label>
-                        </Button>
-                      </div>
-                      {showImagePreview && field.value && (
-                        <div className="mt-2 border rounded-md overflow-hidden">
-                          <img 
-                            src={field.value} 
-                            alt="Preview" 
-                            className="max-h-64 object-cover w-full"
-                            onError={(e) => {
-                              const target = e.target as HTMLImageElement;
-                              target.src = '/placeholder.svg';
-                              toast({
-                                title: "Image Error",
-                                description: "Could not load image. Please check the URL.",
-                                variant: "destructive"
-                              });
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </TabsContent>
-
-            <TabsContent value="preview" className="mt-6">
-              <Card className="bg-background">
-                <CardContent className="p-6">
-                  {imageUrl && (
-                    <div className="w-full h-[250px] mb-6 rounded-lg overflow-hidden">
-                      <img
-                        src={imageUrl}
-                        alt={title}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/placeholder.svg';
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div className="prose max-w-none dark:prose-invert">
-                    <h1 className="text-3xl font-bold mb-4">{title}</h1>
-                    <div className="mt-6">
-                      <ReactMarkdown>{content}</ReactMarkdown>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            <TabsContent value="settings" className="space-y-6 mt-6">
-              <FormField
-                control={form.control}
-                name="featured"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">
-                        Featured Post
-                      </FormLabel>
-                      <p className="text-sm text-muted-foreground">
-                        Display this post prominently on the blog homepage
-                      </p>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">SEO Settings</h3>
-                
-                <FormField
-                  control={form.control}
-                  name="seoTitle"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SEO Title</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="SEO optimized title (defaults to post title)" 
-                          {...field} 
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="seoDescription"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>SEO Description</FormLabel>
-                      <FormControl>
-                        <Textarea 
-                          placeholder="Brief description for search engines" 
-                          {...field} 
-                          rows={3}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </TabsContent>
-          </form>
-        </Form>
-      </Tabs>
+        </form>
+      </Form>
     </div>
   );
 };
