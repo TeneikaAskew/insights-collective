@@ -25,7 +25,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { BlogFormData } from '@/types/blog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent } from '@/components/ui/card';
-import { Tag, Plus, Save, Eye, Settings, FileText, ChevronDown } from 'lucide-react';
+import { Tag, Plus, Save, Eye, Settings, FileText, ChevronDown, Image } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import ReactMarkdown from 'react-markdown';
@@ -36,6 +36,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem
 } from '@/components/ui/dropdown-menu';
+import { useStorageUpload } from '@/hooks/useStorageUpload';
+import { toast } from '@/hooks/use-toast';
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -66,6 +68,8 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState('edit');
   const [tagInput, setTagInput] = useState('');
+  const [showImagePreview, setShowImagePreview] = useState(false);
+  const { uploadFile, uploading } = useStorageUpload();
 
   // Initialize form with default values or initialData if provided
   const form = useForm<BlogFormData>({
@@ -88,6 +92,7 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
   // Watch content field for preview
   const content = form.watch('content');
   const title = form.watch('title');
+  const imageUrl = form.watch('imageUrl');
 
   // Handler for form submission
   const handleFormSubmit = (data: BlogFormData) => {
@@ -148,6 +153,11 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
     return () => subscription.unsubscribe();
   }, [form]);
 
+  // Toggle image preview
+  const toggleImagePreview = () => {
+    setShowImagePreview(prev => !prev);
+  };
+
   return (
     <div className="p-6">
       <Tabs
@@ -195,8 +205,8 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
             </DropdownMenu>
             
             <Button 
-              type="button" 
-              onClick={form.handleSubmit(handleFormSubmit)} 
+              type="submit" 
+              form="blogPostForm"
               disabled={isLoading}
               className="gap-2"
             >
@@ -211,7 +221,11 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
         </div>
 
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+          <form 
+            id="blogPostForm" 
+            onSubmit={form.handleSubmit(handleFormSubmit)} 
+            className="space-y-6"
+          >
             <TabsContent value="edit" className="space-y-6 mt-6">
               <FormField
                 control={form.control}
@@ -373,13 +387,42 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
                 name="imageUrl"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Featured Image URL</FormLabel>
+                    <div className="flex justify-between items-center">
+                      <FormLabel>Featured Image URL</FormLabel>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-xs"
+                        onClick={toggleImagePreview}
+                      >
+                        {showImagePreview ? 'Hide Preview' : 'Show Preview'}
+                      </Button>
+                    </div>
                     <FormControl>
                       <Input 
                         placeholder="https://example.com/image.jpg" 
                         {...field} 
                       />
                     </FormControl>
+                    {showImagePreview && imageUrl && (
+                      <div className="mt-2 border rounded-md overflow-hidden">
+                        <img 
+                          src={imageUrl} 
+                          alt="Preview" 
+                          className="max-h-64 object-cover w-full"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/placeholder.svg';
+                            toast({
+                              title: "Image Error",
+                              description: "Could not load image. Please check the URL.",
+                              variant: "destructive"
+                            });
+                          }}
+                        />
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -389,6 +432,19 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
             <TabsContent value="preview" className="mt-6">
               <Card className="bg-background">
                 <CardContent className="p-6">
+                  {imageUrl && (
+                    <div className="w-full h-[250px] mb-6 rounded-lg overflow-hidden">
+                      <img
+                        src={imageUrl}
+                        alt={title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/placeholder.svg';
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="prose max-w-none dark:prose-invert">
                     <h1 className="text-3xl font-bold mb-4">{title}</h1>
                     <div className="mt-6">
