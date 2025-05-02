@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Calendar, User, Eye } from 'lucide-react';
 import { format } from 'date-fns';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -18,8 +18,8 @@ const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
   const [post, setPost] = useState<BlogPostType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const { currentUser, userRoles } = useAuth();
-  const isAdmin = currentUser && userRoles.includes('admin');
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('admin') || false;
 
   useEffect(() => {
     const fetchBlogPost = async () => {
