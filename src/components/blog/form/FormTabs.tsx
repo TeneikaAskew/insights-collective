@@ -40,11 +40,32 @@ export function FormTabs({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <Tabs
-          value={activeTab}
-          onValueChange={onTabChange}
-          className="w-auto"
+        <Button 
+          type="submit" 
+          form="blogPostForm"
+          disabled={isLoading}
+          className="gap-2"
         >
+          {isLoading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          {initialData ? 'Update Post' : 'Create Post'}
+        </Button>
+
+        <StatusDropdown 
+          status={status as 'draft' | 'published' | 'archived'}
+          onStatusChange={(newStatus) => form.setValue('status', newStatus)}
+        />
+      </div>
+
+      <Tabs
+        value={activeTab}
+        onValueChange={onTabChange}
+        className="w-full"
+      >
+        <div className="flex items-center justify-between">
           <TabsList className="inline-flex justify-start h-10 w-auto">
             <TabsTrigger value="edit" className="flex items-center gap-1">
               <FileText className="h-4 w-4" />
@@ -59,50 +80,29 @@ export function FormTabs({
               Settings
             </TabsTrigger>
           </TabsList>
-        </Tabs>
-        
-        <div className="flex items-center gap-2">
-          <StatusDropdown 
-            status={status as 'draft' | 'published' | 'archived'}
-            onStatusChange={(newStatus) => form.setValue('status', newStatus)}
-          />
-          
-          <Button 
-            type="submit" 
-            form="blogPostForm"
-            disabled={isLoading}
-            className="gap-2"
-          >
-            {isLoading ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {initialData ? 'Update Post' : 'Create Post'}
-          </Button>
         </div>
-      </div>
 
-      <TabsContent value="edit" className="space-y-6 mt-6">
-        <BlogFormFields 
-          form={form}
-          showImagePreview={showImagePreview}
-          toggleImagePreview={toggleImagePreview}
-          generateSlug={generateSlug}
-        />
-      </TabsContent>
+        <TabsContent value="edit" className="space-y-6 mt-6">
+          <BlogFormFields 
+            form={form}
+            showImagePreview={showImagePreview}
+            toggleImagePreview={toggleImagePreview}
+            generateSlug={generateSlug}
+          />
+        </TabsContent>
 
-      <TabsContent value="preview" className="mt-6">
-        <PreviewTab 
-          title={title} 
-          content={content} 
-          imageUrl={imageUrl} 
-        />
-      </TabsContent>
+        <TabsContent value="preview" className="mt-6">
+          <PreviewTab 
+            title={title} 
+            content={content} 
+            imageUrl={imageUrl} 
+          />
+        </TabsContent>
 
-      <TabsContent value="settings" className="space-y-6 mt-6">
-        <SeoTab form={form} />
-      </TabsContent>
+        <TabsContent value="settings" className="space-y-6 mt-6">
+          <SeoTab form={form} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
