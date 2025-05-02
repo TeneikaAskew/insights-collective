@@ -179,35 +179,36 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
                   {form.getValues('status') === 'published' ? 'Published' : 
                    form.getValues('status') === 'draft' ? 'Draft' : 'Archived'}
                   <ChevronDown className="h-4 w-4" />
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => form.setValue('status', 'published')}>
-                    Publish
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => form.setValue('status', 'draft')}>
-                    Save as Draft
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => form.setValue('status', 'archived')}>
-                    Archive
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => form.setValue('status', 'published')}>
+                  Publish
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => form.setValue('status', 'draft')}>
+                  Save as Draft
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => form.setValue('status', 'archived')}>
+                  Archive
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             
-              <Button 
-                type="button" 
-                onClick={form.handleSubmit(handleFormSubmit)} 
-                disabled={isLoading}
-                className="gap-2"
-              >
-                {isLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {initialData ? 'Update Post' : 'Create Post'}
-              </Button>
-            </div>
+            <Button 
+              type="button" 
+              onClick={form.handleSubmit(handleFormSubmit)} 
+              disabled={isLoading}
+              className="gap-2"
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {initialData ? 'Update Post' : 'Create Post'}
+            </Button>
           </div>
+        </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
