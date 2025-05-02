@@ -3,12 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Button } from '@/components/ui/button';
 import { Form } from '@/components/ui/form';
 import { BlogFormData } from '@/types/blog';
-import { Save } from 'lucide-react';
 import { FormTabs } from './form/FormTabs';
-import { StatusDropdown } from './form/StatusDropdown';
 
 // Define the form schema with Zod
 const formSchema = z.object({
@@ -38,7 +35,7 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
   initialData 
 }) => {
   const [activeTab, setActiveTab] = useState('edit');
-  const [showImagePreview, setShowImagePreview] = useState(true); // Always show image preview by default
+  const [showImagePreview, setShowImagePreview] = useState(true);
 
   // Initialize form with default values or initialData if provided
   const form = useForm<BlogFormData>({
@@ -107,41 +104,16 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
           onSubmit={form.handleSubmit(handleFormSubmit)} 
           className="space-y-6"
         >
-          <div className="flex flex-col space-y-4">
-            <div className="flex w-full justify-between items-center">
-              <div className="flex-1">
-                <FormTabs 
-                  activeTab={activeTab}
-                  onTabChange={setActiveTab}
-                  form={form}
-                  showImagePreview={showImagePreview}
-                  toggleImagePreview={() => setShowImagePreview(!showImagePreview)}
-                  generateSlug={generateSlug}
-                />
-              </div>
-              
-              <div className="flex items-center gap-2 ml-4">
-                <StatusDropdown 
-                  status={form.getValues('status') as 'draft' | 'published' | 'archived'}
-                  onStatusChange={(status) => form.setValue('status', status)}
-                />
-                
-                <Button 
-                  type="submit" 
-                  form="blogPostForm"
-                  disabled={isLoading}
-                  className="gap-2"
-                >
-                  {isLoading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
-                  ) : (
-                    <Save className="h-4 w-4" />
-                  )}
-                  {initialData ? 'Update Post' : 'Create Post'}
-                </Button>
-              </div>
-            </div>
-          </div>
+          <FormTabs 
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            form={form}
+            showImagePreview={showImagePreview}
+            toggleImagePreview={() => setShowImagePreview(!showImagePreview)}
+            generateSlug={generateSlug}
+            isLoading={isLoading}
+            initialData={initialData}
+          />
         </form>
       </Form>
     </div>

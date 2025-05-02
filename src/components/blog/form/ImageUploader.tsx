@@ -2,9 +2,17 @@
 import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Upload, Image } from 'lucide-react';
+import { Upload, Image, Search } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 interface ImageUploaderProps {
   imageUrl: string;
@@ -21,6 +29,10 @@ export function ImageUploader({
 }: ImageUploaderProps) {
   const { uploadFile, uploading } = useStorageUpload();
   const [previewError, setPreviewError] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [searchResults, setSearchResults] = useState<string[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -51,6 +63,38 @@ export function ImageUploader({
     setPreviewError(false);
   };
 
+  const handleImageSearch = async () => {
+    if (!searchTerm.trim()) return;
+    
+    setIsSearching(true);
+    try {
+      // This is a mock implementation, in a real app you would connect to an image search API
+      // For now, let's just simulate a search with some placeholder images
+      setTimeout(() => {
+        setSearchResults([
+          "https://images.unsplash.com/photo-1542744173-8e7e53415bb0?q=80&w=400",
+          "https://images.unsplash.com/photo-1497032628192-86f99bcd76bc?q=80&w=400",
+          "https://images.unsplash.com/photo-1504639725590-34d0984388bd?q=80&w=400",
+          "https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=400"
+        ]);
+        setIsSearching(false);
+      }, 1000);
+    } catch (error) {
+      console.error('Error searching for images:', error);
+      toast({
+        title: "Error",
+        description: "Failed to search for images",
+        variant: "destructive"
+      });
+      setIsSearching(false);
+    }
+  };
+
+  const selectSearchResult = (url: string) => {
+    onImageChange(url);
+    setIsDialogOpen(false);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
@@ -78,6 +122,53 @@ export function ImageUploader({
             />
           </label>
         </Button>
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="flex-shrink-0"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Find Images</DialogTitle>
+              <DialogDescription>
+                Search for free images to use in your blog post
+              </DialogDescription>
+            </DialogHeader>
+            <div className="flex w-full items-center space-x-2 mt-4">
+              <Input 
+                placeholder="Search for images..." 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="flex-1"
+              />
+              <Button type="button" onClick={handleImageSearch} disabled={isSearching}>
+                {isSearching ? 'Searching...' : 'Search'}
+              </Button>
+            </div>
+            
+            {searchResults.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 mt-4">
+                {searchResults.map((url, index) => (
+                  <img 
+                    key={index} 
+                    src={url} 
+                    alt={`Search result ${index + 1}`} 
+                    className="cursor-pointer rounded-md hover:ring-2 hover:ring-primary"
+                    onClick={() => selectSearchResult(url)}
+                  />
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         <Button
           type="button"
           variant="outline"
