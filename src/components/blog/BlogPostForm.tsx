@@ -147,6 +147,6 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
       </Form>
     </div>
   );
-};
+}
 
 export default BlogPostForm;
