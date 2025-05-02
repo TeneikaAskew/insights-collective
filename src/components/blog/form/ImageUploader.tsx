@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Upload } from 'lucide-react';
+import { Upload, Image } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
 
@@ -20,6 +20,7 @@ export function ImageUploader({
   onTogglePreview 
 }: ImageUploaderProps) {
   const { uploadFile, uploading } = useStorageUpload();
+  const [previewError, setPreviewError] = useState(false);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -29,6 +30,7 @@ export function ImageUploader({
       const result = await uploadFile(file, 'blog-images', 'posts');
       if (result?.publicUrl) {
         onImageChange(result.publicUrl);
+        setPreviewError(false);
         toast({
           title: "Success",
           description: "Image uploaded successfully"
@@ -44,13 +46,18 @@ export function ImageUploader({
     }
   };
 
+  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    onImageChange(e.target.value);
+    setPreviewError(false);
+  };
+
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
         <Input 
           placeholder="https://example.com/image.jpg" 
           value={imageUrl}
-          onChange={(e) => onImageChange(e.target.value)}
+          onChange={handleImageUrlChange}
           className="flex-1"
         />
         <Button 
@@ -71,14 +78,26 @@ export function ImageUploader({
             />
           </label>
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          onClick={onTogglePreview}
+          className="flex-shrink-0"
+        >
+          <Image className="h-4 w-4" />
+        </Button>
       </div>
-      {showPreview && imageUrl && (
-        <div className="mt-2 border rounded-md overflow-hidden">
+      
+      {/* Always show image preview when URL exists */}
+      {imageUrl && (
+        <div className={`mt-2 border rounded-md overflow-hidden ${previewError ? 'hidden' : 'block'}`}>
           <img 
             src={imageUrl} 
             alt="Preview" 
             className="max-h-64 object-cover w-full"
             onError={(e) => {
+              setPreviewError(true);
               const target = e.target as HTMLImageElement;
               target.src = '/placeholder.svg';
               toast({

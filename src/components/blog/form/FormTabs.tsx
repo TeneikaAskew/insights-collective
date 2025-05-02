@@ -36,16 +36,16 @@ export function FormTabs({
       onValueChange={onTabChange}
       className="w-full"
     >
-      <TabsList>
-        <TabsTrigger value="edit" className="flex items-center gap-2">
+      <TabsList className="inline-flex justify-start h-10 w-auto">
+        <TabsTrigger value="edit" className="flex items-center gap-1">
           <FileText className="h-4 w-4" />
           Editor
         </TabsTrigger>
-        <TabsTrigger value="preview" className="flex items-center gap-2">
+        <TabsTrigger value="preview" className="flex items-center gap-1">
           <Eye className="h-4 w-4" />
           Preview
         </TabsTrigger>
-        <TabsTrigger value="settings" className="flex items-center gap-2">
+        <TabsTrigger value="settings" className="flex items-center gap-1">
           <Settings className="h-4 w-4" />
           Settings
         </TabsTrigger>

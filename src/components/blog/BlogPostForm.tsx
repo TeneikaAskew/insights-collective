@@ -38,7 +38,7 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
   initialData 
 }) => {
   const [activeTab, setActiveTab] = useState('edit');
-  const [showImagePreview, setShowImagePreview] = useState(false);
+  const [showImagePreview, setShowImagePreview] = useState(true); // Always show image preview by default
 
   // Initialize form with default values or initialData if provided
   const form = useForm<BlogFormData>({
@@ -68,11 +68,6 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
         .replace(/\s+/g, '-');
       form.setValue('slug', slug);
     }
-  };
-
-  // Toggle image preview
-  const toggleImagePreview = () => {
-    setShowImagePreview(prev => !prev);
   };
 
   // Auto-generate slug when title changes (only if slug is empty or user hasn't modified it)
@@ -112,35 +107,39 @@ const BlogPostForm: React.FC<BlogPostFormProps> = ({
           onSubmit={form.handleSubmit(handleFormSubmit)} 
           className="space-y-6"
         >
-          <div className="flex justify-between items-center mb-6">
-            <FormTabs 
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              form={form}
-              showImagePreview={showImagePreview}
-              toggleImagePreview={toggleImagePreview}
-              generateSlug={generateSlug}
-            />
-            
-            <div className="flex items-center gap-2">
-              <StatusDropdown 
-                status={form.getValues('status') as 'draft' | 'published' | 'archived'}
-                onStatusChange={(status) => form.setValue('status', status)}
-              />
+          <div className="flex flex-col space-y-4">
+            <div className="flex w-full justify-between items-center">
+              <div className="flex-1">
+                <FormTabs 
+                  activeTab={activeTab}
+                  onTabChange={setActiveTab}
+                  form={form}
+                  showImagePreview={showImagePreview}
+                  toggleImagePreview={() => setShowImagePreview(!showImagePreview)}
+                  generateSlug={generateSlug}
+                />
+              </div>
               
-              <Button 
-                type="submit" 
-                form="blogPostForm"
-                disabled={isLoading}
-                className="gap-2"
-              >
-                {isLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
-                ) : (
-                  <Save className="h-4 w-4" />
-                )}
-                {initialData ? 'Update Post' : 'Create Post'}
-              </Button>
+              <div className="flex items-center gap-2 ml-4">
+                <StatusDropdown 
+                  status={form.getValues('status') as 'draft' | 'published' | 'archived'}
+                  onStatusChange={(status) => form.setValue('status', status)}
+                />
+                
+                <Button 
+                  type="submit" 
+                  form="blogPostForm"
+                  disabled={isLoading}
+                  className="gap-2"
+                >
+                  {isLoading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-b-transparent" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {initialData ? 'Update Post' : 'Create Post'}
+                </Button>
+              </div>
             </div>
           </div>
         </form>

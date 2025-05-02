@@ -163,18 +163,7 @@ export function BlogFormFields({
         name="imageUrl"
         render={({ field }) => (
           <FormItem>
-            <div className="flex justify-between items-center">
-              <FormLabel>Featured Image</FormLabel>
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="sm" 
-                className="h-6 text-xs"
-                onClick={toggleImagePreview}
-              >
-                {showImagePreview ? 'Hide Preview' : 'Show Preview'}
-              </Button>
-            </div>
+            <FormLabel>Featured Image</FormLabel>
             <FormControl>
               <ImageUploader
                 imageUrl={field.value || ''}
