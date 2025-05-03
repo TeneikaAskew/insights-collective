@@ -45,6 +45,7 @@ interface SkillCourse {
 interface CareerPathStep {
   title: string;
   description: string;
+  timeframe?: string;
 }
 
 interface CareerReportData {
@@ -116,15 +117,18 @@ const sampleReportData: CareerReportData = {
   careerPathSteps: [
     {
       title: "Upskill",
-      description: "Enhance your data analysis and programming skills through online courses or certifications."
+      description: "Enhance your data analysis and programming skills through online courses or certifications.",
+      timeframe: "3-6 months"
     },
     {
       title: "Network",
-      description: "Attend industry events and connect with professionals in your desired field to build relationships and learn about new opportunities."
+      description: "Attend industry events and connect with professionals in your desired field to build relationships and learn about new opportunities.",
+      timeframe: "Ongoing"
     },
     {
       title: "Gain experience",
-      description: "Seek out projects or roles that allow you to apply your skills and build a portfolio of data-related work."
+      description: "Seek out projects or roles that allow you to apply your skills and build a portfolio of data-related work.",
+      timeframe: "6-12 months"
     }
   ],
   keyTakeaways: [

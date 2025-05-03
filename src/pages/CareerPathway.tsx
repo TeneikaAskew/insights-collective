@@ -445,7 +445,7 @@ const CareerPathway: React.FC = () => {
                               <CardContent className="p-6 pt-8">
                                 <h3 className="font-bold text-xl text-center text-gray-900">{step.title}</h3>
                                 <p className="text-primary text-sm mb-4 font-medium text-center">
-                                  {step.timeframe || '1-2 years'}
+                                  1-2 years
                                 </p>
                                 <p className="text-gray-600 text-sm">{step.description}</p>
                                 

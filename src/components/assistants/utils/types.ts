@@ -17,6 +17,8 @@ export interface CareerReportData {
   careerPathSteps: Array<{
     title: string;
     description: string;
+    // Let's add the timeframe property that was expected in the CareerPathway component
+    timeframe?: string;
   }>;
   keyTakeaways: string[];
   nextStepRecommendations: string;  // Making this required
