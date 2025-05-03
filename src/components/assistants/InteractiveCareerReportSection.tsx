@@ -16,7 +16,8 @@ import {
   LineChart, 
   ChevronRight, 
   User,
-  BookOpen
+  BookOpen,
+  Compass
 } from 'lucide-react';
 import {
   Accordion,
@@ -27,6 +28,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
 import { useCareerCoach } from '@/hooks/useCareerCoach';
+import CareerActionPlan from './CareerActionPlan';
+import { CareerReportData } from './utils/types';
 
 interface RecommendedRole {
   title: string;
@@ -216,6 +219,12 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
               className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
             >
               Career Path
+            </TabsTrigger>
+            <TabsTrigger 
+              value="action-plan" 
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary"
+            >
+              Action Plan
             </TabsTrigger>
           </TabsList>
 
@@ -449,6 +458,22 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
                   Chat with our career coach for customized guidance on your journey
                 </p>
               </div>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="action-plan" className="p-6">
+            <div className="space-y-6">
+              <div>
+                <h3 className="text-lg font-medium flex items-center">
+                  <Compass className="mr-2 h-5 w-5 text-primary" />
+                  Your Personalized Action Plan
+                </h3>
+                <p className="text-muted-foreground mt-1">
+                  Get a detailed roadmap with specific actions to take for your career advancement
+                </p>
+              </div>
+              
+              <CareerActionPlan />
             </div>
           </TabsContent>
         </Tabs>
