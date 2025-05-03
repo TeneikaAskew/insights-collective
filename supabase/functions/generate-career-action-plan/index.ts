@@ -47,21 +47,36 @@ async function getUserCareerData(supabase: any, userId: string) {
 // Generate the career action plan using GROQ API
 async function generateActionPlan(userData: any) {
   try {
-    const systemPrompt = `You are an expert career coach generating a personalized Career Action Plan. 
-Create a structured plan based on the user's resume data and career assessment results.
-The plan should be broken down into timeframes: 6 weeks, 9 weeks, 12 weeks, 6 months, and 12 months.
+    const systemPrompt = `
+        You are an expert career coach generating a personalized Career Action Plan.
+        Create a structured plan based on the user's resume data and career assessment results.
+        Break it down into these keys: "6_weeks", "9_weeks", "12_weeks", "6_months", "12_months".
+        
+        Each key’s value must be an object containing:
+          1. skills_to_acquire
+          2. projects_to_build
+          3. content_to_post
+          4. milestones_to_achieve
+          5. motivational_narrative
+        
+        **CRUCIAL**: Your _only_ output must be valid JSON. Do not include any explanatory text or markdown.
+        `;
 
-Each timeframe should include:
-1. Skills to acquire (with specific online courses/trainings from platforms like Coursera, Udemy, LinkedIn Learning)
-2. Projects to build (practical portfolio projects aligned with their career direction)
-3. Content to post on LinkedIn/Twitter to build their professional brand
-4. Milestones to achieve (concrete steps like updating resume, applying to roles, joining communities)
-5. A motivational narrative about their trajectory for this timeframe
+//     const systemPrompt = `You are an expert career coach generating a personalized Career Action Plan. 
+// Create a structured plan based on the user's resume data and career assessment results.
+// The plan should be broken down into timeframes: 6 weeks, 9 weeks, 12 weeks, 6 months, and 12 months.
 
-Be supportive, actionable, and focused. The plan should feel like a natural extension of their existing career insights.
-Return a JSON object with these timeframes as keys: "6_weeks", "9_weeks", "12_weeks", "6_months", "12_months".
+// Each timeframe should include:
+// 1. Skills to acquire (with specific online courses/trainings from platforms like Coursera, Udemy, LinkedIn Learning)
+// 2. Projects to build (practical portfolio projects aligned with their career direction)
+// 3. Content to post on LinkedIn/Twitter to build their professional brand
+// 4. Milestones to achieve (concrete steps like updating resume, applying to roles, joining communities)
+// 5. A motivational narrative about their trajectory for this timeframe
 
-Ensure your response is well-structured JSON that can be directly used in a frontend application.`;
+// Be supportive, actionable, and focused. The plan should feel like a natural extension of their existing career insights.
+// Return a JSON object with these timeframes as keys: "6_weeks", "9_weeks", "12_weeks", "6_months", "12_months".
+
+// Ensure your response is well-structured JSON that can be directly used in a frontend application.`;
 
     const userPrompt = `Here is the user's data:
 
