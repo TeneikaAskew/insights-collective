@@ -1,9 +1,30 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Briefcase, BookOpen, Users, FileText, TrendingUp, Star, Award, CheckCircle, User, Play } from 'lucide-react';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Briefcase, 
+  BookOpen, 
+  Users, 
+  FileText, 
+  TrendingUp, 
+  Star, 
+  Award, 
+  CheckCircle, 
+  User, 
+  Play,
+  Loader2
+} from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { 
+  Card, 
+  CardContent, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription, 
+  CardFooter 
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
@@ -12,6 +33,44 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Helmet } from 'react-helmet-async';
+import CareerActionPlan from '@/components/assistants/CareerActionPlan';
+import { 
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
+
+interface ActionPlanTimeframe {
+  skills: Array<{
+    name: string;
+    courses: Array<{
+      title: string;
+      provider: string;
+      url?: string;
+    }>;
+  }>;
+  projects: Array<{
+    title: string;
+    description: string;
+  }>;
+  content: Array<{
+    platform: string;
+    topics: string[];
+  }>;
+  milestones: string[];
+  narrative: string;
+}
+
+interface ActionPlan {
+  "6_weeks": ActionPlanTimeframe;
+  "9_weeks": ActionPlanTimeframe;
+  "12_weeks": ActionPlanTimeframe;
+  "6_months": ActionPlanTimeframe;
+  "12_months": ActionPlanTimeframe;
+}
 
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
@@ -19,6 +78,18 @@ const CareerPathway: React.FC = () => {
   const { data: report, isLoading, error, isError } = useCareerPathwayResults();
   const [activeCareerStep, setActiveCareerStep] = useState(0);
   const [activeTab, setActiveTab] = useState('overview');
+  const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
+  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
+  const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
+  const { toast } = useToast();
+
+  const timeframeLabels = {
+    "6_weeks": "6 Weeks",
+    "9_weeks": "9 Weeks",
+    "12_weeks": "12 Weeks",
+    "6_months": "6 Months",
+    "12_months": "12 Months"
+  };
 
   useEffect(() => {
     console.log("Career pathway report data:", report);
@@ -40,6 +111,49 @@ const CareerPathway: React.FC = () => {
   const prevCareerStep = () => {
     if (activeCareerStep > 0) {
       setActiveCareerStep(activeCareerStep - 1);
+    }
+  };
+
+  // Generate action plan
+  const generateActionPlan = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to generate your career action plan.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGeneratingPlan(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-career-action-plan', {
+        body: { userId: user.id }
+      });
+
+      if (error) {
+        console.error("Error invoking function:", error);
+        throw error;
+      }
+
+      if (data?.success && data?.data) {
+        setActionPlan(data.data);
+        toast({
+          title: "Action Plan Generated",
+          description: "Your personalized career action plan is ready!",
+        });
+      } else {
+        throw new Error("Failed to generate action plan");
+      }
+    } catch (error) {
+      console.error("Error generating action plan:", error);
+      toast({
+        title: "Generation Failed",
+        description: "We couldn't generate your action plan. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsGeneratingPlan(false);
     }
   };
 
@@ -519,10 +633,152 @@ const CareerPathway: React.FC = () => {
                       </div>
                     </CardContent>
                     <CardFooter className="bg-primary/5 border-t p-4">
-                      <Button>
-                        Generate Detailed Action Plan
+                      <Button onClick={generateActionPlan} disabled={isGeneratingPlan}>
+                        {isGeneratingPlan ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Generating...
+                          </>
+                        ) : (
+                          "Generate Detailed Action Plan"
+                        )}
                       </Button>
                     </CardFooter>
+                  </Card>
+                )}
+
+                {/* Display the generated Action Plan */}
+                {actionPlan && (
+                  <Card className="mt-6">
+                    <CardHeader>
+                      <CardTitle>Your Career Action Plan</CardTitle>
+                      <CardDescription>
+                        A personalized roadmap to help you achieve your career goals
+                      </CardDescription>
+                      <Tabs value={activeTimeframe} onValueChange={setActiveTimeframe}>
+                        <TabsList className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                          {Object.entries(timeframeLabels).map(([key, label]) => (
+                            <TabsTrigger key={key} value={key} className="text-xs sm:text-sm">
+                              {label}
+                            </TabsTrigger>
+                          ))}
+                        </TabsList>
+                      </Tabs>
+                    </CardHeader>
+                    
+                    <CardContent>
+                      {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => (
+                        <TabsContent key={timeframeKey} value={timeframeKey} className="space-y-6">
+                          <div className="bg-muted/30 p-4 rounded-lg border">
+                            <p className="italic text-muted-foreground">
+                              {actionPlan[timeframeKey as keyof ActionPlan]?.narrative || 
+                                "In this timeframe, focus on building your foundation and making initial progress toward your career goals."}
+                            </p>
+                          </div>
+
+                          <Accordion type="single" collapsible className="w-full">
+                            <AccordionItem value="skills">
+                              <AccordionTrigger className="py-3">
+                                <div className="flex items-center">
+                                  <GraduationCap className="mr-2 h-5 w-5 text-primary" />
+                                  <span>Skills to Acquire</span>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-4 pl-7">
+                                  {actionPlan[timeframeKey as keyof ActionPlan]?.skills?.map((skillItem, idx) => (
+                                    <div key={idx} className="space-y-2">
+                                      <h4 className="font-medium">{skillItem.name}</h4>
+                                      <ul className="space-y-1">
+                                        {skillItem.courses?.map((course, courseIdx) => (
+                                          <li key={courseIdx} className="text-sm pl-4 border-l-2 border-primary/30">
+                                            <span className="font-medium">{course.title}</span>
+                                            {course.provider && (
+                                              <span className="text-muted-foreground ml-1">
+                                                by {course.provider}
+                                              </span>
+                                            )}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  ))}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+
+                            <AccordionItem value="projects">
+                              <AccordionTrigger className="py-3">
+                                <div className="flex items-center">
+                                  <Briefcase className="mr-2 h-5 w-5 text-primary" />
+                                  <span>Projects to Build</span>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-4 pl-7">
+                                  {actionPlan[timeframeKey as keyof ActionPlan]?.projects?.map((project, idx) => (
+                                    <div key={idx} className="space-y-1">
+                                      <h4 className="font-medium">{project.title}</h4>
+                                      <p className="text-sm text-muted-foreground">{project.description}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+
+                            <AccordionItem value="content">
+                              <AccordionTrigger className="py-3">
+                                <div className="flex items-center">
+                                  <FileText className="mr-2 h-5 w-5 text-primary" />
+                                  <span>Content to Share</span>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="space-y-4 pl-7">
+                                  {actionPlan[timeframeKey as keyof ActionPlan]?.content?.map((contentItem, idx) => (
+                                    <div key={idx} className="space-y-1">
+                                      <h4 className="font-medium">{contentItem.platform}</h4>
+                                      <ul className="list-disc pl-5 space-y-1">
+                                        {contentItem.topics?.map((topic, topicIdx) => (
+                                          <li key={topicIdx} className="text-sm">{topic}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  ))}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+
+                            <AccordionItem value="milestones">
+                              <AccordionTrigger className="py-3">
+                                <div className="flex items-center">
+                                  <CheckCircle className="mr-2 h-5 w-5 text-primary" />
+                                  <span>Milestones to Achieve</span>
+                                </div>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="pl-7">
+                                  <ul className="list-disc pl-5 space-y-2">
+                                    {actionPlan[timeframeKey as keyof ActionPlan]?.milestones?.map((milestone, idx) => (
+                                      <li key={idx} className="text-sm">{milestone}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          </Accordion>
+
+                          <div className="flex justify-end pt-2">
+                            <Button variant="outline" size="sm" onClick={() => setActionPlan(null)} className="mr-2">
+                              Reset
+                            </Button>
+                            <Button size="sm" onClick={generateActionPlan} disabled={isGeneratingPlan}>
+                              {isGeneratingPlan ? "Regenerating..." : "Regenerate Plan"}
+                            </Button>
+                          </div>
+                        </TabsContent>
+                      ))}
+                    </CardContent>
                   </Card>
                 )}
               </motion.div>
