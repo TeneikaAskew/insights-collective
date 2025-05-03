@@ -1,7 +1,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
-import { corsHeaders } from '../resume-analyzer/utils.ts'
-import { callGroqWithRetry } from '../resume-analyzer/utils.ts'
+import { corsHeaders } from '../_shared/utils.ts'
+import { callGroqWithRetry } from '../_shared/utils.ts'
 
 // Handle CORS preflight requests
 const handleCors = (req: Request) => {

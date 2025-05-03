@@ -31,37 +31,6 @@ import { useCareerCoach } from '@/hooks/useCareerCoach';
 import CareerActionPlan from './CareerActionPlan';
 import { CareerReportData } from './utils/types';
 
-interface RecommendedRole {
-  title: string;
-  description: string;
-  salaryRange: string;
-  matchPercentage: number;
-}
-
-interface SkillCourse {
-  skill: string;
-  course: string;
-  provider?: string;
-  level?: string;
-}
-
-interface CareerPathStep {
-  title: string;
-  description: string;
-  timeframe?: string;
-}
-
-interface CareerReportData {
-  userName: string;
-  summary: string;
-  recommendedRoles: RecommendedRole[];
-  skillsAndCourses: SkillCourse[];
-  nextStepRecommendations: string;
-  potentialRoles: string[];
-  careerPathSteps: CareerPathStep[];
-  keyTakeaways: string[];
-}
-
 const sampleReportData: CareerReportData = {
   userName: "Joshua B. Brown",
   summary: "Based on your quiz answers and resume, we have generated a comprehensive report to guide your career growth in the data field. Your experience in program management, data-driven marketing, and logistics has equipped you with a unique set of skills that can be leveraged to excel in various roles.",
