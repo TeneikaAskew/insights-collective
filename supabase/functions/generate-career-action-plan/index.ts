@@ -80,6 +80,7 @@ Based on this information, generate a detailed Career Action Plan broken into ti
     try {
       // First try direct parsing
       jsonResponse = JSON.parse(response);
+      console.log("Response: ",jsonResponse)
     } catch (e) {
       // If that fails, try to extract JSON from markdown code blocks
       const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
