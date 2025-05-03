@@ -1,4 +1,4 @@
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -123,6 +123,11 @@ const AppSidebar = () => {
     url: "/admin/resources",
     icon: FileText,
     active: location.pathname === '/admin/resources'
+  }, {
+    title: "Manage Blog",
+    url: "/admin/blog",
+    icon: Newspaper,
+    active: location.pathname === '/admin/blog' || location.pathname.includes('/admin/blog/')
   }, {
     title: "Manage Events",
     url: "/admin/events",
