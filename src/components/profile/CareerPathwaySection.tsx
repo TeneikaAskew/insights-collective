@@ -2,9 +2,8 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Brain, BarChart3, Database, Presentation, Award, GraduationCap, Star, ArrowRight } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Progress } from '@/components/ui/progress';
 import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
 import InteractiveCareerReportSection from '@/components/assistants/InteractiveCareerReportSection';
 import { Skeleton } from '@/components/ui/skeleton';

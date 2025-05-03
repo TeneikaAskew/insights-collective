@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -375,7 +374,7 @@ const CareerPathway: React.FC = () => {
                           </div>
                           <div>
                             <Button 
-                              onClick={() => navigate(`/explore-data-careers?role=${role.id}`)}
+                              onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)}
                               variant="outline"
                               size="sm"
                             >
