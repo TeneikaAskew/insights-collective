@@ -3,126 +3,86 @@ import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Brain, BarChart3, Database, Presentation, Award, GraduationCap, Star, ArrowRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
+import { useNavigate } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
+import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
+import InteractiveCareerReportSection from '@/components/assistants/InteractiveCareerReportSection';
+import { Skeleton } from '@/components/ui/skeleton';
+import { CareerReportData } from '@/components/assistants/utils/types';
 
 type CareerPathwaySectionProps = {
   pathwayAnswers: Record<number, number | string>;
 };
 
 const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnswers }) => {
-  const { user } = useAuth();
-  const [careerAdviceReport, setCareerAdviceReport] = useState<string>('');
-  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
+  const { data: careerReportData, isLoading } = useCareerPathwayResults();
   const [resumeFound, setResumeFound] = useState(false);
 
   useEffect(() => {
-    const allAnswersProvided = Object.keys(pathwayAnswers).length > 0;
-    console.log('All answers provided:', allAnswersProvided);
-    console.log('User exists:', !!user);
-    if (!allAnswersProvided || !user) {
-      setCareerAdviceReport('');
-      setResumeFound(false);
-      return;
-    }
+    // Check if resume exists in local storage
+    const resumeItems = Object.keys(localStorage).filter(key => key.includes('resume-'));
+    setResumeFound(resumeItems.length > 0);
+  }, []);
 
-    const fetchSavedCareerAdvice = async () => {
-      setLoading(true);
-      try {
-        // Check if resume exists
-        const { data: resumeData, error: resumeError } = await supabase
-          .from('resumes')
-          .select('text')
-          .eq('user_id', user.id)
-          .limit(1)
-          .maybeSingle();
+  const handleTakeAssessment = () => {
+    navigate('/career-agent');
+  };
 
-        if (!resumeError && resumeData?.text) {
-          setResumeFound(true);
-        }
-
-        // Fetch the latest career advice report
-        const { data: adviceData, error: adviceError } = await supabase
-          .from('career_pathway_results')
-          .select('report')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        console.log('Advice data:', adviceData);
-        console.log('Advice error:', adviceError);
-
-        if (adviceError) {
-          console.error('Error fetching career advice:', adviceError);
-          return;
-        }
-
-        if (adviceData?.report) {
-          const rawReport = typeof adviceData.report === 'string' 
-            ? adviceData.report 
-            : JSON.stringify(adviceData.report);
-
-          console.log('Raw report:', rawReport);
-            
-          // The formatCareerPathwayReport function returns a string of HTML content, not an object with html property
-          const formattedReport = formatCareerPathwayReport(rawReport.trim());
-          setCareerAdviceReport(formattedReport);
-          console.log('Formatted career report:', formattedReport);
-        }
-      } catch (err) {
-        console.error('Unknown error fetching career advice:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchSavedCareerAdvice();
-  }, [pathwayAnswers, user]);
-
-  return (
-    <Card id="career-pathway-report" className="mt-6">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <Star className="h-5 w-5 text-primary" />
-          <CardTitle>Career Pathway Report</CardTitle>
-        </div>
-        <CardDescription>
-          Your personalized career pathway based on assessment results
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="flex justify-center items-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  if (isLoading) {
+    return (
+      <Card id="career-pathway-report" className="mt-6">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-primary" />
+            <CardTitle>Career Pathway Report</CardTitle>
           </div>
-        ) : (
-          <>
-            {resumeFound && (
-              <div className="mb-4 p-2 bg-green-100 text-green-700 rounded border border-green-300 flex items-center gap-2">
-                <Award className="h-4 w-4" />
-                Resume analysis included in career advice
-              </div>
-            )}
-            {careerAdviceReport ? (
-              <div 
-                className="career-advice-report prose prose-sm max-w-none"
-                dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-              />
-            ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground">No career advice report available yet.</p>
-                <Button asChild className="mt-4">
-                  <a href="/career-agent">Take Career Assessment</a>
-                </Button>
-              </div>
-            )}
-          </>
-        )}
-      </CardContent>
-    </Card>
+          <CardDescription>
+            Loading your personalized career pathway assessment...
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-32 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // If there's no career report data
+  if (!careerReportData || Object.keys(careerReportData).length === 0 || 
+      (careerReportData.recommendedRoles?.length === 0 && careerReportData.summary === "You haven't completed your career assessment yet.")) {
+    return (
+      <Card id="career-pathway-report" className="mt-6">
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-primary" />
+            <CardTitle>Career Pathway Report</CardTitle>
+          </div>
+          <CardDescription>
+            Take your career assessment to get personalized recommendations
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <p className="text-muted-foreground mb-4">
+              You haven't completed your career assessment yet. Complete the assessment to receive a personalized career pathway report.
+            </p>
+            <Button onClick={handleTakeAssessment}>
+              Take Career Assessment
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Use the InteractiveCareerReportSection to display the career report
+  return (
+    <InteractiveCareerReportSection reportData={careerReportData as CareerReportData} />
   );
 };
 

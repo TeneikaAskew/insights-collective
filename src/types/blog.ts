@@ -1,4 +1,3 @@
-
 export interface BlogPost {
   id: string;  // Changed from number to string to match Supabase's UUID format
   slug: string;
@@ -41,7 +40,7 @@ export interface BlogCategory {
   count?: number;
 }
 
-interface AnalyticsTrend {
+export interface AnalyticsTrend {
   direction: 'up' | 'down' | 'neutral';
   value: string;
   isPositive?: boolean;
