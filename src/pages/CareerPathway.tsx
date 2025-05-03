@@ -14,7 +14,8 @@ import {
   CheckCircle, 
   User, 
   Play,
-  Loader2
+  Loader2,
+  GraduationCap
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { 
