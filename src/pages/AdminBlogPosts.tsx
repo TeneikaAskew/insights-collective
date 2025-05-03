@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -29,8 +28,9 @@ import {
 import { toast } from '@/hooks/use-toast';
 import AppLayout from '@/components/layout/AppLayout';
 import { BlogPost } from '@/types/blog';
-import { getAllBlogPosts, deleteBlogPost } from '@/services/blogService';
+import { getAllBlogPosts, deleteBlogPost, getBlogPostAnalytics } from '@/services/blogService';
 import { format } from 'date-fns';
+import { BlogAnalyticsOverview } from '@/components/blog/analytics/BlogPostMetrics';
 
 const AdminBlogPosts = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
@@ -247,7 +247,12 @@ const AdminBlogPosts = () => {
           </Link>
         </div>
 
-        {/* Analytics Overview */}
+        {/* Blog Analytics Overview */}
+        <div className="mb-8">
+          <BlogAnalyticsOverview />
+        </div>
+
+        {/* Analytics Overview Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card>
             <CardContent className="pt-6">

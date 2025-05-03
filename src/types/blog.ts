@@ -41,10 +41,21 @@ export interface BlogCategory {
   count?: number;
 }
 
+interface AnalyticsTrend {
+  direction: 'up' | 'down' | 'neutral';
+  value: string;
+  isPositive?: boolean;
+}
+
 export interface BlogAnalytics {
   views: number;
   uniqueVisitors: number;
   averageTimeOnPage: number;
   bounceRate: number;
   conversionRate: number;
+  viewsTrend?: AnalyticsTrend;
+  visitorsTrend?: AnalyticsTrend;
+  timeTrend?: AnalyticsTrend;
+  bounceTrend?: AnalyticsTrend;
+  conversionTrend?: AnalyticsTrend;
 }

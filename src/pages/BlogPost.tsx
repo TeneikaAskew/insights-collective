@@ -13,6 +13,7 @@ import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
+import { BlogPostMetrics } from '@/components/blog/analytics/BlogPostMetrics';
 
 const BlogPost = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -156,10 +157,20 @@ const BlogPost = () => {
           </div>
           
           {isAdmin && (
-            <div className="flex gap-2 mb-6">
-              <Button variant="outline" asChild>
-                <Link to={`/admin/blog/edit/${post.slug}`}>Edit Post</Link>
-              </Button>
+            <div>
+              <div className="flex gap-2 mb-6">
+                <Button variant="outline" asChild>
+                  <Link to={`/admin/blog/edit/${post.slug}`}>Edit Post</Link>
+                </Button>
+              </div>
+              
+              {/* Show analytics for admins */}
+              <Card className="mb-6">
+                <CardContent className="pt-6">
+                  <h3 className="text-lg font-semibold mb-4">Post Performance</h3>
+                  <BlogPostMetrics slug={post.slug} />
+                </CardContent>
+              </Card>
             </div>
           )}
           

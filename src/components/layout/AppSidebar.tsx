@@ -5,12 +5,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+
 const AppSidebar = () => {
   const location = useLocation();
   const {
     user,
     isAuthenticated
   } = useAuth();
+
+  // Define public menu items
   const publicMenuItems = [{
     title: "Dashboard",
     url: "/dashboard",
@@ -72,6 +75,8 @@ const AppSidebar = () => {
     icon: Bell,
     active: location.pathname === '/notifications'
   }];
+
+  // Define authenticated menu items
   const authenticatedMenuItems = [{
     title: "Messages",
     url: "/messages",
@@ -88,6 +93,8 @@ const AppSidebar = () => {
     icon: UserCircle,
     active: location.pathname === '/profile'
   }];
+
+  // Define admin menu items with the new blog management item
   const adminMenuItems = [{
     title: "Admin Dashboard",
     url: "/admin",
@@ -149,12 +156,15 @@ const AppSidebar = () => {
     icon: Settings,
     active: location.pathname === '@src/components/LocalStorageDebug'
   }];
+
   const isAdmin = user?.roles?.includes('admin');
   const isInstructor = user?.roles?.includes('instructor');
   const menuItems = [...publicMenuItems];
+
   if (isAuthenticated) {
     menuItems.push(...authenticatedMenuItems);
   }
+
   const menuItemVariants = {
     hidden: {
       opacity: 0,
@@ -169,7 +179,9 @@ const AppSidebar = () => {
       }
     })
   };
-  return <Sidebar className="border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200">
+
+  return (
+    <Sidebar className="border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200">
       <SidebarHeader className="border-b border-gray-200 dark:border-gray-800 px-2 bg-gray-100">
         <div className="flex items-center space-x-2 p-3">
           <Link to="/" className="flex items-center space-x-2">
@@ -268,6 +280,8 @@ const AppSidebar = () => {
       </SidebarFooter>
       
       <SidebarRail />
-    </Sidebar>;
+    </Sidebar>
+  );
 };
+
 export default AppSidebar;

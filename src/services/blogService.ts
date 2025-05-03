@@ -1,5 +1,4 @@
-
-import { BlogPost, BlogFormData, BlogCategory } from '@/types/blog';
+import { BlogPost, BlogFormData, BlogCategory, BlogAnalytics } from '@/types/blog';
 import { supabase } from '@/integrations/supabase/client';
 
 // Import the BlueprintEntries as initial data
@@ -31,18 +30,132 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
     
     if (blueprintPost) {
       // Add status field and other new fields if not present
-      return {
+      const post = {
         ...blueprintPost,
         status: blueprintPost.status || 'published',
         views: blueprintPost.views || Math.floor(Math.random() * 500) + 50, // Mock data
         readTime: blueprintPost.readTime || calculateReadTime(blueprintPost.content)
       };
+      
+      // Record a view for this post
+      recordBlogPostView(post.id, post.slug);
+      
+      return post;
     }
     
     return null;
   } catch (error) {
     console.error(`Error fetching blog post with slug ${slug}:`, error);
     return null;
+  }
+};
+
+// Record a view for a blog post
+export const recordBlogPostView = async (postId: string, slug: string) => {
+  try {
+    // Get client IP (or a hash) to count unique visitors
+    // In a real implementation, you'd use something like a hashed session ID
+    const visitorId = crypto.randomUUID(); // Mock unique visitor ID
+    
+    // Record the analytics event
+    const { error } = await supabase
+      .from('blog_post_views')
+      .insert({
+        post_id: postId,
+        post_slug: slug,
+        visitor_id: visitorId,
+        view_duration: 0, // This would be updated later
+        view_date: new Date().toISOString()
+      });
+    
+    if (error) {
+      console.error('Error recording blog post view:', error);
+    }
+    
+  } catch (error) {
+    console.error('Error recording blog post view:', error);
+  }
+};
+
+// Update the view duration - would be called when user leaves page
+export const updateViewDuration = async (viewId: string, durationSeconds: number) => {
+  try {
+    const { error } = await supabase
+      .from('blog_post_views')
+      .update({ view_duration: durationSeconds })
+      .eq('id', viewId);
+      
+    if (error) {
+      console.error('Error updating view duration:', error);
+    }
+  } catch (error) {
+    console.error('Error updating view duration:', error);
+  }
+};
+
+// Helper function to generate sample trend data
+const generateTrendData = (value: number, min: number, max: number, isPositiveBetter = true) => {
+  const percentChange = Math.random() * 20 - 10; // Random percent between -10% and +10%
+  const direction: 'up' | 'down' | 'neutral' = 
+    percentChange > 1 ? 'up' :
+    percentChange < -1 ? 'down' : 'neutral';
+  
+  const isGood = (direction === 'up' && isPositiveBetter) || (direction === 'down' && !isPositiveBetter);
+  
+  return {
+    direction,
+    value: `${Math.abs(percentChange).toFixed(1)}% from last period`,
+    isPositive: isGood
+  };
+};
+
+// Get blog post analytics
+export const getBlogPostAnalytics = async (
+  slug?: string, 
+  timeframe: '7d' | '30d' | '90d' | 'all' = '30d'
+): Promise<BlogAnalytics> => {
+  try {
+    // In a real implementation, this would fetch actual data from the database
+    // For now, generate sample data
+    
+    // Sample analytics data
+    const baseViews = slug ? Math.floor(Math.random() * 2000) + 100 : Math.floor(Math.random() * 10000) + 1000;
+    const baseVisitors = Math.floor(baseViews * (0.6 + Math.random() * 0.3)); // 60-90% of views
+    const baseTimeOnPage = Math.floor(Math.random() * 120) + 30; // 30-150 seconds
+    const baseConversionRate = Math.random() * 5 + 1; // 1-6%
+    const baseBounceRate = Math.random() * 30 + 30; // 30-60%
+    
+    // Apply timeframe factor
+    const timeframeFactor = timeframe === '7d' ? 0.3 : 
+                           timeframe === '30d' ? 1 : 
+                           timeframe === '90d' ? 2.5 : 3.5;
+    
+    const analytics: BlogAnalytics = {
+      views: Math.floor(baseViews * timeframeFactor),
+      uniqueVisitors: Math.floor(baseVisitors * timeframeFactor),
+      averageTimeOnPage: baseTimeOnPage,
+      bounceRate: baseBounceRate,
+      conversionRate: baseConversionRate,
+      // Add trend data
+      viewsTrend: generateTrendData(baseViews, 500, 10000, true),
+      visitorsTrend: generateTrendData(baseVisitors, 300, 7000, true),
+      timeTrend: generateTrendData(baseTimeOnPage, 30, 150, true),
+      conversionTrend: generateTrendData(baseConversionRate, 1, 6, true),
+      bounceTrend: generateTrendData(baseBounceRate, 30, 60, false),
+    };
+    
+    return analytics;
+  } catch (error) {
+    console.error('Error fetching blog post analytics:', error);
+    
+    // Return default values if there's an error
+    return {
+      views: 0,
+      uniqueVisitors: 0,
+      averageTimeOnPage: 0,
+      bounceRate: 0,
+      conversionRate: 0
+    };
   }
 };
 
