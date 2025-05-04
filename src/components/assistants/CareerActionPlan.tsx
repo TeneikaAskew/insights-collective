@@ -87,9 +87,14 @@ const CareerActionPlan: React.FC = () => {
         body: { userId: user.id }
       });
 
+      // In your component where you fetch the data
+      console.log('API Response:', data);
+      console.log('Action Plan Data:', result.data);
+
       if (error) throw error;
 
       if (data?.success && data?.data) {
+        console.log('Setting action plan:', data.data);
         setActionPlan(data.data);
         toast({
           title: "Action Plan Generated",
