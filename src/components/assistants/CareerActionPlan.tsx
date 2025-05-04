@@ -145,7 +145,7 @@ const CareerActionPlan: React.FC = () => {
     );
   }
 
-  const currentTimeframeData = actionPlan[activeTimeframe as keyof ActionPlan];
+  const currentTimeframeData = actionPlan[timeframeKey as keyof ActionPlan] //actionPlan[activeTimeframe as keyof ActionPlan];
 
   return (
     <Card className="w-full mt-6">
