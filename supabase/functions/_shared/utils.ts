@@ -50,8 +50,8 @@ export async function callGroqAPI(
         { role: 'system', content: system },
         { role: 'user',   content: user   }
       ],
-      temperature: 0.7,
-      max_tokens: 500
+      temperature: 0.5,//0.7
+      max_tokens: 1000//500
     })
   });
 
