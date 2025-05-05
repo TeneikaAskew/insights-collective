@@ -660,39 +660,38 @@ const CareerPathway: React.FC = () => {
           </Tabs>
         </motion.div>
 
-         <CareerAIRecommendations
-              careerPath={data.report.recommendedRoles[0]?.title}
-              userSkills={userSkills}
-            />
-          </>
-        ) : (
-          <div className="text-center py-12 space-y-6">
-            <h2 className="text-3xl font-bold">No Career Assessment Results Yet</h2>
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Take our career assessment quiz to get personalized career pathway recommendations,
-              skill development guidance, and a customized learning path.
-            </p>
-            <Button onClick={handleTakeQuiz} size="lg">
-              Take Career Assessment <ArrowRight className="ml-2 h-4 w-4" />
-            </Button>
-            
-            {/* Show AI recommendations even without assessment */}
-            <div className="pt-12">
-          <CareerAIRecommendations />
-
-        {/* Feedback Section */}
-        <motion.div
-          initial="initial"
-          animate="animate"
-          variants={fadeInUp}
-          className="text-center space-y-4 mt-12"
-        >
-          <p className="text-gray-600">Was this information useful?</p>
-          <div className="flex justify-center gap-4">
-            <Button variant="outline" className="px-8">Yes</Button>
-            <Button variant="outline" className="px-8">No</Button>
-          </div>
+        {/* Feedback / Recommendations Section */}
+        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mt-8">
+          <CareerAIRecommendations
+            careerPath={data.report.recommendedRoles[0]?.title}
+            userSkills={userSkills}
+          />
         </motion.div>
+      </>
+    ) : (
+      <div className="text-center py-12 space-y-6">
+        <h2 className="text-3xl font-bold">No Career Assessment Results Yet</h2>
+        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+          Take our career assessment quiz to get personalized career pathway recommendations,
+          skill development guidance, and a customized learning path.
+        </p>
+        <Button onClick={handleTakeQuiz} size="lg">
+          Take Career Assessment <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+    
+        {/* Show AI recommendations even without assessment */}
+        <div className="pt-12">
+          <CareerAIRecommendations />
+    
+          {/* Feedback Buttons */}
+          <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-4 mt-12">
+            <p className="text-gray-600">Was this information useful?</p>
+            <div className="flex justify-center gap-4">
+              <Button variant="outline" className="px-8">Yes</Button>
+              <Button variant="outline" className="px-8">No</Button>
+            </div>
+          </motion.div>
+        </div>
       </div>
     </AppLayout>
   );
