@@ -290,6 +290,23 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                   <Accordion type="multiple" className="w-full" defaultValue={["skills", "projects", "content", "milestones"]}>
                     {/* Skills */}
                     <AccordionItem value="skills">
+                      <AccordionTrigger>Skills to Acquire</AccordionTrigger>
+                      <AccordionContent>
+                        {currentTimeframeData?.skills.map((s, i) => (
+                          <div key={i}>
+                            <h4>{s.name}</h4>
+                            <ul>
+                              {s.courses.map((c, j) => (
+                                <li key={j}>
+                                  {c.title} {c.provider && `by ${c.provider}`}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="skills">
                        <AccordionTrigger className="py-3 text-base font-medium">
                          <div className="flex items-center">
                            <GraduationCap className="mr-2 h-5 w-5 text-primary" />
