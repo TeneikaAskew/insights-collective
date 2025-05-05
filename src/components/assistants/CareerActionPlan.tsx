@@ -257,9 +257,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         </CardDescription>
         <Tabs value={activeTimeframe} onValueChange={setActiveTimeframe} className="mt-4">
           <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 w-full">
-            {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => {
-            const timeframeData = actionPlan ? actionPlan[timeframeKey as keyof ActionPlan] : null;
-
+            {Object.entries(timeframeLabels).map(([key, label]) => (
               <TabsTrigger key={key} value={key} className="text-xs sm:text-sm">
                 {label}
               </TabsTrigger>
@@ -272,9 +270,9 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => {
           // Explicitly cast timeframeKey to ensure TypeScript knows it's a valid key
           // and log the result for debugging
-          // const timeframeData = actionPlan[timeframeKey as keyof ActionPlan];
+          const timeframeData = actionPlan[timeframeKey as keyof ActionPlan]: null;
                 // right after your hooks:
-          const timeframeData = actionPlan ? actionPlan[activeTimeframe as keyof ActionPlan]: null;
+          // const timeframeData = actionPlan ? actionPlan[activeTimeframe as keyof ActionPlan]: null;
 
           console.log(`TabsContent for ${timeframeKey}. Data exists:`, !!timeframeData);
 
