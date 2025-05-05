@@ -293,22 +293,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                            Skills to Acquire
                          </div>
                        </AccordionTrigger>
-                       <AccordionContent className="bg-blue-50">
-                         <div className="space-y-4 pl-8 pt-2 border border-red-300">
-                          <pre className="text-xs overflow-auto bg-gray-100 p-2">
-                            {JSON.stringify(timeframeData.skills, null, 2)}
-                          </pre>
-                          
-                          {timeframeData.skills && timeframeData.skills.length > 0 ? (
-                            timeframeData.skills.map((skillItem, idx) => (
-                              <div key={`skill-${idx}`} className="border border-green-300 p-2">
-                                <p className="font-bold">{skillItem.name}</p>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-red-500">No skills found</p>
-                          )}
-                        </div>
+                       <AccordionContent>
                          <div className="space-y-4 pl-8 pt-2">
                            {timeframeData.skills && timeframeData.skills.length > 0 ? (
                              timeframeData.skills.map((skillItem, idx) => (
