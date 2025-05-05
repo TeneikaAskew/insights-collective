@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -243,11 +244,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   const currentActiveTimeframe = validTimeframeKeys.includes(activeTimeframe) ? activeTimeframe : (validTimeframeKeys[0] || "6_weeks");
   if (currentActiveTimeframe !== activeTimeframe) {
      console.warn(`CAP Warn: Render - Active timeframe '${activeTimeframe}' invalid or data missing, switching to '${currentActiveTimeframe}'.`);
-     // Setting state directly in render is discouraged, but necessary here to correct tab value immediately
      // Use a microtask to avoid direct state update during render cycle issues if possible, though React might handle this.
-     // queueMicrotask(() => setActiveTimeframe(currentActiveTimeframe));
-     // Direct set for simplicity, monitor for issues:
-      // setActiveTimeframe(currentActiveTimeframe); // Let's rely on the Tabs component's controlled value below
   }
 
   return (
@@ -345,34 +342,54 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {/* Added check for timeframeData.skills */}
-                        {timeframeData.skills && timeframeData.skills.length > 0 ? (
-                          timeframeData.skills.map((skillItem, idx) => (
-                            <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
-                              <h4 className="font-semibold text-primary/90">{skillItem.name || 'Unnamed Skill'}</h4>
-                              {/* Added check for skillItem.courses */}
-                              {skillItem.courses && skillItem.courses.length > 0 ? (
-                                <ul className="space-y-1 list-disc pl-5">
-                                  {skillItem.courses.map((course, courseIdx) => (
-                                    <li key={`course-${timeframeKey}-${idx}-${courseIdx}`} className="text-sm">
-                                      <span className="font-medium">{course.title || 'Unnamed Course'}</span>
-                                      {course.provider && (
-                                        <span className="text-muted-foreground ml-1 text-xs">
-                                          ({course.provider})
-                                        </span>
-                                      )}
-                                      {course.url ? (
-                                        <a href={course.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
-                                          [Link]
-                                        </a>
-                                      ) : null}
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-muted-foreground pl-1">No specific courses listed for this skill.</p>
-                              )}
-                            </div>
-                          ))
+                        {timeframeData.skills && Array.isArray(timeframeData.skills) && timeframeData.skills.length > 0 ? (
+                          timeframeData.skills.map((skillItem, idx) => {
+                            // Check if skillItem is a valid object with the expected structure
+                            if (!skillItem || typeof skillItem !== 'object' || !('name' in skillItem)) {
+                              console.warn(`CAP Warn: Invalid skill item at index ${idx}:`, skillItem);
+                              return (
+                                <div key={`invalid-skill-${timeframeKey}-${idx}`} className="text-sm text-red-500">
+                                  Invalid skill data
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
+                                <h4 className="font-semibold text-primary/90">{skillItem.name || 'Unnamed Skill'}</h4>
+                                {/* Added check for skillItem.courses */}
+                                {skillItem.courses && Array.isArray(skillItem.courses) && skillItem.courses.length > 0 ? (
+                                  <ul className="space-y-1 list-disc pl-5">
+                                    {skillItem.courses.map((course, courseIdx) => {
+                                      // Verify course is a valid object
+                                      if (!course || typeof course !== 'object') {
+                                        console.warn(`CAP Warn: Invalid course at index ${courseIdx} for skill ${skillItem.name}:`, course);
+                                        return null;
+                                      }
+
+                                      return (
+                                        <li key={`course-${timeframeKey}-${idx}-${courseIdx}`} className="text-sm">
+                                          <span className="font-medium">{course.title || 'Unnamed Course'}</span>
+                                          {course.provider && (
+                                            <span className="text-muted-foreground ml-1 text-xs">
+                                              ({course.provider})
+                                            </span>
+                                          )}
+                                          {course.url ? (
+                                            <a href={course.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
+                                              [Link]
+                                            </a>
+                                          ) : null}
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground pl-1">No specific courses listed for this skill.</p>
+                                )}
+                              </div>
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground text-sm">No specific skills listed for this period.</p>
                         )}
@@ -391,13 +408,21 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {/* Added check for timeframeData.projects */}
-                        {timeframeData.projects && timeframeData.projects.length > 0 ? (
-                          timeframeData.projects.map((project, idx) => (
-                            <div key={`project-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                              <h4 className="font-semibold text-primary/90">{project.title || 'Unnamed Project'}</h4>
-                              <p className="text-sm text-muted-foreground">{project.description || 'No description.'}</p>
-                            </div>
-                          ))
+                        {timeframeData.projects && Array.isArray(timeframeData.projects) && timeframeData.projects.length > 0 ? (
+                          timeframeData.projects.map((project, idx) => {
+                            // Verify project is a valid object
+                            if (!project || typeof project !== 'object') {
+                              console.warn(`CAP Warn: Invalid project at index ${idx}:`, project);
+                              return null;
+                            }
+
+                            return (
+                              <div key={`project-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
+                                <h4 className="font-semibold text-primary/90">{project.title || 'Unnamed Project'}</h4>
+                                <p className="text-sm text-muted-foreground">{project.description || 'No description.'}</p>
+                              </div>
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground text-sm">No specific projects listed for this period.</p>
                         )}
@@ -416,22 +441,30 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {/* Added check for timeframeData.content */}
-                        {timeframeData.content && timeframeData.content.length > 0 ? (
-                          timeframeData.content.map((contentItem, idx) => (
-                            <div key={`content-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                              <h4 className="font-semibold text-primary/90">{contentItem.platform || 'Unspecified Platform'}</h4>
-                              {/* Added check for contentItem.topics */}
-                              {contentItem.topics && contentItem.topics.length > 0 ? (
-                                <ul className="list-disc pl-5 space-y-1">
-                                  {contentItem.topics.map((topic, topicIdx) => (
-                                    <li key={`topic-${timeframeKey}-${idx}-${topicIdx}`} className="text-sm">{topic || 'Unspecified Topic'}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-muted-foreground pl-1">No specific topics listed for this platform.</p>
-                              )}
-                            </div>
-                          ))
+                        {timeframeData.content && Array.isArray(timeframeData.content) && timeframeData.content.length > 0 ? (
+                          timeframeData.content.map((contentItem, idx) => {
+                            // Verify contentItem is a valid object
+                            if (!contentItem || typeof contentItem !== 'object') {
+                              console.warn(`CAP Warn: Invalid content item at index ${idx}:`, contentItem);
+                              return null;
+                            }
+
+                            return (
+                              <div key={`content-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
+                                <h4 className="font-semibold text-primary/90">{contentItem.platform || 'Unspecified Platform'}</h4>
+                                {/* Added check for contentItem.topics */}
+                                {contentItem.topics && Array.isArray(contentItem.topics) && contentItem.topics.length > 0 ? (
+                                  <ul className="list-disc pl-5 space-y-1">
+                                    {contentItem.topics.map((topic, topicIdx) => (
+                                      <li key={`topic-${timeframeKey}-${idx}-${topicIdx}`} className="text-sm">{topic || 'Unspecified Topic'}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground pl-1">No specific topics listed for this platform.</p>
+                                )}
+                              </div>
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground text-sm">No specific content sharing goals listed for this period.</p>
                         )}
@@ -450,7 +483,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="pl-8 pt-2">
                         {/* Added check for timeframeData.milestones */}
-                        {timeframeData.milestones && timeframeData.milestones.length > 0 ? (
+                        {timeframeData.milestones && Array.isArray(timeframeData.milestones) && timeframeData.milestones.length > 0 ? (
                           <ul className="list-disc pl-5 space-y-2">
                             {timeframeData.milestones.map((milestone, idx) => (
                               <li key={`milestone-${timeframeKey}-${idx}`} className="text-sm">{milestone || 'Unspecified Milestone'}</li>
