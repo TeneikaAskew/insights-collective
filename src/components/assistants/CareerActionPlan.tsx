@@ -287,86 +287,91 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                      </p>
                   </div>
 
-                  <Accordion type="multiple" collapsible className="w-full" defaultValue={["skills", "projects", "content", "milestones"]}>
+                  <Accordion type="multiple" className="w-full" defaultValue={["skills", "projects", "content", "milestones"]}>
                     {/* Skills */}
                     <AccordionItem value="skills">
-                      <AccordionTrigger className="py-3 text-base font-medium">
-                        <div className="flex items-center">
-                          <GraduationCap className="mr-2 h-5 w-5 text-primary" />
-                          Skills to Acquire
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-4 pl-8 pt-2">
-                          {timeframeData.skills && timeframeData.skills.length > 0 ? (
-                            timeframeData.skills.map((skillItem, idx) => (
-                              <div key={`skill-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
-                                <h4 className="font-semibold text-primary/90">{skillItem.name}</h4>
-                                {skillItem.courses && skillItem.courses.length > 0 ? (
-                                  <ul className="space-y-1 list-disc pl-5">
-                                    {skillItem.courses.map((course, courseIdx) => (
-                                      <li key={`course-${courseIdx}`} className="text-sm">
-                                        <span className="font-medium">{course.title}</span>
-                                        {course.provider && (
-                                          <span className="text-muted-foreground ml-1 text-xs">
-                                            ({course.provider})
-                                          </span>
-                                        )}
-                                        {/* TODO: Add link if course.url exists */}
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                   <p className="text-sm text-muted-foreground pl-1">No specific courses listed. Consider searching for relevant training.</p>
-                                )}
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-muted-foreground text-sm">No specific skills listed for this period.</p>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                       <AccordionTrigger className="py-3 text-base font-medium">
+                         <div className="flex items-center">
+                           <GraduationCap className="mr-2 h-5 w-5 text-primary" />
+                           Skills to Acquire
+                         </div>
+                       </AccordionTrigger>
+                       <AccordionContent>
+                         <div className="space-y-4 pl-8 pt-2">
+                           {timeframeData.skills && timeframeData.skills.length > 0 ? (
+                             timeframeData.skills.map((skillItem, idx) => (
+                               <div key={`skill-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
+                                 <h4 className="font-semibold text-primary/90">{skillItem.name}</h4>
+                                 {skillItem.courses && skillItem.courses.length > 0 ? (
+                                   <ul className="space-y-1 list-disc pl-5">
+                                     {skillItem.courses.map((course, courseIdx) => (
+                                       <li key={`course-${courseIdx}`} className="text-sm">
+                                         <span className="font-medium">{course.title}</span>
+                                         {course.provider && (
+                                           <span className="text-muted-foreground ml-1 text-xs">
+                                             ({course.provider})
+                                           </span>
+                                         )}
+                                         {/* Added link rendering */}
+                                         {course.url ? (
+                                             <a href={course.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
+                                                 [Link]
+                                             </a>
+                                         ) : null}
+                                       </li>
+                                     ))}
+                                   </ul>
+                                 ) : (
+                                    <p className="text-sm text-muted-foreground pl-1">No specific courses listed. Consider searching for relevant training.</p>
+                                 )}
+                               </div>
+                             ))
+                           ) : (
+                             <p className="text-muted-foreground text-sm">No specific skills listed for this period.</p>
+                           )}
+                         </div>
+                       </AccordionContent>
+                     </AccordionItem>
 
                     {/* Projects */}
                     <AccordionItem value="projects">
-                      <AccordionTrigger className="py-3 text-base font-medium">
-                        <div className="flex items-center">
-                          <Briefcase className="mr-2 h-5 w-5 text-primary" />
-                          Projects to Build
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-4 pl-8 pt-2">
-                          {timeframeData.projects && timeframeData.projects.length > 0 ? (
-                            timeframeData.projects.map((project, idx) => (
-                              <div key={`project-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                                <h4 className="font-semibold text-primary/90">{project.title}</h4>
-                                <p className="text-sm text-muted-foreground">{project.description}</p>
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-muted-foreground text-sm">No specific projects listed for this period.</p>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                       <AccordionTrigger className="py-3 text-base font-medium">
+                         <div className="flex items-center">
+                           <Briefcase className="mr-2 h-5 w-5 text-primary" />
+                           Projects to Build
+                         </div>
+                       </AccordionTrigger>
+                       <AccordionContent>
+                         <div className="space-y-4 pl-8 pt-2">
+                           {timeframeData.projects && timeframeData.projects.length > 0 ? (
+                             timeframeData.projects.map((project, idx) => (
+                               <div key={`project-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
+                                 <h4 className="font-semibold text-primary/90">{project.title}</h4>
+                                 <p className="text-sm text-muted-foreground">{project.description}</p>
+                               </div>
+                             ))
+                           ) : (
+                             <p className="text-muted-foreground text-sm">No specific projects listed for this period.</p>
+                           )}
+                         </div>
+                       </AccordionContent>
+                     </AccordionItem>
 
                     {/* Content */}
                     <AccordionItem value="content">
-                      <AccordionTrigger className="py-3 text-base font-medium">
-                        <div className="flex items-center">
-                          <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-                          Content to Share
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="space-y-4 pl-8 pt-2">
-                          {timeframeData.content && timeframeData.content.length > 0 ? (
-                            timeframeData.content.map((contentItem, idx) => (
-                              <div key={`content-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                                <h4 className="font-semibold text-primary/90">{contentItem.platform}</h4>
-                                {contentItem.topics && contentItem.topics.length > 0 ? (
+                       <AccordionTrigger className="py-3 text-base font-medium">
+                         <div className="flex items-center">
+                           <MessageSquare className="mr-2 h-5 w-5 text-primary" />
+                           Content to Share
+                         </div>
+                       </AccordionTrigger>
+                       <AccordionContent>
+                         <div className="space-y-4 pl-8 pt-2">
+                           {timeframeData.content && timeframeData.content.length > 0 ? (
+                             timeframeData.content.map((contentItem, idx) => (
+                               <div key={`content-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
+                                 <h4 className="font-semibold text-primary/90">{contentItem.platform}</h4>
+                                 {contentItem.topics && contentItem.topics.length > 0 ? (
                                      <ul className="list-disc pl-5 space-y-1">
                                        {contentItem.topics.map((topic, topicIdx) => (
                                          <li key={`topic-${topicIdx}`} className="text-sm">{topic}</li>
@@ -375,37 +380,37 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                                  ) : (
                                     <p className="text-sm text-muted-foreground pl-1">No specific topics listed for this platform.</p>
                                  )}
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-muted-foreground text-sm">No specific content sharing goals listed for this period.</p>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                               </div>
+                             ))
+                           ) : (
+                             <p className="text-muted-foreground text-sm">No specific content sharing goals listed for this period.</p>
+                           )}
+                         </div>
+                       </AccordionContent>
+                     </AccordionItem>
 
                     {/* Milestones */}
                     <AccordionItem value="milestones">
-                      <AccordionTrigger className="py-3 text-base font-medium">
-                        <div className="flex items-center">
-                          <Target className="mr-2 h-5 w-5 text-primary" />
-                          Milestones to Achieve
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent>
-                        <div className="pl-8 pt-2">
-                          {timeframeData.milestones && timeframeData.milestones.length > 0 ? (
-                             <ul className="list-disc pl-5 space-y-2">
-                               {timeframeData.milestones.map((milestone, idx) => (
-                                 <li key={`milestone-${idx}`} className="text-sm">{milestone}</li>
-                               ))}
-                             </ul>
-                          ) : (
-                             <p className="text-muted-foreground text-sm">No specific milestones listed for this period.</p>
-                          )}
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
+                       <AccordionTrigger className="py-3 text-base font-medium">
+                         <div className="flex items-center">
+                           <Target className="mr-2 h-5 w-5 text-primary" />
+                           Milestones to Achieve
+                         </div>
+                       </AccordionTrigger>
+                       <AccordionContent>
+                         <div className="pl-8 pt-2">
+                           {timeframeData.milestones && timeframeData.milestones.length > 0 ? (
+                              <ul className="list-disc pl-5 space-y-2">
+                                {timeframeData.milestones.map((milestone, idx) => (
+                                  <li key={`milestone-${idx}`} className="text-sm">{milestone}</li>
+                                ))}
+                              </ul>
+                           ) : (
+                              <p className="text-muted-foreground text-sm">No specific milestones listed for this period.</p>
+                           )}
+                         </div>
+                       </AccordionContent>
+                     </AccordionItem>
                   </Accordion>
 
                   {/* Action Buttons for this timeframe */}
