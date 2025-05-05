@@ -290,7 +290,8 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                        <AccordionTrigger className="py-3 text-base font-medium">
                          <div className="flex items-center">
                            <GraduationCap className="mr-2 h-5 w-5 text-primary" />
-                           Skills to Acquire
+                           {/* Skills to Acquire */}
+                           <span>Skills to Acquire ({timeframeData?.skills?.length || 0})</span>
                          </div>
                        </AccordionTrigger>
                        <AccordionContent>
