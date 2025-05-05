@@ -13,6 +13,8 @@ export const useCareerPathwayResults = () => {
     queryFn: async () => {
       if (!user?.id) throw new Error('User not authenticated');
       
+      console.log("Fetching career pathway results for user:", user.id);
+      
       // First try to get data from Supabase
       const { data, error } = await supabase
         .from('career_pathway_results')
@@ -27,15 +29,29 @@ export const useCareerPathwayResults = () => {
       // If there's data in Supabase, parse and return it
       if (data && !error) {
         try {
+          // Parse the career report
           const parsedReport = parseCareerReport(data.report);
-          console.log("Successfully parsed career pathway results from Supabase:", parsedReport);
+          console.log("Successfully parsed career pathway report data");
+          
+          // Validate the action plan
+          const actionPlan = data.action_plan;
+          if (actionPlan && typeof actionPlan === 'object' && Object.keys(actionPlan).length > 0) {
+            console.log("Found valid action plan data:", Object.keys(actionPlan));
+          } else {
+            console.log("No valid action plan found in database");
+          }
+          
           return {
             report: parsedReport,
-            actionPlan: data.action_plan
+            actionPlan: actionPlan
           };
         } catch (err) {
           console.error("Error parsing career report from Supabase:", err);
         }
+      } else if (error) {
+        console.error("Error fetching career pathway results:", error);
+      } else {
+        console.log("No career pathway results found for user");
       }
       
       // If no data in Supabase or parsing error, return a default structure
