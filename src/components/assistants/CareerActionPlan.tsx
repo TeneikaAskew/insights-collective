@@ -292,7 +292,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionItem value="skills">
                       <AccordionTrigger>Skills to Acquire</AccordionTrigger>
                       <AccordionContent>
-                        {currentTimeframeData?.skills.map((s, i) => (
+                        {timeframeData?.skills.map((s, i) => (
                           <div key={i}>
                             <h4>{s.name}</h4>
                             <ul>
