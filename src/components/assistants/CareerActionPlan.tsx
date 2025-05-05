@@ -270,7 +270,10 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => {
           // Explicitly cast timeframeKey to ensure TypeScript knows it's a valid key
           // and log the result for debugging
-          const timeframeData = actionPlan[timeframeKey as keyof ActionPlan];
+          // const timeframeData = actionPlan[timeframeKey as keyof ActionPlan];
+                // right after your hooks:
+          const timeframeData = actionPlan ? actionPlan[activeTimeframe as keyof ActionPlan]: null;
+
           console.log(`TabsContent for ${timeframeKey}. Data exists:`, !!timeframeData);
 
           return (
