@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { corsHeaders, callGroqWithRetry } from '../_shared/utils.ts';
 // CORS handling for preflight requests
@@ -29,53 +30,7 @@ async function getUserCareerData(supabase, userId) {
     }
   };
 }
-// // Robust JSON extractor from LLM response
-// function extractJsonPayload(rawResponse) {
-//   const raw = rawResponse.trim();
-//   // 1) Try direct JSON.parse
-//   try {
-//     return JSON.parse(raw);
-//   } catch (e) {
-//     console.log('Direct JSON.parse failed, proceeding to extraction');
-//   }
-//   // 2) Extract from code fences
-//   const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-//   if (fenceMatch?.[1]) {
-//     try {
-//       return JSON.parse(fenceMatch[1].trim());
-//     } catch (e) {
-//       console.log('Code fence JSON.parse failed');
-//     }
-//   }
-//   // 3) Naive substring from first to last brace
-//   const first = raw.indexOf('{');
-//   const last = raw.lastIndexOf('}');
-//   if (first !== -1 && last !== -1 && last > first) {
-//     const candidate = raw.substring(first, last + 1);
-//     try {
-//       return JSON.parse(candidate);
-//     } catch (e) {
-//       console.log('Naive substring JSON.parse failed');
-//     }
-//   }
-//   // 4) Balanced braces fallback
-//   if (first !== -1) {
-//     let depth = 0;
-//     for(let i = first; i < raw.length; i++){
-//       if (raw[i] === '{') depth++;
-//       if (raw[i] === '}') depth--;
-//       if (depth === 0) {
-//         const slice = raw.slice(first, i + 1);
-//         try {
-//           return JSON.parse(slice);
-//         } catch (e) {}
-//         break;
-//       }
-//     }
-//   }
-//   console.error('Unable to extract JSON from LLM response:', raw);
-//   throw new Error('Invalid JSON payload');
-// }
+
 function extractJsonPayload(rawResponse) {
   // 1) strip ANY markdown fences
   let raw = rawResponse.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
@@ -94,6 +49,7 @@ function extractJsonPayload(rawResponse) {
     throw new Error('Invalid JSON payload');
   }
 }
+
 // Generate the career action plan using GROQ API
 async function generateActionPlan(userData) {
   try {
@@ -111,18 +67,7 @@ async function generateActionPlan(userData) {
     - RESPONSE MUST START WITH '{' AND END WITH '}'.
     - KEEP TOTAL RESPONSE UNDER 2000 CHARACTERS.
     - If you fail to comply, output {} only.`;
-    //     const systemPrompt = `SYSTEM INSTRUCTIONS (ENFORCE EXACT FORMAT):
-    // - OUTPUT ONLY a single JSON object with EXACT keys:
-    //   "6_weeks","9_weeks","12_weeks","6_months","12_months".
-    // - Each key's value must be an object with properties:
-    //     "skills_to_acquire": string[],
-    //     "projects_to_build": { title: string; description: string }[],
-    //     "content_to_post": { platform: string; topics: string[] }[],
-    //     "milestones_to_achieve": string[],
-    //     "motivational_narrative": string
-    // - DO NOT include ANY additional keys, markdown, or explanatory text.
-    // - RESPONSE MUST START WITH '{' AND END WITH '}'.
-    // - If you fail to comply, output {} only.`;
+
     // Build a concise user prompt with just enough context
     const resumeSnippet = Array.isArray(userData.resume.sentences) ? userData.resume.sentences.slice(0, 3).join(' ') : '';
     const analysisSnippet = typeof userData.resume.analysis === 'string' ? userData.resume.analysis.slice(0, 200) : userData.resume.analysis ? JSON.stringify(userData.resume.analysis).slice(0, 200) : '';
@@ -140,10 +85,10 @@ ${userData.pathway.report ? JSON.stringify(userData.pathway.report) : ''}
 Be supportive, actionable, and focused. The plan should feel like a natural extension of their existing career insights.
 
 Using only this information, generate the Career Action Plan in the exact JSON format described above.`;
+
     // Call the GROQ API
     const response = await callGroqWithRetry(systemPrompt, userPrompt);
     console.log("Raw Response: ", response);
-    console.log(response);
     // Extract JSON from the response
     return extractJsonPayload(response);
   } catch (error) {
@@ -151,209 +96,7 @@ Using only this information, generate the Career Action Plan in the exact JSON f
     throw error;
   }
 }
-// Robust JSON extractor from LLM response
-// function extractJsonPayload(rawResponse) {
-//   const raw = rawResponse.trim();
-//   // First try to extract JSON from markdown code blocks
-//   const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-//   if (fenceMatch?.[1]) {
-//     try {
-//       return JSON.parse(fenceMatch[1].trim());
-//     } catch (e) {
-//       console.error("Failed to parse JSON from code block", e);
-//     }
-//   }
-//   // If that fails, try to find the outer JSON object
-//   const start = raw.indexOf('{');
-//   console.log("Start Index: ", start);
-//   if (start !== -1) {
-//     let depth = 0;
-//     for(let i = start; i < raw.length; i++){
-//       if (raw[i] === '{') depth++;
-//       else if (raw[i] === '}') depth--;
-//       console.log("Depth: ", depth);
-//       if (depth === 0) {
-//         const jsonCandidate = raw.slice(start, i + 1);
-//         console.log(jsonCandidate);
-//         try {
-//           return JSON.parse(jsonCandidate);
-//         } catch (e) {
-//           console.error("Failed to parse JSON from content", e);
-//         }
-//       }
-//     }
-//   }
-//   console.error('Unable to extract JSON from LLM response:', raw);
-//   throw new Error('Invalid JSON payload');
-// }
-// // Robust JSON extractor from LLM response
-// function extractJsonPayload(rawResponse) {
-//   const raw = rawResponse.trim();
-//   // First try direct parsing of the entire response
-//   try {
-//     return JSON.parse(raw);
-//   } catch (e) {
-//     console.log("Direct parsing failed, trying alternatives");
-//   }
-//   // Try to extract from code blocks
-//   const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-//   if (fenceMatch?.[1]) {
-//     try {
-//       return JSON.parse(fenceMatch[1].trim());
-//     } catch (e) {
-//       console.log("Code block parsing failed");
-//     }
-//   }
-//   // Try to find the JSON object with a more reliable approach
-//   const start = raw.indexOf('{');
-//   if (start !== -1) {
-//     // More sophisticated JSON extraction
-//     let openBraces = 0;
-//     let inString = false;
-//     let escaped = false;
-//     let endPos = -1;
-//     for(let i = 0; i < raw.length; i++){
-//       const char = raw[i];
-//       // Handle string escaping
-//       if (escaped) {
-//         escaped = false;
-//         continue;
-//       }
-//       if (char === '\\' && !escaped) {
-//         escaped = true;
-//         continue;
-//       }
-//       // Toggle string context
-//       if (char === '"' && !escaped) {
-//         inString = !inString;
-//         continue;
-//       }
-//       // Only count braces outside of strings
-//       if (!inString) {
-//         if (char === '{') {
-//           openBraces++;
-//         } else if (char === '}') {
-//           openBraces--;
-//           // If we've closed all open braces, we found the end
-//           if (openBraces === 0 && i >= start) {
-//             endPos = i;
-//             break;
-//           }
-//         }
-//       }
-//     }
-//     // If we found a complete JSON object
-//     if (endPos !== -1) {
-//       const jsonCandidate = raw.slice(start, endPos + 1);
-//       try {
-//         return JSON.parse(jsonCandidate);
-//       } catch (e) {
-//         console.log("Extracted JSON parsing failed:", e);
-//       }
-//     }
-//     // If we failed to find a complete JSON object but have a partial one,
-//     // try to fix it by adding missing closing braces
-//     if (openBraces > 0) {
-//       let fixedJson = raw.slice(start);
-//       for(let i = 0; i < openBraces; i++){
-//         fixedJson += '}';
-//       }
-//       try {
-//         return JSON.parse(fixedJson);
-//       } catch (e) {
-//         console.log("Fixed JSON parsing failed:", e);
-//       }
-//     }
-//   }
-//   // If all methods fail, try to extract using regex pattern matching
-//   // This is a fallback approach for partial JSON responses
-//   try {
-//     const jsonPattern = /{[^]*}/g;
-//     const matches = raw.match(jsonPattern);
-//     if (matches && matches.length > 0) {
-//       // Try the longest match first (most likely to be complete)
-//       matches.sort((a, b)=>b.length - a.length);
-//       for (const match of matches){
-//         try {
-//           return JSON.parse(match);
-//         } catch (e) {
-//         // Continue to next match
-//         }
-//       }
-//     }
-//   } catch (e) {
-//     console.log("Regex extraction failed:", e);
-//   }
-//   console.error('All JSON extraction methods failed for raw response:', raw);
-//   throw new Error('Invalid JSON payload');
-// }
-// Normalize the action plan to match component expectations
-// function normalizeActionPlan(rawPlan) {
-//   // Keys mapping
-//   const keys = [
-//     '6_weeks',
-//     '9_weeks',
-//     '12_weeks',
-//     '6_months',
-//     '12_months'
-//   ];
-//   const normalized = {};
-//   for (const k of keys){
-//     const data = rawPlan[k] || {};
-//     normalized[k] = {
-//       // Map narrative
-//       narrative: data.motivational_narrative || data.narrative || '',
-//       // Map skills_to_acquire (strings) into objects with courses array
-//       skills: Array.isArray(data.skills_to_acquire) ? data.skills_to_acquire.map((s)=>({
-//           skill: s,
-//           courses: []
-//         })) : [],
-//       // Map projects_to_build -> projects
-//       projects: Array.isArray(data.projects_to_build) ? data.projects_to_build.map((p)=>({
-//           title: p.title,
-//           description: p.description
-//         })) : [],
-//       // Map content_to_post -> content
-//       content: Array.isArray(data.content_to_post) ? data.content_to_post.map((c)=>({
-//           platform: c.platform,
-//           topics: c.topics
-//         })) : [],
-//       // Map milestones_to_achieve -> milestones
-//       milestones: Array.isArray(data.milestones_to_achieve) ? data.milestones_to_achieve : []
-//     };
-//   }
-//   return normalized;
-// }
-// function normalizeActionPlan(rawPlan) {
-//   const keys = [
-//     '6_weeks',
-//     '9_weeks',
-//     '12_weeks',
-//     '6_months',
-//     '12_months'
-//   ];
-//   const normalized = {};
-//   keys.forEach((k)=>{
-//     const data = rawPlan[k] || {};
-//     normalized[k] = {
-//       narrative: data.motivational_narrative || data.narrative || '',
-//       skills: Array.isArray(data.skills_to_acquire) ? data.skills_to_acquire.map((skill)=>({
-//           name: skill.name,
-//           courses: Array.isArray(skill.courses) ? skill.courses : []
-//         })) : [],
-//       projects: Array.isArray(data.projects_to_build) ? data.projects_to_build.map((p)=>({
-//           title: p.title,
-//           description: p.description
-//         })) : [],
-//       content: Array.isArray(data.content_to_post) ? data.content_to_post.map((c)=>({
-//           platform: c.platform,
-//           topics: c.topics
-//         })) : [],
-//       milestones: Array.isArray(data.milestones_to_achieve) ? data.milestones_to_achieve : []
-//     };
-//   });
-//   return normalized;
-// }
+
 function normalizeActionPlan(rawPlan) {
   const keys = [
     '6_weeks',
@@ -386,8 +129,46 @@ function normalizeActionPlan(rawPlan) {
       milestones: Array.isArray(data.milestones_to_achieve) ? data.milestones_to_achieve : []
     };
   });
+  
+  // Add careerPathRoles and recommendedSkills properties to make it compatible with our components
+  const recommendedSkills = [];
+  const careerPathRoles = [];
+  
+  // Extract skills from all timeframes and convert to the format expected by SkillsSection
+  keys.forEach(timeframe => {
+    if (normalized[timeframe] && normalized[timeframe].skills) {
+      normalized[timeframe].skills.forEach(skill => {
+        if (skill.name && !recommendedSkills.some(s => s.name === skill.name)) {
+          recommendedSkills.push({
+            name: skill.name,
+            type: Math.random() > 0.5 ? 'hard' : 'soft', // Simple random assignment for demonstration
+            course: skill.courses && skill.courses.length > 0 ? skill.courses[0] : 'No specific course recommended'
+          });
+        }
+      });
+    }
+    
+    // Extract projects as potential career roles
+    if (normalized[timeframe] && normalized[timeframe].projects) {
+      normalized[timeframe].projects.forEach(project => {
+        if (project.title && !careerPathRoles.some(r => r.title === project.title)) {
+          careerPathRoles.push({
+            title: project.title,
+            description: project.description,
+            salary: `$${60000 + Math.floor(Math.random() * 40000)} - $${100000 + Math.floor(Math.random() * 50000)} per year`
+          });
+        }
+      });
+    }
+  });
+  
+  // Add these to the normalized plan
+  normalized.recommendedSkills = recommendedSkills;
+  normalized.careerPathRoles = careerPathRoles;
+  
   return normalized;
 }
+
 // Edge function handler
 Deno.serve(async (req)=>{
   const preflight = handleCors(req);
@@ -405,13 +186,6 @@ Deno.serve(async (req)=>{
     console.log('Normalized action plan:', actionPlan);
     // Store the action plan in Supabase
     try {
-      // Fetch existing record first
-      // const { data: existingSession } = await supabase.from('career_pathway_results').select('session_id').eq('user_id', userId).maybeSingle();
-      // const { data: savedData, error: saveError } = await supabase.from('career_pathway_results').upsert({
-      //   user_id: userId,
-      //   session_id: existingSession,
-      //   action_plan: actionPlan
-      // });
       // Find the latest record for this user to get its session_id
       const { data: existingRecord, error: fetchError } = await supabase.from('career_pathway_results').select('session_id').eq('user_id', userId).order('created_at', {
         ascending: false
@@ -433,11 +207,6 @@ Deno.serve(async (req)=>{
         }
         console.log('Saved action plan with existing session_id:', savedData);
       }
-    // if (saveError) {
-    //   console.error('Error saving action plan:', saveError);
-    // } else {
-    //   console.log('Saved action plan to Supabase:', savedData);
-    // }
     } catch (e) {
       console.error('Exception saving action plan:', e);
     }

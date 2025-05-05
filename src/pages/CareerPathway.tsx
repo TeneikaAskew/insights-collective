@@ -40,7 +40,7 @@ const CareerPathway = () => {
     <AppLayout>
       <div className="container mx-auto py-8 px-4">
         <CareerHeader 
-          name={user?.user_metadata?.full_name || 'there'} 
+          name={user?.user_metadata?.name || user?.user_metadata?.full_name || 'there'} 
           summary={data?.report?.summary || 'Begin your career journey with personalized insights tailored to your skills and interests.'}
         />
         
@@ -59,7 +59,7 @@ const CareerPathway = () => {
                   roles={data.actionPlan.careerPathRoles || 
                          data.report.recommendedRoles.map(role => ({
                            title: role.title,
-                           salary: role.salary || 'Salary varies by location',
+                           salary: role.salaryRange || 'Salary varies by location',
                            description: role.description || 'No description available'
                          }))}
                 />
@@ -67,7 +67,7 @@ const CareerPathway = () => {
                   skills={data.actionPlan.recommendedSkills || 
                           data.report.skillsAndCourses.map(item => ({
                             name: item.skill,
-                            type: item.type || 'hard',
+                            type: item.level?.toLowerCase() === 'beginner' ? 'soft' : 'hard',
                             course: item.course || 'No specific course recommended'
                           }))}
                 />
