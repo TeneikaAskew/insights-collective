@@ -108,6 +108,7 @@ export type Database = {
       }
       career_pathway_results: {
         Row: {
+          action_plan: Json | null
           created_at: string
           id: string
           report: Json | null
@@ -115,6 +116,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          action_plan?: Json | null
           created_at?: string
           id?: string
           report?: Json | null
@@ -122,6 +124,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          action_plan?: Json | null
           created_at?: string
           id?: string
           report?: Json | null

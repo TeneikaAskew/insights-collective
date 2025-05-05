@@ -15,7 +15,7 @@ type CareerPathwaySectionProps = {
 
 const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnswers }) => {
   const navigate = useNavigate();
-  const { data: careerReportData, isLoading } = useCareerPathwayResults();
+  const { data, isLoading } = useCareerPathwayResults();
   const [resumeFound, setResumeFound] = useState(false);
 
   useEffect(() => {
@@ -52,8 +52,8 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
   }
 
   // If there's no career report data
-  if (!careerReportData || Object.keys(careerReportData).length === 0 || 
-      (careerReportData.recommendedRoles?.length === 0 && careerReportData.summary === "You haven't completed your career assessment yet.")) {
+  if (!data?.report || 
+      (data.report.recommendedRoles?.length === 0 && data.report.summary === "You haven't completed your career assessment yet.")) {
     return (
       <Card id="career-pathway-report" className="mt-6">
         <CardHeader>
@@ -81,7 +81,7 @@ const CareerPathwaySection: React.FC<CareerPathwaySectionProps> = ({ pathwayAnsw
 
   // Use the InteractiveCareerReportSection to display the career report
   return (
-    <InteractiveCareerReportSection reportData={careerReportData as CareerReportData} />
+    <InteractiveCareerReportSection reportData={data.report as CareerReportData} />
   );
 };
 

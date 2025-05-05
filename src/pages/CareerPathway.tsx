@@ -76,10 +76,9 @@ interface ActionPlan {
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: report, isLoading, error, isError } = useCareerPathwayResults();
+  const { data, isLoading, error, isError } = useCareerPathwayResults();
   const [activeCareerStep, setActiveCareerStep] = useState(0);
   const [activeTab, setActiveTab] = useState('overview');
-  const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
   const { toast } = useToast();
@@ -93,8 +92,8 @@ const CareerPathway: React.FC = () => {
   };
 
   useEffect(() => {
-    console.log("Career pathway report data:", report);
-  }, [report]);
+    console.log("Career pathway report data:", data);
+  }, [data]);
 
   // Get user name from available properties
   const userName = (user as any)?.first_name || 
@@ -104,7 +103,7 @@ const CareerPathway: React.FC = () => {
                 
   // Career step carousel navigation
   const nextCareerStep = () => {
-    if (report?.careerPathSteps && activeCareerStep < report.careerPathSteps.length - 1) {
+    if (data?.report?.careerPathSteps && activeCareerStep < data.report.careerPathSteps.length - 1) {
       setActiveCareerStep(activeCareerStep + 1);
     }
   };
@@ -166,7 +165,7 @@ const CareerPathway: React.FC = () => {
   };
 
   // If there's an error or no report data found
-  if (isError || (report && report.skillsAndCourses && report.skillsAndCourses.length === 0)) {
+  if (isError || (data?.report && data.report.skillsAndCourses && data.report.skillsAndCourses.length === 0)) {
     return (
       <AppLayout>
         <Helmet>
@@ -279,7 +278,7 @@ const CareerPathway: React.FC = () => {
                       <Skeleton className="h-20 w-full" />
                     ) : (
                       <p className="text-gray-700 leading-relaxed text-lg">
-                        {report?.summary || 'Loading your personalized career insights...'}
+                        {data?.report?.summary || 'Loading your personalized career insights...'}
                       </p>
                     )}
                   </CardContent>
@@ -294,7 +293,7 @@ const CareerPathway: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="font-semibold text-lg">Top Career Match</h3>
-                        <p className="text-2xl font-bold">{report?.recommendedRoles?.[0]?.title || 'Data Analyst'}</p>
+                        <p className="text-2xl font-bold">{data?.report?.recommendedRoles?.[0]?.title || 'Data Analyst'}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -338,7 +337,7 @@ const CareerPathway: React.FC = () => {
                       {isLoading ? (
                         <SkillsSkeleton />
                       ) : (
-                        (report?.skillsAndCourses || []).slice(0, 4).map((item, index) => (
+                        (data?.report?.skillsAndCourses || []).slice(0, 4).map((item, index) => (
                           <div key={index} className="flex items-start gap-3">
                             <div className="bg-primary/10 p-2 rounded-full">
                               <BookOpen className="h-4 w-4 text-primary" />
@@ -402,7 +401,7 @@ const CareerPathway: React.FC = () => {
                       </div>
                       {isLoading ? (
                         <SkillsSkeleton />
-                      ) : report?.skillsAndCourses?.map((item, index) => (
+                      ) : data?.report?.skillsAndCourses?.map((item, index) => (
                         <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors">
                           <div className="col-span-4 flex items-center gap-3">
                             <BookOpen className="h-5 w-5 text-gray-600" />
@@ -464,7 +463,7 @@ const CareerPathway: React.FC = () => {
                 <div className="space-y-4">
                   {isLoading ? (
                     <AlternativeRolesSkeleton />
-                  ) : report?.recommendedRoles?.map((role, index) => (
+                  ) : data?.report?.recommendedRoles?.map((role, index) => (
                     <Card key={index} className="bg-white border-l-4 border-l-primary overflow-hidden">
                       <CardContent className="p-0">
                         <div className="p-6 flex items-start gap-4">
@@ -544,7 +543,7 @@ const CareerPathway: React.FC = () => {
                       {isLoading ? (
                         <CareerPathSkeleton />
                       ) : (
-                        report?.careerPathSteps?.map((step, index) => (
+                        data?.report?.careerPathSteps?.map((step, index) => (
                           <div 
                             key={index}
                             className={`relative flex-shrink-0 w-64 px-4 transition-all duration-300 z-10 ${
@@ -593,14 +592,14 @@ const CareerPathway: React.FC = () => {
                       variant="outline" 
                       size="icon"
                       onClick={nextCareerStep}
-                      disabled={!report?.careerPathSteps || activeCareerStep === report.careerPathSteps.length - 1}
+                      disabled={!data?.report?.careerPathSteps || activeCareerStep === data.report.careerPathSteps.length - 1}
                     >
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
                 
-                {report?.careerPathSteps && report.careerPathSteps.length > 0 && (
+                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && (
                   <Card className="bg-white mt-8">
                     <CardHeader className="bg-primary/5 pb-2">
                       <CardTitle className="flex items-center gap-2">
@@ -611,7 +610,7 @@ const CareerPathway: React.FC = () => {
                     <CardContent className="p-6">
                       <p className="text-gray-700">
                         Your next career steps should build upon your current foundation while steering towards your aspirational role. 
-                        Initially, advancing from your current position to {report.careerPathSteps[0].title} can help bridge the gap 
+                        Initially, advancing from your current position to {data.report.careerPathSteps[0].title} can help bridge the gap 
                         between your current expertise and desired career path.
                       </p>
                       <div className="mt-4 space-y-3">
@@ -648,140 +647,8 @@ const CareerPathway: React.FC = () => {
                   </Card>
                 )}
 
-                {/* Display the generated Action Plan */}
-                {actionPlan && (
-                  <Card className="mt-6">
-                    <CardHeader>
-                      <CardTitle>Your Career Action Plan</CardTitle>
-                      <CardDescription>
-                        A personalized roadmap to help you achieve your career goals
-                      </CardDescription>
-                      <Tabs value={activeTimeframe} onValueChange={setActiveTimeframe}>
-                        <TabsList className="grid grid-cols-2 md:grid-cols-5 gap-2">
-                          {Object.entries(timeframeLabels).map(([key, label]) => (
-                            <TabsTrigger key={key} value={key} className="text-xs sm:text-sm">
-                              {label}
-                            </TabsTrigger>
-                          ))}
-                        </TabsList>
-                      </Tabs>
-                    </CardHeader>
-                    
-                    <CardContent>
-                      {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => (
-                        <TabsContent key={timeframeKey} value={timeframeKey} className="space-y-6">
-                          <div className="bg-muted/30 p-4 rounded-lg border">
-                            <p className="italic text-muted-foreground">
-                              {actionPlan[timeframeKey as keyof ActionPlan]?.narrative || 
-                                "In this timeframe, focus on building your foundation and making initial progress toward your career goals."}
-                            </p>
-                          </div>
-
-                          <Accordion type="single" collapsible className="w-full">
-                            <AccordionItem value="skills">
-                              <AccordionTrigger className="py-3">
-                                <div className="flex items-center">
-                                  <GraduationCap className="mr-2 h-5 w-5 text-primary" />
-                                  <span>Skills to Acquire</span>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="space-y-4 pl-7">
-                                  {actionPlan[timeframeKey as keyof ActionPlan]?.skills?.map((skillItem, idx) => (
-                                    <div key={idx} className="space-y-2">
-                                      <h4 className="font-medium">{skillItem.name}</h4>
-                                      <ul className="space-y-1">
-                                        {skillItem.courses?.map((course, courseIdx) => (
-                                          <li key={courseIdx} className="text-sm pl-4 border-l-2 border-primary/30">
-                                            <span className="font-medium">{course.title}</span>
-                                            {course.provider && (
-                                              <span className="text-muted-foreground ml-1">
-                                                by {course.provider}
-                                              </span>
-                                            )}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  ))}
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-
-                            <AccordionItem value="projects">
-                              <AccordionTrigger className="py-3">
-                                <div className="flex items-center">
-                                  <Briefcase className="mr-2 h-5 w-5 text-primary" />
-                                  <span>Projects to Build</span>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="space-y-4 pl-7">
-                                  {actionPlan[timeframeKey as keyof ActionPlan]?.projects?.map((project, idx) => (
-                                    <div key={idx} className="space-y-1">
-                                      <h4 className="font-medium">{project.title}</h4>
-                                      <p className="text-sm text-muted-foreground">{project.description}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-
-                            <AccordionItem value="content">
-                              <AccordionTrigger className="py-3">
-                                <div className="flex items-center">
-                                  <FileText className="mr-2 h-5 w-5 text-primary" />
-                                  <span>Content to Share</span>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="space-y-4 pl-7">
-                                  {actionPlan[timeframeKey as keyof ActionPlan]?.content?.map((contentItem, idx) => (
-                                    <div key={idx} className="space-y-1">
-                                      <h4 className="font-medium">{contentItem.platform}</h4>
-                                      <ul className="list-disc pl-5 space-y-1">
-                                        {contentItem.topics?.map((topic, topicIdx) => (
-                                          <li key={topicIdx} className="text-sm">{topic}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  ))}
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-
-                            <AccordionItem value="milestones">
-                              <AccordionTrigger className="py-3">
-                                <div className="flex items-center">
-                                  <CheckCircle className="mr-2 h-5 w-5 text-primary" />
-                                  <span>Milestones to Achieve</span>
-                                </div>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="pl-7">
-                                  <ul className="list-disc pl-5 space-y-2">
-                                    {actionPlan[timeframeKey as keyof ActionPlan]?.milestones?.map((milestone, idx) => (
-                                      <li key={idx} className="text-sm">{milestone}</li>
-                                    ))}
-                                  </ul>
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          </Accordion>
-
-                          <div className="flex justify-end pt-2">
-                            <Button variant="outline" size="sm" onClick={() => setActionPlan(null)} className="mr-2">
-                              Reset
-                            </Button>
-                            <Button size="sm" onClick={generateActionPlan} disabled={isGeneratingPlan}>
-                              {isGeneratingPlan ? "Regenerating..." : "Regenerate Plan"}
-                            </Button>
-                          </div>
-                        </TabsContent>
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
+                {/* Display the Action Plan component */}
+                <CareerActionPlan initialActionPlan={data?.actionPlan} />
               </motion.div>
             </TabsContent>
           </Tabs>

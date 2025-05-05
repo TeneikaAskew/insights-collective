@@ -16,7 +16,7 @@ export const useCareerPathwayResults = () => {
       // First try to get data from Supabase
       const { data, error } = await supabase
         .from('career_pathway_results')
-        .select('report')
+        .select('report, action_plan')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -25,11 +25,14 @@ export const useCareerPathwayResults = () => {
       console.log("Career pathway results query result:", data);
       
       // If there's data in Supabase, parse and return it
-      if (data?.report && !error) {
+      if (data && !error) {
         try {
           const parsedReport = parseCareerReport(data.report);
           console.log("Successfully parsed career pathway results from Supabase:", parsedReport);
-          return parsedReport;
+          return {
+            report: parsedReport,
+            actionPlan: data.action_plan
+          };
         } catch (err) {
           console.error("Error parsing career report from Supabase:", err);
         }
@@ -37,14 +40,17 @@ export const useCareerPathwayResults = () => {
       
       // If no data in Supabase or parsing error, return a default structure
       return {
-        userName: 'there',
-        summary: 'You haven\'t completed your career assessment yet.',
-        recommendedRoles: [],
-        skillsAndCourses: [],
-        careerPathSteps: [],
-        keyTakeaways: [],
-        nextStepRecommendations: '',
-        potentialRoles: []
+        report: {
+          userName: 'there',
+          summary: 'You haven\'t completed your career assessment yet.',
+          recommendedRoles: [],
+          skillsAndCourses: [],
+          careerPathSteps: [],
+          keyTakeaways: [],
+          nextStepRecommendations: '',
+          potentialRoles: []
+        },
+        actionPlan: null
       };
     },
     enabled: !!user?.id,

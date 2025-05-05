@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   Card, 
@@ -64,123 +63,85 @@ const timeframeLabels = {
   "12_months": "12 Months"
 };
 
-const CareerActionPlan: React.FC = () => {
-  const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
+interface CareerActionPlanProps {
+  initialActionPlan?: ActionPlan | null;
+}
+
+const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }) => {
+  const [actionPlan, setActionPlan] = useState<ActionPlan | null>(initialActionPlan || null);
   const [isLoading, setIsLoading] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // const generateActionPlan = async () => {
-  //   if (!user) {
-  //     toast({
-  //       title: "Authentication Required",
-  //       description: "Please log in to generate your career action plan.",
-  //       variant: "destructive"
-  //     });
-  //     return;
-  //   }
-
-  //   setIsLoading(true);
-  //   try {
-  //     const { data, error } = await supabase.functions.invoke('generate-career-action-plan', {
-  //       body: { userId: user.id }
-  //     });
-
-  //     // In your component where you fetch the data
-  //     console.log('API Response:', data);
-  //     console.log('Action Plan Data:', result.data);
-
-  //     if (error) throw error;
-
-  //     if (data?.success && data?.data) {
-  //       console.log('Setting action plan:', data.data);
-  //       setActionPlan(data.data);
-  //       toast({
-  //         title: "Action Plan Generated",
-  //         description: "Your personalized career action plan is ready!",
-  //       });
-  //     } else {
-  //       throw new Error("Failed to generate action plan");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error generating action plan:", error);
-  //     toast({
-  //       title: "Generation Failed",
-  //       description: "We couldn't generate your action plan. Please try again later.",
-  //       variant: "destructive"
-  //     });
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-    const generateActionPlan = async () => {
-      if (!user) {
+  const generateActionPlan = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to generate your career action plan.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      // First, check if an action plan already exists
+      const { data: existingPlans, error: fetchError } = await supabase
+        .from('career_pathway_results')
+        .select('action_plan')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+    
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        throw fetchError;
+      }
+    
+      // If we have an existing plan, use it
+      if (existingPlans?.action_plan) {
+        console.log('Using existing action plan:', existingPlans.action_plan);
+        setActionPlan(existingPlans.action_plan);
         toast({
-          title: "Authentication Required",
-          description: "Please log in to generate your career action plan.",
-          variant: "destructive"
+          title: "Action Plan Loaded",
+          description: "Your existing career action plan has been loaded.",
         });
         return;
       }
     
-      setIsLoading(true);
-      try {
-        // First, check if an action plan already exists
-        const { data: existingPlans, error: fetchError } = await supabase
-          .from('career_pathway_results')
-          .select('action_plan')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+      // Otherwise generate a new one
+      const { data, error } = await supabase.functions.invoke('generate-career-action-plan', {
+        body: { userId: user.id }
+      });
     
-        if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-          throw fetchError;
-        }
+      // Add debugging logs
+      console.log('API Response:', data);
+      
+      if (error) throw error;
     
-        // If we have an existing plan, use it
-        if (existingPlans?.action_plan) {
-          console.log('Using existing action plan:', existingPlans.action_plan);
-          setActionPlan(existingPlans.action_plan);
-          toast({
-            title: "Action Plan Loaded",
-            description: "Your existing career action plan has been loaded.",
-          });
-          return;
-        }
-    
-        // Otherwise generate a new one
-        const { data, error } = await supabase.functions.invoke('generate-career-action-plan', {
-          body: { userId: user.id }
-        });
-    
-        // Add debugging logs
-        console.log('API Response:', data);
-        
-        if (error) throw error;
-    
-        if (data?.success && data?.data) {
-          console.log('Setting action plan:', data.data);
-          setActionPlan(data.data);
-          toast({
-            title: "Action Plan Generated",
-            description: "Your personalized career action plan is ready!",
-          });
-        } else {
-          throw new Error("Failed to generate action plan");
-        }
-      } catch (error) {
-        console.error("Error generating action plan:", error);
+      if (data?.success && data?.data) {
+        console.log('Setting action plan:', data.data);
+        setActionPlan(data.data);
         toast({
-          title: "Generation Failed",
-          description: "We couldn't generate your action plan. Please try again later.",
-          variant: "destructive"
+          title: "Action Plan Generated",
+          description: "Your personalized career action plan is ready!",
         });
-      } finally {
-        setIsLoading(false);
+      } else {
+        throw new Error("Failed to generate action plan");
       }
-    };
+    } catch (error) {
+      console.error("Error generating action plan:", error);
+      toast({
+        title: "Generation Failed",
+        description: "We couldn't generate your action plan. Please try again later.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (!actionPlan) {
     return (
       <Card className="w-full mt-6">
@@ -211,7 +172,8 @@ const CareerActionPlan: React.FC = () => {
     );
   }
 
-  const currentTimeframeData = actionPlan[timeframeKey as keyof ActionPlan] //actionPlan[activeTimeframe as keyof ActionPlan];
+  const timeframeKey = activeTimeframe as keyof ActionPlan;
+  const currentTimeframeData = actionPlan[timeframeKey];
 
   return (
     <Card className="w-full mt-6">
