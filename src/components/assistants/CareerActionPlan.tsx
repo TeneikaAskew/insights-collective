@@ -76,6 +76,24 @@ interface CareerActionPlanProps {
   initialActionPlan?: ActionPlan | null;
 }
 
+// Helper function to validate action plan data
+const isValidActionPlan = (plan: any): plan is ActionPlan => {
+  if (!plan || typeof plan !== 'object') return false;
+  
+  // Check if at least one timeframe key exists
+  const hasAnyTimeframe = ["6_weeks", "9_weeks", "12_weeks", "6_months", "12_months"]
+    .some(key => plan.hasOwnProperty(key));
+  
+  return hasAnyTimeframe;
+};
+
+// Helper to check if a timeframe is valid
+const isValidTimeframe = (data: any): data is ActionPlanTimeframe => {
+  return data && typeof data === 'object' &&
+    (Array.isArray(data.skills) || Array.isArray(data.projects) || 
+     Array.isArray(data.content) || Array.isArray(data.milestones));
+};
+
 const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }) => {
   // Internal state to hold the action plan, primarily derived from the prop
   const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
@@ -90,11 +108,14 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   // Effect to update internal state when the prop changes
   useEffect(() => {
     console.log('CAP Debug: useEffect triggered. initialActionPlan:', initialActionPlan);
-    if (initialActionPlan && typeof initialActionPlan === 'object' && Object.keys(initialActionPlan).length > 0) {
+    if (isValidActionPlan(initialActionPlan)) {
       console.log('CAP Debug: Setting internal actionPlan state from initialActionPlan prop.');
       setActionPlan(initialActionPlan);
       // Ensure active timeframe is valid if the plan just loaded
-      const validKeys = Object.keys(initialActionPlan).filter(key => timeframeLabels[key as keyof ActionPlan]) as Array<keyof ActionPlan>;
+      const validKeys = Object.keys(initialActionPlan).filter(key => 
+        timeframeLabels[key as keyof ActionPlan] && isValidTimeframe(initialActionPlan[key as keyof ActionPlan])
+      ) as Array<keyof ActionPlan>;
+      
       if (validKeys.length > 0) {
          // Set default tab only if the current one isn't valid or doesn't exist in the new plan
          if (!validKeys.includes(activeTimeframe) || !initialActionPlan[activeTimeframe]) {
@@ -141,55 +162,24 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         throw new Error(`Function error: ${functionError.message}`);
       }
 
-      if (functionData?.success && functionData?.data && typeof functionData.data === 'object' && Object.keys(functionData.data).length > 0) {
+      if (functionData?.success && isValidActionPlan(functionData.data)) {
         const newPlan = functionData.data as ActionPlan;
         console.log('CAP Debug: Setting regenerated action plan:', newPlan);
         setActionPlan(newPlan); // Update internal state directly
 
         // Find the first valid timeframe key to set as active
-        const validKeys = Object.keys(newPlan).filter(key => timeframeLabels[key as keyof ActionPlan]) as Array<keyof ActionPlan>;
+        const validKeys = Object.keys(newPlan).filter(key => 
+          timeframeLabels[key as keyof ActionPlan] && isValidTimeframe(newPlan[key as keyof ActionPlan])
+        ) as Array<keyof ActionPlan>;
+        
         const defaultTimeframe = validKeys.length > 0 ? validKeys[0] : "6_weeks";
         setActiveTimeframe(defaultTimeframe);
         console.log('CAP Debug: Resetting active timeframe to:', defaultTimeframe);
-
-        // Save regenerated plan back to database
-        console.log("CAP Debug: Attempting to save regenerated plan to DB for user:", user.id);
-        // Find the latest entry to update it
-         const { data: latestResult, error: findError } = await supabase
-            .from('career_pathway_results')
-            .select('id')
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-
-          if (findError) {
-            console.error("CAP Error: Finding latest career_pathway_results entry to update:", findError);
-          } else if (latestResult) {
-            const { error: updateError } = await supabase
-              .from('career_pathway_results')
-              .update({ action_plan: newPlan, updated_at: new Date().toISOString() })
-              .eq('id', latestResult.id);
-
-            if (updateError) {
-              console.error("CAP Error: Saving regenerated action plan to DB:", updateError);
-              toast({
-                title: "Warning",
-                description: "Failed to save the regenerated plan.",
-                variant: "destructive"
-              });
-            } else {
-              console.log("CAP Debug: Successfully saved regenerated plan to DB.");
-            }
-          } else {
-            console.warn("CAP Warn: No career_pathway_results found for user to save action plan against.");
-          }
 
         toast({
           title: "Action Plan Regenerated",
           description: "Your updated career action plan is ready!",
         });
-
       } else {
         console.error("CAP Error: Regeneration failed or returned invalid data.", functionData);
         throw new Error(functionData?.error || "Failed to generate a valid action plan.");
@@ -242,7 +232,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
 
   // Get the valid keys that exist in the current action plan state
   const validTimeframeKeys = Object.keys(actionPlan).filter(key =>
-    timeframeLabels[key as keyof ActionPlan]
+    timeframeLabels[key as keyof ActionPlan] && isValidTimeframe(actionPlan[key as keyof ActionPlan])
   ) as Array<keyof ActionPlan>;
 
   console.log("CAP Debug: Render - Valid timeframe keys:", validTimeframeKeys);
@@ -316,8 +306,8 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
             console.log(`CAP Debug: Processing TabsContent for ${timeframeKey}. Data available:`, !!timeframeData);
 
             // Ensure data exists for this key before rendering content
-            if (!timeframeData) {
-              console.warn(`CAP Warn: No data found for timeframe key: ${timeframeKey}. Rendering placeholder.`);
+            if (!isValidTimeframe(timeframeData)) {
+              console.warn(`CAP Warn: No valid data found for timeframe key: ${timeframeKey}. Rendering placeholder.`);
               return (
                 <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6">
                   <p className="text-muted-foreground p-4">No action plan details available for this timeframe ({timeframeLabels[timeframeKey]}).</p>
@@ -348,39 +338,59 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
-                        {/* Added check for timeframeData.skills */}
-                        {timeframeData.skills && Array.isArray(timeframeData.skills) && timeframeData.skills.length > 0 ? (
-                          timeframeData.skills.map((skillItem, idx) => (
-                            <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
-                              <h4 className="font-semibold text-primary/90">
-                                {typeof skillItem.name === 'string' ? skillItem.name : 'Unnamed Skill'}
-                              </h4>
-                              {/* Added check for skillItem.courses */}
-                              {skillItem.courses && Array.isArray(skillItem.courses) && skillItem.courses.length > 0 ? (
-                                <ul className="space-y-1 list-disc pl-5">
-                                  {skillItem.courses.map((course, courseIdx) => (
-                                    <li key={`course-${timeframeKey}-${idx}-${courseIdx}`} className="text-sm">
-                                      <span className="font-medium">
-                                        {typeof course === 'string' ? course : course.title || 'Unnamed Course'}
-                                      </span>
-                                      {course && typeof course === 'object' && course.provider && (
-                                        <span className="text-muted-foreground ml-1 text-xs">
-                                          ({course.provider})
-                                        </span>
-                                      )}
-                                      {course && typeof course === 'object' && course.url ? (
-                                        <a href={course.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
-                                          [Link]
-                                        </a>
-                                      ) : null}
-                                    </li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-muted-foreground pl-1">No specific courses listed for this skill.</p>
-                              )}
-                            </div>
-                          ))
+                        {Array.isArray(timeframeData.skills) && timeframeData.skills.length > 0 ? (
+                          timeframeData.skills.map((skillItem, idx) => {
+                            // Validate the skill object structure
+                            if (!skillItem || typeof skillItem !== 'object') {
+                              return null;
+                            }
+                            
+                            return (
+                              <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
+                                <h4 className="font-semibold text-primary/90">
+                                  {typeof skillItem.name === 'string' ? skillItem.name : 'Unnamed Skill'}
+                                </h4>
+                                {Array.isArray(skillItem.courses) && skillItem.courses.length > 0 ? (
+                                  <ul className="space-y-1 list-disc pl-5">
+                                    {skillItem.courses.map((course, courseIdx) => {
+                                      // Handle different course data formats
+                                      let courseTitle = '';
+                                      let courseProvider = '';
+                                      let courseUrl = '';
+                                      
+                                      if (typeof course === 'string') {
+                                        courseTitle = course;
+                                      } else if (course && typeof course === 'object') {
+                                        courseTitle = course.title || 'Unnamed Course';
+                                        courseProvider = course.provider || '';
+                                        courseUrl = course.url || '';
+                                      }
+                                      
+                                      if (!courseTitle) return null;
+                                      
+                                      return (
+                                        <li key={`course-${timeframeKey}-${idx}-${courseIdx}`} className="text-sm">
+                                          <span className="font-medium">{courseTitle}</span>
+                                          {courseProvider && (
+                                            <span className="text-muted-foreground ml-1 text-xs">
+                                              ({courseProvider})
+                                            </span>
+                                          )}
+                                          {courseUrl && (
+                                            <a href={courseUrl} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
+                                              [Link]
+                                            </a>
+                                          )}
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground pl-1">No specific courses listed for this skill.</p>
+                                )}
+                              </div>
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground text-sm">No specific skills listed for this period.</p>
                         )}
@@ -398,14 +408,18 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
-                        {/* Added check for timeframeData.projects */}
-                        {timeframeData.projects && Array.isArray(timeframeData.projects) && timeframeData.projects.length > 0 ? (
-                          timeframeData.projects.map((project, idx) => (
-                            <div key={`project-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                              <h4 className="font-semibold text-primary/90">{project.title || 'Unnamed Project'}</h4>
-                              <p className="text-sm text-muted-foreground">{project.description || 'No description.'}</p>
-                            </div>
-                          ))
+                        {Array.isArray(timeframeData.projects) && timeframeData.projects.length > 0 ? (
+                          timeframeData.projects.map((project, idx) => {
+                            // Validate project object
+                            if (!project || typeof project !== 'object') return null;
+                            
+                            return (
+                              <div key={`project-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
+                                <h4 className="font-semibold text-primary/90">{project.title || 'Unnamed Project'}</h4>
+                                <p className="text-sm text-muted-foreground">{project.description || 'No description.'}</p>
+                              </div>
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground text-sm">No specific projects listed for this period.</p>
                         )}
@@ -423,23 +437,31 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
-                        {/* Added check for timeframeData.content */}
-                        {timeframeData.content && Array.isArray(timeframeData.content) && timeframeData.content.length > 0 ? (
-                          timeframeData.content.map((contentItem, idx) => (
-                            <div key={`content-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                              <h4 className="font-semibold text-primary/90">{contentItem.platform || 'Unspecified Platform'}</h4>
-                              {/* Added check for contentItem.topics */}
-                              {contentItem.topics && Array.isArray(contentItem.topics) && contentItem.topics.length > 0 ? (
-                                <ul className="list-disc pl-5 space-y-1">
-                                  {contentItem.topics.map((topic, topicIdx) => (
-                                    <li key={`topic-${timeframeKey}-${idx}-${topicIdx}`} className="text-sm">{topic || 'Unspecified Topic'}</li>
-                                  ))}
-                                </ul>
-                              ) : (
-                                <p className="text-sm text-muted-foreground pl-1">No specific topics listed for this platform.</p>
-                              )}
-                            </div>
-                          ))
+                        {Array.isArray(timeframeData.content) && timeframeData.content.length > 0 ? (
+                          timeframeData.content.map((contentItem, idx) => {
+                            // Validate content item object
+                            if (!contentItem || typeof contentItem !== 'object') return null;
+                            
+                            return (
+                              <div key={`content-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
+                                <h4 className="font-semibold text-primary/90">{contentItem.platform || 'Unspecified Platform'}</h4>
+                                {Array.isArray(contentItem.topics) && contentItem.topics.length > 0 ? (
+                                  <ul className="list-disc pl-5 space-y-1">
+                                    {contentItem.topics.map((topic, topicIdx) => {
+                                      if (typeof topic !== 'string' && typeof topic !== 'number') return null;
+                                      return (
+                                        <li key={`topic-${timeframeKey}-${idx}-${topicIdx}`} className="text-sm">
+                                          {String(topic) || 'Unspecified Topic'}
+                                        </li>
+                                      );
+                                    })}
+                                  </ul>
+                                ) : (
+                                  <p className="text-sm text-muted-foreground pl-1">No specific topics listed for this platform.</p>
+                                )}
+                              </div>
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground text-sm">No specific content sharing goals listed for this period.</p>
                         )}
@@ -457,12 +479,16 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="pl-8 pt-2">
-                        {/* Added check for timeframeData.milestones */}
-                        {timeframeData.milestones && Array.isArray(timeframeData.milestones) && timeframeData.milestones.length > 0 ? (
+                        {Array.isArray(timeframeData.milestones) && timeframeData.milestones.length > 0 ? (
                           <ul className="list-disc pl-5 space-y-2">
-                            {timeframeData.milestones.map((milestone, idx) => (
-                              <li key={`milestone-${timeframeKey}-${idx}`} className="text-sm">{milestone || 'Unspecified Milestone'}</li>
-                            ))}
+                            {timeframeData.milestones.map((milestone, idx) => {
+                              if (typeof milestone !== 'string' && typeof milestone !== 'number') return null;
+                              return (
+                                <li key={`milestone-${timeframeKey}-${idx}`} className="text-sm">
+                                  {String(milestone) || 'Unspecified Milestone'}
+                                </li>
+                              );
+                            })}
                           </ul>
                         ) : (
                           <p className="text-muted-foreground text-sm">No specific milestones listed for this period.</p>
