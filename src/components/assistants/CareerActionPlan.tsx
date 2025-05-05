@@ -257,7 +257,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         </CardDescription>
         <Tabs value={activeTimeframe} onValueChange={setActiveTimeframe} className="mt-4">
           <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 w-full">
-            {/* /* {Object.entries(timeframeLabels).map(([key, label]) => ( */ */}
             {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => {
             const timeframeData = actionPlan ? actionPlan[timeframeKey as keyof ActionPlan] : null;
 
