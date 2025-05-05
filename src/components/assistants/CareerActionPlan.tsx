@@ -199,7 +199,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     }
   }, [user, initialActionPlan]); // Re-run if user logs in or initialPlan changes
 
-
   // Render loading state or generate button if no plan and not loading
   if (isLoading && !actionPlan) {
      return (
@@ -214,7 +213,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
        </Card>
      );
   }
-
 
   if (!actionPlan) {
     return (
@@ -246,7 +244,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     );
   }
 
-  // Add this debugging information - check if it's being called correctly
+  // Debug information for troubleshooting
   console.log("Rendering action plan view. Active timeframe:", activeTimeframe);
   console.log("Current actionPlan data:", actionPlan);
 
@@ -270,11 +268,10 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
 
       <CardContent className="pt-0"> {/* Remove default top padding */}
         {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => {
-          // Get the data for the specific timeframe being mapped
+          // Explicitly cast timeframeKey to ensure TypeScript knows it's a valid key
+          // and log the result for debugging
           const timeframeData = actionPlan[timeframeKey as keyof ActionPlan];
-
-          // Add a log inside the map
-           console.log(`Rendering TabsContent for ${timeframeKey}. Data exists:`, !!timeframeData);
+          console.log(`TabsContent for ${timeframeKey}. Data exists:`, !!timeframeData);
 
           return (
             <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6 space-y-6"> {/* Added mt-6 */}
