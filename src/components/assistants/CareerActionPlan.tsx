@@ -86,16 +86,16 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
       setActionPlan(initialActionPlan);
       // Ensure active timeframe is valid if the plan just loaded
       const validKeys = Object.keys(initialActionPlan).filter(key => timeframeLabels[key as keyof ActionPlan]) as Array<keyof ActionPlan>;
-      if (validKeys.length > 0 && !validKeys.includes(activeTimeframe)) {
-         console.log(`CAP Debug: Active timeframe ${activeTimeframe} invalid, defaulting to ${validKeys[0]}.`);
-         setActiveTimeframe(validKeys[0]);
-      } else if (validKeys.length === 0) {
+      if (validKeys.length > 0) {
+         // Set default tab only if the current one isn't valid or doesn't exist in the new plan
+         if (!validKeys.includes(activeTimeframe) || !initialActionPlan[activeTimeframe]) {
+             console.log(`CAP Debug: Setting active timeframe to default ${validKeys[0]}.`);
+             setActiveTimeframe(validKeys[0]);
+         }
+      } else {
          console.warn("CAP Warn: initialActionPlan received but seems to have no valid timeframe keys.");
          setActionPlan(null); // Treat as no plan if keys are invalid
-      } else if (!validKeys.includes(activeTimeframe)) {
-         // If the current activeTimeframe isn't in the new plan, reset to default
-         console.log(`CAP Debug: Resetting activeTimeframe to default 6_weeks as it's not in the updated plan.`);
-         setActiveTimeframe("6_weeks");
+         setActiveTimeframe("6_weeks"); // Reset tab if plan becomes invalid
       }
     } else {
       console.log('CAP Debug: initialActionPlan is null or invalid, clearing internal state.');
@@ -136,9 +136,14 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         const newPlan = functionData.data as ActionPlan;
         console.log('CAP Debug: Setting regenerated action plan:', newPlan);
         setActionPlan(newPlan); // Update internal state directly
-        setActiveTimeframe("6_weeks"); // Reset to default tab
 
-        // Save regenerated plan back to database (optional, could be handled by parent)
+        // Find the first valid timeframe key to set as active
+        const validKeys = Object.keys(newPlan).filter(key => timeframeLabels[key as keyof ActionPlan]) as Array<keyof ActionPlan>;
+        const defaultTimeframe = validKeys.length > 0 ? validKeys[0] : "6_weeks";
+        setActiveTimeframe(defaultTimeframe);
+        console.log('CAP Debug: Resetting active timeframe to:', defaultTimeframe);
+
+        // Save regenerated plan back to database
         console.log("CAP Debug: Attempting to save regenerated plan to DB for user:", user.id);
         // Find the latest entry to update it
          const { data: latestResult, error: findError } = await supabase
@@ -169,7 +174,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
             }
           } else {
             console.warn("CAP Warn: No career_pathway_results found for user to save action plan against.");
-            // Consider creating a new record if none exists - depends on desired logic
           }
 
         toast({
@@ -196,21 +200,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     }
   };
 
-  // Render loading state
-  if (isLoading && !actionPlan) {
-    return (
-      <Card className="w-full mt-6">
-        <CardHeader>
-          <CardTitle>Personal Career Action Plan</CardTitle>
-        </CardHeader>
-        <CardContent className="flex justify-center items-center p-10">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <span className="ml-3 text-muted-foreground">Loading your plan...</span>
-        </CardContent>
-      </Card>
-    );
-  }
-
   // Render generate button if no plan (based on internal state now)
   if (!actionPlan) {
     return (
@@ -218,7 +207,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         <CardHeader>
           <CardTitle>Personal Career Action Plan</CardTitle>
           <CardDescription>
-            Your action plan is not available. You can try generating one.
+            Your action plan is not available. You can try generating one or regenerating it if it failed previously.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center p-6">
@@ -234,7 +223,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                 Generating...
               </>
             ) : (
-              "Generate My Action Plan"
+              "Generate / Regenerate Plan"
             )}
           </Button>
         </CardContent>
@@ -250,11 +239,15 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   console.log("CAP Debug: Render - Valid timeframe keys:", validTimeframeKeys);
   console.log("CAP Debug: Render - Current active timeframe:", activeTimeframe);
 
-  // This check might be redundant if useEffect handles it, but safe to keep
-  if (validTimeframeKeys.length > 0 && !validTimeframeKeys.includes(activeTimeframe)) {
-    console.warn(`CAP Warn: Render - Active timeframe '${activeTimeframe}' is not valid. Defaulting might occur.`);
-    // Potentially set state here, but useEffect should handle initialization/updates
-    // setActiveTimeframe(validTimeframeKeys[0]); // Be cautious of render loops
+  // Ensure the active timeframe is valid among the available keys
+  const currentActiveTimeframe = validTimeframeKeys.includes(activeTimeframe) ? activeTimeframe : (validTimeframeKeys[0] || "6_weeks");
+  if (currentActiveTimeframe !== activeTimeframe) {
+     console.warn(`CAP Warn: Render - Active timeframe '${activeTimeframe}' invalid or data missing, switching to '${currentActiveTimeframe}'.`);
+     // Setting state directly in render is discouraged, but necessary here to correct tab value immediately
+     // Use a microtask to avoid direct state update during render cycle issues if possible, though React might handle this.
+     // queueMicrotask(() => setActiveTimeframe(currentActiveTimeframe));
+     // Direct set for simplicity, monitor for issues:
+      // setActiveTimeframe(currentActiveTimeframe); // Let's rely on the Tabs component's controlled value below
   }
 
   return (
@@ -292,10 +285,14 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
 
         {/* Tabs for timeframe selection */}
         <Tabs
-           value={activeTimeframe}
+           value={currentActiveTimeframe} // Use the validated active timeframe
            onValueChange={(value) => {
              console.log("CAP Debug: Tab changed to:", value);
-             setActiveTimeframe(value as keyof ActionPlan);
+             if (validTimeframeKeys.includes(value as keyof ActionPlan)) {
+               setActiveTimeframe(value as keyof ActionPlan);
+             } else {
+               console.warn(`CAP Warn: Attempted to switch to invalid tab value: ${value}`);
+             }
            }}
            className="mt-4"
          >
@@ -306,171 +303,174 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
               </TabsTrigger>
             ))}
           </TabsList>
+
+         {/* Render content for each timeframe tab */}
+          {validTimeframeKeys.map((timeframeKey) => {
+            // Get data for the current timeframe key being mapped
+            const timeframeData = actionPlan[timeframeKey];
+
+            console.log(`CAP Debug: Processing TabsContent for ${timeframeKey}. Data available:`, !!timeframeData);
+
+            // Ensure data exists for this key before rendering content
+            if (!timeframeData) {
+              console.warn(`CAP Warn: No data found for timeframe key: ${timeframeKey}. Rendering placeholder.`);
+              return (
+                <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6">
+                  <p className="text-muted-foreground p-4">No action plan details available for this timeframe ({timeframeLabels[timeframeKey]}).</p>
+                </TabsContent>
+              );
+            }
+
+            // Render the actual content if data is present
+            return (
+              <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6 space-y-6">
+                {/* Narrative/Overview Section */}
+                <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
+                  <h3 className="font-semibold text-lg mb-2">{timeframeLabels[timeframeKey]} Overview</h3>
+                  <p className="italic text-muted-foreground">
+                    {timeframeData.narrative || "No specific narrative provided for this period."}
+                  </p>
+                </div>
+
+                {/* Accordion for Details */}
+                <Accordion type="multiple" className="w-full" defaultValue={["skills", "projects", "content", "milestones"]}>
+                  {/* Skills Section */}
+                  <AccordionItem value="skills">
+                    <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
+                      <div className="flex items-center">
+                        <GraduationCap className="mr-2 h-5 w-5 text-primary" />
+                        Skills to Acquire
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4 pl-8 pt-2">
+                        {/* Added check for timeframeData.skills */}
+                        {timeframeData.skills && timeframeData.skills.length > 0 ? (
+                          timeframeData.skills.map((skillItem, idx) => (
+                            <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
+                              <h4 className="font-semibold text-primary/90">{skillItem.name || 'Unnamed Skill'}</h4>
+                              {/* Added check for skillItem.courses */}
+                              {skillItem.courses && skillItem.courses.length > 0 ? (
+                                <ul className="space-y-1 list-disc pl-5">
+                                  {skillItem.courses.map((course, courseIdx) => (
+                                    <li key={`course-${timeframeKey}-${idx}-${courseIdx}`} className="text-sm">
+                                      <span className="font-medium">{course.title || 'Unnamed Course'}</span>
+                                      {course.provider && (
+                                        <span className="text-muted-foreground ml-1 text-xs">
+                                          ({course.provider})
+                                        </span>
+                                      )}
+                                      {course.url ? (
+                                        <a href={course.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
+                                          [Link]
+                                        </a>
+                                      ) : null}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-muted-foreground pl-1">No specific courses listed for this skill.</p>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-muted-foreground text-sm">No specific skills listed for this period.</p>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Projects Section */}
+                  <AccordionItem value="projects">
+                    <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
+                      <div className="flex items-center">
+                        <Briefcase className="mr-2 h-5 w-5 text-primary" />
+                        Projects to Build
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4 pl-8 pt-2">
+                        {/* Added check for timeframeData.projects */}
+                        {timeframeData.projects && timeframeData.projects.length > 0 ? (
+                          timeframeData.projects.map((project, idx) => (
+                            <div key={`project-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
+                              <h4 className="font-semibold text-primary/90">{project.title || 'Unnamed Project'}</h4>
+                              <p className="text-sm text-muted-foreground">{project.description || 'No description.'}</p>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-muted-foreground text-sm">No specific projects listed for this period.</p>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Content Section */}
+                  <AccordionItem value="content">
+                    <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
+                      <div className="flex items-center">
+                        <MessageSquare className="mr-2 h-5 w-5 text-primary" />
+                        Content to Share
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="space-y-4 pl-8 pt-2">
+                        {/* Added check for timeframeData.content */}
+                        {timeframeData.content && timeframeData.content.length > 0 ? (
+                          timeframeData.content.map((contentItem, idx) => (
+                            <div key={`content-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
+                              <h4 className="font-semibold text-primary/90">{contentItem.platform || 'Unspecified Platform'}</h4>
+                              {/* Added check for contentItem.topics */}
+                              {contentItem.topics && contentItem.topics.length > 0 ? (
+                                <ul className="list-disc pl-5 space-y-1">
+                                  {contentItem.topics.map((topic, topicIdx) => (
+                                    <li key={`topic-${timeframeKey}-${idx}-${topicIdx}`} className="text-sm">{topic || 'Unspecified Topic'}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <p className="text-sm text-muted-foreground pl-1">No specific topics listed for this platform.</p>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-muted-foreground text-sm">No specific content sharing goals listed for this period.</p>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Milestones Section */}
+                  <AccordionItem value="milestones">
+                    <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
+                      <div className="flex items-center">
+                        <Target className="mr-2 h-5 w-5 text-primary" />
+                        Milestones to Achieve
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="pl-8 pt-2">
+                        {/* Added check for timeframeData.milestones */}
+                        {timeframeData.milestones && timeframeData.milestones.length > 0 ? (
+                          <ul className="list-disc pl-5 space-y-2">
+                            {timeframeData.milestones.map((milestone, idx) => (
+                              <li key={`milestone-${timeframeKey}-${idx}`} className="text-sm">{milestone || 'Unspecified Milestone'}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-muted-foreground text-sm">No specific milestones listed for this period.</p>
+                        )}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </TabsContent>
+            );
+          })}
         </Tabs>
       </CardHeader>
 
-      {/* Render content for each timeframe tab */}
-      {validTimeframeKeys.map((timeframeKey) => {
-        // Get data for the current timeframe key being mapped
-        const timeframeData = actionPlan[timeframeKey];
+      {/* Content area removed from header, now inside Tabs */}
 
-        // *** Crucial Debugging Step ***
-        console.log(`CAP Debug: Processing TabsContent for ${timeframeKey}. Data available:`, !!timeframeData, timeframeData);
-
-        // Ensure data exists for this key before rendering content
-        if (!timeframeData) {
-          console.warn(`CAP Warn: No data found for timeframe key: ${timeframeKey}. Skipping content rendering.`);
-          return (
-            <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6">
-              <p className="text-muted-foreground p-4">No action plan details available for this timeframe.</p>
-            </TabsContent>
-          );
-        }
-
-        return (
-          <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6 space-y-6">
-            {/* Narrative/Overview Section */}
-            <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
-              <h3 className="font-semibold text-lg mb-2">{timeframeLabels[timeframeKey]} Overview</h3>
-              <p className="italic text-muted-foreground">
-                {timeframeData.narrative || "No specific narrative provided for this period."}
-              </p>
-            </div>
-
-            {/* Accordion for Details */}
-            <Accordion type="multiple" className="w-full" defaultValue={["skills", "projects", "content", "milestones"]}>
-              {/* Skills Section */}
-              <AccordionItem value="skills">
-                <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
-                  <div className="flex items-center">
-                    <GraduationCap className="mr-2 h-5 w-5 text-primary" />
-                    Skills to Acquire
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pl-8 pt-2">
-                    {/* Added check for timeframeData.skills */}
-                    {timeframeData.skills && timeframeData.skills.length > 0 ? (
-                      timeframeData.skills.map((skillItem, idx) => (
-                        <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
-                          <h4 className="font-semibold text-primary/90">{skillItem.name || 'Unnamed Skill'}</h4>
-                          {/* Added check for skillItem.courses */}
-                          {skillItem.courses && skillItem.courses.length > 0 ? (
-                            <ul className="space-y-1 list-disc pl-5">
-                              {skillItem.courses.map((course, courseIdx) => (
-                                <li key={`course-${timeframeKey}-${idx}-${courseIdx}`} className="text-sm">
-                                  <span className="font-medium">{course.title || 'Unnamed Course'}</span>
-                                  {course.provider && (
-                                    <span className="text-muted-foreground ml-1 text-xs">
-                                      ({course.provider})
-                                    </span>
-                                  )}
-                                  {course.url ? (
-                                    <a href={course.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
-                                      [Link]
-                                    </a>
-                                  ) : null}
-                                </li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-sm text-muted-foreground pl-1">No specific courses listed for this skill.</p>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-sm">No specific skills listed for this period.</p>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              {/* Projects Section */}
-              <AccordionItem value="projects">
-                <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
-                  <div className="flex items-center">
-                    <Briefcase className="mr-2 h-5 w-5 text-primary" />
-                    Projects to Build
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pl-8 pt-2">
-                    {/* Added check for timeframeData.projects */}
-                    {timeframeData.projects && timeframeData.projects.length > 0 ? (
-                      timeframeData.projects.map((project, idx) => (
-                        <div key={`project-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                          <h4 className="font-semibold text-primary/90">{project.title || 'Unnamed Project'}</h4>
-                          <p className="text-sm text-muted-foreground">{project.description || 'No description.'}</p>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-sm">No specific projects listed for this period.</p>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              {/* Content Section */}
-              <AccordionItem value="content">
-                <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
-                  <div className="flex items-center">
-                    <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-                    Content to Share
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pl-8 pt-2">
-                    {/* Added check for timeframeData.content */}
-                    {timeframeData.content && timeframeData.content.length > 0 ? (
-                      timeframeData.content.map((contentItem, idx) => (
-                        <div key={`content-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                          <h4 className="font-semibold text-primary/90">{contentItem.platform || 'Unspecified Platform'}</h4>
-                          {/* Added check for contentItem.topics */}
-                          {contentItem.topics && contentItem.topics.length > 0 ? (
-                            <ul className="list-disc pl-5 space-y-1">
-                              {contentItem.topics.map((topic, topicIdx) => (
-                                <li key={`topic-${timeframeKey}-${idx}-${topicIdx}`} className="text-sm">{topic || 'Unspecified Topic'}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="text-sm text-muted-foreground pl-1">No specific topics listed for this platform.</p>
-                          )}
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-muted-foreground text-sm">No specific content sharing goals listed for this period.</p>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              {/* Milestones Section */}
-              <AccordionItem value="milestones">
-                <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
-                  <div className="flex items-center">
-                    <Target className="mr-2 h-5 w-5 text-primary" />
-                    Milestones to Achieve
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="pl-8 pt-2">
-                    {/* Added check for timeframeData.milestones */}
-                    {timeframeData.milestones && timeframeData.milestones.length > 0 ? (
-                      <ul className="list-disc pl-5 space-y-2">
-                        {timeframeData.milestones.map((milestone, idx) => (
-                          <li key={`milestone-${timeframeKey}-${idx}`} className="text-sm">{milestone || 'Unspecified Milestone'}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-muted-foreground text-sm">No specific milestones listed for this period.</p>
-                    )}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </TabsContent>
-        );
-      })}
     </Card>
   );
 };
