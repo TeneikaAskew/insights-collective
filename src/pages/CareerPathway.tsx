@@ -81,6 +81,7 @@ const CareerPathway: React.FC = () => {
   const [activeTab, setActiveTab] = useState('overview');
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
+  const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
   const { toast } = useToast();
 
   const timeframeLabels = {
@@ -93,6 +94,10 @@ const CareerPathway: React.FC = () => {
 
   useEffect(() => {
     console.log("Career pathway report data:", data);
+    // Set the action plan from the data if it exists
+    if (data?.actionPlan) {
+      setActionPlan(data.actionPlan);
+    }
   }, [data]);
 
   // Get user name from available properties
