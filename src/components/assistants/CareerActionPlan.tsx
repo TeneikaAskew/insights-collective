@@ -243,11 +243,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   const currentActiveTimeframe = validTimeframeKeys.includes(activeTimeframe) ? activeTimeframe : (validTimeframeKeys[0] || "6_weeks");
   if (currentActiveTimeframe !== activeTimeframe) {
      console.warn(`CAP Warn: Render - Active timeframe '${activeTimeframe}' invalid or data missing, switching to '${currentActiveTimeframe}'.`);
-     // Setting state directly in render is discouraged, but necessary here to correct tab value immediately
-     // Use a microtask to avoid direct state update during render cycle issues if possible, though React might handle this.
-     // queueMicrotask(() => setActiveTimeframe(currentActiveTimeframe));
-     // Direct set for simplicity, monitor for issues:
-      // setActiveTimeframe(currentActiveTimeframe); // Let's rely on the Tabs component's controlled value below
   }
 
   return (
