@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -73,6 +74,19 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
   const { toast } = useToast();
   const { user } = useAuth();
+
+  // Log the action plan for debugging
+  useEffect(() => {
+    console.log('CareerActionPlan component - actionPlan:', actionPlan);
+    console.log('CareerActionPlan component - initialActionPlan:', initialActionPlan);
+  }, [actionPlan, initialActionPlan]);
+
+  // Update local state when initialActionPlan changes
+  useEffect(() => {
+    if (initialActionPlan) {
+      setActionPlan(initialActionPlan);
+    }
+  }, [initialActionPlan]);
 
   const generateActionPlan = async () => {
     if (!user) {
@@ -172,6 +186,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     );
   }
 
+  // Get the current timeframe data
   const currentTimeframeData = actionPlan[activeTimeframe as keyof ActionPlan];
   
   // Add this debugging information
@@ -198,117 +213,122 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
       </CardHeader>
       
       <CardContent>
-        {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => (
-          <TabsContent key={timeframeKey} value={timeframeKey} className="space-y-6">
-            <div className="bg-muted/30 p-4 rounded-lg border">
-              <p className="italic text-muted-foreground">
-                {actionPlan[timeframeKey as keyof ActionPlan]?.narrative || 
-                  "In this timeframe, focus on building your foundation and making initial progress toward your career goals."}
-              </p>
-            </div>
+        {Object.entries(timeframeLabels).map(([timeframeKey, timeframeLabel]) => {
+          // Get the current timeframe data for this tab
+          const timeframeData = actionPlan[timeframeKey as keyof ActionPlan];
+          
+          return (
+            <TabsContent key={timeframeKey} value={timeframeKey} className="space-y-6">
+              <div className="bg-muted/30 p-4 rounded-lg border">
+                <p className="italic text-muted-foreground">
+                  {timeframeData?.narrative || 
+                    "In this timeframe, focus on building your foundation and making initial progress toward your career goals."}
+                </p>
+              </div>
 
-            <Accordion type="single" collapsible className="w-full">
-              <AccordionItem value="skills">
-                <AccordionTrigger className="py-3">
-                  <div className="flex items-center">
-                    <GraduationCap className="mr-2 h-5 w-5 text-primary" />
-                    <span>Skills to Acquire</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pl-7">
-                    {currentTimeframeData?.skills?.map((skillItem, idx) => (
-                      <div key={idx} className="space-y-2">
-                        <h4 className="font-medium">{skillItem.name}</h4>
-                        <ul className="space-y-1">
-                          {skillItem.courses?.map((course, courseIdx) => (
-                            <li key={courseIdx} className="text-sm pl-4 border-l-2 border-primary/30">
-                              <span className="font-medium">{course.title}</span>
-                              {course.provider && (
-                                <span className="text-muted-foreground ml-1">
-                                  by {course.provider}
-                                </span>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="projects">
-                <AccordionTrigger className="py-3">
-                  <div className="flex items-center">
-                    <Briefcase className="mr-2 h-5 w-5 text-primary" />
-                    <span>Projects to Build</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pl-7">
-                    {currentTimeframeData?.projects?.map((project, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <h4 className="font-medium">{project.title}</h4>
-                        <p className="text-sm text-muted-foreground">{project.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="content">
-                <AccordionTrigger className="py-3">
-                  <div className="flex items-center">
-                    <MessageSquare className="mr-2 h-5 w-5 text-primary" />
-                    <span>Content to Share</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pl-7">
-                    {currentTimeframeData?.content?.map((contentItem, idx) => (
-                      <div key={idx} className="space-y-1">
-                        <h4 className="font-medium">{contentItem.platform}</h4>
-                        <ul className="list-disc pl-5 space-y-1">
-                          {contentItem.topics?.map((topic, topicIdx) => (
-                            <li key={topicIdx} className="text-sm">{topic}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-
-              <AccordionItem value="milestones">
-                <AccordionTrigger className="py-3">
-                  <div className="flex items-center">
-                    <Target className="mr-2 h-5 w-5 text-primary" />
-                    <span>Milestones to Achieve</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="pl-7">
-                    <ul className="list-disc pl-5 space-y-2">
-                      {currentTimeframeData?.milestones?.map((milestone, idx) => (
-                        <li key={idx} className="text-sm">{milestone}</li>
+              <Accordion type="single" collapsible className="w-full">
+                <AccordionItem value="skills">
+                  <AccordionTrigger className="py-3">
+                    <div className="flex items-center">
+                      <GraduationCap className="mr-2 h-5 w-5 text-primary" />
+                      <span>Skills to Acquire</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pl-7">
+                      {timeframeData?.skills?.map((skillItem, idx) => (
+                        <div key={idx} className="space-y-2">
+                          <h4 className="font-medium">{skillItem.name}</h4>
+                          <ul className="space-y-1">
+                            {skillItem.courses?.map((course, courseIdx) => (
+                              <li key={courseIdx} className="text-sm pl-4 border-l-2 border-primary/30">
+                                <span className="font-medium">{course.title}</span>
+                                {course.provider && (
+                                  <span className="text-muted-foreground ml-1">
+                                    by {course.provider}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       ))}
-                    </ul>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
 
-            <div className="flex justify-end pt-2">
-              <Button variant="outline" size="sm" onClick={() => setActionPlan(null)} className="mr-2">
-                Reset
-              </Button>
-              <Button size="sm" onClick={generateActionPlan} disabled={isLoading}>
-                {isLoading ? "Regenerating..." : "Regenerate Plan"}
-              </Button>
-            </div>
-          </TabsContent>
-        ))}
+                <AccordionItem value="projects">
+                  <AccordionTrigger className="py-3">
+                    <div className="flex items-center">
+                      <Briefcase className="mr-2 h-5 w-5 text-primary" />
+                      <span>Projects to Build</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pl-7">
+                      {timeframeData?.projects?.map((project, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <h4 className="font-medium">{project.title}</h4>
+                          <p className="text-sm text-muted-foreground">{project.description}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="content">
+                  <AccordionTrigger className="py-3">
+                    <div className="flex items-center">
+                      <MessageSquare className="mr-2 h-5 w-5 text-primary" />
+                      <span>Content to Share</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="space-y-4 pl-7">
+                      {timeframeData?.content?.map((contentItem, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <h4 className="font-medium">{contentItem.platform}</h4>
+                          <ul className="list-disc pl-5 space-y-1">
+                            {contentItem.topics?.map((topic, topicIdx) => (
+                              <li key={topicIdx} className="text-sm">{topic}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="milestones">
+                  <AccordionTrigger className="py-3">
+                    <div className="flex items-center">
+                      <Target className="mr-2 h-5 w-5 text-primary" />
+                      <span>Milestones to Achieve</span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="pl-7">
+                      <ul className="list-disc pl-5 space-y-2">
+                        {timeframeData?.milestones?.map((milestone, idx) => (
+                          <li key={idx} className="text-sm">{milestone}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+
+              <div className="flex justify-end pt-2">
+                <Button variant="outline" size="sm" onClick={() => setActionPlan(null)} className="mr-2">
+                  Reset
+                </Button>
+                <Button size="sm" onClick={generateActionPlan} disabled={isLoading}>
+                  {isLoading ? "Regenerating..." : "Regenerate Plan"}
+                </Button>
+              </div>
+            </TabsContent>
+          );
+        })}
       </CardContent>
     </Card>
   );
