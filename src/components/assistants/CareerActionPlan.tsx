@@ -277,7 +277,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
           console.log(`TabsContent for ${timeframeKey}. Data exists:`, !!timeframeData);
 
           return (
-            <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6 space-y-6"> {/* Added mt-6 */}
+            <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6 space-y-6 bg-yellow-100"> {/* Added mt-6 */}
               {timeframeData ? (
                 <>
                   <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
