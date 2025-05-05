@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -26,23 +27,31 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 
+interface CourseData {
+  title: string;
+  provider: string;
+  url?: string;
+}
+
+interface SkillData {
+  name: string;
+  courses: CourseData[];
+}
+
+interface ProjectData {
+  title: string;
+  description: string;
+}
+
+interface ContentData {
+  platform: string;
+  topics: string[];
+}
+
 interface ActionPlanTimeframe {
-  skills: Array<{
-    name: string;
-    courses: Array<{
-      title: string;
-      provider: string;
-      url?: string;
-    }>;
-  }>;
-  projects: Array<{
-    title: string;
-    description: string;
-  }>;
-  content: Array<{
-    platform: string;
-    topics: string[];
-  }>;
+  skills: SkillData[];
+  projects: ProjectData[];
+  content: ContentData[];
   milestones: string[];
   narrative: string;
 }
@@ -243,11 +252,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   const currentActiveTimeframe = validTimeframeKeys.includes(activeTimeframe) ? activeTimeframe : (validTimeframeKeys[0] || "6_weeks");
   if (currentActiveTimeframe !== activeTimeframe) {
      console.warn(`CAP Warn: Render - Active timeframe '${activeTimeframe}' invalid or data missing, switching to '${currentActiveTimeframe}'.`);
-     // Setting state directly in render is discouraged, but necessary here to correct tab value immediately
-     // Use a microtask to avoid direct state update during render cycle issues if possible, though React might handle this.
-     // queueMicrotask(() => setActiveTimeframe(currentActiveTimeframe));
-     // Direct set for simplicity, monitor for issues:
-      // setActiveTimeframe(currentActiveTimeframe); // Let's rely on the Tabs component's controlled value below
   }
 
   return (
@@ -345,22 +349,26 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {/* Added check for timeframeData.skills */}
-                        {timeframeData.skills && timeframeData.skills.length > 0 ? (
+                        {timeframeData.skills && Array.isArray(timeframeData.skills) && timeframeData.skills.length > 0 ? (
                           timeframeData.skills.map((skillItem, idx) => (
                             <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
-                              <h4 className="font-semibold text-primary/90">{skillItem.name || 'Unnamed Skill'}</h4>
+                              <h4 className="font-semibold text-primary/90">
+                                {typeof skillItem.name === 'string' ? skillItem.name : 'Unnamed Skill'}
+                              </h4>
                               {/* Added check for skillItem.courses */}
-                              {skillItem.courses && skillItem.courses.length > 0 ? (
+                              {skillItem.courses && Array.isArray(skillItem.courses) && skillItem.courses.length > 0 ? (
                                 <ul className="space-y-1 list-disc pl-5">
                                   {skillItem.courses.map((course, courseIdx) => (
                                     <li key={`course-${timeframeKey}-${idx}-${courseIdx}`} className="text-sm">
-                                      <span className="font-medium">{course.title || 'Unnamed Course'}</span>
-                                      {course.provider && (
+                                      <span className="font-medium">
+                                        {typeof course === 'string' ? course : course.title || 'Unnamed Course'}
+                                      </span>
+                                      {course && typeof course === 'object' && course.provider && (
                                         <span className="text-muted-foreground ml-1 text-xs">
                                           ({course.provider})
                                         </span>
                                       )}
-                                      {course.url ? (
+                                      {course && typeof course === 'object' && course.url ? (
                                         <a href={course.url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
                                           [Link]
                                         </a>
@@ -391,7 +399,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {/* Added check for timeframeData.projects */}
-                        {timeframeData.projects && timeframeData.projects.length > 0 ? (
+                        {timeframeData.projects && Array.isArray(timeframeData.projects) && timeframeData.projects.length > 0 ? (
                           timeframeData.projects.map((project, idx) => (
                             <div key={`project-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
                               <h4 className="font-semibold text-primary/90">{project.title || 'Unnamed Project'}</h4>
@@ -416,12 +424,12 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {/* Added check for timeframeData.content */}
-                        {timeframeData.content && timeframeData.content.length > 0 ? (
+                        {timeframeData.content && Array.isArray(timeframeData.content) && timeframeData.content.length > 0 ? (
                           timeframeData.content.map((contentItem, idx) => (
                             <div key={`content-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
                               <h4 className="font-semibold text-primary/90">{contentItem.platform || 'Unspecified Platform'}</h4>
                               {/* Added check for contentItem.topics */}
-                              {contentItem.topics && contentItem.topics.length > 0 ? (
+                              {contentItem.topics && Array.isArray(contentItem.topics) && contentItem.topics.length > 0 ? (
                                 <ul className="list-disc pl-5 space-y-1">
                                   {contentItem.topics.map((topic, topicIdx) => (
                                     <li key={`topic-${timeframeKey}-${idx}-${topicIdx}`} className="text-sm">{topic || 'Unspecified Topic'}</li>
@@ -450,7 +458,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="pl-8 pt-2">
                         {/* Added check for timeframeData.milestones */}
-                        {timeframeData.milestones && timeframeData.milestones.length > 0 ? (
+                        {timeframeData.milestones && Array.isArray(timeframeData.milestones) && timeframeData.milestones.length > 0 ? (
                           <ul className="list-disc pl-5 space-y-2">
                             {timeframeData.milestones.map((milestone, idx) => (
                               <li key={`milestone-${timeframeKey}-${idx}`} className="text-sm">{milestone || 'Unspecified Milestone'}</li>
@@ -468,9 +476,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
           })}
         </Tabs>
       </CardHeader>
-
-      {/* Content area removed from header, now inside Tabs */}
-
     </Card>
   );
 };

@@ -53,11 +53,11 @@ async function generateActionPlan(userData: any) {
         Break it down into these keys: "6_weeks", "9_weeks", "12_weeks", "6_months", "12_months".
         
         Each key's value must be an object containing:
-          1. skills_to_acquire
-          2. projects_to_build
-          3. content_to_post
-          4. milestones_to_achieve
-          5. motivational_narrative
+          1. skills_to_acquire - array of objects with 'skill' (string) and 'courses' (array of strings)
+          2. projects_to_build - array of objects with 'title' and 'description'
+          3. content_to_post - array of objects with 'platform' and 'topics' (array of strings)
+          4. milestones_to_achieve - array of strings
+          5. motivational_narrative - string
         
         **CRUCIAL**: Your _only_ output must be valid JSON. Do not include any explanatory text or markdown.
         `;
@@ -97,6 +97,7 @@ async function generateActionPlan(userData: any) {
       console.log("Response: ",jsonResponse)
     } catch (e) {
       // If that fails, try to extract JSON from markdown code blocks
+      console.log("Direct parsing failed, trying alternatives");
       const jsonMatch = response.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
       if (jsonMatch && jsonMatch[1]) {
         jsonResponse = JSON.parse(jsonMatch[1].trim());
@@ -105,11 +106,61 @@ async function generateActionPlan(userData: any) {
       }
     }
 
-    return jsonResponse;
+    // Normalize the data to ensure consistent structure
+    const normalizedResponse = normalizeActionPlan(jsonResponse);
+    console.log("Raw action plan:", JSON.stringify(jsonResponse, null, 2));
+    console.log("Normalized action plan:", JSON.stringify(normalizedResponse, null, 2));
+    
+    return normalizedResponse;
   } catch (error) {
     console.error('Error generating action plan:', error);
     throw error;
   }
+}
+
+// Normalizes the action plan to ensure consistent structure
+function normalizeActionPlan(plan) {
+  const timeframes = ["6_weeks", "9_weeks", "12_weeks", "6_months", "12_months"];
+  const normalized = {};
+  
+  timeframes.forEach(timeframe => {
+    if (!plan[timeframe]) {
+      normalized[timeframe] = {
+        skills: [],
+        projects: [],
+        content: [],
+        milestones: [],
+        narrative: ""
+      };
+      return;
+    }
+    
+    const tf = plan[timeframe];
+    
+    normalized[timeframe] = {
+      // Convert skills structure to be directly usable in the frontend
+      skills: Array.isArray(tf.skills_to_acquire) ? tf.skills_to_acquire.map(item => ({
+        name: item.skill,
+        courses: Array.isArray(item.courses) ? item.courses.map(course => 
+          typeof course === 'string' ? { title: course, provider: '' } : course
+        ) : []
+      })) : [],
+      
+      // Ensure projects has the right structure
+      projects: Array.isArray(tf.projects_to_build) ? tf.projects_to_build : [],
+      
+      // Ensure content has the right structure
+      content: Array.isArray(tf.content_to_post) ? tf.content_to_post : [],
+      
+      // Ensure milestones is an array of strings
+      milestones: Array.isArray(tf.milestones_to_achieve) ? tf.milestones_to_achieve : [],
+      
+      // Ensure narrative is a string
+      narrative: tf.motivational_narrative || ""
+    };
+  });
+  
+  return normalized;
 }
 
 // Main handler for the edge function
@@ -136,12 +187,32 @@ Deno.serve(async (req) => {
     // Generate action plan
     const actionPlan = await generateActionPlan(userData);
 
-    // Store the action plan in Supabase (optional - can be enabled if needed)
-    // await supabase.from('career_action_plans').upsert({
-    //   user_id: userId,
-    //   plan: actionPlan,
-    //   created_at: new Date().toISOString()
-    // });
+    // Store the action plan in Supabase
+    // First try to find the latest entry to update
+    const { data: latestResult } = await supabase
+      .from('career_pathway_results')
+      .select('id, session_id')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    // Use existing session_id or create a new one
+    const sessionId = latestResult?.session_id || Date.now().toString();
+    console.log(`Using existing session_id: ${sessionId}`);
+    
+    // Update the latest entry if it exists
+    if (latestResult) {
+      await supabase
+        .from('career_pathway_results')
+        .update({ 
+          action_plan: actionPlan, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', latestResult.id);
+    }
+    
+    console.log(`Saved action plan with existing session_id: ${sessionId}`);
 
     return new Response(
       JSON.stringify({ success: true, data: actionPlan }),
