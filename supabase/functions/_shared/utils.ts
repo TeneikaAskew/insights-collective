@@ -1,3 +1,10 @@
+import { encoding_for_model } from 'npm:@dqbd/tiktoken';
+async function countTokens(text, model = 'gpt-4o-mini') {
+  const enc = await encoding_for_model(model);
+  const tokenCount = enc.encode(text).length;
+  enc.free();
+  return tokenCount;
+}
 // Export comprehensive CORS headers for use across the application
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,6 +28,16 @@ export function handleOptions(req) {
  *  • then falls back to Groq (compound-beta-mini),
  *  • then finally to Anwan (Meta-Llama-3-8B-Instruct).
  */ export async function callGroqAPI(system, user) {
+  const combined = [
+    `system: ${system}`,
+    `user: ${user}`
+  ].join('\n\n');
+  const n = await countTokens(combined, 'gpt-4o-mini');
+  console.log(`Prompt uses ${n} tokens`);
+  if (n > 131_072) {
+    console.warn('🚨 exceeds max context! trim or chunk it.');
+  // you could even throw here, or slice off part of `user`
+  }
   const TOGETHER_KEY = Deno.env.get('TOGETHER_API_KEY');
   const GROQ_KEY = Deno.env.get('GROQ');
   const ANWAN_KEY = Deno.env.get('ANWAN');
@@ -39,8 +56,17 @@ export function handleOptions(req) {
     },
     body: JSON.stringify({
       model: 'meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo',
-      prompt: `${system}\n${user}`,
-      max_tokens: 500,
+      prompt: `SYSTEM INSTRUCTIONS (ENFORCE EXACT FORMAT):
+    - OUTPUT ONLY a single JSON object with EXACT keys:
+      "6_weeks","9_weeks","12_weeks","6_months","12_months".
+    - Each key's value must be an object with EXACTLY these properties:
+        "skills_to_acquire": [{ "skill": string, "courses": string[] }] (MAX 3 items with the courses),
+        "projects_to_build": { title: string; description: string }[] (MAX 2 items),
+        "content_to_post": { platform: string; topics: string[] }[] (MAX 2 items),
+        "milestones_to_achieve": string[] (MAX 3 items),
+        "motivational_narrative": string (MAX 250 chars)
+    - Keep descriptions BRIEF - under 150 characters each.\n${user}`,
+      max_tokens: 3000,
       temperature: 0.7,
       top_p: 0.8,
       top_k: 50
@@ -72,7 +98,7 @@ export function handleOptions(req) {
         }
       ],
       temperature: 0.7,
-      max_tokens: 500
+      max_tokens: 1000
     })
   });
   if (resp.ok) {
@@ -100,7 +126,7 @@ export function handleOptions(req) {
         }
       ],
       temperature: 0.5,
-      max_tokens: 500
+      max_tokens: 1000
     })
   });
   if (!resp.ok) {
