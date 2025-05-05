@@ -45,7 +45,7 @@ export async function callGroqAPI(
       
     },
     body: JSON.stringify({
-      model: 'Meta-Llama-3.1-8B-Instruct',
+      model: 'Meta-Llama-3-8B-Instruct',
       messages: [
         { role: 'system', content: system },
         { role: 'user',   content: user   }
