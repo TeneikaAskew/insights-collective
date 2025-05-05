@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -15,7 +16,8 @@ import {
   User, 
   Play,
   Loader2,
-  GraduationCap
+  GraduationCap,
+  ArrowRight
 } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { 
@@ -44,6 +46,9 @@ import {
 } from "@/components/ui/accordion";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import CareerHeader from '@/components/career/CareerHeader';
+import CareerPathSection from '@/components/career/CareerPathSection';
+import SkillsSection from '@/components/career/SkillsSection';
 
 interface ActionPlanTimeframe {
   skills: Array<{
@@ -73,6 +78,14 @@ interface ActionPlan {
   "6_months": ActionPlanTimeframe;
   "12_months": ActionPlanTimeframe;
 }
+
+// Sample data for skill building purposes
+const userSkills = [
+  "Data Analysis",
+  "SQL",
+  "Problem Solving",
+  "Communication"
+];
 
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
@@ -118,6 +131,10 @@ const CareerPathway: React.FC = () => {
     if (activeCareerStep > 0) {
       setActiveCareerStep(activeCareerStep - 1);
     }
+  };
+
+  const handleTakeQuiz = () => {
+    navigate('/career-agent');
   };
 
   // Generate action plan
@@ -168,6 +185,31 @@ const CareerPathway: React.FC = () => {
     initial: { opacity: 0, y: 20 },
     animate: { opacity: 1, y: 0, transition: { duration: 0.6 } },
     exit: { opacity: 0, transition: { duration: 0.2 } }
+  };
+
+  // Prepare data for the career components
+  const mapRecommendedRolesToCareerPathRoles = () => {
+    if (!data?.report?.recommendedRoles || data.report.recommendedRoles.length === 0) {
+      return [];
+    }
+    
+    return data.report.recommendedRoles.map(role => ({
+      title: role.title,
+      salary: role.salaryRange || 'Salary range not available',
+      description: role.description
+    }));
+  };
+
+  const mapSkillsAndCoursesToSkillsSection = () => {
+    if (!data?.report?.skillsAndCourses || data.report.skillsAndCourses.length === 0) {
+      return [];
+    }
+    
+    return data.report.skillsAndCourses.map(item => ({
+      name: item.skill,
+      type: item.level?.toLowerCase() === "beginner" ? "soft" : "hard",
+      course: item.course
+    }));
   };
 
   // If there's an error or no report data found
@@ -660,39 +702,67 @@ const CareerPathway: React.FC = () => {
           </Tabs>
         </motion.div>
 
+        {/* New Component-Based Structure */}
+        {data && data.report ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            <CareerHeader 
+              name={userName || 'there'} 
+              summary={data.report.summary || 'Based on your assessment, we have created personalized recommendations to help you build a fulfilling career.'} 
+            />
+            <CareerPathSection 
+              roles={mapRecommendedRolesToCareerPathRoles()} 
+            />
+            <SkillsSection 
+              skills={mapSkillsAndCoursesToSkillsSection()} 
+            />
+          </div>
+        ) : null}
+
         {/* Feedback / Recommendations Section */}
-        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mt-8">
+        <motion.div 
+          initial="initial" 
+          animate="animate" 
+          variants={fadeInUp} 
+          className="mt-8"
+        >
           <CareerAIRecommendations
-            careerPath={data.report.recommendedRoles[0]?.title}
+            careerPath={data?.report?.recommendedRoles?.[0]?.title}
             userSkills={userSkills}
           />
         </motion.div>
-      </>
-    ) : (
-      <div className="text-center py-12 space-y-6">
-        <h2 className="text-3xl font-bold">No Career Assessment Results Yet</h2>
-        <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Take our career assessment quiz to get personalized career pathway recommendations,
-          skill development guidance, and a customized learning path.
-        </p>
-        <Button onClick={handleTakeQuiz} size="lg">
-          Take Career Assessment <ArrowRight className="ml-2 h-4 w-4" />
-        </Button>
-    
-        {/* Show AI recommendations even without assessment */}
-        <div className="pt-12">
-          <CareerAIRecommendations />
-    
-          {/* Feedback Buttons */}
-          <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-4 mt-12">
-            <p className="text-gray-600">Was this information useful?</p>
-            <div className="flex justify-center gap-4">
-              <Button variant="outline" className="px-8">Yes</Button>
-              <Button variant="outline" className="px-8">No</Button>
-            </div>
-          </motion.div>
-        </div>
       </div>
+
+      {/* No assessment results view */}
+      {(!data?.report || !data.report.recommendedRoles?.length) && (
+        <div className="text-center py-12 space-y-6">
+          <h2 className="text-3xl font-bold">No Career Assessment Results Yet</h2>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Take our career assessment quiz to get personalized career pathway recommendations,
+            skill development guidance, and a customized learning path.
+          </p>
+          <Button onClick={handleTakeQuiz} size="lg">
+            Take Career Assessment <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+        
+          {/* Show AI recommendations even without assessment */}
+          <div className="pt-12">
+            <CareerAIRecommendations />
+        
+            {/* Feedback Buttons */}
+            <motion.div 
+              initial="initial" 
+              animate="animate" 
+              variants={fadeInUp} 
+              className="text-center space-y-4 mt-12"
+            >
+              <p className="text-gray-600">Was this information useful?</p>
+              <div className="flex justify-center gap-4">
+                <Button variant="outline" className="px-8">Yes</Button>
+                <Button variant="outline" className="px-8">No</Button>
+              </div>
+            </motion.div>
+          </div>
+        </div>
       )}
     </AppLayout>
   );
