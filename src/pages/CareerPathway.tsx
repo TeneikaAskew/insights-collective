@@ -693,6 +693,7 @@ const CareerPathway: React.FC = () => {
           </motion.div>
         </div>
       </div>
+      )}
     </AppLayout>
   );
 };
