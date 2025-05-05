@@ -3,17 +3,26 @@ import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 
-interface Skill {
+export interface Skill {
   name: string;
   type: 'hard' | 'soft';
   course: string;
 }
 
-interface SkillsSectionProps {
+export interface SkillsSectionProps {
   skills: Skill[];
 }
 
 const SkillsSection: React.FC<SkillsSectionProps> = ({ skills }) => {
+  // Default skills if none provided
+  const displaySkills = skills && skills.length > 0 ? skills : [
+    {
+      name: "No skills available",
+      type: "hard" as const,
+      course: "Complete your career assessment to see recommended skills."
+    }
+  ];
+
   return (
     <Card>
       <CardHeader>
@@ -27,9 +36,9 @@ const SkillsSection: React.FC<SkillsSectionProps> = ({ skills }) => {
       </CardHeader>
       <CardContent>
         <div className="grid gap-4">
-          {skills.map((skill, index) => (
+          {displaySkills.map((skill, index) => (
             <motion.div
-              key={skill.name}
+              key={`${skill.name}-${index}`}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.1 }}

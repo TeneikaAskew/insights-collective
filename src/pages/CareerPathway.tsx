@@ -39,7 +39,10 @@ const CareerPathway = () => {
   return (
     <AppLayout>
       <div className="container mx-auto py-8 px-4">
-        <CareerHeader />
+        <CareerHeader 
+          name={user?.user_metadata?.full_name || 'there'} 
+          summary={data?.report?.summary || 'Begin your career journey with personalized insights tailored to your skills and interests.'}
+        />
         
         {isLoading ? (
           <div className="space-y-8 mt-8">
@@ -52,8 +55,22 @@ const CareerPathway = () => {
             
             {data.actionPlan && (
               <>
-                <CareerPathSection actionPlan={data.actionPlan} />
-                <SkillsSection actionPlan={data.actionPlan} />
+                <CareerPathSection 
+                  roles={data.actionPlan.careerPathRoles || 
+                         data.report.recommendedRoles.map(role => ({
+                           title: role.title,
+                           salary: role.salary || 'Salary varies by location',
+                           description: role.description || 'No description available'
+                         }))}
+                />
+                <SkillsSection 
+                  skills={data.actionPlan.recommendedSkills || 
+                          data.report.skillsAndCourses.map(item => ({
+                            name: item.skill,
+                            type: item.type || 'hard',
+                            course: item.course || 'No specific course recommended'
+                          }))}
+                />
               </>
             )}
             
