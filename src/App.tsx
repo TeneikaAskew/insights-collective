@@ -32,7 +32,6 @@ import Resume from "./pages/Resume";
 import NotFound from "./pages/NotFound";
 import CareerPathway from "./pages/CareerPathway";
 import SurveyConfirmation from "./pages/SurveyConfirmation";
-import AuthCallback from "./pages/AuthCallback";
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -106,7 +105,6 @@ function App() {
                   <Route path="/" element={<Index />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
-                  <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/career-agent" element={<CareerAgent />} />
                   <Route path="/career-pathway" element={<CareerPathway />} />
                   <Route path="/blog" element={<BlogList />} />

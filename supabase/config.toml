@@ -33,8 +33,5 @@ verify_jwt = true
 [functions.assistant-ai]
 verify_jwt = true
 
-[functions.auth-callback]
-verify_jwt = false
-
 // [functions.resume-analyzer]
 // verify_jwt = true
