@@ -185,7 +185,7 @@ const CareerPathway: React.FC = () => {
     }
     return data.report.skillsAndCourses.map(item => ({
       name: item.skill,
-      type: item.level?.toLowerCase() === "beginner" ? "soft" : "hard",
+      type: (item.level?.toLowerCase() === "beginner" ? "soft" : "hard") as 'soft' | 'hard',
       course: item.course
     }));
   };
