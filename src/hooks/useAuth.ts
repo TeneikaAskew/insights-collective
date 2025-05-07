@@ -133,7 +133,7 @@ export const useAuthProvider = () => {
       setLoading(true);
 
       // Get the redirect path from localStorage - this should be set before calling socialSignIn
-      const redirectPath = localStorage.getItem('redirectAfterLogin') || '/resources';
+      const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
       
       console.log(`[socialSignIn] Signing in with ${provider}. Redirect path: ${redirectPath}`);
 

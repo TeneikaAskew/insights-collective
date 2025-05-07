@@ -81,12 +81,6 @@ const Login = () => {
       setError(null);
       setSocialLoading(provider);
       
-      // Store the redirect path BEFORE initiating social sign in
-      const redirectParam = query.get('redirect');
-      const redirectPath = redirectParam || '/resources';
-      localStorage.setItem('redirectAfterLogin', redirectPath);
-      console.log(`[handleSocialSignIn] Stored redirect path: ${redirectPath}`);
-      
       const signInMethod = {
         'google': googleSignIn,
         'github': githubSignIn,
