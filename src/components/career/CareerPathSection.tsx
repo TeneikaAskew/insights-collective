@@ -5,34 +5,25 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export interface Role {
+interface Role {
   title: string;
   salary: string;
   description: string;
 }
 
-export interface CareerPathProps {
+interface CareerPathProps {
   roles: Role[];
 }
 
 const CareerPathSection: React.FC<CareerPathProps> = ({ roles }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Default roles if none provided
-  const displayRoles = roles && roles.length > 0 ? roles : [
-    {
-      title: "No roles available",
-      salary: "N/A",
-      description: "Complete your career assessment to see recommended roles."
-    }
-  ];
-
   const nextRole = () => {
-    setCurrentIndex((prev) => (prev + 1) % displayRoles.length);
+    setCurrentIndex((prev) => (prev + 1) % roles.length);
   };
 
   const prevRole = () => {
-    setCurrentIndex((prev) => (prev - 1 + displayRoles.length) % displayRoles.length);
+    setCurrentIndex((prev) => (prev - 1 + roles.length) % roles.length);
   };
 
   return (
@@ -58,10 +49,10 @@ const CareerPathSection: React.FC<CareerPathProps> = ({ roles }) => {
             >
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
-                  <h3 className="font-medium">{displayRoles[currentIndex].title}</h3>
-                  <p className="text-sm text-muted-foreground">{displayRoles[currentIndex].salary}</p>
+                  <h3 className="font-medium">{roles[currentIndex].title}</h3>
+                  <p className="text-sm text-muted-foreground">{roles[currentIndex].salary}</p>
                 </div>
-                <p className="text-sm max-w-md">{displayRoles[currentIndex].description}</p>
+                <p className="text-sm max-w-md">{roles[currentIndex].description}</p>
               </div>
             </motion.div>
           </div>
@@ -70,7 +61,7 @@ const CareerPathSection: React.FC<CareerPathProps> = ({ roles }) => {
               variant="outline"
               size="icon"
               onClick={prevRole}
-              disabled={displayRoles.length <= 1}
+              disabled={roles.length <= 1}
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -78,7 +69,7 @@ const CareerPathSection: React.FC<CareerPathProps> = ({ roles }) => {
               variant="outline"
               size="icon"
               onClick={nextRole}
-              disabled={displayRoles.length <= 1}
+              disabled={roles.length <= 1}
             >
               <ChevronRight className="h-4 w-4" />
             </Button>

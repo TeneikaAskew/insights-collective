@@ -1,33 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Briefcase, 
-  BookOpen, 
-  Users, 
-  FileText, 
-  TrendingUp, 
-  Star, 
-  Award, 
-  CheckCircle, 
-  User, 
-  Play,
-  Loader2,
-  GraduationCap,
-  ArrowRight
-} from 'lucide-react';
+import { ChevronLeft, ChevronRight, Briefcase, BookOpen, Users, FileText, TrendingUp, Star, Award, CheckCircle, User, Play, Loader2, GraduationCap, ArrowRight } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardFooter 
-} from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
@@ -38,18 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
 import { Helmet } from 'react-helmet-async';
 import CareerActionPlan from '@/components/assistants/CareerActionPlan';
-import { 
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CareerHeader from '@/components/career/CareerHeader';
 import CareerPathSection from '@/components/career/CareerPathSection';
 import SkillsSection from '@/components/career/SkillsSection';
-
 interface ActionPlanTimeframe {
   skills: Array<{
     name: string;
@@ -70,7 +40,6 @@ interface ActionPlanTimeframe {
   milestones: string[];
   narrative: string;
 }
-
 interface ActionPlan {
   "6_weeks": ActionPlanTimeframe;
   "9_weeks": ActionPlanTimeframe;
@@ -80,24 +49,26 @@ interface ActionPlan {
 }
 
 // Sample data for skill building purposes
-const userSkills = [
-  "Data Analysis",
-  "SQL",
-  "Problem Solving",
-  "Communication"
-];
-
+const userSkills = ["Data Analysis", "SQL", "Problem Solving", "Communication"];
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { data, isLoading, error, isError } = useCareerPathwayResults();
+  const {
+    user
+  } = useAuth();
+  const {
+    data,
+    isLoading,
+    error,
+    isError
+  } = useCareerPathwayResults();
   const [activeCareerStep, setActiveCareerStep] = useState(0);
   const [activeTab, setActiveTab] = useState('overview');
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
   const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
-  const { toast } = useToast();
-
+  const {
+    toast
+  } = useToast();
   const timeframeLabels = {
     "6_weeks": "6 Weeks",
     "9_weeks": "9 Weeks",
@@ -105,7 +76,6 @@ const CareerPathway: React.FC = () => {
     "6_months": "6 Months",
     "12_months": "12 Months"
   };
-
   useEffect(() => {
     console.log("Career pathway report data:", data);
     // Set the action plan from the data if it exists
@@ -115,24 +85,19 @@ const CareerPathway: React.FC = () => {
   }, [data]);
 
   // Get user name from available properties
-  const userName = (user as any)?.first_name || 
-                  (user as any)?.user_metadata?.first_name || 
-                  user?.email?.split('@')[0] || 
-                  'there';
-                
+  const userName = (user as any)?.first_name || (user as any)?.user_metadata?.first_name || user?.email?.split('@')[0] || 'there';
+
   // Career step carousel navigation
   const nextCareerStep = () => {
     if (data?.report?.careerPathSteps && activeCareerStep < data.report.careerPathSteps.length - 1) {
       setActiveCareerStep(activeCareerStep + 1);
     }
   };
-
   const prevCareerStep = () => {
     if (activeCareerStep > 0) {
       setActiveCareerStep(activeCareerStep - 1);
     }
   };
-
   const handleTakeQuiz = () => {
     navigate('/career-agent');
   };
@@ -147,23 +112,25 @@ const CareerPathway: React.FC = () => {
       });
       return;
     }
-
     setIsGeneratingPlan(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-career-action-plan', {
-        body: { userId: user.id }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('generate-career-action-plan', {
+        body: {
+          userId: user.id
+        }
       });
-
       if (error) {
         console.error("Error invoking function:", error);
         throw error;
       }
-
       if (data?.success && data?.data) {
         setActionPlan(data.data);
         toast({
           title: "Action Plan Generated",
-          description: "Your personalized career action plan is ready!",
+          description: "Your personalized career action plan is ready!"
         });
       } else {
         throw new Error("Failed to generate action plan");
@@ -182,9 +149,23 @@ const CareerPathway: React.FC = () => {
 
   // Animation variants
   const fadeInUp = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-    exit: { opacity: 0, transition: { duration: 0.2 } }
+    initial: {
+      opacity: 0,
+      y: 20
+    },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6
+      }
+    },
+    exit: {
+      opacity: 0,
+      transition: {
+        duration: 0.2
+      }
+    }
   };
 
   // Prepare data for the career components
@@ -192,19 +173,16 @@ const CareerPathway: React.FC = () => {
     if (!data?.report?.recommendedRoles || data.report.recommendedRoles.length === 0) {
       return [];
     }
-    
     return data.report.recommendedRoles.map(role => ({
       title: role.title,
       salary: role.salaryRange || 'Salary range not available',
       description: role.description
     }));
   };
-
   const mapSkillsAndCoursesToSkillsSection = () => {
     if (!data?.report?.skillsAndCourses || data.report.skillsAndCourses.length === 0) {
       return [];
     }
-    
     return data.report.skillsAndCourses.map(item => ({
       name: item.skill,
       type: item.level?.toLowerCase() === "beginner" ? "soft" : "hard",
@@ -213,19 +191,18 @@ const CareerPathway: React.FC = () => {
   };
 
   // If there's an error or no report data found
-  if (isError || (data?.report && data.report.skillsAndCourses && data.report.skillsAndCourses.length === 0)) {
-    return (
-      <AppLayout>
+  if (isError || data?.report && data.report.skillsAndCourses && data.report.skillsAndCourses.length === 0) {
+    return <AppLayout>
         <Helmet>
           <title>Career Pathway | Insights Collective</title>
           <meta name="description" content="Get personalized career path recommendations based on your skills and interests" />
         </Helmet>
         
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="container mx-auto py-16 px-4"
-        >
+        <motion.div initial={{
+        opacity: 0
+      }} animate={{
+        opacity: 1
+      }} className="container mx-auto py-16 px-4">
           <Card className="max-w-3xl mx-auto overflow-hidden">
             <div className="relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 z-0" />
@@ -236,19 +213,11 @@ const CareerPathway: React.FC = () => {
                   Answer a few questions about your skills, experience, and career goals to receive personalized guidance tailored just for you.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button 
-                    size="lg"
-                    onClick={() => navigate('/career-agent')}
-                    className="gap-2"
-                  >
+                  <Button size="lg" onClick={() => navigate('/career-agent')} className="gap-2">
                     <Play className="h-4 w-4" />
                     Start Career Assessment
                   </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    onClick={() => navigate('/explore-data-careers')}
-                  >
+                  <Button variant="outline" size="lg" onClick={() => navigate('/explore-data-careers')}>
                     Browse Data Careers
                   </Button>
                 </div>
@@ -256,12 +225,9 @@ const CareerPathway: React.FC = () => {
             </div>
           </Card>
         </motion.div>
-      </AppLayout>
-    );
+      </AppLayout>;
   }
-
-  return (
-    <AppLayout>
+  return <AppLayout>
       <Helmet>
         <title>Your Career Pathway | Insights Collective</title>
         <meta name="description" content="Your personalized career path recommendations based on your skills and interests" />
@@ -269,12 +235,7 @@ const CareerPathway: React.FC = () => {
       
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
         {/* Hero Section */}
-        <motion.div
-          initial="initial"
-          animate="animate"
-          variants={fadeInUp}
-          className="text-center space-y-6 mb-12"
-        >
+        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-6 mb-12">
           <div className="h-24 w-24 mx-auto bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center mb-6">
             <Users className="h-12 w-12 text-white" />
           </div>
@@ -287,17 +248,8 @@ const CareerPathway: React.FC = () => {
         </motion.div>
 
         {/* Navigation Tabs */}
-        <motion.div
-          initial="initial"
-          animate="animate"
-          variants={fadeInUp}
-          className="mb-8"
-        >
-          <Tabs 
-            value={activeTab} 
-            onValueChange={setActiveTab} 
-            className="w-full"
-          >
+        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mb-8">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4 mb-8">
               <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-white">Overview</TabsTrigger>
               <TabsTrigger value="skills" className="data-[state=active]:bg-primary data-[state=active]:text-white">Skills</TabsTrigger>
@@ -307,12 +259,15 @@ const CareerPathway: React.FC = () => {
             
             {/* Overview Tab */}
             <TabsContent value="overview">
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }} 
-                animate={{ opacity: 1, y: 0 }} 
-                transition={{ delay: 0.2 }}
-                className="space-y-8"
-              >
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              delay: 0.2
+            }} className="space-y-8">
                 {/* Summary Card */}
                 <Card className="overflow-hidden border-t-4 border-t-primary">
                   <CardHeader className="bg-primary/5 pb-2">
@@ -322,13 +277,9 @@ const CareerPathway: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6 pt-4">
-                    {isLoading ? (
-                      <Skeleton className="h-20 w-full" />
-                    ) : (
-                      <p className="text-gray-700 leading-relaxed text-lg">
+                    {isLoading ? <Skeleton className="h-20 w-full" /> : <p className="text-gray-700 leading-relaxed text-lg">
                         {data?.report?.summary || 'Loading your personalized career insights...'}
-                      </p>
-                    )}
+                      </p>}
                   </CardContent>
                 </Card>
                 
@@ -382,11 +333,7 @@ const CareerPathway: React.FC = () => {
                   </CardHeader>
                   <CardContent className="p-6 pt-4">
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {isLoading ? (
-                        <SkillsSkeleton />
-                      ) : (
-                        (data?.report?.skillsAndCourses || []).slice(0, 4).map((item, index) => (
-                          <div key={index} className="flex items-start gap-3">
+                      {isLoading ? <SkillsSkeleton /> : (data?.report?.skillsAndCourses || []).slice(0, 4).map((item, index) => <div key={index} className="flex items-start gap-3">
                             <div className="bg-primary/10 p-2 rounded-full">
                               <BookOpen className="h-4 w-4 text-primary" />
                             </div>
@@ -397,15 +344,9 @@ const CareerPathway: React.FC = () => {
                                 <span className="text-xs text-muted-foreground">{item.level || 'intermediate'}</span>
                               </div>
                             </div>
-                          </div>
-                        ))
-                      )}
+                          </div>)}
                     </div>
-                    <Button 
-                      variant="link" 
-                      className="mt-4"
-                      onClick={() => setActiveTab('skills')}
-                    >
+                    <Button variant="link" className="mt-4" onClick={() => setActiveTab('skills')}>
                       View all recommended skills
                       <ChevronRight className="ml-1 h-4 w-4" />
                     </Button>
@@ -416,11 +357,15 @@ const CareerPathway: React.FC = () => {
             
             {/* Skills Tab */}
             <TabsContent value="skills">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              duration: 0.5
+            }}>
                 <Card>
                   <CardHeader className="bg-primary/5 pb-2">
                     <div className="flex items-center justify-between">
@@ -447,10 +392,7 @@ const CareerPathway: React.FC = () => {
                         <div className="col-span-4 md:col-span-5">Recommended Course</div>
                         <div className="hidden md:block md:col-span-3">Level</div>
                       </div>
-                      {isLoading ? (
-                        <SkillsSkeleton />
-                      ) : data?.report?.skillsAndCourses?.map((item, index) => (
-                        <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors">
+                      {isLoading ? <SkillsSkeleton /> : data?.report?.skillsAndCourses?.map((item, index) => <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors">
                           <div className="col-span-4 flex items-center gap-3">
                             <BookOpen className="h-5 w-5 text-gray-600" />
                             <div>
@@ -470,8 +412,7 @@ const CareerPathway: React.FC = () => {
                               <Progress value={item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90} className="h-2" />
                             </div>
                           </div>
-                        </div>
-                      ))}
+                        </div>)}
                     </div>
                   </CardContent>
                   <CardFooter className="bg-primary/5 p-4">
@@ -485,12 +426,15 @@ const CareerPathway: React.FC = () => {
             
             {/* Roles Tab */}
             <TabsContent value="roles">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] p-8 rounded-lg"
-              >
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              duration: 0.5
+            }} className="bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] p-8 rounded-lg">
                 <div className="flex items-center justify-between mb-8">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -509,10 +453,7 @@ const CareerPathway: React.FC = () => {
                 </div>
 
                 <div className="space-y-4">
-                  {isLoading ? (
-                    <AlternativeRolesSkeleton />
-                  ) : data?.report?.recommendedRoles?.map((role, index) => (
-                    <Card key={index} className="bg-white border-l-4 border-l-primary overflow-hidden">
+                  {isLoading ? <AlternativeRolesSkeleton /> : data?.report?.recommendedRoles?.map((role, index) => <Card key={index} className="bg-white border-l-4 border-l-primary overflow-hidden">
                       <CardContent className="p-0">
                         <div className="p-6 flex items-start gap-4">
                           <div className="bg-primary/10 p-3 rounded-full">
@@ -529,24 +470,17 @@ const CareerPathway: React.FC = () => {
                             <p className="text-gray-600">{role.description}</p>
                             
                             <div className="mt-4 flex flex-wrap gap-2">
-                              {['SQL', 'Python', 'Data Visualization', 'Communication'].map((skill) => (
-                                <Badge key={skill} variant="outline">{skill}</Badge>
-                              ))}
+                              {['SQL', 'Python', 'Data Visualization', 'Communication'].map(skill => <Badge key={skill} variant="outline">{skill}</Badge>)}
                             </div>
                           </div>
                           <div>
-                            <Button 
-                              onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)}
-                              variant="outline"
-                              size="sm"
-                            >
+                            <Button onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)} variant="outline" size="sm">
                               Explore
                             </Button>
                           </div>
                         </div>
                       </CardContent>
-                    </Card>
-                  ))}
+                    </Card>)}
                 </div>
                 
                 <div className="mt-8 flex justify-center">
@@ -560,11 +494,15 @@ const CareerPathway: React.FC = () => {
             
             {/* Career Path Tab */}
             <TabsContent value="pathway">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-              >
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              duration: 0.5
+            }}>
                 <div className="mb-8">
                   <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
                     <TrendingUp className="h-6 w-6 text-primary" />
@@ -588,16 +526,7 @@ const CareerPathway: React.FC = () => {
                       {/* Career path timeline line */}
                       <div className="absolute left-0 right-0 top-1/2 h-1 bg-gray-200 -translate-y-1/2 z-0"></div>
                       
-                      {isLoading ? (
-                        <CareerPathSkeleton />
-                      ) : (
-                        data?.report?.careerPathSteps?.map((step, index) => (
-                          <div 
-                            key={index}
-                            className={`relative flex-shrink-0 w-64 px-4 transition-all duration-300 z-10 ${
-                              index === activeCareerStep ? 'scale-105' : 'scale-95 opacity-75'
-                            }`}
-                          >
+                      {isLoading ? <CareerPathSkeleton /> : data?.report?.careerPathSteps?.map((step, index) => <div key={index} className={`relative flex-shrink-0 w-64 px-4 transition-all duration-300 z-10 ${index === activeCareerStep ? 'scale-105' : 'scale-95 opacity-75'}`}>
                             <Card className={`${index === activeCareerStep ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white'} relative`}>
                               {/* Step number marker */}
                               <div className="absolute top-0 left-1/2 -translate-y-1/2 -translate-x-1/2 bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-medium">
@@ -614,41 +543,26 @@ const CareerPathway: React.FC = () => {
                                 <div className="mt-4 pt-4 border-t">
                                   <h4 className="font-medium text-sm mb-2">Focus areas:</h4>
                                   <div className="flex flex-wrap gap-1">
-                                    {['Technical skills', 'Domain knowledge', 'Communication'].map((area) => (
-                                      <Badge key={area} variant="secondary" className="text-xs">{area}</Badge>
-                                    ))}
+                                    {['Technical skills', 'Domain knowledge', 'Communication'].map(area => <Badge key={area} variant="secondary" className="text-xs">{area}</Badge>)}
                                   </div>
                                 </div>
                               </CardContent>
                             </Card>
-                          </div>
-                        ))
-                      )}
+                          </div>)}
                     </div>
                   </div>
                   
                   <div className="flex justify-end gap-2 p-4 border-t">
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={prevCareerStep}
-                      disabled={activeCareerStep === 0}
-                    >
+                    <Button variant="outline" size="icon" onClick={prevCareerStep} disabled={activeCareerStep === 0}>
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <Button 
-                      variant="outline" 
-                      size="icon"
-                      onClick={nextCareerStep}
-                      disabled={!data?.report?.careerPathSteps || activeCareerStep === data.report.careerPathSteps.length - 1}
-                    >
+                    <Button variant="outline" size="icon" onClick={nextCareerStep} disabled={!data?.report?.careerPathSteps || activeCareerStep === data.report.careerPathSteps.length - 1}>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
                 
-                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && (
-                  <Card className="bg-white mt-8">
+                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && <Card className="bg-white mt-8">
                     <CardHeader className="bg-primary/5 pb-2">
                       <CardTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-primary" />
@@ -682,18 +596,13 @@ const CareerPathway: React.FC = () => {
                     </CardContent>
                     <CardFooter className="bg-primary/5 border-t p-4">
                       <Button onClick={generateActionPlan} disabled={isGeneratingPlan}>
-                        {isGeneratingPlan ? (
-                          <>
+                        {isGeneratingPlan ? <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Generating...
-                          </>
-                        ) : (
-                          "Generate Detailed Action Plan"
-                        )}
+                          </> : "Generate Detailed Action Plan"}
                       </Button>
                     </CardFooter>
-                  </Card>
-                )}
+                  </Card>}
 
                 {/* Display the Action Plan component */}
                 <CareerActionPlan initialActionPlan={data?.actionPlan} />
@@ -703,38 +612,20 @@ const CareerPathway: React.FC = () => {
         </motion.div>
 
         {/* New Component-Based Structure */}
-        {data && data.report ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-            <CareerHeader 
-              name={userName || 'there'} 
-              summary={data.report.summary || 'Based on your assessment, we have created personalized recommendations to help you build a fulfilling career.'} 
-            />
-            <CareerPathSection 
-              roles={mapRecommendedRolesToCareerPathRoles()} 
-            />
-            <SkillsSection 
-              skills={mapSkillsAndCoursesToSkillsSection()} 
-            />
-          </div>
-        ) : null}
+        {data && data.report ? <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+            <CareerHeader name={userName || 'there'} summary={data.report.summary || 'Based on your assessment, we have created personalized recommendations to help you build a fulfilling career.'} />
+            <CareerPathSection roles={mapRecommendedRolesToCareerPathRoles()} />
+            <SkillsSection skills={mapSkillsAndCoursesToSkillsSection()} />
+          </div> : null}
 
         {/* Feedback / Recommendations Section */}
-        <motion.div 
-          initial="initial" 
-          animate="animate" 
-          variants={fadeInUp} 
-          className="mt-8"
-        >
-          <CareerAIRecommendations
-            careerPath={data?.report?.recommendedRoles?.[0]?.title}
-            userSkills={userSkills}
-          />
+        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mt-8">
+          <CareerAIRecommendations careerPath={data?.report?.recommendedRoles?.[0]?.title} userSkills={userSkills} />
         </motion.div>
       </div>
 
       {/* No assessment results view */}
-      {(!data?.report || !data.report.recommendedRoles?.length) && (
-        <div className="text-center py-12 space-y-6">
+      {(!data?.report || !data.report.recommendedRoles?.length) && <div className="text-center py-12 space-y-6">
           <h2 className="text-3xl font-bold">No Career Assessment Results Yet</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Take our career assessment quiz to get personalized career pathway recommendations,
@@ -749,12 +640,7 @@ const CareerPathway: React.FC = () => {
             <CareerAIRecommendations />
         
             {/* Feedback Buttons */}
-            <motion.div 
-              initial="initial" 
-              animate="animate" 
-              variants={fadeInUp} 
-              className="text-center space-y-4 mt-12"
-            >
+            <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-4 mt-12">
               <p className="text-gray-600">Was this information useful?</p>
               <div className="flex justify-center gap-4">
                 <Button variant="outline" className="px-8">Yes</Button>
@@ -762,17 +648,13 @@ const CareerPathway: React.FC = () => {
               </div>
             </motion.div>
           </div>
-        </div>
-      )}
-    </AppLayout>
-  );
+        </div>}
+    </AppLayout>;
 };
 
 // Skeleton components
-const SkillsSkeleton = () => (
-  <>
-    {[1, 2, 3].map((i) => (
-      <div key={i} className="grid grid-cols-12 gap-4 p-4 border-b">
+const SkillsSkeleton = () => <>
+    {[1, 2, 3].map(i => <div key={i} className="grid grid-cols-12 gap-4 p-4 border-b">
         <div className="col-span-4">
           <Skeleton className="h-6 w-32 mb-2" />
           <Skeleton className="h-4 w-20" />
@@ -783,33 +665,20 @@ const SkillsSkeleton = () => (
         <div className="hidden md:block md:col-span-3">
           <Skeleton className="h-4 w-full" />
         </div>
-      </div>
-    ))}
-  </>
-);
-
-const CareerPathSkeleton = () => (
-  <>
-    {[1, 2, 3].map((i) => (
-      <div key={i} className="flex-shrink-0 w-64 px-4">
+      </div>)}
+  </>;
+const CareerPathSkeleton = () => <>
+    {[1, 2, 3].map(i => <div key={i} className="flex-shrink-0 w-64 px-4">
         <Skeleton className="h-40 w-full rounded-lg" />
-      </div>
-    ))}
-  </>
-);
-
-const AlternativeRolesSkeleton = () => (
-  <>
-    {[1, 2, 3].map((i) => (
-      <Card key={i} className="bg-white">
+      </div>)}
+  </>;
+const AlternativeRolesSkeleton = () => <>
+    {[1, 2, 3].map(i => <Card key={i} className="bg-white">
         <CardContent className="p-6">
           <Skeleton className="h-6 w-48 mb-2" />
           <Skeleton className="h-4 w-32 mb-2" />
           <Skeleton className="h-16 w-full" />
         </CardContent>
-      </Card>
-    ))}
-  </>
-);
-
+      </Card>)}
+  </>;
 export default CareerPathway;

@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
 import { corsHeaders, callGroqWithRetry } from '../_shared/utils.ts';
 // CORS handling for preflight requests
@@ -30,26 +29,70 @@ async function getUserCareerData(supabase, userId) {
     }
   };
 }
-
-function extractJsonPayload(rawResponse) {
+// function extractJsonPayload(rawResponse) {
+//   // 1) strip ANY markdown fences
+//   let raw = rawResponse.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
+//   // 2) grab the first {...} block
+//   const m = raw.match(/{[\s\S]*}/);
+//   if (!m) {
+//     console.error('No JSON found in LLM response:', raw);
+//     throw new Error('Invalid JSON payload');
+//   }
+//   raw = m[0];
+//   // 3) parse it
+//   try {
+//     return JSON.parse(raw);
+//   } catch (e) {
+//     console.error('Failed to parse extracted JSON:', raw, e);
+//     throw new Error('Invalid JSON payload');
+//   }
+// }
+export function extractJsonPayload(rawResponse) {
   // 1) strip ANY markdown fences
   let raw = rawResponse.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
   // 2) grab the first {...} block
-  const m = raw.match(/{[\s\S]*}/);
-  if (!m) {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) {
     console.error('No JSON found in LLM response:', raw);
     throw new Error('Invalid JSON payload');
   }
-  raw = m[0];
-  // 3) parse it
+  raw = match[0];
+  // 3) try parsing directly
   try {
     return JSON.parse(raw);
-  } catch (e) {
-    console.error('Failed to parse extracted JSON:', raw, e);
-    throw new Error('Invalid JSON payload');
+  } catch (initialError) {
+    console.warn('Initial JSON.parse failed, attempting recovery:', initialError);
+    // 4) attempt to fix unbalanced braces by appending missing '}'
+    const openCount = (raw.match(/\{/g) || []).length;
+    const closeCount = (raw.match(/\}/g) || []).length;
+    if (openCount > closeCount) {
+      const fixed = raw + '}'.repeat(openCount - closeCount);
+      try {
+        return JSON.parse(fixed);
+      } catch (e) {
+        console.warn('Recovery with appended braces failed:', e);
+      }
+    }
+    // 5) attempt to trim after last complete brace
+    const lastIndex = raw.lastIndexOf('}');
+    if (lastIndex !== -1) {
+      const trimmed = raw.slice(0, lastIndex + 1);
+      try {
+        return JSON.parse(trimmed);
+      } catch (e) {
+        console.warn('Recovery by trimming failed:', e);
+      }
+    }
+    // 6) fallback: remove trailing commas before closing delimiters
+    const cleaned = raw.replace(/,\s*([}\]])/g, '$1');
+    try {
+      return JSON.parse(cleaned);
+    } catch (e) {
+      console.error('All JSON recovery attempts failed:', e);
+      throw new Error('Invalid JSON payload');
+    }
   }
 }
-
 // Generate the career action plan using GROQ API
 async function generateActionPlan(userData) {
   try {
@@ -61,13 +104,11 @@ async function generateActionPlan(userData) {
         "projects_to_build": { title: string; description: string }[] (MAX 2 items),
         "content_to_post": { platform: string; topics: string[] }[] (MAX 2 items),
         "milestones_to_achieve": string[] (MAX 3 items),
-        "motivational_narrative": string (MAX 150 chars)
-    - Keep descriptions BRIEF - under 100 characters each.
+        "motivational_narrative": string (MAX 250 chars)
+    - Keep descriptions BRIEF - under 150 characters each.
     - DO NOT include ANY additional keys, markdown, or explanatory text.
     - RESPONSE MUST START WITH '{' AND END WITH '}'.
-    - KEEP TOTAL RESPONSE UNDER 2000 CHARACTERS.
-    - If you fail to comply, output {} only.`;
-
+    - KEEP TOTAL RESPONSE UNDER 9000 CHARACTERS.`; //    - If you fail to comply, output {} ERROR only.
     // Build a concise user prompt with just enough context
     const resumeSnippet = Array.isArray(userData.resume.sentences) ? userData.resume.sentences.slice(0, 3).join(' ') : '';
     const analysisSnippet = typeof userData.resume.analysis === 'string' ? userData.resume.analysis.slice(0, 200) : userData.resume.analysis ? JSON.stringify(userData.resume.analysis).slice(0, 200) : '';
@@ -85,10 +126,10 @@ ${userData.pathway.report ? JSON.stringify(userData.pathway.report) : ''}
 Be supportive, actionable, and focused. The plan should feel like a natural extension of their existing career insights.
 
 Using only this information, generate the Career Action Plan in the exact JSON format described above.`;
-
     // Call the GROQ API
     const response = await callGroqWithRetry(systemPrompt, userPrompt);
-    console.log("Raw Response: ", response);
+    console.log("Raw Response: ");
+    console.log(response);
     // Extract JSON from the response
     return extractJsonPayload(response);
   } catch (error) {
@@ -96,7 +137,6 @@ Using only this information, generate the Career Action Plan in the exact JSON f
     throw error;
   }
 }
-
 function normalizeActionPlan(rawPlan) {
   const keys = [
     '6_weeks',
@@ -129,29 +169,26 @@ function normalizeActionPlan(rawPlan) {
       milestones: Array.isArray(data.milestones_to_achieve) ? data.milestones_to_achieve : []
     };
   });
-  
   // Add careerPathRoles and recommendedSkills properties to make it compatible with our components
   const recommendedSkills = [];
   const careerPathRoles = [];
-  
   // Extract skills from all timeframes and convert to the format expected by SkillsSection
-  keys.forEach(timeframe => {
+  keys.forEach((timeframe)=>{
     if (normalized[timeframe] && normalized[timeframe].skills) {
-      normalized[timeframe].skills.forEach(skill => {
-        if (skill.name && !recommendedSkills.some(s => s.name === skill.name)) {
+      normalized[timeframe].skills.forEach((skill)=>{
+        if (skill.name && !recommendedSkills.some((s)=>s.name === skill.name)) {
           recommendedSkills.push({
             name: skill.name,
-            type: Math.random() > 0.5 ? 'hard' : 'soft', // Simple random assignment for demonstration
+            type: Math.random() > 0.5 ? 'hard' : 'soft',
             course: skill.courses && skill.courses.length > 0 ? skill.courses[0] : 'No specific course recommended'
           });
         }
       });
     }
-    
     // Extract projects as potential career roles
     if (normalized[timeframe] && normalized[timeframe].projects) {
-      normalized[timeframe].projects.forEach(project => {
-        if (project.title && !careerPathRoles.some(r => r.title === project.title)) {
+      normalized[timeframe].projects.forEach((project)=>{
+        if (project.title && !careerPathRoles.some((r)=>r.title === project.title)) {
           careerPathRoles.push({
             title: project.title,
             description: project.description,
@@ -161,14 +198,11 @@ function normalizeActionPlan(rawPlan) {
       });
     }
   });
-  
   // Add these to the normalized plan
   normalized.recommendedSkills = recommendedSkills;
   normalized.careerPathRoles = careerPathRoles;
-  
   return normalized;
 }
-
 // Edge function handler
 Deno.serve(async (req)=>{
   const preflight = handleCors(req);
