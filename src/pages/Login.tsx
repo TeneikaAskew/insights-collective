@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +21,7 @@ const Login = () => {
   } = useAuth();
 
   const { toast } = useToast();
+  const navigate = useNavigate();
   const location = useLocation();
 
   const [email, setEmail] = useState('');
@@ -37,12 +37,7 @@ const Login = () => {
   useEffect(() => {
     console.log('[Login] Mounted');
     console.log('[Login] redirectParam:', redirectParam);
-    
-    // Store the redirect path from query params if it exists
-    if (redirectParam) {
-      localStorage.setItem('redirectAfterLogin', redirectParam);
-    }
-  }, [redirectParam]);
+  }, []);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -76,22 +71,15 @@ const Login = () => {
   };
 
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
-    console.log(`[handleSocialSignIn] Initiating ${provider} login`);
+    console.log('[handleSocialSignIn] Initiating social login with:', provider);
     try {
       setError(null);
       setSocialLoading(provider);
-      
-      const signInMethod = {
-        'google': googleSignIn,
-        'github': githubSignIn,
-        'twitter': twitterSignIn,
-      }[provider];
-      
-      if (signInMethod) {
-        await signInMethod();
-      } else {
-        throw new Error(`Unsupported provider: ${provider}`);
-      }
+      await {
+        google: googleSignIn,
+        github: githubSignIn,
+        twitter: twitterSignIn,
+      }[provider]();
     } catch (error: any) {
       console.error(`[${provider}] Social sign-in failed:`, error);
       toast({
@@ -109,10 +97,7 @@ const Login = () => {
     console.log('[Login] Already authenticated - showing "Redirecting..." screen');
     return (
       <div className="flex justify-center items-center h-screen">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-lg">Redirecting to your dashboard...</p>
-        </div>
+        Redirecting...
       </div>
     );
   }
@@ -137,50 +122,27 @@ const Login = () => {
 
           <CardContent>
             <div className="flex flex-col gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('google')}
-                disabled={!!socialLoading}
-              >
-                {socialLoading === 'google' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaGoogle className="mr-2 h-4 w-4" />
-                )}
-                Sign in with Google
-              </Button>
-              
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('github')}
-                disabled={!!socialLoading}
-              >
-                {socialLoading === 'github' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaGithub className="mr-2 h-4 w-4" />
-                )}
-                Sign in with GitHub
-              </Button>
-              
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('twitter')}
-                disabled={!!socialLoading}
-              >
-                {socialLoading === 'twitter' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaTwitter className="mr-2 h-4 w-4" />
-                )}
-                Sign in with Twitter
-              </Button>
+              {['google', 'github', 'twitter'].map((provider) => (
+                <Button
+                  key={provider}
+                  type="button"
+                  variant="outline"
+                  className="w-full flex items-center justify-center"
+                  onClick={() => handleSocialSignIn(provider as 'google' | 'github' | 'twitter')}
+                  disabled={!!socialLoading}
+                >
+                  {socialLoading === provider ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    {
+                      google: <FaGoogle className="mr-2 h-4 w-4" />,
+                      github: <FaGithub className="mr-2 h-4 w-4" />,
+                      twitter: <FaTwitter className="mr-2 h-4 w-4" />,
+                    }[provider]
+                  )}
+                  Sign in with {provider.charAt(0).toUpperCase() + provider.slice(1)}
+                </Button>
+              ))}
             </div>
 
             <div className="relative my-6">
