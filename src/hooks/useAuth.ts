@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -69,28 +68,17 @@ export const useAuthProvider = () => {
     const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!isMounted) return;
 
-      console.log('[useAuth] Auth state changed, new session:', !!newSession);
       setSession(newSession);
     });
 
     const init = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('[useAuth] Error getting session:', error);
-          setSession(null);
-        } else if (data.session) {
-          console.log('[useAuth] Session found during initialization');
-          setSession(data.session);
-        } else {
-          console.log('[useAuth] No session found during initialization');
-          setSession(null);
-        }
-      } catch (err) {
-        console.error('[useAuth] Unexpected error during getSession:', err);
-      } finally {
-        setLoading(false);
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) {
+        setSession(null);
+      } else {
+        setSession(data.session);
       }
+      setLoading(false);
     };
 
     init();
@@ -103,11 +91,10 @@ export const useAuthProvider = () => {
 
   useEffect(() => {
     // On profile loaded & authenticated, perform redirect if redirect path set
-    if (isAuthenticated && !loading && !profileLoading && redirectPath) {
-      console.log('[useAuth] Ready to redirect - isAuthenticated:', isAuthenticated, 'loading:', loading, 'profileLoading:', profileLoading);
+    if (isAuthenticated && !loading && redirectPath) {
       handleRedirectAfterLogin();
     }
-  }, [isAuthenticated, loading, profileLoading, redirectPath, handleRedirectAfterLogin]);
+  }, [isAuthenticated, loading, redirectPath, handleRedirectAfterLogin]);
 
   const login = useCallback(async (email: string, password: string) => {
     try {
@@ -132,26 +119,16 @@ export const useAuthProvider = () => {
     try {
       setLoading(true);
 
-      // Get the redirect path from localStorage - this should be set before calling socialSignIn
-      const redirectPath = localStorage.getItem('redirectAfterLogin') || '/dashboard';
-      
-      console.log(`[socialSignIn] Signing in with ${provider}. Redirect path: ${redirectPath}`);
-
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirectPath)}`
+          redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(localStorage.getItem('redirectAfterLogin') || '/dashboard')}`
         }
       });
 
       if (error) throw error;
     } catch (error: any) {
-      console.error(`[socialSignIn] ${provider} sign-in error:`, error);
-      toast({ 
-        title: 'Error', 
-        description: error.message, 
-        variant: 'destructive' 
-      });
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -181,7 +158,6 @@ export const useAuthProvider = () => {
 
       navigate('/login');
     } catch (error: any) {
-      console.error('[register] Registration error:', error);
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setLoading(false);
@@ -189,19 +165,10 @@ export const useAuthProvider = () => {
   }, [navigate, toast]);
 
   const logout = useCallback(async () => {
-    try {
-      await supabase.auth.signOut();
-      setSession(null);
-      navigate('/');
-    } catch (error: any) {
-      console.error('[logout] Error during sign out:', error);
-      toast({ 
-        title: 'Error signing out',
-        description: error.message,
-        variant: 'destructive'
-      });
-    }
-  }, [navigate, toast]);
+    await supabase.auth.signOut();
+    setSession(null);
+    navigate('/');
+  }, [navigate]);
 
   return {
     session,
