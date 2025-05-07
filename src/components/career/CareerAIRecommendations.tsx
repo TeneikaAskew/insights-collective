@@ -13,12 +13,10 @@ interface CareerAIRecommendationsProps {
 
 export default function CareerAIRecommendations({ careerPath, userSkills = [] }: CareerAIRecommendationsProps) {
   const [recommendation, setRecommendation] = useState<string | null>(null);
-  
-  const { generateText, isLoading, error, streamedText } = useTogetherAI();
-  // const { generateText, isLoading, error } = useTogetherAI({
-  //   model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-  //   maxTokens: 500
-  // });
+  const { generateText, isLoading, error } = useTogetherAI({
+    model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+    maxTokens: 500
+  });
 
   const [userPrompt, setUserPrompt] = useState('');
   const [showCustomPrompt, setShowCustomPrompt] = useState(false);
