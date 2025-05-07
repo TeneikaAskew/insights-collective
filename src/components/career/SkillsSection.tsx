@@ -1,29 +1,33 @@
 
-import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { motion } from 'framer-motion';
+import React, { FC } from 'react';
+import { Progress } from '@/components/ui/progress';
 
-export interface Skill {
-  name: string;
-  type: 'hard' | 'soft';
-  course: string;
+interface SkillsSectionProps {
+  skills: {
+    name: string;
+    level: number;
+    category: string;
+  }[];
 }
 
-export interface SkillsSectionProps {
-  skills: Skill[];
-}
-
-const SkillsSection: React.FC<SkillsSectionProps> = ({
-  skills
-}) => {
-  // Default skills if none provided
-  const displaySkills = skills && skills.length > 0 ? skills : [{
-    name: "No skills available",
-    type: "hard" as const,
-    course: "Complete your career assessment to see recommended skills."
-  }];
-
-  return;
+const SkillsSection: FC<SkillsSectionProps> = ({ skills }) => {
+  return (
+    <div className="space-y-8">
+      <h2 className="text-2xl font-bold">Key Skills</h2>
+      <div className="space-y-6">
+        {skills.map((skill, index) => (
+          <div key={index}>
+            <div className="flex justify-between mb-2">
+              <span className="font-medium">{skill.name}</span>
+              <span className="text-muted-foreground">{skill.level}%</span>
+            </div>
+            <Progress value={skill.level} className="h-2" />
+            <div className="mt-1 text-xs text-muted-foreground">{skill.category}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export default SkillsSection;

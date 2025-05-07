@@ -1,41 +1,44 @@
 
-import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { FC } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { motion } from 'framer-motion';
 
-export interface Role {
-  title: string;
-  salary: string;
-  description: string;
+interface CareerPathProps {
+  roles: {
+    title: string;
+    description: string;
+    requirements: string[];
+    level: string;
+  }[];
 }
 
-export interface CareerPathProps {
-  roles: Role[];
-}
-
-const CareerPathSection: React.FC<CareerPathProps> = ({
-  roles
-}) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  // Default roles if none provided
-  const displayRoles = roles && roles.length > 0 ? roles : [{
-    title: "No roles available",
-    salary: "N/A",
-    description: "Complete your career assessment to see recommended roles."
-  }];
-
-  const nextRole = () => {
-    setCurrentIndex(prev => (prev + 1) % displayRoles.length);
-  };
-
-  const prevRole = () => {
-    setCurrentIndex(prev => (prev - 1 + displayRoles.length) % displayRoles.length);
-  };
-
-  return;
+const CareerPathSection: FC<CareerPathProps> = ({ roles }) => {
+  return (
+    <div className="space-y-8">
+      <h2 className="text-2xl font-bold">Career Path</h2>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {roles.map((role, index) => (
+          <div key={index} className="bg-card rounded-lg p-6 shadow-sm border">
+            <h3 className="text-lg font-semibold mb-2">{role.title}</h3>
+            <p className="text-muted-foreground mb-4">{role.description}</p>
+            <div className="mb-4">
+              <span className="inline-block bg-primary/10 text-primary text-sm font-medium rounded-full px-3 py-1">
+                {role.level}
+              </span>
+            </div>
+            <div className="space-y-2 mb-4">
+              <p className="font-medium">Requirements:</p>
+              <ul className="list-disc list-inside text-sm space-y-1">
+                {role.requirements.map((req, i) => (
+                  <li key={i}>{req}</li>
+                ))}
+              </ul>
+            </div>
+            <Button variant="outline" className="w-full">View Details</Button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
 export default CareerPathSection;

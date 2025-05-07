@@ -1,4 +1,3 @@
-
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
@@ -202,6 +201,16 @@
   /* Modern button */
   .modern-button {
     @apply rounded-full font-medium shadow-sm transition-all duration-300 flex items-center justify-center gap-2 hover:shadow-md hover:-translate-y-0.5;
+  }
+  
+  /* Important overrides for sidebar active items */
+  .data-\[active\=true\]\:text-sidebar-accent-foreground[data-active=true],
+  .sidebar-active-item {
+    color: rgb(155 135 245) !important;
+  }
+  
+  [data-active=true] svg {
+    color: rgb(155 135 245) !important;
   }
 }
 
