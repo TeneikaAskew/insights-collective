@@ -72,8 +72,15 @@ const Register = () => {
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setSocialLoading(provider);
+      
       // Store path for redirect before social sign-in
-      storeCurrentPath();
+      const from = location.state?.from?.pathname;
+      const query = new URLSearchParams(location.search);
+      const redirectParam = query.get('redirect');
+      
+      const redirectPath = redirectParam || from || '/resources';
+      localStorage.setItem('redirectAfterLogin', redirectPath);
+      console.log('[Register] Stored redirect path before social sign-in:', redirectPath);
       
       const signInMethod = {
         'google': googleSignIn,
