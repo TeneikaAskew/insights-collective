@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -68,7 +67,7 @@ const processResources = (resources: Resource[]): (Resource & {
 };
 
 const matchesFilters = (
-  resource: Resource, 
+  resource: Resource & { sourceType: 'Tweet' | 'LinkedIn' | 'Standard' }, 
   searchQuery: string, 
   categoryFilter: string, 
   typeFilter: string,     
@@ -76,7 +75,7 @@ const matchesFilters = (
 ): boolean => {
   const searchText = searchQuery.toLowerCase();
   
-  const searchableText = [
+  const searchableTextArray = [ // Keep as array for easier debugging
     resource.full_text,
     resource.resource_type,
     resource.predicted_resource_labels,
@@ -85,7 +84,8 @@ const matchesFilters = (
     resource.category,
     resource.source,
     resource.resource_link,
-  ].filter(Boolean).join(' ').toLowerCase();
+  ];
+  const searchableText = searchableTextArray.filter(Boolean).join(' ').toLowerCase();
 
   const matchesSearch = searchQuery === '' || searchableText.includes(searchText);
 
@@ -106,7 +106,38 @@ const matchesFilters = (
   
   const deadlineMatches = withDeadline ? !!resource.deadline : true;
   
-  return matchesSearch && categoryMatches && typeMatches && deadlineMatches;
+  const result = matchesSearch && categoryMatches && typeMatches && deadlineMatches;
+
+  // More detailed logging for items filtered out by default permissive filters
+  if (!result && 
+      searchQuery === '' && 
+      categoryFilter === 'all' && 
+      typeFilter === 'all' && 
+      !withDeadline &&
+      resource.sourceType === 'Standard' // Specifically log for Standard resources under these conditions
+  ) {
+    console.log('[DEBUG] Standard Resource filtered out by default filters:', {
+      resourceId: resource.id,
+      resourceSource: resource.source,
+      resourceLink: resource.resource_link,
+      resourceFullText: resource.full_text,
+      resourceCategoryRaw: resource.category,
+      resourceTypeRaw: resource.resource_type,
+      calculatedSourceType: resource.sourceType,
+      conditions: {
+        matchesSearch,
+        searchableTextCombined: searchableText,
+        searchableTextSourceArray: searchableTextArray.map(s => String(s ?? null)), // Ensure string or null
+        categoryMatches,
+        resourceCategoriesArray: Array.from(resourceCategories),
+        typeMatches,
+        resourceTypesSetArray: Array.from(resourceTypesSet),
+        deadlineMatches,
+      }
+    });
+  }
+  
+  return result;
 };
 
 const adaptResourceToTweet = (resource: Resource) => {
