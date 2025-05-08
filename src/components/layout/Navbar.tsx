@@ -1,33 +1,25 @@
-
 import { Bell, Menu, UserCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import SiteSearch from '@/components/search/SiteSearch';
-
 const Navbar = () => {
   const location = useLocation();
-  const { toggleSidebar } = useSidebar();
-  const { user, isAuthenticated, isAdminAuthenticated, logout } = useAuth();
-  
-  return (
-    <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
-      <div className="flex h-14 items-center px-4 gap-4">
+  const {
+    toggleSidebar
+  } = useSidebar();
+  const {
+    user,
+    isAuthenticated,
+    isAdminAuthenticated,
+    logout
+  } = useAuth();
+  return <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
+      <div className="flex h-14 items-center px-4 gap-4 w-full">
         <div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            onClick={toggleSidebar}
-          >
+          <Button variant="ghost" size="icon" onClick={toggleSidebar}>
             <Menu className="h-5 w-5" />
             <span className="sr-only">Toggle menu</span>
           </Button>
@@ -53,56 +45,40 @@ const Navbar = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon" className="rounded-full overflow-hidden">
-                  {user?.avatar ? (
-                    <img
-                      src={user.avatar}
-                      alt={user.name}
-                      className="h-8 w-8 rounded-full"
-                    />
-                  ) : (
-                    <UserCircle className="h-8 w-8" />
-                  )}
+                  {user?.avatar ? <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-full" /> : <UserCircle className="h-8 w-8" />}
                   <span className="sr-only">User menu</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {isAuthenticated ? (
-                  <>
+                {isAuthenticated ? <>
                     <DropdownMenuItem asChild>
                       <Link to="/profile">Profile</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/dashboard">Dashboard</Link>
                     </DropdownMenuItem>
-                    {isAdminAuthenticated && (
-                      <DropdownMenuItem asChild>
+                    {isAdminAuthenticated && <DropdownMenuItem asChild>
                         <Link to="/admin">Admin Dashboard</Link>
-                      </DropdownMenuItem>
-                    )}
+                      </DropdownMenuItem>}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout}>
                       Logout
                     </DropdownMenuItem>
-                  </>
-                ) : (
-                  <>
+                  </> : <>
                     <DropdownMenuItem asChild>
                       <Link to="/login">Login</Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
                       <Link to="/register">Register</Link>
                     </DropdownMenuItem>
-                  </>
-                )}
+                  </>}
               </DropdownMenuContent>
             </DropdownMenu>
           </nav>
         </div>
       </div>
-    </header>
-  );
+    </header>;
 };
-
 export default Navbar;
