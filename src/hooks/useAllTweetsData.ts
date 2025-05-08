@@ -1,7 +1,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast'; // Updated import
 import type { Resource } from './useResources'; // Import type
 
 export function useAllTweetsData() {
@@ -12,7 +12,7 @@ export function useAllTweetsData() {
       .from('resources')
       .select('*')
       // Fetches resources that are likely tweets based on source, link, or if they have a tweet_id
-      .or('source.ilike.%twitter%,resource_link.ilike.%twitter.com%,tweet_id.is.not.null')
+      .or('source.ilike.%twitter%,resource_link.ilike.%twitter.com%,tweet_id.not.is.null') // Corrected here
       .order('created_at', { ascending: false }); // Base ordering, specific "top" sorting happens client-side
 
     if (error) {
