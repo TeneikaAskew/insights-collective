@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -21,12 +22,9 @@ const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
 
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
-  // Check source field first, then resource_link
-  if (resource.source?.toLowerCase().includes('twitter') || 
-      (resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com'))) {
+  if (resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com')) {
     return 'Tweet';
-  } else if (resource.source?.toLowerCase().includes('linkedin') || 
-            (resource.resource_link && resource.resource_link.toLowerCase().includes('linkedin.com'))) {
+  } else if (resource.resource_link && resource.resource_link.toLowerCase().includes('linkedin.com')) {
     return 'LinkedIn';
   }
   return 'Standard';
@@ -67,7 +65,7 @@ const processResources = (resources: Resource[]): (Resource & {
 };
 
 const matchesFilters = (
-  resource: Resource & { sourceType: 'Tweet' | 'LinkedIn' | 'Standard' }, 
+  resource: Resource, 
   searchQuery: string, 
   categoryFilter: string, 
   typeFilter: string,     
@@ -75,17 +73,17 @@ const matchesFilters = (
 ): boolean => {
   const searchText = searchQuery.toLowerCase();
   
-  const searchableTextArray = [ // Keep as array for easier debugging
+  const searchableText = [
     resource.full_text,
     resource.resource_type,
     resource.predicted_resource_labels,
     resource.career_area,
     resource.predicted_career_labels,
     resource.category,
-    resource.source,
+    resource.tweet_url,
+    resource.linkedin_url,
     resource.resource_link,
-  ];
-  const searchableText = searchableTextArray.filter(Boolean).join(' ').toLowerCase();
+  ].filter(Boolean).join(' ').toLowerCase();
 
   const matchesSearch = searchQuery === '' || searchableText.includes(searchText);
 
@@ -106,52 +104,15 @@ const matchesFilters = (
   
   const deadlineMatches = withDeadline ? !!resource.deadline : true;
   
-  const result = matchesSearch && categoryMatches && typeMatches && deadlineMatches;
-
-  // More detailed logging for items filtered out by default permissive filters
-  if (!result && 
-      searchQuery === '' && 
-      categoryFilter === 'all' && 
-      typeFilter === 'all' && 
-      !withDeadline &&
-      resource.sourceType === 'Standard' // Specifically log for Standard resources under these conditions
-  ) {
-    console.log('[DEBUG] Standard Resource filtered out by default filters:', {
-      resourceId: resource.id,
-      resourceSource: resource.source,
-      resourceLink: resource.resource_link,
-      resourceFullText: resource.full_text,
-      resourceCategoryRaw: resource.category,
-      resourceTypeRaw: resource.resource_type,
-      calculatedSourceType: resource.sourceType,
-      conditions: {
-        matchesSearch,
-        searchableTextCombined: searchableText,
-        searchableTextSourceArray: searchableTextArray.map(s => String(s ?? null)), // Ensure string or null
-        categoryMatches,
-        resourceCategoriesArray: Array.from(resourceCategories),
-        typeMatches,
-        resourceTypesSetArray: Array.from(resourceTypesSet),
-        deadlineMatches,
-      }
-    });
-  }
-  
-  return result;
+  return matchesSearch && categoryMatches && typeMatches && deadlineMatches;
 };
 
 const adaptResourceToTweet = (resource: Resource) => {
-  // Create tweet URL if needed
-  let tweetUrl = resource.resource_link;
-  if (!tweetUrl && resource.source?.toLowerCase().includes('twitter') && resource.tweet_id) {
-    tweetUrl = `https://x.com/teneikaask_you/status/${resource.tweet_id}`;
-  }
-
   return {
     id: resource.id,
     content: resource.full_text || '',
     date: resource.created_at || '',
-    url: tweetUrl || '',
+    url: resource.resource_link || '',
     likes: resource.favorite_count || resource.tweet_likes || 0,
     retweets: resource.retweet_count || resource.tweet_retweets || 0
   };
@@ -186,14 +147,8 @@ const Resources = () => {
   const { isAuthenticated } = useAuth();
   const { resources, isLoading } = useResources();
   
-  // Add debugging for resources data
-  console.log('Resources data:', resources);
-  
   const processedResources = useMemo(() => {
-    const processed = processResources(resources);
-    console.log('Processed resources:', processed);
-    console.log('Resource types:', processed.map(r => r.sourceType));
-    return processed;
+    return processResources(resources);
   }, [resources]);
   
   const uniqueCategories = useMemo(() => {
@@ -205,7 +160,7 @@ const Resources = () => {
   }, [resources]);
   
   const filteredResources = useMemo(() => {
-    const filtered = processedResources.filter(resource => 
+    return processedResources.filter(resource => 
       matchesFilters(
         resource, 
         searchQuery, 
@@ -214,22 +169,12 @@ const Resources = () => {
         withDeadline
       )
     );
-    console.log('Filtered resources:', filtered);
-    return filtered;
   }, [processedResources, searchQuery, categoryFilter, typeFilter, withDeadline]);
   
-  const standardResources = useMemo(() => {
-    const standard = filteredResources.filter(r => r.sourceType === 'Standard');
-    console.log('Standard resources:', standard);
-    return standard;
-  }, [filteredResources]);
+  const standardResources = filteredResources.filter(r => r.sourceType === 'Standard');
   
   const topGlobalTweets = useMemo(() => {
-    const allTweets = processedResources.filter(r => {
-      // Check both source field and resource_link
-      return r.sourceType === 'Tweet' || r.source?.toLowerCase().includes('twitter');
-    });
-    console.log('All tweets:', allTweets);
+    const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
     const sorted = allTweets
       .sort((a, b) => {
         const scoreA = (a.favorite_count || a.tweet_likes || 0) + (a.retweet_count || a.tweet_retweets || 0);

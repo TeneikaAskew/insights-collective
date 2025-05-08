@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -18,7 +17,6 @@ export interface Resource {
   career_area: string | null;
   predicted_resource_labels: string | null;
   predicted_career_labels: string | null;
-  source: string | null;
   
   // Twitter specific fields
   tweet_id: string | null;
@@ -31,6 +29,7 @@ export interface Resource {
   // Other metadata fields
   user_mentions: any | null;
   in_reply_to_screen_name: string | null;
+  source: string | null;
   lang: string | null;
   created_at_est: string | null;
 }
@@ -98,7 +97,6 @@ export function useResources() {
       throw error;
     }
     
-    console.log('Fetched resources from Supabase:', data);
     return data || [];
   };
 

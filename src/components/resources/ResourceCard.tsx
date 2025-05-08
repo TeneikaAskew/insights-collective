@@ -61,21 +61,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
   };
 
   const getResourceLink = () => {
-    // Check if it's a Twitter resource with missing link but has tweet_id
-    if (!resource.resource_link && resource.source?.toLowerCase().includes('twitter') && resource.tweet_id) {
-      return `https://x.com/teneikaask_you/status/${resource.tweet_id}`;
-    }
     return resource.resource_link || '#';
-  };
-  
-  // Determine button text based on resource type
-  const getButtonText = () => {
-    if (resource.source?.toLowerCase().includes('twitter')) {
-      return 'Visit Tweet';
-    } else if (resource.source?.toLowerCase().includes('linkedin')) {
-      return 'Visit LinkedIn Post';
-    }
-    return 'Visit Resource';
   };
 
   const resourceCategories = getResourceCategories();
@@ -136,10 +122,10 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start">
+      <CardFooter className="flex-col items-start"> 
         <Button variant="outline" size="sm" asChild className="w-full">
           <a href={getResourceLink()} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
-            {getButtonText()}
+            Visit Resource
             <ExternalLink className="ml-2 h-4 w-4" />
           </a>
         </Button>
