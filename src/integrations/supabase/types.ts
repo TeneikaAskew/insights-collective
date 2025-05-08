@@ -986,55 +986,82 @@ export type Database = {
       }
       resources: {
         Row: {
+          career_area: string | null
           category: string
           created_at: string | null
+          created_at_est: string | null
           created_by: string | null
           deadline: string | null
-          description: string
+          favorite_count: number | null
+          full_text: string | null
           id: string
+          in_reply_to_screen_name: string | null
+          lang: string | null
           linkedin_url: string | null
-          thumbnail: string | null
-          title: string
+          predicted_career_labels: string | null
+          predicted_resource_labels: string | null
+          resource_link: string | null
+          resource_type: string | null
+          retweet_count: number | null
+          source: string | null
+          tweet_id: string | null
           tweet_likes: number | null
           tweet_retweets: number | null
           tweet_url: string | null
-          type: string
           updated_at: string | null
-          url: string | null
+          user_mentions: Json | null
         }
         Insert: {
+          career_area?: string | null
           category?: string
           created_at?: string | null
+          created_at_est?: string | null
           created_by?: string | null
           deadline?: string | null
-          description: string
+          favorite_count?: number | null
+          full_text?: string | null
           id?: string
+          in_reply_to_screen_name?: string | null
+          lang?: string | null
           linkedin_url?: string | null
-          thumbnail?: string | null
-          title: string
+          predicted_career_labels?: string | null
+          predicted_resource_labels?: string | null
+          resource_link?: string | null
+          resource_type?: string | null
+          retweet_count?: number | null
+          source?: string | null
+          tweet_id?: string | null
           tweet_likes?: number | null
           tweet_retweets?: number | null
           tweet_url?: string | null
-          type: string
           updated_at?: string | null
-          url?: string | null
+          user_mentions?: Json | null
         }
         Update: {
+          career_area?: string | null
           category?: string
           created_at?: string | null
+          created_at_est?: string | null
           created_by?: string | null
           deadline?: string | null
-          description?: string
+          favorite_count?: number | null
+          full_text?: string | null
           id?: string
+          in_reply_to_screen_name?: string | null
+          lang?: string | null
           linkedin_url?: string | null
-          thumbnail?: string | null
-          title?: string
+          predicted_career_labels?: string | null
+          predicted_resource_labels?: string | null
+          resource_link?: string | null
+          resource_type?: string | null
+          retweet_count?: number | null
+          source?: string | null
+          tweet_id?: string | null
           tweet_likes?: number | null
           tweet_retweets?: number | null
           tweet_url?: string | null
-          type?: string
           updated_at?: string | null
-          url?: string | null
+          user_mentions?: Json | null
         }
         Relationships: []
       }

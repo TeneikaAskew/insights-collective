@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -186,8 +187,10 @@ const Resources = () => {
   const { resources, isLoading } = useResources();
   
   const filteredResources = resources.filter((resource: Resource) => {
-    const matchesSearch = resource.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        resource.description.toLowerCase().includes(searchQuery.toLowerCase());
+    // Fix: Add null/undefined checks before calling toLowerCase()
+    const matchesSearch = 
+      (resource.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      (resource.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
     
     const matchesCategory = categoryFilter === 'all' || resource.category === categoryFilter;
     
