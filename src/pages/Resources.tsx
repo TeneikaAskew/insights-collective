@@ -153,8 +153,6 @@ const Resources = () => {
     console.log('[ResourcesPage] Directory resources (all filtered items for the main tab):', filteredResources);
     return filteredResources;
   }, [filteredResources]);
-
-  
   const topGlobalTweets = useMemo(() => {
     const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
     console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc:', allTweets);
@@ -174,7 +172,7 @@ const Resources = () => {
   // const topGlobalTweets = useMemo(() => {
   //   // 1) grab only the tweets
   //   const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
-  
+
   //   // 2) map to a temp array that has a numeric `score` field
   //   const tweetsWithScore = allTweets.map(t => {
   //     const likes    = Number(t.favorite_count ?? t.tweet_likes ?? 0);
@@ -184,18 +182,17 @@ const Resources = () => {
   //       score: likes + retweets,
   //     };
   //   });
-  
+
   //   // 3) clone & sort by score desc, then date desc
   //   const sorted = [...tweetsWithScore].sort((a, b) => {
   //     if (b.score !== a.score) return b.score - a.score;
   //     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   //   });
-  
+
   //   // 4) take your top N
   //   return sorted.slice(0, TOP_TWEETS_COUNT);
   // }, [processedResources]);
 
-  
   const tweetResources = useMemo(() => {
     const tr = topGlobalTweets.filter(resource => matchesFilters(resource, searchQuery, categoryFilter, typeFilter, withDeadline));
     console.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab):', tr);
@@ -344,7 +341,7 @@ const Resources = () => {
 
               {isLoading ? <div className="text-center py-12">
                    <h3 className="text-xl font-medium mb-2">Loading top tweets...</h3>
-                 </div> : <div className="space-y-4">
+                 </div> : <div className="space-y-4 w-full">
                   {visibleTweets.map(resource => <TweetCard key={resource.id} tweet={adaptResourceToTweet(resource)} />)}
                   
                   {!isAuthenticated && tweetResources.length > VISIBLE_TWEETS && tweetResources.length < topGlobalTweets.length && <div className="relative mt-8">
