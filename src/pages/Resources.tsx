@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -166,25 +165,25 @@ const Resources = () => {
 
   // Top Global Tweets now derived from its own processed data pool
   const topGlobalTweets = useMemo(() => {
-    // Use processedAllTweets instead of all processedResources
     const allTweetsForSorting = processedAllTweets.filter(r => r.sourceType === 'Tweet');
     console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc (from dedicated fetch):', allTweetsForSorting.length);
+    
     const sorted = allTweetsForSorting.sort((a, b) => {
-      const likesA = Math.max(Number(a.favorite_count) || 0, Number(a.tweet_likes) || 0);
-      const retweetsA = Math.max(Number(a.retweet_count) || 0, Number(a.tweet_retweets) || 0);
-      const scoreA = likesA + retweetsA;
-      const likesB = Math.max(Number(b.favorite_count) || 0, Number(b.tweet_likes) || 0);
-      const retweetsB = Math.max(Number(b.retweet_count) || 0, Number(b.tweet_retweets) || 0);
-      const scoreB = likesB + retweetsB;
-      if (scoreB === scoreA) {
+      const favCountA = Number(a.favorite_count) || 0;
+      const favCountB = Number(b.favorite_count) || 0;
+      
+      // If favorite_count is the same, sort by creation date (newest first)
+      if (favCountB === favCountA) {
         return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       }
-      return scoreB - scoreA;
+      // Sort by favorite_count descending
+      return favCountB - favCountA;
     });
+    
     const topTweets = sorted.slice(0, TOP_TWEETS_COUNT);
-    console.log('[ResourcesPage] Top global tweets (from dedicated fetch, before UI filtering):', topTweets.length);
+    console.log('[ResourcesPage] Top global tweets (sorted by favorite_count, from dedicated fetch, before UI filtering):', topTweets.length);
     return topTweets;
-  }, [processedAllTweets]); // Depends on processedAllTweets now
+  }, [processedAllTweets]); // Depends on processedAllTweets
 
   // TweetResources are the topGlobalTweets further filtered by UI controls
   const tweetResources = useMemo(() => {
