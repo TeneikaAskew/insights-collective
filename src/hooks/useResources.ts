@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -39,44 +38,48 @@ export interface Resource {
   created_at_est: string | null;
 }
 
-// Helper to parse string arrays that might be in JSON string format
+// Helper to parse string arrays that might be in JSON string format or comma-separated
 export const parseArrayField = (field: string | null | undefined): string[] => {
   if (!field) return [];
-  
-  // If it's already an array in string format like "['item1', 'item2']"
-  if (field.startsWith('[') && field.endsWith(']')) {
+
+  let cleanedField = String(field).trim(); // Ensure field is treated as a string
+
+  // Handle JSON-like arrays: ['value1','value2'] or ["value1","value2"]
+  if (cleanedField.startsWith('[') && cleanedField.endsWith(']')) {
     try {
-      // Convert the string representation to actual array
-      // Replace single quotes with double quotes for valid JSON
-      const jsonStr = field.replace(/'/g, '"');
+      const jsonStr = cleanedField.replace(/'/g, '"'); // Ensure double quotes for valid JSON
       const parsed = JSON.parse(jsonStr);
-      
       if (Array.isArray(parsed)) {
-        return parsed.filter(item => item && typeof item === 'string');
+        return parsed.map(item => String(item).trim()).filter(Boolean);
       }
     } catch (e) {
-      // If parsing fails, split by comma as fallback
-      return field
-        .replace(/[\[\]']/g, '')
-        .split(',')
-        .map(item => item.trim())
-        .filter(Boolean);
+      // Fallback for malformed JSON-like strings: remove brackets and split
+      cleanedField = cleanedField.substring(1, cleanedField.length - 1);
     }
   }
   
-  // If it's a simple string, just return it as a one-item array
-  return field ? [field] : [];
+  // Handle tuple-like strings: (value1, value2) by removing parentheses
+  if (cleanedField.startsWith('(') && cleanedField.endsWith(')')) {
+    cleanedField = cleanedField.substring(1, cleanedField.length - 1);
+  }
+
+  // Split by comma for remaining cases (e.g., "value1,value2" or after bracket/parentheses removal)
+  // Also remove any remaining single or double quotes from individual items
+  return cleanedField
+    .split(',')
+    .map(item => item.replace(/['"]/g, '').trim()) 
+    .filter(Boolean);
 };
 
 // Helper to normalize text for display
-export const normalizeString = (str: string): string => {
+export const normalizeString = (str: string | null | undefined): string => {
   if (!str) return '';
-  return str
+  return String(str) // Ensure str is treated as a string
     .toLowerCase()
-    .split('_')
+    .split(/[\s_]+/) // Split by space or underscore
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
-    .replace(/^'|'$/g, ''); // Remove surrounding quotes if present
+    .replace(/^['"]+|['"]+$/g, ''); // Remove surrounding single or double quotes
 };
 
 export function useResources() {
@@ -115,7 +118,7 @@ export function useResources() {
         (payload) => {
           console.log('Resources change received:', payload);
           // Invalidate and refetch
-          window.location.reload();
+          window.location.reload(); // Consider queryClient.invalidateQueries(['resources']) for a smoother update
         }
       )
       .subscribe();
@@ -123,7 +126,7 @@ export function useResources() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, []); // queryClient should be a dependency if used for invalidation
 
   return {
     resources: resources || [],
