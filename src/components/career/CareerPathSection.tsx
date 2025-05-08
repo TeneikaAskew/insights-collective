@@ -6,17 +6,20 @@ interface CareerPathProps {
   roles: {
     title: string;
     description: string;
-    requirements: string[];
+    requirements?: string[];
     level: string;
   }[];
 }
 
-const CareerPathSection: FC<CareerPathProps> = ({ roles }) => {
+const CareerPathSection: FC<CareerPathProps> = ({ roles = [] }) => {
+  // Provide a default empty array if roles is undefined
+  const safeRoles = roles || [];
+  
   return (
     <div className="space-y-8">
       <h2 className="text-2xl font-bold">Career Path</h2>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {roles.map((role, index) => (
+        {safeRoles.map((role, index) => (
           <div key={index} className="bg-card rounded-lg p-6 shadow-sm border">
             <h3 className="text-lg font-semibold mb-2">{role.title}</h3>
             <p className="text-muted-foreground mb-4">{role.description}</p>
@@ -28,7 +31,7 @@ const CareerPathSection: FC<CareerPathProps> = ({ roles }) => {
             <div className="space-y-2 mb-4">
               <p className="font-medium">Requirements:</p>
               <ul className="list-disc list-inside text-sm space-y-1">
-                {role.requirements.map((req, i) => (
+                {(role.requirements || []).map((req, i) => (
                   <li key={i}>{req}</li>
                 ))}
               </ul>
