@@ -16,8 +16,9 @@ import { LinkedInCard } from '@/components/resources/LinkedInCard';
 import { FeedbackSection } from '@/components/common/FeedbackSection';
 
 const VISIBLE_RESOURCES = 5;
-const VISIBLE_TWEETS = 3;
+const VISIBLE_TWEETS = 3; // This will apply to the top 100 for unauthenticated users
 const VISIBLE_LINKEDIN = 3;
+const TOP_TWEETS_COUNT = 100;
 
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
   if (resource.tweet_url || (resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com'))) {
@@ -52,12 +53,9 @@ const extractUniqueValues = (
 
 const processResources = (resources: Resource[]): (Resource & { 
   sourceType: 'Tweet' | 'LinkedIn' | 'Standard';
-  // derivedResourceTypes: string[]; // We'll derive these on the fly or in ResourceCard
-  // derivedCareerCategories: string[];
 })[] => {
   return resources.map(resource => {
     const sourceType = classifyResourceSource(resource);
-    // No need to pre-calculate all types/categories here if ResourceCard handles it
     return {
       ...resource,
       sourceType,
@@ -68,8 +66,8 @@ const processResources = (resources: Resource[]): (Resource & {
 const matchesFilters = (
   resource: Resource, 
   searchQuery: string, 
-  categoryFilter: string, // This will be a single normalized string
-  typeFilter: string,     // This will be a single normalized string
+  categoryFilter: string, 
+  typeFilter: string,     
   withDeadline: boolean
 ): boolean => {
   const searchText = searchQuery.toLowerCase();
@@ -142,8 +140,8 @@ const adaptResourceToLinkedIn = (resource: Resource) => {
 
 const Resources = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all'); // Stores a single normalized string
-  const [typeFilter, setTypeFilter] = useState('all'); // Stores a single normalized string
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all');
   const [withDeadline, setWithDeadline] = useState(false);
   const { isAuthenticated } = useAuth();
   const { resources, isLoading } = useResources();
@@ -165,15 +163,39 @@ const Resources = () => {
       matchesFilters(
         resource, 
         searchQuery, 
-        categoryFilter, // Pass the single normalized string
-        typeFilter,     // Pass the single normalized string
+        categoryFilter, 
+        typeFilter,     
         withDeadline
       )
     );
   }, [processedResources, searchQuery, categoryFilter, typeFilter, withDeadline]);
   
   const standardResources = filteredResources.filter(r => r.sourceType === 'Standard');
-  const tweetResources = filteredResources.filter(r => r.sourceType === 'Tweet');
+  
+  // New logic for tweetResources: Get top 100 global tweets, then filter them.
+  const topGlobalTweets = useMemo(() => {
+    const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
+    return allTweets
+      .sort((a, b) => {
+        const scoreA = (a.favorite_count || a.tweet_likes || 0) + (a.retweet_count || a.tweet_retweets || 0);
+        const scoreB = (b.favorite_count || b.tweet_likes || 0) + (b.retweet_count || b.tweet_retweets || 0);
+        return scoreB - scoreA; // Sort descending
+      })
+      .slice(0, TOP_TWEETS_COUNT);
+  }, [processedResources]);
+
+  const tweetResources = useMemo(() => {
+    return topGlobalTweets.filter(resource =>
+      matchesFilters(
+        resource,
+        searchQuery,
+        categoryFilter,
+        typeFilter,
+        withDeadline
+      )
+    );
+  }, [topGlobalTweets, searchQuery, categoryFilter, typeFilter, withDeadline]);
+
   const linkedinResources = filteredResources.filter(r => r.sourceType === 'LinkedIn');
   
   const visibleStandardResources = isAuthenticated ? standardResources : standardResources.slice(0, VISIBLE_RESOURCES);
@@ -309,33 +331,183 @@ const Resources = () => {
           
           <TabsContent value="tweets" className="space-y-6">
             <div className="max-w-3xl mx-auto">
-              <div className="space-y-4">
-                {visibleTweets.map((resource) => (
-                  <TweetCard key={resource.id} tweet={adaptResourceToTweet(resource)} />
-                ))}
-                
-                {!isAuthenticated && tweetResources.length > VISIBLE_TWEETS && (
-                  <div className="relative mt-8">
-                    <LoginWall 
-                      message="Sign in to view more curated insights from the IC community." 
-                      visibleItems={VISIBLE_TWEETS}
-                      totalItems={tweetResources.length}
+              {/* Filters for tweets tab - mirroring resource directory for consistency */}
+              <div className="flex flex-col space-y-4 mb-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search top tweets..." 
+                      className="pl-10"
+                      value={searchQuery} // Uses the same global search query
+                      onChange={(e) => setSearchQuery(e.target.value)}
                     />
                   </div>
-                )}
-                
-                {!isLoading && visibleTweets.length === 0 && (
-                  <div className="text-center py-12">
-                    <h3 className="text-xl font-medium mb-2">No tweets found</h3>
-                    <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+                  {/* Category and Type filters can also apply to tweets if desired, using same state */}
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {uniqueCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Resource Type" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                      <SelectItem value="all">All Types</SelectItem>
+                      {uniqueResourceTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="withDeadlineTweets" 
+                      checked={withDeadline} // Uses same global deadline state
+                      onCheckedChange={(checked) => setWithDeadline(!!checked)}
+                    />
+                    <label
+                      htmlFor="withDeadlineTweets"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      With deadline
+                    </label>
                   </div>
-                )}
+                  {(searchQuery || categoryFilter !== 'all' || typeFilter !== 'all' || withDeadline) && (
+                    <Button 
+                      variant="ghost" 
+                      className="h-8 px-2 lg:px-3" 
+                      onClick={clearFilters} // Uses same global clear filters
+                    >
+                      <FilterX className="mr-2 h-4 w-4" />
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
               </div>
+
+              {isLoading ? (
+                 <div className="text-center py-12">
+                   <h3 className="text-xl font-medium mb-2">Loading top tweets...</h3>
+                 </div>
+              ) : (
+                <div className="space-y-4">
+                  {visibleTweets.map((resource) => (
+                    <TweetCard key={resource.id} tweet={adaptResourceToTweet(resource)} />
+                  ))}
+                  
+                  {!isAuthenticated && tweetResources.length > VISIBLE_TWEETS && tweetResources.length < topGlobalTweets.length && (
+                    // Show login wall if unauthenticated AND there are more tweets in the filtered top 100 than shown
+                    <div className="relative mt-8">
+                      <LoginWall 
+                        message={`Sign in to view all ${tweetResources.length} filtered top tweets.`} 
+                        visibleItems={VISIBLE_TWEETS}
+                        totalItems={tweetResources.length} // Total filtered top tweets
+                      />
+                    </div>
+                  )}
+                  {!isAuthenticated && topGlobalTweets.length > VISIBLE_TWEETS && tweetResources.length === topGlobalTweets.length && (
+                     // Show login wall if unauthenticated AND all top 100 tweets match filters, but more than VISIBLE_TWEETS
+                    <div className="relative mt-8">
+                      <LoginWall 
+                        message={`Sign in to view all ${topGlobalTweets.length} top tweets.`} 
+                        visibleItems={VISIBLE_TWEETS}
+                        totalItems={topGlobalTweets.length} // Total top tweets globally
+                      />
+                    </div>
+                  )}
+                  
+                  {!isLoading && visibleTweets.length === 0 && (
+                    <div className="text-center py-12">
+                      <h3 className="text-xl font-medium mb-2">No top tweets found</h3>
+                      <p className="text-muted-foreground">Try adjusting your search or filter criteria, or check back later for new top tweets.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </TabsContent>
           
           <TabsContent value="linkedin" className="space-y-6">
+            {/* ... keep existing code (LinkedIn tab content, including filters and LoginWall) ... */}
             <div className="max-w-3xl mx-auto">
+               {/* Filters for LinkedIn tab - mirroring resource directory for consistency */}
+              <div className="flex flex-col space-y-4 mb-6">
+                <div className="flex flex-col md:flex-row gap-4">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search LinkedIn posts..." 
+                      className="pl-10"
+                      value={searchQuery} 
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                  </div>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {uniqueCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-full md:w-[180px]">
+                      <SelectValue placeholder="Resource Type" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                      <SelectItem value="all">All Types</SelectItem>
+                      {uniqueResourceTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="withDeadlineLinkedIn" 
+                      checked={withDeadline} 
+                      onCheckedChange={(checked) => setWithDeadline(!!checked)}
+                    />
+                    <label
+                      htmlFor="withDeadlineLinkedIn"
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      With deadline
+                    </label>
+                  </div>
+                  {(searchQuery || categoryFilter !== 'all' || typeFilter !== 'all' || withDeadline) && (
+                    <Button 
+                      variant="ghost" 
+                      className="h-8 px-2 lg:px-3" 
+                      onClick={clearFilters}
+                    >
+                      <FilterX className="mr-2 h-4 w-4" />
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+              </div>
               <div className="space-y-4">
                 {visibleLinkedIn.map((resource) => (
                   <LinkedInCard key={resource.id} post={adaptResourceToLinkedIn(resource)} />

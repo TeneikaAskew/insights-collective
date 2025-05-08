@@ -1,3 +1,4 @@
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,9 +69,8 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
 
   const getResourceTitle = () => {
     if (resourceTypes.length > 0 && resourceTypes[0] !== 'Resource') {
-      return resourceTypes[0]; // Already normalized
+      return resourceTypes[0]; 
     }
-    // Fallback title if no specific type or only "Resource"
     if (resource.full_text) {
         const words = resource.full_text.split(' ');
         if (words.length > 10) {
@@ -89,20 +89,11 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
     <Card className="flex flex-col h-full">
       <CardHeader>
         <div className="flex justify-between items-start mb-2">
-          <CardTitle className="text-lg font-semibold mr-2 break-words">
+          <CardTitle className="text-lg font-semibold mr-2 break-words flex-grow">
             {getResourceTitle()}
           </CardTitle>
-          <div className="flex flex-col items-end space-y-1 flex-shrink-0">
-            {resourceCategories.length > 0 && (
-              <div className="flex flex-wrap gap-1 justify-end">
-                {resourceCategories.map((category, index) => (
-                  <Badge key={`cat-${index}`} variant="outline" className="text-xs">
-                    {category}
-                  </Badge>
-                ))}
-              </div>
-            )}
-            {resourceTypes.length > 0 && (
+          {resourceTypes.length > 0 && (
+            <div className="flex flex-col items-end space-y-1 flex-shrink-0 ml-2 max-w-[50%]">
               <div className="flex flex-wrap gap-1 justify-end">
                 {resourceTypes.map((type, index) => (
                   <Badge key={`type-${index}`} variant="secondary" className="text-xs">
@@ -110,15 +101,14 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
                   </Badge>
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
         <CardDescription className="text-sm text-gray-600 mt-1 leading-relaxed">
           {getResourceDescription()}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
-        {/* Date display logic can remain, or be adapted if needed */}
         {resource.deadline && (
           <div className="flex items-center text-xs text-muted-foreground mb-2">
             <Calendar className="h-3 w-3 mr-1.5" />
@@ -132,13 +122,22 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
           </div>
         )}
       </CardContent>
-      <CardFooter>
+      <CardFooter className="flex-col items-start"> {/* Changed to flex-col and items-start */}
         <Button variant="outline" size="sm" asChild className="w-full">
           <a href={getResourceLink()} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
             Visit Resource
             <ExternalLink className="ml-2 h-4 w-4" />
           </a>
         </Button>
+        {resourceCategories.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-4 w-full"> {/* Added mt-4 and w-full for categories */}
+            {resourceCategories.map((category, index) => (
+              <Badge key={`cat-${index}`} variant="outline" className="text-xs">
+                {category}
+              </Badge>
+            ))}
+          </div>
+        )}
       </CardFooter>
     </Card>
   );
