@@ -1,3 +1,4 @@
+
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Search, ArrowRight, ChevronDown } from 'lucide-react';
@@ -7,38 +8,46 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
 const RotatingWords = () => {
   const words = ["Future", "Career", "Insights", "Impact", "Skills", "Edge", "Superpowers"];
   const [currentIndex, setCurrentIndex] = useState(0);
+  
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex(prevIndex => (prevIndex + 1) % words.length);
     }, 2500);
     return () => clearInterval(interval);
   }, []);
-  return <span className="relative inline-block align-bottom min-w-[120px] h-[1.3em]">
+  
+  return (
+    <span className="relative inline-flex align-baseline min-w-[120px]">
       <AnimatePresence mode="wait">
-        <motion.span key={words[currentIndex]} layout className="inline-block relative font-bold text-slate-800 dark:text-primary-foreground drop-shadow-md" initial={{
-        opacity: 0,
-        y: 30
-      }} animate={{
-        opacity: 1,
-        y: 0
-      }} exit={{
-        opacity: 0,
-        y: -30
-      }} transition={{
-        duration: 0.4
-      }}>
+        <motion.span 
+          key={words[currentIndex]} 
+          layout 
+          className="inline-block font-bold text-slate-800 dark:text-primary-foreground drop-shadow-md"
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -30 }}
+          transition={{ duration: 0.4 }}
+        >
           {words[currentIndex]}
-          <motion.span layoutId="underline" className="absolute left-0 -bottom-1 h-1 w-full bg-primary/40 rounded-t-full" />
+          <motion.span 
+            layoutId="underline" 
+            className="absolute left-0 -bottom-1 h-1 w-full bg-primary/40 rounded-t-full" 
+          />
         </motion.span>
       </AnimatePresence>
-    </span>;
+    </span>
+  );
 };
+
 const HeroSection = () => {
   const isMobile = useIsMobile();
-  return <section className="relative py-20 md:py-32 overflow-hidden">
+  
+  return (
+    <section className="relative py-20 md:py-32 overflow-hidden">
       {/* Abstract background */}
       <div className="absolute inset-0 bg-gradient-radial from-primary/5 to-transparent">
         <div className="animated-grid"></div>
@@ -49,68 +58,69 @@ const HeroSection = () => {
         <div className="blob from-purple-400/20 to-primary/20 w-80 h-80 bottom-0 left-1/3 delay-500"></div>
         
         {/* Floating elements - hidden on mobile */}
-        {!isMobile && <>
+        {!isMobile && (
+          <>
             <div className="absolute top-1/4 left-[15%] w-2 h-2 rounded-full bg-primary animate-pulse"></div>
-            <div className="absolute top-1/2 left-[85%] w-3 h-3 rounded-full bg-accent animate-pulse" style={{
-          animationDelay: '1s'
-        }}></div>
-            <div className="absolute bottom-1/4 right-[20%] w-2 h-2 rounded-full bg-orange-400 animate-pulse" style={{
-          animationDelay: '1.5s'
-        }}></div>
-            <div className="absolute top-[70%] right-[40%] w-2 h-2 rounded-full bg-purple-500 animate-pulse" style={{
-          animationDelay: '0.7s'
-        }}></div>
-          </>}
+            <div 
+              className="absolute top-1/2 left-[85%] w-3 h-3 rounded-full bg-accent animate-pulse" 
+              style={{ animationDelay: '1s' }}
+            ></div>
+            <div 
+              className="absolute bottom-1/4 right-[20%] w-2 h-2 rounded-full bg-orange-400 animate-pulse" 
+              style={{ animationDelay: '1.5s' }}
+            ></div>
+            <div 
+              className="absolute top-[70%] right-[40%] w-2 h-2 rounded-full bg-purple-500 animate-pulse" 
+              style={{ animationDelay: '0.7s' }}
+            ></div>
+          </>
+        )}
       </div>
       
       {/* Content */}
       <div className="container relative z-10 mx-auto px-4">
         <div className="max-w-4xl mx-auto text-center">
-          <motion.div initial={{
-          opacity: 0,
-          y: 20
-        }} animate={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6
-        }}>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+          >
             <h1 className="text-4xl md:text-6xl font-bold mb-6 font-display leading-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
               Accelerate Your <RotatingWords />
             </h1>
           </motion.div>
           
-          <motion.div initial={{
-          opacity: 0,
-          y: 20
-        }} animate={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6,
-          delay: 0.2
-        }}>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+          >
             <p className="text-lg md:text-xl mb-10 text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
               A modern resource and learning platform designed to help you master data skills with structured learning paths, resources and expert guidance
             </p>
           </motion.div>
           
-          <motion.div initial={{
-          opacity: 0,
-          y: 20
-        }} animate={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6,
-          delay: 0.4
-        }} className="flex flex-wrap justify-center gap-5">
-            <Button size="lg" className="bg-primary hover:bg-primary/90 shadow-lg hover:shadow-primary/30 modern-button text-lg" asChild>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="flex flex-wrap justify-center gap-5"
+          >
+            <Button 
+              size="lg" 
+              className="bg-primary hover:bg-primary/90 shadow-lg hover:shadow-primary/30 modern-button text-lg" 
+              asChild
+            >
               <Link to="/register">
                 Get Started <ArrowRight className="ml-1 h-5 w-5" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-primary text-primary hover:bg-primary hover:text-white modern-button text-lg" asChild>
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="border-primary text-primary hover:bg-primary hover:text-white modern-button text-lg" 
+              asChild
+            >
               <Link to="/resources">
                 <Search className="mr-1 h-5 w-5" />
                 Explore Resources
@@ -118,16 +128,12 @@ const HeroSection = () => {
             </Button>
           </motion.div>
           
-          <motion.div initial={{
-          opacity: 0,
-          y: 20
-        }} animate={{
-          opacity: 1,
-          y: 0
-        }} transition={{
-          duration: 0.6,
-          delay: 0.6
-        }} className="mt-16 mb-10 flex flex-wrap justify-center gap-8 text-sm text-gray-500 dark:text-gray-400">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.6 }}
+            className="mt-16 mb-10 flex flex-wrap justify-center gap-8 text-sm text-gray-500 dark:text-gray-400"
+          >
             <div className="flex items-center">
               <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
               <span>50+ Professional Courses</span>
@@ -143,19 +149,19 @@ const HeroSection = () => {
           </motion.div>
           
           {/* Scroll indicator - fixed positioning and responsive adjustments */}
-          <motion.div initial={{
-          opacity: 0
-        }} animate={{
-          opacity: 1
-        }} transition={{
-          duration: 0.6,
-          delay: 1
-        }} className="relative mt-4 flex flex-col items-center text-gray-400 md:absolute md:bottom-[-130px] md:left-1/2 md:transform md:-translate-x-1/2 px-0 ">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 1 }}
+            className="relative mt-4 flex flex-col items-center text-gray-400 md:absolute md:bottom-[-130px] md:left-1/2 md:transform md:-translate-x-1/2 px-0"
+          >
             <span className="text-sm mb-2">Scroll to explore</span>
             <ChevronDown className="w-5 h-5 animate-bounce" />
           </motion.div>
         </div>
       </div>
-    </section>;
+    </section>
+  );
 };
+
 export default HeroSection;
