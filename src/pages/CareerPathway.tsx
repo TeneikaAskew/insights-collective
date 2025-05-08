@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +19,38 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CareerHeader from '@/components/career/CareerHeader';
+
+// Define the ActionPlan interface
+interface ActionPlanTimeframe {
+  skills: Array<{
+    name: string;
+    courses: Array<string | {
+      title: string;
+      provider: string;
+      url?: string;
+    }>;
+  }>;
+  projects: Array<{
+    title: string;
+    description: string;
+  }>;
+  content: Array<{
+    platform: string;
+    topics: string[];
+  }>;
+  milestones: string[];
+  narrative: string;
+}
+
+interface ActionPlan {
+  "6_weeks": ActionPlanTimeframe;
+  "9_weeks": ActionPlanTimeframe;
+  "12_weeks": ActionPlanTimeframe;
+  "6_months": ActionPlanTimeframe;
+  "12_months": ActionPlanTimeframe;
+  recommendedSkills?: Array<any>;
+  careerPathRoles?: Array<any>;
+}
 
 // Sample data for skill building purposes
 const userSkills = ["Data Analysis", "SQL", "Problem Solving", "Communication"];
