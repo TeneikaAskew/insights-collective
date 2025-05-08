@@ -1,19 +1,17 @@
+
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+// Input, Button, Selects, Checkbox, Search, FilterX are now used in ResourceFilters
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-// Badge import is not directly used in this file's JSX, but ResourceCard uses it.
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, FilterX } from 'lucide-react'; // Removed unused ExternalLink, Calendar
 import { useAuth } from '@/contexts/AuthContext';
-import LoginWall from '@/components/common/LoginWall';
-import { Checkbox } from '@/components/ui/checkbox';
 import { useResources, Resource, parseArrayField, normalizeString } from '@/hooks/useResources';
-import { ResourceCard } from '@/components/resources/ResourceCard';
-import { TweetCard } from '@/components/resources/TweetCard';
-import { LinkedInCard } from '@/components/resources/LinkedInCard';
 import { FeedbackSection } from '@/components/common/FeedbackSection';
+
+// Import new components
+import { ResourceFilters } from '@/components/resources/ResourceFilters';
+import { ResourceDirectoryTab } from '@/components/resources/ResourceDirectoryTab';
+import { TopTweetsTab } from '@/components/resources/TopTweetsTab';
+import { LinkedInUpdatesTab } from '@/components/resources/LinkedInUpdatesTab';
 
 const VISIBLE_RESOURCES_IN_DIRECTORY = 5;
 const VISIBLE_TWEETS = 3;
@@ -21,10 +19,15 @@ const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
 
 // Define the extended resource type that includes sourceType
-type ResourceWithSourceType = Resource & {
+// This type definition is used by child components as well, so it's good it's exported or defined where accessible.
+// For now, child components import it or define it locally if they are in separate files.
+// If we move this to a central types file, update imports.
+export type ResourceWithSourceType = Resource & {
   sourceType: 'Tweet' | 'LinkedIn' | 'Standard';
 };
 
+// Helper functions remain here for now as they are used by useMemo hooks in this component.
+// They could be moved to useResources.ts or a utils file in a further refactoring step.
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
   if (resource.source?.toLowerCase().includes('twitter') || resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com')) {
     return 'Tweet';
@@ -47,8 +50,6 @@ const extractUniqueValues = (resources: Resource[], primaryField: keyof Resource
       parseArrayField(resource[additionalStaticField] as string | null).forEach(val => values.add(normalizeString(val)));
     }
   });
-  // Ensure "General" is added if it exists as a category in the data, otherwise it won't be an option.
-  // This aligns with "only show values from uniqueCategories".
   return Array.from(values).filter(Boolean).sort();
 };
 
@@ -63,7 +64,6 @@ const processResources = (resources: Resource[]): ResourceWithSourceType[] => {
   });
 };
 
-// Updated matchesFilters to expect ResourceWithSourceType
 const matchesFilters = (resource: ResourceWithSourceType, searchQuery: string, categoryFilter: string, typeFilter: string, withDeadline: boolean): boolean => {
   const searchText = searchQuery.toLowerCase();
   const searchableText = [resource.full_text, resource.resource_type, resource.predicted_resource_labels, resource.career_area, resource.predicted_career_labels, resource.category, resource.source, resource.resource_link].filter(Boolean).join(' ').toLowerCase();
@@ -72,8 +72,6 @@ const matchesFilters = (resource: ResourceWithSourceType, searchQuery: string, c
   if (resource.career_area) parseArrayField(resource.career_area).forEach(label => resourceCategories.add(normalizeString(label)));
   if (resource.predicted_career_labels) parseArrayField(resource.predicted_career_labels).forEach(label => resourceCategories.add(normalizeString(label)));
   if (resource.category) parseArrayField(resource.category).forEach(label => resourceCategories.add(normalizeString(label)));
-  // This logic correctly assigns 'General' if no other categories exist for standard resources.
-  // The dropdown filter will only show 'General' if it's part of uniqueCategories (i.e., explicitly in data or extracted).
   if (resourceCategories.size === 0 && resource.sourceType === 'Standard') resourceCategories.add('General');
   const categoryMatches = categoryFilter === 'all' || Array.from(resourceCategories).includes(categoryFilter) || categoryFilter === 'General' && resourceCategories.size === 0 && resource.sourceType === 'Standard';
   const resourceTypesSet = new Set<string>();
@@ -86,7 +84,8 @@ const matchesFilters = (resource: ResourceWithSourceType, searchQuery: string, c
   return finalMatch;
 };
 
-const adaptResourceToTweet = (resource: Resource) => {
+// Export adapter functions so they can be imported by child components
+export const adaptResourceToTweet = (resource: Resource) => {
   let tweetUrl = resource.resource_link;
   if (!tweetUrl && resource.source?.toLowerCase().includes('twitter') && resource.tweet_id) {
     tweetUrl = `https://x.com/teneikaask_you/status/${resource.tweet_id}`;
@@ -103,7 +102,7 @@ const adaptResourceToTweet = (resource: Resource) => {
   };
 };
 
-const adaptResourceToLinkedIn = (resource: Resource) => {
+export const adaptResourceToLinkedIn = (resource: Resource) => {
   const resourceTypesList: string[] = [];
   if (resource.resource_type) resourceTypesList.push(...parseArrayField(resource.resource_type).map(normalizeString));
   if (resource.predicted_resource_labels) {
@@ -124,43 +123,36 @@ const Resources = () => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [withDeadline, setWithDeadline] = useState(false);
-  const {
-    isAuthenticated
-  } = useAuth();
-  const {
-    resources,
-    isLoading
-  } = useResources();
+  const { isAuthenticated } = useAuth();
+  const { resources, isLoading } = useResources();
+
   const processedResources = useMemo(() => {
-    console.log('[ResourcesPage] Raw resources from hook:', resources);
+    console.log('[ResourcesPage] Raw resources from hook:', resources.length);
     const pr = processResources(resources);
-    console.log('[ResourcesPage] Processed resources (with sourceType):', pr);
+    console.log('[ResourcesPage] Processed resources (with sourceType):', pr.length);
     return pr;
   }, [resources]);
+
   const uniqueCategories = useMemo(() => {
-    // extractUniqueValues will return sorted, unique, normalized categories from the data
     return extractUniqueValues(resources, 'career_area', 'predicted_career_labels', 'category');
   }, [resources]);
+
   const uniqueResourceTypes = useMemo(() => {
     return extractUniqueValues(resources, 'resource_type', 'predicted_resource_labels');
   }, [resources]);
+
   const filteredResources = useMemo(() => {
-    console.log('[ResourcesPage] Filtering processed resources. Count:', processedResources.length, 'Filters:', {
-      searchQuery,
-      categoryFilter,
-      typeFilter,
-      withDeadline
-    });
-    const fr = processedResources.filter(resource => matchesFilters(
-    // matchesFilters now expects ResourceWithSourceType, which processedResources elements are
-    resource, searchQuery, categoryFilter, typeFilter, withDeadline));
-    console.log('[ResourcesPage] Filtered resources (for all tabs potentially):', fr);
+    console.log('[ResourcesPage] Filtering processed resources. Count:', processedResources.length, 'Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline });
+    const fr = processedResources.filter(resource => matchesFilters(resource, searchQuery, categoryFilter, typeFilter, withDeadline));
+    console.log('[ResourcesPage] Filtered resources (for all tabs potentially):', fr.length);
     return fr;
   }, [processedResources, searchQuery, categoryFilter, typeFilter, withDeadline]);
+
   const directoryResources = useMemo(() => {
-    console.log('[ResourcesPage] Directory resources (all filtered items for the main tab):', filteredResources);
+    console.log('[ResourcesPage] Directory resources (all filtered items for the main tab):', filteredResources.length);
     return filteredResources;
   }, [filteredResources]);
+
   const topGlobalTweets = useMemo(() => {
     const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
     console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc:', allTweets.length);
@@ -168,11 +160,9 @@ const Resources = () => {
       const likesA = Math.max(Number(a.favorite_count) || 0, Number(a.tweet_likes) || 0);
       const retweetsA = Math.max(Number(a.retweet_count) || 0, Number(a.tweet_retweets) || 0);
       const scoreA = likesA + retweetsA;
-
       const likesB = Math.max(Number(b.favorite_count) || 0, Number(b.tweet_likes) || 0);
       const retweetsB = Math.max(Number(b.retweet_count) || 0, Number(b.tweet_retweets) || 0);
       const scoreB = likesB + retweetsB;
-
       if (scoreB === scoreA) {
         return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       }
@@ -180,53 +170,26 @@ const Resources = () => {
     });
     const topTweets = sorted.slice(0, TOP_TWEETS_COUNT);
     console.log('[ResourcesPage] Top global tweets (before filtering for tab display):', topTweets.length);
-    // For debugging, log the top few tweets with their scores
-    // topTweets.slice(0, 5).forEach(t => {
-    //   const likes = Math.max(Number(t.favorite_count) || 0, Number(t.tweet_likes) || 0);
-    //   const retweets = Math.max(Number(t.retweet_count) || 0, Number(t.tweet_retweets) || 0);
-    //   console.log(`Tweet ID: ${t.tweet_id || t.id}, Score: ${likes + retweets}, Likes: ${likes}, Retweets: ${retweets}, Text: ${t.full_text?.substring(0,30)}`);
-    // });
     return topTweets;
   }, [processedResources]);
-
-  // const topGlobalTweets = useMemo(() => {
-  //   // 1) grab only the tweets
-  //   const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
-
-  //   // 2) map to a temp array that has a numeric `score` field
-  //   const tweetsWithScore = allTweets.map(t => {
-  //     const likes    = Number(t.favorite_count ?? t.tweet_likes ?? 0);
-  //     const retweets = Number(t.retweet_count  ?? t.tweet_retweets ?? 0);
-  //     return {
-  //       ...t,
-  //       score: likes + retweets,
-  //     };
-  //   });
-
-  //   // 3) clone & sort by score desc, then date desc
-  //   const sorted = [...tweetsWithScore].sort((a, b) => {
-  //     if (b.score !== a.score) return b.score - a.score;
-  //     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-  //   });
-
-  //   // 4) take your top N
-  //   return sorted.slice(0, TOP_TWEETS_COUNT);
-  // }, [processedResources]);
 
   const tweetResources = useMemo(() => {
     const tr = topGlobalTweets.filter(resource => matchesFilters(resource, searchQuery, categoryFilter, typeFilter, withDeadline));
     console.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab):', tr.length);
     return tr;
   }, [topGlobalTweets, searchQuery, categoryFilter, typeFilter, withDeadline]);
+
   const linkedinResources = useMemo(() => {
     const lr = filteredResources.filter(r => r.sourceType === 'LinkedIn');
     console.log('[ResourcesPage] LinkedIn resources (for LinkedIn Tab):', lr.length);
     return lr;
   }, [filteredResources]);
+
   const visibleDirectoryResources = isAuthenticated ? directoryResources : directoryResources.slice(0, VISIBLE_RESOURCES_IN_DIRECTORY);
   console.log('[ResourcesPage] Visible Directory Resources (for main tab display):', visibleDirectoryResources.length);
   const visibleTweets = isAuthenticated ? tweetResources : tweetResources.slice(0, VISIBLE_TWEETS);
   const visibleLinkedIn = isAuthenticated ? linkedinResources : linkedinResources.slice(0, VISIBLE_LINKEDIN);
+
   const clearFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
@@ -234,7 +197,23 @@ const Resources = () => {
     setWithDeadline(false);
     console.log('[ResourcesPage] Filters cleared.');
   };
-  return <AppLayout fullWidth={true}>
+
+  const commonFilterProps = {
+    searchQuery,
+    setSearchQuery,
+    categoryFilter,
+    setCategoryFilter,
+    typeFilter,
+    setTypeFilter,
+    withDeadline,
+    setWithDeadline,
+    uniqueCategories,
+    uniqueResourceTypes,
+    clearFilters,
+  };
+
+  return (
+    <AppLayout fullWidth={true}>
       <div className="space-y-8 w-full">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-center">Resources</h1>
@@ -250,195 +229,45 @@ const Resources = () => {
             <TabsTrigger value="linkedin">LinkedIn Updates</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="resources" className="space-y-6">
-            <div className="flex flex-col space-y-4">
-              <div className="flex flex-col md:flex-row gap-4">
-                <div className="flex-1 relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input placeholder="Search resources..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                </div>
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <SelectValue placeholder="Category" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] overflow-y-auto">
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {uniqueCategories.map(category => <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-full md:w-[180px]">
-                    <SelectValue placeholder="Resource Type" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] overflow-y-auto">
-                    <SelectItem value="all">All Types</SelectItem>
-                    {uniqueResourceTypes.map(type => <SelectItem key={type} value={type}>
-                        {type}
-                      </SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox id="withDeadline" checked={withDeadline} onCheckedChange={checked => setWithDeadline(!!checked)} />
-                  <label htmlFor="withDeadline" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    With deadline
-                  </label>
-                </div>
-                
-                {(searchQuery || categoryFilter !== 'all' || typeFilter !== 'all' || withDeadline) && <Button variant="ghost" className="h-8 px-2 lg:px-3" onClick={clearFilters}>
-                    <FilterX className="mr-2 h-4 w-4" />
-                    Clear filters
-                  </Button>}
-              </div>
-
-              {isLoading ? <div className="text-center py-12">
-                  <h3 className="text-xl font-medium mb-2">Loading resources...</h3>
-                </div> : <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {visibleDirectoryResources.map(resource => <ResourceCard key={resource.id} resource={resource} />)}
-                  
-                  {!isAuthenticated && directoryResources.length > VISIBLE_RESOURCES_IN_DIRECTORY && <div className="md:col-span-2 lg:col-span-3">
-                      <LoginWall message={`Unlock all ${directoryResources.length}+ curated resources — log in or create an account to continue exploring.`} visibleItems={VISIBLE_RESOURCES_IN_DIRECTORY} totalItems={directoryResources.length} />
-                    </div>}
-                </div>}
-              
-              {!isLoading && visibleDirectoryResources.length === 0 && <div className="text-center py-12">
-                  <h3 className="text-xl font-medium mb-2">No resources found</h3>
-                  <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-                </div>}
-            </div>
+          <TabsContent value="resources" className="space-y-6 w-full">
+            <ResourceFilters {...commonFilterProps} searchPlaceholder="Search resources..." />
+            <ResourceDirectoryTab
+              isLoading={isLoading}
+              visibleDirectoryResources={visibleDirectoryResources}
+              isAuthenticated={isAuthenticated}
+              directoryResourcesCount={directoryResources.length}
+              loginWallVisibleItems={VISIBLE_RESOURCES_IN_DIRECTORY}
+            />
           </TabsContent>
           
-          <TabsContent value="tweets" className="space-y-6">
-            <div className="w-full">
-              <div className="flex flex-col space-y-4 mb-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search top tweets..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                  </div>
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px] overflow-y-auto">
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {uniqueCategories.map(category => <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]">
-                      <SelectValue placeholder="Resource Type" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px] overflow-y-auto">
-                      <SelectItem value="all">All Types</SelectItem>
-                      {uniqueResourceTypes.map(type => <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="withDeadlineTweets" checked={withDeadline} onCheckedChange={checked => setWithDeadline(!!checked)} />
-                    <label htmlFor="withDeadlineTweets" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      With deadline
-                    </label>
-                  </div>
-                  {(searchQuery || categoryFilter !== 'all' || typeFilter !== 'all' || withDeadline) && <Button variant="ghost" className="h-8 px-2 lg:px-3" onClick={clearFilters}>
-                      <FilterX className="mr-2 h-4 w-4" />
-                      Clear filters
-                    </Button>}
-                </div>
-              </div>
-
-              {isLoading ? <div className="text-center py-12">
-                   <h3 className="text-xl font-medium mb-2">Loading top tweets...</h3>
-                 </div> : <div className="space-y-4 w-full">
-                  {visibleTweets.map(resource => <TweetCard key={resource.id} tweet={adaptResourceToTweet(resource)} />)}
-                  
-                  {!isAuthenticated && tweetResources.length > VISIBLE_TWEETS && tweetResources.length < topGlobalTweets.length && <div className="relative mt-8">
-                      <LoginWall message={`Sign in to view all ${tweetResources.length} filtered top tweets.`} visibleItems={VISIBLE_TWEETS} totalItems={tweetResources.length} />
-                    </div>}
-                  {!isAuthenticated && topGlobalTweets.length > VISIBLE_TWEETS && tweetResources.length === topGlobalTweets.length && <div className="relative mt-8">
-                      <LoginWall message={`Sign in to view all ${topGlobalTweets.length} top tweets.`} visibleItems={VISIBLE_TWEETS} totalItems={topGlobalTweets.length} />
-                    </div>}
-                  
-                  {!isLoading && visibleTweets.length === 0 && <div className="text-center py-12">
-                      <h3 className="text-xl font-medium mb-2">No top tweets found</h3>
-                      <p className="text-muted-foreground">Try adjusting your search or filter criteria, or check back later for new top tweets.</p>
-                    </div>}
-                </div>}
-            </div>
+          <TabsContent value="tweets" className="space-y-6 w-full">
+            <ResourceFilters {...commonFilterProps} searchPlaceholder="Search top tweets..." />
+            <TopTweetsTab
+              isLoading={isLoading}
+              visibleTweets={visibleTweets}
+              isAuthenticated={isAuthenticated}
+              tweetResourcesCount={tweetResources.length}
+              topGlobalTweetsCount={topGlobalTweets.length}
+              loginWallVisibleItems={VISIBLE_TWEETS}
+            />
           </TabsContent>
           
-          <TabsContent value="linkedin" className="space-y-6">
-            <div className="w-full">
-              <div className="flex flex-col space-y-4 mb-6">
-                <div className="flex flex-col md:flex-row gap-4">
-                  <div className="flex-1 relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search LinkedIn posts..." className="pl-10" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                  </div>
-                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]">
-                      <SelectValue placeholder="Category" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px] overflow-y-auto">
-                      <SelectItem value="all">All Categories</SelectItem>
-                      {uniqueCategories.map(category => <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                  <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-full md:w-[180px]">
-                      <SelectValue placeholder="Resource Type" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px] overflow-y-auto">
-                      <SelectItem value="all">All Types</SelectItem>
-                      {uniqueResourceTypes.map(type => <SelectItem key={type} value={type}>
-                          {type}
-                        </SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="withDeadlineLinkedIn" checked={withDeadline} onCheckedChange={checked => setWithDeadline(!!checked)} />
-                    <label htmlFor="withDeadlineLinkedIn" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      With deadline
-                    </label>
-                  </div>
-                  {(searchQuery || categoryFilter !== 'all' || typeFilter !== 'all' || withDeadline) && <Button variant="ghost" className="h-8 px-2 lg:px-3" onClick={clearFilters}>
-                      <FilterX className="mr-2 h-4 w-4" />
-                      Clear filters
-                    </Button>}
-                </div>
-              </div>
-              <div className="space-y-4 w-full">
-                {visibleLinkedIn.map(resource => <LinkedInCard key={resource.id} post={adaptResourceToLinkedIn(resource)} />)}
-                
-                {!isAuthenticated && linkedinResources.length > VISIBLE_LINKEDIN && <div className="relative mt-8">
-                    <LoginWall message="Sign in to view more insights from our LinkedIn community." visibleItems={VISIBLE_LINKEDIN} totalItems={linkedinResources.length} />
-                  </div>}
-                
-                {!isLoading && visibleLinkedIn.length === 0 && <div className="text-center py-12">
-                    <h3 className="text-xl font-medium mb-2">No LinkedIn posts found</h3>
-                    <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-                  </div>}
-              </div>
-            </div>
+          <TabsContent value="linkedin" className="space-y-6 w-full">
+            <ResourceFilters {...commonFilterProps} searchPlaceholder="Search LinkedIn posts..." />
+            <LinkedInUpdatesTab
+              isLoading={isLoading} // Assuming isLoading applies here too
+              visibleLinkedIn={visibleLinkedIn}
+              isAuthenticated={isAuthenticated}
+              linkedinResourcesCount={linkedinResources.length}
+              loginWallVisibleItems={VISIBLE_LINKEDIN}
+            />
           </TabsContent>
         </Tabs>
         
         <FeedbackSection pagePath="/resources" />
       </div>
-    </AppLayout>;
+    </AppLayout>
+  );
 };
 export default Resources;
+
