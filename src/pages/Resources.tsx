@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -21,9 +22,9 @@ const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
 
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
-  if (resource.tweet_url || (resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com'))) {
+  if (resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com')) {
     return 'Tweet';
-  } else if (resource.linkedin_url || (resource.resource_link && resource.resource_link.toLowerCase().includes('linkedin.com'))) {
+  } else if (resource.resource_link && resource.resource_link.toLowerCase().includes('linkedin.com')) {
     return 'LinkedIn';
   }
   return 'Standard';
@@ -111,7 +112,7 @@ const adaptResourceToTweet = (resource: Resource) => {
     id: resource.id,
     content: resource.full_text || '',
     date: resource.created_at || '',
-    url: resource.tweet_url || resource.resource_link || '',
+    url: resource.resource_link || '',
     likes: resource.favorite_count || resource.tweet_likes || 0,
     retweets: resource.retweet_count || resource.tweet_retweets || 0
   };
@@ -133,7 +134,7 @@ const adaptResourceToLinkedIn = (resource: Resource) => {
     title,
     description: resource.full_text || '',
     date: resource.created_at || '',
-    url: resource.linkedin_url || resource.resource_link || ''
+    url: resource.resource_link || ''
   };
 };
 

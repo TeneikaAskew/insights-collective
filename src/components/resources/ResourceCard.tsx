@@ -61,7 +61,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
   };
 
   const getResourceLink = () => {
-    return resource.resource_link || resource.tweet_url || resource.linkedin_url || '#';
+    return resource.resource_link || '#';
   };
 
   const resourceCategories = getResourceCategories();
@@ -122,7 +122,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start"> {/* Changed to flex-col and items-start */}
+      <CardFooter className="flex-col items-start"> 
         <Button variant="outline" size="sm" asChild className="w-full">
           <a href={getResourceLink()} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
             Visit Resource
@@ -130,7 +130,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
           </a>
         </Button>
         {resourceCategories.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-4 w-full"> {/* Added mt-4 and w-full for categories */}
+          <div className="flex flex-wrap gap-1 mt-4 w-full">
             {resourceCategories.map((category, index) => (
               <Badge key={`cat-${index}`} variant="outline" className="text-xs">
                 {category}

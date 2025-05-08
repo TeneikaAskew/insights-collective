@@ -11,7 +11,7 @@ export interface Resource {
   created_by: string | null;
   updated_at: string | null;
   
-  // New fields based on the updated schema
+  // Resource fields
   resource_type: string | null;
   resource_link: string | null;
   career_area: string | null;
@@ -19,16 +19,12 @@ export interface Resource {
   predicted_career_labels: string | null;
   
   // Twitter specific fields
-  tweet_url: string | null;
   tweet_id: string | null;
   full_text: string | null;
   tweet_likes: number | null;
   tweet_retweets: number | null;
   favorite_count: number | null;
   retweet_count: number | null;
-  
-  // LinkedIn specific fields
-  linkedin_url: string | null;
   
   // Other metadata fields
   user_mentions: any | null;
