@@ -622,4 +622,102 @@ const CareerPathway: React.FC = () => {
                   </CardContent>
                   <CardFooter>
                     <Button variant="outline" size="sm" onClick={() => { setCurrentEditItem(project); setEditItemType('project'); setEditingSection(`projects[${index}]`); setIsAddItemDialogOpen(true); }}><Edit3 className="h-4 w-4 mr-2" />Edit</Button>
-                    <Button variant="ghost
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 ml-2" onClick={() => handleDeleteItem('project', index)}><Trash2 className="h-4 w-4 mr-2"/>Delete</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="resources" className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <CardTitle>Learning Resources</CardTitle>
+                <Button onClick={() => handleAddItem('resource')} size="sm"><PlusCircle className="h-4 w-4 mr-2"/>Add Resource</Button>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {resources.map((resource, index) => (
+                <Card key={index}>
+                  <CardHeader>
+                    <CardTitle>{resource.title}</CardTitle>
+                    <CardDescription>{resource.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between text-sm">
+                        <span>Type:</span>
+                        <span className="ml-2">{resource.type}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                        <span>URL:</span>
+                        <a href={resource.url} target="_blank" rel="noopener noreferrer" className="ml-2">{resource.url}</a>
+                    </div>
+                    {resource.estimated_time && (
+                        <div className="flex items-center justify-between text-sm">
+                            <span>Estimated Time:</span>
+                            <span className="ml-2">{resource.estimated_time}</span>
+                        </div>
+                    )}
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" size="sm" onClick={() => { setCurrentEditItem(resource); setEditItemType('resource'); setEditingSection(`resources[${index}]`); setIsAddItemDialogOpen(true); }}><Edit3 className="h-4 w-4 mr-2" />Edit</Button>
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 ml-2" onClick={() => handleDeleteItem('resource', index)}><Trash2 className="h-4 w-4 mr-2"/>Delete</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="tasks" className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <CardTitle>Custom Tasks</CardTitle>
+                <Button onClick={() => handleAddItem('custom_task')} size="sm"><PlusCircle className="h-4 w-4 mr-2"/>Add Task</Button>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {custom_tasks.map((task, index) => (
+                <Card key={index}>
+                  <CardHeader>
+                    <CardTitle>{task.description}</CardTitle>
+                    <CardDescription>{task.category}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between text-sm">
+                        <span>Status:</span>
+                        <span className="ml-2">{task.completed ? 'Completed' : 'Pending'}</span>
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" size="sm" onClick={() => { setCurrentEditItem(task); setEditItemType('custom_task'); setEditingSection(`custom_tasks[${index}]`); setIsAddItemDialogOpen(true); }}><Edit3 className="h-4 w-4 mr-2" />Edit</Button>
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 ml-2" onClick={() => handleDeleteItem('custom_task', index)}><Trash2 className="h-4 w-4 mr-2"/>Delete</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+        </Tabs>
+
+        {/* Dialog for editing items */}
+        <Dialog open={!!editingSection || isAddItemDialogOpen} onOpenChange={(open) => !open && handleCancelEdit()}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingSection ? `Edit ${editItemType || 'Item'}` : `Add ${newItemType || 'Item'}`}
+              </DialogTitle>
+              <DialogDescription>
+                Make changes to your {editItemType || newItemType || 'item'} here. Click save when you're done.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              {renderEditDialogFields()}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+              <Button onClick={editingSection ? handleSaveEdit : handleSaveNewItem}>Save</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </AppLayout>
+  );
+};
+
+export default CareerPathway;
