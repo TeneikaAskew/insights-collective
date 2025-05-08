@@ -33,7 +33,7 @@ export const ResourceDirectoryTab: React.FC<ResourceDirectoryTabProps> = ({
     return (
       <div className="text-center py-12">
         <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-insightsCollective-insightBlue"></div>
           <h3 className="text-xl font-medium">Loading resources...</h3>
         </div>
       </div>
@@ -55,12 +55,12 @@ export const ResourceDirectoryTab: React.FC<ResourceDirectoryTabProps> = ({
   return (
     <div className="space-y-6 w-full">
       <div className="flex justify-end space-x-2">
-        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-1 flex">
+        <div className="bg-insightsCollective-softWhite dark:bg-gray-800 rounded-lg p-1 flex">
           <Button 
             variant={viewMode === 'grid' ? 'default' : 'ghost'} 
             size="sm"
             onClick={() => setViewMode('grid')}
-            className="rounded-r-none"
+            className={`rounded-r-none ${viewMode === 'grid' ? 'bg-insightsCollective-insightBlue' : ''}`}
           >
             <Grid2X2 className="h-4 w-4" />
             <span className="sr-only">Grid View</span>
@@ -69,7 +69,7 @@ export const ResourceDirectoryTab: React.FC<ResourceDirectoryTabProps> = ({
             variant={viewMode === 'list' ? 'default' : 'ghost'} 
             size="sm"
             onClick={() => setViewMode('list')}
-            className="rounded-l-none"
+            className={`rounded-l-none ${viewMode === 'list' ? 'bg-insightsCollective-insightBlue' : ''}`}
           >
             <LayoutList className="h-4 w-4" />
             <span className="sr-only">List View</span>

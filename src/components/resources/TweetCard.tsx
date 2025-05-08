@@ -1,7 +1,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, MessageSquare, Heart, repeat } from 'lucide-react';
+import { ExternalLink, MessageSquare, Heart, Repeat } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Tweet {
@@ -34,7 +34,7 @@ export const TweetCard = ({ tweet, highlighted = false }: TweetCardProps) => {
   };
 
   const backgroundClass = highlighted
-    ? 'bg-white dark:bg-gray-800 shadow-md border-2 border-blue-200 dark:border-blue-800'
+    ? 'bg-white dark:bg-gray-800 shadow-md border-2 border-insightsCollective-insightBlue dark:border-insightsCollective-aquaTeal'
     : 'bg-white dark:bg-gray-800 shadow-sm';
 
   return (
@@ -42,7 +42,7 @@ export const TweetCard = ({ tweet, highlighted = false }: TweetCardProps) => {
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
           <div className="flex-shrink-0">
-            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+            <div className="h-10 w-10 bg-insightsCollective-insightBlue/10 rounded-full flex items-center justify-center text-insightsCollective-insightBlue">
               <MessageSquare className="h-5 w-5" />
             </div>
           </div>
@@ -63,11 +63,11 @@ export const TweetCard = ({ tweet, highlighted = false }: TweetCardProps) => {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-6 text-gray-500">
                 <div className="flex items-center">
-                  <Heart className="h-4 w-4 mr-1 text-red-500" />
+                  <Heart className="h-4 w-4 mr-1 text-insightsCollective-energeticAmber" />
                   <span className="text-sm">{formatMetric(tweet.likes)}</span>
                 </div>
                 <div className="flex items-center">
-                  <repeat className="h-4 w-4 mr-1 text-green-500" />
+                  <Repeat className="h-4 w-4 mr-1 text-insightsCollective-aquaTeal" />
                   <span className="text-sm">{formatMetric(tweet.retweets)}</span>
                 </div>
               </div>

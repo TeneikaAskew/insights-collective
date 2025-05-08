@@ -31,7 +31,7 @@ export const LinkedInCard = ({ post }: LinkedInCardProps) => {
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
           <div className="flex-shrink-0">
-            <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
+            <div className="h-10 w-10 bg-insightsCollective-viraDeepBlue/10 rounded-full flex items-center justify-center text-insightsCollective-viraDeepBlue">
               <Linkedin className="h-5 w-5" />
             </div>
           </div>
@@ -46,7 +46,7 @@ export const LinkedInCard = ({ post }: LinkedInCardProps) => {
                   </>
                 )}
               </div>
-              <Badge variant="secondary" className="text-xs">{post.title}</Badge>
+              <Badge variant="secondary" className="text-xs bg-insightsCollective-energeticAmber text-white">{post.title}</Badge>
             </div>
             <p className="text-gray-800 mb-3">{post.description}</p>
             
@@ -59,7 +59,7 @@ export const LinkedInCard = ({ post }: LinkedInCardProps) => {
               )}
             </div>
             
-            <Button variant="outline" size="sm" className="w-full" asChild>
+            <Button variant="outline" size="sm" className="w-full hover:bg-insightsCollective-viraDeepBlue/10 hover:text-insightsCollective-viraDeepBlue" asChild>
               <a href={post.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
                 <Linkedin className="h-4 w-4 mr-2" />
                 View on LinkedIn
