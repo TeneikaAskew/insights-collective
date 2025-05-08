@@ -1,5 +1,5 @@
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar, ExternalLink } from 'lucide-react';
@@ -7,7 +7,7 @@ import { Resource, parseArrayField, normalizeString } from '@/hooks/useResources
 
 interface ResourceCardProps {
   resource: Resource & {
-    sourceType?: 'Tweet' | 'LinkedIn' | 'Standard';
+    sourceType?: 'Tweet' | 'LinkedIn' | 'Standard'; // sourceType is optional as it's added post-fetch
   };
 }
 
@@ -21,79 +21,43 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
     });
   };
 
-  // Parse and combine category fields
   const getResourceCategories = (): string[] => {
     const categories = new Set<string>();
-    
-    if (resource.career_area) {
-      parseArrayField(resource.career_area).forEach(label => categories.add(normalizeString(label)));
-    }
-    if (resource.predicted_career_labels) {
-      parseArrayField(resource.predicted_career_labels).forEach(label => categories.add(normalizeString(label)));
-    }
-    if (resource.category && resource.category.toLowerCase() !== 'general') {
-      parseArrayField(resource.category).forEach(label => categories.add(normalizeString(label)));
-    }
-    
-    if (categories.size === 0) {
-      categories.add('General');
-    }
-    
+    if (resource.career_area) parseArrayField(resource.career_area).forEach(label => categories.add(normalizeString(label)));
+    if (resource.predicted_career_labels) parseArrayField(resource.predicted_career_labels).forEach(label => categories.add(normalizeString(label)));
+    if (resource.category && resource.category.toLowerCase() !== 'general') parseArrayField(resource.category).forEach(label => categories.add(normalizeString(label)));
+    if (categories.size === 0 && resource.sourceType === 'Standard') categories.add('General');
+    else if (categories.size === 0) categories.add('General'); // Fallback for non-Standard or if sourceType is undefined
     return Array.from(categories);
   };
 
-  // Parse and combine resource type fields
   const getResourceTypes = (): string[] => {
     const types = new Set<string>();
-    
-    if (resource.resource_type) {
-      parseArrayField(resource.resource_type).forEach(label => types.add(normalizeString(label)));
-    }
-    if (resource.predicted_resource_labels) {
-      parseArrayField(resource.predicted_resource_labels).forEach(label => types.add(normalizeString(label)));
-    }
-    
-    if (types.size === 0) {
-      types.add('Resource');
-    }
-    
+    if (resource.resource_type) parseArrayField(resource.resource_type).forEach(label => types.add(normalizeString(label)));
+    if (resource.predicted_resource_labels) parseArrayField(resource.predicted_resource_labels).forEach(label => types.add(normalizeString(label)));
+    if (types.size === 0 && resource.sourceType === 'Standard') types.add('Resource');
+    else if (types.size === 0) types.add('Resource'); // Fallback
     return Array.from(types);
   };
 
   const getResourceLink = () => {
-    // Check if it's a Twitter resource with missing link but has tweet_id
     if (!resource.resource_link && resource.source?.toLowerCase().includes('twitter') && resource.tweet_id) {
       return `https://x.com/teneikaask_you/status/${resource.tweet_id}`;
     }
     return resource.resource_link || '#';
   };
   
-  // Determine button text based on resource type
   const getButtonText = () => {
-    if (resource.source?.toLowerCase().includes('twitter')) {
-      return 'Visit Tweet';
-    } else if (resource.source?.toLowerCase().includes('linkedin')) {
-      return 'Visit LinkedIn Post';
-    }
+    if (resource.source?.toLowerCase().includes('twitter')) return 'Visit Tweet';
+    if (resource.source?.toLowerCase().includes('linkedin')) return 'Visit LinkedIn Post';
     return 'Visit Resource';
   };
 
   const resourceCategories = getResourceCategories();
   const resourceTypes = getResourceTypes();
 
-  const getResourceTitle = () => {
-    if (resourceTypes.length > 0 && resourceTypes[0] !== 'Resource') {
-      return resourceTypes[0]; 
-    }
-    if (resource.full_text) {
-        const words = resource.full_text.split(' ');
-        if (words.length > 10) {
-            return words.slice(0, 10).join(' ') + '...';
-        }
-        return resource.full_text;
-    }
-    return 'Resource Details';
-  };
+  // getResourceTitle is removed as CardTitle is removed. Description will serve as main text.
+  // const getResourceTitle = () => { ... } 
 
   const getResourceDescription = () => {
     return resource.full_text || 'No description available.';
@@ -102,49 +66,9 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
   return (
     <Card className="flex flex-col h-full">
       <CardHeader>
-        <div className="flex justify-between items-start mb-2">
-          <CardTitle className="text-lg font-semibold mr-2 break-words flex-grow">
-            {getResourceTitle()}
-          </CardTitle>
-          {resourceTypes.length > 0 && (
-            <div className="flex flex-col items-end space-y-1 flex-shrink-0 ml-2 max-w-[50%]">
-              <div className="flex flex-wrap gap-1 justify-end">
-                {resourceTypes.map((type, index) => (
-                  <Badge key={`type-${index}`} variant="secondary" className="text-xs">
-                    {type}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-        <CardDescription className="text-sm text-gray-600 mt-1 leading-relaxed">
-          {getResourceDescription()}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex-grow">
-        {resource.deadline && (
-          <div className="flex items-center text-xs text-muted-foreground mb-2">
-            <Calendar className="h-3 w-3 mr-1.5" />
-            <span>Deadline: {formatDate(resource.deadline)}</span>
-          </div>
-        )}
-        {resource.created_at && !resource.deadline && (
-          <div className="flex items-center text-xs text-muted-foreground mb-2">
-            <Calendar className="h-3 w-3 mr-1.5" />
-            <span>Posted: {formatDate(resource.created_at)}</span>
-          </div>
-        )}
-      </CardContent>
-      <CardFooter className="flex-col items-start">
-        <Button variant="outline" size="sm" asChild className="w-full">
-          <a href={getResourceLink()} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
-            {getButtonText()}
-            <ExternalLink className="ml-2 h-4 w-4" />
-          </a>
-        </Button>
+        {/* Display Categories at the top */}
         {resourceCategories.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-4 w-full">
+          <div className="flex flex-wrap gap-1 mb-2 w-full">
             {resourceCategories.map((category, index) => (
               <Badge key={`cat-${index}`} variant="outline" className="text-xs">
                 {category}
@@ -152,6 +76,47 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
             ))}
           </div>
         )}
+
+        {/* Display Types (previously next to title, now below categories) */}
+        {resourceTypes.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-2 justify-start">
+            {resourceTypes.map((type, index) => (
+              <Badge key={`type-${index}`} variant="secondary" className="text-xs">
+                {type}
+              </Badge>
+            ))}
+          </div>
+        )}
+        
+        {/* CardTitle (H3) removed as per request */}
+        {/* <CardTitle>...</CardTitle> */}
+
+        <CardDescription className="text-sm text-gray-600 mt-1 leading-relaxed flex-grow">
+          {getResourceDescription()}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex-grow pt-0"> {/* Adjusted pt-0 as content might be sparse now */}
+        {resource.deadline && (
+          <div className="flex items-center text-xs text-muted-foreground mt-2 mb-2"> {/* Added mt-2 for spacing */}
+            <Calendar className="h-3 w-3 mr-1.5" />
+            <span>Deadline: {formatDate(resource.deadline)}</span>
+          </div>
+        )}
+        {resource.created_at && !resource.deadline && (
+          <div className="flex items-center text-xs text-muted-foreground mt-2 mb-2"> {/* Added mt-2 for spacing */}
+            <Calendar className="h-3 w-3 mr-1.5" />
+            <span>Posted: {formatDate(resource.created_at)}</span>
+          </div>
+        )}
+      </CardContent>
+      <CardFooter className="flex-col items-start pt-4"> {/* Ensured some padding top if content is minimal */}
+        <Button variant="outline" size="sm" asChild className="w-full">
+          <a href={getResourceLink()} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+            {getButtonText()}
+            <ExternalLink className="ml-2 h-4 w-4" />
+          </a>
+        </Button>
+        {/* Category badges were moved from here to CardHeader */}
       </CardFooter>
     </Card>
   );

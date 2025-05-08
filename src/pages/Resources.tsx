@@ -15,10 +15,13 @@ import { TweetCard } from '@/components/resources/TweetCard';
 import { LinkedInCard } from '@/components/resources/LinkedInCard';
 import { FeedbackSection } from '@/components/common/FeedbackSection';
 
-const VISIBLE_RESOURCES_IN_DIRECTORY = 5; // Renamed for clarity, was VISIBLE_RESOURCES
+const VISIBLE_RESOURCES_IN_DIRECTORY = 5; 
 const VISIBLE_TWEETS = 3; 
 const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
+
+// Define the extended resource type that includes sourceType
+type ResourceWithSourceType = Resource & { sourceType: 'Tweet' | 'LinkedIn' | 'Standard' };
 
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
   if (resource.source?.toLowerCase().includes('twitter') || 
@@ -49,17 +52,16 @@ const extractUniqueValues = (
         parseArrayField(resource[additionalStaticField] as string | null).forEach(val => values.add(normalizeString(val)));
     }
   });
+  // Ensure "General" is added if it exists as a category in the data, otherwise it won't be an option.
+  // This aligns with "only show values from uniqueCategories".
   return Array.from(values).filter(Boolean).sort();
 };
 
 
-const processResources = (resources: Resource[]): (Resource & { 
-  sourceType: 'Tweet' | 'LinkedIn' | 'Standard';
-})[] => {
+const processResources = (resources: Resource[]): ResourceWithSourceType[] => {
   console.log('[ProcessResources] Input resources count:', resources.length);
   return resources.map(resource => {
     const sourceType = classifyResourceSource(resource);
-    // console.log(`[ProcessResources] Resource ID ${resource.id} classified as ${sourceType}`);
     return {
       ...resource,
       sourceType,
@@ -67,8 +69,9 @@ const processResources = (resources: Resource[]): (Resource & {
   });
 };
 
+// Updated matchesFilters to expect ResourceWithSourceType
 const matchesFilters = (
-  resource: Resource, 
+  resource: ResourceWithSourceType, 
   searchQuery: string, 
   categoryFilter: string, 
   typeFilter: string,     
@@ -93,7 +96,9 @@ const matchesFilters = (
   if (resource.career_area) parseArrayField(resource.career_area).forEach(label => resourceCategories.add(normalizeString(label)));
   if (resource.predicted_career_labels) parseArrayField(resource.predicted_career_labels).forEach(label => resourceCategories.add(normalizeString(label)));
   if (resource.category) parseArrayField(resource.category).forEach(label => resourceCategories.add(normalizeString(label)));
-  if (resourceCategories.size === 0 && resource.sourceType === 'Standard') resourceCategories.add('General'); // Only add 'General' if truly no categories for Standard
+  // This logic correctly assigns 'General' if no other categories exist for standard resources.
+  // The dropdown filter will only show 'General' if it's part of uniqueCategories (i.e., explicitly in data or extracted).
+  if (resourceCategories.size === 0 && resource.sourceType === 'Standard') resourceCategories.add('General');
   
   const categoryMatches = categoryFilter === 'all' || Array.from(resourceCategories).includes(categoryFilter) || (categoryFilter === 'General' && resourceCategories.size === 0 && resource.sourceType === 'Standard');
 
@@ -101,18 +106,13 @@ const matchesFilters = (
   const resourceTypesSet = new Set<string>();
   if (resource.resource_type) parseArrayField(resource.resource_type).forEach(label => resourceTypesSet.add(normalizeString(label)));
   if (resource.predicted_resource_labels) parseArrayField(resource.predicted_resource_labels).forEach(label => resourceTypesSet.add(normalizeString(label)));
-  if (resourceTypesSet.size === 0 && resource.sourceType === 'Standard') resourceTypesSet.add('Resource'); // Only add 'Resource' if truly no types for Standard
+  if (resourceTypesSet.size === 0 && resource.sourceType === 'Standard') resourceTypesSet.add('Resource');
 
   const typeMatches = typeFilter === 'all' || Array.from(resourceTypesSet).includes(typeFilter) || (typeFilter === 'Resource' && resourceTypesSet.size === 0 && resource.sourceType === 'Standard');
   
   const deadlineMatches = withDeadline ? !!resource.deadline : true;
   
   const finalMatch = matchesSearch && categoryMatches && typeMatches && deadlineMatches;
-  // if (!finalMatch) {
-  //   console.log(`[MatchesFilters] Resource ID ${resource.id} DID NOT MATCH:`, { matchesSearch, categoryMatches, typeMatches, deadlineMatches, searchQuery, categoryFilter, typeFilter, withDeadline, resourceCategories: Array.from(resourceCategories), resourceTypesSet: Array.from(resourceTypesSet) });
-  // } else {
-  //   console.log(`[MatchesFilters] Resource ID ${resource.id} MATCHED`);
-  // }
   return finalMatch;
 };
 
@@ -170,6 +170,7 @@ const Resources = () => {
   }, [resources]);
   
   const uniqueCategories = useMemo(() => {
+    // extractUniqueValues will return sorted, unique, normalized categories from the data
     return extractUniqueValues(resources, 'career_area', 'predicted_career_labels', 'category');
   }, [resources]);
   
@@ -180,7 +181,7 @@ const Resources = () => {
   const filteredResources = useMemo(() => {
     console.log('[ResourcesPage] Filtering processed resources. Count:', processedResources.length, 'Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline });
     const fr = processedResources.filter(resource => 
-      matchesFilters(
+      matchesFilters( // matchesFilters now expects ResourceWithSourceType, which processedResources elements are
         resource, 
         searchQuery, 
         categoryFilter, 
@@ -192,7 +193,6 @@ const Resources = () => {
     return fr;
   }, [processedResources, searchQuery, categoryFilter, typeFilter, withDeadline]);
   
-  // THIS IS THE MAIN CHANGE: "Resource Directory" tab uses all filteredResources
   const directoryResources = useMemo(() => {
     console.log('[ResourcesPage] Directory resources (all filtered items for the main tab):', filteredResources);
     return filteredResources;
@@ -216,7 +216,6 @@ const Resources = () => {
   }, [processedResources]);
 
   const tweetResources = useMemo(() => {
-    // Filters the topGlobalTweets based on current page filters
     const tr = topGlobalTweets.filter(resource =>
       matchesFilters(
         resource,
@@ -236,7 +235,6 @@ const Resources = () => {
     return lr;
   }, [filteredResources]);
   
-  // Updated to use directoryResources and new constant name
   const visibleDirectoryResources = isAuthenticated ? directoryResources : directoryResources.slice(0, VISIBLE_RESOURCES_IN_DIRECTORY);
   console.log('[ResourcesPage] Visible Directory Resources (for main tab display):', visibleDirectoryResources);
 
@@ -286,12 +284,8 @@ const Resources = () => {
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px] overflow-y-auto">
                     <SelectItem value="all">All Categories</SelectItem>
-                    {(['Training', 'Event', 'Opportunity', 'Program'] as const).map(staticCat => (
-                        <SelectItem key={staticCat} value={normalizeString(staticCat)}>
-                            {staticCat}
-                        </SelectItem>
-                    ))}
-                    {uniqueCategories.filter(category => !['Training', 'Event', 'Opportunity', 'Program', 'General'].includes(category)).map((category) => (
+                    {/* Removed static categories, now only mapping uniqueCategories */}
+                    {uniqueCategories.map((category) => (
                       <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>
@@ -346,12 +340,10 @@ const Resources = () => {
                 </div>
               ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {/* Updated to use visibleDirectoryResources */}
                   {visibleDirectoryResources.map((resource) => (
                     <ResourceCard key={resource.id} resource={resource} />
                   ))}
                   
-                  {/* Updated LoginWall logic to use directoryResources */}
                   {!isAuthenticated && directoryResources.length > VISIBLE_RESOURCES_IN_DIRECTORY && (
                     <div className="md:col-span-2 lg:col-span-3">
                       <LoginWall 
@@ -364,21 +356,17 @@ const Resources = () => {
                 </div>
               )}
               
-              {/* Updated "No resources found" message to use visibleDirectoryResources */}
               {!isLoading && visibleDirectoryResources.length === 0 && (
                 <div className="text-center py-12">
                   <h3 className="text-xl font-medium mb-2">No resources found</h3>
                   <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-                  {console.log('[ResourcesPage] Displaying "No resources found" for Directory Tab. Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline })}
                 </div>
               )}
             </div>
           </TabsContent>
           
           <TabsContent value="tweets" className="space-y-6">
-            {/* ... keep existing code (Tweets tab content and filters) ... */}
             <div className="max-w-3xl mx-auto">
-              {/* Filters for tweets tab - mirroring resource directory for consistency */}
               <div className="flex flex-col space-y-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1 relative">
@@ -386,17 +374,17 @@ const Resources = () => {
                     <Input 
                       placeholder="Search top tweets..." 
                       className="pl-10"
-                      value={searchQuery} // Uses the same global search query
+                      value={searchQuery} 
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
                   </div>
-                  {/* Category and Type filters can also apply to tweets if desired, using same state */}
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
                     <SelectTrigger className="w-full md:w-[180px]">
                       <SelectValue placeholder="Category" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
                       <SelectItem value="all">All Categories</SelectItem>
+                       {/* Removed static categories, now only mapping uniqueCategories */}
                       {uniqueCategories.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
@@ -422,7 +410,7 @@ const Resources = () => {
                   <div className="flex items-center space-x-2">
                     <Checkbox 
                       id="withDeadlineTweets" 
-                      checked={withDeadline} // Uses same global deadline state
+                      checked={withDeadline} 
                       onCheckedChange={(checked) => setWithDeadline(!!checked)}
                     />
                     <label
@@ -436,7 +424,7 @@ const Resources = () => {
                     <Button 
                       variant="ghost" 
                       className="h-8 px-2 lg:px-3" 
-                      onClick={clearFilters} // Uses same global clear filters
+                      onClick={clearFilters} 
                     >
                       <FilterX className="mr-2 h-4 w-4" />
                       Clear filters
@@ -456,22 +444,20 @@ const Resources = () => {
                   ))}
                   
                   {!isAuthenticated && tweetResources.length > VISIBLE_TWEETS && tweetResources.length < topGlobalTweets.length && (
-                    // Show login wall if unauthenticated AND there are more tweets in the filtered top 100 than shown
                     <div className="relative mt-8">
                       <LoginWall 
                         message={`Sign in to view all ${tweetResources.length} filtered top tweets.`} 
                         visibleItems={VISIBLE_TWEETS}
-                        totalItems={tweetResources.length} // Total filtered top tweets
+                        totalItems={tweetResources.length} 
                       />
                     </div>
                   )}
                   {!isAuthenticated && topGlobalTweets.length > VISIBLE_TWEETS && tweetResources.length === topGlobalTweets.length && (
-                     // Show login wall if unauthenticated AND all top 100 tweets match filters, but more than VISIBLE_TWEETS
                     <div className="relative mt-8">
                       <LoginWall 
                         message={`Sign in to view all ${topGlobalTweets.length} top tweets.`} 
                         visibleItems={VISIBLE_TWEETS}
-                        totalItems={topGlobalTweets.length} // Total top tweets globally
+                        totalItems={topGlobalTweets.length} 
                       />
                     </div>
                   )}
@@ -480,7 +466,6 @@ const Resources = () => {
                     <div className="text-center py-12">
                       <h3 className="text-xl font-medium mb-2">No top tweets found</h3>
                       <p className="text-muted-foreground">Try adjusting your search or filter criteria, or check back later for new top tweets.</p>
-                      {console.log('[ResourcesPage] Displaying "No top tweets found" for Tweets Tab. Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline })}
                     </div>
                   )}
                 </div>
@@ -489,9 +474,7 @@ const Resources = () => {
           </TabsContent>
           
           <TabsContent value="linkedin" className="space-y-6">
-            {/* ... keep existing code (LinkedIn tab content and filters) ... */}
             <div className="max-w-3xl mx-auto">
-               {/* Filters for LinkedIn tab - mirroring resource directory for consistency */}
               <div className="flex flex-col space-y-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1 relative">
@@ -509,6 +492,7 @@ const Resources = () => {
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
                       <SelectItem value="all">All Categories</SelectItem>
+                       {/* Removed static categories, now only mapping uniqueCategories */}
                       {uniqueCategories.map((category) => (
                         <SelectItem key={category} value={category}>
                           {category}
@@ -575,7 +559,6 @@ const Resources = () => {
                   <div className="text-center py-12">
                     <h3 className="text-xl font-medium mb-2">No LinkedIn posts found</h3>
                     <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-                    {console.log('[ResourcesPage] Displaying "No LinkedIn posts found" for LinkedIn Tab. Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline })}
                   </div>
                 )}
               </div>

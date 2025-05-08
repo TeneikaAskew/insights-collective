@@ -1,684 +1,625 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Briefcase, BookOpen, Users, FileText, TrendingUp, Star, Award, CheckCircle, User, Play, Loader2, GraduationCap, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
-import CareerAIRecommendations from '@/components/career/CareerAIRecommendations';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useAuth } from '@/contexts/AuthContext';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Helmet } from 'react-helmet-async';
-import CareerActionPlan from '@/components/assistants/CareerActionPlan';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { CheckCircle, ArrowRight, Zap, Lightbulb, BookOpen, Briefcase, TrendingUp, Target, Award, Edit3, Save, X, PlusCircle, Trash2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import CareerHeader from '@/components/career/CareerHeader';
-import CareerPathSection from '@/components/career/CareerPathSection';
-import SkillsSection from '@/components/career/SkillsSection';
-interface ActionPlanTimeframe {
-  skills: Array<{
-    name: string;
-    courses: Array<{
-      title: string;
-      provider: string;
-      url?: string;
-    }>;
-  }>;
-  projects: Array<{
-    title: string;
-    description: string;
-  }>;
-  content: Array<{
-    platform: string;
-    topics: string[];
-  }>;
-  milestones: string[];
-  narrative: string;
-}
-interface ActionPlan {
-  "6_weeks": ActionPlanTimeframe;
-  "9_weeks": ActionPlanTimeframe;
-  "12_weeks": ActionPlanTimeframe;
-  "6_months": ActionPlanTimeframe;
-  "12_months": ActionPlanTimeframe;
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { CareerAIRecommendations } from '@/components/career/CareerAIRecommendations';
+import { PageTitle } from '@/components/PageTitle';
+
+interface UserProfile {
+  id: string;
+  email?: string;
+  full_name?: string;
+  avatar_url?: string;
+  interests?: string[];
+  current_skills?: { name: string; level: number }[];
+  career_goals?: string;
+  learning_style?: string;
+  time_commitment?: string;
 }
 
-// Sample data for skill building purposes
-const userSkills = ["Data Analysis", "SQL", "Problem Solving", "Communication"];
-const CareerPathway: React.FC = () => {
-  const navigate = useNavigate();
-  const {
-    user
-  } = useAuth();
-  const {
-    data,
-    isLoading,
-    error,
-    isError
-  } = useCareerPathwayResults();
-  const [activeCareerStep, setActiveCareerStep] = useState(0);
-  const [activeTab, setActiveTab] = useState('overview');
-  const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
-  const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
-  const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
-  const {
-    toast
-  } = useToast();
-  const timeframeLabels = {
-    "6_weeks": "6 Weeks",
-    "9_weeks": "9 Weeks",
-    "12_weeks": "12 Weeks",
-    "6_months": "6 Months",
-    "12_months": "12 Months"
+interface CareerPathwayData {
+  id: string;
+  user_id: string;
+  pathway_title: string;
+  current_role?: string;
+  target_role: string;
+  motivation?: string;
+  created_at?: string;
+  updated_at?: string;
+  jobs: JobRole[];
+  skills: Skill[];
+  projects: ProjectIdea[];
+  resources: LearningResource[];
+  custom_tasks: CustomTask[];
+  progress_overview: {
+    total_items: number;
+    completed_items: number;
+    percentage: number;
   };
-  useEffect(() => {
-    console.log("Career pathway report data:", data);
-    // Set the action plan from the data if it exists
-    if (data?.actionPlan) {
-      setActionPlan(data.actionPlan);
-    }
-  }, [data]);
+  career_suggestions?: string[];
+  network_contacts?: { name: string; linkedIn?: string; notes?: string }[];
+  achievements?: { title: string; date: string; description?: string }[];
+}
 
-  // Get user name from available properties
-  const userName = (user as any)?.first_name || (user as any)?.user_metadata?.first_name || user?.email?.split('@')[0] || 'there';
+interface JobRole {
+  title: string;
+  description: string;
+  requirements: string[];
+  level: string;
+}
 
-  // Career step carousel navigation
-  const nextCareerStep = () => {
-    if (data?.report?.careerPathSteps && activeCareerStep < data.report.careerPathSteps.length - 1) {
-      setActiveCareerStep(activeCareerStep + 1);
-    }
-  };
-  const prevCareerStep = () => {
-    if (activeCareerStep > 0) {
-      setActiveCareerStep(activeCareerStep - 1);
-    }
-  };
-  const handleTakeQuiz = () => {
-    navigate('/career-agent');
-  };
+interface Skill {
+  name: string;
+  level: number;
+  category: string;
+}
 
-  // Generate action plan
-  const generateActionPlan = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please log in to generate your career action plan.",
-        variant: "destructive"
-      });
-      return;
-    }
-    setIsGeneratingPlan(true);
-    try {
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('generate-career-action-plan', {
-        body: {
-          userId: user.id
-        }
-      });
-      if (error) {
-        console.error("Error invoking function:", error);
-        throw error;
-      }
-      if (data?.success && data?.data) {
-        setActionPlan(data.data);
-        toast({
-          title: "Action Plan Generated",
-          description: "Your personalized career action plan is ready!"
-        });
-      } else {
-        throw new Error("Failed to generate action plan");
-      }
-    } catch (error) {
-      console.error("Error generating action plan:", error);
-      toast({
-        title: "Generation Failed",
-        description: "We couldn't generate your action plan. Please try again later.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGeneratingPlan(false);
-    }
-  };
+interface ProjectIdea {
+  title: string;
+  description: string;
+  skills_to_apply: string[];
+}
 
-  // Animation variants
-  const fadeInUp = {
-    initial: {
-      opacity: 0,
-      y: 20
-    },
-    animate: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.6
-      }
-    },
-    exit: {
-      opacity: 0,
-      transition: {
-        duration: 0.2
-      }
-    }
-  };
+interface LearningResource {
+  title: string;
+  type: string;
+  url: string;
+  estimated_time?: string;
+}
 
-  // Prepare data for the career components
-  const mapRecommendedRolesToCareerPathRoles = () => {
-    if (!data?.report?.recommendedRoles || data.report.recommendedRoles.length === 0) {
-      return [];
-    }
-    return data.report.recommendedRoles.map(role => ({
-      title: role.title,
-      salary: role.salaryRange || 'Salary range not available',
-      description: role.description
-    }));
-  };
-  const mapSkillsAndCoursesToSkillsSection = () => {
-    if (!data?.report?.skillsAndCourses || data.report.skillsAndCourses.length === 0) {
-      return [];
-    }
-    return data.report.skillsAndCourses.map(item => ({
-      name: item.skill,
-      type: (item.level?.toLowerCase() === "beginner" ? "soft" : "hard") as 'soft' | 'hard',
-      course: item.course
-    }));
-  };
+interface CustomTask {
+  id: string;
+  description: string;
+  due_date?: string;
+  completed: boolean;
+  category?: string;
+}
 
-  // If there's an error or no report data found
-  if (isError || data?.report && data.report.skillsAndCourses && data.report.skillsAndCourses.length === 0) {
-    return <AppLayout>
-        <Helmet>
-          <title>Career Pathway | Insights Collective</title>
-          <meta name="description" content="Get personalized career path recommendations based on your skills and interests" />
-        </Helmet>
-        
-        <motion.div initial={{
-        opacity: 0
-      }} animate={{
-        opacity: 1
-      }} className="container mx-auto py-16 px-4">
-          <Card className="max-w-3xl mx-auto overflow-hidden">
-            <div className="relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 z-0" />
-              <CardContent className="relative z-10 p-8 text-center">
-                <Users className="h-16 w-16 mb-6 mx-auto text-primary" />
-                <h2 className="text-3xl font-bold mb-4">Discover Your Ideal Career Path</h2>
-                <p className="text-muted-foreground text-lg mb-8 max-w-xl mx-auto">
-                  Answer a few questions about your skills, experience, and career goals to receive personalized guidance tailored just for you.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <Button size="lg" onClick={() => navigate('/career-agent')} className="gap-2">
-                    <Play className="h-4 w-4" />
-                    Start Career Assessment
-                  </Button>
-                  <Button variant="outline" size="lg" onClick={() => navigate('/explore-data-careers')}>
-                    Browse Data Careers
-                  </Button>
-                </div>
-              </CardContent>
-            </div>
-          </Card>
-        </motion.div>
-      </AppLayout>;
-  }
-  return <AppLayout>
-      <Helmet>
-        <title>Your Career Pathway | Insights Collective</title>
-        <meta name="description" content="Your personalized career path recommendations based on your skills and interests" />
-      </Helmet>
-      
-      <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
-        {/* Hero Section */}
-        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-6 mb-12">
-          <div className="h-24 w-24 mx-auto bg-gradient-to-br from-blue-500 to-violet-600 rounded-full flex items-center justify-center mb-6">
-            <Users className="h-12 w-12 text-white" />
-          </div>
-          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-violet-600">
-            Hey {userName}, here's your career insights.
-          </h1>
-          <p className="text-gray-600 max-w-3xl mx-auto text-lg">
-            Based on your assessment, we've created personalized recommendations to help you build a fulfilling career path aligned with your strengths and goals.
-          </p>
-        </motion.div>
 
-        {/* Navigation Tabs */}
-        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mb-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-8">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-primary data-[state=active]:text-white">Overview</TabsTrigger>
-              <TabsTrigger value="skills" className="data-[state=active]:bg-primary data-[state=active]:text-white">Skills</TabsTrigger>
-              <TabsTrigger value="roles" className="data-[state=active]:bg-primary data-[state=active]:text-white">Roles</TabsTrigger>
-              <TabsTrigger value="pathway" className="data-[state=active]:bg-primary data-[state=active]:text-white">Pathway</TabsTrigger>
-            </TabsList>
-            
-            {/* Overview Tab */}
-            <TabsContent value="overview">
-              <motion.div initial={{
-              opacity: 0,
-              y: 20
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              delay: 0.2
-            }} className="space-y-8">
-                {/* Summary Card */}
-                <Card className="overflow-hidden border-t-4 border-t-primary">
-                  <CardHeader className="bg-primary/5 pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                      <Star className="h-5 w-5 text-primary" />
-                      Your Career Summary
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 pt-4">
-                    {isLoading ? <Skeleton className="h-20 w-full" /> : <p className="text-gray-700 leading-relaxed text-lg">
-                        {data?.report?.summary || 'Loading your personalized career insights...'}
-                      </p>}
-                  </CardContent>
-                </Card>
-                
-                {/* Key Stats */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card>
-                    <CardContent className="p-6 flex items-start gap-4">
-                      <div className="bg-blue-100 p-3 rounded-full">
-                        <Star className="h-6 w-6 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">Top Career Match</h3>
-                        <p className="text-2xl font-bold">{data?.report?.recommendedRoles?.[0]?.title || 'Data Analyst'}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-6 flex items-start gap-4">
-                      <div className="bg-amber-100 p-3 rounded-full">
-                        <TrendingUp className="h-6 w-6 text-amber-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">Growth Potential</h3>
-                        <p className="text-2xl font-bold">High</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                  <Card>
-                    <CardContent className="p-6 flex items-start gap-4">
-                      <div className="bg-green-100 p-3 rounded-full">
-                        <Award className="h-6 w-6 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="font-semibold text-lg">Skill Alignment</h3>
-                        <p className="text-2xl font-bold">76%</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-                
-                {/* Key Skills Preview */}
-                <Card>
-                  <CardHeader className="bg-primary/5 pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-primary" />
-                      Key Skills to Develop
-                    </CardTitle>
-                    <CardDescription>
-                      These skills will help you advance in your career journey
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-6 pt-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      {isLoading ? <SkillsSkeleton /> : (data?.report?.skillsAndCourses || []).slice(0, 4).map((item, index) => <div key={index} className="flex items-start gap-3">
-                            <div className="bg-primary/10 p-2 rounded-full">
-                              <BookOpen className="h-4 w-4 text-primary" />
-                            </div>
-                            <div>
-                              <div className="font-medium">{item.skill}</div>
-                              <div className="flex items-center gap-2 mt-1">
-                                <Progress value={item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90} className="h-2" />
-                                <span className="text-xs text-muted-foreground">{item.level || 'intermediate'}</span>
-                              </div>
-                            </div>
-                          </div>)}
-                    </div>
-                    <Button variant="link" className="mt-4" onClick={() => setActiveTab('skills')}>
-                      View all recommended skills
-                      <ChevronRight className="ml-1 h-4 w-4" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </TabsContent>
-            
-            {/* Skills Tab */}
-            <TabsContent value="skills">
-              <motion.div initial={{
-              opacity: 0,
-              y: 20
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5
-            }}>
-                <Card>
-                  <CardHeader className="bg-primary/5 pb-2">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle className="text-xl flex items-center gap-2">
-                          <BookOpen className="h-5 w-5 text-primary" />
-                          Recommended Skills
-                        </CardTitle>
-                        <CardDescription>
-                          These recommendations are based on current market trends, your existing skill set, and the requirements of your desired roles.
-                        </CardDescription>
-                      </div>
-                      <div className="hidden md:block h-24 w-24 flex-shrink-0">
-                        <div className="w-full h-full bg-gradient-to-br from-green-100 to-blue-100 rounded-full flex items-center justify-center">
-                          <BookOpen className="h-12 w-12 text-green-600" />
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-0">
-                    <div className="bg-white rounded-lg overflow-hidden shadow-sm">
-                      <div className="grid grid-cols-12 gap-4 p-4 bg-gray-50 font-semibold border-b">
-                        <div className="col-span-4">Skill</div>
-                        <div className="col-span-4 md:col-span-5">Recommended Course</div>
-                        <div className="hidden md:block md:col-span-3">Level</div>
-                      </div>
-                      {isLoading ? <SkillsSkeleton /> : data?.report?.skillsAndCourses?.map((item, index) => <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors">
-                          <div className="col-span-4 flex items-center gap-3">
-                            <BookOpen className="h-5 w-5 text-gray-600" />
-                            <div>
-                              <div className="font-medium">{item.skill}</div>
-                              <div className="md:hidden">
-                                <Badge variant="secondary" className="mt-1">{item.level || 'intermediate'}</Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="col-span-8 md:col-span-5 text-gray-600 flex items-center">{item.course}</div>
-                          <div className="hidden md:flex md:col-span-3 items-center">
-                            <div className="w-full">
-                              <div className="flex justify-between mb-1 text-xs">
-                                <span>{item.level || 'Intermediate'}</span>
-                                <span>{item.level === 'beginner' ? '30%' : item.level === 'intermediate' ? '60%' : '90%'}</span>
-                              </div>
-                              <Progress value={item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90} className="h-2" />
-                            </div>
-                          </div>
-                        </div>)}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="bg-primary/5 p-4">
-                    <Button variant="outline" className="w-full sm:w-auto">
-                      Export Skills List
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </motion.div>
-            </TabsContent>
-            
-            {/* Roles Tab */}
-            <TabsContent value="roles">
-              <motion.div initial={{
-              opacity: 0,
-              y: 20
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5
-            }} className="bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] p-8 rounded-lg">
-                <div className="flex items-center justify-between mb-8">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                      <Briefcase className="h-6 w-6 text-primary" />
-                      Roles that match your profile
-                    </h2>
-                    <p className="text-gray-600">
-                      These roles are suggested based on your transferable skills and interests—options that align with your career goals.
-                    </p>
-                  </div>
-                  <div className="hidden md:block h-24 w-24 flex-shrink-0">
-                    <div className="w-full h-full bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center">
-                      <TrendingUp className="h-12 w-12 text-blue-500" />
-                    </div>
-                  </div>
-                </div>
+const examplePathwayId = "user123-example-pathway";
 
-                <div className="space-y-4">
-                  {isLoading ? <AlternativeRolesSkeleton /> : data?.report?.recommendedRoles?.map((role, index) => <Card key={index} className="bg-white border-l-4 border-l-primary overflow-hidden">
-                      <CardContent className="p-0">
-                        <div className="p-6 flex items-start gap-4">
-                          <div className="bg-primary/10 p-3 rounded-full">
-                            <Briefcase className="h-6 w-6 text-primary" />
-                          </div>
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-xl text-gray-900">{role.title}</h3>
-                            <div className="flex items-center gap-3 mt-1 mb-3">
-                              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
-                                {role.salaryRange || '$80-120K'}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">Match: {90 - index * 5}%</span>
-                            </div>
-                            <p className="text-gray-600">{role.description}</p>
-                            
-                            <div className="mt-4 flex flex-wrap gap-2">
-                              {['SQL', 'Python', 'Data Visualization', 'Communication'].map(skill => <Badge key={skill} variant="outline">{skill}</Badge>)}
-                            </div>
-                          </div>
-                          <div>
-                            <Button onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)} variant="outline" size="sm">
-                              Explore
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>)}
-                </div>
-                
-                <div className="mt-8 flex justify-center">
-                  <Button onClick={() => navigate('/explore-data-careers')}>
-                    Explore All Data Careers
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </div>
-              </motion.div>
-            </TabsContent>
-            
-            {/* Career Path Tab */}
-            <TabsContent value="pathway">
-              <motion.div initial={{
-              opacity: 0,
-              y: 20
-            }} animate={{
-              opacity: 1,
-              y: 0
-            }} transition={{
-              duration: 0.5
-            }}>
-                <div className="mb-8">
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
-                    <TrendingUp className="h-6 w-6 text-primary" />
-                    Path to your aspirational role
-                  </h2>
-                  <p className="text-gray-600">
-                    We created a clear path to your dream role—with a simple, step-by-step plan to bring you closer to your ultimate professional future.
-                  </p>
-                </div>
-
-                <div className="relative bg-white rounded-lg shadow-sm overflow-hidden">
-                  <div className="flex items-center overflow-hidden">
-                    <div className="p-6 w-32 flex-shrink-0 border-r">
-                      <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                        <User className="h-8 w-8 text-primary" />
-                      </div>
-                      <p className="text-sm text-center mt-2 text-gray-600">Current Position</p>
-                    </div>
-
-                    <div className="flex items-center flex-grow overflow-x-auto p-6 relative">
-                      {/* Career path timeline line */}
-                      <div className="absolute left-0 right-0 top-1/2 h-1 bg-gray-200 -translate-y-1/2 z-0"></div>
-                      
-                      {isLoading ? <CareerPathSkeleton /> : data?.report?.careerPathSteps?.map((step, index) => <div key={index} className={`relative flex-shrink-0 w-64 px-4 transition-all duration-300 z-10 ${index === activeCareerStep ? 'scale-105' : 'scale-95 opacity-75'}`}>
-                            <Card className={`${index === activeCareerStep ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white'} relative`}>
-                              {/* Step number marker */}
-                              <div className="absolute top-0 left-1/2 -translate-y-1/2 -translate-x-1/2 bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-medium">
-                                {index + 1}
-                              </div>
-                              
-                              <CardContent className="p-6 pt-8">
-                                <h3 className="font-bold text-xl text-center text-gray-900">{step.title}</h3>
-                                <p className="text-primary text-sm mb-4 font-medium text-center">
-                                  1-2 years
-                                </p>
-                                <p className="text-gray-600 text-sm">{step.description}</p>
-                                
-                                <div className="mt-4 pt-4 border-t">
-                                  <h4 className="font-medium text-sm mb-2">Focus areas:</h4>
-                                  <div className="flex flex-wrap gap-1">
-                                    {['Technical skills', 'Domain knowledge', 'Communication'].map(area => <Badge key={area} variant="secondary" className="text-xs">{area}</Badge>)}
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          </div>)}
-                    </div>
-                  </div>
-                  
-                  <div className="flex justify-end gap-2 p-4 border-t">
-                    <Button variant="outline" size="icon" onClick={prevCareerStep} disabled={activeCareerStep === 0}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="icon" onClick={nextCareerStep} disabled={!data?.report?.careerPathSteps || activeCareerStep === data.report.careerPathSteps.length - 1}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && <Card className="bg-white mt-8">
-                    <CardHeader className="bg-primary/5 pb-2">
-                      <CardTitle className="flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-primary" />
-                        Action Plan
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-6">
-                      <p className="text-gray-700">
-                        Your next career steps should build upon your current foundation while steering towards your aspirational role. 
-                        Initially, advancing from your current position to {data.report.careerPathSteps[0].title} can help bridge the gap 
-                        between your current expertise and desired career path.
-                      </p>
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-start gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p>Complete the recommended skill courses to strengthen your technical foundation</p>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p>Build projects showcasing the skills relevant to your target role</p>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p>Network with professionals in your desired field to gain insights and connections</p>
-                        </div>
-                        <div className="flex items-start gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                          <p>Update your resume and LinkedIn profile to highlight relevant experience</p>
-                        </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="bg-primary/5 border-t p-4">
-                      <Button onClick={generateActionPlan} disabled={isGeneratingPlan}>
-                        {isGeneratingPlan ? <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Generating...
-                          </> : "Generate Detailed Action Plan"}
-                      </Button>
-                    </CardFooter>
-                  </Card>}
-
-                {/* Display the Action Plan component */}
-                <CareerActionPlan initialActionPlan={data?.actionPlan} />
-              </motion.div>
-            </TabsContent>
-          </Tabs>
-        </motion.div>
-
-        {/* New Component-Based Structure */}
-        {data && data.report ? <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-            <CareerHeader name={userName || 'there'} summary={data.report.summary || 'Based on your assessment, we have created personalized recommendations to help you build a fulfilling career.'} />
-            <CareerPathSection roles={mapRecommendedRolesToCareerPathRoles()} />
-            <SkillsSection skills={mapSkillsAndCoursesToSkillsSection()} />
-          </div> : null}
-
-        {/* Feedback / Recommendations Section */}
-        <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mt-8">
-          <CareerAIRecommendations careerPath={data?.report?.recommendedRoles?.[0]?.title} userSkills={userSkills} />
-        </motion.div>
-      </div>
-
-      {/* No assessment results view */}
-      {(!data?.report || !data.report.recommendedRoles?.length) && <div className="text-center py-12 space-y-6">
-          <h2 className="text-3xl font-bold">No Career Assessment Results Yet</h2>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Take our career assessment quiz to get personalized career pathway recommendations,
-            skill development guidance, and a customized learning path.
-          </p>
-          <Button onClick={handleTakeQuiz} size="lg">
-            Take Career Assessment <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-        
-          {/* Show AI recommendations even without assessment */}
-          <div className="pt-12">
-            <CareerAIRecommendations />
-        
-            {/* Feedback Buttons */}
-            <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-4 mt-12">
-              <p className="text-gray-600">Was this information useful?</p>
-              <div className="flex justify-center gap-4">
-                <Button variant="outline" className="px-8">Yes</Button>
-                <Button variant="outline" className="px-8">No</Button>
-              </div>
-            </motion.div>
-          </div>
-        </div>}
-    </AppLayout>;
+const sampleData: CareerPathwayData = {
+  id: examplePathwayId,
+  user_id: "user123",
+  pathway_title: "Aspiring Data Scientist",
+  current_role: "Student",
+  target_role: "Data Scientist",
+  motivation: "Passionate about solving complex problems with data and AI.",
+  jobs: [
+    { title: "Data Analyst Intern", description: "Entry-level role focusing on data collection and basic analysis.", requirements: ["Basic Excel", "SQL fundamentals"], level: "Internship" },
+    { title: "Junior Data Scientist", description: "Role involving model building and data visualization under supervision.", requirements: ["Python (pandas, scikit-learn)", "Statistics"], level: "Entry-level" },
+    { title: "Data Scientist", description: "Independently lead projects, develop advanced models, and present findings.", requirements: ["Machine Learning", "Big Data Technologies", "Communication Skills"], level: "Mid-level" },
+  ],
+  skills: [
+    { name: "SQL", level: 3, category: "Technical" },
+    { name: "Python", level: 2, category: "Technical" },
+    { name: "Machine Learning", level: 1, category: "Technical" },
+    { name: "Communication", level: 3, category: "Soft Skill" },
+    { name: "Problem Solving", level: 4, category: "Soft Skill" },
+    { name: "Tableau", level: 2, category: "Tool" },
+  ],
+  projects: [
+    { title: "Customer Churn Prediction", description: "Build a model to predict customer churn for a telecom company.", skills_to_apply: ["Python", "Machine Learning", "SQL"] },
+    { title: "Sales Dashboard", description: "Create an interactive dashboard to visualize sales performance.", skills_to_apply: ["Tableau", "SQL", "Data Visualization"] },
+  ],
+  resources: [
+    { title: "Andrew Ng's Machine Learning Course", type: "Course", url: "https://www.coursera.org/learn/machine-learning", estimated_time: "60 hours" },
+    { title: "Python for Data Analysis by Wes McKinney", type: "Book", url: "#", estimated_time: "40 hours" },
+    { title: "3Blue1Brown Essence of Linear Algebra", type: "Video Series", url: "https://www.youtube.com/playlist?list=PLZHQObOWTQDPD3MizzM2xVFitgF8hE_ab", estimated_time: "10 hours" },
+  ],
+  custom_tasks: [
+    { id: "task1", description: "Attend a local data science meetup.", completed: false, category: "Networking" },
+    { id: "task2", description: "Update LinkedIn profile with new skills.", completed: true, category: "Career Development" },
+  ],
+  progress_overview: {
+    total_items: 20,
+    completed_items: 5,
+    percentage: 25,
+  },
+  career_suggestions: [
+    "Focus on building a strong portfolio with diverse projects.",
+    "Network actively with professionals in the field.",
+    "Consider specializing in an industry like healthcare or finance after gaining general experience."
+  ],
+  network_contacts: [
+    { name: "Jane Doe", linkedIn: "linkedin.com/in/janedoe", notes: "Met at conference, works at Google."}
+  ],
+  achievements: [
+    { title: "Completed Data Science Bootcamp", date: "2023-12-01", description: "Intensive 3-month program."}
+  ]
 };
 
-// Skeleton components
-const SkillsSkeleton = () => <>
-    {[1, 2, 3].map(i => <div key={i} className="grid grid-cols-12 gap-4 p-4 border-b">
-        <div className="col-span-4">
-          <Skeleton className="h-6 w-32 mb-2" />
-          <Skeleton className="h-4 w-20" />
-        </div>
-        <div className="col-span-8 md:col-span-5">
-          <Skeleton className="h-6 w-full" />
-        </div>
-        <div className="hidden md:block md:col-span-3">
-          <Skeleton className="h-4 w-full" />
-        </div>
-      </div>)}
-  </>;
-const CareerPathSkeleton = () => <>
-    {[1, 2, 3].map(i => <div key={i} className="flex-shrink-0 w-64 px-4">
-        <Skeleton className="h-40 w-full rounded-lg" />
-      </div>)}
-  </>;
-const AlternativeRolesSkeleton = () => <>
-    {[1, 2, 3].map(i => <Card key={i} className="bg-white">
-        <CardContent className="p-6">
-          <Skeleton className="h-6 w-48 mb-2" />
-          <Skeleton className="h-4 w-32 mb-2" />
-          <Skeleton className="h-16 w-full" />
-        </CardContent>
-      </Card>)}
-  </>;
-export default CareerPathway;
+const CareerPathway: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [pathwayData, setPathwayData] = useState<CareerPathwayData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState<Partial<Record<keyof CareerPathwayData | 'jobs' | 'skills' | 'projects' | 'resources' | 'custom_tasks', boolean | Record<string, boolean>>>>({});
+  const [editData, setEditData] = useState<Partial<CareerPathwayData>>({});
+
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [currentEditItem, setCurrentEditItem] = useState<any>(null);
+  const [editItemType, setEditItemType] = useState<string | null>(null);
+  const [isAddItemDialogOpen, setIsAddItemDialogOpen] = useState(false);
+  const [newItemType, setNewItemType] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single();
+          if (error) throw error;
+          setUserProfile(data);
+        } catch (error: any) {
+          toast({ title: "Error fetching profile", description: error.message, variant: "destructive" });
+        }
+      }
+    };
+
+    const fetchPathwayData = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('career_pathways')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (error) throw error;
+
+          if (data) {
+            setPathwayData(data as CareerPathwayData);
+          } else {
+            setPathwayData({ ...sampleData, user_id: user.id, id: examplePathwayId });
+             toast({ title: "No pathway found", description: "Displaying sample pathway. AI generation coming soon!", variant: "default" });
+          }
+        } catch (error: any) {
+          toast({ title: "Error fetching pathway data", description: error.message, variant: "destructive" });
+          setPathwayData({ ...sampleData, user_id: user.id, id: examplePathwayId });
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    };
+    fetchUserProfile();
+    fetchPathwayData();
+  }, [user, toast]);
+
+  const calculatedProgress = useMemo(() => {
+    if (!pathwayData) return { completed_items: 0, total_items: 0, percentage: 0 };
+    
+    const skillLevels = pathwayData.skills.reduce((acc, skill) => acc + (skill.level || 0), 0);
+    const totalSkillLevelsPossible = pathwayData.skills.length * 5;
+
+    const completedProjects = pathwayData.projects.filter(p => {
+        return false;
+    }).length;
+    const totalProjects = pathwayData.projects.length;
+
+    const completedResources = pathwayData.resources.filter(r => {
+        return false;
+    }).length;
+    const totalResources = pathwayData.resources.length;
+
+    const completedCustomTasks = pathwayData.custom_tasks.filter(t => t.completed).length;
+    const totalCustomTasks = pathwayData.custom_tasks.length;
+
+    const completedItems = (skillLevels / (totalSkillLevelsPossible || 1)) * 50 +
+                           (completedProjects / (totalProjects || 1)) * 20 +
+                           (completedResources / (totalResources || 1)) * 15 +
+                           (completedCustomTasks / (totalCustomTasks || 1)) * 15;
+    
+    const allTasks = pathwayData.custom_tasks;
+    const completed = allTasks.filter(t => t.completed).length;
+    const total = allTasks.length;
+    
+    return {
+      completed_items: completed,
+      total_items: total,
+      percentage: total > 0 ? Math.round((completed / total) * 100) : 0,
+    };
+  }, [pathwayData]);
+
+
+  const handleEdit = (section: keyof CareerPathwayData | 'jobs' | 'skills' | 'projects' | 'resources' | 'custom_tasks', index?: number) => {
+    setIsEditing(prev => ({ ...prev, [section]: index !== undefined ? { ...(prev[section] as Record<string,boolean>), [index]: true } : true }));
+    if (pathwayData) {
+        if (index !== undefined && Array.isArray(pathwayData[section as keyof CareerPathwayData])) {
+            setCurrentEditItem((pathwayData[section as keyof CareerPathwayData] as any[])[index]);
+            setEditItemType(section.toString().slice(0, -1));
+        } else {
+             setCurrentEditItem({ value: pathwayData[section as keyof CareerPathwayData] });
+            setEditItemType(section.toString());
+        }
+        setEditingSection(section.toString() + (index !== undefined ? `[${index}]` : ''));
+    }
+  };
+  
+  const handleSaveEdit = async () => {
+    if (!user || !pathwayData || !editingSection || !currentEditItem) return;
+
+    let updatedPathwayData = { ...pathwayData };
+
+    if (editingSection.includes('[')) {
+        const [sectionName, indexStr] = editingSection.replace(']', '').split('[');
+        const index = parseInt(indexStr);
+        if (Array.isArray(updatedPathwayData[sectionName as keyof CareerPathwayData])) {
+            (updatedPathwayData[sectionName as keyof CareerPathwayData] as any[])[index] = currentEditItem;
+        }
+    } else {
+        (updatedPathwayData as any)[editingSection] = currentEditItem.value;
+    }
+    
+    setPathwayData(updatedPathwayData);
+    
+    try {
+        const { data, error } = await supabase
+            .from('career_pathways')
+            .update(updatedPathwayData)
+            .eq('id', pathwayData.id)
+            .select()
+            .single();
+
+        if (error) throw error;
+        setPathwayData(data as CareerPathwayData);
+        toast({ title: "Success", description: `${editItemType || 'Pathway'} updated successfully.` });
+    } catch (error: any) {
+        toast({ title: "Error updating pathway", description: error.message, variant: "destructive" });
+    } finally {
+        setEditingSection(null);
+        setCurrentEditItem(null);
+        setEditItemType(null);
+    }
+};
+
+
+  const handleCancelEdit = () => {
+    setEditingSection(null);
+    setCurrentEditItem(null);
+    setEditItemType(null);
+  };
+
+  const handleInputChange = (field: string, value: any) => {
+    setCurrentEditItem((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  const handleAddItem = (type: 'job' | 'skill' | 'project' | 'resource' | 'custom_task') => {
+    setNewItemType(type);
+    let newItem: any = {};
+    switch (type) {
+        case 'job': newItem = { title: '', description: '', requirements: [], level: '' }; break;
+        case 'skill': newItem = { name: '', level: 0, category: '' }; break;
+        case 'project': newItem = { title: '', description: '', skills_to_apply: [] }; break;
+        case 'resource': newItem = { title: '', type: '', url: '' }; break;
+        case 'custom_task': newItem = { id: `task-${Date.now()}`, description: '', completed: false }; break;
+    }
+    setCurrentEditItem(newItem);
+    setIsAddItemDialogOpen(true);
+  };
+
+  const handleSaveNewItem = async () => {
+    if (!user || !pathwayData || !newItemType || !currentEditItem) return;
+
+    const sectionMap = {
+        job: 'jobs', skill: 'skills', project: 'projects', resource: 'resources', custom_task: 'custom_tasks'
+    };
+    const sectionKey = sectionMap[newItemType as keyof typeof sectionMap] as keyof CareerPathwayData;
+    
+    const updatedSectionArray = [...(pathwayData[sectionKey] as any[] || []), currentEditItem];
+    const updatedPathwayData = { ...pathwayData, [sectionKey]: updatedSectionArray };
+
+    setPathwayData(updatedPathwayData);
+
+    try {
+        const { data, error } = await supabase
+            .from('career_pathways')
+            .update({ [sectionKey]: updatedSectionArray, updated_at: new Date().toISOString() })
+            .eq('id', pathwayData.id)
+            .select()
+            .single();
+        if (error) throw error;
+        setPathwayData(data as CareerPathwayData);
+        toast({ title: "Success", description: `${newItemType} added successfully.`});
+    } catch (error: any) {
+        toast({ title: `Error adding ${newItemType}`, description: error.message, variant: "destructive" });
+    } finally {
+        setIsAddItemDialogOpen(false);
+        setNewItemType(null);
+        setCurrentEditItem(null);
+    }
+  };
+  
+  const handleDeleteItem = async (type: 'job' | 'skill' | 'project' | 'resource' | 'custom_task', index: number) => {
+    if (!pathwayData) return;
+
+    const sectionMap = {
+        job: 'jobs', skill: 'skills', project: 'projects', resource: 'resources', custom_task: 'custom_tasks'
+    };
+    const sectionKey = sectionMap[type as keyof typeof sectionMap] as keyof CareerPathwayData;
+
+    const currentArray = pathwayData[sectionKey] as any[];
+    const updatedArray = currentArray.filter((_, i) => i !== index);
+    const updatedPathwayData = { ...pathwayData, [sectionKey]: updatedArray };
+
+    setPathwayData(updatedPathwayData);
+
+     try {
+        const { data, error } = await supabase
+            .from('career_pathways')
+            .update({ [sectionKey]: updatedArray, updated_at: new Date().toISOString() })
+            .eq('id', pathwayData.id)
+            .select()
+            .single();
+        if (error) throw error;
+        setPathwayData(data as CareerPathwayData);
+        toast({ title: "Success", description: `${type} deleted successfully.`});
+    } catch (error: any) {
+        toast({ title: `Error deleting ${type}`, description: error.message, variant: "destructive" });
+    }
+  };
+
+  const renderEditDialogFields = () => {
+    if (!currentEditItem || (!editingSection && !isAddItemDialogOpen)) return null;
+
+    const itemType = editItemType || newItemType;
+
+    switch (itemType) {
+      case 'pathway_title':
+      case 'current_role':
+      case 'target_role':
+      case 'motivation':
+        return <Input value={currentEditItem.value || ''} onChange={(e) => handleInputChange('value', e.target.value)} />;
+      case 'job':
+        return (
+          <>
+            <Input placeholder="Job Title" value={currentEditItem.title || ''} onChange={(e) => handleInputChange('title', e.target.value)} className="mb-2"/>
+            <Textarea placeholder="Description" value={currentEditItem.description || ''} onChange={(e) => handleInputChange('description', e.target.value)} className="mb-2"/>
+            <Input placeholder="Requirements (comma-separated)" value={(currentEditItem.requirements || []).join(', ')} onChange={(e) => handleInputChange('requirements', e.target.value.split(',').map(s => s.trim()))} className="mb-2"/>
+            <Input placeholder="Level (e.g. Entry, Mid, Senior)" value={currentEditItem.level || ''} onChange={(e) => handleInputChange('level', e.target.value)} />
+          </>
+        );
+      case 'skill':
+        return (
+          <>
+            <Input placeholder="Skill Name" value={currentEditItem.name || ''} onChange={(e) => handleInputChange('name', e.target.value)} className="mb-2"/>
+            <Input type="number" placeholder="Level (0-5)" value={currentEditItem.level || 0} onChange={(e) => handleInputChange('level', parseInt(e.target.value))} className="mb-2"/>
+            <Input placeholder="Category (e.g. Technical, Soft)" value={currentEditItem.category || ''} onChange={(e) => handleInputChange('category', e.target.value)} />
+          </>
+        );
+      case 'project':
+         return (
+            <>
+                <Input placeholder="Project Title" value={currentEditItem.title || ''} onChange={(e) => handleInputChange('title', e.target.value)} className="mb-2"/>
+                <Textarea placeholder="Description" value={currentEditItem.description || ''} onChange={(e) => handleInputChange('description', e.target.value)} className="mb-2"/>
+                <Input placeholder="Skills to Apply (comma-separated)" value={(currentEditItem.skills_to_apply || []).join(', ')} onChange={(e) => handleInputChange('skills_to_apply', e.target.value.split(',').map(s => s.trim()))} />
+            </>
+         );
+      case 'resource':
+          return (
+            <>
+                <Input placeholder="Resource Title" value={currentEditItem.title || ''} onChange={(e) => handleInputChange('title', e.target.value)} className="mb-2"/>
+                <Input placeholder="Type (e.g. Course, Article)" value={currentEditItem.type || ''} onChange={(e) => handleInputChange('type', e.target.value)} className="mb-2"/>
+                <Input placeholder="URL" value={currentEditItem.url || ''} onChange={(e) => handleInputChange('url', e.target.value)} className="mb-2"/>
+                <Input placeholder="Est. Time (e.g. 10 hours)" value={currentEditItem.estimated_time || ''} onChange={(e) => handleInputChange('estimated_time', e.target.value)} />
+            </>
+          );
+      case 'custom_task':
+          return (
+            <>
+                <Textarea placeholder="Task Description" value={currentEditItem.description || ''} onChange={(e) => handleInputChange('description', e.target.value)} className="mb-2"/>
+                 <div className="flex items-center space-x-2">
+                    <input type="checkbox" id="taskCompleted" checked={currentEditItem.completed || false} onChange={(e) => handleInputChange('completed', e.target.checked)} />
+                    <label htmlFor="taskCompleted">Completed</label>
+                </div>
+            </>
+          );
+      default:
+        return <p>Unsupported item type for editing.</p>;
+    }
+  };
+  
+  if (isLoading) return <AppLayout><div className="container mx-auto p-4 text-center">Loading pathway...</div></AppLayout>;
+  if (!user) return <AppLayout><div className="container mx-auto p-4 text-center">Please log in to view your career pathway.</div></AppLayout>;
+  if (!pathwayData) return <AppLayout><div className="container mx-auto p-4 text-center">Could not load career pathway data. AI generation coming soon.</div></AppLayout>;
+
+  const { pathway_title, current_role, target_role, motivation, jobs, skills, projects, resources, custom_tasks } = pathwayData;
+  const progress = calculatedProgress;
+
+
+  return (
+    <AppLayout>
+      <PageTitle title={pathway_title || "My Career Pathway"} description="Your personalized roadmap to professional success." />
+      <div className="container mx-auto p-4 space-y-8">
+        
+        <Card className="bg-gradient-to-r from-primary/10 to-secondary/10">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <CardTitle className="text-3xl font-bold text-primary">
+                {editingSection === 'pathway_title' ? (
+                    <Input value={currentEditItem?.value || ''} onChange={(e) => handleInputChange('value', e.target.value)} className="text-3xl font-bold"/>
+                ) : pathway_title}
+              </CardTitle>
+              {editingSection === 'pathway_title' ? (
+                 <div className="flex gap-2">
+                    <Button onClick={handleSaveEdit} size="sm"><Save className="h-4 w-4 mr-2"/>Save</Button>
+                    <Button onClick={handleCancelEdit} variant="outline" size="sm"><X className="h-4 w-4 mr-2"/>Cancel</Button>
+                 </div>
+              ) : (
+                <Button variant="ghost" size="icon" onClick={() => handleEdit('pathway_title')}>
+                  <Edit3 className="h-5 w-5 text-muted-foreground hover:text-primary" />
+                </Button>
+              )}
+            </div>
+            <CardDescription className="text-lg text-muted-foreground">
+              Your personalized roadmap from {editingSection === 'current_role' ? <Input value={currentEditItem?.value || ''} onChange={(e) => handleInputChange('value', e.target.value)} /> : (current_role || "your current position")} to {editingSection === 'target_role' ? <Input value={currentEditItem?.value || ''} onChange={(e) => handleInputChange('value', e.target.value)} /> : (target_role || "your dream job")}.
+              { (editingSection === 'current_role' || editingSection === 'target_role') ? (
+                 <div className="flex gap-2 mt-1">
+                    <Button onClick={handleSaveEdit} size="sm"><Save className="h-4 w-4 mr-2"/>Save</Button>
+                    <Button onClick={handleCancelEdit} variant="outline" size="sm"><X className="h-4 w-4 mr-2"/>Cancel</Button>
+                 </div>
+              ) : (
+                <>
+                <Button variant="ghost" size="icon" onClick={() => handleEdit('current_role')} className="ml-1"><Edit3 className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" onClick={() => handleEdit('target_role')}><Edit3 className="h-4 w-4" /></Button>
+                </>
+              )}
+            </CardDescription>
+            {motivation && (
+              <p className="mt-2 text-sm italic">
+                <span className="font-semibold">Motivation: </span> 
+                {editingSection === 'motivation' ? <Textarea value={currentEditItem?.value || ''} onChange={(e) => handleInputChange('value', e.target.value)} /> : motivation}
+                {editingSection === 'motivation' ? (
+                    <div className="flex gap-2 mt-1">
+                        <Button onClick={handleSaveEdit} size="sm"><Save className="h-4 w-4 mr-2"/>Save</Button>
+                        <Button onClick={handleCancelEdit} variant="outline" size="sm"><X className="h-4 w-4 mr-2"/>Cancel</Button>
+                    </div>
+                ) : (
+                    <Button variant="ghost" size="icon" onClick={() => handleEdit('motivation')} className="ml-1"><Edit3 className="h-4 w-4" /></Button>
+                )}
+              </p>
+            )}
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-4">
+              <Progress value={progress.percentage} className="w-full h-3" />
+              <span className="text-sm font-medium text-primary">{progress.percentage}% Complete</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">{progress.completed_items} of {progress.total_items} tasks/milestones achieved.</p>
+          </CardContent>
+        </Card>
+
+        <Tabs defaultValue="overview" className="w-full">
+          <TabsList className="grid w-full grid-cols-3 md:grid-cols-6">
+            <TabsTrigger value="overview"><Target className="h-4 w-4 mr-2" />Overview</TabsTrigger>
+            <TabsTrigger value="jobs"><Briefcase className="h-4 w-4 mr-2" />Job Roles</TabsTrigger>
+            <TabsTrigger value="skills"><Zap className="h-4 w-4 mr-2" />Skills</TabsTrigger>
+            <TabsTrigger value="projects"><Lightbulb className="h-4 w-4 mr-2" />Projects</TabsTrigger>
+            <TabsTrigger value="resources"><BookOpen className="h-4 w-4 mr-2" />Resources</TabsTrigger>
+            <TabsTrigger value="tasks"><CheckCircle className="h-4 w-4 mr-2" />Tasks</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview" className="mt-6">
+            <Card>
+              <CardHeader><CardTitle>Pathway Overview</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <p><span className="font-semibold">Target Role:</span> {target_role}</p>
+                <p><span className="font-semibold">Key Milestones:</span> The pathway includes {jobs.length} job progression stages, developing {skills.length} core skills, completing {projects.length} portfolio projects, and utilizing {resources.length} learning resources.</p>
+                <p className="text-muted-foreground">This is a dynamic plan. Feel free to adjust it as you learn and grow. Use the edit buttons to customize sections or items.</p>
+                {pathwayData.career_suggestions && pathwayData.career_suggestions.length > 0 && (
+                    <div>
+                        <h4 className="font-semibold mt-4 mb-2">AI Career Suggestions:</h4>
+                        <ul className="list-disc list-inside space-y-1 text-sm">
+                            {pathwayData.career_suggestions.map((suggestion, idx) => <li key={idx}>{suggestion}</li>)}
+                        </ul>
+                    </div>
+                )}
+              </CardContent>
+            </Card>
+            <CareerAIRecommendations pathway={pathwayData} userProfile={userProfile} onUpdatePathway={setPathwayData} />
+          </TabsContent>
+
+          <TabsContent value="jobs" className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <CardTitle>Job Roles Progression</CardTitle>
+                <Button onClick={() => handleAddItem('job')} size="sm"><PlusCircle className="h-4 w-4 mr-2"/>Add Job Role</Button>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {jobs.map((job, index) => (
+                <Card key={index} className="flex flex-col">
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                        <CardTitle className="text-xl">{job.title}</CardTitle>
+                        <Badge variant="outline">{job.level}</Badge>
+                    </div>
+                    <CardDescription>{job.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-grow">
+                    <h4 className="font-semibold mb-1 text-sm">Key Requirements:</h4>
+                    <ul className="list-disc list-inside text-xs space-y-1">
+                      {job.requirements.map((req, i) => <li key={i}>{req}</li>)}
+                    </ul>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" size="sm" onClick={() => { setCurrentEditItem(job); setEditItemType('job'); setEditingSection(`jobs[${index}]`); setIsAddItemDialogOpen(true); }}><Edit3 className="h-4 w-4 mr-2" />Edit</Button>
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 ml-2" onClick={() => handleDeleteItem('job', index)}><Trash2 className="h-4 w-4 mr-2"/>Delete</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="skills" className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <CardTitle>Skills to Develop</CardTitle>
+                <Button onClick={() => handleAddItem('skill')} size="sm"><PlusCircle className="h-4 w-4 mr-2"/>Add Skill</Button>
+            </div>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {skills.map((skill, index) => (
+                <Card key={index}>
+                  <CardHeader>
+                    <div className="flex justify-between items-center">
+                        <CardTitle className="text-lg">{skill.name}</CardTitle>
+                        <Badge>{skill.category}</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center justify-between text-sm">
+                        <span>Proficiency Level:</span>
+                        <div className="flex items-center">
+                            {[1,2,3,4,5].map(l => (
+                                <Zap key={l} className={`h-5 w-5 ${l <= skill.level ? 'text-yellow-400 fill-yellow-400' : 'text-gray-300'}`} />
+                            ))}
+                            <span className="ml-2">({skill.level}/5)</span>
+                        </div>
+                    </div>
+                  </CardContent>
+                   <CardFooter>
+                    <Button variant="outline" size="sm" onClick={() => { setCurrentEditItem(skill); setEditItemType('skill'); setEditingSection(`skills[${index}]`); setIsAddItemDialogOpen(true); }}><Edit3 className="h-4 w-4 mr-2" />Edit</Button>
+                    <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600 ml-2" onClick={() => handleDeleteItem('skill', index)}><Trash2 className="h-4 w-4 mr-2"/>Delete</Button>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="projects" className="mt-6">
+            <div className="flex justify-between items-center mb-4">
+                <CardTitle>Portfolio Projects</CardTitle>
+                <Button onClick={() => handleAddItem('project')} size="sm"><PlusCircle className="h-4 w-4 mr-2"/>Add Project</Button>
+            </div>
+            <div className="space-y-6">
+              {projects.map((project, index) => (
+                <Card key={index}>
+                  <CardHeader>
+                    <CardTitle>{project.title}</CardTitle>
+                    <CardDescription>{project.description}</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <h4 className="font-semibold text-sm mb-1">Skills to Apply:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {project.skills_to_apply.map((skill, i) => <Badge key={i} variant="secondary">{skill}</Badge>)}
+                    </div>
+                  </CardContent>
+                  <CardFooter>
+                    <Button variant="outline" size="sm" onClick={() => { setCurrentEditItem(project); setEditItemType('project'); setEditingSection(`projects[${index}]`); setIsAddItemDialogOpen(true); }}><Edit3 className="h-4 w-4 mr-2" />Edit</Button>
+                    <Button variant="ghost
