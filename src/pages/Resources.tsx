@@ -14,6 +14,7 @@ import { ResourceCard } from '@/components/resources/ResourceCard';
 import { TweetCard } from '@/components/resources/TweetCard';
 import { LinkedInCard } from '@/components/resources/LinkedInCard';
 import { FeedbackSection } from '@/components/common/FeedbackSection';
+
 const VISIBLE_RESOURCES_IN_DIRECTORY = 5;
 const VISIBLE_TWEETS = 3;
 const VISIBLE_LINKEDIN = 3;
@@ -23,6 +24,7 @@ const TOP_TWEETS_COUNT = 100;
 type ResourceWithSourceType = Resource & {
   sourceType: 'Tweet' | 'LinkedIn' | 'Standard';
 };
+
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
   if (resource.source?.toLowerCase().includes('twitter') || resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com')) {
     return 'Tweet';
@@ -31,6 +33,7 @@ const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Sta
   }
   return 'Standard';
 };
+
 const extractUniqueValues = (resources: Resource[], primaryField: keyof Resource, secondaryField?: keyof Resource, additionalStaticField?: keyof Resource): string[] => {
   const values = new Set<string>();
   resources.forEach(resource => {
@@ -48,6 +51,7 @@ const extractUniqueValues = (resources: Resource[], primaryField: keyof Resource
   // This aligns with "only show values from uniqueCategories".
   return Array.from(values).filter(Boolean).sort();
 };
+
 const processResources = (resources: Resource[]): ResourceWithSourceType[] => {
   console.log('[ProcessResources] Input resources count:', resources.length);
   return resources.map(resource => {
@@ -81,21 +85,24 @@ const matchesFilters = (resource: ResourceWithSourceType, searchQuery: string, c
   const finalMatch = matchesSearch && categoryMatches && typeMatches && deadlineMatches;
   return finalMatch;
 };
+
 const adaptResourceToTweet = (resource: Resource) => {
-  // Create tweet URL if needed
   let tweetUrl = resource.resource_link;
   if (!tweetUrl && resource.source?.toLowerCase().includes('twitter') && resource.tweet_id) {
     tweetUrl = `https://x.com/teneikaask_you/status/${resource.tweet_id}`;
   }
+  const likes = Math.max(Number(resource.favorite_count) || 0, Number(resource.tweet_likes) || 0);
+  const retweets = Math.max(Number(resource.retweet_count) || 0, Number(resource.tweet_retweets) || 0);
   return {
     id: resource.id,
     content: resource.full_text || '',
     date: resource.created_at || '',
     url: tweetUrl || '',
-    likes: resource.favorite_count || resource.tweet_likes || 0,
-    retweets: resource.retweet_count || resource.tweet_retweets || 0
+    likes: likes,
+    retweets: retweets
   };
 };
+
 const adaptResourceToLinkedIn = (resource: Resource) => {
   const resourceTypesList: string[] = [];
   if (resource.resource_type) resourceTypesList.push(...parseArrayField(resource.resource_type).map(normalizeString));
@@ -111,6 +118,7 @@ const adaptResourceToLinkedIn = (resource: Resource) => {
     url: resource.resource_link || ''
   };
 };
+
 const Resources = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -155,17 +163,29 @@ const Resources = () => {
   }, [filteredResources]);
   const topGlobalTweets = useMemo(() => {
     const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
-    console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc:', allTweets);
+    console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc:', allTweets.length);
     const sorted = allTweets.sort((a, b) => {
-      const scoreA = (a.favorite_count || a.tweet_likes || 0) + (a.retweet_count || a.tweet_retweets || 0);
-      const scoreB = (b.favorite_count || b.tweet_likes || 0) + (b.retweet_count || b.tweet_retweets || 0);
+      const likesA = Math.max(Number(a.favorite_count) || 0, Number(a.tweet_likes) || 0);
+      const retweetsA = Math.max(Number(a.retweet_count) || 0, Number(a.tweet_retweets) || 0);
+      const scoreA = likesA + retweetsA;
+
+      const likesB = Math.max(Number(b.favorite_count) || 0, Number(b.tweet_likes) || 0);
+      const retweetsB = Math.max(Number(b.retweet_count) || 0, Number(b.tweet_retweets) || 0);
+      const scoreB = likesB + retweetsB;
+
       if (scoreB === scoreA) {
         return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
       }
       return scoreB - scoreA;
     });
     const topTweets = sorted.slice(0, TOP_TWEETS_COUNT);
-    console.log('[ResourcesPage] Top global tweets (before filtering for tab display):', topTweets);
+    console.log('[ResourcesPage] Top global tweets (before filtering for tab display):', topTweets.length);
+    // For debugging, log the top few tweets with their scores
+    // topTweets.slice(0, 5).forEach(t => {
+    //   const likes = Math.max(Number(t.favorite_count) || 0, Number(t.tweet_likes) || 0);
+    //   const retweets = Math.max(Number(t.retweet_count) || 0, Number(t.tweet_retweets) || 0);
+    //   console.log(`Tweet ID: ${t.tweet_id || t.id}, Score: ${likes + retweets}, Likes: ${likes}, Retweets: ${retweets}, Text: ${t.full_text?.substring(0,30)}`);
+    // });
     return topTweets;
   }, [processedResources]);
 
@@ -195,16 +215,16 @@ const Resources = () => {
 
   const tweetResources = useMemo(() => {
     const tr = topGlobalTweets.filter(resource => matchesFilters(resource, searchQuery, categoryFilter, typeFilter, withDeadline));
-    console.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab):', tr);
+    console.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab):', tr.length);
     return tr;
   }, [topGlobalTweets, searchQuery, categoryFilter, typeFilter, withDeadline]);
   const linkedinResources = useMemo(() => {
     const lr = filteredResources.filter(r => r.sourceType === 'LinkedIn');
-    console.log('[ResourcesPage] LinkedIn resources (for LinkedIn Tab):', lr);
+    console.log('[ResourcesPage] LinkedIn resources (for LinkedIn Tab):', lr.length);
     return lr;
   }, [filteredResources]);
   const visibleDirectoryResources = isAuthenticated ? directoryResources : directoryResources.slice(0, VISIBLE_RESOURCES_IN_DIRECTORY);
-  console.log('[ResourcesPage] Visible Directory Resources (for main tab display):', visibleDirectoryResources);
+  console.log('[ResourcesPage] Visible Directory Resources (for main tab display):', visibleDirectoryResources.length);
   const visibleTweets = isAuthenticated ? tweetResources : tweetResources.slice(0, VISIBLE_TWEETS);
   const visibleLinkedIn = isAuthenticated ? linkedinResources : linkedinResources.slice(0, VISIBLE_LINKEDIN);
   const clearFilters = () => {
@@ -243,7 +263,6 @@ const Resources = () => {
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px] overflow-y-auto">
                     <SelectItem value="all">All Categories</SelectItem>
-                    {/* Removed static categories, now only mapping uniqueCategories */}
                     {uniqueCategories.map(category => <SelectItem key={category} value={category}>
                         {category}
                       </SelectItem>)}
@@ -294,7 +313,7 @@ const Resources = () => {
           </TabsContent>
           
           <TabsContent value="tweets" className="space-y-6">
-            <div className="max-w-3xl mx-auto">
+            <div className="w-full">
               <div className="flex flex-col space-y-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1 relative">
@@ -307,7 +326,6 @@ const Resources = () => {
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
                       <SelectItem value="all">All Categories</SelectItem>
-                       {/* Removed static categories, now only mapping uniqueCategories */}
                       {uniqueCategories.map(category => <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>)}
@@ -360,7 +378,7 @@ const Resources = () => {
           </TabsContent>
           
           <TabsContent value="linkedin" className="space-y-6">
-            <div className="max-w-3xl mx-auto">
+            <div className="w-full">
               <div className="flex flex-col space-y-4 mb-6">
                 <div className="flex flex-col md:flex-row gap-4">
                   <div className="flex-1 relative">
@@ -373,7 +391,6 @@ const Resources = () => {
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
                       <SelectItem value="all">All Categories</SelectItem>
-                       {/* Removed static categories, now only mapping uniqueCategories */}
                       {uniqueCategories.map(category => <SelectItem key={category} value={category}>
                           {category}
                         </SelectItem>)}
@@ -404,7 +421,7 @@ const Resources = () => {
                     </Button>}
                 </div>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-4 w-full">
                 {visibleLinkedIn.map(resource => <LinkedInCard key={resource.id} post={adaptResourceToLinkedIn(resource)} />)}
                 
                 {!isAuthenticated && linkedinResources.length > VISIBLE_LINKEDIN && <div className="relative mt-8">
