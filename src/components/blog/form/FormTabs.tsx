@@ -66,7 +66,7 @@ export function FormTabs({
         className="w-full"
       >
         <div className="flex items-center justify-between">
-          <TabsList className="inline-flex justify-start h-10 w-auto">
+          <TabsList>
             <TabsTrigger value="edit" className="flex items-center gap-1">
               <FileText className="h-4 w-4" />
               Editor
