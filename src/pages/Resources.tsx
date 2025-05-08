@@ -15,7 +15,7 @@ import { TweetCard } from '@/components/resources/TweetCard';
 import { LinkedInCard } from '@/components/resources/LinkedInCard';
 import { FeedbackSection } from '@/components/common/FeedbackSection';
 
-const VISIBLE_RESOURCES = 5;
+const VISIBLE_RESOURCES_IN_DIRECTORY = 5; // Renamed for clarity, was VISIBLE_RESOURCES
 const VISIBLE_TWEETS = 3; 
 const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
@@ -56,8 +56,10 @@ const extractUniqueValues = (
 const processResources = (resources: Resource[]): (Resource & { 
   sourceType: 'Tweet' | 'LinkedIn' | 'Standard';
 })[] => {
+  console.log('[ProcessResources] Input resources count:', resources.length);
   return resources.map(resource => {
     const sourceType = classifyResourceSource(resource);
+    // console.log(`[ProcessResources] Resource ID ${resource.id} classified as ${sourceType}`);
     return {
       ...resource,
       sourceType,
@@ -91,20 +93,27 @@ const matchesFilters = (
   if (resource.career_area) parseArrayField(resource.career_area).forEach(label => resourceCategories.add(normalizeString(label)));
   if (resource.predicted_career_labels) parseArrayField(resource.predicted_career_labels).forEach(label => resourceCategories.add(normalizeString(label)));
   if (resource.category) parseArrayField(resource.category).forEach(label => resourceCategories.add(normalizeString(label)));
-  if (resourceCategories.size === 0) resourceCategories.add('General');
+  if (resourceCategories.size === 0 && resource.sourceType === 'Standard') resourceCategories.add('General'); // Only add 'General' if truly no categories for Standard
   
-  const categoryMatches = categoryFilter === 'all' || Array.from(resourceCategories).includes(categoryFilter);
+  const categoryMatches = categoryFilter === 'all' || Array.from(resourceCategories).includes(categoryFilter) || (categoryFilter === 'General' && resourceCategories.size === 0 && resource.sourceType === 'Standard');
+
 
   const resourceTypesSet = new Set<string>();
   if (resource.resource_type) parseArrayField(resource.resource_type).forEach(label => resourceTypesSet.add(normalizeString(label)));
   if (resource.predicted_resource_labels) parseArrayField(resource.predicted_resource_labels).forEach(label => resourceTypesSet.add(normalizeString(label)));
-  if (resourceTypesSet.size === 0) resourceTypesSet.add('Resource');
+  if (resourceTypesSet.size === 0 && resource.sourceType === 'Standard') resourceTypesSet.add('Resource'); // Only add 'Resource' if truly no types for Standard
 
-  const typeMatches = typeFilter === 'all' || Array.from(resourceTypesSet).includes(typeFilter);
+  const typeMatches = typeFilter === 'all' || Array.from(resourceTypesSet).includes(typeFilter) || (typeFilter === 'Resource' && resourceTypesSet.size === 0 && resource.sourceType === 'Standard');
   
   const deadlineMatches = withDeadline ? !!resource.deadline : true;
   
-  return matchesSearch && categoryMatches && typeMatches && deadlineMatches;
+  const finalMatch = matchesSearch && categoryMatches && typeMatches && deadlineMatches;
+  // if (!finalMatch) {
+  //   console.log(`[MatchesFilters] Resource ID ${resource.id} DID NOT MATCH:`, { matchesSearch, categoryMatches, typeMatches, deadlineMatches, searchQuery, categoryFilter, typeFilter, withDeadline, resourceCategories: Array.from(resourceCategories), resourceTypesSet: Array.from(resourceTypesSet) });
+  // } else {
+  //   console.log(`[MatchesFilters] Resource ID ${resource.id} MATCHED`);
+  // }
+  return finalMatch;
 };
 
 const adaptResourceToTweet = (resource: Resource) => {
@@ -154,7 +163,10 @@ const Resources = () => {
   const { resources, isLoading } = useResources();
   
   const processedResources = useMemo(() => {
-    return processResources(resources);
+    console.log('[ResourcesPage] Raw resources from hook:', resources);
+    const pr = processResources(resources);
+    console.log('[ResourcesPage] Processed resources (with sourceType):', pr);
+    return pr;
   }, [resources]);
   
   const uniqueCategories = useMemo(() => {
@@ -166,7 +178,8 @@ const Resources = () => {
   }, [resources]);
   
   const filteredResources = useMemo(() => {
-    return processedResources.filter(resource => 
+    console.log('[ResourcesPage] Filtering processed resources. Count:', processedResources.length, 'Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline });
+    const fr = processedResources.filter(resource => 
       matchesFilters(
         resource, 
         searchQuery, 
@@ -175,15 +188,19 @@ const Resources = () => {
         withDeadline
       )
     );
+    console.log('[ResourcesPage] Filtered resources (for all tabs potentially):', fr);
+    return fr;
   }, [processedResources, searchQuery, categoryFilter, typeFilter, withDeadline]);
   
-  const standardResources = filteredResources.filter(r => r.sourceType === 'Standard');
+  // THIS IS THE MAIN CHANGE: "Resource Directory" tab uses all filteredResources
+  const directoryResources = useMemo(() => {
+    console.log('[ResourcesPage] Directory resources (all filtered items for the main tab):', filteredResources);
+    return filteredResources;
+  }, [filteredResources]);
   
   const topGlobalTweets = useMemo(() => {
-    const allTweets = processedResources.filter(r => {
-      // Check both source field and resource_link
-      return r.sourceType === 'Tweet' || r.source?.toLowerCase().includes('twitter');
-    });
+    const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
+    console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc:', allTweets);
     const sorted = allTweets
       .sort((a, b) => {
         const scoreA = (a.favorite_count || a.tweet_likes || 0) + (a.retweet_count || a.tweet_retweets || 0);
@@ -193,11 +210,14 @@ const Resources = () => {
         }
         return scoreB - scoreA;
       });
-    return sorted.slice(0, TOP_TWEETS_COUNT);
+    const topTweets = sorted.slice(0, TOP_TWEETS_COUNT);
+    console.log('[ResourcesPage] Top global tweets (before filtering for tab display):', topTweets);
+    return topTweets;
   }, [processedResources]);
 
   const tweetResources = useMemo(() => {
-    return topGlobalTweets.filter(resource =>
+    // Filters the topGlobalTweets based on current page filters
+    const tr = topGlobalTweets.filter(resource =>
       matchesFilters(
         resource,
         searchQuery,
@@ -206,11 +226,20 @@ const Resources = () => {
         withDeadline
       )
     );
+    console.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab):', tr);
+    return tr;
   }, [topGlobalTweets, searchQuery, categoryFilter, typeFilter, withDeadline]);
 
-  const linkedinResources = filteredResources.filter(r => r.sourceType === 'LinkedIn');
+  const linkedinResources = useMemo(() => {
+    const lr = filteredResources.filter(r => r.sourceType === 'LinkedIn');
+    console.log('[ResourcesPage] LinkedIn resources (for LinkedIn Tab):', lr);
+    return lr;
+  }, [filteredResources]);
   
-  const visibleStandardResources = isAuthenticated ? standardResources : standardResources.slice(0, VISIBLE_RESOURCES);
+  // Updated to use directoryResources and new constant name
+  const visibleDirectoryResources = isAuthenticated ? directoryResources : directoryResources.slice(0, VISIBLE_RESOURCES_IN_DIRECTORY);
+  console.log('[ResourcesPage] Visible Directory Resources (for main tab display):', visibleDirectoryResources);
+
   const visibleTweets = isAuthenticated ? tweetResources : tweetResources.slice(0, VISIBLE_TWEETS);
   const visibleLinkedIn = isAuthenticated ? linkedinResources : linkedinResources.slice(0, VISIBLE_LINKEDIN);
 
@@ -219,6 +248,7 @@ const Resources = () => {
     setCategoryFilter('all');
     setTypeFilter('all');
     setWithDeadline(false);
+    console.log('[ResourcesPage] Filters cleared.');
   };
 
   return (
@@ -316,32 +346,37 @@ const Resources = () => {
                 </div>
               ) : (
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                  {visibleStandardResources.map((resource) => (
+                  {/* Updated to use visibleDirectoryResources */}
+                  {visibleDirectoryResources.map((resource) => (
                     <ResourceCard key={resource.id} resource={resource} />
                   ))}
                   
-                  {!isAuthenticated && standardResources.length > VISIBLE_RESOURCES && (
+                  {/* Updated LoginWall logic to use directoryResources */}
+                  {!isAuthenticated && directoryResources.length > VISIBLE_RESOURCES_IN_DIRECTORY && (
                     <div className="md:col-span-2 lg:col-span-3">
                       <LoginWall 
-                        message={`Unlock all ${standardResources.length}+ curated resources — log in or create an account to continue exploring.`} 
-                        visibleItems={VISIBLE_RESOURCES}
-                        totalItems={standardResources.length}
+                        message={`Unlock all ${directoryResources.length}+ curated resources — log in or create an account to continue exploring.`} 
+                        visibleItems={VISIBLE_RESOURCES_IN_DIRECTORY}
+                        totalItems={directoryResources.length}
                       />
                     </div>
                   )}
                 </div>
               )}
               
-              {!isLoading && visibleStandardResources.length === 0 && (
+              {/* Updated "No resources found" message to use visibleDirectoryResources */}
+              {!isLoading && visibleDirectoryResources.length === 0 && (
                 <div className="text-center py-12">
                   <h3 className="text-xl font-medium mb-2">No resources found</h3>
                   <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+                  {console.log('[ResourcesPage] Displaying "No resources found" for Directory Tab. Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline })}
                 </div>
               )}
             </div>
           </TabsContent>
           
           <TabsContent value="tweets" className="space-y-6">
+            {/* ... keep existing code (Tweets tab content and filters) ... */}
             <div className="max-w-3xl mx-auto">
               {/* Filters for tweets tab - mirroring resource directory for consistency */}
               <div className="flex flex-col space-y-4 mb-6">
@@ -445,6 +480,7 @@ const Resources = () => {
                     <div className="text-center py-12">
                       <h3 className="text-xl font-medium mb-2">No top tweets found</h3>
                       <p className="text-muted-foreground">Try adjusting your search or filter criteria, or check back later for new top tweets.</p>
+                      {console.log('[ResourcesPage] Displaying "No top tweets found" for Tweets Tab. Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline })}
                     </div>
                   )}
                 </div>
@@ -539,6 +575,7 @@ const Resources = () => {
                   <div className="text-center py-12">
                     <h3 className="text-xl font-medium mb-2">No LinkedIn posts found</h3>
                     <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
+                    {console.log('[ResourcesPage] Displaying "No LinkedIn posts found" for LinkedIn Tab. Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline })}
                   </div>
                 )}
               </div>
