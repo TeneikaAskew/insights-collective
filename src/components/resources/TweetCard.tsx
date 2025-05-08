@@ -37,7 +37,7 @@ export const TweetCard = ({ tweet }: TweetCardProps) => {
           <div className="flex-grow">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
-                <span className="font-semibold text-gray-900">IC Academy</span>
+                <span className="font-semibold text-gray-900">teneikaask_you</span>
                 <span className="text-gray-500 mx-2">·</span>
                 <span className="text-gray-500 text-sm">{formatDate(tweet.date)}</span>
               </div>
