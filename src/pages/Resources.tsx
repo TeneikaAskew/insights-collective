@@ -1,4 +1,3 @@
-
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -22,9 +21,11 @@ const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
 
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
-  if (resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com')) {
+  if (resource.source?.toLowerCase().includes('twitter') || 
+      (resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com'))) {
     return 'Tweet';
-  } else if (resource.resource_link && resource.resource_link.toLowerCase().includes('linkedin.com')) {
+  } else if (resource.source?.toLowerCase().includes('linkedin') || 
+            (resource.resource_link && resource.resource_link.toLowerCase().includes('linkedin.com'))) {
     return 'LinkedIn';
   }
   return 'Standard';
@@ -80,8 +81,7 @@ const matchesFilters = (
     resource.career_area,
     resource.predicted_career_labels,
     resource.category,
-    resource.tweet_url,
-    resource.linkedin_url,
+    resource.source,
     resource.resource_link,
   ].filter(Boolean).join(' ').toLowerCase();
 
@@ -108,11 +108,17 @@ const matchesFilters = (
 };
 
 const adaptResourceToTweet = (resource: Resource) => {
+  // Create tweet URL if needed
+  let tweetUrl = resource.resource_link;
+  if (!tweetUrl && resource.source?.toLowerCase().includes('twitter') && resource.tweet_id) {
+    tweetUrl = `https://x.com/teneikaask_you/status/${resource.tweet_id}`;
+  }
+
   return {
     id: resource.id,
     content: resource.full_text || '',
     date: resource.created_at || '',
-    url: resource.resource_link || '',
+    url: tweetUrl || '',
     likes: resource.favorite_count || resource.tweet_likes || 0,
     retweets: resource.retweet_count || resource.tweet_retweets || 0
   };
@@ -174,7 +180,10 @@ const Resources = () => {
   const standardResources = filteredResources.filter(r => r.sourceType === 'Standard');
   
   const topGlobalTweets = useMemo(() => {
-    const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
+    const allTweets = processedResources.filter(r => {
+      // Check both source field and resource_link
+      return r.sourceType === 'Tweet' || r.source?.toLowerCase().includes('twitter');
+    });
     const sorted = allTweets
       .sort((a, b) => {
         const scoreA = (a.favorite_count || a.tweet_likes || 0) + (a.retweet_count || a.tweet_retweets || 0);
