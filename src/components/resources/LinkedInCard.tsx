@@ -2,7 +2,8 @@
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Linkedin } from 'lucide-react';
+import { Linkedin, ExternalLink, Calendar } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
 
 interface LinkedInPost {
   id: string;
@@ -17,11 +18,12 @@ interface LinkedInCardProps {
 }
 
 export const LinkedInCard = ({ post }: LinkedInCardProps) => {
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric'
-    });
+  const formatTimeAgo = (dateString: string) => {
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch (error) {
+      return dateString;
+    }
   };
 
   return (
@@ -37,12 +39,26 @@ export const LinkedInCard = ({ post }: LinkedInCardProps) => {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
                 <span className="font-semibold text-gray-900">IC Academy</span>
-                <span className="text-gray-500 mx-2">·</span>
-                <span className="text-gray-500 text-sm">{formatDate(post.date)}</span>
+                {post.date && (
+                  <>
+                    <span className="text-gray-500 mx-2">·</span>
+                    <span className="text-gray-500 text-sm">{formatTimeAgo(post.date)}</span>
+                  </>
+                )}
               </div>
-              <Badge variant="secondary" className="text-xs">Career</Badge>
+              <Badge variant="secondary" className="text-xs">{post.title}</Badge>
             </div>
             <p className="text-gray-800 mb-3">{post.description}</p>
+            
+            <div className="flex items-center space-x-2 mb-3">
+              {post.date && (
+                <div className="flex items-center text-xs text-gray-500">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  <span>{new Date(post.date).toLocaleDateString()}</span>
+                </div>
+              )}
+            </div>
+            
             <Button variant="outline" size="sm" className="w-full" asChild>
               <a href={post.url} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
                 <Linkedin className="h-4 w-4 mr-2" />

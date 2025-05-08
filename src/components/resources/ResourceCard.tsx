@@ -1,16 +1,19 @@
+
 import { Card, CardContent, CardHeader, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Calendar, ExternalLink } from 'lucide-react';
+import { Calendar, ExternalLink, Clock, BookOpen, MessageSquare } from 'lucide-react';
 import { Resource, parseArrayField, normalizeString } from '@/hooks/useResources';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ResourceCardProps {
   resource: Resource & {
     sourceType?: 'Tweet' | 'LinkedIn' | 'Standard'; // sourceType is optional as it's added post-fetch
   };
+  isListView?: boolean; // Added to support list view
 }
 
-export const ResourceCard = ({ resource }: ResourceCardProps) => {
+export const ResourceCard = ({ resource, isListView = false }: ResourceCardProps) => {
   const formatDate = (dateString: string | null) => {
     if (!dateString) return null;
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -18,6 +21,15 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  const formatTimeAgo = (dateString: string | null) => {
+    if (!dateString) return null;
+    try {
+      return formatDistanceToNow(new Date(dateString), { addSuffix: true });
+    } catch (error) {
+      return null;
+    }
   };
 
   const getResourceCategories = (): string[] => {
@@ -60,51 +72,110 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
   };
   
   const getButtonText = () => {
-    if (resource.source?.toLowerCase().includes('twitter')) return 'Visit Tweet';
-    if (resource.source?.toLowerCase().includes('linkedin')) return 'Visit LinkedIn Post';
-    return 'Visit Resource';
+    if (resource.source?.toLowerCase().includes('twitter')) return 'View Tweet';
+    if (resource.source?.toLowerCase().includes('linkedin')) return 'View LinkedIn Post';
+    return 'View Resource';
   };
 
   const resourceCategories = getResourceCategories();
   const resourceTypes = getResourceTypes();
+  const timeAgo = formatTimeAgo(resource.created_at);
 
   const getResourceDescription = () => {
     return resource.full_text || 'No description available.';
   };
 
-  return (
-    <Card className="flex flex-col h-full">
-      <CardHeader>
-        {/* Display Categories at the top */}
-        {resourceCategories.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2 w-full">
-            {resourceCategories.map((category, index) => (
-              <Badge key={`cat-${index}`} variant="outline" className="text-xs">
-                {category}
-              </Badge>
-            ))}
+  // Determine if this is a time-sensitive resource (has a deadline)
+  const isTimeSensitive = !!resource.deadline;
+  
+  // Render list view
+  if (isListView) {
+    return (
+      <Card className="hover:shadow transition-shadow overflow-hidden">
+        <div className="flex flex-col md:flex-row">
+          <div className="md:w-2/3 p-4">
+            <div className="flex flex-wrap gap-1 mb-2">
+              {resourceCategories.map((category, index) => (
+                <Badge key={`cat-${index}`} variant="outline" className="text-xs">
+                  {category}
+                </Badge>
+              ))}
+            </div>
+            <CardDescription className="text-sm text-gray-600 leading-relaxed mb-2">
+              {getResourceDescription()}
+            </CardDescription>
+            <div className="flex flex-wrap gap-1 mt-2">
+              {resourceTypes.map((type, index) => (
+                <Badge key={`type-${index}`} variant="secondary" className="text-xs">
+                  {type}
+                </Badge>
+              ))}
+            </div>
           </div>
-        )}
+          <div className="md:w-1/3 bg-gray-50 dark:bg-gray-800 p-4 flex flex-col justify-between">
+            {isTimeSensitive ? (
+              <div className="flex items-center text-xs text-red-600 dark:text-red-400 font-medium">
+                <Clock className="h-3 w-3 mr-1.5" />
+                <span>Deadline: {formatDate(resource.deadline)}</span>
+              </div>
+            ) : timeAgo ? (
+              <div className="flex items-center text-xs text-muted-foreground">
+                <Calendar className="h-3 w-3 mr-1.5" />
+                <span>Posted: {timeAgo}</span>
+              </div>
+            ) : null}
+            
+            <Button variant="outline" size="sm" asChild className="mt-2">
+              <a href={getResourceLink()} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
+                {getButtonText()}
+                <ExternalLink className="ml-2 h-4 w-4" />
+              </a>
+            </Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // Render grid view (default)
+  return (
+    <Card className="flex flex-col h-full hover:shadow-md transition-shadow">
+      <CardHeader>
+        <div className="flex flex-wrap gap-1 mb-2 w-full">
+          {resourceCategories.map((category, index) => (
+            <Badge key={`cat-${index}`} variant="outline" className="text-xs">
+              {category}
+            </Badge>
+          ))}
+        </div>
         
         <CardDescription className="text-sm text-gray-600 mt-1 leading-relaxed flex-grow">
           {getResourceDescription()}
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex-grow pt-0"> {/* Adjusted pt-0 as content might be sparse now */}
-        {resource.deadline && (
-          <div className="flex items-center text-xs text-muted-foreground mt-2 mb-2"> {/* Added mt-2 for spacing */}
-            <Calendar className="h-3 w-3 mr-1.5" />
+      <CardContent className="flex-grow pt-0">
+        {isTimeSensitive ? (
+          <div className="flex items-center text-xs text-red-600 dark:text-red-400 mb-2 font-medium">
+            <Clock className="h-3 w-3 mr-1.5" />
             <span>Deadline: {formatDate(resource.deadline)}</span>
           </div>
-        )}
-        {resource.created_at && !resource.deadline && (
-          <div className="flex items-center text-xs text-muted-foreground mt-2 mb-2"> {/* Added mt-2 for spacing */}
+        ) : timeAgo ? (
+          <div className="flex items-center text-xs text-muted-foreground mb-2">
             <Calendar className="h-3 w-3 mr-1.5" />
-            <span>Posted: {formatDate(resource.created_at)}</span>
+            <span>Posted: {timeAgo}</span>
           </div>
-        )}
+        ) : null}
+        
+        <div className="flex items-center mt-2 text-xs text-muted-foreground">
+          {resource.source && (
+            <div className="flex items-center mr-4">
+              <BookOpen className="h-3 w-3 mr-1.5" />
+              <span>Source: {resource.source}</span>
+            </div>
+          )}
+        </div>
       </CardContent>
-      <CardFooter className="flex-col items-start pt-4 space-y-3"> {/* Added space-y-3 for spacing between button and badges */}
+      <CardFooter className="flex-col items-start pt-4 space-y-3">
         <Button variant="outline" size="sm" asChild className="w-full">
           <a href={getResourceLink()} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
             {getButtonText()}
@@ -112,7 +183,6 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
           </a>
         </Button>
         
-        {/* Resource Types MOVED HERE - after the button */}
         {resourceTypes.length > 0 && (
           <div className="flex flex-wrap gap-1 w-full justify-start mt-1">
             {resourceTypes.map((type, index) => (

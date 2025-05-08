@@ -1,10 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, FilterX } from 'lucide-react';
+import { Search, FilterX, Filter, ArrowUpDown, X } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 
 interface ResourceFiltersProps {
   searchQuery: string;
@@ -19,7 +21,7 @@ interface ResourceFiltersProps {
   uniqueResourceTypes: string[];
   clearFilters: () => void;
   searchPlaceholder: string;
-  showDeadlineFilter?: boolean; // Optional, as some tabs might not need it, though current design has it everywhere
+  showDeadlineFilter?: boolean;
 }
 
 export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
@@ -35,12 +37,20 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
   uniqueResourceTypes,
   clearFilters,
   searchPlaceholder,
-  showDeadlineFilter = true, // Default to true
+  showDeadlineFilter = true,
 }) => {
+  const [isAdvancedFilterOpen, setIsAdvancedFilterOpen] = useState(false);
   const hasActiveFilters = searchQuery || categoryFilter !== 'all' || typeFilter !== 'all' || (showDeadlineFilter && withDeadline);
+  
+  // Count the active filters for the badge
+  const activeFilterCount = [
+    categoryFilter !== 'all',
+    typeFilter !== 'all',
+    showDeadlineFilter && withDeadline,
+  ].filter(Boolean).length;
 
   return (
-    <div className="flex flex-col space-y-4">
+    <div className="space-y-4 w-full bg-white dark:bg-gray-900 rounded-lg shadow-sm p-4">
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -50,63 +60,108 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-        </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-full md:w-[180px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[300px] overflow-y-auto">
-            <SelectItem value="all">All Categories</SelectItem>
-            {uniqueCategories.map((category) => (
-              <SelectItem key={category} value={category}>
-                {category}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-full md:w-[180px]">
-            <SelectValue placeholder="Resource Type" />
-          </SelectTrigger>
-          <SelectContent className="max-h-[300px] overflow-y-auto">
-            <SelectItem value="all">All Types</SelectItem>
-            {uniqueResourceTypes.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="flex items-center justify-between">
-        {showDeadlineFilter && (
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id={`withDeadline-${searchPlaceholder.replace(/\s+/g, '-')}`} // Unique ID for checkbox
-              checked={withDeadline}
-              onCheckedChange={(checked) => setWithDeadline(!!checked)}
-            />
-            <label
-              htmlFor={`withDeadline-${searchPlaceholder.replace(/\s+/g, '-')}`}
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+          {searchQuery && (
+            <button
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
             >
-              With deadline
-            </label>
-          </div>
-        )}
-        {/* Ensure spacer takes up space if deadline filter is hidden but clear button is needed */}
-        {!showDeadlineFilter && hasActiveFilters && <div className="flex-grow"></div>}
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
 
+        <div className="flex space-x-2">
+          <Popover open={isAdvancedFilterOpen} onOpenChange={setIsAdvancedFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="relative">
+                <Filter className="h-4 w-4 mr-2" />
+                Advanced Filters
+                {activeFilterCount > 0 && (
+                  <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-4">
+              <div className="space-y-4">
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Categories</h4>
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Category" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {uniqueCategories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-        {hasActiveFilters && (
-          <Button variant="ghost" className="h-8 px-2 lg:px-3" onClick={clearFilters}>
-            <FilterX className="mr-2 h-4 w-4" />
-            Clear filters
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Resource Types</h4>
+                  <Select value={typeFilter} onValueChange={setTypeFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Type" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
+                      <SelectItem value="all">All Types</SelectItem>
+                      {uniqueResourceTypes.map((type) => (
+                        <SelectItem key={type} value={type}>
+                          {type}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {showDeadlineFilter && (
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`withDeadline-${searchPlaceholder.replace(/\s+/g, '-')}`}
+                      checked={withDeadline}
+                      onCheckedChange={(checked) => setWithDeadline(!!checked)}
+                    />
+                    <label
+                      htmlFor={`withDeadline-${searchPlaceholder.replace(/\s+/g, '-')}`}
+                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                    >
+                      With deadline
+                    </label>
+                  </div>
+                )}
+
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => {
+                    clearFilters();
+                    setIsAdvancedFilterOpen(false);
+                  }}>
+                    <FilterX className="mr-2 h-4 w-4" />
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+          
+          <Button variant="outline" size="sm">
+            <ArrowUpDown className="h-4 w-4 mr-2" />
+            Sort
           </Button>
-        )}
+          
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
+              <FilterX className="mr-2 h-4 w-4" />
+              Clear
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
 };
-
