@@ -73,8 +73,8 @@ export const TopTweetsTab: React.FC<TopTweetsTabProps> = ({
   return (
     <div className="space-y-6 w-full">
       {topTweet && (
-        <div className="bg-gradient-to-r from-insightsCollective-insightBlue/5 to-insightsCollective-aquaTeal/5 p-4 rounded-lg border border-insightsCollective-insightBlue/20 dark:border-insightsCollective-aquaTeal/30 mb-6">
-          <div className="flex items-center mb-2 text-insightsCollective-insightBlue">
+        <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800 mb-6">
+          <div className="flex items-center mb-2 text-blue-600 dark:text-blue-400">
             <TrendingUp className="h-5 w-5 mr-2" />
             <h3 className="font-semibold">Top Trending Tweet</h3>
           </div>

@@ -50,13 +50,13 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
   ].filter(Boolean).length;
 
   return (
-    <div className="space-y-4 w-full bg-white dark:bg-gray-900 rounded-lg shadow-sm p-4 border border-insightsCollective-softWhite">
+    <div className="space-y-4 w-full bg-white dark:bg-gray-900 rounded-lg shadow-sm p-4">
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
-            className="pl-10 border-insightsCollective-dustyGray/30 focus-visible:ring-insightsCollective-insightBlue"
+            className="pl-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -74,11 +74,11 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
         <div className="flex space-x-2">
           <Popover open={isAdvancedFilterOpen} onOpenChange={setIsAdvancedFilterOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="relative border-insightsCollective-dustyGray/30 hover:bg-insightsCollective-insightBlue/10 hover:text-insightsCollective-insightBlue">
+              <Button variant="outline" size="sm" className="relative">
                 <Filter className="h-4 w-4 mr-2" />
                 Advanced Filters
                 {activeFilterCount > 0 && (
-                  <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs bg-insightsCollective-insightBlue text-white">
+                  <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
                     {activeFilterCount}
                   </Badge>
                 )}
@@ -89,7 +89,7 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
                 <div>
                   <h4 className="text-sm font-medium mb-2">Categories</h4>
                   <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                    <SelectTrigger className="w-full focus:ring-insightsCollective-insightBlue">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select Category" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
@@ -106,7 +106,7 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
                 <div>
                   <h4 className="text-sm font-medium mb-2">Resource Types</h4>
                   <Select value={typeFilter} onValueChange={setTypeFilter}>
-                    <SelectTrigger className="w-full focus:ring-insightsCollective-insightBlue">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select Type" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px] overflow-y-auto">
@@ -126,7 +126,6 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
                       id={`withDeadline-${searchPlaceholder.replace(/\s+/g, '-')}`}
                       checked={withDeadline}
                       onCheckedChange={(checked) => setWithDeadline(!!checked)}
-                      className="data-[state=checked]:bg-insightsCollective-energeticAmber data-[state=checked]:border-insightsCollective-energeticAmber"
                     />
                     <label
                       htmlFor={`withDeadline-${searchPlaceholder.replace(/\s+/g, '-')}`}
@@ -138,7 +137,7 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
                 )}
 
                 {hasActiveFilters && (
-                  <Button variant="ghost" size="sm" className="w-full mt-2 hover:bg-insightsCollective-energeticAmber/10 hover:text-insightsCollective-energeticAmber" onClick={() => {
+                  <Button variant="ghost" size="sm" className="w-full mt-2" onClick={() => {
                     clearFilters();
                     setIsAdvancedFilterOpen(false);
                   }}>
@@ -150,13 +149,13 @@ export const ResourceFilters: React.FC<ResourceFiltersProps> = ({
             </PopoverContent>
           </Popover>
           
-          <Button variant="outline" size="sm" className="border-insightsCollective-dustyGray/30 hover:bg-insightsCollective-insightBlue/10 hover:text-insightsCollective-insightBlue">
+          <Button variant="outline" size="sm">
             <ArrowUpDown className="h-4 w-4 mr-2" />
             Sort
           </Button>
           
           {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="hover:bg-insightsCollective-energeticAmber/10 hover:text-insightsCollective-energeticAmber">
+            <Button variant="ghost" size="sm" onClick={clearFilters}>
               <FilterX className="mr-2 h-4 w-4" />
               Clear
             </Button>
