@@ -18,35 +18,6 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CareerHeader from '@/components/career/CareerHeader';
-import CareerPathSection from '@/components/career/CareerPathSection';
-import SkillsSection from '@/components/career/SkillsSection';
-interface ActionPlanTimeframe {
-  skills: Array<{
-    name: string;
-    courses: Array<{
-      title: string;
-      provider: string;
-      url?: string;
-    }>;
-  }>;
-  projects: Array<{
-    title: string;
-    description: string;
-  }>;
-  content: Array<{
-    platform: string;
-    topics: string[];
-  }>;
-  milestones: string[];
-  narrative: string;
-}
-interface ActionPlan {
-  "6_weeks": ActionPlanTimeframe;
-  "9_weeks": ActionPlanTimeframe;
-  "12_weeks": ActionPlanTimeframe;
-  "6_months": ActionPlanTimeframe;
-  "12_months": ActionPlanTimeframe;
-}
 
 // Sample data for skill building purposes
 const userSkills = ["Data Analysis", "SQL", "Problem Solving", "Communication"];
@@ -614,13 +585,6 @@ const CareerPathway: React.FC = () => {
             </TabsContent>
           </Tabs>
         </motion.div>
-
-        {/* New Component-Based Structure */}
-        {data && data.report ? <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-            <CareerHeader name={userName || 'there'} summary={data.report.summary || 'Based on your assessment, we have created personalized recommendations to help you build a fulfilling career.'} />
-            <CareerPathSection roles={mapRecommendedRolesToCareerPathRoles()} />
-            <SkillsSection skills={mapSkillsAndCoursesToSkillsSection()} />
-          </div> : null}
 
         {/* Feedback / Recommendations Section */}
         <motion.div initial="initial" animate="animate" variants={fadeInUp} className="mt-8">
