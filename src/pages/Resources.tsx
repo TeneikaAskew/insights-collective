@@ -172,16 +172,12 @@ const Resources = () => {
       const favCountA = Number(a.favorite_count) || 0;
       const favCountB = Number(b.favorite_count) || 0;
       
-      // If favorite_count is the same, sort by creation date (newest first)
-      if (favCountB === favCountA) {
-        return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-      }
-      // Sort by favorite_count descending
+      // Sort solely by favorite_count descending
       return favCountB - favCountA;
     });
     
     const topTweets = sorted.slice(0, TOP_TWEETS_COUNT);
-    console.log('[ResourcesPage] Top global tweets (sorted by favorite_count, from dedicated fetch, before UI filtering):', topTweets.length);
+    console.log('[ResourcesPage] Top global tweets (sorted solely by favorite_count, from dedicated fetch, before UI filtering):', topTweets.length);
     return topTweets;
   }, [processedAllTweets]); // Depends on processedAllTweets
 
