@@ -6,18 +6,38 @@ import { ChevronRight } from 'lucide-react';
 import { DataCareerRole } from '@/data/dataCareerRoles';
 import { Dialog, DialogTrigger, DialogContent, DialogClose } from '@/components/ui/dialog';
 import { CareerRoleDetails } from './CareerRoleDetails';
+
 interface RoleCardProps {
   role: DataCareerRole;
 }
+
 export const RoleCard: React.FC<RoleCardProps> = ({
   role
 }) => {
   const [open, setOpen] = useState(false);
-  return <Card id={`role-${role.id}`} className="hover:border-primary/50 transition-colors h-full flex flex-col">
+  
+  // Format category text properly (handle acronyms like AI, UX)
+  const formatCategoryLabel = (label: string): string => {
+    // Check if the label is a known acronym that should be fully capitalized
+    const knownAcronyms = ['ai', 'ui', 'ux', 'ml', 'ar', 'vr', 'qa', 'hr', 'pm', 'pr', 'seo', 'api'];
+    
+    if (label && knownAcronyms.includes(label.toLowerCase())) {
+      return label.toUpperCase();
+    }
+    
+    // Otherwise, return the label as is
+    return label;
+  };
+  
+  const categoryLabel = role.category.split(',')[0].trim();
+  const formattedCategory = formatCategoryLabel(categoryLabel);
+  
+  return (
+    <Card id={`role-${role.id}`} className="hover:border-primary/50 transition-colors h-full flex flex-col">
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start gap-2">
           <CardTitle className="text-xl text-amber-500">{role.title}</CardTitle>
-          <Badge variant="outline">{role.category.split(',')[0].trim()}</Badge>
+          <Badge variant="outline">{formattedCategory}</Badge>
         </div>
         <CardDescription>{role.shortDescription}</CardDescription>
       </CardHeader>
@@ -41,5 +61,6 @@ export const RoleCard: React.FC<RoleCardProps> = ({
           </DialogContent>
         </Dialog>
       </CardFooter>
-    </Card>;
+    </Card>
+  );
 };

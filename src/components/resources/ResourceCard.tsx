@@ -1,4 +1,3 @@
-
 import { Card, CardContent, CardHeader, CardDescription, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -23,12 +22,25 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
 
   const getResourceCategories = (): string[] => {
     const categories = new Set<string>();
-    if (resource.career_area) parseArrayField(resource.career_area).forEach(label => categories.add(normalizeString(label)));
-    if (resource.predicted_career_labels) parseArrayField(resource.predicted_career_labels).forEach(label => categories.add(normalizeString(label)));
-    if (resource.category && resource.category.toLowerCase() !== 'general') parseArrayField(resource.category).forEach(label => categories.add(normalizeString(label)));
+    if (resource.career_area) parseArrayField(resource.career_area).forEach(label => categories.add(formatCategoryLabel(normalizeString(label))));
+    if (resource.predicted_career_labels) parseArrayField(resource.predicted_career_labels).forEach(label => categories.add(formatCategoryLabel(normalizeString(label))));
+    if (resource.category && resource.category.toLowerCase() !== 'general') parseArrayField(resource.category).forEach(label => categories.add(formatCategoryLabel(normalizeString(label))));
     if (categories.size === 0 && resource.sourceType === 'Standard') categories.add('General');
     else if (categories.size === 0) categories.add('General'); // Fallback for non-Standard or if sourceType is undefined
     return Array.from(categories);
+  };
+
+  // Special formatting for acronyms and short labels (e.g., AI, UX, ML)
+  const formatCategoryLabel = (label: string): string => {
+    // Check if the label is a known acronym that should be fully capitalized
+    const knownAcronyms = ['ai', 'ui', 'ux', 'ml', 'ar', 'vr', 'qa', 'hr', 'pm', 'pr', 'seo', 'api'];
+    
+    if (knownAcronyms.includes(label.toLowerCase())) {
+      return label.toUpperCase();
+    }
+    
+    // Otherwise, return the label as is (already normalized with first letter caps)
+    return label;
   };
 
   const getResourceTypes = (): string[] => {
@@ -56,9 +68,6 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
   const resourceCategories = getResourceCategories();
   const resourceTypes = getResourceTypes();
 
-  // getResourceTitle is removed as CardTitle is removed. Description will serve as main text.
-  // const getResourceTitle = () => { ... } 
-
   const getResourceDescription = () => {
     return resource.full_text || 'No description available.';
   };
@@ -76,21 +85,7 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
             ))}
           </div>
         )}
-
-        {/* Display Types (previously next to title, now below categories) */}
-        {resourceTypes.length > 0 && (
-          <div className="flex flex-wrap gap-1 mb-2 justify-start">
-            {resourceTypes.map((type, index) => (
-              <Badge key={`type-${index}`} variant="secondary" className="text-xs">
-                {type}
-              </Badge>
-            ))}
-          </div>
-        )}
         
-        {/* CardTitle (H3) removed as per request */}
-        {/* <CardTitle>...</CardTitle> */}
-
         <CardDescription className="text-sm text-gray-600 mt-1 leading-relaxed flex-grow">
           {getResourceDescription()}
         </CardDescription>
@@ -109,14 +104,24 @@ export const ResourceCard = ({ resource }: ResourceCardProps) => {
           </div>
         )}
       </CardContent>
-      <CardFooter className="flex-col items-start pt-4"> {/* Ensured some padding top if content is minimal */}
+      <CardFooter className="flex-col items-start pt-4 space-y-3"> {/* Added space-y-3 for spacing between button and badges */}
         <Button variant="outline" size="sm" asChild className="w-full">
           <a href={getResourceLink()} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center">
             {getButtonText()}
             <ExternalLink className="ml-2 h-4 w-4" />
           </a>
         </Button>
-        {/* Category badges were moved from here to CardHeader */}
+        
+        {/* Resource Types MOVED HERE - after the button */}
+        {resourceTypes.length > 0 && (
+          <div className="flex flex-wrap gap-1 w-full justify-start mt-1">
+            {resourceTypes.map((type, index) => (
+              <Badge key={`type-${index}`} variant="secondary" className="text-xs">
+                {type}
+              </Badge>
+            ))}
+          </div>
+        )}
       </CardFooter>
     </Card>
   );
