@@ -16,7 +16,7 @@ import { LinkedInCard } from '@/components/resources/LinkedInCard';
 import { FeedbackSection } from '@/components/common/FeedbackSection';
 
 const VISIBLE_RESOURCES = 5;
-const VISIBLE_TWEETS = 3; // This will apply to the top 100 for unauthenticated users
+const VISIBLE_TWEETS = 3; 
 const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
 
@@ -146,14 +146,8 @@ const Resources = () => {
   const { isAuthenticated } = useAuth();
   const { resources, isLoading } = useResources();
   
-  // console.log('[ResourcesPage] Raw resources from hook:', { count: resources.length, sample: resources.slice(0,2) });
-  
   const processedResources = useMemo(() => {
-    // console.log('[ResourcesPage] Processing resources. Input count:', resources.length);
-    const result = processResources(resources);
-    // console.log('[ResourcesPage] Processed resources. Output count:', result.length);
-    // console.log('[ResourcesPage] Sample processed resources (first 2):', result.slice(0,2).map(r => ({id: r.id, sourceType: r.sourceType, tweet_url: r.tweet_url, resource_link: r.resource_link, full_text_exists: !!r.full_text })));
-    return result;
+    return processResources(resources);
   }, [resources]);
   
   const uniqueCategories = useMemo(() => {
@@ -180,35 +174,20 @@ const Resources = () => {
   
   const topGlobalTweets = useMemo(() => {
     const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
-    // console.log('[ResourcesPage] Calculating topGlobalTweets. Number of allTweets (sourceType === "Tweet") anp:', allTweets.length);
-    // if (allTweets.length > 0) {
-    //   console.log('[ResourcesPage] Sample of allTweets (before sort/slice, max 3):', allTweets.slice(0, 3).map(t => ({ id: t.id, text_preview: t.full_text?.substring(0,30), likes: t.tweet_likes, retweets: t.tweet_retweets, fav_count: t.favorite_count, rt_count: t.retweet_count, created_at: t.created_at })));
-    // }
     const sorted = allTweets
       .sort((a, b) => {
         const scoreA = (a.favorite_count || a.tweet_likes || 0) + (a.retweet_count || a.tweet_retweets || 0);
         const scoreB = (b.favorite_count || b.tweet_likes || 0) + (b.retweet_count || b.tweet_retweets || 0);
-        // Add secondary sort by creation date if scores are equal, to ensure some stability / recency for zero-score items
         if (scoreB === scoreA) {
           return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
         }
         return scoreB - scoreA;
       });
-    // if (sorted.length > 0) {
-    //    console.log('[ResourcesPage] Sample of sortedTweets (before slice, max 3):', sorted.slice(0, 3).map(t => ({ id: t.id, text_preview: t.full_text?.substring(0,30), score: (t.favorite_count || t.tweet_likes || 0) + (t.retweet_count || t.tweet_retweets || 0), created_at: t.created_at })));
-    // }
-    const result = sorted.slice(0, TOP_TWEETS_COUNT);
-    // console.log('[ResourcesPage] topGlobalTweets result. Count:', result.length);
-    // if (result.length > 0) {
-    //   console.log('[ResourcesPage] Sample of topGlobalTweets (max 3):', result.slice(0,3).map(t => ({ id: t.id, text_preview: t.full_text?.substring(0,30), score: (t.favorite_count || t.tweet_likes || 0) + (t.retweet_count || t.tweet_retweets || 0), created_at: t.created_at })));
-    // }
-    return result;
+    return sorted.slice(0, TOP_TWEETS_COUNT);
   }, [processedResources]);
 
   const tweetResources = useMemo(() => {
-    // console.log('[ResourcesPage] Calculating tweetResources. Input topGlobalTweets count:', topGlobalTweets.length);
-    // console.log('[ResourcesPage] Filters for tweetResources:', { searchQuery, categoryFilter, typeFilter, withDeadline });
-    const result = topGlobalTweets.filter(resource =>
+    return topGlobalTweets.filter(resource =>
       matchesFilters(
         resource,
         searchQuery,
@@ -217,18 +196,12 @@ const Resources = () => {
         withDeadline
       )
     );
-    // console.log('[ResourcesPage] tweetResources result (after filtering topGlobalTweets). Count:', result.length);
-    // if (result.length > 0) {
-    //   console.log('[ResourcesPage] Sample of tweetResources (max 3):', result.slice(0,3).map(t => ({ id: t.id, text_preview: t.full_text?.substring(0,30) })));
-    // }
-    return result;
   }, [topGlobalTweets, searchQuery, categoryFilter, typeFilter, withDeadline]);
 
   const linkedinResources = filteredResources.filter(r => r.sourceType === 'LinkedIn');
   
   const visibleStandardResources = isAuthenticated ? standardResources : standardResources.slice(0, VISIBLE_RESOURCES);
   const visibleTweets = isAuthenticated ? tweetResources : tweetResources.slice(0, VISIBLE_TWEETS);
-  // console.log(`[ResourcesPage] Final visibleTweets count: ${visibleTweets.length}, isAuthenticated: ${isAuthenticated}, tweetResources count: ${tweetResources.length}`);
   const visibleLinkedIn = isAuthenticated ? linkedinResources : linkedinResources.slice(0, VISIBLE_LINKEDIN);
 
   const clearFilters = () => {
@@ -470,7 +443,7 @@ const Resources = () => {
           </TabsContent>
           
           <TabsContent value="linkedin" className="space-y-6">
-            {/* ... keep existing code (LinkedIn tab content) ... */}
+            {/* ... keep existing code (LinkedIn tab content and filters) ... */}
             <div className="max-w-3xl mx-auto">
                {/* Filters for LinkedIn tab - mirroring resource directory for consistency */}
               <div className="flex flex-col space-y-4 mb-6">
