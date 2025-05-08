@@ -1,13 +1,12 @@
 
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-// Input, Button, Selects, Checkbox, Search, FilterX are now used in ResourceFilters
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources, Resource, parseArrayField, normalizeString } from '@/hooks/useResources';
+import { useAllTweetsData } from '@/hooks/useAllTweetsData'; // Import the new hook
 import { FeedbackSection } from '@/components/common/FeedbackSection';
 
-// Import new components
 import { ResourceFilters } from '@/components/resources/ResourceFilters';
 import { ResourceDirectoryTab } from '@/components/resources/ResourceDirectoryTab';
 import { TopTweetsTab } from '@/components/resources/TopTweetsTab';
@@ -18,10 +17,6 @@ const VISIBLE_TWEETS = 3;
 const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
 
-// Define the extended resource type that includes sourceType
-// This type definition is used by child components as well, so it's good it's exported or defined where accessible.
-// For now, child components import it or define it locally if they are in separate files.
-// If we move this to a central types file, update imports.
 export type ResourceWithSourceType = Resource & {
   sourceType: 'Tweet' | 'LinkedIn' | 'Standard';
 };
@@ -124,39 +119,57 @@ const Resources = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [withDeadline, setWithDeadline] = useState(false);
   const { isAuthenticated } = useAuth();
-  const { resources, isLoading } = useResources();
+  
+  // Data for Resource Directory and potentially LinkedIn
+  const { resources, isLoading: isLoadingMainResources } = useResources();
+  
+  // New dedicated data fetch for Top Tweets
+  const { data: allRawTweetsData, isLoading: isLoadingTopTweets } = useAllTweetsData();
 
   const processedResources = useMemo(() => {
-    console.log('[ResourcesPage] Raw resources from hook:', resources.length);
+    console.log('[ResourcesPage] Raw resources from useResources hook:', resources.length);
     const pr = processResources(resources);
-    console.log('[ResourcesPage] Processed resources (with sourceType):', pr.length);
+    console.log('[ResourcesPage] Processed general resources (with sourceType):', pr.length);
     return pr;
   }, [resources]);
 
+  // Process the raw tweet data separately
+  const processedAllTweets = useMemo(() => {
+    console.log('[ResourcesPage] Raw tweets from useAllTweetsData hook:', (allRawTweetsData || []).length);
+    const pt = processResources(allRawTweetsData || []);
+    console.log('[ResourcesPage] Processed all tweets (with sourceType):', pt.length);
+    return pt;
+  }, [allRawTweetsData]);
+
   const uniqueCategories = useMemo(() => {
+    // Filters are based on all resources for comprehensive options
     return extractUniqueValues(resources, 'career_area', 'predicted_career_labels', 'category');
   }, [resources]);
 
   const uniqueResourceTypes = useMemo(() => {
+    // Filters are based on all resources
     return extractUniqueValues(resources, 'resource_type', 'predicted_resource_labels');
   }, [resources]);
 
-  const filteredResources = useMemo(() => {
-    console.log('[ResourcesPage] Filtering processed resources. Count:', processedResources.length, 'Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline });
+  // Filtered resources for the Directory tab (and potentially LinkedIn if not separated later)
+  const filteredMainResources = useMemo(() => {
+    console.log('[ResourcesPage] Filtering processed general resources. Count:', processedResources.length, 'Filters:', { searchQuery, categoryFilter, typeFilter, withDeadline });
     const fr = processedResources.filter(resource => matchesFilters(resource, searchQuery, categoryFilter, typeFilter, withDeadline));
-    console.log('[ResourcesPage] Filtered resources (for all tabs potentially):', fr.length);
+    console.log('[ResourcesPage] Filtered general resources:', fr.length);
     return fr;
   }, [processedResources, searchQuery, categoryFilter, typeFilter, withDeadline]);
 
   const directoryResources = useMemo(() => {
-    console.log('[ResourcesPage] Directory resources (all filtered items for the main tab):', filteredResources.length);
-    return filteredResources;
-  }, [filteredResources]);
+    console.log('[ResourcesPage] Directory resources (filtered from general pool):', filteredMainResources.length);
+    return filteredMainResources;
+  }, [filteredMainResources]);
 
+  // Top Global Tweets now derived from its own processed data pool
   const topGlobalTweets = useMemo(() => {
-    const allTweets = processedResources.filter(r => r.sourceType === 'Tweet');
-    console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc:', allTweets.length);
-    const sorted = allTweets.sort((a, b) => {
+    // Use processedAllTweets instead of all processedResources
+    const allTweetsForSorting = processedAllTweets.filter(r => r.sourceType === 'Tweet');
+    console.log('[ResourcesPage] All processed tweets for topGlobalTweets calc (from dedicated fetch):', allTweetsForSorting.length);
+    const sorted = allTweetsForSorting.sort((a, b) => {
       const likesA = Math.max(Number(a.favorite_count) || 0, Number(a.tweet_likes) || 0);
       const retweetsA = Math.max(Number(a.retweet_count) || 0, Number(a.tweet_retweets) || 0);
       const scoreA = likesA + retweetsA;
@@ -169,21 +182,23 @@ const Resources = () => {
       return scoreB - scoreA;
     });
     const topTweets = sorted.slice(0, TOP_TWEETS_COUNT);
-    console.log('[ResourcesPage] Top global tweets (before filtering for tab display):', topTweets.length);
+    console.log('[ResourcesPage] Top global tweets (from dedicated fetch, before UI filtering):', topTweets.length);
     return topTweets;
-  }, [processedResources]);
+  }, [processedAllTweets]); // Depends on processedAllTweets now
 
+  // TweetResources are the topGlobalTweets further filtered by UI controls
   const tweetResources = useMemo(() => {
     const tr = topGlobalTweets.filter(resource => matchesFilters(resource, searchQuery, categoryFilter, typeFilter, withDeadline));
-    console.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab):', tr.length);
+    console.log('[ResourcesPage] Filtered Tweet resources (for Tweet Tab display):', tr.length);
     return tr;
   }, [topGlobalTweets, searchQuery, categoryFilter, typeFilter, withDeadline]);
 
   const linkedinResources = useMemo(() => {
-    const lr = filteredResources.filter(r => r.sourceType === 'LinkedIn');
+    // LinkedIn resources are still derived from the main filtered pool
+    const lr = filteredMainResources.filter(r => r.sourceType === 'LinkedIn');
     console.log('[ResourcesPage] LinkedIn resources (for LinkedIn Tab):', lr.length);
     return lr;
-  }, [filteredResources]);
+  }, [filteredMainResources]);
 
   const visibleDirectoryResources = isAuthenticated ? directoryResources : directoryResources.slice(0, VISIBLE_RESOURCES_IN_DIRECTORY);
   console.log('[ResourcesPage] Visible Directory Resources (for main tab display):', visibleDirectoryResources.length);
@@ -232,7 +247,7 @@ const Resources = () => {
           <TabsContent value="resources" className="space-y-6 w-full">
             <ResourceFilters {...commonFilterProps} searchPlaceholder="Search resources..." />
             <ResourceDirectoryTab
-              isLoading={isLoading}
+              isLoading={isLoadingMainResources} // Uses main loading state
               visibleDirectoryResources={visibleDirectoryResources}
               isAuthenticated={isAuthenticated}
               directoryResourcesCount={directoryResources.length}
@@ -243,11 +258,11 @@ const Resources = () => {
           <TabsContent value="tweets" className="space-y-6 w-full">
             <ResourceFilters {...commonFilterProps} searchPlaceholder="Search top tweets..." />
             <TopTweetsTab
-              isLoading={isLoading}
+              isLoading={isLoadingTopTweets} // Uses dedicated loading state for tweets
               visibleTweets={visibleTweets}
               isAuthenticated={isAuthenticated}
               tweetResourcesCount={tweetResources.length}
-              topGlobalTweetsCount={topGlobalTweets.length}
+              topGlobalTweetsCount={topGlobalTweets.length} // This is the count of tweets *after* TOP_TWEETS_COUNT slice
               loginWallVisibleItems={VISIBLE_TWEETS}
             />
           </TabsContent>
@@ -255,7 +270,7 @@ const Resources = () => {
           <TabsContent value="linkedin" className="space-y-6 w-full">
             <ResourceFilters {...commonFilterProps} searchPlaceholder="Search LinkedIn posts..." />
             <LinkedInUpdatesTab
-              isLoading={isLoading} // Assuming isLoading applies here too
+              isLoading={isLoadingMainResources} // Uses main loading state
               visibleLinkedIn={visibleLinkedIn}
               isAuthenticated={isAuthenticated}
               linkedinResourcesCount={linkedinResources.length}
@@ -270,4 +285,3 @@ const Resources = () => {
   );
 };
 export default Resources;
-
