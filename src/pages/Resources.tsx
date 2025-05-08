@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Input } from '@/components/ui/input';
@@ -21,6 +22,7 @@ const VISIBLE_LINKEDIN = 3;
 const TOP_TWEETS_COUNT = 100;
 
 const classifyResourceSource = (resource: Resource): 'Tweet' | 'LinkedIn' | 'Standard' => {
+  // Check source field first, then resource_link
   if (resource.source?.toLowerCase().includes('twitter') || 
       (resource.resource_link && resource.resource_link.toLowerCase().includes('twitter.com'))) {
     return 'Tweet';
@@ -153,8 +155,14 @@ const Resources = () => {
   const { isAuthenticated } = useAuth();
   const { resources, isLoading } = useResources();
   
+  // Add debugging for resources data
+  console.log('Resources data:', resources);
+  
   const processedResources = useMemo(() => {
-    return processResources(resources);
+    const processed = processResources(resources);
+    console.log('Processed resources:', processed);
+    console.log('Resource types:', processed.map(r => r.sourceType));
+    return processed;
   }, [resources]);
   
   const uniqueCategories = useMemo(() => {
@@ -166,7 +174,7 @@ const Resources = () => {
   }, [resources]);
   
   const filteredResources = useMemo(() => {
-    return processedResources.filter(resource => 
+    const filtered = processedResources.filter(resource => 
       matchesFilters(
         resource, 
         searchQuery, 
@@ -175,15 +183,22 @@ const Resources = () => {
         withDeadline
       )
     );
+    console.log('Filtered resources:', filtered);
+    return filtered;
   }, [processedResources, searchQuery, categoryFilter, typeFilter, withDeadline]);
   
-  const standardResources = filteredResources.filter(r => r.sourceType === 'Standard');
+  const standardResources = useMemo(() => {
+    const standard = filteredResources.filter(r => r.sourceType === 'Standard');
+    console.log('Standard resources:', standard);
+    return standard;
+  }, [filteredResources]);
   
   const topGlobalTweets = useMemo(() => {
     const allTweets = processedResources.filter(r => {
       // Check both source field and resource_link
       return r.sourceType === 'Tweet' || r.source?.toLowerCase().includes('twitter');
     });
+    console.log('All tweets:', allTweets);
     const sorted = allTweets
       .sort((a, b) => {
         const scoreA = (a.favorite_count || a.tweet_likes || 0) + (a.retweet_count || a.tweet_retweets || 0);
