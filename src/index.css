@@ -18,7 +18,7 @@
     --primary: 217 88% 56%; /* Insight Blue */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 54% 23%; /* Vira Deep Blue */
+    --secondary:  251 85% 75%; /* PURPLE - Updated to match the requested color 222 54% 23%; /* Vira Deep Blue */
     --secondary-foreground: 0 0% 100%;
 
     --muted: 0 0% 98%; /* Soft White */
@@ -36,7 +36,7 @@
 
     --radius: 0.75rem;
 
-    --sidebar-background: 222 54% 23%; /* Vira Deep Blue */
+    --sidebar-background:  251 85% 75%; /* PURPLE - Updated to match the requested color 222 54% 23%; /* Vira Deep Blue */
     --sidebar-foreground: 0 0% 100%;
     --sidebar-primary: 37 91% 56%; /* Energetic Amber */
     --sidebar-primary-foreground: 0 0% 100%;
@@ -47,7 +47,7 @@
     
     /* Brand color variables */
     --insight-blue: 217 88% 56%; /* #1F75FE */
-    --vira-deep-blue: 222 54% 23%; /* #1C2D5A */
+    --vira-deep-blue:  251 85% 75%; /* PURPLE - Updated to match the requested color 222 54% 23%; /* #1C2D5A */
     --aqua-teal: 164 61% 60%; /* #5ED3B5 */
     --energetic-amber: 37 91% 56%; /* #F9A826 */
     --slate-gray: 0 0% 17%; /* #2C2C2C */
@@ -68,7 +68,7 @@
     --primary: 164 61% 60%; /* Aqua Teal */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 54% 23%; /* Vira Deep Blue */
+    --secondary:  251 85% 75%; /* PURPLE - Updated to match the requested color 222 54% 23%; /* Vira Deep Blue */
     --secondary-foreground: 0 0% 100%;
 
     --muted: 217.2 32.6% 17.5%;
