@@ -176,10 +176,11 @@ const CareerPathway: React.FC = () => {
     return data.report.recommendedRoles.map(role => ({
       title: role.title,
       description: role.description || 'No description available',
-      level: role.level || 'Intermediate', // Add the missing 'level' property with a default value
-      requirements: role.requirements || [] // Add requirements property even if it's empty
+      level: role.salaryRange ? `${role.matchPercentage || 80}% Match` : 'Intermediate', // Use matchPercentage for level or default
+      requirements: [] // Add empty requirements array since it's optional but expected
     }));
   };
+  
   const mapSkillsAndCoursesToSkillsSection = () => {
     if (!data?.report?.skillsAndCourses || data.report.skillsAndCourses.length === 0) {
       return [];
@@ -187,7 +188,7 @@ const CareerPathway: React.FC = () => {
     return data.report.skillsAndCourses.map(item => ({
       name: item.skill,
       level: item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90, // Convert string level to number
-      category: item.category || 'Technical', // Add the missing 'category' property with a default value
+      category: item.provider || 'Technical', // Use provider as category or default to 'Technical'
       type: item.level?.toLowerCase() === "beginner" ? "soft" : "hard",
       course: item.course
     }));
