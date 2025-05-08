@@ -13,8 +13,8 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CareerAIRecommendations } from '@/components/career/CareerAIRecommendations';
-import { PageTitle } from '@/components/PageTitle';
+import CareerAIRecommendations from '@/components/career/CareerAIRecommendations';
+import PageTitle from '@/components/PageTitle';
 
 interface UserProfile {
   id: string;
@@ -448,7 +448,7 @@ const CareerPathway: React.FC = () => {
 
   return (
     <AppLayout>
-      <PageTitle title={pathway_title || "My Career Pathway"} description="Your personalized roadmap to professional success." />
+      <PageTitle title={pathway_title || "My Career Pathway"} subtitle="Your personalized roadmap to professional success." />
       <div className="container mx-auto p-4 space-y-8">
         
         <Card className="bg-gradient-to-r from-primary/10 to-secondary/10">
@@ -535,7 +535,10 @@ const CareerPathway: React.FC = () => {
                 )}
               </CardContent>
             </Card>
-            <CareerAIRecommendations pathway={pathwayData} userProfile={userProfile} onUpdatePathway={setPathwayData} />
+            <CareerAIRecommendations 
+              careerPath={pathwayData.target_role} 
+              userSkills={pathwayData.skills.map(skill => skill.name)}
+            />
           </TabsContent>
 
           <TabsContent value="jobs" className="mt-6">
@@ -639,7 +642,6 @@ const CareerPathway: React.FC = () => {
                 <Card key={index}>
                   <CardHeader>
                     <CardTitle>{resource.title}</CardTitle>
-                    <CardDescription>{resource.description}</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between text-sm">
