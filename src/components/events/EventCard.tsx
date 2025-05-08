@@ -1,4 +1,3 @@
-
 import { Calendar, Clock, MapPin, Link, Users } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-
 interface EventCardProps {
   event: {
     id: string;
@@ -29,12 +27,19 @@ interface EventCardProps {
   onRegister?: (eventId: string, userData?: any) => void;
   isRegistered?: boolean; // Add isRegistered prop
 }
-
-export function EventCard({ event, onRegister, isRegistered = false }: EventCardProps) {
-  const { isAuthenticated, user } = useAuth();
-  const { toast } = useToast();
+export function EventCard({
+  event,
+  onRegister,
+  isRegistered = false
+}: EventCardProps) {
+  const {
+    isAuthenticated,
+    user
+  } = useAuth();
+  const {
+    toast
+  } = useToast();
   const navigate = useNavigate();
-  
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
@@ -43,48 +48,44 @@ export function EventCard({ event, onRegister, isRegistered = false }: EventCard
       return dateString;
     }
   };
-  
   const handleRegister = () => {
     if (!isAuthenticated) {
       // Redirect to login page if not authenticated
       toast({
         title: "Authentication Required",
         description: "Please log in to register for this event.",
-        variant: "default",
+        variant: "default"
       });
-      navigate('/login', { state: { redirectTo: `/events/${event.id}` } });
+      navigate('/login', {
+        state: {
+          redirectTo: `/events/${event.id}`
+        }
+      });
       return;
     }
-    
+
     // If user is logged in, register them for the event
-    onRegister?.(event.id, { name: user?.name, email: user?.email });
-    
+    onRegister?.(event.id, {
+      name: user?.name,
+      email: user?.email
+    });
     toast({
       title: 'Registration Successful',
       description: 'You have been registered for this event.',
-      variant: "default",
+      variant: "default"
     });
-    
+
     // Redirect to Calendly if available
     if (event.calendlyLink) {
       window.open(event.calendlyLink, '_blank');
     }
   };
-  
   const isAtCapacity = event.capacity !== null && event.registrations >= event.capacity;
-  
-  return (
-    <Card className="h-full flex flex-col">
+  return <Card className="h-full flex flex-col">
       <div className="relative w-full pt-[50%] overflow-hidden">
-        <img 
-          src={event.image || "https://via.placeholder.com/600x300?text=Event"} 
-          alt={event.title} 
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <Badge className="absolute top-2 right-2 bg-orange-500 text-white">{event.type}</Badge>
-        {isRegistered && (
-          <Badge className="absolute top-2 left-2 bg-green-500 text-white">Registered</Badge>
-        )}
+        <img src={event.image || "https://via.placeholder.com/600x300?text=Event"} alt={event.title} className="absolute inset-0 w-full h-full object-cover" />
+        <Badge className="absolute top-2 right-2 text-white bg-insightsCollective-energeticAmber">{event.type}</Badge>
+        {isRegistered && <Badge className="absolute top-2 left-2 bg-green-500 text-white">Registered</Badge>}
       </div>
       <CardHeader>
         <CardTitle className="line-clamp-2">{event.title}</CardTitle>
@@ -93,49 +94,31 @@ export function EventCard({ event, onRegister, isRegistered = false }: EventCard
             <Calendar className="h-4 w-4" />
             <span>{formatDate(event.date)}</span>
           </div>
-          {event.startTime && (
-            <div className="flex items-center gap-1 mt-1">
+          {event.startTime && <div className="flex items-center gap-1 mt-1">
               <Clock className="h-4 w-4" />
               <span>{event.startTime}{event.endTime ? ` - ${event.endTime}` : ''}</span>
-            </div>
-          )}
-          {event.location && (
-            <div className="flex items-center gap-1 mt-1">
+            </div>}
+          {event.location && <div className="flex items-center gap-1 mt-1">
               <MapPin className="h-4 w-4" />
               <span>{event.location}</span>
-            </div>
-          )}
-          {event.link && (
-            <div className="flex items-center gap-1 mt-1">
+            </div>}
+          {event.link && <div className="flex items-center gap-1 mt-1">
               <Link className="h-4 w-4" />
               <span className="truncate">Virtual Event</span>
-            </div>
-          )}
-          {event.capacity && (
-            <div className="flex items-center gap-1 mt-1">
+            </div>}
+          {event.capacity && <div className="flex items-center gap-1 mt-1">
               <Users className="h-4 w-4" />
               <span>{event.registrations} / {event.capacity} registered</span>
-            </div>
-          )}
+            </div>}
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow">
         <p className="text-muted-foreground line-clamp-3">{event.description}</p>
       </CardContent>
       <CardFooter>
-        {isRegistered ? (
-          <Button disabled className="w-full bg-green-600 cursor-default">Already Registered</Button>
-        ) : isAtCapacity ? (
-          <Button disabled className="w-full">Event Full</Button>
-        ) : (
-          <Button 
-            className="w-full bg-orange-600 hover:bg-orange-700 text-white" 
-            onClick={handleRegister}
-          >
+        {isRegistered ? <Button disabled className="w-full bg-green-600 cursor-default">Already Registered</Button> : isAtCapacity ? <Button disabled className="w-full">Event Full</Button> : <Button onClick={handleRegister} className="w-full text-white bg-insightsCollective-insightBlue">
             Register
-          </Button>
-        )}
+          </Button>}
       </CardFooter>
-    </Card>
-  );
+    </Card>;
 }
