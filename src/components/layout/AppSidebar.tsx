@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 const AppSidebar = () => {
   const location = useLocation();
@@ -19,6 +20,12 @@ const AppSidebar = () => {
     url: "/dashboard",
     icon: Home,
     active: location.pathname === '/dashboard'
+  }, {
+    title: "Resume Analyzer",
+    url: "/resume",
+    icon: FileUp,
+    active: location.pathname === '/resume',
+    highlight: true
   }, {
     title: "Courses",
     url: "/courses",
@@ -82,11 +89,6 @@ const AppSidebar = () => {
     url: "/messages",
     icon: MessageSquare,
     active: location.pathname.startsWith('/messages')
-  }, {
-    title: "Resume",
-    url: "/resume",
-    icon: FileUp,
-    active: location.pathname.startsWith('/resume')
   }, {
     title: "Profile",
     url: "/profile",
@@ -183,37 +185,37 @@ const AppSidebar = () => {
   return (
     <Sidebar className="border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200">
       <SidebarHeader className="border-b border-gray-200 dark:border-gray-800 px-2 bg-gray-100">
-        <div className="flex items-center space-x-2 p-3">
+        <div className="flex items-center space-x-2 p-2">
           <Link to="/" className="flex items-center space-x-2">
-            <div className="relative w-8 h-8 flex items-center justify-center rounded-md bg-gradient-to-tr from-[#9b87f5] to-[#7E69AB]">
-              <GraduationCap className="h-5 w-5 text-white" />
+            <div className="relative w-7 h-7 flex items-center justify-center rounded-md bg-gradient-to-tr from-[#9b87f5] to-[#7E69AB]">
+              <GraduationCap className="h-4 w-4 text-white" />
             </div>
-            <span className="font-bold text-lg">Insights Collective</span>
+            <span className="font-bold text-base">Insights Collective</span>
           </Link>
         </div>
-        <SidebarTrigger className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 absolute right-2 top-3" />
+        <SidebarTrigger className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 absolute right-2 top-2" />
       </SidebarHeader>
       
-      <SidebarContent className="py-4 px-2 bg-gray-50 dark:bg-gray-900">
-        {isAuthenticated && <div className="mb-6 px-2">
-            <div className="flex items-center space-x-3 mb-4">
-              <Avatar className="border-2 border-[#9b87f5]/20">
+      <SidebarContent className="py-2 px-2 bg-gray-50 dark:bg-gray-900">
+        {isAuthenticated && <div className="mb-4 px-2">
+            <div className="flex items-center space-x-2 mb-2">
+              <Avatar className="border-2 border-[#9b87f5]/20 w-7 h-7">
                 <AvatarImage src={user?.avatar || ''} alt="User avatar" />
-                <AvatarFallback className="bg-[#9b87f5]/10 text-[#9b87f5]">
+                <AvatarFallback className="bg-[#9b87f5]/10 text-[#9b87f5] text-xs">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="font-medium text-sm truncate max-w-[150px]">
+                <p className="font-medium text-xs truncate max-w-[140px]">
                   {user?.name || user?.email?.split('@')[0] || 'User'}
                 </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
               </div>
             </div>
           </div>}
       
         <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-2 py-2 text-xs uppercase tracking-wider">
+          <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-2 py-1 text-[10px] uppercase tracking-wider">
             Main Menu
           </SidebarGroupLabel>
           <SidebarGroupContent>
@@ -221,12 +223,19 @@ const AppSidebar = () => {
               {menuItems.map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
-                      <Link to={item.url} className="flex items-center space-x-2 rounded-md px-2 py-2">
-                        <item.icon className={`h-4 w-4 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
-                        <span className="text-sm truncate">{item.title}</span>
-                        {item.active && <div className="ml-auto">
-                          <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
-                        </div>}
+                      <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <span className="text-xs truncate">{item.title}</span>
+                        {item.highlight && !item.active && (
+                          <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
+                            New
+                          </Badge>
+                        )}
+                        {item.active && (
+                          <div className="ml-auto">
+                            <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                          </div>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -235,17 +244,17 @@ const AppSidebar = () => {
           </SidebarGroupContent>
         </SidebarGroup>
         
-        {isAuthenticated && (isAdmin || isInstructor) && <SidebarGroup className="mt-6">
-            <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-2 py-2 text-xs uppercase tracking-wider">
+        {isAuthenticated && (isAdmin || isInstructor) && <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-2 py-1 text-[10px] uppercase tracking-wider">
               {isAdmin ? 'Administration' : 'Instructor Tools'}
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {isAdmin && adminMenuItems.map(item => <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
-                      <Link to={item.url} className="flex items-center space-x-2 rounded-md px-2 py-2">
-                        <item.icon className={`h-4 w-4 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />
-                        <span className="text-sm truncate">{item.title}</span>
+                      <Link to={item.url} className="flex items-center space-x-2 rounded-md px-2 py-1.5">
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />
+                        <span className="text-xs truncate">{item.title}</span>
                         {item.active && <div className="ml-auto">
                           <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
                         </div>}
@@ -255,9 +264,9 @@ const AppSidebar = () => {
                 
                 {isInstructor && !isAdmin && <SidebarMenuItem>
                     <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5">
-                      <Link to="/instructor/courses" className="flex items-center space-x-2 rounded-md px-2 py-2">
-                        <BookOpen className="h-4 w-4 flex-shrink-0 text-gray-500" />
-                        <span className="text-sm truncate">My Courses</span>
+                      <Link to="/instructor/courses" className="flex items-center space-x-2 rounded-md px-2 py-1.5">
+                        <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                        <span className="text-xs truncate">My Courses</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>}
@@ -266,15 +275,15 @@ const AppSidebar = () => {
           </SidebarGroup>}
       </SidebarContent>
       
-      <SidebarFooter className="border-t border-gray-200 dark:border-gray-800 mt-auto p-4 bg-gray-50 dark:bg-gray-900">
+      <SidebarFooter className="border-t border-gray-200 dark:border-gray-800 mt-auto p-3 bg-gray-50 dark:bg-gray-900">
         {!isAuthenticated ? <div className="space-y-2 px-2">
-            <Button variant="outline" asChild className="w-full justify-start">
+            <Button variant="outline" asChild className="w-full justify-start text-xs h-8">
               <Link to="/login">Sign In</Link>
             </Button>
-            <Button asChild className="w-full justify-start bg-[#9b87f5] hover:bg-[#8B5CF6] text-white">
+            <Button asChild className="w-full justify-start bg-[#9b87f5] hover:bg-[#8B5CF6] text-white text-xs h-8">
               <Link to="/register">Create Account</Link>
             </Button>
-          </div> : <div className="text-xs text-gray-500 dark:text-gray-400 px-2">
+          </div> : <div className="text-[10px] text-gray-500 dark:text-gray-400 px-2">
             <p>Insights Collective v1.0</p>
           </div>}
       </SidebarFooter>
