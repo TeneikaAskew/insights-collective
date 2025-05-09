@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
-import type { Resume } from '../../../hooks/resume/useResume'; // Updated import path for Resume type
+import type { Resume } from '../../hooks/resume/useResume'; // Fixed import path
 import OverallScoreCard from './OverallScoreCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, TrendingUp, Sparkles, FileUp, File, DownloadCloud, Trash2, AlertCircle } from 'lucide-react';
@@ -223,7 +223,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             ) : (
               <Card className="h-full flex items-center justify-center min-h-[200px]">
                 <CardContent className="text-center p-6">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
                     {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
                   </p>
@@ -286,4 +286,3 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 };
 
 export default ResumeAnalysisDisplay;
-
