@@ -4,20 +4,27 @@ import { ResumeAnalysis } from '@/components/assistants/types';
 import OverallScoreCard from './OverallScoreCard';
 import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, TrendingUp, Sparkles } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Sparkles, File, FileUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface ResumeAnalysisDisplayProps {
   analysis: ResumeAnalysis | null;
   onStartCareerChat: () => void;
   userId?: string;
   hasAnalysis?: boolean;
+  handleFileChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  resumeFile?: File | null;
+  pdfPreviewUrl?: string | null;
 }
 
 const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   analysis,
   onStartCareerChat,
   userId,
-  hasAnalysis
+  hasAnalysis,
+  handleFileChange,
+  resumeFile,
+  pdfPreviewUrl
 }) => {
   if (!analysis) return null;
   
@@ -59,6 +66,46 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             Your resume ranks in the top tier. The recommendations will help you perfect it even further.
           </AlertDescription>
         </Alert>
+      )}
+
+      {/* Resume Upload Section within Analysis */}
+      {handleFileChange && (
+        <div className="bg-white border rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-medium">Update Your Resume</h3>
+            <input 
+              type="file" 
+              accept=".pdf,.docx" 
+              id="resume-upload-inline" 
+              className="hidden" 
+              onChange={handleFileChange}
+            />
+            <Button size="sm" variant="outline" asChild className="flex items-center gap-1">
+              <label htmlFor="resume-upload-inline">
+                <FileUp className="h-4 w-4" />
+                <span>Upload</span>
+              </label>
+            </Button>
+          </div>
+          
+          {/* Mini Resume Preview */}
+          {pdfPreviewUrl && (
+            <div className="mt-2 border rounded">
+              <iframe
+                src={pdfPreviewUrl}
+                title="Resume Preview" 
+                className="w-full aspect-[8.5/4]"
+              />
+            </div>
+          )}
+          
+          {resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && (
+            <div className="mt-2 border rounded p-3 bg-gray-50 flex items-center">
+              <File className="h-5 w-5 text-blue-600 mr-2" />
+              <span className="text-sm truncate">{resumeFile.name}</span>
+            </div>
+          )}
+        </div>
       )}
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

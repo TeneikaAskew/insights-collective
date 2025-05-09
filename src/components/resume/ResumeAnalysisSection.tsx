@@ -16,7 +16,9 @@ interface ResumeAnalysisSectionProps {
   resume: any;
   handleStartCareerChat: () => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  hasAnalysis?: boolean; 
+  hasAnalysis?: boolean;
+  resumeFile?: File | null;
+  pdfPreviewUrl?: string | null;
 }
 
 const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
@@ -26,7 +28,9 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   resume,
   handleStartCareerChat,
   handleFileChange,
-  hasAnalysis = false
+  hasAnalysis = false,
+  resumeFile,
+  pdfPreviewUrl
 }) => {
   return (
     <Card className="shadow-lg border-t-4 border-t-[#9b87f5]">
@@ -89,6 +93,9 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 analysis={analysis}
                 onStartCareerChat={handleStartCareerChat}
                 hasAnalysis={hasAnalysis}
+                handleFileChange={handleFileChange}
+                resumeFile={resumeFile}
+                pdfPreviewUrl={pdfPreviewUrl}
               />
             </TabsContent>
             
