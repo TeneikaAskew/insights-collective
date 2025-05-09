@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,7 +115,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                   <CardContent className="space-y-6">
                     <div className="bg-accent/20 border border-accent rounded-md p-4">
                       <p className="font-medium mb-2">Target Industry Recommendation:</p>
-                      <p className="text-sm">{analysis.career_alignment || "Upload your resume to receive personalized career recommendations."}</p>
+                      <p className="text-sm">{analysis.themes?.[0] || "Upload your resume to receive personalized career recommendations."}</p>
                     </div>
                     
                     <Button 
