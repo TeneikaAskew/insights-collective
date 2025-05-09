@@ -185,24 +185,24 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           <CardDescription>How effectively your resume tells your professional story</CardDescription>
         </div>
         <div>
-          <TabsList className="grid w-full grid-cols-2 h-8">
-            <TabsTrigger 
-              value="detail" 
-              className={`${viewMode === 'detail' ? 'bg-[#9b87f5] text-white' : ''}`}
-              onClick={() => setViewMode('detail')}
-            >
-              <FileText className="h-4 w-4 mr-1" />
-              Detail
-            </TabsTrigger>
-            <TabsTrigger 
-              value="list" 
-              className={`${viewMode === 'list' ? 'bg-[#9b87f5] text-white' : ''}`}
-              onClick={() => setViewMode('list')}
-            >
-              <BookOpen className="h-4 w-4 mr-1" />
-              All
-            </TabsTrigger>
-          </TabsList>
+          <Tabs defaultValue={viewMode} onValueChange={(value) => setViewMode(value as 'list' | 'detail')}>
+            <TabsList className="grid w-full grid-cols-2 h-8">
+              <TabsTrigger 
+                value="detail" 
+                className={`${viewMode === 'detail' ? 'bg-[#9b87f5] text-white' : ''}`}
+              >
+                <FileText className="h-4 w-4 mr-1" />
+                Detail
+              </TabsTrigger>
+              <TabsTrigger 
+                value="list" 
+                className={`${viewMode === 'list' ? 'bg-[#9b87f5] text-white' : ''}`}
+              >
+                <BookOpen className="h-4 w-4 mr-1" />
+                All
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
       </CardHeader>
       

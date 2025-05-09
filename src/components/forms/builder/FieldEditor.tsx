@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Draggable } from 'react-beautiful-dnd';
 import { Button } from '@/components/ui/button';
@@ -304,7 +303,6 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                       <TabsTrigger value="validation">Validation</TabsTrigger>
                     </TabsList>
                     <TabsContent value="basic" className="mt-2">
-                      {/* Options Editor for Select/Radio/Checkbox Types */}
                       {['dropdown', 'radio', 'checkbox', 'multi_select'].includes(field.type) && (
                         <div className="border border-gray-200 rounded-lg p-4">
                           <Label className="mb-2 block">Options</Label>
@@ -346,7 +344,6 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                         </div>
                       )}
 
-                      {/* Slider Options */}
                       {field.type === 'slider' && (
                         <div className="border border-gray-200 rounded-lg p-4">
                           <div className="grid grid-cols-2 gap-4">
@@ -387,7 +384,6 @@ const FieldEditor: React.FC<FieldEditorProps> = ({
                         </div>
                       )}
 
-                      {/* File Upload Options */}
                       {field.type === 'file_upload' && (
                         <div className="border border-gray-200 rounded-lg p-4">
                           <div className="mb-4">
