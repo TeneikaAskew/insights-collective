@@ -68,7 +68,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         </Alert>
       )}
 
-      {/* Resume Upload Section within Analysis */}
+      {/* Resume Upload Bar */}
       {handleFileChange && (
         <div className="bg-white border rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between mb-3">
@@ -87,24 +87,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
               </label>
             </Button>
           </div>
-          
-          {/* Mini Resume Preview */}
-          {pdfPreviewUrl && (
-            <div className="mt-2 border rounded">
-              <iframe
-                src={pdfPreviewUrl}
-                title="Resume Preview" 
-                className="w-full aspect-[8.5/4]"
-              />
-            </div>
-          )}
-          
-          {resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && (
-            <div className="mt-2 border rounded p-3 bg-gray-50 flex items-center">
-              <File className="h-5 w-5 text-blue-600 mr-2" />
-              <span className="text-sm truncate">{resumeFile.name}</span>
-            </div>
-          )}
         </div>
       )}
       
@@ -124,6 +106,24 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         
         <div className="md:col-span-1">
           <div className="bg-white border rounded-lg p-4 h-full">
+            {/* Resume Preview Above Key Insights */}
+            {pdfPreviewUrl && (
+              <div className="mb-4 border rounded">
+                <iframe
+                  src={pdfPreviewUrl}
+                  title="Resume Preview" 
+                  className="w-full aspect-[8.5/4]"
+                />
+              </div>
+            )}
+            
+            {resumeFile?.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' && (
+              <div className="mb-4 border rounded p-3 bg-gray-50 flex items-center">
+                <File className="h-5 w-5 text-blue-600 mr-2" />
+                <span className="text-sm truncate">{resumeFile.name}</span>
+              </div>
+            )}
+          
             <h3 className="font-medium flex items-center gap-2 mb-4">
               <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
               <span>Key Insights</span>
