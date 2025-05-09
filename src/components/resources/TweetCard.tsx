@@ -1,7 +1,7 @@
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ExternalLink, MessageSquare, Heart, Repeat } from 'lucide-react';
+import { ExternalLink, Twitter, Heart, Repeat } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Tweet {
@@ -43,7 +43,7 @@ export const TweetCard = ({ tweet, highlighted = false }: TweetCardProps) => {
         <div className="flex items-start space-x-3">
           <div className="flex-shrink-0">
             <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-700">
-              <MessageSquare className="h-5 w-5" />
+              <Twitter className="h-5 w-5" />
             </div>
           </div>
           <div className="flex-grow">
