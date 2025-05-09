@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
-import ResumeUploadSection from '@/components/resume/ResumeUploadSection';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
 import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
@@ -734,21 +733,7 @@ const Resume = () => {
           </div>
         )}
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <ResumeUploadSection
-            resumeFile={resumeFile}
-            setResumeFile={setResumeFile}
-            resume={resume}
-            loading={loading}
-            uploading={uploading}
-            isAnalyzing={isAnalyzing}
-            handleUpload={handleUpload}
-            handleDelete={handleDelete}
-            handleFileChange={handleFileChange}
-            handleDownload={handleDownload}
-            pdfPreviewUrl={pdfPreviewUrl}
-          />
-
+        <div className="grid md:grid-cols-1 gap-6">
           <ResumeAnalysisSection
             loading={loading}
             isAnalyzing={isAnalyzing}
