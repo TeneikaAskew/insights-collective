@@ -1,4 +1,3 @@
-
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
@@ -222,11 +221,11 @@ const AppSidebar = () => {
               {menuItems.map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
-                      <Link to={item.url} className="flex items-center space-x-2 rounded-md px-2 py-1.5">
-                        <item.icon className={`h-4 w-4 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
-                        <span className="text-sm truncate">{item.title}</span>
+                      <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <span>{item.title}</span>
                         {item.active && <div className="ml-auto">
-                          <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                          <ChevronRight className="h-4 w-4 text-[#9b87f5]" />
                         </div>}
                       </Link>
                     </SidebarMenuButton>
@@ -244,11 +243,11 @@ const AppSidebar = () => {
               <SidebarMenu>
                 {isAdmin && adminMenuItems.map(item => <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
-                      <Link to={item.url} className="flex items-center space-x-2 rounded-md px-2 py-1.5">
-                        <item.icon className={`h-4 w-4 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />
-                        <span className="text-sm truncate">{item.title}</span>
+                      <Link to={item.url} className="flex items-center space-x-3 rounded-md px-3 py-2">
+                        <item.icon className={`h-5 w-5 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />
+                        <span>{item.title}</span>
                         {item.active && <div className="ml-auto">
-                          <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                          <ChevronRight className="h-4 w-4 text-[#9b87f5]" />
                         </div>}
                       </Link>
                     </SidebarMenuButton>
@@ -256,9 +255,9 @@ const AppSidebar = () => {
                 
                 {isInstructor && !isAdmin && <SidebarMenuItem>
                     <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5">
-                      <Link to="/instructor/courses" className="flex items-center space-x-2 rounded-md px-2 py-1.5">
-                        <BookOpen className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                        <span className="text-sm truncate">My Courses</span>
+                      <Link to="/instructor/courses" className="flex items-center space-x-3 rounded-md px-3 py-2">
+                        <BookOpen className="h-5 w-5 text-gray-500" />
+                        <span>My Courses</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>}
