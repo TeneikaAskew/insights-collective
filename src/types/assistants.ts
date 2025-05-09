@@ -2,15 +2,8 @@
 import { ReactNode } from "react";
 import { LucideIcon } from "lucide-react";
 
-export type Assistant = {
-  id: string;
-  name: string;
-  icon: { 
-    component: LucideIcon; 
-    props: any;
-  };
-  description: string;
-  category: "analytics" | "coding" | "content" | "career";
-  popular?: boolean;
-  instructions: string; // Added this property
-};
+// Importing from the centralized types file
+import { Assistant as AssistantType } from "../components/assistants/types";
+
+// Re-export the type
+export type Assistant = AssistantType;

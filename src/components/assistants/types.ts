@@ -40,6 +40,24 @@ export interface BulletAnalysis {
   impact_score?: number;
   brevity_score?: number;
   relevance_score?: number;
+  
+  // Adding missing properties used in the components
+  rewritten?: string;
+  tips?: string | string[];
+  word_balance?: {
+    industry_pct: number;
+    common_pct: number;
+    action_pct: number;
+    metric_pct: number;
+  };
+  word_balance_score?: number;
+  xyz_scores?: {
+    action: number;
+    metrics: number;
+    clarity: number;
+    industry: number;
+    achievement: number;
+  };
 }
 
 export interface CareerReportData {
@@ -60,10 +78,32 @@ export interface CareerReportData {
   careerPathSteps: Array<{
     title: string;
     description: string;
-    // Let's add the timeframe property that was expected in the CareerPathway component
     timeframe?: string;
   }>;
   keyTakeaways: string[];
-  nextStepRecommendations: string;  // Making this required
-  potentialRoles: string[];  // Making this required
+  nextStepRecommendations: string;
+  potentialRoles: string[];
+}
+
+// Adding missing types that are imported in assistant components
+export type Message = {
+  id: string;
+  role: 'assistant' | 'user' | 'system';
+  content: string;
+  timestamp: Date;
+};
+
+export type Chat = {
+  id: string;
+  title: string;
+  messages: Message[];
+  assistantId: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export interface PersonalizationSettings {
+  careerFocus: string;
+  careerPath: string;
+  salaryCap: number;
 }
