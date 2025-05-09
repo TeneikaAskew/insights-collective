@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,7 +9,6 @@ import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
-
 const Register = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -21,10 +19,19 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
-  
-  const { register, googleSignIn, githubSignIn, twitterSignIn, loading, error, storeRedirectPath } = useAuth();
+  const {
+    register,
+    googleSignIn,
+    githubSignIn,
+    twitterSignIn,
+    loading,
+    error,
+    storeRedirectPath
+  } = useAuth();
   const location = useLocation();
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
 
   // Store the current path or referrer for redirect after registration
   const storeCurrentPath = () => {
@@ -32,34 +39,27 @@ const Register = () => {
     const from = location.state?.from?.pathname;
     const query = new URLSearchParams(location.search);
     const redirectParam = query.get('redirect');
-    
     const redirectPath = redirectParam || from;
-    
     if (redirectPath && redirectPath !== '/login' && redirectPath !== '/register') {
       storeRedirectPath(redirectPath);
       console.log('Register page: Stored redirect path:', redirectPath);
     }
   };
-
   useEffect(() => {
     // Store redirect path on component mount
     storeCurrentPath();
   }, [location]);
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
     setPasswordError('');
     if (password !== confirmPassword) {
       setPasswordError('Passwords do not match');
       return;
     }
-    
     setFormSubmitting(true);
     try {
       // Store path for redirect before registration
       storeCurrentPath();
-      
       await register(name, email, password);
       // Navigation is handled in the auth provider after successful registration
     } catch (error) {
@@ -68,26 +68,22 @@ const Register = () => {
       setFormSubmitting(false);
     }
   };
-
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setSocialLoading(provider);
-      
+
       // Store path for redirect before social sign-in
       const from = location.state?.from?.pathname;
       const query = new URLSearchParams(location.search);
       const redirectParam = query.get('redirect');
-      
       const redirectPath = redirectParam || from || '/resources';
       localStorage.setItem('redirectAfterLogin', redirectPath);
       console.log('[Register] Stored redirect path before social sign-in:', redirectPath);
-      
       const signInMethod = {
         'google': googleSignIn,
         'github': githubSignIn,
         'twitter': twitterSignIn
       }[provider];
-      
       if (signInMethod) {
         await signInMethod();
       } else {
@@ -98,15 +94,13 @@ const Register = () => {
       toast({
         title: 'Authentication Error',
         description: error.message || `Failed to sign in with ${provider}`,
-        variant: 'destructive',
+        variant: 'destructive'
       });
     } finally {
       setSocialLoading(null);
     }
   };
-
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
+  return <div className="min-h-screen flex items-center justify-center p-4 bg-[resume-chart-common] bg-insightsCollective-dustyGray">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center text-2xl font-bold text-primary">
@@ -125,48 +119,18 @@ const Register = () => {
           
           <CardContent>
             <div className="flex flex-col gap-3">
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('google')}
-                disabled={loading || formSubmitting || !!socialLoading}
-              >
-                {socialLoading === 'google' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaGoogle className="mr-2 h-4 w-4" />
-                )}
+              <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('google')} disabled={loading || formSubmitting || !!socialLoading}>
+                {socialLoading === 'google' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaGoogle className="mr-2 h-4 w-4" />}
                 Sign up with Google
               </Button>
               
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('github')}
-                disabled={loading || formSubmitting || !!socialLoading}
-              >
-                {socialLoading === 'github' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaGithub className="mr-2 h-4 w-4" />
-                )}
+              <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('github')} disabled={loading || formSubmitting || !!socialLoading}>
+                {socialLoading === 'github' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaGithub className="mr-2 h-4 w-4" />}
                 Sign up with GitHub
               </Button>
               
-              <Button 
-                type="button" 
-                variant="outline" 
-                className="w-full flex items-center justify-center"
-                onClick={() => handleSocialSignIn('twitter')}
-                disabled={loading || formSubmitting || !!socialLoading}
-              >
-                {socialLoading === 'twitter' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FaTwitter className="mr-2 h-4 w-4" />
-                )}
+              <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('twitter')} disabled={loading || formSubmitting || !!socialLoading}>
+                {socialLoading === 'twitter' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaTwitter className="mr-2 h-4 w-4" />}
                 Sign up with Twitter
               </Button>
             </div>
@@ -183,48 +147,20 @@ const Register = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
+                <Input id="name" placeholder="John Doe" value={name} onChange={e => setName(e.target.value)} required />
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="your.email@ic.tech"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                />
+                <Input id="email" type="email" placeholder="your.email@ic.tech" value={email} onChange={e => setEmail(e.target.value)} required />
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button 
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                  <Input id="password" type={showPassword ? "text" : "password"} placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} required />
+                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowPassword(!showPassword)}>
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>
@@ -232,36 +168,17 @@ const Register = () => {
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
                 <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                  />
-                  <button 
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
+                  <Input id="confirmPassword" type={showConfirmPassword ? "text" : "password"} placeholder="••••••••" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} required />
+                  <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {passwordError && (
-                  <p className="text-sm text-destructive mt-1">{passwordError}</p>
-                )}
+                {passwordError && <p className="text-sm text-destructive mt-1">{passwordError}</p>}
               </div>
               
-              {error && (
-                <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
+              {error && <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
                   {error}
-                </div>
-              )}
+                </div>}
               
               <div className="text-xs text-muted-foreground">
                 By creating an account, you agree to our{' '}
@@ -271,14 +188,10 @@ const Register = () => {
               </div>
             
               <Button type="submit" className="w-full" disabled={formSubmitting || loading || !!socialLoading}>
-                {formSubmitting ? (
-                  <>
+                {formSubmitting ? <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating account...
-                  </>
-                ) : (
-                  'Sign Up'
-                )}
+                  </> : 'Sign Up'}
               </Button>
               
               <p className="text-center text-sm text-muted-foreground">
@@ -291,8 +204,6 @@ const Register = () => {
           </CardContent>
         </Card>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Register;
