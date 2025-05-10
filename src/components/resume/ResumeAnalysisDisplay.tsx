@@ -223,7 +223,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             ) : (
               <Card className="h-full flex items-center justify-center min-h-[200px]">
                 <CardContent className="text-center p-6">
-                  <File className="h-4 w-12 text-muted-foreground mx-auto mb-4" />
+                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
                     {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
                   </p>
