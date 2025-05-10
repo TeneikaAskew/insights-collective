@@ -221,7 +221,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 hasAnalysis={hasAnalysis}
               />
             ) : (
-              <Card className="h-full flex items-center justify-center min-h-[200px]">
+              <Card className="h-full flex items-center justify-center min-h-[100px]">
                 <CardContent className="text-center p-6">
                   <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                   <p className="text-muted-foreground">
