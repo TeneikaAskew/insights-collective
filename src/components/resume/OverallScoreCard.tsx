@@ -5,7 +5,9 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { MessageSquare, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { careerAlignments } from '@/hooks/useResumeAnalysis';
+import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
+const {    careerAlignments  } = useResumeAnalysis();
+
 
 // Get user ID if authenticated - keep this outside component to avoid execution during render
 const getUserId = async () => {
