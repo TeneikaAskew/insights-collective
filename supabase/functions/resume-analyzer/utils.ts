@@ -13,6 +13,14 @@ function getSupabaseClient() {
 
 export const supabase = getSupabaseClient();
 
+import { encoding_for_model } from 'npm:@dqbd/tiktoken';
+async function countTokens(text, model = 'gpt-4o-mini') {
+  const enc = await encoding_for_model(model);
+  const tokenCount = enc.encode(text).length;
+  enc.free();
+  return tokenCount;
+}
+
 // Track failed endpoints globally - persist across function calls
 // This will keep track of how many times each endpoint has failed
 const failedEndpoints: Record<string, number> = {
@@ -83,6 +91,16 @@ export async function callLLMAPI(
   user: string
 ): Promise<string> {
   // Try endpoints in order of preference, skipping any that have exceeded failure threshold
+    const combined = [
+    `system: ${system}`,
+    `user: ${user}`
+  ].join('\n\n');
+  const n = await countTokens(combined, 'gpt-4o-mini');
+  console.log(`Prompt uses ${n} tokens`);
+  if (n > 131_072) {
+    console.warn('🚨 exceeds max context! trim or chunk it.');
+  // you could even throw here, or slice off part of `user`
+  }
   if (!shouldSkipEndpoint('ANWAN')) {
     try {
       return await callANWANAPI(system, user);
