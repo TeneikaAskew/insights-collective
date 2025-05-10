@@ -99,7 +99,10 @@ function formatResponse(raw: string): { elevatorPitch: string, themes: string[],
     /\*\*Improvement Themes:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
     /Improvement Themes:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/i,
     /2\.\s*[Tt]hree specific improvement themes:?\s*([\s\S]*?)(?=\n\s*3\.|\n\s*\*\*Brief Explanation|\n\s*Resume Grade|$)/i,
-    /^(?=.*\b(improve|strengthen|enhance|suggestions)\b)[^\n:]{5,250}:\s*([\s\S]*?)(?=\n+(?:The resume|Resume Grade|A brief explanation|Explanation|$))/im
+    /^(?=.*\b(improve|strengthen|enhance|suggestions)\b)[^\n:]{5,250}:\s*([\s\S]*?)(?=\n+(?:The resume|Resume Grade|A brief explanation|Explanation|$))/im,
+    /three\s+specific\s+improvement\s+themes?\b\s*[:\-]?\s*([\s\S]*?)(?=\n\s*(?:the resume|resume grade|a brief explanation|explanation|\d+\.\s|\*\*|$))/i,
+    /three specific improvement themes\s*(?:are|include)?\s*:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
+    /three\s+specific\s+improvement\s+themes?\b[\s\S]*?(?=\n{2,}|$)/i,
   ];
 
   for (const pattern of themePatterns) {
