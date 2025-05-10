@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
@@ -15,11 +14,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 interface BulletPointsAnalysisCardProps {
   bullets: BulletAnalysis[];
   isAnalyzing?: boolean;
+  isLoadingEnhancedBullets?: boolean; // Added this property to the interface
 }
 
 const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   bullets = [],
-  isAnalyzing = false
+  isAnalyzing = false,
+  isLoadingEnhancedBullets = false // Added with a default value
 }) => {
   const [selectedBulletIndex, setSelectedBulletIndex] = useState(0);
   const [isEditing, setIsEditing] = useState(false);
@@ -147,7 +148,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   };
 
   const renderLoadingOverlay = () => {
-    if (isAnalyzing) {
+    if (isAnalyzing || isLoadingEnhancedBullets) { // Updated this condition to include isLoadingEnhancedBullets
       return (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10 rounded-lg">
           <Loader2 className="animate-spin h-8 w-8 mb-4 text-blue-600" />
@@ -179,7 +180,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   return (
     <Card className="relative">
       {renderLoadingOverlay()}
-      <CardHeader className={`${isAnalyzing ? "opacity-50" : ""} flex flex-row items-center justify-between`}>
+      <CardHeader className={`${isAnalyzing || isLoadingEnhancedBullets ? "opacity-50" : ""} flex flex-row items-center justify-between`}>
         <div>
           <CardTitle>Storytelling Analysis</CardTitle>
           <CardDescription>How effectively your resume tells your professional story</CardDescription>
@@ -206,7 +207,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
         </div>
       </CardHeader>
       
-      <CardContent className={`space-y-6 ${isAnalyzing ? "opacity-50" : ""}`}>
+      <CardContent className={`space-y-6 ${isAnalyzing || isLoadingEnhancedBullets ? "opacity-50" : ""}`}>
         {viewMode === 'list' ? (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
