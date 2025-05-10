@@ -65,7 +65,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         <iframe
           src={resume.file_url + "#toolbar=0&navpanes=0&view=FitH"}
           title="Resume Preview"
-          className="w-full aspect-[8.5/6] border rounded-md"
+          className="w-full aspect-[8.5/11] border rounded-md"
           style={{ height: '300px' }}
         />
       );
