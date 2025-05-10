@@ -11,7 +11,7 @@ const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    storage: typeof localStorage !== 'undefined' ? localStorage : undefined,
+    storage: localStorage,
     storageKey: 'supabase.auth.token',
     detectSessionInUrl: true,
     flowType: 'implicit'
