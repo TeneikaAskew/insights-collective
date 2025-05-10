@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { MessageSquare, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { careerAlignments } from '@/hooks/useResumeAnalysis';
 
 // Get user ID if authenticated - keep this outside component to avoid execution during render
 const getUserId = async () => {
@@ -173,6 +174,13 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
           <h3 className="font-medium mb-2">Expert Analysis:</h3>
           <p className="text-sm">{explanation || "No expert analysis available."}</p>
         </div>
+        {careerAlignments && careerAlignments.length > 0 && <div className="space-y-2">
+                    {careerAlignments.map((alignment, index) => <Alert key={index} className={`${index === 0 ? "bg-accent/20 border border-accent" : "bg-slate-50 border border-slate-200"}`}>
+                        <AlertDescription>
+                          {alignment.description}
+                        </AlertDescription>
+                      </Alert>)}
+                  </div>}
         
         <Card className="bg-blue-50 border-blue-100">
           <CardContent className="p-4">
