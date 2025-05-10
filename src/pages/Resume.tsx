@@ -368,13 +368,13 @@ const Resume = () => {
     }
 
     return () => {
-      if (pdfPreviewUrl && resumeFile?.type === 'application/pdf') {
+      if (pdfPreviewUrl && resumeFile?.type === 'application/pdf' && blobUrl) { // Added blobUrl check
         URL.revokeObjectURL(blobUrl);
         setPdfPreviewUrl(null);
         logDebug('FileHandler', 'Cleanup: Revoked PDF preview URL');
       }
     };
-  }, [resumeFile, toast]);
+  }, [resumeFile, toast, extractedText, pdfPreviewUrl]); // Added extractedText and pdfPreviewUrl to dependencies
 
   useEffect(() => {
     logDebug('AnalysisRunner', 'Checking if analysis needs to be run', {
@@ -415,7 +415,9 @@ const Resume = () => {
     if (file.type === 'application/pdf' || file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       logDebug('UserAction', 'Setting valid resume file');
       setResumeFile(file);
-      setHasLoadedAnalysis(false);
+      setHasLoadedAnalysis(false); // Reset analysis loaded flag
+      setAnalysis(null); // Clear current analysis
+      setExtractedText(null); // Clear extracted text to trigger re-extraction
       
       // Reset enhanced bullets flag when uploading a new file
       hasLoadedEnhancedRef.current = false;
@@ -445,6 +447,7 @@ const Resume = () => {
     
     logDebug('UserAction', 'Starting upload process');
     setHasLoadedAnalysis(false);
+    setAnalysis(null); // Clear current analysis before upload
     setStorageError(null);
     
     // Reset enhanced bullets flag
@@ -458,21 +461,31 @@ const Resume = () => {
       if (ok) {
         logDebug('UserAction', 'Upload successful');
         
-        // Store the current resume ID after upload
-        if (resume && resume.id) {
-          currentResumeIdRef.current = resume.id;
-          logDebug('UserAction', `Setting currentResumeIdRef to ${resume.id} after upload`);
-        } else {
-          logDebug('UserAction', 'Resume has no ID after upload!', resume);
-        }
+        // The resume state should be updated by useResume hook after upload
+        // We expect 'resume' to be the new resume here.
+        // The currentResumeIdRef will be updated by the subscription effect if 'resume' changes.
         
         try {
-          logDebug('UserAction', 'Starting analysis after upload');
-          await analyzeResume(extractedText);
-          logDebug('UserAction', 'Analysis completed after upload');
-          setHasLoadedAnalysis(true);
-          setIsLoadingEnhancedBullets(true); // Start waiting for enhanced bullets
-          logDebug('UserAction', 'Set isLoadingEnhancedBullets to true after upload');
+          logDebug('UserAction', 'Starting analysis after upload with newly uploaded resume text');
+          // Ensure we are using the text from the *newly uploaded* resume, which should be in `resume.text`
+          // The `resume` object itself is updated by `uploadResume` -> `fetchResume`
+          // So, `resume.text` should be the correct one to analyze.
+          // However, `analyzeResume` is called with `extractedText` which might be from the *previous* file if not careful.
+          // Let's rely on the `resume` object being up-to-date from `uploadResume` via `fetchResume`.
+          // The useEffect for AnalysisRunner will pick up the new `resume.text`.
+          // Forcing analysis here might be redundant or use stale `extractedText`.
+          // Let's ensure `resume` is updated and then AnalysisRunner handles it.
+          // For now, we can still trigger analysis if `resume.text` is available.
+          if (resume?.text) {
+             await analyzeResume(resume.text); // Use text from the potentially new resume object
+             logDebug('UserAction', 'Analysis completed after upload');
+             setHasLoadedAnalysis(true);
+             setIsLoadingEnhancedBullets(true); 
+             logDebug('UserAction', 'Set isLoadingEnhancedBullets to true after upload');
+          } else {
+            logDebug('UserAction', 'Resume text not available immediately after upload for analysis trigger.');
+          }
+
         } catch (error) {
           logDebug('UserAction', 'Analysis error after upload:', error);
           toast({
@@ -489,6 +502,12 @@ const Resume = () => {
       if (error.message?.includes('bucket') || error.message?.includes('storage')) {
         setStorageError("Resume storage is not properly configured. Please contact support.");
         logDebug('UserAction', 'Setting storage error');
+      } else {
+        toast({ // Generic error for other upload failures
+            title: 'Upload Failed',
+            description: error.message || 'An unexpected error occurred during upload.',
+            variant: 'destructive'
+        });
       }
     }
   };
@@ -499,21 +518,24 @@ const Resume = () => {
     try {
       if (resume) {
         logDebug('UserAction', 'Calling deleteResume');
-        await deleteResume();
+        await deleteResume(); // This will also clear relevant caches in useResume
       }
       
       logDebug('UserAction', 'Resetting all resume-related state');
       setResumeFile(null);
-      setPdfPreviewUrl(null);
+      // pdfPreviewUrl is handled by resumeFile useEffect cleanup
       setExtractedText(null);
       setShowCareerChat(false);
       setAnalysis(null);
       setHasLoadedAnalysis(false);
+      setIsLoadingEnhancedBullets(false);
       
       // Reset enhanced bullets flag and resume ID
       hasLoadedEnhancedRef.current = false;
-      currentResumeIdRef.current = null;
+      currentResumeIdRef.current = null; // Important to clear this
       logDebug('UserAction', 'Reset hasLoadedEnhancedRef and currentResumeIdRef after delete');
+
+      // No need to manually clear cache here, deleteResume in useResume handles it.
     } catch (error) {
       logDebug('UserAction', 'Delete error:', error);
       toast({
@@ -537,20 +559,32 @@ const Resume = () => {
   const handleRefreshData = async () => {
     logDebug('UserAction', 'Refresh data requested');
     setIsRefreshing(true);
-    setHasLoadedAnalysis(false);
+    setHasLoadedAnalysis(false); // This will re-trigger analysis if resume text exists
+    setAnalysis(null); // Clear current analysis to ensure it's re-fetched or re-analyzed
     setStorageError(null);
     
-    // Reset enhanced bullets flag
     hasLoadedEnhancedRef.current = false;
     logDebug('UserAction', 'Reset hasLoadedEnhancedRef for refresh');
+
+    if (user) {
+      logDebug('UserAction', 'Clearing local storage cache for refresh');
+      localStorage.removeItem(`resume_analysis_${user.id}`);
+      localStorage.removeItem(`resume_text_${user.id}`);
+      localStorage.removeItem(`resume_data_${user.id}`); // Ensure this key is consistent if used elsewhere
+    }
     
     try {
       logDebug('UserAction', 'Calling refreshResume');
-      await refreshResume();
+      await refreshResume(); // This fetches the latest resume record
       
-      if (resume && resume.id) {
-        logDebug('UserAction', `Checking for enhanced analysis for resume ID: ${resume.id}`);
-        // Check for enhanced analysis for the specific resume
+      // After refreshResume, the `resume` state variable will update.
+      // The useEffect for 'AnalysisLoader' will try to load analysis from `resume.analysis`.
+      // The useEffect for 'AnalysisRunner' will try to run analysis if `resume.text` exists and no analysis loaded.
+      // The useEffect for 'InitialLoad of enhanced analysis' will try to load enhanced bullets.
+
+      // Explicitly check for enhanced analysis after refresh if resume object is available
+      if (resume && resume.id) { // Check if resume object itself is populated by refreshResume
+        logDebug('UserAction', `Post-refresh: Checking for enhanced analysis for resume ID: ${resume.id}`);
         const { data, error } = await supabase
           .from('resumes')
           .select('enhanced_analysis')
@@ -558,16 +592,20 @@ const Resume = () => {
           .maybeSingle();
           
         if (error) {
-          logDebug('UserAction', 'Error fetching enhanced analysis during refresh:', error);
+          logDebug('UserAction', 'Post-refresh: Error fetching enhanced analysis:', error);
         } else if (data?.enhanced_analysis) {
-          logDebug('UserAction', 'Found enhanced analysis during refresh');
+          logDebug('UserAction', 'Post-refresh: Found enhanced analysis');
           handleEnhancedAnalysisUpdate(data.enhanced_analysis);
         } else {
-          logDebug('UserAction', 'No enhanced analysis found during refresh');
-          setIsLoadingEnhancedBullets(true);
+          logDebug('UserAction', 'Post-refresh: No enhanced analysis found, will wait for subscription or manual check');
+          // If no enhanced_analysis, but we have basic analysis, we might still be waiting for it.
+          // Set isLoadingEnhancedBullets if we expect them.
+          if (analysis && !hasLoadedEnhancedRef.current) {
+            setIsLoadingEnhancedBullets(true);
+          }
         }
       } else {
-        logDebug('UserAction', 'No resume ID available for enhanced analysis check during refresh');
+        logDebug('UserAction', 'Post-refresh: No resume ID available for enhanced analysis check');
       }
       
       logDebug('UserAction', 'Refresh completed successfully');
@@ -599,11 +637,13 @@ const Resume = () => {
         hasResume: !!resume, 
         resumeId: resume?.id 
       });
+      toast({ title: 'Cannot Check', description: 'No active resume to check for improvements.', variant: 'default'});
       return;
     }
     
     logDebug('CheckEnhancements', `Manually checking enhancements for resume ID: ${resume.id}`);
     setIsLoadingEnhancedBullets(true);
+    hasLoadedEnhancedRef.current = false; // Allow re-processing if new data comes
     
     try {
       // Query specifically by resume ID
@@ -631,16 +671,26 @@ const Resume = () => {
         logDebug('CheckEnhancements', 'Found enhanced analysis, passing to handler');
         handleEnhancedAnalysisUpdate(data.enhanced_analysis);
         
-        toast({
-          title: 'Enhancements Loaded',
-          description: 'Your resume bullet improvements have been loaded.',
-          variant: 'default'
-        });
+        // Only show "Loaded" if hasLoadedEnhancedRef became true
+        if(hasLoadedEnhancedRef.current) {
+          toast({
+            title: 'Improvements Loaded',
+            description: 'Your resume bullet improvements have been applied.',
+            variant: 'default'
+          });
+        } else {
+           toast({
+            title: 'Processing Improvements',
+            description: 'Found new improvement data, applying now...',
+            variant: 'default'
+          });
+          // handleEnhancedAnalysisUpdate should set isLoadingEnhancedBullets to false once done
+        }
       } else {
         logDebug('CheckEnhancements', 'No enhanced analysis found in response');
         toast({
-          title: 'No Enhancements',
-          description: 'No improved bullets found yet. They may still be processing.',
+          title: 'No New Improvements',
+          description: 'No improved bullets found yet. They may still be processing or already applied.',
           variant: 'default'
         });
         setIsLoadingEnhancedBullets(false);
@@ -649,7 +699,7 @@ const Resume = () => {
       logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
       console.error("Error checking for enhancements:", err);
       toast({
-        title: 'Error',
+        title: 'Error Loading Improvements',
         description: 'Could not load enhanced bullets. Please try again later.',
         variant: 'destructive'
       });
@@ -662,7 +712,7 @@ const Resume = () => {
     return <ResumeLoginWall />;
   }
 
-  const loading = resumeLoading || isAnalyzing || isRefreshing;
+  const loading = resumeLoading || isRefreshing; // Removed isAnalyzing from here, as it's handled by ResumeAnalysisSection
   logDebug('Render', 'Rendering main component', { 
     loading, 
     resumeLoading, 
@@ -685,7 +735,7 @@ const Resume = () => {
               variant="outline" 
               size="sm" 
               onClick={handleCheckEnhancements} 
-              disabled={loading || isLoadingEnhancedBullets}
+              disabled={loading || isAnalyzing || isLoadingEnhancedBullets || !resume} // Disable if no resume
             >
               {isLoadingEnhancedBullets ? (
                 <>
@@ -701,7 +751,7 @@ const Resume = () => {
               variant="outline" 
               size="sm" 
               onClick={handleRefreshData} 
-              disabled={loading}
+              disabled={loading || isAnalyzing} // Disable if analyzing too
             >
               <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh Data
@@ -734,13 +784,14 @@ const Resume = () => {
 
         {/* Single section layout with the analysis section */}
         <ResumeAnalysisSection
-          loading={loading}
-          isAnalyzing={isAnalyzing}
+          loading={loading} // Pass overall loading state
+          isAnalyzing={isAnalyzing} // Pass specific isAnalyzing state
+          isLoadingEnhancedBullets={isLoadingEnhancedBullets} // Pass enhanced bullets loading state
           analysis={analysis}
           resume={resume}
           handleStartCareerChat={handleStartCareerChat}
           handleFileChange={handleFileChange}
-          hasAnalysis={!!analysis}
+          hasAnalysis={!!analysis && hasLoadedAnalysis} // Ensure analysis is loaded
           resumeFile={resumeFile}
           pdfPreviewUrl={pdfPreviewUrl}
           uploading={uploading}
