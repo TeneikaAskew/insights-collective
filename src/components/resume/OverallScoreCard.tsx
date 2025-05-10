@@ -166,7 +166,6 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
               config={{}}
               className="h-[100px]"
             >
-              {/* Use Recharts components directly */}
               <RechartsPrimitive.RadialBarChart
                 innerRadius="50%"
                 outerRadius="80%"
@@ -174,7 +173,6 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
                 data={[{ value: resumePercent }]}
               >
                 <RechartsPrimitive.RadialBar
-                  minAngle={15}
                   background={{ fill: "#e6e6e6" }}
                   dataKey="value"
                   fill="#6366f1"
