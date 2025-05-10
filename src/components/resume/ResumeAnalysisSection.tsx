@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +12,7 @@ import ATSScoreCard from './ATSScoreCard';
 interface ResumeAnalysisSectionProps {
   loading: boolean; // True if initial resume/analysis data is loading
   isAnalyzing: boolean; // True if AI analysis is in progress
+  isLoadingEnhancedBullets: boolean; // True if enhanced bullet points are loading
   analysis: ResumeAnalysis | null;
   resume: Resume | null;
   handleStartCareerChat: () => void;
@@ -32,6 +32,7 @@ interface ResumeAnalysisSectionProps {
 const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   loading,
   isAnalyzing,
+  isLoadingEnhancedBullets, // Destructure the new prop
   analysis,
   resume,
   handleStartCareerChat,
@@ -131,7 +132,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 handleDelete={handleDelete}
                 handleDownload={handleDownload}
                 uploading={uploading}
-                isAnalyzing={isAnalyzing}
+                isAnalyzing={isAnalyzing} // Pass isAnalyzing
                 pdfPreviewUrl={pdfPreviewUrl}
                 fileError={fileError}
               />
@@ -141,7 +142,8 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 <TabsContent value="storytelling" className="mt-0">
                   <BulletPointsAnalysisCard
                     bullets={analysis.bullets || []}
-                    isAnalyzing={isAnalyzing} // Pass isAnalyzing if needed by this component
+                    isAnalyzing={isAnalyzing}
+                    // If BulletPointsAnalysisCard needs isLoadingEnhancedBullets, it should be passed here
                   />
                 </TabsContent>
                 <TabsContent value="ats" className="mt-0">
@@ -187,7 +189,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             handleDelete={handleDelete}
             handleDownload={handleDownload}
             uploading={uploading}
-            isAnalyzing={isAnalyzing}
+            isAnalyzing={isAnalyzing} // Pass isAnalyzing
             pdfPreviewUrl={pdfPreviewUrl}
             fileError={fileError}
           />
@@ -198,4 +200,3 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
 };
 
 export default ResumeAnalysisSection;
-
