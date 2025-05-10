@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -143,7 +144,9 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                   <BulletPointsAnalysisCard
                     bullets={analysis.bullets || []}
                     isAnalyzing={isAnalyzing}
-                    // If BulletPointsAnalysisCard needs isLoadingEnhancedBullets, it should be passed here
+                    // Pass isLoadingEnhancedBullets here if BulletPointsAnalysisCard needs it.
+                    // For now, assuming it does not, but if it does, you'd add:
+                    // isLoadingEnhancedBullets={isLoadingEnhancedBullets}
                   />
                 </TabsContent>
                 <TabsContent value="ats" className="mt-0">
