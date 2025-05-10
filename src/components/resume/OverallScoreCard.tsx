@@ -1,11 +1,16 @@
-
-import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import React, { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Download, MessageSquare } from 'lucide-react';
-import { ChartContainer } from '@/components/ui/chart';
-import html2pdf from 'html2pdf.js';
-import * as RechartsPrimitive from 'recharts';
+import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
+import { MessageSquare, Download } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+
+// Get user ID if authenticated - keep this outside component to avoid execution during render
+const getUserId = async () => {
+  const { data } = await supabase.auth.getUser();
+  return data?.user?.id;
+};
 
 interface OverallScoreCardProps {
   letterGrade: string;
@@ -14,12 +19,8 @@ interface OverallScoreCardProps {
   themes: string[];
   explanation: string;
   onStartCareerChat: () => void;
-  userId?: string;
   hasAnalysis?: boolean;
-  careerAlignments?: Array<{
-    role: string;
-    percent: number;
-  }>;
+  userId?: string;
 }
 
 const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
@@ -29,236 +30,182 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   themes,
   explanation,
   onStartCareerChat,
-  userId,
-  hasAnalysis,
-  careerAlignments,
+  hasAnalysis = false,
+  userId
 }) => {
-  const handleExportReport = () => {
-    // Create a temporary div to hold the content
-    const element = document.createElement('div');
-    element.className = 'pdf-export-container';
-    element.style.width = '1100px'; // Set width for landscape mode
-    element.style.padding = '40px';
-    
-    // Add the report title
-    const title = document.createElement('h1');
-    title.textContent = 'Resume Analysis Report';
-    title.style.marginBottom = '20px';
-    title.style.color = '#333';
-    title.style.textAlign = 'center';
-    element.appendChild(title);
-    
-    // Get the analysis section content
-    const resumeGradeSection = document.createElement('div');
-    resumeGradeSection.style.pageBreakAfter = 'always';
-    resumeGradeSection.style.marginBottom = '30px';
-    
-    const gradeTitle = document.createElement('h2');
-    gradeTitle.textContent = 'Resume Grade';
-    gradeTitle.style.marginBottom = '15px';
-    resumeGradeSection.appendChild(gradeTitle);
-    
-    const gradeContent = document.createElement('div');
-    gradeContent.innerHTML = `
-      <p><strong>Letter Grade:</strong> ${letterGrade}</p>
-      <p><strong>Overall Score:</strong> ${resumePercent}%</p>
-      <p><strong>Analysis:</strong> ${explanation}</p>
-      <p><strong>Elevator Pitch:</strong> ${elevatorPitch}</p>
-      <p><strong>Key Themes:</strong> ${themes.join(', ')}</p>
-    `;
-    resumeGradeSection.appendChild(gradeContent);
-    
-    element.appendChild(resumeGradeSection);
-    
-    // Career alignments section
-    if (careerAlignments && careerAlignments.length > 0) {
-      const alignmentsSection = document.createElement('div');
-      alignmentsSection.style.pageBreakAfter = 'always';
-      alignmentsSection.style.marginBottom = '30px';
+  const [isFlashing, setIsFlashing] = useState(false);
+  const [hasBeenClicked, setHasBeenClicked] = useState(false);
+  const [hasRoast, setHasRoast] = useState(false);
+  const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Check for roast (keep existing functionality)
+  useEffect(() => {
+    console.log("Checking if roast exists yet for: ", userId);
+    if (userId) {
+      const checkForRoast = async () => {
+        try {
+          const { data, error } = await supabase
+            .from('resumes')
+            .select('initial_assessment')
+            .eq('user_id', userId)
+            .order('uploaded_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          console.log("user: ", userId, " - Roast data", data);
+            
+          if (!error && data?.initial_assessment) {
+            setHasRoast(true);
+          }
+        } catch (error) {
+          console.error("Error checking for roast:", error);
+        }
+      };
       
-      const alignmentsTitle = document.createElement('h2');
-      alignmentsTitle.textContent = 'Career Alignments';
-      alignmentsTitle.style.marginBottom = '15px';
-      alignmentsSection.appendChild(alignmentsTitle);
-      
-      const alignmentsContent = document.createElement('div');
-      careerAlignments.forEach(alignment => {
-        const p = document.createElement('p');
-        p.textContent = `Your resume shows ${alignment.percent}% alignment with ${alignment.role} roles.`;
-        alignmentsContent.appendChild(p);
-      });
-      alignmentsSection.appendChild(alignmentsContent);
-      
-      element.appendChild(alignmentsSection);
+      checkForRoast();
     }
-    
-    // Get bullet points analysis if available
-    const bulletPointsAnalysis = document.getElementById('bullet-points-analysis');
-    if (bulletPointsAnalysis) {
-      const bulletSection = document.createElement('div');
-      bulletSection.style.pageBreakAfter = 'always';
-      
-      const bulletTitle = document.createElement('h2');
-      bulletTitle.textContent = 'Bullet Points Analysis';
-      bulletTitle.style.marginBottom = '15px';
-      bulletSection.appendChild(bulletTitle);
-      
-      // Clone the bullet points content without interactive elements
-      const clonedContent = bulletPointsAnalysis.cloneNode(true) as HTMLElement;
-      // Remove any buttons or interactive elements
-      const buttons = clonedContent.querySelectorAll('button');
-      buttons.forEach(button => button.remove());
-      bulletSection.appendChild(clonedContent);
-      
-      element.appendChild(bulletSection);
-    }
-    
-    // Get key insights if available
-    const keyInsightsSection = document.getElementById('key-insights-section');
-    if (keyInsightsSection) {
-      const insightsSection = document.createElement('div');
-      
-      const insightsTitle = document.createElement('h2');
-      insightsTitle.textContent = 'Key Insights';
-      insightsTitle.style.marginBottom = '15px';
-      insightsSection.appendChild(insightsTitle);
-      
-      // Clone the insights content without interactive elements
-      const clonedContent = keyInsightsSection.cloneNode(true) as HTMLElement;
-      // Remove any buttons or interactive elements
-      const buttons = clonedContent.querySelectorAll('button');
-      buttons.forEach(button => button.remove());
-      insightsSection.appendChild(clonedContent);
-      
-      element.appendChild(insightsSection);
-    }
-    
-    // Configure pdf options
-    const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
-      filename: 'resume-analysis-report.pdf',
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, logging: false },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'landscape' }
+  }, [userId]);
+
+  // Setup flashing effect with interval (keep existing functionality)
+  useEffect(() => {
+    console.log("Does the analysis exist? ", hasAnalysis);
+    if (!hasAnalysis || hasBeenClicked) {
+      if (flashIntervalRef.current) {
+        clearInterval(flashIntervalRef.current);
+      }
+      return;
     };
-    
-    // Generate and download PDF
-    html2pdf().set(opt).from(element).save();
+
+    if (flashIntervalRef.current) {
+      clearInterval(flashIntervalRef.current);
+    }
+
+    flashIntervalRef.current = setInterval(() => {
+      setIsFlashing(prev => !prev);
+    }, 1000);
+
+    return () => {
+      if (flashIntervalRef.current) {
+        clearInterval(flashIntervalRef.current);
+      }
+    };
+  }, [hasAnalysis, hasBeenClicked]);
+  
+  const handleButtonClick = () => {
+    setHasBeenClicked(true);
+    if (flashIntervalRef.current) {
+      clearInterval(flashIntervalRef.current);
+      setIsFlashing(false);
+    }
+    onStartCareerChat();
+  };
+
+  const getLetterGradeColor = (grade: string) => {
+    switch (grade) {
+      case 'A':
+        return "text-green-600";
+      case 'B':
+        return "text-emerald-600";
+      case 'C':
+        return "text-yellow-600";
+      case 'D':
+        return "text-orange-600";
+      default:
+        return "text-red-600";
+    }
+  };
+  
+  const getButtonClass = () => {
+    if (hasAnalysis && hasBeenClicked) {
+      return 'bg-green-600 hover:bg-green-700';
+    } else if (hasAnalysis && isFlashing && !hasBeenClicked) {
+      return 'bg-teal-600 hover:bg-teal-700';
+    } else {
+      return 'bg-blue-600 hover:bg-blue-700';
+    }
   };
 
   return (
-    <Card className="h-full">
-      <CardContent className="p-6 space-y-5 h-full flex flex-col">
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <h3 className="text-2xl font-bold">Resume Grade</h3>
-            <p className="text-muted-foreground text-sm">Analysis based on industry standards</p>
+    <Card className="border-t-2 border-t-[#9b87f5]">
+      <CardHeader className="pb-2">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
+          <div>
+            <CardTitle>Resume Grade</CardTitle>
+            <CardDescription>
+              Overall assessment based on industry standards
+            </CardDescription>
           </div>
-          <div className="flex flex-col items-center justify-center">
-            <div className="text-4xl font-bold">{letterGrade}</div>
-            <div className="text-sm text-muted-foreground">{resumePercent}%</div>
+          <div className="flex items-center gap-3">
+            <div className="text-center">
+              <Progress value={resumePercent} className="h-2 w-16" />
+              <span className="text-xs text-muted-foreground">{resumePercent}%</span>
+            </div>
+            <div className={`text-4xl font-bold ${getLetterGradeColor(letterGrade)} bg-muted/20 h-16 w-16 rounded-full flex items-center justify-center`}>
+              {letterGrade}
+            </div>
           </div>
         </div>
-
-        {resumePercent > 0 && (
-          <div className="w-full">
-            <ChartContainer
-              config={{}}
-              className="h-[100px]"
-            >
-              <RechartsPrimitive.RadialBarChart
-                innerRadius="50%"
-                outerRadius="80%"
-                barSize={10}
-                data={[{ value: resumePercent }]}
-              >
-                <RechartsPrimitive.RadialBar
-                  background={{ fill: "#e6e6e6" }}
-                  dataKey="value"
-                  fill="#6366f1"
-                />
-              </RechartsPrimitive.RadialBarChart>
-            </ChartContainer>
-          </div>
-        )}
-
-        <div className="flex-grow">
-          {elevatorPitch && (
-            <div className="mb-4">
-              <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Elevator Pitch</h4>
-              <p className="mt-1">{elevatorPitch}</p>
-            </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="bg-accent/10 border-l-4 border-[#9b87f5] rounded-md p-4">
+          <p className="font-medium mb-1">Elevator Pitch:</p>
+          <p className="text-sm italic">{elevatorPitch || "No elevator pitch available."}</p>
+        </div>
+        
+        <div className="space-y-3">
+          <h3 className="font-medium mb-2">Key Improvement Themes</h3>
+          {themes && themes.length > 0 ? (
+            <ul className="list-disc list-inside space-y-1 text-sm pl-4">
+              {themes.map((theme, index) => (
+                <li key={index}>{theme}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No key improvement themes available.
+            </p>
           )}
-
-          {themes && themes.length > 0 && (
-            <div className="mb-4">
-              <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Key Themes</h4>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {themes.map((theme, i) => (
-                  <div
-                    key={i}
-                    className="text-xs px-2 py-1 bg-accent/40 text-accent-foreground rounded"
-                  >
-                    {theme}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="mb-4">
-            <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Expert Analysis</h4>
-            <p className="mt-1">{explanation}</p>
-          </div>
-
-          {/* Career alignment metrics moved here */}
-          {careerAlignments && careerAlignments.length > 0 && (
-            <div className="mb-4">
-              <h4 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">Career Alignments</h4>
-              <div className="space-y-2 mt-2">
-                {careerAlignments.map((alignment, index) => (
-                  <div 
-                    key={index} 
-                    className="bg-muted/50 p-3 rounded-md text-sm"
-                  >
-                    Your resume shows {alignment.percent}% alignment with {alignment.role} roles.
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="bg-primary-foreground/10 rounded-lg p-4">
-            <div className="flex items-start gap-3">
-              <MessageSquare className="h-5 w-5 text-primary mt-0.5" />
+        </div>
+        
+        <Separator />
+        
+        <div>
+          <h3 className="font-medium mb-2">Expert Analysis:</h3>
+          <p className="text-sm">{explanation || "No expert analysis available."}</p>
+        </div>
+        
+        <Card className="bg-blue-50 border-blue-100">
+          <CardContent className="p-4">
+            <div className="flex items-start space-x-3">
+              <MessageSquare className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div>
-                <h4 className="font-semibold text-base">Get Personalized Coaching</h4>
-                <p className="text-sm text-muted-foreground">
+                <h4 className="font-medium text-blue-900">Get Personalized Coaching</h4>
+                <p className="text-sm text-blue-700 mb-3">
                   Speak with our AI career coach for detailed guidance on how to address these improvement areas.
                 </p>
-                <Button
-                  className="mt-3 w-full sm:w-auto"
-                  onClick={onStartCareerChat}
-                  disabled={!hasAnalysis}
+                <Button 
+                  onClick={handleButtonClick}
+                  className={`w-full gap-2 transition-colors duration-300 ${getButtonClass()}`}
                 >
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Start Career Chat
+                  <MessageSquare className="h-4 w-4" />
+                  {hasAnalysis && hasBeenClicked ? 'Continue Career Chat' : 'Start Career Chat'}
                 </Button>
               </div>
             </div>
-          </div>
-        </div>
-
-        <div className="flex justify-between items-center pt-4 border-t">
-          <div className="text-sm text-muted-foreground">
+          </CardContent>
+        </Card>
+      </CardContent>
+      <CardFooter className="bg-muted/20 pt-3 pb-3 px-6">
+        <div className="flex justify-between items-center w-full">
+          <p className="text-xs text-muted-foreground">
             {new Date().toLocaleDateString()} Analysis
-          </div>
-          <Button variant="outline" size="sm" onClick={handleExportReport}>
-            <Download className="mr-2 h-4 w-4" />
-            Export Report
+          </p>
+          <Button size="sm" variant="ghost" className="h-8 gap-1">
+            <Download className="h-3.5 w-3.5" />
+            <span className="text-xs">Export Report</span>
           </Button>
         </div>
-      </CardContent>
+      </CardFooter>
     </Card>
   );
 };

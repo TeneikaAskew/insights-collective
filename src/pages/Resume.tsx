@@ -13,7 +13,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-
 const Resume = () => {
   // Add a debug helper function
   const logDebug = (area, message, data = null) => {
@@ -679,27 +678,21 @@ const Resume = () => {
             </AlertDescription>
           </Alert>}
 
+        {careerAlignments && careerAlignments.length > 0 && <div className="space-y-2">
+            {careerAlignments.map((alignment, index) => <Alert key={index} className={`${index === 0 ? "bg-accent/20 border border-accent" : "bg-slate-50 border border-slate-200"}`}>
+                <AlertDescription>
+                  {alignment.description}
+                </AlertDescription>
+              </Alert>)}
+          </div>}
+
         {/* Single section layout with the analysis section */}
-        <ResumeAnalysisSection 
-          loading={loading} 
-          isAnalyzing={isAnalyzing} 
-          analysis={analysis} 
-          resume={resume} 
-          handleStartCareerChat={handleStartCareerChat} 
-          handleFileChange={handleFileChange} 
-          hasAnalysis={!!analysis} 
-          resumeFile={resumeFile} 
-          pdfPreviewUrl={pdfPreviewUrl} 
-          uploading={uploading} 
-          handleUpload={handleUpload} 
-          handleDelete={handleDelete} 
-          handleDownload={handleDownload} 
-          fileError={storageError} 
-        />
+        <ResumeAnalysisSection loading={loading} isAnalyzing={isAnalyzing} analysis={analysis} resume={resume} handleStartCareerChat={handleStartCareerChat} handleFileChange={handleFileChange} hasAnalysis={!!analysis} resumeFile={resumeFile} pdfPreviewUrl={pdfPreviewUrl} uploading={uploading} handleUpload={handleUpload} handleDelete={handleDelete} handleDownload={handleDownload} fileError={storageError} />
 
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
+
+        
       </div>
     </AppLayout>;
 };
-
 export default Resume;

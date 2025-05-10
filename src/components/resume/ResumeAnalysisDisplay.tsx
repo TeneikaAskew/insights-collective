@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
@@ -49,16 +50,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     elevator_pitch = '',
     explanation = '',
     bullets = [],
-    career_alignment = [] // Use the correct property name
   } = analysis || {};
-
-  // Prepare career alignments for the OverallScoreCard
-  const careerAlignments = Array.isArray(career_alignment) 
-    ? career_alignment.map(alignment => ({
-        role: alignment.role || 'Unknown',
-        percent: alignment.percent || 0
-      }))
-    : [];
 
   const needsImprovementAlert = analysis && (resume_percent < 60 || letter_grade === 'D' || letter_grade === 'F');
   const excellentResumeAlert = analysis && resume_percent >= 85;
@@ -217,8 +209,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       )}
 
       {(analysis || resume || resumeFile) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+          <div className="md:col-span-2">
             {analysis ? (
               <OverallScoreCard
                 letterGrade={letter_grade}
@@ -229,7 +221,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 onStartCareerChat={onStartCareerChat}
                 userId={userId}
                 hasAnalysis={hasAnalysis}
-                careerAlignments={careerAlignments}
               />
             ) : (
               <Card className="h-full flex items-center justify-center min-h-[200px]">
@@ -244,7 +235,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             )}
           </div>
 
-          <div className="space-y-6">
+          <div className="md:col-span-1 space-y-6">
             {(resume || resumeFile) && (
               <Card>
                 <CardHeader>
@@ -264,7 +255,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                     <span>Key Insights</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent id="key-insights-section">
+                <CardContent>
                   <div className="space-y-4">
                     {highestScoringBullet && (
                       <div className="border-l-4 border-green-400 pl-3 py-1">

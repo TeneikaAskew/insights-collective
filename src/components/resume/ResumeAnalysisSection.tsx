@@ -1,22 +1,28 @@
 
-import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ResumeAnalysis } from '@/components/assistants/types';
+import type { Resume } from '../../hooks/resume/useResume'; // Adjusted import path
 import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
-import { ResumeAnalysis } from '@/components/assistants/types';
-import type { Resume } from '@/hooks/resume/useResume';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FileCheck, ChartBar, Target, Briefcase, Award } from 'lucide-react';
+import ATSScoreCard from './ATSScoreCard';
 
 interface ResumeAnalysisSectionProps {
+  loading: boolean; // True if initial resume/analysis data is loading
+  isAnalyzing: boolean; // True if AI analysis is in progress
   analysis: ResumeAnalysis | null;
   resume: Resume | null;
-  loading: boolean;
-  isAnalyzing: boolean;
-  hasAnalysis: boolean;
   handleStartCareerChat: () => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  hasAnalysis?: boolean;
+
+  // Props for upload functionality, passed to ResumeAnalysisDisplay
   resumeFile: File | null;
   pdfPreviewUrl: string | null;
-  uploading: boolean;
+  uploading: boolean; // True if file upload to storage is in progress
   handleUpload: () => Promise<void>;
   handleDelete: () => Promise<void>;
   handleDownload: () => void;
@@ -24,13 +30,13 @@ interface ResumeAnalysisSectionProps {
 }
 
 const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
-  analysis,
-  resume,
   loading,
   isAnalyzing,
-  hasAnalysis,
+  analysis,
+  resume,
   handleStartCareerChat,
   handleFileChange,
+  hasAnalysis = false,
   resumeFile,
   pdfPreviewUrl,
   uploading,
@@ -39,40 +45,157 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   handleDownload,
   fileError,
 }) => {
-  const [activeTab, setActiveTab] = useState('overview');
-  
+  if (loading && !resume && !analysis && !resumeFile && !fileError) {
+    return (
+      <Card className="shadow-lg border-t-4 border-t-[#9b87f5]">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-2xl font-bold">Resume Analysis</CardTitle>
+              <CardDescription className="text-base">
+                Get personalized insights and recommendations based on your resume and career goals.
+              </CardDescription>
+            </div>
+            <div className="flex items-center bg-muted rounded-full px-4 py-1 h-8 w-48 animate-pulse" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4 animate-pulse">
+            <div className="h-40 bg-muted rounded w-full mb-6"></div> {/* Placeholder for upload card */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 space-y-4">
+                <div className="h-48 bg-muted rounded"></div>
+              </div>
+              <div className="md:col-span-1 space-y-4">
+                <div className="h-32 bg-muted rounded"></div>
+                <div className="h-32 bg-muted rounded"></div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const showTabs = !!analysis; // Show tabs only if analysis data is present.
+
   return (
-    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-      <TabsList className="grid w-full grid-cols-2">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="bullets" disabled={!analysis}>Bullet Points</TabsTrigger>
-      </TabsList>
-      <TabsContent value="overview">
-        <ResumeAnalysisDisplay
-          analysis={analysis}
-          resume={resume}
-          onStartCareerChat={handleStartCareerChat}
-          handleFileChange={handleFileChange}
-          hasAnalysis={hasAnalysis}
-          resumeFile={resumeFile}
-          pdfPreviewUrl={pdfPreviewUrl}
-          uploading={uploading}
-          handleUpload={handleUpload}
-          handleDelete={handleDelete}
-          handleDownload={handleDownload}
-          isAnalyzing={isAnalyzing}
-          fileError={fileError}
-        />
-      </TabsContent>
-      <TabsContent value="bullets">
-        <div id="bullet-points-analysis">
-          {analysis?.bullets && (
-            <BulletPointsAnalysisCard bullets={analysis.bullets} />
+    <Card className="shadow-lg border-t-4 border-t-[#9b87f5]">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle className="text-2xl font-bold">Resume Analysis</CardTitle>
+            <CardDescription className="text-base">
+              Get personalized insights and recommendations based on your resume and career goals.
+            </CardDescription>
+          </div>
+          {analysis && ( // Show award badge only if analysis is available
+            <div className="flex items-center bg-[#9b87f5]/10 rounded-full px-4 py-1">
+              <Award className="h-4 w-4 text-[#9b87f5] mr-2" />
+              <span className="text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
+            </div>
           )}
         </div>
-      </TabsContent>
-    </Tabs>
+      </CardHeader>
+      <CardContent>
+        {showTabs ? (
+          <Tabs defaultValue="overview" className="w-full">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6"> {/* Adjusted grid for responsiveness */}
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <ChartBar className="h-4 w-4" />
+                <span>Overview</span>
+              </TabsTrigger>
+              <TabsTrigger value="storytelling" className="flex items-center gap-2" disabled={!analysis?.bullets?.length}>
+                <Target className="h-4 w-4" />
+                <span>Storytelling</span>
+              </TabsTrigger>
+              <TabsTrigger value="ats" className="flex items-center gap-2" disabled={!analysis}>
+                <FileCheck className="h-4 w-4" />
+                <span>ATS Score</span>
+              </TabsTrigger>
+              <TabsTrigger value="career" className="flex items-center gap-2" disabled={!analysis?.themes?.length}>
+                <Briefcase className="h-4 w-4" />
+                <span>Career Fit</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="mt-0">
+              <ResumeAnalysisDisplay
+                analysis={analysis}
+                onStartCareerChat={handleStartCareerChat}
+                hasAnalysis={hasAnalysis}
+                resume={resume}
+                resumeFile={resumeFile}
+                handleFileChange={handleFileChange}
+                handleUpload={handleUpload}
+                handleDelete={handleDelete}
+                handleDownload={handleDownload}
+                uploading={uploading}
+                isAnalyzing={isAnalyzing}
+                pdfPreviewUrl={pdfPreviewUrl}
+                fileError={fileError}
+              />
+            </TabsContent>
+            {analysis && ( // Conditionally render other tabs only if analysis exists
+              <>
+                <TabsContent value="storytelling" className="mt-0">
+                  <BulletPointsAnalysisCard
+                    bullets={analysis.bullets || []}
+                    isAnalyzing={isAnalyzing} // Pass isAnalyzing if needed by this component
+                  />
+                </TabsContent>
+                <TabsContent value="ats" className="mt-0">
+                  <ATSScoreCard analysis={analysis} />
+                </TabsContent>
+                <TabsContent value="career" className="mt-0">
+                  <div className="space-y-4">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle>Career Path Alignment</CardTitle>
+                        <CardDescription>
+                          How well your resume aligns with your target career path and industry expectations
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-6">
+                        <div className="bg-accent/20 border border-accent rounded-md p-4">
+                          <p className="font-medium mb-2">Target Industry Recommendation:</p>
+                          <p className="text-sm">{analysis.themes?.[0] || "N/A"}</p>
+                        </div>
+                        <Button
+                          onClick={handleStartCareerChat}
+                          className="w-full gap-2"
+                        >
+                          Explore Career Opportunities
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </TabsContent>
+              </>
+            )}
+          </Tabs>
+        ) : (
+          // If no analysis, ResumeAnalysisDisplay will show the upload UI
+          <ResumeAnalysisDisplay
+            analysis={null}
+            onStartCareerChat={handleStartCareerChat}
+            hasAnalysis={false}
+            resume={resume}
+            resumeFile={resumeFile}
+            handleFileChange={handleFileChange}
+            handleUpload={handleUpload}
+            handleDelete={handleDelete}
+            handleDownload={handleDownload}
+            uploading={uploading}
+            isAnalyzing={isAnalyzing}
+            pdfPreviewUrl={pdfPreviewUrl}
+            fileError={fileError}
+          />
+        )}
+      </CardContent>
+    </Card>
   );
 };
 
 export default ResumeAnalysisSection;
+
