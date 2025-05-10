@@ -13,6 +13,7 @@ function getSupabaseClient() {
 
 export const supabase = getSupabaseClient();
 
+
 import { encoding_for_model } from 'npm:@dqbd/tiktoken';
 async function countTokens(text, model = 'gpt-4o-mini') {
   const enc = await encoding_for_model(model);
@@ -20,7 +21,6 @@ async function countTokens(text, model = 'gpt-4o-mini') {
   enc.free();
   return tokenCount;
 }
-
 // Track failed endpoints globally - persist across function calls
 // This will keep track of how many times each endpoint has failed
 const failedEndpoints: Record<string, number> = {
@@ -38,9 +38,15 @@ function shouldSkipEndpoint(endpoint: string): boolean {
 }
 
 // Function to record a failure for an endpoint
-function recordEndpointFailure(endpoint: string): void {
-  failedEndpoints[endpoint] = (failedEndpoints[endpoint] || 0) + 1;
-  console.log(`${endpoint} failure count: ${failedEndpoints[endpoint]}/${MAX_FAILURES}`);
+// If isDailyLimit is true, immediately set count to MAX_FAILURES
+function recordEndpointFailure(endpoint: string, isDailyLimit: boolean = false): void {
+  if (isDailyLimit) {
+    failedEndpoints[endpoint] = MAX_FAILURES;
+    console.log(`${endpoint} has reached daily rate limit - skipping for the rest of the session`);
+  } else {
+    failedEndpoints[endpoint] = (failedEndpoints[endpoint] || 0) + 1;
+    console.log(`${endpoint} failure count: ${failedEndpoints[endpoint]}/${MAX_FAILURES}`);
+  }
 }
 
 // Safe JSON parse with fallback
@@ -106,9 +112,14 @@ export async function callLLMAPI(
       return await callANWANAPI(system, user);
     } catch (error) {
       console.error('ANWAN API failed:', error.message);
+      // Check for daily rate limit message
+      const isDailyLimit = error.message.includes('per day') || 
+                          error.message.includes('daily limit') || 
+                          error.message.includes('wait 24 hours');
+      
       // Only increment failure counter for rate limits or serious errors
       if (error.status === 429 || error.status >= 500) {
-        recordEndpointFailure('ANWAN');
+        recordEndpointFailure('ANWAN', isDailyLimit);
       }
     }
   }
@@ -118,8 +129,13 @@ export async function callLLMAPI(
       return await callGROQAPI(system, user);
     } catch (error) {
       console.error('GROQ API failed:', error.message);
+      // Check for daily rate limit message
+      const isDailyLimit = error.message.includes('per day') || 
+                          error.message.includes('daily limit') || 
+                          error.message.includes('wait 24 hours');
+      
       if (error.status === 429 || error.status >= 500) {
-        recordEndpointFailure('GROQ');
+        recordEndpointFailure('GROQ', isDailyLimit);
       }
     }
   }
@@ -129,8 +145,14 @@ export async function callLLMAPI(
       return await callTOGETHERAPI(system, user);
     } catch (error) {
       console.error('TOGETHER API failed:', error.message);
+      // Check for daily rate limit message
+      const isDailyLimit = error.message.includes('per day') || 
+                          error.message.includes('daily limit') || 
+                          error.message.includes('wait 24 hours') ||
+                          error.message.includes('quota');
+      
       if (error.status === 429 || error.status >= 500) {
-        recordEndpointFailure('TOGETHER');
+        recordEndpointFailure('TOGETHER', isDailyLimit);
       }
     }
   }
@@ -165,6 +187,7 @@ async function callANWANAPI(system: string, user: string): Promise<string> {
 
   if (!resp.ok) {
     const txt = await resp.text();
+    // Store the full response text to check for daily limit patterns
     const error = new Error(`ANWAN API failed: ${resp.status} ${txt}`);
     // @ts-ignore - Adding status property to Error object
     error.status = resp.status;
@@ -291,11 +314,25 @@ export async function callLLMWithRetry(
 }
 
 // Function to reset failure counts (useful for testing or manual resets)
-export function resetEndpointFailures(): void {
-  Object.keys(failedEndpoints).forEach(key => {
-    failedEndpoints[key] = 0;
+export function resetEndpointFailures(specificEndpoint?: string): void {
+  if (specificEndpoint && specificEndpoint in failedEndpoints) {
+    failedEndpoints[specificEndpoint] = 0;
+    console.log(`Failure count for ${specificEndpoint} has been reset`);
+  } else {
+    Object.keys(failedEndpoints).forEach(key => {
+      failedEndpoints[key] = 0;
+    });
+    console.log('All endpoint failure counts have been reset');
+  }
+}
+
+// Function to log current endpoint status
+export function logEndpointStatus(): void {
+  console.log('Current endpoint status:');
+  Object.entries(failedEndpoints).forEach(([endpoint, count]) => {
+    const status = count >= MAX_FAILURES ? 'DISABLED' : 'ACTIVE';
+    console.log(`- ${endpoint}: ${count}/${MAX_FAILURES} failures (${status})`);
   });
-  console.log('All endpoint failure counts have been reset');
 }
 // // This function sets up Supabase client with service role key credentials from env
 // import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
