@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -219,14 +218,9 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         <div className="md:col-span-2 space-y-4">
           {hasAnalysis && analysis ? (
             <OverallScoreCard 
-              letterGrade={analysis.letter_grade || 'C'} 
-              resumePercent={analysis.resume_percent || 0} 
-              elevatorPitch={analysis.elevator_pitch || ''}
+              score={analysis.score || 0} 
               themes={analysis.themes || []} 
               explanation={analysis.explanation || "No analysis available"}
-              onStartCareerChat={onStartCareerChat}
-              hasAnalysis={hasAnalysis}
-              userId={resume?.user_id}
             />
           ) : (
             <Card>
@@ -256,23 +250,26 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           )}
 
           {analysis && (
-            <ATSScoreCard analysis={analysis} />
+            <ATSScoreCard 
+              score={analysis.atsScore || 0} 
+              feedback={analysis.atsFeedback || ""}
+            />
           )}
 
-          {analysis && analysis.career_alignment !== undefined && (
+          {analysis && analysis.careerAlignmentScore !== undefined && (
             <Card>
               <CardContent className="p-4">
                 <h3 className="font-semibold mb-2">Career Alignment</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between mb-1">
                     <span className="text-sm">Score</span>
-                    <span className="font-medium">{analysis.career_alignment}%</span>
+                    <span className="font-medium">{analysis.careerAlignmentScore}%</span>
                   </div>
-                  <Progress value={Number(analysis.career_alignment)} />
+                  <Progress value={analysis.careerAlignmentScore} />
                   <p className="text-sm text-muted-foreground mt-2">
-                    {Number(analysis.career_alignment) >= 80 
+                    {analysis.careerAlignmentScore >= 80 
                       ? "Excellent match for your target role" 
-                      : Number(analysis.career_alignment) >= 60 
+                      : analysis.careerAlignmentScore >= 60 
                       ? "Good match with some areas to improve" 
                       : "Needs improvement to match your target role"}
                   </p>
