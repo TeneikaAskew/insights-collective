@@ -1,4 +1,3 @@
-
 export interface Profile {
   id: string;
   first_name: string | null;
@@ -63,25 +62,6 @@ export interface UserWithProfile {
   };
 }
 
-export interface Resume {
-  id: string;
-  user_id: string;
-  file_path: string;
-  file_name?: string; // Added for display purposes
-  text: string | null;
-  analysis: any | null;
-  career_alignment: number | null;
-  target_role: string | null;
-  uploaded_at: string;
-  updated_at: string;
-  enhanced_analysis: any | null;
-  fallback_analysis: any | null;
-  sentences: any | null;
-  sentences_updated_at: string | null;
-  initial_assessment: string | null;
-  file_url?: string; // Added for download purposes
-}
-
 export type Database = {
   public: {
     Tables: {
@@ -133,7 +113,16 @@ export type Database = {
         };
       };
       resumes: {
-        Row: Resume;
+        Row: {
+          id: string;
+          user_id: string;
+          file_path: string;
+          analysis: any;
+          career_alignment_score: number | null;
+          target_role: string | null;
+          uploaded_at: string;
+          updated_at: string;
+        };
       };
     };
   };

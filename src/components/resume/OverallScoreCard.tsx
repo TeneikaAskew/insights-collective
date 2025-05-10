@@ -3,7 +3,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
-import { MessageSquare, Download } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { MessageSquare, Download, Clock, CheckCircle2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 // Get user ID if authenticated - keep this outside component to avoid execution during render
@@ -36,6 +37,8 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   const [isFlashing, setIsFlashing] = useState(false);
   const [hasBeenClicked, setHasBeenClicked] = useState(false);
   const [hasRoast, setHasRoast] = useState(false);
+  const [actionItems, setActionItems] = useState<string[]>([]);
+  const [completedItems, setCompletedItems] = useState<boolean[]>([]);
   const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check for roast (keep existing functionality)
@@ -66,6 +69,34 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     }
   }, [userId]);
 
+  // Generate action items based on themes
+  useEffect(() => {
+    if (themes && themes.length > 0) {
+      const generateActionItems = () => {
+        const items = themes.map(theme => {
+          if (theme.toLowerCase().includes('quantifiable')) {
+            return 'Add at least 3 metrics to your top bullet points';
+          } else if (theme.toLowerCase().includes('formatting')) {
+            return 'Standardize formatting across all sections';
+          } else if (theme.toLowerCase().includes('action verb')) {
+            return 'Replace passive language with strong action verbs';
+          } else if (theme.toLowerCase().includes('keyword')) {
+            return 'Incorporate more industry-specific keywords';
+          } else if (theme.toLowerCase().includes('skill')) {
+            return 'Add a dedicated skills section with technical abilities';
+          } else {
+            return `Address: ${theme}`;
+          }
+        });
+        
+        setActionItems(items);
+        setCompletedItems(new Array(items.length).fill(false));
+      };
+      
+      generateActionItems();
+    }
+  }, [themes]);
+  
   // Setup flashing effect with interval (keep existing functionality)
   useEffect(() => {
     console.log("Does the analysis exist? ", hasAnalysis);
@@ -100,6 +131,12 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     onStartCareerChat();
   };
 
+  const handleToggleComplete = (index: number) => {
+    const newCompletedItems = [...completedItems];
+    newCompletedItems[index] = !newCompletedItems[index];
+    setCompletedItems(newCompletedItems);
+  };
+
   const getLetterGradeColor = (grade: string) => {
     switch (grade) {
       case 'A':
@@ -125,6 +162,12 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     }
   };
 
+  // Calculate completeness for action items
+  const completedCount = completedItems.filter(Boolean).length;
+  const completionPercentage = actionItems.length > 0 
+    ? Math.round((completedCount / actionItems.length) * 100) 
+    : 0;
+
   return (
     <Card className="border-t-2 border-t-[#9b87f5]">
       <CardHeader className="pb-2">
@@ -148,21 +191,56 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="bg-accent/10 border-l-4 border-[#9b87f5] rounded-md p-4">
-          <p className="font-medium mb-1">Elevator Pitch:</p>
-          <p className="text-sm italic">{elevatorPitch || "No elevator pitch available."}</p>
+          <p className="font-medium mb-1">Professional Summary:</p>
+          <p className="text-sm italic">{elevatorPitch}</p>
         </div>
         
         <div className="space-y-3">
-          <h3 className="font-medium mb-2">Key Improvement Themes</h3>
-          {themes && themes.length > 0 ? (
-            <ul className="list-disc list-inside space-y-1 text-sm pl-4">
-              {themes.map((theme, index) => (
-                <li key={index}>{theme}</li>
+          <div className="flex justify-between items-center">
+            <h3 className="font-medium">Improvement Action Plan</h3>
+            <Badge variant="outline" className="font-normal">
+              {completedCount}/{actionItems.length} Complete
+            </Badge>
+          </div>
+          
+          {actionItems.length > 0 ? (
+            <div className="space-y-2">
+              {actionItems.map((item, index) => (
+                <div 
+                  key={index} 
+                  className={`flex items-center justify-between p-3 rounded-md border ${
+                    completedItems[index] 
+                      ? 'bg-green-50 border-green-200' 
+                      : 'bg-muted/20 border-muted'
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div className="mr-3">
+                      {completedItems[index] ? (
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <Clock className="h-5 w-5 text-amber-500" />
+                      )}
+                    </div>
+                    <span className={completedItems[index] ? 'text-sm line-through text-muted-foreground' : 'text-sm'}>
+                      {item}
+                    </span>
+                  </div>
+                  <Button 
+                    variant={completedItems[index] ? "outline" : "secondary"} 
+                    size="sm" 
+                    onClick={() => handleToggleComplete(index)}
+                  >
+                    {completedItems[index] ? 'Undo' : 'Complete'}
+                  </Button>
+                </div>
               ))}
-            </ul>
+              
+              <Progress value={completionPercentage} className="h-2 mt-1" />
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground">
-              No key improvement themes available.
+              No action items available.
             </p>
           )}
         </div>
@@ -171,7 +249,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         
         <div>
           <h3 className="font-medium mb-2">Expert Analysis:</h3>
-          <p className="text-sm">{explanation || "No expert analysis available."}</p>
+          <p className="text-sm">{explanation}</p>
         </div>
         
         <Card className="bg-blue-50 border-blue-100">
