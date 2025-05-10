@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -259,7 +258,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             <ATSScoreCard analysis={analysis} />
           )}
 
-          {analysis && analysis.career_alignment !== undefined && (
+          {analysis && typeof analysis.career_alignment === 'number' && (
             <Card>
               <CardContent className="p-4">
                 <h3 className="font-semibold mb-2">Career Alignment</h3>
@@ -268,7 +267,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                     <span className="text-sm">Score</span>
                     <span className="font-medium">{analysis.career_alignment}%</span>
                   </div>
-                  <Progress value={analysis.career_alignment} />
+                  <Progress value={analysis.career_alignment || 0} />
                   <p className="text-sm text-muted-foreground mt-2">
                     {analysis.career_alignment >= 80 
                       ? "Excellent match for your target role" 
