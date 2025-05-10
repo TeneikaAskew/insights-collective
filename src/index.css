@@ -101,16 +101,21 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans w-full;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
   
   html {
-    @apply scroll-smooth;
+    @apply scroll-smooth w-full;
   }
   
   h1, h2, h3, h4, h5, h6 {
     @apply font-display font-semibold;
+  }
+  
+  /* Default full width for all main container elements */
+  .container, main, section, article {
+    @apply w-full;
   }
 }
 

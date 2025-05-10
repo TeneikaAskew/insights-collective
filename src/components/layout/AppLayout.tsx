@@ -16,14 +16,14 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen overflow-hidden">
+      <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
-        <div className="flex flex-col flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 w-full overflow-hidden">
           <Navbar />
-          <main className={`flex-1 overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
+          <main className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
             {children}
           </main>
-          <footer className="p-4 border-t text-center text-sm text-gray-500">
+          <footer className="p-4 w-full border-t text-center text-sm text-gray-500">
             © {new Date().getFullYear()} Insights Collective. All rights reserved.
           </footer>
         </div>
