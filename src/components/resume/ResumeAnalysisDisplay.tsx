@@ -207,8 +207,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       )}
 
       {(analysis || resume || resumeFile) && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="md:col-span-3">
             {analysis ? (
               <OverallScoreCard
                 letterGrade={letter_grade}
