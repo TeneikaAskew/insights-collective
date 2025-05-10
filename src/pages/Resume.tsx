@@ -733,19 +733,23 @@ const Resume = () => {
           </div>
         )}
 
-        <div className="grid md:grid-cols-1 gap-6">
-          <ResumeAnalysisSection
-            loading={loading}
-            isAnalyzing={isAnalyzing}
-            analysis={analysis}
-            resume={resume}
-            handleStartCareerChat={handleStartCareerChat}
-            handleFileChange={handleFileChange}
-            hasAnalysis={!!analysis}
-            resumeFile={resumeFile}
-            pdfPreviewUrl={pdfPreviewUrl}
-          />
-        </div>
+        {/* Single section layout with the analysis section */}
+        <ResumeAnalysisSection
+          loading={loading}
+          isAnalyzing={isAnalyzing}
+          analysis={analysis}
+          resume={resume}
+          handleStartCareerChat={handleStartCareerChat}
+          handleFileChange={handleFileChange}
+          hasAnalysis={!!analysis}
+          resumeFile={resumeFile}
+          pdfPreviewUrl={pdfPreviewUrl}
+          uploading={uploading}
+          handleUpload={handleUpload}
+          handleDelete={handleDelete}
+          handleDownload={handleDownload}
+          fileError={storageError}
+        />
 
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
 
