@@ -52,6 +52,12 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     bullets = [],
   } = analysis || {};
 
+  // Prepare career alignments for the OverallScoreCard
+  const careerAlignments = analysis?.career_alignments?.map(alignment => ({
+    role: alignment.role || 'Unknown',
+    percent: alignment.percent || 0
+  })) || [];
+
   const needsImprovementAlert = analysis && (resume_percent < 60 || letter_grade === 'D' || letter_grade === 'F');
   const excellentResumeAlert = analysis && resume_percent >= 85;
 
@@ -209,8 +215,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       )}
 
       {(analysis || resume || resumeFile) && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
             {analysis ? (
               <OverallScoreCard
                 letterGrade={letter_grade}
@@ -221,6 +227,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 onStartCareerChat={onStartCareerChat}
                 userId={userId}
                 hasAnalysis={hasAnalysis}
+                careerAlignments={careerAlignments}
               />
             ) : (
               <Card className="h-full flex items-center justify-center min-h-[200px]">
@@ -235,7 +242,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             )}
           </div>
 
-          <div className="md:col-span-1 space-y-6">
+          <div className="space-y-6">
             {(resume || resumeFile) && (
               <Card>
                 <CardHeader>
@@ -255,7 +262,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                     <span>Key Insights</span>
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent id="key-insights-section">
                   <div className="space-y-4">
                     {highestScoringBullet && (
                       <div className="border-l-4 border-green-400 pl-3 py-1">
