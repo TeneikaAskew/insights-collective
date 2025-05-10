@@ -688,7 +688,13 @@ const Resume = () => {
 
         {/* Single section layout with the analysis section */}
         <ResumeAnalysisSection loading={loading} isAnalyzing={isAnalyzing} analysis={analysis} resume={resume} handleStartCareerChat={handleStartCareerChat} handleFileChange={handleFileChange} hasAnalysis={!!analysis} resumeFile={resumeFile} pdfPreviewUrl={pdfPreviewUrl} uploading={uploading} handleUpload={handleUpload} handleDelete={handleDelete} handleDownload={handleDownload} fileError={storageError} />
-
+        {careerAlignments && careerAlignments.length > 0 && <div className="space-y-2">
+            {careerAlignments.map((alignment, index) => <Alert key={index} className={`${index === 0 ? "bg-accent/20 border border-accent" : "bg-slate-50 border border-slate-200"}`}>
+                <AlertDescription>
+                  {alignment.description}
+                </AlertDescription>
+              </Alert>)}
+          </div>}
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
 
         
