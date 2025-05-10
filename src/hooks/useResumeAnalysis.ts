@@ -332,391 +332,109 @@ export function useResumeAnalysis() {
 
   
   // Calculate career alignments based on resume analysis
-//   // Calculate career alignments based on resume analysis - balanced approach
-// const calculateCareerAlignments = (analysisData: ResumeAnalysis) => {
-//   if (!analysisData) return;
-
-//   // Get the user's quiz results from localStorage if available
-//   // const quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
-//    // First, try to get quiz results from the database
-//   let quizTopPath: CareerTrack | null = null;
-  
-//   try {
-//     const { data: quizAttempt, error } = await supabase
-//       .from('career_quiz_attempts')
-//       .select('recommended_path')
-//       .eq('user_id', user.id)
-//       .order('completed_at', { ascending: false })
-//       .limit(1)
-//       .single();
-    
-//     if (!error && quizAttempt?.recommended_path) {
-//       quizTopPath = quizAttempt.recommended_path as CareerTrack;
-//     }
-//   } catch (error) {
-//     console.error('Error fetching quiz attempt:', error);
-//   }
-  
-//   // Fallback to localStorage if database fetch fails
-//   if (!quizTopPath) {
-//       quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
-//   }
-//   console.log("Data Quiz Top Paths: ", quizTopPath)
-
-  
-//   const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
-  
-//   // Sort paths with quiz top path first if available
-//   const sortedPaths = quizTopPath 
-//     ? [quizTopPath, ...careerPaths.filter(p => p !== quizTopPath)]
-//     : careerPaths;
-  
-//   // Calculate alignment scores with balanced formula
-//   const alignments: CareerAlignment[] = sortedPaths.slice(0, 3).map(path => {
-//     // Base alignment from resume score (minimum 30%)
-//     const basePercentage = Math.max(30, analysisData.resume_percent || 0);
-    
-//     // Calculate path multiplier based on keywords
-//     let keywordCount = 0;
-//     switch(path) {
-//       case 'AI/ML':
-//         keywordCount = analysisData.ai_ml_keywords_count || 0;
-//         break;
-//       case 'Analytics':
-//         keywordCount = analysisData.analytics_keywords_count || 0;
-//         break;
-//       case 'Data Engineering':
-//         keywordCount = analysisData.data_engineering_keywords_count || 0;
-//         break;
-//       case 'Business Intelligence':
-//         keywordCount = analysisData.bi_keywords_count || 0;
-//         break;
-//     }
-    
-//     // Use a stronger multiplier effect (compared to original)
-//     // For a keyword count of 79, this gives 1 + (79 / 40) = 2.975
-//     const pathMultiplier = 1 + (keywordCount / 40);
-    
-//     // Calculate percentage with a stronger effect from keywords
-//     let percentage = Math.min(Math.round(basePercentage * pathMultiplier), 100);
-    
-//     // Set minimum alignment percentage based on keyword count
-//     // This ensures that even with a low base score, high keyword matches still show good alignment
-//     if (keywordCount > 60) {
-//       percentage = Math.max(percentage, 75);
-//     } else if (keywordCount > 40) {
-//       percentage = Math.max(percentage, 65);
-//     } else if (keywordCount > 20) {
-//       percentage = Math.max(percentage, 55);
-//     } else if (keywordCount > 10) {
-//       percentage = Math.max(percentage, 45);
-//     }
-    
-//     // Add bonus for quiz recommendation
-//     if (path === quizTopPath) {
-//       percentage = Math.min(100, percentage + 5);
-//     }
-    
-//     // Generate description
-//     const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
-    
-//     return { path, percentage, description };
-//   });
-  
-//   setCareerAlignments(alignments);
-// };
-
-
-  
-//   const calculateCareerAlignments = async (analysisData: ResumeAnalysis) => {
-//   if (!analysisData) return;
-
-//   let quizTopPath: CareerTrack | null = null;
-  
-//   // Use the user from the outer scope
-//   if (user) {
-//     try {
-//       const { data: quizAttempt, error } = await supabase
-//         .from('career_quiz_attempts')
-//         .select('recommended_path')
-//         .eq('user_id', user.id)
-//         .order('completed_at', { ascending: false })
-//         .limit(1)
-//         .single();
-      
-//       if (!error && quizAttempt?.recommended_path) {
-//         quizTopPath = quizAttempt.recommended_path as CareerTrack;
-//       }
-//     } catch (error) {
-//       console.error('Error fetching quiz attempt:', error);
-//     }
-//   }
-  
-//   // Fallback to localStorage if database fetch fails
-//   if (!quizTopPath) {
-//     quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
-//   }
-//   console.log("Data Quiz Top Paths: ", quizTopPath);
-
-//   const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
-  
-//   // Sort paths with quiz top path first if available
-//   const sortedPaths = quizTopPath 
-//     ? [quizTopPath, ...careerPaths.filter(p => p !== quizTopPath)]
-//     : careerPaths;
-  
-//   // Calculate alignment scores with balanced formula
-//   const alignments: CareerAlignment[] = sortedPaths.slice(0, 3).map(path => {
-//     // Base alignment from resume score (minimum 30%)
-//     const basePercentage = Math.max(30, analysisData.resume_percent || 0);
-    
-//     // Calculate path multiplier based on keywords
-//     let keywordCount = 0;
-//     switch(path) {
-//       case 'AI/ML':
-//         keywordCount = analysisData.ai_ml_keywords_count || 0;
-//         break;
-//       case 'Analytics':
-//         keywordCount = analysisData.analytics_keywords_count || 0;
-//         break;
-//       case 'Data Engineering':
-//         keywordCount = analysisData.data_engineering_keywords_count || 0;
-//         break;
-//       case 'Business Intelligence':
-//         keywordCount = analysisData.bi_keywords_count || 0;
-//         break;
-//     }
-    
-//     console.log(`Keyword count for ${path}: ${keywordCount}`);
-    
-//     // Use a stronger multiplier effect
-//     const pathMultiplier = 1 + (keywordCount / 40);
-    
-//     // Calculate percentage with a stronger effect from keywords
-//     let percentage = Math.min(Math.round(basePercentage * pathMultiplier), 100);
-    
-//     // Set minimum alignment percentage based on keyword count
-//     if (keywordCount > 60) {
-//       percentage = Math.max(percentage, 75);
-//     } else if (keywordCount > 40) {
-//       percentage = Math.max(percentage, 65);
-//     } else if (keywordCount > 20) {
-//       percentage = Math.max(percentage, 55);
-//     } else if (keywordCount > 10) {
-//       percentage = Math.max(percentage, 45);
-//     }
-    
-//     // Add bonus for quiz recommendation
-//     if (path === quizTopPath) {
-//       percentage = Math.min(100, percentage + 5);
-//     }
-    
-//     // Generate description
-//     const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
-    
-//     console.log(`Final percentage for ${path}: ${percentage}%`);
-    
-//     return { path, percentage, description };
-//   });
-  
-//   setCareerAlignments(alignments);
-// };
-
-//   const calculateCareerAlignments = async (analysisData: ResumeAnalysis) => {
-//   if (!analysisData) return;
-
-//   let quizTopPath: CareerTrack | null = null;
-  
-//   if (user) {
-//     try {
-//       const { data: quizAttempt, error } = await supabase
-//         .from('career_quiz_attempts')
-//         .select('recommended_path')
-//         .eq('user_id', user.id)
-//         .order('completed_at', { ascending: false })
-//         .limit(1)
-//         .single();
-      
-//       if (!error && quizAttempt?.recommended_path) {
-//         quizTopPath = quizAttempt.recommended_path as CareerTrack;
-//       }
-//     } catch (error) {
-//       console.error('Error fetching quiz attempt:', error);
-//     }
-//   }
-  
-//   if (!quizTopPath) {
-//     quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
-//   }
-//   console.log("Data Quiz Top Paths: ", quizTopPath);
-
-//   const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
-  
-//   const sortedPaths = quizTopPath 
-//     ? [quizTopPath, ...careerPaths.filter(p => p !== quizTopPath)]
-//     : careerPaths;
-  
-//   const alignments: CareerAlignment[] = sortedPaths.slice(0, 3).map(path => {
-//     // Get keyword count for the path
-//     let keywordCount = 0;
-//     switch(path) {
-//       case 'AI/ML':
-//         keywordCount = analysisData.ai_ml_keywords_count || 0;
-//         break;
-//       case 'Analytics':
-//         keywordCount = analysisData.analytics_keywords_count || 0;
-//         break;
-//       case 'Data Engineering':
-//         keywordCount = analysisData.data_engineering_keywords_count || 0;
-//         break;
-//       case 'Business Intelligence':
-//         keywordCount = analysisData.bi_keywords_count || 0;
-//         break;
-//     }
-    
-//     console.log(`Keyword count for ${path}: ${keywordCount}`);
-    
-//     // Base percentage from resume grade (minimum 30%)
-//     const basePercentage = Math.max(30, analysisData.resume_percent || 0);
-    
-//     // Calculate the percentage based on keyword count
-//     // Use a more balanced formula that considers relative keyword counts
-//     let percentage;
-    
-//     // If very few keywords (less than 5), use a scaled-down percentage
-//     if (keywordCount < 5) {
-//       percentage = Math.min(basePercentage + (keywordCount * 5), 50);
-//     } 
-//     // For medium keyword counts (5-20), use a logarithmic scale
-//     else if (keywordCount < 20) {
-//       percentage = Math.min(basePercentage + Math.log2(keywordCount) * 10, 80);
-//     } 
-//     // For high keyword counts (20+), use a stronger scaling
-//     else {
-//       percentage = Math.min(basePercentage + Math.log2(keywordCount) * 15, 95);
-//     }
-    
-//     // Add bonus for quiz recommendation
-//     if (path === quizTopPath) {
-//       percentage = Math.min(100, percentage + 5);
-//     }
-    
-//     // Round to whole number
-//     percentage = Math.round(percentage);
-    
-//     // Generate description
-//     const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
-    
-//     console.log(`Final percentage for ${path}: ${percentage}%`);
-    
-//     return { path, percentage, description };
-//   });
-  
-//   setCareerAlignments(alignments);
-// };
-
   const calculateCareerAlignments = async (analysisData: ResumeAnalysis) => {
-  if (!analysisData) return;
+    if (!analysisData) return;
 
-  let quizTopPath: CareerTrack | null = null;
-  
-  if (user) {
-    try {
-      const { data: quizAttempt, error } = await supabase
-        .from('career_quiz_attempts')
-        .select('recommended_path')
-        .eq('user_id', user.id)
-        .order('completed_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (!error && quizAttempt?.recommended_path) {
-        quizTopPath = quizAttempt.recommended_path as CareerTrack;
+    let quizTopPath: CareerTrack | null = null;
+    
+    if (user) {
+      try {
+        const { data: quizAttempt, error } = await supabase
+          .from('career_quiz_attempts')
+          .select('recommended_path')
+          .eq('user_id', user.id)
+          .order('completed_at', { ascending: false })
+          .limit(1)
+          .single();
+        
+        if (!error && quizAttempt?.recommended_path) {
+          quizTopPath = quizAttempt.recommended_path as CareerTrack;
+        }
+      } catch (error) {
+        console.error('Error fetching quiz attempt:', error);
       }
-    } catch (error) {
-      console.error('Error fetching quiz attempt:', error);
     }
-  }
-  
-  if (!quizTopPath) {
-    quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
-  }
-  console.log("Data Quiz Top Paths: ", quizTopPath);
+    
+    if (!quizTopPath) {
+      quizTopPath = localStorage.getItem('recommendedCareerPath') as CareerTrack;
+    }
+    console.log("Data Quiz Top Paths: ", quizTopPath);
 
-  const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
-  
-  const sortedPaths = quizTopPath 
-    ? [quizTopPath, ...careerPaths.filter(p => p !== quizTopPath)]
-    : careerPaths;
-  
-  const alignments: CareerAlignment[] = sortedPaths.slice(0, 3).map(path => {
-    let keywordCount = 0;
-    switch(path) {
-      case 'AI/ML':
-        keywordCount = analysisData.ai_ml_keywords_count || 0;
-        break;
-      case 'Analytics':
-        keywordCount = analysisData.analytics_keywords_count || 0;
-        break;
-      case 'Data Engineering':
-        keywordCount = analysisData.data_engineering_keywords_count || 0;
-        break;
-      case 'Business Intelligence':
-        keywordCount = analysisData.bi_keywords_count || 0;
-        break;
-    }
+    const careerPaths: CareerTrack[] = ['AI/ML', 'Analytics', 'Data Engineering', 'Business Intelligence'];
     
-    console.log(`Keyword count for ${path}: ${keywordCount}`);
+    const sortedPaths = quizTopPath 
+      ? [quizTopPath, ...careerPaths.filter(p => p !== quizTopPath)]
+      : careerPaths;
     
-    // More realistic percentage calculation
-    let percentage = 0;
+    const alignments: CareerAlignment[] = sortedPaths.slice(0, 3).map(path => {
+      let keywordCount = 0;
+      switch(path) {
+        case 'AI/ML':
+          keywordCount = analysisData.ai_ml_keywords_count || 0;
+          break;
+        case 'Analytics':
+          keywordCount = analysisData.analytics_keywords_count || 0;
+          break;
+        case 'Data Engineering':
+          keywordCount = analysisData.data_engineering_keywords_count || 0;
+          break;
+        case 'Business Intelligence':
+          keywordCount = analysisData.bi_keywords_count || 0;
+          break;
+      }
+      
+      console.log(`Keyword count for ${path}: ${keywordCount}`);
+      
+      // More realistic percentage calculation
+      let percentage = 0;
+      
+      // For very low keyword counts (1-2)
+      if (keywordCount <= 2) {
+        percentage = 15 + (keywordCount * 10);
+      }
+      // For low keyword counts (3-5)
+      else if (keywordCount <= 5) {
+        percentage = 30 + (keywordCount * 5);
+      }
+      // For medium keyword counts (6-10)
+      else if (keywordCount <= 10) {
+        percentage = 40 + (keywordCount * 3);
+      }
+      // For medium-high keyword counts (11-20)
+      else if (keywordCount <= 20) {
+        percentage = 55 + ((keywordCount - 10) * 2);
+      }
+      // For high keyword counts (21+)
+      else {
+        percentage = 75 + Math.min((keywordCount - 20), 20);
+      }
+      
+      // Consider resume quality for adjustment
+      const resumeScore = analysisData.resume_percent || 50;
+      const qualityFactor = resumeScore / 100;
+      percentage = Math.round(percentage * qualityFactor);
+      
+      // Add quiz bonus if applicable
+      if (path === quizTopPath) {
+        percentage = Math.min(percentage + 5, 95);
+      }
+      
+      // Cap maximum percentage at 95% unless it's an exceptional match
+      if (keywordCount < 50) {
+        percentage = Math.min(percentage, 90);
+      }
+      
+      // Generate description
+      const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
+      
+      console.log(`Final percentage for ${path}: ${percentage}%`);
+      
+      return { path, percentage, description };
+    });
     
-    // For very low keyword counts (1-2)
-    if (keywordCount <= 2) {
-      percentage = 15 + (keywordCount * 10);
-    }
-    // For low keyword counts (3-5)
-    else if (keywordCount <= 5) {
-      percentage = 30 + (keywordCount * 5);
-    }
-    // For medium keyword counts (6-10)
-    else if (keywordCount <= 10) {
-      percentage = 40 + (keywordCount * 3);
-    }
-    // For medium-high keyword counts (11-20)
-    else if (keywordCount <= 20) {
-      percentage = 55 + ((keywordCount - 10) * 2);
-    }
-    // For high keyword counts (21+)
-    else {
-      percentage = 75 + Math.min((keywordCount - 20), 20);
-    }
-    
-    // Consider resume quality for adjustment
-    const resumeScore = analysisData.resume_percent || 50;
-    const qualityFactor = resumeScore / 100;
-    percentage = Math.round(percentage * qualityFactor);
-    
-    // Add quiz bonus if applicable
-    if (path === quizTopPath) {
-      percentage = Math.min(percentage + 5, 95);
-    }
-    
-    // Cap maximum percentage at 95% unless it's an exceptional match
-    if (keywordCount < 50) {
-      percentage = Math.min(percentage, 90);
-    }
-    
-    // Generate description
-    const description = `Your resume shows ${percentage}% alignment with ${path} roles.`;
-    
-    console.log(`Final percentage for ${path}: ${percentage}%`);
-    
-    return { path, percentage, description };
-  });
-  
-  setCareerAlignments(alignments);
-};
+    setCareerAlignments(alignments);
+  };
+
   // Fetch the resume assessment (roast) and store it in the database
   const fetchAndStoreAssessment = async (resumeText: string, userId: string) => {
     try {
@@ -757,19 +475,23 @@ export function useResumeAnalysis() {
     }
   };
 
-  const analyzeResume = async (resumeText: string): Promise<boolean> => {
-    if (!resumeText || !user) {
+  const analyzeResume = async (text: string): Promise<boolean> => {
+    if (!text || !user) {
       console.log("Cannot analyze: missing text or user");
       return false;
     }
     
-    // Clear previous analysis before starting new one
+    // Clear localStorage cache for this user before starting a new analysis
+    if (user) {
+      localStorage.removeItem(`resume_analysis_${user.id}`);
+    }
+    
     setIsAnalyzing(true);
-    console.log("Starting resume analysis with text of length:", resumeText.length);
+    console.log("Starting resume analysis with text of length:", text.length);
     
     try {
       // Store the resume text in localStorage for potential later use
-      localStorage.setItem(`resume_text_${user.id}`, resumeText);
+      localStorage.setItem(`resume_text_${user.id}`, text);
       
       // Step 1: Call the Edge Function with user ID and text
       console.log("Calling resume-analyzer edge function");
@@ -777,7 +499,7 @@ export function useResumeAnalysis() {
       try {
         const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
           body: { 
-            resumeText: resumeText,
+            resumeText: text,
             userId: user.id
           }
         });
@@ -821,7 +543,7 @@ export function useResumeAnalysis() {
         cleanedData.resume_id = user.id;
         
         // Perform keyword analysis on the resume text
-        const enhancedData = analyzeKeywordsInResume(resumeText, cleanedData as ResumeAnalysis);
+        const enhancedData = analyzeKeywordsInResume(text, cleanedData as ResumeAnalysis);
         
         // Save the analysis to localStorage for persistence
         if (enhancedData && user) {
@@ -832,7 +554,7 @@ export function useResumeAnalysis() {
         calculateCareerAlignments(enhancedData as ResumeAnalysis);
         
         // // Fetch and store the assessment in parallel
-        // fetchAndStoreAssessment(resumeText, user.id)
+        // fetchAndStoreAssessment(text, user.id)
         //   .catch(err => console.error("Error fetching assessment:", err));
         
         // Also update the analysis in the resume record
@@ -929,7 +651,7 @@ export function useResumeAnalysis() {
             };
             
             // Perform basic keyword analysis on the resume text
-            const enhancedFallback = analyzeKeywordsInResume(resumeText, fallbackAnalysis as ResumeAnalysis);
+            const enhancedFallback = analyzeKeywordsInResume(text, fallbackAnalysis as ResumeAnalysis);
             
             // Save the fallback analysis
             localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedFallback));
@@ -954,7 +676,7 @@ export function useResumeAnalysis() {
       setIsAnalyzing(false);
     }
   };
-  
+
   // Clean up any AI prompt markers or formatting artifacts
   const cleanAnalysisOutput = (data: any) => {
     if (!data) return data;

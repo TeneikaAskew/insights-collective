@@ -236,8 +236,34 @@ const Resume = () => {
     
     if (resume?.analysis && !analysis && !hasLoadedAnalysis && user) {
       try {
-        logDebug('AnalysisLoader', 'Setting analysis from resume', resume.analysis);
-        setAnalysis(resume.analysis);
+        // Only load from resume.analysis if we don't have cached data
+        // or if the cached data is stale
+        const cachedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
+        if (cachedAnalysis) {
+          // If we have cached data, check if resume data is newer
+          const parsedCachedAnalysis = JSON.parse(cachedAnalysis);
+          // If no updated_at field exists, always prefer the resume data
+          if (!parsedCachedAnalysis.updated_at || 
+              (resume.analysis.updated_at && 
+               new Date(resume.analysis.updated_at) > new Date(parsedCachedAnalysis.updated_at))) {
+            // Resume data is newer, use it
+            logDebug('AnalysisLoader', 'Setting analysis from resume (newer than cache)', resume.analysis);
+            setAnalysis(resume.analysis);
+            // Update the cache with newer data
+            localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(resume.analysis));
+          } else {
+            // Cache is newer, use it
+            logDebug('AnalysisLoader', 'Using cached analysis (newer than resume data)', parsedCachedAnalysis);
+            setAnalysis(parsedCachedAnalysis);
+          }
+        } else {
+          // No cache, use resume data
+          logDebug('AnalysisLoader', 'Setting analysis from resume (no cache)', resume.analysis);
+          setAnalysis(resume.analysis);
+          // Initialize cache
+          localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(resume.analysis));
+        }
+        
         setHasLoadedAnalysis(true);
         
         // If resume has an ID, store it
@@ -544,6 +570,12 @@ const Resume = () => {
     // Reset enhanced bullets flag
     hasLoadedEnhancedRef.current = false;
     logDebug('UserAction', 'Reset hasLoadedEnhancedRef for refresh');
+    
+    // Clear localStorage cache before refreshing data
+    if (user) {
+      localStorage.removeItem(`resume_analysis_${user.id}`);
+      logDebug('UserAction', 'Cleared localStorage cache for user');
+    }
     
     try {
       logDebug('UserAction', 'Calling refreshResume');
