@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
-import type { Resume } from '../../hooks/resume/useResume'; // Fixed import path
+import type { Resume } from '../../hooks/resume/useResume';
 import OverallScoreCard from './OverallScoreCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle, TrendingUp, Sparkles, FileUp, File, DownloadCloud, Trash2, AlertCircle } from 'lucide-react';
@@ -207,8 +207,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       )}
 
       {(analysis || resume || resumeFile) && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="md:col-span-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="md:col-span-1">
             {analysis ? (
               <OverallScoreCard
                 letterGrade={letter_grade}
@@ -246,37 +246,41 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             )}
 
             {analysis && (
-              <div className="bg-white border rounded-lg p-4">
-                <h3 className="font-medium flex items-center gap-2 mb-4">
-                  <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
-                  <span>Key Insights</span>
-                </h3>
-                <div className="space-y-4">
-                  {highestScoringBullet && (
-                    <div className="border-l-4 border-green-400 pl-3 py-1">
-                      <p className="text-xs text-muted-foreground mb-1">STRONGEST POINT</p>
-                      <p className="text-sm line-clamp-2">{highestScoringBullet.original}</p>
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
+                    <span>Key Insights</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {highestScoringBullet && (
+                      <div className="border-l-4 border-green-400 pl-3 py-1">
+                        <p className="text-xs text-muted-foreground mb-1">STRONGEST POINT</p>
+                        <p className="text-sm">{highestScoringBullet.original}</p>
+                      </div>
+                    )}
+                    {lowestScoringBullet && (
+                      <div className="border-l-4 border-amber-400 pl-3 py-1">
+                        <p className="text-xs text-muted-foreground mb-1">NEEDS IMPROVEMENT</p>
+                        <p className="text-sm">{lowestScoringBullet.original}</p>
+                      </div>
+                    )}
+                    <div className="border-l-4 border-blue-400 pl-3 py-1">
+                      <p className="text-xs text-muted-foreground mb-1">INDUSTRY ALIGNMENT</p>
+                      <p className="text-sm">{(resume_percent > 75) ? 'Strong' : (resume_percent > 60) ? 'Fair' : 'Weak'} industry alignment</p>
                     </div>
-                  )}
-                  {lowestScoringBullet && (
-                    <div className="border-l-4 border-amber-400 pl-3 py-1">
-                      <p className="text-xs text-muted-foreground mb-1">NEEDS IMPROVEMENT</p>
-                      <p className="text-sm line-clamp-2">{lowestScoringBullet.original}</p>
+                    <div className="border-l-4 border-purple-400 pl-3 py-1">
+                      <p className="text-xs text-muted-foreground mb-1">STORYTELLING QUALITY</p>
+                      <p className="text-sm">{bullets ? bullets.length : 0} bullet points analyzed</p>
+                      <p className="text-xs text-muted-foreground">Average quality score: {bullets ?
+                        Math.round(bullets.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / (bullets.length || 1))
+                        : 0}/45</p>
                     </div>
-                  )}
-                  <div className="border-l-4 border-blue-400 pl-3 py-1">
-                    <p className="text-xs text-muted-foreground mb-1">INDUSTRY ALIGNMENT</p>
-                    <p className="text-sm">{(resume_percent > 75) ? 'Strong' : (resume_percent > 60) ? 'Fair' : 'Weak'} industry alignment</p>
                   </div>
-                  <div className="border-l-4 border-purple-400 pl-3 py-1">
-                    <p className="text-xs text-muted-foreground mb-1">STORYTELLING QUALITY</p>
-                    <p className="text-sm">{bullets ? bullets.length : 0} bullet points analyzed</p>
-                    <p className="text-xs text-muted-foreground">Average quality score: {bullets ?
-                      Math.round(bullets.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / (bullets.length || 1))
-                      : 0}/45</p>
-                  </div>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
