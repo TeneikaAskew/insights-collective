@@ -67,9 +67,10 @@ export interface Resume {
   id: string;
   user_id: string;
   file_path: string;
+  file_name?: string; // Added for display purposes
   text: string | null;
   analysis: any | null;
-  career_alignment_score: number | null;
+  career_alignment: number | null;
   target_role: string | null;
   uploaded_at: string;
   updated_at: string;
@@ -78,6 +79,7 @@ export interface Resume {
   sentences: any | null;
   sentences_updated_at: string | null;
   initial_assessment: string | null;
+  file_url?: string; // Added for download purposes
 }
 
 export type Database = {
