@@ -679,15 +679,15 @@ const Resume = () => {
           </Alert>}
 
         {careerAlignments && careerAlignments.length > 0 && <div className="space-y-2">
-            {careerAlignments.map((alignment, index) => (
-              <div key={index}></div>
-            ))}
+            {careerAlignments.map((alignment, index) => {})}
           </div>}
 
         {/* Single section layout with the analysis section */}
         <ResumeAnalysisSection loading={loading} isAnalyzing={isAnalyzing} analysis={analysis} resume={resume} handleStartCareerChat={handleStartCareerChat} handleFileChange={handleFileChange} hasAnalysis={!!analysis} resumeFile={resumeFile} pdfPreviewUrl={pdfPreviewUrl} uploading={uploading} handleUpload={handleUpload} handleDelete={handleDelete} handleDownload={handleDownload} fileError={storageError} />
 
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
+
+        
       </div>
     </AppLayout>;
 };

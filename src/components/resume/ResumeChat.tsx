@@ -7,7 +7,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTogetherAI } from '@/hooks/useTogetherAI';
 
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
@@ -18,7 +17,6 @@ type Message = {
   role: 'assistant' | 'user';
   content: string;
   timestamp: Date;
-  isStreaming?: boolean;
 };
 
 const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
@@ -26,12 +24,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [initialAssessment, setInitialAssessment] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { generateText, isLoading: isGenerating } = useTogetherAI({
-    model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-    maxTokens: 2000
-  });
   
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -60,8 +53,6 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
             .from('resumes')
             .select('initial_assessment')
             .eq('user_id', user.id)
-            .order('uploaded_at', { ascending: false })
-            .limit(1)
             .single();
           
           if (error) {
@@ -69,10 +60,10 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
             throw error;
           }
           
-          let fetchedAssessment = data?.initial_assessment;
+          let initialAssessment = data?.initial_assessment;
           
           // If no stored assessment, try to fetch it
-          if (!fetchedAssessment && resumeAnalysis.resume_id) {
+          if (!initialAssessment && resumeAnalysis.resume_id) {
             const resumeText = localStorage.getItem(`resume_text_${resumeAnalysis.resume_id}`) || '';
             
             if (resumeText) {
@@ -86,26 +77,24 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
               if (roastError) throw roastError;
               
               if (roastData?.roast) {
-                fetchedAssessment = roastData.roast;
+                initialAssessment = roastData.roast;
                 
                 // Store it in the database for future use
                 await supabase
                   .from('resumes')
-                  .update({ initial_assessment: fetchedAssessment })
+                  .update({ initial_assessment: initialAssessment })
                   .eq('user_id', user.id);
               }
             }
           }
-          
-          setInitialAssessment(fetchedAssessment || null);
           
           // Update welcome message with assessment
           const updatedWelcomeMessage: Message = {
             ...welcomeMessage,
             content: `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
 
-${fetchedAssessment ? `**Here's my honest assessment:**
-${fetchedAssessment}
+${initialAssessment ? `**Here's my honest assessment:**
+${initialAssessment}
 
 ` : ''}Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`
           };
@@ -129,82 +118,9 @@ Let's start by discussing your experience: **What specific challenges did you ta
       })();
     }
   }, [resumeAnalysis, user]);
-
-  const streamResponse = async (prompt: string) => {
-    // Create a placeholder message for streaming
-    const assistantMessageId = `assistant-${Date.now()}`;
-    const streamingMessage: Message = {
-      id: assistantMessageId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date(),
-      isStreaming: true
-    };
-    
-    setMessages(prev => [...prev, streamingMessage]);
-    
-    try {
-      // Build context for the AI
-      let contextPrompt = `You are a professional resume coach and career expert. Be conversational and helpful.`;
-      
-      if (resumeAnalysis) {
-        contextPrompt += `\n\nResume analysis: Grade ${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%). 
-        Key themes for improvement: ${resumeAnalysis.themes?.join(', ') || 'N/A'}.
-        Elevator pitch: ${resumeAnalysis.elevator_pitch || 'N/A'}`;
-      }
-      
-      if (initialAssessment) {
-        contextPrompt += `\n\nInitial resume assessment: ${initialAssessment}`;
-      }
-      
-      // Add previous messages for context
-      const previousMessages = messages
-        .filter(msg => !msg.id.includes('welcome')) // Exclude welcome message
-        .slice(-8) // Only include last 8 messages for context
-        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n\n');
-      
-      if (previousMessages) {
-        contextPrompt += `\n\nPrevious conversation:\n${previousMessages}`;
-      }
-      
-      contextPrompt += `\n\nUser: ${prompt}\n\nAssistant:`;
-      
-      // Use TogetherAI with streaming callback
-      let currentContent = '';
-      await generateText(contextPrompt, (chunk) => {
-        currentContent += chunk || '';
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { ...msg, content: currentContent, isStreaming: true } 
-            : msg
-        ));
-      });
-      
-      // Finalize message when streaming is complete
-      setMessages(prev => prev.map(msg => 
-        msg.id === assistantMessageId 
-          ? { ...msg, isStreaming: false } 
-          : msg
-      ));
-      
-    } catch (error) {
-      console.error('Error streaming response:', error);
-      
-      // Update the message to show the error
-      setMessages(prev => prev.map(msg => 
-        msg.id === assistantMessageId
-          ? { 
-              ...msg, 
-              content: "I'm sorry, I encountered an error generating a response. Let me try again with a different approach. Could you tell me more about what you'd like to improve?", 
-              isStreaming: false 
-            } 
-          : msg
-      ));
-    }
-  };
   
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading || isGenerating) return;
+    if (!inputValue.trim() || isLoading) return;
     
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -218,7 +134,47 @@ Let's start by discussing your experience: **What specific challenges did you ta
     setIsLoading(true);
     
     try {
-      await streamResponse(userMessage.content);
+      // Create context from resume analysis
+      const context = resumeAnalysis ? 
+        `Resume analysis: Grade ${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%). 
+         Key themes for improvement: ${resumeAnalysis.themes.join(', ')}.
+         Elevator pitch: ${resumeAnalysis.elevator_pitch}` : 
+        'No resume analysis available.';
+      
+      // Call the Edge Function
+      const { data, error } = await supabase.functions.invoke('assistant-ai', {
+        body: {
+          query: userMessage.content,
+          careerFocus: 'Data',
+          careerPath: 'Data Analyst',
+          salaryCap: 120000,
+          assistantType: 'Resume Coach',
+          context
+        }
+      });
+      
+      if (error) throw error;
+      
+      const assistantMessage: Message = {
+        id: `assistant-${Date.now()}`,
+        role: 'assistant',
+        content: data?.response || "I'm sorry, I couldn't process your request at this time.",
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, assistantMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      // Fallback response
+      const fallbackMessage: Message = {
+        id: `assistant-fallback-${Date.now()}`,
+        role: 'assistant',
+        content: "Thanks for sharing those details. Based on what you've told me, I'd recommend focusing on quantifying your achievements more clearly in your resume. Add specific metrics and outcomes to demonstrate your impact. Could you share a specific project where you made a significant contribution?",
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, fallbackMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -291,9 +247,6 @@ Let's start by discussing your experience: **What specific challenges did you ta
               ) : (
                 <div>{message.content}</div>
               )}
-              {message.isStreaming && (
-                <span className="inline-block w-1.5 h-4 ml-1 bg-primary animate-pulse"></span>
-              )}
             </div>
           </div>
         ))}
@@ -306,7 +259,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
           </div>
         )}
         
-        {isLoading && !messages.find(m => m.isStreaming) && (
+        {isLoading && (
           <div className="flex justify-start">
             <div className="max-w-3xl p-3 rounded-lg bg-slate-100 text-slate-800">
               <div className="flex space-x-2">
@@ -329,11 +282,10 @@ Let's start by discussing your experience: **What specific challenges did you ta
             placeholder="Describe the challenges, actions, and results from your first role..."
             className="flex-1 resize-none"
             rows={2}
-            disabled={isLoading || isGenerating}
           />
           <Button 
             onClick={handleSendMessage} 
-            disabled={isLoading || isGenerating || !inputValue.trim()}
+            disabled={isLoading || !inputValue.trim()}
             className="self-end"
           >
             <Send className="h-4 w-4" />

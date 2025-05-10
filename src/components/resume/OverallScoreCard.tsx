@@ -15,7 +15,6 @@ const getUserId = async () => {
   } = await supabase.auth.getUser();
   return data?.user?.id;
 };
-
 interface OverallScoreCardProps {
   letterGrade: string;
   resumePercent: number;
@@ -26,7 +25,6 @@ interface OverallScoreCardProps {
   hasAnalysis?: boolean;
   userId?: string;
 }
-
 const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   letterGrade,
   resumePercent,
@@ -41,11 +39,11 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   const [hasBeenClicked, setHasBeenClicked] = useState(false);
   const [hasRoast, setHasRoast] = useState(false);
   const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Move hook call inside the component function body
-  const { careerAlignments } = useResumeAnalysis();
+  const {
+    careerAlignments
+  } = useResumeAnalysis();
 
-  // Check for roast
+  // Check for roast (keep existing functionality)
   useEffect(() => {
     console.log("Checking if roast exists yet for: ", userId);
     if (userId) {
@@ -69,7 +67,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     }
   }, [userId]);
 
-  // Setup flashing effect with interval
+  // Setup flashing effect with interval (keep existing functionality)
   useEffect(() => {
     console.log("Does the analysis exist? ", hasAnalysis);
     if (!hasAnalysis || hasBeenClicked) {
@@ -78,7 +76,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
       }
       return;
     }
-    
+    ;
     if (flashIntervalRef.current) {
       clearInterval(flashIntervalRef.current);
     }
@@ -91,7 +89,6 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
       }
     };
   }, [hasAnalysis, hasBeenClicked]);
-  
   const handleButtonClick = () => {
     setHasBeenClicked(true);
     if (flashIntervalRef.current) {
@@ -100,7 +97,6 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     }
     onStartCareerChat();
   };
-  
   const getLetterGradeColor = (grade: string) => {
     switch (grade) {
       case 'A':
@@ -115,7 +111,6 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         return "text-red-600";
     }
   };
-  
   const getButtonClass = () => {
     if (hasAnalysis && hasBeenClicked) {
       return 'bg-green-600 hover:bg-green-700';
@@ -125,9 +120,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
       return 'bg-blue-600 hover:bg-blue-700';
     }
   };
-  
-  return (
-    <Card className="border-t-2 border-t-[#9b87f5]">
+  return <Card className="border-t-2 border-t-[#9b87f5]">
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
           <div>
@@ -168,17 +161,13 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
           <h3 className="font-medium mb-2">Expert Analysis:</h3>
           <p className="text-sm">{explanation || "No expert analysis available."}</p>
         </div>
-        {careerAlignments && careerAlignments.length > 0 && (
-          <div className="space-y-2">
-            {careerAlignments.map((alignment, index) => (
-              <Alert key={index} className={`${index === 0 ? "bg-accent/20 border border-accent" : "bg-slate-50 border border-slate-200"}`}>
-                <AlertDescription>
-                  {alignment.description}
-                </AlertDescription>
-              </Alert>
-            ))}
-          </div>
-        )}
+        {careerAlignments && careerAlignments.length > 0 && <div className="space-y-2">
+                    {careerAlignments.map((alignment, index) => <Alert key={index} className={`${index === 0 ? "bg-accent/20 border border-accent" : "bg-slate-50 border border-slate-200"}`}>
+                        <AlertDescription>
+                          {alignment.description}
+                        </AlertDescription>
+                      </Alert>)}
+                  </div>}
         
         <Card className="bg-blue-50 border-blue-100">
           <CardContent className="p-4">
@@ -209,8 +198,6 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
           </Button>
         </div>
       </CardFooter>
-    </Card>
-  );
+    </Card>;
 };
-
 export default OverallScoreCard;
