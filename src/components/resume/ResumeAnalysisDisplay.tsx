@@ -63,18 +63,20 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     if (resume?.file_url && resume?.file_name?.toLowerCase().endsWith('.pdf') && !resumeFile) {
       return (
         <iframe
-          src={resume.file_url}
+          src={resume.file_url + "#toolbar=0&navpanes=0&view=FitH"}
           title="Resume Preview"
-          className="w-full aspect-[8.5/11] border rounded-md"
+          className="w-full aspect-[8.5/6] border rounded-md"
+          style={{ height: '300px' }}
         />
       );
     }
     if (pdfPreviewUrl && resumeFile?.type === 'application/pdf') {
       return (
         <iframe
-          src={pdfPreviewUrl}
+          src={pdfPreviewUrl + "#toolbar=0&navpanes=0&view=FitH"}
           title="Local Resume Preview"
-          className="w-full aspect-[8.5/11] border rounded-md"
+          className="w-full aspect-[8.5/6] border rounded-md"
+          style={{ height: '300px' }}
         />
       );
     }
@@ -82,7 +84,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     if (docxFile) {
        const fileName = resumeFile ? resumeFile.name : resume?.file_name;
       return (
-        <div className="w-full aspect-[8.5/11] border rounded-md flex flex-col items-center justify-center bg-accent/10">
+        <div className="w-full aspect-[8.5/6] border rounded-md flex flex-col items-center justify-center bg-accent/10" style={{ height: '300px' }}>
           <File className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-muted-foreground">Word Document Preview</p>
           {fileName && <p className="text-sm text-muted-foreground mt-1">{fileName}</p>}
@@ -91,7 +93,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       );
     }
     return (
-      <div className="bg-accent/10 aspect-[8.5/11] flex items-center justify-center rounded-md">
+      <div className="bg-accent/10 aspect-[8.5/6] flex items-center justify-center rounded-md" style={{ height: '300px' }}>
         <p className="text-muted-foreground">No preview available</p>
       </div>
     );
