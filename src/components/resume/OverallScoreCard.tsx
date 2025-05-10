@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Download, MessageSquare } from 'lucide-react';
 import { ChartContainer } from '@/components/ui/chart';
 import html2pdf from 'html2pdf.js';
+import * as RechartsPrimitive from 'recharts';
 
 interface OverallScoreCardProps {
   letterGrade: string;
@@ -166,14 +167,12 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
               className="h-[100px]"
             >
               {/* Use Recharts components directly */}
-              {/* @ts-ignore */}
               <RechartsPrimitive.RadialBarChart
                 innerRadius="50%"
                 outerRadius="80%"
                 barSize={10}
                 data={[{ value: resumePercent }]}
               >
-                {/* @ts-ignore */}
                 <RechartsPrimitive.RadialBar
                   minAngle={15}
                   background={{ fill: "#e6e6e6" }}

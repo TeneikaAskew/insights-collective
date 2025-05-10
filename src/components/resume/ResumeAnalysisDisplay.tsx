@@ -53,10 +53,12 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   } = analysis || {};
 
   // Prepare career alignments for the OverallScoreCard
-  const careerAlignments = career_alignment?.map(alignment => ({
-    role: alignment.role || 'Unknown',
-    percent: alignment.percent || 0
-  })) || [];
+  const careerAlignments = Array.isArray(career_alignment) 
+    ? career_alignment.map(alignment => ({
+        role: alignment.role || 'Unknown',
+        percent: alignment.percent || 0
+      }))
+    : [];
 
   const needsImprovementAlert = analysis && (resume_percent < 60 || letter_grade === 'D' || letter_grade === 'F');
   const excellentResumeAlert = analysis && resume_percent >= 85;
