@@ -164,7 +164,6 @@ function formatResponse(raw: string): { elevatorPitch: string, themes: string[],
         /3\.\s*Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/,
         /(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))/,
         /([Tt]he\s+[A-F][+-]?\s+grade\s+[^.]+?\.)/, 
-        /3\.\s*(?:Brief )?(?:E|e)xplanation[^:\n]*:?\s*\n?([\s\S]*)/,
       ];
 
   for (const pattern of explanationPatterns) {
@@ -179,23 +178,17 @@ function formatResponse(raw: string): { elevatorPitch: string, themes: string[],
     }
   }
   /* ---------- Fallback if no pattern matched ---------- */
-  // if (!extractedContent.explanation) {
-  //   const paragraphs = text
-  //     .split(/\n{2,}/)          // split on blank-line breaks
-  //     .map(p => p.trim())
-  //     .filter(Boolean);         // remove empty strings
-  
-  //   if (paragraphs.length) {
-  //     // grab the last paragraph
-  //     extractedContent.explanation = paragraphs[paragraphs.length - 1];
-  //   }
-  // }
   if (!extractedContent.explanation) {
-    // grab the last non-empty line
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    if (lines.length) extractedContent.explanation = lines[lines.length - 1];
+    const paragraphs = text
+      .split(/\n{2,}/)          // split on blank-line breaks
+      .map(p => p.trim())
+      .filter(Boolean);         // remove empty strings
+  
+    if (paragraphs.length) {
+      // grab the last paragraph
+      extractedContent.explanation = paragraphs[paragraphs.length - 1];
+    }
   }
-
   /* ---------------------------------------------------- */
   return extractedContent;
 }
