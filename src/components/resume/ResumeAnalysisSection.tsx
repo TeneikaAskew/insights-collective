@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +13,7 @@ import ATSScoreCard from './ATSScoreCard';
 interface ResumeAnalysisSectionProps {
   loading: boolean; // True if initial resume/analysis data is loading
   isAnalyzing: boolean; // True if AI analysis is in progress
-  isLoadingEnhancedBullets?: boolean; // True if enhanced bullets are being loaded/processed
+  isLoadingEnhancedBullets: boolean; // True if enhanced bullet points are loading
   analysis: ResumeAnalysis | null;
   resume: Resume | null;
   handleStartCareerChat: () => void;
@@ -32,7 +33,7 @@ interface ResumeAnalysisSectionProps {
 const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   loading,
   isAnalyzing,
-  isLoadingEnhancedBullets = false, // Added and destructured with a default value
+  isLoadingEnhancedBullets, // Destructure the new prop
   analysis,
   resume,
   handleStartCareerChat,
@@ -106,7 +107,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 <ChartBar className="h-4 w-4" />
                 <span>Overview</span>
               </TabsTrigger>
-              <TabsTrigger value="storytelling" className="flex items-center gap-2" disabled={!analysis?.bullets?.length || isLoadingEnhancedBullets}>
+              <TabsTrigger value="storytelling" className="flex items-center gap-2" disabled={!analysis?.bullets?.length}>
                 <Target className="h-4 w-4" />
                 <span>Storytelling</span>
               </TabsTrigger>
@@ -142,8 +143,10 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 <TabsContent value="storytelling" className="mt-0">
                   <BulletPointsAnalysisCard
                     bullets={analysis.bullets || []}
-                    isAnalyzing={isAnalyzing} // Pass isAnalyzing
-                    isLoadingEnhancedBullets={isLoadingEnhancedBullets} // Pass isLoadingEnhancedBullets
+                    isAnalyzing={isAnalyzing}
+                    // Pass isLoadingEnhancedBullets here if BulletPointsAnalysisCard needs it.
+                    // For now, assuming it does not, but if it does, you'd add:
+                    // isLoadingEnhancedBullets={isLoadingEnhancedBullets}
                   />
                 </TabsContent>
                 <TabsContent value="ats" className="mt-0">
