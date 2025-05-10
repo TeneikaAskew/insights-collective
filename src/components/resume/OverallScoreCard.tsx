@@ -10,11 +10,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Get user ID if authenticated - keep this outside component to avoid execution during render
 const getUserId = async () => {
-  const {
-    data
-  } = await supabase.auth.getUser();
+  const { data } = await supabase.auth.getUser();
   return data?.user?.id;
 };
+
 interface OverallScoreCardProps {
   letterGrade: string;
   resumePercent: number;
@@ -25,6 +24,7 @@ interface OverallScoreCardProps {
   hasAnalysis?: boolean;
   userId?: string;
 }
+
 const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   letterGrade,
   resumePercent,
@@ -39,9 +39,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   const [hasBeenClicked, setHasBeenClicked] = useState(false);
   const [hasRoast, setHasRoast] = useState(false);
   const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const {
-    careerAlignments
-  } = useResumeAnalysis();
+  const { careerAlignments } = useResumeAnalysis();
 
   // Check for roast (keep existing functionality)
   useEffect(() => {
@@ -49,13 +47,16 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     if (userId) {
       const checkForRoast = async () => {
         try {
-          const {
-            data,
-            error
-          } = await supabase.from('resumes').select('initial_assessment').eq('user_id', userId).order('uploaded_at', {
-            ascending: false
-          }).limit(1).maybeSingle();
+          const { data, error } = await supabase
+            .from('resumes')
+            .select('initial_assessment')
+            .eq('user_id', userId)
+            .order('uploaded_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
           console.log("user: ", userId, " - Roast data", data);
+            
           if (!error && data?.initial_assessment) {
             setHasRoast(true);
           }
@@ -63,6 +64,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
           console.error("Error checking for roast:", error);
         }
       };
+      
       checkForRoast();
     }
   }, [userId]);
@@ -75,20 +77,23 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         clearInterval(flashIntervalRef.current);
       }
       return;
-    }
-    ;
+    };
+
     if (flashIntervalRef.current) {
       clearInterval(flashIntervalRef.current);
     }
+
     flashIntervalRef.current = setInterval(() => {
       setIsFlashing(prev => !prev);
     }, 1000);
+
     return () => {
       if (flashIntervalRef.current) {
         clearInterval(flashIntervalRef.current);
       }
     };
   }, [hasAnalysis, hasBeenClicked]);
+  
   const handleButtonClick = () => {
     setHasBeenClicked(true);
     if (flashIntervalRef.current) {
@@ -97,6 +102,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     }
     onStartCareerChat();
   };
+
   const getLetterGradeColor = (grade: string) => {
     switch (grade) {
       case 'A':
@@ -111,6 +117,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         return "text-red-600";
     }
   };
+  
   const getButtonClass = () => {
     if (hasAnalysis && hasBeenClicked) {
       return 'bg-green-600 hover:bg-green-700';
@@ -120,7 +127,9 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
       return 'bg-blue-600 hover:bg-blue-700';
     }
   };
-  return <Card className="border-t-2 border-t-[#9b87f5]">
+
+  return (
+    <Card className="border-t-2 border-t-[#9b87f5]">
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
           <div>
@@ -148,11 +157,17 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         
         <div className="space-y-3">
           <h3 className="font-medium mb-2">Key Improvement Themes</h3>
-          {themes && themes.length > 0 ? <ul className="list-disc list-inside space-y-1 text-sm pl-4">
-              {themes.map((theme, index) => <li key={index}>{theme}</li>)}
-            </ul> : <p className="text-sm text-muted-foreground">
+          {themes && themes.length > 0 ? (
+            <ul className="list-disc list-inside space-y-1 text-sm pl-4">
+              {themes.map((theme, index) => (
+                <li key={index}>{theme}</li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
               No key improvement themes available.
-            </p>}
+            </p>
+          )}
         </div>
         
         <Separator />
@@ -174,11 +189,14 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
             <div className="flex items-start space-x-3">
               <MessageSquare className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
               <div>
-                <h4 className="font-medium text-blue-900">Get Personalized Coaching and a Resume Roast!</h4>
+                <h4 className="font-medium text-blue-900">Get Personalized Coaching</h4>
                 <p className="text-sm text-blue-700 mb-3">
                   Speak with our AI career coach for detailed guidance on how to address these improvement areas.
                 </p>
-                <Button onClick={handleButtonClick} className={`w-full gap-2 transition-colors duration-300 ${getButtonClass()}`}>
+                <Button 
+                  onClick={handleButtonClick}
+                  className={`w-full gap-2 transition-colors duration-300 ${getButtonClass()}`}
+                >
                   <MessageSquare className="h-4 w-4" />
                   {hasAnalysis && hasBeenClicked ? 'Continue Career Chat' : 'Start Career Chat'}
                 </Button>
@@ -198,6 +216,8 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
           </Button>
         </div>
       </CardFooter>
-    </Card>;
+    </Card>
+  );
 };
+
 export default OverallScoreCard;
