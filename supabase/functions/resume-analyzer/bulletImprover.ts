@@ -1,5 +1,5 @@
 console.log("Bullet Extractor Endpoint hit")
-import { callGroqWithRetry } from './utils.ts';
+import { callLLMWithRetry } from './utils.ts';
 
 
 export const config = {
@@ -17,7 +17,7 @@ export async function improveBullet(bulletData: any): Promise<any> {
     
     // Make API call to rewrite the bullet
     const groqPrompt = constructGroqPrompt(bulletData);
-    const result = await callGroqWithRetry("", groqPrompt);
+    const result = await callLLMWithRetry("", groqPrompt);
     
     // Parse the response to extract the rewritten bullet and tips
     const processedResult = processGroqResponse(result, bulletData);
@@ -326,7 +326,7 @@ export function createBatches(items: any[], batchSize: number): any[][] {
 //       while (attempt < config.MAX_RETRIES && !success) {
 //         try {
 //           // Call your AI service with the bullet
-//           result = await callGroqWithRetry(bullet.original, userId);
+//           result = await callLLMWithRetry(bullet.original, userId);
 //           success = true;
 //         } catch (err) {
 //           error = err;
@@ -368,7 +368,7 @@ export function createBatches(items: any[], batchSize: number): any[][] {
 // }
 
 // console.log("Bullet Extractor Endpoint hit")
-// import { corsHeaders, callGroqWithRetry } from './utils.ts';
+// import { corsHeaders, callLLMWithRetry } from './utils.ts';
 // import { extractSentencesFromResponse } from './sentenceDetector.ts';
 
 // // Global batch queue for bullet processing
@@ -998,7 +998,7 @@ export function createBatches(items: any[], batchSize: number): any[][] {
 // }
 
 // console.log("Bullet Extractor Endpoint hit")
-// import { corsHeaders, callGroqWithRetry } from './utils.ts';
+// import { corsHeaders, callLLMWithRetry } from './utils.ts';
 // import { extractSentencesFromResponse } from './sentenceDetector.ts';
 
 // // Global batch queue for bullet processing

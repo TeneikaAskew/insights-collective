@@ -1,6 +1,6 @@
 // import { supabase } from '@/integrations/supabase/client';
 // import { supabase } from '../../../integrations/supabase/client.ts';
-import { supabase, callGroqWithRetry } from './utils.ts';
+import { supabase, callLLMWithRetry } from './utils.ts';
 const bulletCache = new Map(); // Cache for storing bullet points by user ID
 
 export function getSentencesFromCache(userId) {
@@ -69,8 +69,8 @@ export async function detectSentences(text, userId) {
       const user = `Extract resume bullet points from the following text:\n\n${chunks[i]}`
       
       // Use our retry function
-      // const data = await callGroqWithRetry(system, user);
-      const content = await callGroqWithRetry(system, user);
+      // const data = await callLLMWithRetry(system, user);
+      const content = await callLLMWithRetry(system, user);
       
       const apiEndTime = Date.now();
       // console.log(`detectSentences: GROQ API call for chunk ${i+1} completed in ${apiEndTime - apiStartTime}ms`);

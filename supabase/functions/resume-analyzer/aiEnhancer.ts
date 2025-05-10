@@ -1,5 +1,5 @@
 console.log('Resume scoring and feedback function hit');
-import { corsHeaders, callGroqWithRetry } from './utils.ts';
+import { corsHeaders, callLLMWithRetry } from './utils.ts';
 // Use GROQ API to enhance analysis with AI
 export async function enhanceWithGroq(resumeText, analysis) {
   try {
@@ -222,7 +222,7 @@ try {
   // };
   
   // // Add the signal to the retry function
-  // const data = await callGroqWithRetry(apiKey, requestBody, 3, controller.signal);
+  // const data = await callLLMWithRetry(apiKey, requestBody, 3, controller.signal);
   const system =`You are an expert resume analyst. Based on the provided resume text and basic analysis, 
               provide three key outputs:
             1. A professional elevator pitch (max 2 sentences) based on the resume text
@@ -230,9 +230,9 @@ try {
             3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
             Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.`
  const user = `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
-  // const data = await callGroqWithRetry(system, user);
+  // const data = await callLLMWithRetry(system, user);
   
-  const aiResponse = await callGroqWithRetry(system, user);
+  const aiResponse = await callLLMWithRetry(system, user);
   clearTimeout(timeoutId);
   
   // const aiResponse = data.choices[0].message.content;
@@ -403,7 +403,7 @@ try {
     //   };
       
     //   // Add the signal to the retry function
-    //   const data = await callGroqWithRetry(apiKey, requestBody, 3, controller.signal);
+    //   const data = await callLLMWithRetry(apiKey, requestBody, 3, controller.signal);
     //   clearTimeout(timeoutId);
       
     //   const aiResponse = data.choices[0].message.content;

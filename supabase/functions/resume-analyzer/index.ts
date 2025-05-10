@@ -10,7 +10,7 @@ import { enhanceWithGroq } from "./aiEnhancer.ts";
 // import { serveBulletImprover } from "./bulletImprover.ts";
 // Change this line:
 import { serveBulletImprover } from "./bulletImprover.ts";
-import { supabase, callGroqWithRetry, corsHeaders } from './utils.ts';
+import { supabase, callLLMWithRetry, corsHeaders } from './utils.ts';
 
 // To:
 import { processBatchQueue, createBatches, getBatchSize, config as bulletImproverConfig } from "./bulletImprover.ts";
@@ -87,7 +87,7 @@ async function getResumeRoast(resumeText, userId) {
       `.trim();
     
       // 2. Call the helper with retry/backoff
-      const roastText = await callGroqWithRetry(system, user);
+      const roastText = await callLLMWithRetry(system, user);
 
     
     console.log("Roast/Assessment: ", roastText)
