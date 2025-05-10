@@ -162,7 +162,8 @@ function formatResponse(raw: string): { elevatorPitch: string, themes: string[],
         /\*\*Resume Grade Explanation:\*\*\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/,
         /Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/,
         /3\.\s*Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/,
-        /(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))/
+        /(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))/,
+        /([Tt]he\s+[A-F][+-]?\s+grade\s+[^.]+?\.)/, 
       ];
 
   for (const pattern of explanationPatterns) {
