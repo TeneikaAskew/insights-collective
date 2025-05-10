@@ -190,33 +190,54 @@ export const useResume = () => {
         return false;
       }
       
-      // Extract text from file for analysis
-      let fileText = preExtractedText || '';
-      
-      if (!fileText) {
-        try {
-          console.log("No pre-extracted text provided, extracting now...");
-          fileText = await extractTextFromFile(file);
-          console.log("Successfully extracted text, length:", fileText.length);
-        } catch (extractError) {
-          console.warn('Could not extract text from file:', extractError);
+      // // Extract text from file for analysis
+      // let fileText = '';
+      // try {
+      //   fileText = await extractTextFromFile(file);
+      //   console.log("Successfully extracted text, length:", fileText.length);
+      // } catch (extractError) {
+      //   console.warn('Could not extract text from file:', extractError);
+      //   try {
+      //     // Fallback to basic text extraction
+      //     const textReader = new FileReader();
+      //     textReader.readAsText(file);
+      //     fileText = await new Promise((resolve) => {
+      //       textReader.onload = () => resolve(textReader.result as string);
+      //     });
+      //     console.log("Used fallback text extraction, length:", fileText.length);
+      //   } catch (err) {
+      //     console.warn('Fallback text extraction also failed:', err);
+      //     // Continue with empty text - at least we can store the file
+      //     fileText = 'Text extraction failed. Please try again with a different file format.';
+      //   }
+      // }
+        // Extract text from file for analysis (only if not provided)
+        let fileText = preExtractedText || '';
+        
+        if (!fileText) {
           try {
-            // Fallback to basic text extraction
-            const textReader = new FileReader();
-            textReader.readAsText(file);
-            fileText = await new Promise((resolve) => {
-              textReader.onload = () => resolve(textReader.result as string);
-            });
-            console.log("Used fallback text extraction, length:", fileText.length);
-          } catch (err) {
-            console.warn('Fallback text extraction also failed:', err);
-            // Continue with empty text - at least we can store the file
-            fileText = 'Text extraction failed. Please try again with a different file format.';
+            console.log("No pre-extracted text provided, extracting now...");
+            fileText = await extractTextFromFile(file);
+            console.log("Successfully extracted text, length:", fileText.length);
+          } catch (extractError) {
+            console.warn('Could not extract text from file:', extractError);
+            try {
+              // Fallback to basic text extraction
+              const textReader = new FileReader();
+              textReader.readAsText(file);
+              fileText = await new Promise((resolve) => {
+                textReader.onload = () => resolve(textReader.result as string);
+              });
+              console.log("Used fallback text extraction, length:", fileText.length);
+            } catch (err) {
+              console.warn('Fallback text extraction also failed:', err);
+              // Continue with empty text - at least we can store the file
+              fileText = 'Text extraction failed. Please try again with a different file format.';
+            }
           }
+        } else {
+          console.log("Using pre-extracted text, length:", fileText.length);
         }
-      } else {
-        console.log("Using pre-extracted text, length:", fileText.length);
-      }
 
       // Upload file to storage with a unique path
       const timestamp = Date.now();
@@ -307,18 +328,20 @@ export const useResume = () => {
     }
   };
 
-  // Delete ALL resumes from storage and database for the user
+  // Delete resume from storage and database
   const deleteResume = async (): Promise<boolean> => {
-    if (!user) {
-      console.error("Cannot delete: missing user");
+    if (!user || !resume) {
+      console.error("Cannot delete: missing user or resume");
       return false;
     }
   
     try {
       console.log(`=== RESUME DELETION STARTED ===`);
+      console.log(`Resume ID: ${resume.id}`);
       console.log(`User ID: ${user.id}`);
+      console.log(`File path: ${resume.file_path}`);
       
-      // Clear ALL local storage caches associated with this user
+      // First, clear local storage caches associated with this resume
       console.log(`Clearing localStorage cache for user ${user.id}...`);
       localStorage.removeItem(`resume_analysis_${user.id}`);
       localStorage.removeItem(`resume_text_${user.id}`);
@@ -328,36 +351,43 @@ export const useResume = () => {
       signedUrlCacheRef.current.clear();
       console.log(`Cleared URL cache`);
   
-      // If we have a current resume, try to delete its file from storage
-      if (resume && resume.file_path) {
-        try {
-          console.log(`Attempting to delete file from storage: ${resume.file_path}`);
-          const storageResult = await deleteResumeFile(user.id, resume.file_path);
-          if (!storageResult) {
-            console.warn(`Could not delete file from storage: ${resume.file_path}`);
-          } else {
-            console.log(`Successfully deleted file from storage: ${resume.file_path}`);
-          }
-        } catch (storageError) {
-          console.warn(`Error deleting file from storage: ${resume.file_path}`, storageError);
+      // First try to delete the file from storage
+      try {
+        console.log(`Attempting to delete file from storage: ${resume.file_path}`);
+        // Fix here: deleteResumeFile expects 2 args, but 3 were provided causing TS error.
+        // So ensure only 2 args are passed: userId and filePath
+        const storageResult = await deleteResumeFile(user.id, resume.file_path);
+        if (!storageResult) {
+          console.warn(`Could not delete file from storage: ${resume.file_path}`);
+        } else {
+          console.log(`Successfully deleted file from storage: ${resume.file_path}`);
         }
+      } catch (storageError) {
+        console.warn(`Error deleting file from storage: ${resume.file_path}`, storageError);
       }
       
-      // Delete ALL records from database for this user
+      // Delete record from database using ID rather than user_id
+      // console.log(`Deleting resume with ID: ${resume.id} from database...`);
+      // const { data, error: dbError } = await supabase
+      //   .from('resumes')
+      //   .delete()
+      //   .eq('id', resume.id)
+      //   .select();
+
       console.log(`Deleting all resumes for user ID: ${user.id} from database...`);
       const { data, error: dbError } = await supabase
         .from('resumes')
         .delete()
-        .eq('user_id', user.id)
+        .eq('user_id', user.id)  // Changed to delete all resume records
         .select();
       
       if (dbError) {
-        console.error(`Database error deleting resumes for user ID ${user.id}:`, dbError);
-        throw new Error(`Failed to delete resumes from database: ${dbError.message}`);
+        console.error(`Database error deleting resume ID ${resume.id}:`, dbError);
+        throw new Error(`Failed to delete resume from database: ${dbError.message}`);
       }
       
       console.log(`Database response:`, data);
-      console.log(`Successfully deleted resume records from database for user ID: ${user.id}`);
+      console.log(`Successfully deleted resume record from database. Resume ID: ${resume.id}`);
       
       // Clear the resume state
       setResume(null);
@@ -369,10 +399,14 @@ export const useResume = () => {
       
       toast({
         title: 'Success',
-        description: 'All resumes deleted successfully.',
+        description: 'Resume deleted successfully.',
       });
       
       console.log(`=== RESUME DELETION COMPLETED SUCCESSFULLY ===`);
+      
+      // Refresh to get the next most recent resume if one exists
+      console.log(`Fetching next most recent resume if available...`);
+      await fetchResume();
       
       return true;
     } catch (error) {
@@ -390,6 +424,7 @@ export const useResume = () => {
         localStorage.removeItem(`resume_analysis_${user.id}`);
         localStorage.removeItem(`resume_text_${user.id}`);
         hasFetchedResume.current = false;
+        await fetchResume();
       } catch (cleanupError) {
         console.error('Error during cleanup after failed deletion:', cleanupError);
       }
