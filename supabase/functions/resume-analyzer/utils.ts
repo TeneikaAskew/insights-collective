@@ -22,7 +22,7 @@ const failedEndpoints: Record<string, number> = {
 };
 
 // Maximum failures before skipping an endpoint
-const MAX_FAILURES = 2;
+const MAX_FAILURES = 4;
 
 // Function to check if an endpoint should be skipped
 function shouldSkipEndpoint(endpoint: string): boolean {
@@ -195,7 +195,7 @@ async function callGROQAPI(system: string, user: string): Promise<string> {
 
 // TOGETHER API call
 async function callTOGETHERAPI(system: string, user: string): Promise<string> {
-  const TOGETHER_API_KEY = Deno.env.get('TOGETHER');
+  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
   if (!TOGETHER_API_KEY) throw new Error('TOGETHER API key not found in environment');
 
   const togetherUrl = 'https://api.together.xyz/v1/chat/completions';
