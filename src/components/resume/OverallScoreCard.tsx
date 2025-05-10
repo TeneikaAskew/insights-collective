@@ -6,8 +6,7 @@ import { Separator } from '@/components/ui/separator';
 import { MessageSquare, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
-const {  careerAlignments  } = useResumeAnalysis();
-
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 // Get user ID if authenticated - keep this outside component to avoid execution during render
 const getUserId = async () => {
@@ -40,6 +39,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   const [hasBeenClicked, setHasBeenClicked] = useState(false);
   const [hasRoast, setHasRoast] = useState(false);
   const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { careerAlignments } = useResumeAnalysis();
 
   // Check for roast (keep existing functionality)
   useEffect(() => {
