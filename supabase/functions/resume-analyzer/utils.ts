@@ -22,7 +22,7 @@ const failedEndpoints: Record<string, number> = {
 };
 
 // Maximum failures before skipping an endpoint
-const MAX_FAILURES = 4;
+const MAX_FAILURES = 2;
 
 // Function to check if an endpoint should be skipped
 function shouldSkipEndpoint(endpoint: string): boolean {
