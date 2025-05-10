@@ -177,7 +177,19 @@ function formatResponse(raw: string): { elevatorPitch: string, themes: string[],
       break;
     }
   }
-
+  /* ---------- Fallback if no pattern matched ---------- */
+  if (!extractedContent.explanation) {
+    const paragraphs = text
+      .split(/\n{2,}/)          // split on blank-line breaks
+      .map(p => p.trim())
+      .filter(Boolean);         // remove empty strings
+  
+    if (paragraphs.length) {
+      // grab the last paragraph
+      extractedContent.explanation = paragraphs[paragraphs.length - 1];
+    }
+  }
+  /* ---------------------------------------------------- */
   return extractedContent;
 }
 // Call the GROQ API with timeout
