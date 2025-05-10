@@ -8,6 +8,7 @@ import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
 import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
+import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -752,6 +753,21 @@ const Resume = () => {
 
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
 
+        <details open className="border rounded-md bg-white shadow-sm">
+          <summary className="cursor-pointer px-4 py-2 font-medium">Storytelling Analysis</summary>
+          <div className="p-4">
+            {analysis?.bullets && analysis.bullets.length > 0 ? (
+              <BulletPointsAnalysisCard 
+                bullets={analysis.bullets} 
+                isAnalyzing={isAnalyzing || isLoadingEnhancedBullets}
+              />
+            ) : (
+              <p className="text-gray-500">
+                No bullet‑point analysis available. Upload and analyze your resume to see detailed feedback.
+              </p>
+            )}
+          </div>
+        </details>
       </div>
     </AppLayout>
   );
