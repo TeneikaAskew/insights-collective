@@ -1,3 +1,4 @@
+
 export interface Profile {
   id: string;
   first_name: string | null;
@@ -68,8 +69,8 @@ export interface Resume {
   file_path: string;
   file_name?: string; // Added for display purposes
   text: string | null;
-  analysis: any | null; // Consider defining a more specific type for analysis
-  career_alignment: number | null; // Ensure this is number or null
+  analysis: any | null;
+  career_alignment: number | null;
   target_role: string | null;
   uploaded_at: string;
   updated_at: string;
@@ -132,7 +133,7 @@ export type Database = {
         };
       };
       resumes: {
-        Row: Resume; // Ensure this uses the updated Resume interface
+        Row: Resume;
       };
     };
   };
