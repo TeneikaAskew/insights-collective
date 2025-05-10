@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
@@ -50,10 +49,11 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     elevator_pitch = '',
     explanation = '',
     bullets = [],
+    career_alignment = [] // Use the correct property name
   } = analysis || {};
 
   // Prepare career alignments for the OverallScoreCard
-  const careerAlignments = analysis?.career_alignments?.map(alignment => ({
+  const careerAlignments = career_alignment?.map(alignment => ({
     role: alignment.role || 'Unknown',
     percent: alignment.percent || 0
   })) || [];

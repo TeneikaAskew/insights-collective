@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Download, MessageSquare } from 'lucide-react';
-import { Chart } from '@/components/ui/chart';
+import { ChartContainer } from '@/components/ui/chart';
 import html2pdf from 'html2pdf.js';
 
 interface OverallScoreCardProps {
@@ -161,37 +161,27 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
 
         {resumePercent > 0 && (
           <div className="w-full">
-            <Chart
-              type="radialBar"
-              width="100%"
-              height={100}
-              series={[resumePercent]}
-              options={{
-                chart: {
-                  toolbar: {
-                    show: false,
-                  },
-                },
-                plotOptions: {
-                  radialBar: {
-                    hollow: {
-                      size: '50%',
-                    },
-                    dataLabels: {
-                      show: true,
-                      name: {
-                        show: false,
-                      },
-                      value: {
-                        show: false,
-                      },
-                    },
-                  },
-                },
-                colors: ['#6366f1'],
-                labels: ['Progress'],
-              }}
-            />
+            <ChartContainer
+              config={{}}
+              className="h-[100px]"
+            >
+              {/* Use Recharts components directly */}
+              {/* @ts-ignore */}
+              <RechartsPrimitive.RadialBarChart
+                innerRadius="50%"
+                outerRadius="80%"
+                barSize={10}
+                data={[{ value: resumePercent }]}
+              >
+                {/* @ts-ignore */}
+                <RechartsPrimitive.RadialBar
+                  minAngle={15}
+                  background={{ fill: "#e6e6e6" }}
+                  dataKey="value"
+                  fill="#6366f1"
+                />
+              </RechartsPrimitive.RadialBarChart>
+            </ChartContainer>
           </div>
         )}
 
