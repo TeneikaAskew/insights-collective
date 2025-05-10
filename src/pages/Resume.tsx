@@ -679,11 +679,7 @@ const Resume = () => {
           </Alert>}
 
         {careerAlignments && careerAlignments.length > 0 && <div className="space-y-2">
-            {careerAlignments.map((alignment, index) => <Alert key={index} className={`${index === 0 ? "bg-accent/20 border border-accent" : "bg-slate-50 border border-slate-200"}`}>
-                <AlertDescription>
-                  {alignment.description}
-                </AlertDescription>
-              </Alert>)}
+            {careerAlignments.map((alignment, index) => {})}
           </div>}
 
         {/* Single section layout with the analysis section */}
