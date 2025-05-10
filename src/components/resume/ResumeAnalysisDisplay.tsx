@@ -268,11 +268,11 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                     <span className="text-sm">Score</span>
                     <span className="font-medium">{analysis.career_alignment}%</span>
                   </div>
-                  <Progress value={analysis.career_alignment} />
+                  <Progress value={Number(analysis.career_alignment)} />
                   <p className="text-sm text-muted-foreground mt-2">
-                    {analysis.career_alignment >= 80 
+                    {Number(analysis.career_alignment) >= 80 
                       ? "Excellent match for your target role" 
-                      : analysis.career_alignment >= 60 
+                      : Number(analysis.career_alignment) >= 60 
                       ? "Good match with some areas to improve" 
                       : "Needs improvement to match your target role"}
                   </p>
