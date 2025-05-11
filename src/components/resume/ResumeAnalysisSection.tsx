@@ -7,8 +7,9 @@ import type { Resume } from '../../hooks/resume/useResume'; // Adjusted import p
 import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileCheck, ChartBar, Target, Briefcase, Award } from 'lucide-react';
+import { FileCheck, ChartBar, Target, Briefcase, Award, MessageCircle } from 'lucide-react';
 import ATSScoreCard from './ATSScoreCard';
+import ResumeChat from './ResumeChat';
 
 interface ResumeAnalysisSectionProps {
   loading: boolean; // True if initial resume/analysis data is loading
@@ -18,6 +19,7 @@ interface ResumeAnalysisSectionProps {
   handleStartCareerChat: () => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   hasAnalysis?: boolean;
+  showCareerChat: boolean;
 
   // Props for upload functionality, passed to ResumeAnalysisDisplay
   resumeFile: File | null;
@@ -44,6 +46,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   handleDelete,
   handleDownload,
   fileError,
+  showCareerChat,
 }) => {
   if (loading && !resume && !analysis && !resumeFile && !fileError) {
     return (
@@ -100,7 +103,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
       <CardContent>
         {showTabs ? (
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6"> {/* Adjusted grid for responsiveness */}
+            <TabsList className="grid grid-cols-2 sm:grid-cols-5 mb-6"> {/* Changed from 4 to 5 columns to add chat tab */}
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <ChartBar className="h-4 w-4" />
                 <span>Overview</span>
@@ -116,6 +119,10 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
               <TabsTrigger value="career" className="flex items-center gap-2" disabled={!analysis?.themes?.length}>
                 <Briefcase className="h-4 w-4" />
                 <span>Career Fit</span>
+              </TabsTrigger>
+              <TabsTrigger value="chat" className="flex items-center gap-2" disabled={!analysis}>
+                <MessageCircle className="h-4 w-4" />
+                <span>Chat</span>
               </TabsTrigger>
             </TabsList>
 
@@ -136,6 +143,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 fileError={fileError}
               />
             </TabsContent>
+            
             {analysis && ( // Conditionally render other tabs only if analysis exists
               <>
                 <TabsContent value="storytelling" className="mt-0">
@@ -171,6 +179,9 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                     </Card>
                   </div>
                 </TabsContent>
+                <TabsContent value="chat" className="mt-0">
+                  {analysis && <ResumeChat resumeAnalysis={analysis} />}
+                </TabsContent>
               </>
             )}
           </Tabs>
@@ -192,10 +203,12 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             fileError={fileError}
           />
         )}
+        
+        {/* Only show chat outside of tabs when analysis exists but tabs are not shown */}
+        {analysis && !showTabs && showCareerChat && <ResumeChat resumeAnalysis={analysis} />}
       </CardContent>
     </Card>
   );
 };
 
 export default ResumeAnalysisSection;
-

@@ -1,15 +1,14 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatMessage } from '@/components/assistants/utils/messageFormatting';
 import { useToast } from '@/hooks/use-toast';
-import { LocalStorageUtils } from '@/utils/localStorageUtils';
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
@@ -380,69 +379,66 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
   };
   
   return (
-    <Card className="w-full mt-6 mb-6 flex flex-col">
-      <CardHeader className="px-4 py-3 border-b bg-gradient-to-r from-blue-500 to-blue-600">
-        <CardTitle className="text-lg text-white">AI Career Recommendations</CardTitle>
-        <div className="text-xs text-blue-100">Get personalized career advice powered by Together.ai</div>
-      </CardHeader>
-      
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[500px]">
-        {messages.map((message) => (
-          <div key={message.id} className={`flex ${
-            message.role === 'assistant' 
-              ? 'justify-start' 
-              : 'justify-end'
-          }`}>
-            <div className={`max-w-3xl p-3 rounded-lg ${
+    <div className="w-full">
+      <ScrollArea className="h-[400px] px-1">
+        <div className="space-y-4 p-4">
+          {messages.map((message) => (
+            <div key={message.id} className={`flex ${
               message.role === 'assistant' 
-                ? 'bg-slate-100 text-slate-800' 
-                : 'bg-blue-600 text-white'
+                ? 'justify-start' 
+                : 'justify-end'
             }`}>
-              {message.role === 'assistant' ? (
-                <div 
-                  className="prose prose-slate max-w-none"
-                  dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
-                />
-              ) : (
-                <div>{message.content}</div>
-              )}
-              
-              {message.isStreaming && (
-                <span className="inline-block w-1.5 h-4 bg-slate-400 ml-1 animate-pulse"></span>
-              )}
-            </div>
-          </div>
-        ))}
-        
-        {messages.length === 0 && resumeAnalysis && !isLoading && (
-          <div className="text-center p-6">
-            <p className="text-muted-foreground mb-4">
-              Your resume is ready for review. I can provide personalized advice to help you improve it.
-            </p>
-          </div>
-        )}
-        
-        {isLoading && !messages.some(m => m.isStreaming) && (
-          <div className="flex justify-start">
-            <div className="max-w-3xl p-3 rounded-lg bg-slate-100 text-slate-800">
-              <div className="flex space-x-2">
-                <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></div>
-                <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse delay-75"></div>
-                <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse delay-150"></div>
+              <div className={`max-w-3xl p-3 rounded-lg ${
+                message.role === 'assistant' 
+                  ? 'bg-slate-100 text-slate-800' 
+                  : 'bg-blue-600 text-white'
+              }`}>
+                {message.role === 'assistant' ? (
+                  <div 
+                    className="prose prose-slate max-w-none"
+                    dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
+                  />
+                ) : (
+                  <div>{message.content}</div>
+                )}
+                
+                {message.isStreaming && (
+                  <span className="inline-block w-1.5 h-4 bg-slate-400 ml-1 animate-pulse"></span>
+                )}
               </div>
             </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </CardContent>
+          ))}
+          
+          {messages.length === 0 && resumeAnalysis && !isLoading && (
+            <div className="text-center p-6">
+              <p className="text-muted-foreground mb-4">
+                Your resume is ready for review. I can provide personalized advice to help you improve it.
+              </p>
+            </div>
+          )}
+          
+          {isLoading && !messages.some(m => m.isStreaming) && (
+            <div className="flex justify-start">
+              <div className="max-w-3xl p-3 rounded-lg bg-slate-100 text-slate-800">
+                <div className="flex space-x-2">
+                  <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse"></div>
+                  <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse delay-75"></div>
+                  <div className="w-2 h-2 rounded-full bg-slate-400 animate-pulse delay-150"></div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
       
-      <CardFooter className="p-4 border-t">
+      <div className="p-4 border-t mt-2">
         <div className="flex space-x-2 w-full">
           <Textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Describe the challenges, actions, and results from your first role..."
+            placeholder="Ask about your resume or career path..."
             className="flex-1 resize-none"
             rows={2}
             disabled={isLoading}
@@ -456,8 +452,8 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
             <span className="sr-only">Send</span>
           </Button>
         </div>
-      </CardFooter>
-    </Card>
+      </div>
+    </div>
   );
 };
 

@@ -5,10 +5,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
-import ResumeChat from '@/components/resume/ResumeChat';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
 import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
-import BulletPointsAnalysisCard from '@/components/resume/BulletPointsAnalysisCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
@@ -687,7 +685,7 @@ const Resume = () => {
           </div>
         }
 
-        {/* Single section layout with the analysis section */}
+        {/* Pass showCareerChat state to ResumeAnalysisSection */}
         <ResumeAnalysisSection 
           loading={loading} 
           isAnalyzing={isAnalyzing} 
@@ -702,10 +700,9 @@ const Resume = () => {
           handleUpload={handleUpload} 
           handleDelete={handleDelete} 
           handleDownload={handleDownload} 
-          fileError={storageError} 
+          fileError={storageError}
+          showCareerChat={showCareerChat}
         />
-
-        {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
       </div>
     </AppLayout>;
 };
