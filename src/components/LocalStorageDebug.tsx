@@ -44,7 +44,7 @@ const LocalStorageDebug: React.FC = () => {
           Clear Resume Data
         </Button>
         <Button onClick={exportData} variant="secondary">
-          Export JSON
+          Export JSON.
         </Button>
       </div>
 
