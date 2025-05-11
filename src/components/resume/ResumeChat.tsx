@@ -499,13 +499,13 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
             } else {
               console.log('No text found in JSON data', jsonData);
             }
-          } catch (e) {
-            console.warn('Error parsing SSE data:', e, 'Line:', line);
-          }
-        } else {
-          console.log('Line does not start with data:');
-        }
-      }
+      //     } catch (e) {
+      //       console.warn('Error parsing SSE data:', e, 'Line:', line);
+      //     }
+      //   } else {
+      //     console.log('Line does not start with data:');
+      //   }
+      // }
       // }
     } catch (error) {
       console.error('Error processing stream:', error);
