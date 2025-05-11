@@ -10,6 +10,12 @@ import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ResumeAnalysis } from '@/components/assistants/types';
 
+// Add to your imports
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+
+
+  
+
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
 }
@@ -37,13 +43,17 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const [streamController, setStreamController] = useState<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
-  
-  // Typing effect state and refs
-  const [displayedContent, setDisplayedContent] = useState('');
+
+
+  // Replace typing effect state with this:
+  const [activeStreamingId, setActiveStreamingId] = useState<string | null>(null);
+  const [typingContent, setTypingContent] = useState('');
   const fullContentRef = useRef('');
-  const typingSpeedRef = useRef(5); // ms per character (adjust for faster/slower typing)
+  const typingSpeedRef = useRef(15); // ms per character (adjust for faster/slower typing)
   const isTypingRef = useRef(false);
-  const activeMessageIdRef = useRef<string | null>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Other existing code...
   
   // Load persisted messages from localStorage
   useEffect(() => {
@@ -64,6 +74,63 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
       }
     }
   }, [user]);
+
+    // Add this effect to manage typing animation
+  useEffect(() => {
+    const streamingMessage = messages.find(msg => msg.isStreaming);
+    
+    if (streamingMessage) {
+      if (activeStreamingId !== streamingMessage.id) {
+        // New streaming message
+        setActiveStreamingId(streamingMessage.id);
+        fullContentRef.current = streamingMessage.content;
+        setTypingContent('');
+        isTypingRef.current = false;
+        
+        // Start typing the new message
+        if (streamingMessage.content) {
+          simulateTyping();
+        }
+      } else if (fullContentRef.current !== streamingMessage.content) {
+        // Content updated for current message
+        fullContentRef.current = streamingMessage.content;
+        
+        // If not already typing, start typing
+        if (!isTypingRef.current) {
+          simulateTyping();
+        }
+      }
+    } else {
+      // No streaming message
+      setActiveStreamingId(null);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = null;
+      }
+      isTypingRef.current = false;
+    }
+  }, [messages]);
+  
+  // Add the memoized typing function
+  const simulateTyping = useCallback(() => {
+    if (isTypingRef.current) return;
+    
+    isTypingRef.current = true;
+    
+    const typeNextChar = () => {
+      if (typingContent.length < fullContentRef.current.length) {
+        setTypingContent(prev => fullContentRef.current.substring(0, prev.length + 1));
+        
+        typingTimeoutRef.current = setTimeout(typeNextChar, typingSpeedRef.current);
+      } else {
+        isTypingRef.current = false;
+        typingTimeoutRef.current = null;
+      }
+    };
+    
+    typeNextChar();
+  }, [typingContent]);
+
   
   // Save messages to localStorage whenever they change
   useEffect(() => {
@@ -75,27 +142,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   // Scroll to bottom whenever messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, displayedContent]);
-  
-  // Function to simulate typing effect
-  const simulateTyping = () => {
-    if (isTypingRef.current) return; // Already typing
-    
-    isTypingRef.current = true;
-    let currentIndex = displayedContent.length;
-    
-    const typeNextChar = () => {
-      if (currentIndex < fullContentRef.current.length) {
-        setDisplayedContent(fullContentRef.current.substring(0, currentIndex + 1));
-        currentIndex++;
-        setTimeout(typeNextChar, typingSpeedRef.current);
-      } else {
-        isTypingRef.current = false;
-      }
-    };
-    
-    typeNextChar();
-  };
+  }, [messages]);
   
   // Fetch initial resume assessment and create welcome message on component mount
   useEffect(() => {
@@ -191,6 +238,22 @@ Let's start by discussing your experience: **What specific challenges did you ta
   
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
+
+     // Create a placeholder streaming message
+    const streamingMessage: Message = {
+      id: `assistant-${Date.now()}`,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      isStreaming: true
+    };
+    
+    // Reset typing state
+    setActiveStreamingId(streamingMessage.id);
+    fullContentRef.current = '';
+    setTypingContent('');
+    
+    setMessages(prev => [...prev, streamingMessage]);
     
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -235,11 +298,6 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
         isStreaming: true
       };
       
-      // Reset typing effect state
-      fullContentRef.current = '';
-      setDisplayedContent('');
-      activeMessageIdRef.current = streamingMessage.id;
-      
       setMessages(prev => [...prev, streamingMessage]);
       
       // Abort any existing streams
@@ -280,6 +338,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       // Get the ReadableStream from the response.data.body
       const readableStream = response.data.body;
       const reader = readableStream.getReader();
+      let streamedContent = '';
       
       // Add a timeout to handle premature stream termination
       let streamTimeout = null;
@@ -332,22 +391,30 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
                 console.log('Parsed JSON data:', jsonData);
                 
                 // Extract the text from the completion choices
+                // if (jsonData.choices && jsonData.choices[0]?.text) {
+                //   const newText = jsonData.choices[0].text;
+                //   streamedContent += newText;
+                      // In the streaming loop, modify the part where you process each chunk:
                 if (jsonData.choices && jsonData.choices[0]?.text) {
                   const newText = jsonData.choices[0].text;
-                  fullContentRef.current += newText;
                   
-                  // If not already typing, start the typing effect
-                  if (!isTypingRef.current) {
-                    simulateTyping();
-                  }
-                  
-                  // Update the actual message content with the full content
-                  setMessages(prev => prev.map(msg => 
-                    msg.id === streamingMessage.id 
-                      ? { ...msg, content: fullContentRef.current }
-                      : msg
-                  ));
+                  // Update the message content
+                  setMessages(prev => {
+                    const updatedMessages = prev.map(msg => 
+                      msg.id === streamingMessage.id 
+                        ? { ...msg, content: msg.content + newText }
+                        : msg
+                    );
+                    return updatedMessages;
+                  });
                 }
+                  // Update the streaming message with current content
+                //   setMessages(prev => prev.map(msg => 
+                //     msg.id === streamingMessage.id 
+                //       ? { ...msg, content: streamedContent }
+                //       : msg
+                //   ));
+                // }
               } catch (e) {
                 console.warn('Error parsing SSE data:', e, 'Line:', line);
               }
@@ -357,10 +424,10 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       } catch (error) {
         console.error('Error processing stream:', error);
         // Still update with whatever content we got
-        if (fullContentRef.current) {
+        if (streamedContent) {
           setMessages(prev => prev.map(msg => 
             msg.id === streamingMessage.id 
-              ? { ...msg, content: fullContentRef.current, isStreaming: false }
+              ? { ...msg, content: streamedContent, isStreaming: false }
               : msg
           ));
         }
@@ -416,7 +483,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
   
   return (
     <div className="w-full">
-      <ScrollArea className="h-[900px] px-1">
+      <ScrollArea className="h-[900px] px-1"> {/* Increased height from previous ~400px */}
         <div className="space-y-4 p-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${
@@ -430,17 +497,25 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
                   : 'bg-blue-600 text-white'
               }`}>
                 {message.role === 'assistant' ? (
+                <div 
+                  className="prose prose-slate max-w-none"
+                  dangerouslySetInnerHTML={{ 
+                    __html: formatMessage(
+                      message.id === activeStreamingId ? typingContent : message.content
+                    )
+                  }}
+                />
+              ) : (
+                <div>{message.content}</div>
+              )}
+                {/* /* {message.role === 'assistant' ? (
                   <div 
                     className="prose prose-slate max-w-none"
-                    dangerouslySetInnerHTML={{ 
-                      __html: formatMessage(
-                        message.isStreaming ? displayedContent : message.content
-                      )
-                    }}
+                    dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
                   />
                 ) : (
                   <div>{message.content}</div>
-                )}
+                )} */ */}
                 
                 {message.isStreaming && (
                   <span className="inline-block w-1.5 h-4 bg-slate-400 ml-1 animate-pulse"></span>
