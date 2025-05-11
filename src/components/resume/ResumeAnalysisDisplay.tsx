@@ -66,7 +66,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           src={resume.file_url + "#toolbar=0&navpanes=0&view=FitH"}
           title="Resume Preview"
           className="w-full aspect-[8.5/11] border rounded-md"
-          style={{ height: '300px' }}
+          style={{ height: '250px', maxHeight: '60vh' }}
         />
       );
     }
@@ -76,7 +76,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           src={pdfPreviewUrl + "#toolbar=0&navpanes=0&view=FitH"}
           title="Local Resume Preview"
           className="w-full aspect-[8.5/11] border rounded-md"
-          style={{ height: '300px' }}
+          style={{ height: '250px', maxHeight: '60vh' }}
         />
       );
     }
@@ -84,7 +84,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     if (docxFile) {
        const fileName = resumeFile ? resumeFile.name : resume?.file_name;
       return (
-        <div className="w-full aspect-[8.5/6] border rounded-md flex flex-col items-center justify-center bg-accent/10" style={{ height: '300px' }}>
+        <div className="w-full aspect-[8.5/6] border rounded-md flex flex-col items-center justify-center bg-accent/10" style={{ height: '250px', maxHeight: '60vh' }}>
           <File className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-muted-foreground">Word Document Preview</p>
           {fileName && <p className="text-sm text-muted-foreground mt-1">{fileName}</p>}
@@ -93,7 +93,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       );
     }
     return (
-      <div className="bg-accent/10 aspect-[8.5/6] flex items-center justify-center rounded-md" style={{ height: '300px' }}>
+      <div className="bg-accent/10 aspect-[8.5/6] flex items-center justify-center rounded-md" style={{ height: '250px', maxHeight: '60vh' }}>
         <p className="text-muted-foreground">No preview available</p>
       </div>
     );
@@ -209,33 +209,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       )}
 
       {(analysis || resume || resumeFile) && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
-          <div className="md:col-span-2">
-            {analysis ? (
-              <OverallScoreCard
-                letterGrade={letter_grade}
-                resumePercent={resume_percent}
-                elevatorPitch={elevator_pitch}
-                themes={themes || []}
-                explanation={explanation}
-                onStartCareerChat={onStartCareerChat}
-                userId={userId}
-                hasAnalysis={hasAnalysis}
-              />
-            ) : (
-              <Card className="h-full flex items-center justify-center min-h-[200px]">
-                <CardContent className="text-center p-6">
-                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
-                  </p>
-                   {!resumeFile && !resume && ( <Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          <div className="md:col-span-1 space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-1 order-2 md:order-1">
             {(resume || resumeFile) && (
               <Card>
                 <CardHeader>
@@ -248,7 +223,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             )}
 
             {analysis && (
-              <Card>
+              <Card className="mt-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
@@ -281,6 +256,31 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                         : 0}/45</p>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          <div className="md:col-span-2 order-1 md:order-2">
+            {analysis ? (
+              <OverallScoreCard
+                letterGrade={letter_grade}
+                resumePercent={resume_percent}
+                elevatorPitch={elevator_pitch}
+                themes={themes || []}
+                explanation={explanation}
+                onStartCareerChat={onStartCareerChat}
+                userId={userId}
+                hasAnalysis={hasAnalysis}
+              />
+            ) : (
+              <Card className="h-full flex items-center justify-center min-h-[200px]">
+                <CardContent className="text-center p-6">
+                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
+                  </p>
+                   {!resumeFile && !resume && ( <Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
                 </CardContent>
               </Card>
             )}
