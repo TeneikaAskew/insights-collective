@@ -99,6 +99,7 @@ export const formatMessage = (content: string): string => {
   
   // Special case clean-up for any missed patterns
   formattedContent = formattedContent.replace(/ \* /g, '<br>• ');
+  formattedContent = formattedContent.replace(/ * /g, '• ');
   
   return formattedContent;
 };
