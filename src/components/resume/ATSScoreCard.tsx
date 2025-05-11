@@ -1,16 +1,22 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Check, XCircle, AlertCircle } from 'lucide-react';
 import { ResumeAnalysis } from '@/components/assistants/types';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import JobDescriptionAnalyzer from './JobDescriptionAnalyzer';
+import { useResumeData } from '@/hooks/resume/useResumeData';
 
 interface ATSScoreCardProps {
   analysis: ResumeAnalysis | null;
 }
 
 const ATSScoreCard: React.FC<ATSScoreCardProps> = ({ analysis }) => {
+  const [activeTab, setActiveTab] = useState<string>('general');
+  const { resume } = useResumeData();
+
   if (!analysis) return null;
   
   // Calculate ATS score based on resume_percent
@@ -94,50 +100,63 @@ const ATSScoreCard: React.FC<ATSScoreCardProps> = ({ analysis }) => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <Progress value={atsScore} className="h-2" />
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-muted/30 p-4 rounded-md text-center">
-            <p className="text-sm text-muted-foreground">Keyword Match</p>
-            <p className={`text-2xl font-semibold ${getScoreColor(keywordMatchScore)}`}>{keywordMatchScore}%</p>
-          </div>
-          <div className="bg-muted/30 p-4 rounded-md text-center">
-            <p className="text-sm text-muted-foreground">Format Detection</p>
-            <p className={`text-2xl font-semibold ${getScoreColor(formatDetectionScore)}`}>{formatDetectionScore}%</p>
-          </div>
-          <div className="bg-muted/30 p-4 rounded-md text-center">
-            <p className="text-sm text-muted-foreground">Readability</p>
-            <p className={`text-2xl font-semibold ${getScoreColor(readabilityScore)}`}>{readabilityScore}%</p>
-          </div>
-        </div>
-        
-        <div className="bg-muted/20 p-4 rounded-md">
-          <h3 className="font-medium mb-3">ATS Checks ({passRate}% Pass Rate)</h3>
-          <div className="space-y-2">
-            {atsFeedback.map((item, index) => (
-              <div key={index} className="flex items-center justify-between">
-                <div className="flex items-center">
-                  {item.check ? (
-                    <Check className="h-4 w-4 text-green-600 mr-2" />
-                  ) : (
-                    <XCircle className="h-4 w-4 text-red-600 mr-2" />
-                  )}
-                  <span className={item.check ? "text-sm" : "text-sm text-muted-foreground"}>{item.message}</span>
-                </div>
-                <Badge className={`${getBadgeColor(item.impact)} font-normal`}>{item.impact}</Badge>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="general">General ATS Score</TabsTrigger>
+            <TabsTrigger value="job-match">Job-Specific Analysis</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="general" className="mt-6">
+            <Progress value={atsScore} className="h-2" />
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+              <div className="bg-muted/30 p-4 rounded-md text-center">
+                <p className="text-sm text-muted-foreground">Keyword Match</p>
+                <p className={`text-2xl font-semibold ${getScoreColor(keywordMatchScore)}`}>{keywordMatchScore}%</p>
               </div>
-            ))}
-          </div>
-        </div>
-        
-        <div className="bg-blue-50 border border-blue-100 p-4 rounded-md flex items-start">
-          <AlertCircle className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" />
-          <div>
-            <p className="text-sm text-blue-900">
-              <span className="font-medium">Pro Tip:</span> Most employers use ATS systems to filter resumes. A score above 80% significantly increases your chances of getting past automated filters and into human hands.
-            </p>
-          </div>
-        </div>
+              <div className="bg-muted/30 p-4 rounded-md text-center">
+                <p className="text-sm text-muted-foreground">Format Detection</p>
+                <p className={`text-2xl font-semibold ${getScoreColor(formatDetectionScore)}`}>{formatDetectionScore}%</p>
+              </div>
+              <div className="bg-muted/30 p-4 rounded-md text-center">
+                <p className="text-sm text-muted-foreground">Readability</p>
+                <p className={`text-2xl font-semibold ${getScoreColor(readabilityScore)}`}>{readabilityScore}%</p>
+              </div>
+            </div>
+            
+            <div className="bg-muted/20 p-4 rounded-md mt-6">
+              <h3 className="font-medium mb-3">ATS Checks ({passRate}% Pass Rate)</h3>
+              <div className="space-y-2">
+                {atsFeedback.map((item, index) => (
+                  <div key={index} className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      {item.check ? (
+                        <Check className="h-4 w-4 text-green-600 mr-2" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-red-600 mr-2" />
+                      )}
+                      <span className={item.check ? "text-sm" : "text-sm text-muted-foreground"}>{item.message}</span>
+                    </div>
+                    <Badge className={`${getBadgeColor(item.impact)} font-normal`}>{item.impact}</Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            <div className="bg-blue-50 border border-blue-100 p-4 rounded-md flex items-start mt-6">
+              <AlertCircle className="h-5 w-5 text-blue-500 mr-3 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-blue-900">
+                  <span className="font-medium">Pro Tip:</span> Most employers use ATS systems to filter resumes. A score above 80% significantly increases your chances of getting past automated filters and into human hands.
+                </p>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="job-match" className="mt-6 space-y-6">
+            <JobDescriptionAnalyzer resumeText={resume?.text || null} />
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );
