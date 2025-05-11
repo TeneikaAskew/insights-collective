@@ -21,9 +21,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
           <main className={`flex-1 w-full h-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
-            <div className="h-full">
-              {children}
-            </div>
+            {children}
           </main>
           <footer className="p-4 w-full border-t text-center text-sm text-gray-500">
             © {new Date().getFullYear()} Insights Collective. All rights reserved.
