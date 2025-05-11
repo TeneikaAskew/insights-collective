@@ -1,535 +1,519 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AlertCircle, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Loader2, Copy, CheckCircle, AlertCircle, ExternalLink } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 interface JobDescriptionAnalyzerProps {
   resumeText: string | null;
 }
 
-interface KeywordMatch {
-  keyword: string;
-  category: string;
+interface SkillMatch {
+  skill: string;
   found: boolean;
+  importance: 'high' | 'medium' | 'low';
 }
 
-interface AnalysisResult {
-  technicalSkills: KeywordMatch[];
-  functionalSkills: KeywordMatch[];
-  softSkills: KeywordMatch[];
-  responsibilities: KeywordMatch[];
-  competencies: KeywordMatch[];
-  overallMatchPercentage: number;
-  categoryScores: {
-    [key: string]: number;
-  };
-  improvementSuggestions: string[];
+interface JobAnalysis {
+  technicalSkills: SkillMatch[];
+  functionalSkills: SkillMatch[];
+  responsibilities: SkillMatch[];
+  overallScore: number;
+  suggestions: string[];
+  error?: string;
 }
 
-const CATEGORIES = {
-  TECHNICAL: 'Technical Skills',
-  FUNCTIONAL: 'Functional Skills',
-  SOFT: 'Soft Skills',
-  RESPONSIBILITIES: 'Responsibilities',
-  COMPETENCIES: 'Core Competencies'
+const initialAnalysisState: JobAnalysis = {
+  technicalSkills: [],
+  functionalSkills: [],
+  responsibilities: [],
+  overallScore: 0,
+  suggestions: []
 };
 
 const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeText }) => {
-  const [jobDescription, setJobDescription] = useState('');
-  const [jobUrl, setJobUrl] = useState('');
-  const [isFetchingUrl, setIsFetchingUrl] = useState(false);
-  const [urlFetchError, setUrlFetchError] = useState<string | null>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const [jobDescription, setJobDescription] = useState<string>('');
+  const [jobUrl, setJobUrl] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isUrlProcessing, setIsUrlProcessing] = useState<boolean>(false);
+  const [analysis, setAnalysis] = useState<JobAnalysis | null>(null);
+  const [activeTab, setActiveTab] = useState<string>('input');
+  const [showUrlError, setShowUrlError] = useState<boolean>(false);
+  const [usedAI, setUsedAI] = useState<boolean>(false);
+  const analysisRef = useRef<HTMLDivElement>(null);
 
-  // Function to try scraping job description from URL
-  const fetchJobDescription = async () => {
-    if (!jobUrl.trim()) return;
-    
-    setIsFetchingUrl(true);
-    setUrlFetchError(null);
-    
+  const handleUrlSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!jobUrl) return;
+
+    setIsUrlProcessing(true);
+    setShowUrlError(false);
+
     try {
-      // Call the edge function to scrape the job description
-      const { data, error } = await supabase.functions.invoke('scrape-job-description', {
+      const response = await supabase.functions.invoke('scrape-job-description', {
         body: { url: jobUrl }
       });
-      
-      if (error) throw new Error(error.message);
-      
-      if (data?.jobDescription) {
-        setJobDescription(data.jobDescription);
+
+      if (response.data?.description) {
+        setJobDescription(response.data.description);
         toast({
-          title: "Success",
-          description: "Job description extracted successfully.",
+          title: "Job description extracted",
+          description: "Successfully extracted content from the URL."
         });
       } else {
-        throw new Error("Could not extract job description from URL.");
+        setShowUrlError(true);
+        toast({
+          variant: "destructive",
+          title: "Extraction failed",
+          description: "Could not extract job description. Please paste it manually."
+        });
       }
-    } catch (err) {
-      console.error('Error fetching job description:', err);
-      setUrlFetchError('Could not extract job description from this URL. Please paste it manually.');
+    } catch (error) {
+      console.error("Error scraping URL:", error);
+      setShowUrlError(true);
       toast({
-        title: "Extraction Failed",
-        description: "Please paste the job description manually.",
-        variant: "destructive"
+        variant: "destructive",
+        title: "Error processing URL",
+        description: "An error occurred. Please paste the job description manually."
       });
     } finally {
-      setIsFetchingUrl(false);
+      setIsUrlProcessing(false);
     }
   };
 
-  // Function to extract keywords from job description by category
-  const extractKeywords = (text: string) => {
-    // Common technical skills keywords
-    const technicalSkillsRegex = /\b(javascript|react|typescript|python|java|c\+\+|sql|nosql|mongodb|aws|azure|docker|kubernetes|git|html|css|rest|api|scala|spark|hadoop|node\.js|golang|ruby|php|swift|kotlin|flutter|react native|vue\.js|angular|django|flask|spring|tensorflow|pytorch|ml|ai|blockchain|cloud|devops|data science|machine learning|deep learning|frontend|backend|fullstack|database|mysql|postgresql|oracle|programming|software|development|engineering|automation|cicd|jenkins|microservices|architecture)\b/gi;
-    
-    // Functional or role-specific skills
-    const functionalSkillsRegex = /\b(project management|agile|scrum|kanban|product management|business analysis|data analysis|marketing|sales|customer service|operations|finance|accounting|hr|human resources|recruitment|talent acquisition|legal|compliance|research|quality assurance|testing|ux|ui|design|content|strategy|planning|forecasting)\b/gi;
-    
-    // Soft skills
-    const softSkillsRegex = /\b(communication|teamwork|leadership|problem solving|problem-solving|critical thinking|time management|creativity|adaptability|flexibility|interpersonal|organizational|detail oriented|detail-oriented|self-motivated|proactive|collaborative|innovative|analytical|decision making|decision-making|conflict resolution|emotional intelligence|negotiation|persuasion|presentation|public speaking)\b/gi;
-    
-    // Responsibilities (action verbs)
-    const responsibilitiesRegex = /\b(develop|implement|design|create|manage|lead|analyze|evaluate|coordinate|maintain|support|improve|optimize|research|oversee|direct|communicate|collaborate|solve|build|test|deploy|report|present|train|mentor|facilitate|drive|deliver|execute|establish|formulate|organize|prepare)\b/gi;
-    
-    // Core competencies
-    const competenciesRegex = /\b(strategic thinking|cross-functional|stakeholder management|customer focus|results driven|results-driven|business acumen|industry knowledge|technical expertise|process improvement|innovation|relationship building|relationship-building|problem identification|resource management|change management|budget management|quality focus|continuous improvement|risk management|performance management)\b/gi;
-    
-    // Extract unique matches for each category
-    const extractMatches = (regex: RegExp, text: string): string[] => {
-      const matches = text.match(regex) || [];
-      return [...new Set(matches.map(m => m.toLowerCase()))];
-    };
-    
-    return {
-      technicalSkills: extractMatches(technicalSkillsRegex, text),
-      functionalSkills: extractMatches(functionalSkillsRegex, text),
-      softSkills: extractMatches(softSkillsRegex, text),
-      responsibilities: extractMatches(responsibilitiesRegex, text),
-      competencies: extractMatches(competenciesRegex, text)
-    };
-  };
+  const analyzeJobDescription = useCallback(async () => {
+    if (!jobDescription || !resumeText) {
+      toast({
+        variant: "destructive",
+        title: "Missing information",
+        description: "Both job description and resume are required for analysis."
+      });
+      return;
+    }
 
-  // Main analysis function
-  const analyzeJobMatch = async () => {
-    if (!jobDescription.trim()) {
-      toast({
-        title: "Missing Information",
-        description: "Please provide a job description to analyze.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    if (!resumeText) {
-      toast({
-        title: "Missing Resume",
-        description: "Resume text is required for analysis.",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    setIsAnalyzing(true);
-    
+    setIsLoading(true);
+    setAnalysis(null);
+
     try {
-      // Extract keywords from job description
-      const jobKeywords = extractKeywords(jobDescription);
-      
-      // Check for matches in resume text
-      const checkMatches = (keywords: string[], category: string): KeywordMatch[] => {
-        return keywords.map(keyword => ({
-          keyword,
-          category,
-          found: resumeText.toLowerCase().includes(keyword.toLowerCase())
-        }));
-      };
-      
-      // Generate matches for each category
-      const technicalMatches = checkMatches(jobKeywords.technicalSkills, CATEGORIES.TECHNICAL);
-      const functionalMatches = checkMatches(jobKeywords.functionalSkills, CATEGORIES.FUNCTIONAL);
-      const softMatches = checkMatches(jobKeywords.softSkills, CATEGORIES.SOFT);
-      const responsibilityMatches = checkMatches(jobKeywords.responsibilities, CATEGORIES.RESPONSIBILITIES);
-      const competencyMatches = checkMatches(jobKeywords.competencies, CATEGORIES.COMPETENCIES);
-      
-      // Calculate scores for each category
-      const calculateScore = (matches: KeywordMatch[]): number => {
-        if (matches.length === 0) return 0;
-        const matchCount = matches.filter(m => m.found).length;
-        return Math.round((matchCount / matches.length) * 100);
-      };
-      
-      const techScore = calculateScore(technicalMatches);
-      const functionalScore = calculateScore(functionalMatches);
-      const softScore = calculateScore(softMatches);
-      const respScore = calculateScore(responsibilityMatches);
-      const compScore = calculateScore(competencyMatches);
-      
-      // Calculate overall match percentage (weighted average)
-      const weights = {
-        [CATEGORIES.TECHNICAL]: 0.35,
-        [CATEGORIES.FUNCTIONAL]: 0.25,
-        [CATEGORIES.RESPONSIBILITIES]: 0.20,
-        [CATEGORIES.COMPETENCIES]: 0.15,
-        [CATEGORIES.SOFT]: 0.05
-      };
-      
-      const allMatches = [
-        ...technicalMatches, 
-        ...functionalMatches, 
-        ...softMatches, 
-        ...responsibilityMatches,
-        ...competencyMatches
-      ];
-      
-      const overallMatchPercentage = Math.round(
-        (techScore * weights[CATEGORIES.TECHNICAL]) +
-        (functionalScore * weights[CATEGORIES.FUNCTIONAL]) +
-        (respScore * weights[CATEGORIES.RESPONSIBILITIES]) +
-        (compScore * weights[CATEGORIES.COMPETENCIES]) +
-        (softScore * weights[CATEGORIES.SOFT])
-      );
-      
-      // Generate improvement suggestions
-      const missingKeywords = allMatches.filter(match => !match.found);
-      const suggestions = generateImprovementSuggestions(missingKeywords);
-      
-      // Set analysis result
-      setAnalysisResult({
-        technicalSkills: technicalMatches,
-        functionalSkills: functionalMatches,
-        softSkills: softMatches,
-        responsibilities: responsibilityMatches,
-        competencies: competencyMatches,
-        overallMatchPercentage,
-        categoryScores: {
-          [CATEGORIES.TECHNICAL]: techScore,
-          [CATEGORIES.FUNCTIONAL]: functionalScore,
-          [CATEGORIES.SOFT]: softScore,
-          [CATEGORIES.RESPONSIBILITIES]: respScore,
-          [CATEGORIES.COMPETENCIES]: compScore
-        },
-        improvementSuggestions: suggestions
+      // First try the AI-based analysis using the edge function
+      const response = await supabase.functions.invoke('analyze-job-match', {
+        body: { 
+          jobDescription,
+          resumeText
+        }
       });
-      
-      toast({
-        title: "Analysis Complete",
-        description: `Your resume has a ${overallMatchPercentage}% match with this job description.`
-      });
-      
-      // Store the analysis in Supabase if user is logged in
-      if (user) {
-        await storeJobAnalysis(overallMatchPercentage, jobDescription);
+
+      if (response.data && !response.error) {
+        setAnalysis(response.data);
+        setActiveTab('results');
+        setUsedAI(true);
+        if (analysisRef.current) {
+          analysisRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+        return;
+      } else {
+        console.error("AI analysis failed, falling back to standard analysis:", response.error);
+        // If AI analysis fails, continue to fallback
       }
+    } catch (error) {
+      console.error("Error with AI analysis, falling back to standard analysis:", error);
+      // If AI analysis fails, continue to fallback
+    }
+
+    // Fallback to the current keyword matching approach
+    try {
+      // Extract keywords from job description (simple method)
+      const techKeywords = extractKeywords(jobDescription, ['python', 'javascript', 'react', 'node', 'aws', 'sql', 'data', 'analyst', 'engineer', 'scientist', 'cloud', 'azure', 'machine learning', 'ai', 'database', 'analytics']);
       
-    } catch (err) {
-      console.error('Error analyzing job match:', err);
-      toast({
-        title: "Analysis Failed",
-        description: "An error occurred during analysis. Please try again.",
-        variant: "destructive"
+      const functionalKeywords = extractKeywords(jobDescription, ['analysis', 'reporting', 'strategy', 'planning', 'leadership', 'management', 'research', 'development', 'testing', 'communication', 'presentation', 'coordination']);
+      
+      const actionVerbs = extractKeywords(jobDescription, ['develop', 'create', 'analyze', 'design', 'implement', 'manage', 'coordinate', 'lead', 'build', 'optimize', 'improve', 'enhance', 'collaborate', 'execute']);
+      
+      // Check resume for matches
+      const techMatches = techKeywords.map(keyword => ({
+        skill: keyword,
+        found: resumeText.toLowerCase().includes(keyword.toLowerCase()),
+        importance: determineImportance(jobDescription, keyword)
+      }));
+      
+      const functionalMatches = functionalKeywords.map(keyword => ({
+        skill: keyword,
+        found: resumeText.toLowerCase().includes(keyword.toLowerCase()),
+        importance: determineImportance(jobDescription, keyword)
+      }));
+      
+      const responsibilityMatches = actionVerbs.map(keyword => ({
+        skill: keyword,
+        found: resumeText.toLowerCase().includes(keyword.toLowerCase()),
+        importance: determineImportance(jobDescription, keyword)
+      }));
+      
+      // Calculate overall match score
+      const totalKeywords = techMatches.length + functionalMatches.length + responsibilityMatches.length;
+      const matchedKeywords = 
+        techMatches.filter(m => m.found).length + 
+        functionalMatches.filter(m => m.found).length + 
+        responsibilityMatches.filter(m => m.found).length;
+      
+      const overallScore = totalKeywords > 0 
+        ? Math.round((matchedKeywords / totalKeywords) * 100) 
+        : 0;
+      
+      // Generate suggestions
+      const suggestions = generateSuggestions(techMatches, functionalMatches, responsibilityMatches);
+      
+      setAnalysis({
+        technicalSkills: techMatches,
+        functionalSkills: functionalMatches,
+        responsibilities: responsibilityMatches,
+        overallScore,
+        suggestions
+      });
+      
+      setActiveTab('results');
+      setUsedAI(false);
+      
+      if (analysisRef.current) {
+        analysisRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    } catch (error) {
+      console.error("Error analyzing job description:", error);
+      setAnalysis({
+        ...initialAnalysisState,
+        error: "An error occurred during analysis. Please try again."
       });
     } finally {
-      setIsAnalyzing(false);
+      setIsLoading(false);
     }
+  }, [jobDescription, resumeText, toast]);
+
+  const extractKeywords = (text: string, keywordList: string[]): string[] => {
+    const lowerText = text.toLowerCase();
+    return keywordList.filter(keyword => lowerText.includes(keyword.toLowerCase()));
   };
-  
-  // Generate improvement suggestions based on missing keywords
-  const generateImprovementSuggestions = (missingKeywords: KeywordMatch[]): string[] => {
+
+  const determineImportance = (text: string, keyword: string): 'high' | 'medium' | 'low' => {
+    const lowerText = text.toLowerCase();
+    const keywordCount = (lowerText.match(new RegExp(keyword.toLowerCase(), 'g')) || []).length;
+    
+    if (keywordCount >= 3) return 'high';
+    if (keywordCount >= 2) return 'medium';
+    return 'low';
+  };
+
+  const generateSuggestions = (
+    techMatches: SkillMatch[], 
+    functionalMatches: SkillMatch[], 
+    responsibilityMatches: SkillMatch[]
+  ): string[] => {
     const suggestions: string[] = [];
     
-    // Group by category
-    const byCategory: { [key: string]: string[] } = {};
+    // Find missing high importance technical skills
+    const missingTechSkills = techMatches
+      .filter(m => !m.found && m.importance === 'high')
+      .map(m => m.skill);
     
-    missingKeywords.forEach(match => {
-      if (!byCategory[match.category]) {
-        byCategory[match.category] = [];
-      }
-      byCategory[match.category].push(match.keyword);
-    });
-    
-    // Generate suggestions for each category
-    if (byCategory[CATEGORIES.TECHNICAL] && byCategory[CATEGORIES.TECHNICAL].length > 0) {
-      const topTechSkills = byCategory[CATEGORIES.TECHNICAL].slice(0, 5).join(', ');
-      suggestions.push(`Add these technical skills to your resume: ${topTechSkills}`);
+    if (missingTechSkills.length > 0) {
+      suggestions.push(`Add these critical technical skills to your resume: ${missingTechSkills.join(', ')}`);
     }
     
-    if (byCategory[CATEGORIES.FUNCTIONAL] && byCategory[CATEGORIES.FUNCTIONAL].length > 0) {
-      const topFuncSkills = byCategory[CATEGORIES.FUNCTIONAL].slice(0, 4).join(', ');
-      suggestions.push(`Highlight these functional skills: ${topFuncSkills}`);
+    // Find missing high importance functional skills
+    const missingFunctionalSkills = functionalMatches
+      .filter(m => !m.found && m.importance === 'high')
+      .map(m => m.skill);
+    
+    if (missingFunctionalSkills.length > 0) {
+      suggestions.push(`Highlight these important functional skills: ${missingFunctionalSkills.join(', ')}`);
     }
     
-    if (byCategory[CATEGORIES.RESPONSIBILITIES] && byCategory[CATEGORIES.RESPONSIBILITIES].length > 0) {
-      const topVerbs = byCategory[CATEGORIES.RESPONSIBILITIES].slice(0, 5).join(', ');
-      suggestions.push(`Use these action verbs in your experience section: ${topVerbs}`);
+    // Find missing high importance action verbs
+    const missingActionVerbs = responsibilityMatches
+      .filter(m => !m.found && m.importance === 'high')
+      .map(m => m.skill);
+    
+    if (missingActionVerbs.length > 0) {
+      suggestions.push(`Use these action verbs in your experience section: ${missingActionVerbs.join(', ')}`);
     }
     
-    if (byCategory[CATEGORIES.COMPETENCIES] && byCategory[CATEGORIES.COMPETENCIES].length > 0) {
-      const topComp = byCategory[CATEGORIES.COMPETENCIES].slice(0, 3).join(', ');
-      suggestions.push(`Demonstrate these core competencies: ${topComp}`);
+    // General suggestion
+    if (suggestions.length === 0) {
+      suggestions.push("Your resume matches many key requirements. Consider quantifying your achievements for even greater impact.");
     }
-    
-    // Add general suggestions
-    suggestions.push('Customize your resume summary to align with the job description');
-    suggestions.push('Use the exact terminology from the job posting when applicable');
     
     return suggestions;
   };
-  
-  // Store the analysis in Supabase
-  const storeJobAnalysis = async (matchScore: number, jobText: string) => {
-    try {
-      const { data: resumeData, error: resumeError } = await supabase
-        .from('resumes')
-        .select('id')
-        .eq('user_id', user?.id)
-        .order('uploaded_at', { ascending: false })
-        .limit(1)
-        .single();
-      
-      if (resumeError) throw resumeError;
-      
-      const resumeId = resumeData.id;
-      
-      // Store job analysis in a new table or in an existing one
-      const { error } = await supabase
-        .from('job_analyses')
-        .insert({
-          resume_id: resumeId,
-          user_id: user?.id,
-          job_description: jobText,
-          match_score: matchScore,
-          analyzed_at: new Date().toISOString()
-        });
-      
-      if (error) throw error;
-      
-    } catch (err) {
-      console.error('Error storing job analysis:', err);
-      // Don't show an error toast as this is a background operation
-    }
+
+  const copyToClipboard = () => {
+    if (!analysis) return;
+    
+    const content = `
+Job-Resume Match Analysis
+
+Overall Compatibility: ${analysis.overallScore}%
+
+Technical Skills:
+${analysis.technicalSkills.map(skill => `${skill.skill}: ${skill.found ? '✓' : '✗'} (${skill.importance} importance)`).join('\n')}
+
+Functional Skills:
+${analysis.functionalSkills.map(skill => `${skill.skill}: ${skill.found ? '✓' : '✗'} (${skill.importance} importance)`).join('\n')}
+
+Responsibilities/Action Verbs:
+${analysis.responsibilities.map(skill => `${skill.skill}: ${skill.found ? '✓' : '✗'} (${skill.importance} importance)`).join('\n')}
+
+Improvement Suggestions:
+${analysis.suggestions.map(s => `- ${s}`).join('\n')}
+    `;
+    
+    navigator.clipboard.writeText(content).then(() => {
+      toast({
+        title: "Analysis copied",
+        description: "Results have been copied to clipboard."
+      });
+    });
   };
 
   return (
     <div className="space-y-6">
-      <Card className="border border-muted">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-xl">Job Description Analysis</CardTitle>
-          <CardDescription>
-            Enter a job description to analyze how well your resume matches the requirements
-          </CardDescription>
-        </CardHeader>
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="input">Job Description</TabsTrigger>
+          <TabsTrigger value="results" disabled={!analysis}>Analysis Results</TabsTrigger>
+        </TabsList>
         
-        <CardContent className="space-y-4">
-          {/* URL Input */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Job Posting URL</label>
-            <div className="flex gap-2">
-              <Input 
-                type="url" 
-                placeholder="https://example.com/job-posting" 
-                value={jobUrl}
-                onChange={(e) => setJobUrl(e.target.value)}
-                disabled={isFetchingUrl}
-                className="flex-grow"
-              />
-              <Button 
-                onClick={fetchJobDescription} 
-                disabled={!jobUrl.trim() || isFetchingUrl}
-                variant="outline"
-              >
-                {isFetchingUrl ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Fetching</>
-                ) : (
-                  'Extract'
-                )}
-              </Button>
+        <TabsContent value="input" className="space-y-4">
+          <div className="grid gap-4">
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <Label htmlFor="jobUrl">Job Posting URL (Optional)</Label>
+                {isUrlProcessing && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+              </div>
+              
+              <form onSubmit={handleUrlSubmit} className="flex items-center gap-2">
+                <Input 
+                  id="jobUrl"
+                  placeholder="https://example.com/job-posting" 
+                  value={jobUrl} 
+                  onChange={(e) => setJobUrl(e.target.value)}
+                  className="flex-1"
+                />
+                <Button 
+                  type="submit" 
+                  size="sm" 
+                  variant="outline"
+                  disabled={isUrlProcessing || !jobUrl}>
+                  {isUrlProcessing ? 'Extracting...' : 'Extract'}
+                </Button>
+              </form>
+              
+              {showUrlError && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Could not extract job description from URL. Please paste it manually below.
+                  </AlertDescription>
+                </Alert>
+              )}
             </div>
             
-            {urlFetchError && (
-              <Alert variant="destructive" className="mt-2">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{urlFetchError}</AlertDescription>
-              </Alert>
-            )}
-          </div>
-          
-          {/* Job Description Input */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Job Description</label>
-            <Textarea 
-              placeholder="Paste job description here..." 
-              value={jobDescription}
-              onChange={(e) => setJobDescription(e.target.value)}
-              rows={6}
-              className="resize-none"
-            />
-          </div>
-          
-          <Button 
-            onClick={analyzeJobMatch} 
-            disabled={!jobDescription.trim() || isAnalyzing || !resumeText}
-            className="w-full"
-          >
-            {isAnalyzing ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Analyzing</>
-            ) : (
-              'Analyze Match'
-            )}
-          </Button>
-        </CardContent>
-      </Card>
-      
-      {analysisResult && (
-        <Card className="border border-muted">
-          <CardHeader className="pb-4">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-xl">Match Analysis Results</CardTitle>
-              <div className="text-3xl font-bold text-green-600">
-                {analysisResult.overallMatchPercentage}%
-              </div>
+            <div>
+              <Label htmlFor="jobDescription" className="mb-2 block">Job Description</Label>
+              <Textarea 
+                id="jobDescription"
+                placeholder="Paste the job description here..." 
+                value={jobDescription} 
+                onChange={(e) => setJobDescription(e.target.value)}
+                className="min-h-[200px]"
+              />
             </div>
-            <Progress value={analysisResult.overallMatchPercentage} className="h-2 mt-2" />
-          </CardHeader>
-          
-          <CardContent className="space-y-6">
-            {/* Category Scores */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {Object.entries(analysisResult.categoryScores).map(([category, score]) => (
-                <div key={category} className="bg-muted/30 p-3 rounded-md text-center">
-                  <p className="text-sm text-muted-foreground mb-1">{category}</p>
-                  <p className={`text-xl font-semibold ${
-                    score >= 80 ? 'text-green-600' :
-                    score >= 60 ? 'text-amber-600' :
-                    'text-red-600'
-                  }`}>
-                    {score}%
+            
+            <Button 
+              onClick={analyzeJobDescription} 
+              disabled={isLoading || !jobDescription || !resumeText}
+              className="w-full">
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Analyzing...
+                </>
+              ) : 'Analyze Compatibility'}
+            </Button>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="results">
+          {analysis && (
+            <div ref={analysisRef} className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-medium">Job Description Analysis</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {usedAI ? "Using AI-powered analysis" : "Using keyword matching"}
                   </p>
                 </div>
-              ))}
-            </div>
-            
-            {/* Keyword Matches */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-lg border-b pb-1">Keyword Analysis</h3>
+                <Button variant="outline" size="sm" onClick={copyToClipboard}>
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy Results
+                </Button>
+              </div>
               
-              <div className="space-y-3">
-                {/* Technical Skills */}
-                <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-2">Technical Skills</h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {analysisResult.technicalSkills.map((match, index) => (
-                      <Badge 
-                        key={`${match.keyword}-${index}`}
-                        variant={match.found ? "default" : "outline"} 
-                        className={!match.found ? 'border-red-400 text-red-500' : ''}
-                      >
-                        {match.found ? <CheckCircle className="h-3 w-3 mr-1 inline" /> : <XCircle className="h-3 w-3 mr-1 inline" />}
-                        {match.keyword}
-                      </Badge>
-                    ))}
-                    {analysisResult.technicalSkills.length === 0 && (
-                      <span className="text-sm text-muted-foreground">No technical skills detected in job description</span>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="mb-6">
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="font-medium">Overall Compatibility</h4>
+                      <span className={`font-bold ${
+                        analysis.overallScore >= 80 ? 'text-green-600' :
+                        analysis.overallScore >= 60 ? 'text-yellow-600' :
+                        'text-red-600'
+                      }`}>{analysis.overallScore}%</span>
+                    </div>
+                    <Progress value={analysis.overallScore} className="h-2" />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Technical Skills</h4>
+                      {analysis.technicalSkills.length > 0 ? (
+                        <div className="space-y-1">
+                          {analysis.technicalSkills.map((skill, i) => (
+                            <div key={i} className="flex items-center justify-between">
+                              <span className="text-sm flex items-center">
+                                {skill.found ? 
+                                  <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : 
+                                  <AlertCircle className="h-3 w-3 text-red-500 mr-1" />
+                                }
+                                {skill.skill}
+                              </span>
+                              <Badge className={`
+                                ${skill.importance === 'high' ? 'bg-red-100 text-red-800 border-red-200' : 
+                                  skill.importance === 'medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                  'bg-blue-100 text-blue-800 border-blue-200'}
+                                text-xs font-normal
+                              `}>
+                                {skill.importance}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No technical skills identified</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Functional Skills</h4>
+                      {analysis.functionalSkills.length > 0 ? (
+                        <div className="space-y-1">
+                          {analysis.functionalSkills.map((skill, i) => (
+                            <div key={i} className="flex items-center justify-between">
+                              <span className="text-sm flex items-center">
+                                {skill.found ? 
+                                  <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : 
+                                  <AlertCircle className="h-3 w-3 text-red-500 mr-1" />
+                                }
+                                {skill.skill}
+                              </span>
+                              <Badge className={`
+                                ${skill.importance === 'high' ? 'bg-red-100 text-red-800 border-red-200' : 
+                                  skill.importance === 'medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                  'bg-blue-100 text-blue-800 border-blue-200'}
+                                text-xs font-normal
+                              `}>
+                                {skill.importance}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No functional skills identified</p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <h4 className="font-medium text-sm">Responsibilities</h4>
+                      {analysis.responsibilities.length > 0 ? (
+                        <div className="space-y-1">
+                          {analysis.responsibilities.map((skill, i) => (
+                            <div key={i} className="flex items-center justify-between">
+                              <span className="text-sm flex items-center">
+                                {skill.found ? 
+                                  <CheckCircle className="h-3 w-3 text-green-500 mr-1" /> : 
+                                  <AlertCircle className="h-3 w-3 text-red-500 mr-1" />
+                                }
+                                {skill.skill}
+                              </span>
+                              <Badge className={`
+                                ${skill.importance === 'high' ? 'bg-red-100 text-red-800 border-red-200' : 
+                                  skill.importance === 'medium' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                  'bg-blue-100 text-blue-800 border-blue-200'}
+                                text-xs font-normal
+                              `}>
+                                {skill.importance}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">No responsibilities identified</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h4 className="font-medium">Improvement Suggestions</h4>
+                    {analysis.suggestions.length > 0 ? (
+                      <ul className="list-disc pl-5 space-y-1">
+                        {analysis.suggestions.map((suggestion, i) => (
+                          <li key={i} className="text-sm">{suggestion}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No specific suggestions available</p>
                     )}
                   </div>
-                </div>
-                
-                {/* Functional Skills */}
-                <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-2">Functional Skills</h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {analysisResult.functionalSkills.map((match, index) => (
-                      <Badge 
-                        key={`${match.keyword}-${index}`}
-                        variant={match.found ? "default" : "outline"} 
-                        className={!match.found ? 'border-red-400 text-red-500' : ''}
-                      >
-                        {match.found ? <CheckCircle className="h-3 w-3 mr-1 inline" /> : <XCircle className="h-3 w-3 mr-1 inline" />}
-                        {match.keyword}
-                      </Badge>
-                    ))}
-                    {analysisResult.functionalSkills.length === 0 && (
-                      <span className="text-sm text-muted-foreground">No functional skills detected in job description</span>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Responsibilities */}
-                <div>
-                  <h4 className="font-medium text-sm text-muted-foreground mb-2">Responsibilities (Action Verbs)</h4>
-                  <div className="flex flex-wrap gap-1.5">
-                    {analysisResult.responsibilities.map((match, index) => (
-                      <Badge 
-                        key={`${match.keyword}-${index}`}
-                        variant={match.found ? "default" : "outline"} 
-                        className={!match.found ? 'border-red-400 text-red-500' : ''}
-                      >
-                        {match.found ? <CheckCircle className="h-3 w-3 mr-1 inline" /> : <XCircle className="h-3 w-3 mr-1 inline" />}
-                        {match.keyword}
-                      </Badge>
-                    ))}
-                    {analysisResult.responsibilities.length === 0 && (
-                      <span className="text-sm text-muted-foreground">No action verbs detected in job description</span>
-                    )}
-                  </div>
-                </div>
+                </CardContent>
+              </Card>
+              
+              <div className="text-xs text-muted-foreground flex items-center">
+                <InfoIcon className="h-3 w-3 mr-1" />
+                For best results, regularly update your resume and tailor it for specific job applications
               </div>
             </div>
-            
-            {/* Improvement Suggestions */}
-            <div className="bg-blue-50 border border-blue-100 rounded-md p-4">
-              <h3 className="font-medium mb-2 text-blue-800">Improvement Suggestions</h3>
-              <ul className="space-y-1 text-sm text-blue-700">
-                {analysisResult.improvementSuggestions.map((suggestion, index) => (
-                  <li key={index} className="flex items-start">
-                    <span className="mr-2">•</span>
-                    <span>{suggestion}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            
-            {/* Export button */}
-            <Button 
-              variant="outline" 
-              className="w-full"
-              onClick={() => {
-                const result = `
-                  Job Match Analysis Results
-                  Overall Match: ${analysisResult.overallMatchPercentage}%
-                  
-                  Category Scores:
-                  ${Object.entries(analysisResult.categoryScores).map(([category, score]) => `- ${category}: ${score}%`).join('\n')}
-                  
-                  Improvement Suggestions:
-                  ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
-                `.replace(/\s+/g, ' ').trim();
-                
-                navigator.clipboard.writeText(result);
-                toast({
-                  title: "Copied to Clipboard",
-                  description: "Analysis results have been copied to your clipboard."
-                });
-              }}
-            >
-              Copy Results to Clipboard
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
+  );
+};
+
+const InfoIcon = (props: React.SVGProps<SVGSVGElement>) => {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 16v-4" />
+      <path d="M12 8h.01" />
+    </svg>
   );
 };
 
