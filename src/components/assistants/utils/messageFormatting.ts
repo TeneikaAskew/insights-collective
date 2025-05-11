@@ -3,6 +3,8 @@
  * Format message content to handle markdown-like syntax
  */
 export const formatMessage = (content: string): string => {
+  if (!content) return '';
+  
   // Replace markdown-like syntax with HTML elements
   let formattedContent = content;
   
@@ -22,8 +24,10 @@ export const formatMessage = (content: string): string => {
   // Process bullet points: - item -> <li>item</li>
   formattedContent = formattedContent.replace(/^- (.*?)$/gm, '<li class="ml-6 list-disc">$1</li>');
   
-  // Process numbered lists: 1. item -> <li>item</li>
-  formattedContent = formattedContent.replace(/^\d+\. (.*?)$/gm, '<li class="ml-6 list-decimal">$1</li>');
+  // Process numbered lists: 1. item -> <li>item</li> (but maintain the numbering)
+  formattedContent = formattedContent.replace(/^(\d+)\. (.*?)$/gm, (match, number, content) => {
+    return `<li class="ml-6 list-decimal" value="${number}">${content}</li>`;
+  });
   
   // Add paragraph tags for regular text
   const paragraphs = formattedContent.split('\n\n');
@@ -41,7 +45,7 @@ export const formatMessage = (content: string): string => {
   
   // Wrap consecutive <li> elements in <ul> or <ol>
   formattedContent = formattedContent.replace(/(<li class="ml-6 list-disc">.*?<\/li>)+/g, '<ul class="my-3">$&</ul>');
-  formattedContent = formattedContent.replace(/(<li class="ml-6 list-decimal">.*?<\/li>)+/g, '<ol class="my-3">$&</ol>');
+  formattedContent = formattedContent.replace(/(<li class="ml-6 list-decimal".*?<\/li>)+/g, '<ol class="my-3">$&</ol>');
   
   return formattedContent;
 };
