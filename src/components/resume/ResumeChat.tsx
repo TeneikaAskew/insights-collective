@@ -180,7 +180,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       const controller = new AbortController();
       setStreamController(controller);
       
-      // Call the Together AI streaming endpoint - Remove the signal property that's causing the error
+      // Call the Together AI streaming endpoint
       const response = await supabase.functions.invoke('together-ai', {
         body: { 
           prompt,
@@ -195,15 +195,17 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
         throw new Error(response.error.message);
       }
       
-      const reader = response.data?.getReader();
+      // Get the ReadableStream from the response
+      const readableStream = response.data;
       
-      if (!reader) {
-        throw new Error('No reader in streaming response');
+      if (!readableStream) {
+        throw new Error('No stream in response');
       }
       
+      const reader = readableStream.getReader();
       let streamedContent = '';
       
-      // Stream the response
+      // Process the SSE stream
       while (true) {
         const { done, value } = await reader.read();
         
@@ -211,25 +213,41 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
           break;
         }
         
-        // Parse the chunk of data
+        // Decode the chunk
         const chunk = new TextDecoder().decode(value);
-        let parsedChunk;
         
-        try {
-          parsedChunk = JSON.parse(chunk);
-          
-          if (parsedChunk.choices && parsedChunk.choices[0]?.text) {
-            streamedContent += parsedChunk.choices[0].text;
-            
-            // Update the streaming message with current content
-            setMessages(prev => prev.map(msg => 
-              msg.id === streamingMessage.id 
-                ? { ...msg, content: streamedContent }
-                : msg
-            ));
+        // Parse SSE format - each line starts with "data: "
+        const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              // Remove the "data: " prefix and parse the JSON
+              const jsonStr = line.substring(6);
+              
+              // Check if it's the "[DONE]" marker
+              if (jsonStr.trim() === '[DONE]') {
+                continue;
+              }
+              
+              const jsonData = JSON.parse(jsonStr);
+              
+              // Extract the text from the completion choices
+              if (jsonData.choices && jsonData.choices[0]?.text) {
+                const newText = jsonData.choices[0].text;
+                streamedContent += newText;
+                
+                // Update the streaming message with current content
+                setMessages(prev => prev.map(msg => 
+                  msg.id === streamingMessage.id 
+                    ? { ...msg, content: streamedContent }
+                    : msg
+                ));
+              }
+            } catch (e) {
+              console.warn('Error parsing SSE data:', e);
+            }
           }
-        } catch (e) {
-          console.warn('Error parsing chunk:', e);
         }
       }
       
@@ -244,6 +262,12 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      // Log more details if available
+      if (error.response) {
+        console.error('Response data:', error.response.data);
+        console.error('Response status:', error.response.status);
+      }
       
       toast({
         title: "Error",

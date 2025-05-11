@@ -57,7 +57,12 @@ Deno.serve(async (req) => {
     if (stream) {
       console.log('Streaming response from Together API');
       return new Response(response.body, { 
-        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' } 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive'
+        } 
       });
     }
 
