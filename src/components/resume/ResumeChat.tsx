@@ -181,18 +181,52 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       setStreamController(controller);
       
       // Call the Together AI streaming endpoint
-      const response = await supabase.functions.invoke('together-ai', {
-        body: { 
-          prompt,
-          model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-          max_tokens: 1024,
-          stream: true
-        }
-      });
+      // const response = await supabase.functions.invoke('together-ai', {
+      //   body: { 
+      //     prompt,
+      //     model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+      //     max_tokens: 1024,
+      //     stream: true
+      //   }
+      // });
       
-      if (response.error) {
-        console.error('Error from Together AI:', response.error);
-        throw new Error(response.error.message);
+      // if (response.error) {
+      //   console.error('Error from Together AI:', response.error);
+      //   throw new Error(response.error.message);
+      // }
+      // Before the call
+      console.log('Attempting to invoke together-ai function with prompt:', prompt.substring(0, 50) + '...');
+      
+      // Make the call with additional logging
+      try {
+        console.log('Making Supabase function call...');
+        const response = await supabase.functions.invoke('together-ai', {
+          body: { 
+            prompt,
+            model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+            max_tokens: 1024,
+            stream: true
+          }
+        });
+        console.log('Supabase function response received:', response);
+        
+        if (response.error) {
+          console.error('Function invoke error:', response.error);
+          throw new Error(`Function invoke error: ${response.error.message || 'Unknown error'}`);
+        }
+        
+        if (!response.data) {
+          console.error('No data in response:', response);
+          throw new Error('No data returned from function');
+        }
+        
+        console.log('Response data type:', typeof response.data);
+        console.log('Is response.data a ReadableStream?', response.data instanceof ReadableStream);
+        
+        // Continue with your streaming logic...
+      } catch (error) {
+        console.error('Caught error during function invoke:', error);
+        throw error;
       }
       
       // Get the ReadableStream from the response
