@@ -7,7 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTogetherAI } from '@/hooks/useTogetherAI';
+import { formatMessage } from '@/components/assistants/utils/messageFormatting';
 
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
@@ -26,11 +26,8 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [streamController, setStreamController] = useState<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { generateText, isLoading: isGenerating } = useTogetherAI({
-    model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-    maxTokens: 1024
-  });
   
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -126,7 +123,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
   }, [resumeAnalysis, user]);
   
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading || isGenerating) return;
+    if (!inputValue.trim() || isLoading) return;
     
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -172,15 +169,77 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       
       setMessages(prev => [...prev, streamingMessage]);
       
-      // Use Together.AI streaming 
-      const response = await generateText(prompt);
+      // Abort any existing streams
+      if (streamController) {
+        streamController.abort();
+      }
       
-      // Update the streaming message with the full response
+      // Create a new controller for this stream
+      const controller = new AbortController();
+      setStreamController(controller);
+      
+      // Call the Together AI streaming endpoint
+      const response = await supabase.functions.invoke('together-ai', {
+        body: { 
+          prompt,
+          model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+          max_tokens: 1024,
+          stream: true
+        },
+        signal: controller.signal
+      });
+      
+      if (response.error) {
+        console.error('Error from Together AI:', response.error);
+        throw new Error(response.error.message);
+      }
+      
+      const reader = response.data?.getReader();
+      
+      if (!reader) {
+        throw new Error('No reader in streaming response');
+      }
+      
+      let streamedContent = '';
+      
+      // Stream the response
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          break;
+        }
+        
+        // Parse the chunk of data
+        const chunk = new TextDecoder().decode(value);
+        let parsedChunk;
+        
+        try {
+          parsedChunk = JSON.parse(chunk);
+          
+          if (parsedChunk.choices && parsedChunk.choices[0]?.text) {
+            streamedContent += parsedChunk.choices[0].text;
+            
+            // Update the streaming message with current content
+            setMessages(prev => prev.map(msg => 
+              msg.id === streamingMessage.id 
+                ? { ...msg, content: streamedContent }
+                : msg
+            ));
+          }
+        } catch (e) {
+          console.warn('Error parsing chunk:', e);
+        }
+      }
+      
+      // Update the streaming message to mark streaming as complete
       setMessages(prev => prev.map(msg => 
         msg.id === streamingMessage.id 
-          ? { ...msg, content: response || "I'm sorry, I couldn't process your request at this time.", isStreaming: false }
+          ? { ...msg, isStreaming: false }
           : msg
       ));
+      
+      setStreamController(null);
       
     } catch (error) {
       console.error('Error sending message:', error);
@@ -206,44 +265,11 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
     }
   };
   
-  // Function to format message content with markdown-like syntax
-  const formatMessage = (content: string) => {
-    if (!content) return '';
-    
-    // Replace **text** with <strong>text</strong>
-    let formatted = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
-    // Replace _text_ with <em>text</em>
-    formatted = formatted.replace(/_(.*?)_/g, '<em>$1</em>');
-    
-    // Replace `text` with <code>text</code>
-    formatted = formatted.replace(/`(.*?)`/g, '<code>$1</code>');
-    
-    // Replace ## Headers with <h2>
-    formatted = formatted.replace(/^## (.*?)$/gm, '<h2 class="text-lg font-bold mt-3 mb-2">$1</h2>');
-    
-    // Replace ### Headers with <h3>
-    formatted = formatted.replace(/^### (.*?)$/gm, '<h3 class="text-md font-bold mt-2 mb-1">$1</h3>');
-    
-    // Replace - list items with <li>
-    formatted = formatted.replace(/^- (.*?)$/gm, '<li class="ml-4">• $1</li>');
-    
-    // Replace numbered lists
-    formatted = formatted.replace(/^\d+\. (.*?)$/gm, '<li class="ml-4 list-decimal">$1</li>');
-    
-    // Replace * list items with <li> (asterisk list items)
-    formatted = formatted.replace(/^\* (.*?)$/gm, '<li class="ml-4">• $1</li>');
-    
-    // Replace newlines with <br>
-    formatted = formatted.replace(/\n/g, '<br>');
-    
-    return formatted;
-  };
-  
   return (
     <Card className="w-full mt-6 mb-6 flex flex-col">
-      <CardHeader className="px-4 py-3 border-b">
-        <CardTitle className="text-lg">Resume Career Coach</CardTitle>
+      <CardHeader className="px-4 py-3 border-b bg-gradient-to-r from-blue-500 to-blue-600">
+        <CardTitle className="text-lg text-white">AI Career Recommendations</CardTitle>
+        <div className="text-xs text-blue-100">Get personalized career advice powered by Together.ai</div>
       </CardHeader>
       
       <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[500px]">
@@ -305,11 +331,11 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
             placeholder="Describe the challenges, actions, and results from your first role..."
             className="flex-1 resize-none"
             rows={2}
-            disabled={isLoading || isGenerating}
+            disabled={isLoading}
           />
           <Button 
             onClick={handleSendMessage} 
-            disabled={isLoading || isGenerating || !inputValue.trim()}
+            disabled={isLoading || !inputValue.trim()}
             className="self-end"
           >
             <Send className="h-4 w-4" />

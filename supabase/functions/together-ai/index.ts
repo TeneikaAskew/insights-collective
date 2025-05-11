@@ -17,7 +17,7 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    const { prompt, model = 'mistralai/Mixtral-8x7B-Instruct-v0.1', max_tokens = 1024 } = await req.json();
+    const { prompt, model = 'mistralai/Mixtral-8x7B-Instruct-v0.1', max_tokens = 1024, stream = false } = await req.json();
 
     if (!prompt) {
       throw new Error('Prompt is required');
@@ -26,6 +26,8 @@ Deno.serve(async (req) => {
     if (!togetherApiKey) {
       throw new Error('Together.ai API key not configured');
     }
+
+    console.log(`Making request to Together API for model: ${model}, streaming: ${stream}`);
 
     // Call Together.ai API
     const response = await fetch('https://api.together.xyz/v1/completions', {
@@ -40,7 +42,8 @@ Deno.serve(async (req) => {
         max_tokens,
         temperature: 0.7,
         top_p: 0.8,
-        top_k: 50
+        top_k: 50,
+        stream
       })
     });
 
@@ -50,6 +53,15 @@ Deno.serve(async (req) => {
       throw new Error(`Together API returned status ${response.status}: ${errorText}`);
     }
 
+    // For streaming responses
+    if (stream) {
+      console.log('Streaming response from Together API');
+      return new Response(response.body, { 
+        headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' } 
+      });
+    }
+
+    // For non-streaming responses
     const data = await response.json();
     
     return new Response(JSON.stringify({ 
