@@ -488,7 +488,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       ));
       
       setStreamController(null);
-    
+    }
       
     } catch (error) {
       console.error('Error sending message:', error);
