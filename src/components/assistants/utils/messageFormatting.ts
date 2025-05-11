@@ -51,11 +51,13 @@ export const formatMessage = (content: string): string => {
   // This will replace any line that starts with "* " with "• "
   formattedContent = formattedContent.replace(/^(\s*)\* (.+)$/gm, '$1• $2');
   
-  // Also handle cases where the asterisk appears after a <br> tag
-  formattedContent = formattedContent.replace(/<br>\s*\* /g, '<br>• ');
+  
   
   // Line breaks
   formattedContent = formattedContent.replace(/\n/g, '<br>');
+  
+  // Also handle cases where the asterisk appears after a <br> tag
+  formattedContent = formattedContent.replace(/<br>\s*\* /g, '<br>• ');
   
   return formattedContent;
 };
