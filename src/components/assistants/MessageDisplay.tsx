@@ -35,20 +35,16 @@ const MessageDisplay: React.FC<MessageDisplayProps> = ({ message }) => {
         {message.role === 'assistant' ? (
           <div 
             className="prose prose-slate max-w-none"
-            dangerouslySetInnerHTML={{ 
-              __html: message.content ? formatMessage(message.content) : 'Thinking...' 
-            }}
+            dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
           />
         ) : (
           <div 
             className={message.role === 'system' 
               ? "prose prose-amber max-w-none text-sm" 
               : ""}
-            dangerouslySetInnerHTML={{ 
-              __html: message.role === 'system' && message.content
-                ? formatMessage(message.content) 
-                : message.content || ''
-            }}
+            dangerouslySetInnerHTML={{ __html: message.role === 'system' 
+              ? formatMessage(message.content) 
+              : message.content }}
           />
         )}
       </div>
