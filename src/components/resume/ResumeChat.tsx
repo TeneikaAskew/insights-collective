@@ -198,7 +198,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       console.log('Attempting to invoke together-ai function with prompt:', prompt.substring(0, 50) + '...');
       
       // Make the call with additional logging
-      // try {
+      try {
       //   console.log('Making Supabase function call...');
       //   const response = await supabase.functions.invoke('together-ai', {
       //     body: { 
@@ -435,36 +435,77 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
         // Parse SSE format - each line starts with "data: "
         const lines = chunk.split('\n').filter(line => line.trim() !== '');
         
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              // Remove the "data: " prefix and parse the JSON
-              const jsonStr = line.substring(6);
+        // for (const line of lines) {
+        //   if (line.startsWith('data: ')) {
+        //     try {
+        //       // Remove the "data: " prefix and parse the JSON
+        //       const jsonStr = line.substring(6);
               
-              // Check if it's the "[DONE]" marker
-              if (jsonStr.trim() === '[DONE]') {
-                continue;
-              }
+        //       // Check if it's the "[DONE]" marker
+        //       if (jsonStr.trim() === '[DONE]') {
+        //         continue;
+        //       }
               
-              const jsonData = JSON.parse(jsonStr);
+        //       const jsonData = JSON.parse(jsonStr);
               
-              // Extract the text from the completion choices
-              if (jsonData.choices && jsonData.choices[0]?.text) {
-                const newText = jsonData.choices[0].text;
-                streamedContent += newText;
+        //       // Extract the text from the completion choices
+        //       if (jsonData.choices && jsonData.choices[0]?.text) {
+        //         const newText = jsonData.choices[0].text;
+        //         streamedContent += newText;
                 
-                // Update the streaming message with current content
-                setMessages(prev => prev.map(msg => 
-                  msg.id === streamingMessage.id 
-                    ? { ...msg, content: streamedContent }
-                    : msg
-                ));
-              }
-            } catch (e) {
-              console.warn('Error parsing SSE data:', e, 'Line:', line);
+        //         // Update the streaming message with current content
+        //         setMessages(prev => prev.map(msg => 
+        //           msg.id === streamingMessage.id 
+        //             ? { ...msg, content: streamedContent }
+        //             : msg
+        //         ));
+        //       }
+        //     } catch (e) {
+        //       console.warn('Error parsing SSE data:', e, 'Line:', line);
+        //     }
+        //   }
+        // } //
+
+        for (const line of lines) {
+        console.log('Processing line:', line.substring(0, 50)); // Log first 50 chars of each line
+        
+        if (line.startsWith('data: ')) {
+          try {
+            // Remove the "data: " prefix and parse the JSON
+            const jsonStr = line.substring(6);
+            console.log('JSON string:', jsonStr.substring(0, 50)); // Log first 50 chars
+            
+            // Check if it's the "[DONE]" marker
+            if (jsonStr.trim() === '[DONE]') {
+              console.log('Found [DONE] marker');
+              continue;
             }
+            
+            const jsonData = JSON.parse(jsonStr);
+            console.log('Parsed JSON structure:', Object.keys(jsonData)); // Log keys in parsed object
+            
+            // Extract the text from the completion choices
+            if (jsonData.choices && jsonData.choices[0]?.text) {
+              const newText = jsonData.choices[0].text;
+              console.log('New text chunk:', newText.substring(0, 30)); // Log first 30 chars of new text
+              streamedContent += newText;
+              
+              // Update the streaming message with current content
+              setMessages(prev => prev.map(msg => 
+                msg.id === streamingMessage.id 
+                  ? { ...msg, content: streamedContent }
+                  : msg
+              ));
+            } else {
+              console.log('No text found in JSON data', jsonData);
+            }
+          } catch (e) {
+            console.warn('Error parsing SSE data:', e, 'Line:', line);
           }
+        } else {
+          console.log('Line does not start with data:');
         }
+      }
       }
     } catch (error) {
       console.error('Error processing stream:', error);
