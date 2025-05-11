@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -250,8 +249,9 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
       (async () => {
         try {
           // Create a new conversation if one doesn't exist
+          let newConversationId = conversationId;
           if (!conversationId) {
-            const newConversationId = await createConversation();
+            newConversationId = await createConversation();
             if (newConversationId) {
               setConversationId(newConversationId);
             }
@@ -324,7 +324,7 @@ ${initialAssessment}
           localStorage.setItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`, 'true');
           
           // Store welcome message in DB
-          if (conversationId || newConversationId) {
+          if (newConversationId) {
             await storeMessageInDB(welcomeMessage);
           }
           
