@@ -531,8 +531,8 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       setStreamController(null);
     }
       
-    } catch (error) {
-      console.error('Error sending message:', error);
+    // } catch (error) {
+    //   console.error('Error sending message:', error);
       
       // Log more details if available
       if (error.response) {
