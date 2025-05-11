@@ -289,247 +289,365 @@ Let's start by discussing your experience: **What specific challenges did you ta
       })();
     }
   }, [resumeAnalysis, user, welcomeMessageShown, addContentToBuffer, createSystemMessage]);
-  
-  const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
 
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: inputValue,
-      displayContent: inputValue,
-      timestamp: new Date(),
-    };
-    
-    // Create a placeholder streaming message
-    const streamingMessage: Message = {
-      id: `assistant-${Date.now()}`,
-      role: 'assistant',
-      content: '',
-      displayContent: '',
-      timestamp: new Date(),
-      isStreaming: true
-    };
-    
-    // Reset the buffer and set current streaming ID
-    contentBufferRef.current = [];
-    currentStreamingIdRef.current = streamingMessage.id;
-    
-    setMessages(prev => [...prev, userMessage, streamingMessage]);
-    setInputValue('');
-    setIsLoading(true);
-    
-    try {
-      // Prepare the chat history for the API - we need to convert our Message objects to the
-      // format expected by the Together API
-      const chatHistory = messages
-        .filter(msg => !msg.isStreaming) // Remove any current streaming messages
-        .map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }));
-      
-      // Add the new user message
-      chatHistory.push({
-        role: userMessage.role,
-        content: userMessage.content
-      });
-      
-      // Abort any existing streams
-      if (streamController) {
-        streamController.abort();
-      }
-      
-      // Create a new controller for this stream
-      const controller = new AbortController();
-      setStreamController(controller);
-      
-      console.log('Invoking together-ai function with chat history');
-      
-      const response = await supabase.functions.invoke('together-ai', {
-        body: { 
-          chatHistory,
-          model: 'meta-llama/Llama-3-8b-chat-hf',
-          max_tokens: 1024,
-          stream: true
-        }
-      });
-      
-      console.log('Supabase function response received:', response);
-      
-      if (response.error) {
-        console.error('Error from Together AI:', response.error);
-        throw new Error(response.error.message || 'Unknown error');
-      }
-      
-      if (!response.data || !response.data.body) {
-        console.error('No body in response data:', response.data);
-        throw new Error('No readable stream in response');
-      }
-      
-      // Get the ReadableStream from the response.data.body
-      const readableStream = response.data.body;
-      const reader = readableStream.getReader();
-      
-      // Add a timeout to handle premature stream termination
-      let streamTimeout: NodeJS.Timeout | null = null;
-      const MAX_SILENCE_MS = 10000; // 10 seconds without data before we consider the stream dead
-      
-      try {
-        // Process the SSE stream
-        while (true) {
-          // Clear any existing timeout and set a new one
-          if (streamTimeout) clearTimeout(streamTimeout);
-          
-          streamTimeout = setTimeout(() => {
-            console.log('Stream timed out - no data received in', MAX_SILENCE_MS, 'ms');
-            reader.cancel('Stream timed out');
-            // Mark streaming as complete
-            setMessages(prev => prev.map(msg => 
-              msg.id === streamingMessage.id 
-                ? { ...msg, isStreaming: false }
-                : msg
-            ));
-            // Clear current streaming ID
-            currentStreamingIdRef.current = null;
-          }, MAX_SILENCE_MS);
-          
-          const { done, value } = await reader.read();
-          
-          if (done) {
-            console.log('Stream marked as done');
-            if (streamTimeout) clearTimeout(streamTimeout);
-            break;
-          }
-          
-          // Decode the chunk
-          const chunk = new TextDecoder().decode(value);
-          console.log('Received chunk:', chunk.substring(0, 100));
-          
-          // Parse SSE format - each line starts with "data: "
-          const lines = chunk.split('\n').filter(line => line.trim() !== '');
-          
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                // Remove the "data: " prefix and parse the JSON
-                const jsonStr = line.substring(6);
-                
-                // Check if it's the "[DONE]" marker
-                if (jsonStr.trim() === '[DONE]') {
-                  console.log('Received [DONE] marker');
-                  continue;
-                }
-                
-                const jsonData = JSON.parse(jsonStr);
-                console.log('Parsed JSON data:', jsonData);
-                
-                // Extract the text from the completion choices
-                // Check for the delta.content format (chat completions API)
-                if (jsonData.choices && jsonData.choices[0]?.delta?.content) {
-                  const newText = jsonData.choices[0].delta.content;
-                  console.log('Received new text:', newText);
-                  
-                  // Update the full message content in state (not visible to user yet)
-                  setMessages(prev => {
-                    const updatedMessages = prev.map(msg => {
-                      if (msg.id === streamingMessage.id) {
-                        return { ...msg, content: msg.content + newText };
-                      }
-                      return msg;
-                    });
-                    return updatedMessages;
-                  });
-                  
-                  // Add new text to buffer for word-by-word typing
-                  addContentToBuffer(newText);
-                }
-                // Fallback for the older completions API format
-                else if (jsonData.choices && jsonData.choices[0]?.text) {
-                  const newText = jsonData.choices[0].text;
-                  console.log('Received new text (legacy format):', newText);
-                  
-                  setMessages(prev => {
-                    const updatedMessages = prev.map(msg => {
-                      if (msg.id === streamingMessage.id) {
-                        return { ...msg, content: msg.content + newText };
-                      }
-                      return msg;
-                    });
-                    return updatedMessages;
-                  });
-                  
-                  addContentToBuffer(newText);
-                }
-              } catch (e) {
-                console.warn('Error parsing SSE data:', e, 'Line:', line);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error processing stream:', error);
-        // Still update with whatever content we got
-        setMessages(prev => prev.map(msg => 
-          msg.id === streamingMessage.id 
-            ? { ...msg, isStreaming: false }
-            : msg
-        ));
-        // Clear current streaming ID
-        currentStreamingIdRef.current = null;
-      } finally {
-        // Make sure we clear any pending timeout
-        if (streamTimeout) clearTimeout(streamTimeout);
-        
-        // Update the streaming message to mark streaming as complete
-        // But keep typing animation going until buffer is empty
-        setMessages(prev => prev.map(msg => 
-          msg.id === streamingMessage.id 
-            ? { ...msg, isStreaming: false }
-            : msg
-        ));
-        
-        setStreamController(null);
-      }
-      
-    } catch (error) {
-      console.error('Error sending message:', error);
-      
-      // Log more details if available
-      if (error.response) {
-        console.error('Response data:', error.response.data);
-        console.error('Response status:', error.response.status);
-      }
-      
-      toast({
-        title: "Error",
-        description: "Failed to get a response from the AI. Please try again.",
-        variant: "destructive"
-      });
-      
-      // Fallback response
-      const fallbackContent = "Thanks for sharing those details. Based on what you've told me, I'd recommend focusing on quantifying your achievements more clearly in your resume. Add specific metrics and outcomes to demonstrate your impact. Could you share a specific project where you made a significant contribution?";
-      
-      const fallbackMessage: Message = {
-        id: `assistant-fallback-${Date.now()}`,
-        role: 'assistant',
-        content: fallbackContent,
-        displayContent: '',
-        timestamp: new Date(),
-      };
-      
-      // Remove any streaming messages and add fallback
-      setMessages(prev => [...prev.filter(msg => !msg.isStreaming), fallbackMessage]);
-      
-      // Setup typing animation for fallback message
-      currentStreamingIdRef.current = fallbackMessage.id;
-      contentBufferRef.current = [];
-      addContentToBuffer(fallbackContent);
-      
-    } finally {
-      setIsLoading(false);
+  // Convert chat history to a prompt string for the API
+const formatChatHistoryToPrompt = (chatHistory) => {
+  let formattedPrompt = '';
+  
+  for (const message of chatHistory) {
+    if (message.role === 'system') {
+      formattedPrompt += `SYSTEM: ${message.content}\n\n`;
+    } else if (message.role === 'user') {
+      formattedPrompt += `USER: ${message.content}\n\n`;
+    } else if (message.role === 'assistant') {
+      formattedPrompt += `ASSISTANT: ${message.content}\n\n`;
     }
+  }
+  
+  // Add the final prompt to indicate it's the AI's turn
+  formattedPrompt += 'ASSISTANT: ';
+  
+  return formattedPrompt;
+};
+
+// Enhanced function to send message and handle AI response
+const handleSendMessage = async () => {
+  if (!inputValue.trim() || isLoading) return;
+
+  const userMessage: Message = {
+    id: `user-${Date.now()}`,
+    role: 'user',
+    content: inputValue,
+    displayContent: inputValue,
+    timestamp: new Date(),
   };
+  
+  // Create a placeholder streaming message
+  const streamingMessage: Message = {
+    id: `assistant-${Date.now()}`,
+    role: 'assistant',
+    content: '',
+    displayContent: '',
+    timestamp: new Date(),
+    isStreaming: true
+  };
+  
+  // Reset the buffer and set current streaming ID
+  contentBufferRef.current = [];
+  currentStreamingIdRef.current = streamingMessage.id;
+  
+  setMessages(prev => [...prev, userMessage, streamingMessage]);
+  setInputValue('');
+  setIsLoading(true);
+  
+  try {
+    // Abort any existing streams
+    if (streamController) {
+      streamController.abort();
+    }
+    
+    // Create a new controller for this stream
+    const controller = new AbortController();
+    setStreamController(controller);
+    
+    // Prepare the chat history for the API
+    const messageHistory = messages
+      .filter(msg => !msg.isStreaming) // Remove any current streaming messages
+      .map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }));
+    
+    // Add the new user message
+    messageHistory.push({
+      role: userMessage.role,
+      content: userMessage.content
+    });
+    
+    // Convert chat history to a prompt string
+    const prompt = formatChatHistoryToPrompt(messageHistory);
+    
+    console.log('Sending prompt to edge function:', prompt.substring(0, 100) + '...');
+    
+    // Call the edge function with the expected 'prompt' parameter
+    const response = await supabase.functions.invoke('together-ai', {
+      body: { 
+        prompt,
+        model: 'meta-llama/Llama-3-8b-chat-hf',
+        max_tokens: 1024,
+        stream: true
+      },
+      options: {
+        timeout: 30000 // 30 seconds timeout
+      }
+    });
+    
+    console.log('Edge function response status:', response.status);
+    
+    // More comprehensive error checking
+    if (response.error) {
+      throw new Error(`Edge function error: ${response.error.message || 'Unknown error'}`);
+    }
+    
+    if (!response.data || !response.data.body) {
+      throw new Error('Invalid response: No data or readable stream in response');
+    }
+    
+    // Get the ReadableStream from the response data
+    const readableStream = response.data.body;
+    const reader = readableStream.getReader();
+    
+    // Process the stream data
+    await processStreamData(reader, streamingMessage.id);
+    
+  } catch (error) {
+    handleEdgeFunctionError(error, 'Error sending message:', streamingMessage.id);
+  } finally {
+    setIsLoading(false);
+    setStreamController(null);
+  }
+};
+  
+  // const handleSendMessage = async () => {
+  //   if (!inputValue.trim() || isLoading) return;
+
+  //   const userMessage: Message = {
+  //     id: `user-${Date.now()}`,
+  //     role: 'user',
+  //     content: inputValue,
+  //     displayContent: inputValue,
+  //     timestamp: new Date(),
+  //   };
+    
+  //   // Create a placeholder streaming message
+  //   const streamingMessage: Message = {
+  //     id: `assistant-${Date.now()}`,
+  //     role: 'assistant',
+  //     content: '',
+  //     displayContent: '',
+  //     timestamp: new Date(),
+  //     isStreaming: true
+  //   };
+    
+  //   // Reset the buffer and set current streaming ID
+  //   contentBufferRef.current = [];
+  //   currentStreamingIdRef.current = streamingMessage.id;
+    
+  //   setMessages(prev => [...prev, userMessage, streamingMessage]);
+  //   setInputValue('');
+  //   setIsLoading(true);
+    
+  //   try {
+  //     // Prepare the chat history for the API - we need to convert our Message objects to the
+  //     // format expected by the Together API
+  //     const chatHistory = messages
+  //       .filter(msg => !msg.isStreaming) // Remove any current streaming messages
+  //       .map(msg => ({
+  //         role: msg.role,
+  //         content: msg.content
+  //       }));
+      
+  //     // Add the new user message
+  //     chatHistory.push({
+  //       role: userMessage.role,
+  //       content: userMessage.content
+  //     });
+      
+  //     // Abort any existing streams
+  //     if (streamController) {
+  //       streamController.abort();
+  //     }
+      
+  //     // Create a new controller for this stream
+  //     const controller = new AbortController();
+  //     setStreamController(controller);
+      
+  //     console.log('Invoking together-ai function with chat history');
+      
+  //     const response = await supabase.functions.invoke('together-ai', {
+  //       body: { 
+  //         chatHistory,
+  //         model: 'meta-llama/Llama-3-8b-chat-hf',
+  //         max_tokens: 1024,
+  //         stream: true
+  //       }
+  //     });
+      
+  //     console.log('Supabase function response received:', response);
+      
+  //     if (response.error) {
+  //       console.error('Error from Together AI:', response.error);
+  //       throw new Error(response.error.message || 'Unknown error');
+  //     }
+      
+  //     if (!response.data || !response.data.body) {
+  //       console.error('No body in response data:', response.data);
+  //       throw new Error('No readable stream in response');
+  //     }
+      
+  //     // Get the ReadableStream from the response.data.body
+  //     const readableStream = response.data.body;
+  //     const reader = readableStream.getReader();
+      
+  //     // Add a timeout to handle premature stream termination
+  //     let streamTimeout: NodeJS.Timeout | null = null;
+  //     const MAX_SILENCE_MS = 10000; // 10 seconds without data before we consider the stream dead
+      
+  //     try {
+  //       // Process the SSE stream
+  //       while (true) {
+  //         // Clear any existing timeout and set a new one
+  //         if (streamTimeout) clearTimeout(streamTimeout);
+          
+  //         streamTimeout = setTimeout(() => {
+  //           console.log('Stream timed out - no data received in', MAX_SILENCE_MS, 'ms');
+  //           reader.cancel('Stream timed out');
+  //           // Mark streaming as complete
+  //           setMessages(prev => prev.map(msg => 
+  //             msg.id === streamingMessage.id 
+  //               ? { ...msg, isStreaming: false }
+  //               : msg
+  //           ));
+  //           // Clear current streaming ID
+  //           currentStreamingIdRef.current = null;
+  //         }, MAX_SILENCE_MS);
+          
+  //         const { done, value } = await reader.read();
+          
+  //         if (done) {
+  //           console.log('Stream marked as done');
+  //           if (streamTimeout) clearTimeout(streamTimeout);
+  //           break;
+  //         }
+          
+  //         // Decode the chunk
+  //         const chunk = new TextDecoder().decode(value);
+  //         console.log('Received chunk:', chunk.substring(0, 100));
+          
+  //         // Parse SSE format - each line starts with "data: "
+  //         const lines = chunk.split('\n').filter(line => line.trim() !== '');
+          
+  //         for (const line of lines) {
+  //           if (line.startsWith('data: ')) {
+  //             try {
+  //               // Remove the "data: " prefix and parse the JSON
+  //               const jsonStr = line.substring(6);
+                
+  //               // Check if it's the "[DONE]" marker
+  //               if (jsonStr.trim() === '[DONE]') {
+  //                 console.log('Received [DONE] marker');
+  //                 continue;
+  //               }
+                
+  //               const jsonData = JSON.parse(jsonStr);
+  //               console.log('Parsed JSON data:', jsonData);
+                
+  //               // Extract the text from the completion choices
+  //               // Check for the delta.content format (chat completions API)
+  //               if (jsonData.choices && jsonData.choices[0]?.delta?.content) {
+  //                 const newText = jsonData.choices[0].delta.content;
+  //                 console.log('Received new text:', newText);
+                  
+  //                 // Update the full message content in state (not visible to user yet)
+  //                 setMessages(prev => {
+  //                   const updatedMessages = prev.map(msg => {
+  //                     if (msg.id === streamingMessage.id) {
+  //                       return { ...msg, content: msg.content + newText };
+  //                     }
+  //                     return msg;
+  //                   });
+  //                   return updatedMessages;
+  //                 });
+                  
+  //                 // Add new text to buffer for word-by-word typing
+  //                 addContentToBuffer(newText);
+  //               }
+  //               // Fallback for the older completions API format
+  //               else if (jsonData.choices && jsonData.choices[0]?.text) {
+  //                 const newText = jsonData.choices[0].text;
+  //                 console.log('Received new text (legacy format):', newText);
+                  
+  //                 setMessages(prev => {
+  //                   const updatedMessages = prev.map(msg => {
+  //                     if (msg.id === streamingMessage.id) {
+  //                       return { ...msg, content: msg.content + newText };
+  //                     }
+  //                     return msg;
+  //                   });
+  //                   return updatedMessages;
+  //                 });
+                  
+  //                 addContentToBuffer(newText);
+  //               }
+  //             } catch (e) {
+  //               console.warn('Error parsing SSE data:', e, 'Line:', line);
+  //             }
+  //           }
+  //         }
+  //       }
+  //     } catch (error) {
+  //       console.error('Error processing stream:', error);
+  //       // Still update with whatever content we got
+  //       setMessages(prev => prev.map(msg => 
+  //         msg.id === streamingMessage.id 
+  //           ? { ...msg, isStreaming: false }
+  //           : msg
+  //       ));
+  //       // Clear current streaming ID
+  //       currentStreamingIdRef.current = null;
+  //     } finally {
+  //       // Make sure we clear any pending timeout
+  //       if (streamTimeout) clearTimeout(streamTimeout);
+        
+  //       // Update the streaming message to mark streaming as complete
+  //       // But keep typing animation going until buffer is empty
+  //       setMessages(prev => prev.map(msg => 
+  //         msg.id === streamingMessage.id 
+  //           ? { ...msg, isStreaming: false }
+  //           : msg
+  //       ));
+        
+  //       setStreamController(null);
+  //     }
+      
+  //   } catch (error) {
+  //     console.error('Error sending message:', error);
+      
+  //     // Log more details if available
+  //     if (error.response) {
+  //       console.error('Response data:', error.response.data);
+  //       console.error('Response status:', error.response.status);
+  //     }
+      
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to get a response from the AI. Please try again.",
+  //       variant: "destructive"
+  //     });
+      
+  //     // Fallback response
+  //     const fallbackContent = "Thanks for sharing those details. Based on what you've told me, I'd recommend focusing on quantifying your achievements more clearly in your resume. Add specific metrics and outcomes to demonstrate your impact. Could you share a specific project where you made a significant contribution?";
+      
+  //     const fallbackMessage: Message = {
+  //       id: `assistant-fallback-${Date.now()}`,
+  //       role: 'assistant',
+  //       content: fallbackContent,
+  //       displayContent: '',
+  //       timestamp: new Date(),
+  //     };
+      
+  //     // Remove any streaming messages and add fallback
+  //     setMessages(prev => [...prev.filter(msg => !msg.isStreaming), fallbackMessage]);
+      
+  //     // Setup typing animation for fallback message
+  //     currentStreamingIdRef.current = fallbackMessage.id;
+  //     contentBufferRef.current = [];
+  //     addContentToBuffer(fallbackContent);
+      
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
   
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
