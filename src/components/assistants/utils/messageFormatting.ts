@@ -58,6 +58,19 @@ export const formatMessage = (content: string): string => {
   
   // Also handle cases where the asterisk appears after a <br> tag
   formattedContent = formattedContent.replace(/<br>\s*\* /g, '<br>• ');
+
+  // First, handle case with text: "quoted content" format
+  formattedContent = formattedContent.replace(/^\* ([\w\s]+):(.*?)$/gm, '• $1:$2');
+  
+  // Then handle standard asterisk bullet points
+  formattedContent = formattedContent.replace(/^\* (.+)$/gm, '• $1');
+  
+  // Also handle cases where the asterisk appears after a line break
+  formattedContent = formattedContent.replace(/\n\* /g, '\n• ');
+  
+  
+  // Step 4: Fix any remaining asterisks after line breaks that weren't caught
+  formattedContent = formattedContent.replace(/<br>\* /g, '<br>• ');
   
   return formattedContent;
 };
