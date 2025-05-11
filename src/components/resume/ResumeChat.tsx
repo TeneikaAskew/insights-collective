@@ -1,14 +1,14 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { ResumeAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatMessage } from '@/components/assistants/utils/messageFormatting';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ResumeAnalysis } from '@/components/assistants/types';
 
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
@@ -380,7 +380,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
   
   return (
     <div className="w-full">
-      <ScrollArea className="h-[400px] px-1">
+      <ScrollArea className="h-[600px] px-1"> {/* Increased height from previous ~400px */}
         <div className="space-y-4 p-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${

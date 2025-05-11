@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ResumeAnalysis } from '@/components/assistants/types';
@@ -7,7 +7,7 @@ import type { Resume } from '../../hooks/resume/useResume'; // Adjusted import p
 import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileCheck, ChartBar, Target, Briefcase, Award, MessageCircle } from 'lucide-react';
+import { FileCheck, ChartBar, Target, MessageCircle } from 'lucide-react';
 import ATSScoreCard from './ATSScoreCard';
 import ResumeChat from './ResumeChat';
 
@@ -48,6 +48,15 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   fileError,
   showCareerChat,
 }) => {
+  // State to track active tab
+  const [activeTab, setActiveTab] = useState("overview");
+  
+  // Function to handle starting career chat
+  const handleCareerChatStart = () => {
+    handleStartCareerChat();
+    setActiveTab("chat");
+  };
+
   if (loading && !resume && !analysis && !resumeFile && !fileError) {
     return (
       <Card className="shadow-lg border-t-4 border-t-[#9b87f5]">
@@ -94,7 +103,6 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
           </div>
           {analysis && ( // Show award badge only if analysis is available
             <div className="flex items-center bg-[#9b87f5]/10 rounded-full px-4 py-1">
-              <Award className="h-4 w-4 text-[#9b87f5] mr-2" />
               <span className="text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
             </div>
           )}
@@ -102,8 +110,8 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
       </CardHeader>
       <CardContent>
         {showTabs ? (
-          <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-5 mb-6"> {/* Changed from 4 to 5 columns to add chat tab */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6"> {/* Changed from 5 to 4 columns to remove career fit */}
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <ChartBar className="h-4 w-4" />
                 <span>Overview</span>
@@ -116,10 +124,6 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 <FileCheck className="h-4 w-4" />
                 <span>ATS Score</span>
               </TabsTrigger>
-              <TabsTrigger value="career" className="flex items-center gap-2" disabled={!analysis?.themes?.length}>
-                <Briefcase className="h-4 w-4" />
-                <span>Career Fit</span>
-              </TabsTrigger>
               <TabsTrigger value="chat" className="flex items-center gap-2" disabled={!analysis}>
                 <MessageCircle className="h-4 w-4" />
                 <span>Chat</span>
@@ -129,7 +133,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             <TabsContent value="overview" className="mt-0">
               <ResumeAnalysisDisplay
                 analysis={analysis}
-                onStartCareerChat={handleStartCareerChat}
+                onStartCareerChat={handleCareerChatStart}
                 hasAnalysis={hasAnalysis}
                 resume={resume}
                 resumeFile={resumeFile}
@@ -155,30 +159,6 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 <TabsContent value="ats" className="mt-0">
                   <ATSScoreCard analysis={analysis} />
                 </TabsContent>
-                <TabsContent value="career" className="mt-0">
-                  <div className="space-y-4">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle>Career Path Alignment</CardTitle>
-                        <CardDescription>
-                          How well your resume aligns with your target career path and industry expectations
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-6">
-                        <div className="bg-accent/20 border border-accent rounded-md p-4">
-                          <p className="font-medium mb-2">Target Industry Recommendation:</p>
-                          <p className="text-sm">{analysis.themes?.[0] || "N/A"}</p>
-                        </div>
-                        <Button
-                          onClick={handleStartCareerChat}
-                          className="w-full gap-2"
-                        >
-                          Explore Career Opportunities
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </TabsContent>
                 <TabsContent value="chat" className="mt-0">
                   {analysis && <ResumeChat resumeAnalysis={analysis} />}
                 </TabsContent>
@@ -189,7 +169,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
           // If no analysis, ResumeAnalysisDisplay will show the upload UI
           <ResumeAnalysisDisplay
             analysis={null}
-            onStartCareerChat={handleStartCareerChat}
+            onStartCareerChat={handleCareerChatStart}
             hasAnalysis={false}
             resume={resume}
             resumeFile={resumeFile}

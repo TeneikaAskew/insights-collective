@@ -89,6 +89,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
       }
     };
   }, [hasAnalysis, hasBeenClicked]);
+  
   const handleButtonClick = () => {
     setHasBeenClicked(true);
     if (flashIntervalRef.current) {
@@ -97,6 +98,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     }
     onStartCareerChat();
   };
+  
   const getLetterGradeColor = (grade: string) => {
     switch (grade) {
       case 'A':
@@ -111,6 +113,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         return "text-red-600";
     }
   };
+  
   const getButtonClass = () => {
     if (hasAnalysis && hasBeenClicked) {
       return 'bg-green-600 hover:bg-green-700';
@@ -120,6 +123,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
       return 'bg-blue-600 hover:bg-blue-700';
     }
   };
+  
   return <Card className="border-t-2 border-t-[#9b87f5]">
       <CardHeader className="pb-2">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
@@ -148,7 +152,7 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
         
         <div className="space-y-3">
           <h3 className="font-medium mb-2">Key Improvement Themes</h3>
-          {themes && themes.length > 0 ? <ul className="list-disc list-inside space-y-1 text-sm pl-4">
+          {themes && themes.length > 0 ? <ul className="space-y-1 text-sm pl-4 list-disc">
               {themes.map((theme, index) => <li key={index}>{theme}</li>)}
             </ul> : <p className="text-sm text-muted-foreground">
               No key improvement themes available.
