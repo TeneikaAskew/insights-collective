@@ -198,44 +198,119 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       console.log('Attempting to invoke together-ai function with prompt:', prompt.substring(0, 50) + '...');
       
       // Make the call with additional logging
-      try {
-        console.log('Making Supabase function call...');
-        const response = await supabase.functions.invoke('together-ai', {
-          body: { 
-            prompt,
-            model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-            max_tokens: 1024,
-            stream: true
-          }
-        });
-        console.log('Supabase function response received:', response);
+      // try {
+      //   console.log('Making Supabase function call...');
+      //   const response = await supabase.functions.invoke('together-ai', {
+      //     body: { 
+      //       prompt,
+      //       model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+      //       max_tokens: 1024,
+      //       stream: true
+      //     }
+      //   });
+      //   console.log('Supabase function response received:', response);
         
-        if (response.error) {
-          console.error('Function invoke error:', response.error);
-          throw new Error(`Function invoke error: ${response.error.message || 'Unknown error'}`);
+      //   if (response.error) {
+      //     console.error('Function invoke error:', response.error);
+      //     throw new Error(`Function invoke error: ${response.error.message || 'Unknown error'}`);
+      //   }
+        
+      //   if (!response.data) {
+      //     console.error('No data in response:', response);
+      //     throw new Error('No data returned from function');
+      //   }
+        
+      //   console.log('Response data type:', typeof response.data);
+      //   console.log('Is response.data a ReadableStream?', response.data instanceof ReadableStream);
+        
+      //   // Continue with your streaming logic...
+      // } catch (error) {
+      //   console.error('Caught error during function invoke:', error);
+      //   throw error;
+      // }
+      
+      // // Get the ReadableStream from the response
+      // const readableStream = response.data;
+      
+      // if (!readableStream) {
+      //   throw new Error('No stream in response');
+      // }
+      
+      // const reader = readableStream.getReader();
+      // let streamedContent = '';
+      
+      // // Process the SSE stream
+      // while (true) {
+      //   const { done, value } = await reader.read();
+        
+      //   if (done) {
+      //     break;
+      //   }
+        
+      //   // Decode the chunk
+      //   const chunk = new TextDecoder().decode(value);
+        
+      //   // Parse SSE format - each line starts with "data: "
+      //   const lines = chunk.split('\n').filter(line => line.trim() !== '');
+        
+      //   for (const line of lines) {
+      //     if (line.startsWith('data: ')) {
+      //       try {
+      //         // Remove the "data: " prefix and parse the JSON
+      //         const jsonStr = line.substring(6);
+              
+      //         // Check if it's the "[DONE]" marker
+      //         if (jsonStr.trim() === '[DONE]') {
+      //           continue;
+      //         }
+              
+      //         const jsonData = JSON.parse(jsonStr);
+              
+      //         // Extract the text from the completion choices
+      //         if (jsonData.choices && jsonData.choices[0]?.text) {
+      //           const newText = jsonData.choices[0].text;
+      //           streamedContent += newText;
+                
+      //           // Update the streaming message with current content
+      //           setMessages(prev => prev.map(msg => 
+      //             msg.id === streamingMessage.id 
+      //               ? { ...msg, content: streamedContent }
+      //               : msg
+      //           ));
+      //         }
+      //       } catch (e) {
+      //         console.warn('Error parsing SSE data:', e);
+      //       }
+      //     }
+      //   }
+      // }
+
+      // After getting the response from Supabase
+      const response = await supabase.functions.invoke('together-ai', {
+        body: { 
+          prompt,
+          model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+          max_tokens: 1024,
+          stream: true
         }
-        
-        if (!response.data) {
-          console.error('No data in response:', response);
-          throw new Error('No data returned from function');
-        }
-        
-        console.log('Response data type:', typeof response.data);
-        console.log('Is response.data a ReadableStream?', response.data instanceof ReadableStream);
-        
-        // Continue with your streaming logic...
-      } catch (error) {
-        console.error('Caught error during function invoke:', error);
-        throw error;
+      });
+      
+      console.log('Supabase function response received:', response);
+      
+      if (response.error) {
+        console.error('Error from Together AI:', response.error);
+        throw new Error(response.error.message || 'Unknown error');
       }
       
-      // Get the ReadableStream from the response
-      const readableStream = response.data;
-      
-      if (!readableStream) {
-        throw new Error('No stream in response');
+      // This is the key fix - response.data is a Response object, not a ReadableStream directly
+      // We need to access its body property to get the ReadableStream
+      if (!response.data || !response.data.body) {
+        console.error('No body in response data:', response.data);
+        throw new Error('No readable stream in response');
       }
       
+      // Get the ReadableStream from the response.data.body
+      const readableStream = response.data.body;
       const reader = readableStream.getReader();
       let streamedContent = '';
       
@@ -249,6 +324,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
         
         // Decode the chunk
         const chunk = new TextDecoder().decode(value);
+        console.log('Received chunk:', chunk); // Log raw chunk for debugging
         
         // Parse SSE format - each line starts with "data: "
         const lines = chunk.split('\n').filter(line => line.trim() !== '');
@@ -265,6 +341,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
               }
               
               const jsonData = JSON.parse(jsonStr);
+              console.log('Parsed JSON data:', jsonData); // Log parsed data
               
               // Extract the text from the completion choices
               if (jsonData.choices && jsonData.choices[0]?.text) {
@@ -279,7 +356,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
                 ));
               }
             } catch (e) {
-              console.warn('Error parsing SSE data:', e);
+              console.warn('Error parsing SSE data:', e, 'Line:', line);
             }
           }
         }
