@@ -46,6 +46,16 @@ export const formatMessage = (content: string): string => {
   // Wrap consecutive <li> elements in <ul> or <ol>
   formattedContent = formattedContent.replace(/(<li class="ml-6 list-disc">.*?<\/li>)+/g, '<ul class="my-3">$&</ul>');
   formattedContent = formattedContent.replace(/(<li class="ml-6 list-decimal".*?<\/li>)+/g, '<ol class="my-3">$&</ol>');
+
+   // Convert asterisks at beginning of lines to bullet points
+  // This will replace any line that starts with "* " with "• "
+  formattedContent = formattedContent.replace(/^(\s*)\* (.+)$/gm, '$1• $2');
+  
+  // Also handle cases where the asterisk appears after a <br> tag
+  formattedContent = formattedContent.replace(/<br>\s*\* /g, '<br>• ');
+  
+  // Line breaks
+  formattedContent = formattedContent.replace(/\n/g, '<br>');
   
   return formattedContent;
 };
