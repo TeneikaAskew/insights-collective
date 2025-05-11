@@ -341,7 +341,7 @@ export function useResumeAnalysis() {
       try {
         const { data: quizAttempt, error } = await supabase
           .from('career_quiz_attempts')
-          .select('recommended_path')
+          .select('top_recommended_path')
           .eq('user_id', user.id)
           .order('completed_at', { ascending: false })
           .limit(1)
