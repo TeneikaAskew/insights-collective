@@ -38,6 +38,13 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
   
+  // Typing effect state and refs
+  const [displayedContent, setDisplayedContent] = useState('');
+  const fullContentRef = useRef('');
+  const typingSpeedRef = useRef(5); // ms per character (adjust for faster/slower typing)
+  const isTypingRef = useRef(false);
+  const activeMessageIdRef = useRef<string | null>(null);
+  
   // Load persisted messages from localStorage
   useEffect(() => {
     if (user) {
@@ -68,7 +75,27 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   // Scroll to bottom whenever messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, displayedContent]);
+  
+  // Function to simulate typing effect
+  const simulateTyping = () => {
+    if (isTypingRef.current) return; // Already typing
+    
+    isTypingRef.current = true;
+    let currentIndex = displayedContent.length;
+    
+    const typeNextChar = () => {
+      if (currentIndex < fullContentRef.current.length) {
+        setDisplayedContent(fullContentRef.current.substring(0, currentIndex + 1));
+        currentIndex++;
+        setTimeout(typeNextChar, typingSpeedRef.current);
+      } else {
+        isTypingRef.current = false;
+      }
+    };
+    
+    typeNextChar();
+  };
   
   // Fetch initial resume assessment and create welcome message on component mount
   useEffect(() => {
@@ -208,6 +235,11 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
         isStreaming: true
       };
       
+      // Reset typing effect state
+      fullContentRef.current = '';
+      setDisplayedContent('');
+      activeMessageIdRef.current = streamingMessage.id;
+      
       setMessages(prev => [...prev, streamingMessage]);
       
       // Abort any existing streams
@@ -248,7 +280,6 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       // Get the ReadableStream from the response.data.body
       const readableStream = response.data.body;
       const reader = readableStream.getReader();
-      let streamedContent = '';
       
       // Add a timeout to handle premature stream termination
       let streamTimeout = null;
@@ -303,12 +334,17 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
                 // Extract the text from the completion choices
                 if (jsonData.choices && jsonData.choices[0]?.text) {
                   const newText = jsonData.choices[0].text;
-                  streamedContent += newText;
+                  fullContentRef.current += newText;
                   
-                  // Update the streaming message with current content
+                  // If not already typing, start the typing effect
+                  if (!isTypingRef.current) {
+                    simulateTyping();
+                  }
+                  
+                  // Update the actual message content with the full content
                   setMessages(prev => prev.map(msg => 
                     msg.id === streamingMessage.id 
-                      ? { ...msg, content: streamedContent }
+                      ? { ...msg, content: fullContentRef.current }
                       : msg
                   ));
                 }
@@ -321,10 +357,10 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       } catch (error) {
         console.error('Error processing stream:', error);
         // Still update with whatever content we got
-        if (streamedContent) {
+        if (fullContentRef.current) {
           setMessages(prev => prev.map(msg => 
             msg.id === streamingMessage.id 
-              ? { ...msg, content: streamedContent, isStreaming: false }
+              ? { ...msg, content: fullContentRef.current, isStreaming: false }
               : msg
           ));
         }
@@ -380,7 +416,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
   
   return (
     <div className="w-full">
-      <ScrollArea className="h-[900px] px-1"> {/* Increased height from previous ~400px */}
+      <ScrollArea className="h-[900px] px-1">
         <div className="space-y-4 p-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${
@@ -396,7 +432,11 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
                 {message.role === 'assistant' ? (
                   <div 
                     className="prose prose-slate max-w-none"
-                    dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
+                    dangerouslySetInnerHTML={{ 
+                      __html: formatMessage(
+                        message.isStreaming ? displayedContent : message.content
+                      )
+                    }}
                   />
                 ) : (
                   <div>{message.content}</div>
