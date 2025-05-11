@@ -23,15 +23,7 @@ Deno.serve(async (req) => {
   if (corsResponse) return corsResponse;
 
   try {
-    // Parse the request body
-    const requestBody = await req.json();
-    const { 
-      prompt, 
-      chatHistory = [], 
-      model = 'meta-llama/Llama-3-8b-chat-hf', 
-      max_tokens = 1024, 
-      stream = false 
-    } = requestBody;
+    const { prompt, chatHistory = [], model = 'meta-llama/Llama-3-8b-chat-hf', max_tokens = 1024, stream = false } = await req.json();
 
     if (!prompt && chatHistory.length === 0) {
       throw new Error('Either prompt or chatHistory is required');
@@ -85,7 +77,7 @@ Deno.serve(async (req) => {
             // Process each chunk from the Together stream
             for await (const chunk of togetherStream) {
               // Format the chunk as an SSE event
-              const content = chunk.choices?.[0]?.delta?.content || '';
+              const content = chunk.choices[0]?.delta?.content || '';
               if (content) {
                 // Convert the chunk to proper SSE format
                 const data = JSON.stringify({
@@ -147,3 +139,91 @@ Deno.serve(async (req) => {
     });
   }
 });
+// import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7'
+// import { corsHeaders } from '../_shared/utils.ts'
+
+// const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
+
+// // Handle CORS preflight requests
+// const handleCors = (req: Request) => {
+//   if (req.method === 'OPTIONS') {
+//     return new Response(null, { headers: corsHeaders })
+//   }
+// }
+
+// Deno.serve(async (req) => {
+//   // Handle CORS
+//   const corsResponse = handleCors(req);
+//   if (corsResponse) return corsResponse;
+
+//   try {
+//     const { prompt, model = 'mistralai/Mixtral-8x7B-Instruct-v0.1', max_tokens = 1024, stream = false } = await req.json();
+
+//     if (!prompt) {
+//       throw new Error('Prompt is required');
+//     }
+
+//     if (!togetherApiKey) {
+//       throw new Error('Together.ai API key not configured');
+//     }
+
+//     console.log(`Making request to Together API for model: ${model}, streaming: ${stream}`);
+
+//     // Call Together.ai API
+//     const response = await fetch('https://api.together.xyz/v1/completions', {
+//       method: 'POST',
+//       headers: {
+//         'Authorization': `Bearer ${togetherApiKey}`,
+//         'Content-Type': 'application/json'
+//       },
+//       body: JSON.stringify({
+//         model,
+//         prompt,
+//         max_tokens,
+//         temperature: 0.7,
+//         top_p: 0.8,
+//         top_k: 50,
+//         stream
+//       })
+//     });
+
+//     if (!response.ok) {
+//       const errorText = await response.text();
+//       console.error('Together API error:', errorText);
+//       throw new Error(`Together API returned status ${response.status}: ${errorText}`);
+//     }
+
+//     // For streaming responses
+//     if (stream) {
+//       console.log('Streaming response from Together API');
+//       return new Response(response.body, { 
+//         headers: { 
+//           ...corsHeaders, 
+//           'Content-Type': 'text/event-stream',
+//           'Cache-Control': 'no-cache',
+//           'Connection': 'keep-alive'
+//         } 
+//       });
+//     }
+
+//     // For non-streaming responses
+//     const data = await response.json();
+    
+//     return new Response(JSON.stringify({ 
+//       success: true, 
+//       data 
+//     }), { 
+//       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+//     });
+//   } catch (error) {
+//     console.error('Error in together-ai function:', error);
+    
+//     return new Response(JSON.stringify({ 
+//       success: false, 
+//       error: error.message 
+//     }), { 
+//       status: 500, 
+//       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+//     });
+//   }
+// });
