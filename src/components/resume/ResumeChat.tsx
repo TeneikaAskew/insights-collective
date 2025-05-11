@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatMessage } from '@/components/assistants/utils/messageFormatting';
 import { useToast } from '@/hooks/use-toast';
-import { LocalStorageUtils } from '@/utils/localStorageUtils';
 
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
@@ -23,12 +22,6 @@ type Message = {
   isStreaming?: boolean;
 };
 
-// Create storage keys for persisting chat state
-const STORAGE_KEYS = {
-  MESSAGES: 'resume_chat_messages',
-  WELCOME_SHOWN: 'resume_welcome_shown'
-};
-
 const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -37,34 +30,6 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [streamController, setStreamController] = useState<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
-  
-  // Load persisted messages from localStorage
-  useEffect(() => {
-    if (user) {
-      try {
-        const savedMessages = localStorage.getItem(`${STORAGE_KEYS.MESSAGES}_${user.id}`);
-        const welcomeShown = localStorage.getItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`);
-        
-        if (savedMessages) {
-          setMessages(JSON.parse(savedMessages));
-        }
-        
-        if (welcomeShown) {
-          setWelcomeMessageShown(true);
-        }
-      } catch (error) {
-        console.error('Error loading saved chat:', error);
-      }
-    }
-  }, [user]);
-  
-  // Save messages to localStorage whenever they change
-  useEffect(() => {
-    if (user && messages.length > 0) {
-      localStorage.setItem(`${STORAGE_KEYS.MESSAGES}_${user.id}`, JSON.stringify(messages));
-    }
-  }, [messages, user]);
   
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -73,7 +38,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   
   // Fetch initial resume assessment and create welcome message on component mount
   useEffect(() => {
-    if (resumeAnalysis && user && !welcomeMessageShown) {
+    if (resumeAnalysis && user) {
       setIsLoading(true);
       
       // Create basic welcome message with basic info
@@ -140,8 +105,6 @@ ${initialAssessment}
           };
           
           setMessages([updatedWelcomeMessage]);
-          setWelcomeMessageShown(true);
-          localStorage.setItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`, 'true');
         } catch (error) {
           console.error('Error with assessment:', error);
           
@@ -154,14 +117,12 @@ Let's start by discussing your experience: **What specific challenges did you ta
           };
           
           setMessages([updatedWelcomeMessage]);
-          setWelcomeMessageShown(true);
-          localStorage.setItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`, 'true');
         } finally {
           setIsLoading(false);
         }
       })();
     }
-  }, [resumeAnalysis, user, welcomeMessageShown]);
+  }, [resumeAnalysis, user]);
   
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -185,10 +146,9 @@ Let's start by discussing your experience: **What specific challenges did you ta
          Elevator pitch: ${resumeAnalysis.elevator_pitch}` : 
         'No resume analysis available.';
       
-      // Prepare prompt with context and conversation history - removing "User:" and "Assistant:" prefixes
-      let conversationHistory = messages.map(msg => `${msg.content}`).join('\n\n');
+      // Prepare prompt with context and conversation history
+      let conversationHistory = messages.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n\n');
       
-      // The prompt is modified to instruct the model not to include 'Assistant:' in its response
       const prompt = `You are a professional resume coach assisting a user with their resume. 
       
 Resume Context: ${context}
@@ -198,7 +158,7 @@ ${conversationHistory}
 
 User's latest message: ${inputValue}
 
-Respond with helpful, specific advice as a resume coach. Be constructive, honest, and professional. Do not prefix your response with "Assistant:" or any other label. Do not repeat the user's prompt.`;
+Respond with helpful, specific advice as a resume coach. Be constructive, honest, and professional.`;
 
       // Create a placeholder streaming message
       const streamingMessage: Message = {
