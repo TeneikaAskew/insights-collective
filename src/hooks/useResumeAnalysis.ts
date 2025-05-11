@@ -347,8 +347,8 @@ export function useResumeAnalysis() {
           .limit(1)
           .single();
         
-        if (!error && quizAttempt?.recommended_path) {
-          quizTopPath = quizAttempt.recommended_path as CareerTrack;
+        if (!error && quizAttempt?.top_recommended_path) {
+          quizTopPath = quizAttempt.top_recommended_path as CareerTrack;
         }
       } catch (error) {
         console.error('Error fetching quiz attempt:', error);
