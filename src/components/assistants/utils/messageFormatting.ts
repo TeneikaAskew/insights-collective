@@ -71,6 +71,34 @@ export const formatMessage = (content: string): string => {
   
   // Step 4: Fix any remaining asterisks after line breaks that weren't caught
   formattedContent = formattedContent.replace(/<br>\* /g, '<br>• ');
+
+   // STEP 1: Pre-process the content to handle special cases
+  
+  // Handle the specific case where list items are on the same line with a pattern:
+  // * Text: "quoted text" * Text: "quoted text"
+  formattedContent = formattedContent.replace(/(\* [\w\s]+?: ".+?") \* /g, '$1\n* ');
+  
+  // Handle multiple asterisks on the same line (generic case)
+  formattedContent = formattedContent.replace(/(\* .+?) \* /g, '$1\n* ');
+  
+  // STEP 2: Format the content
+  
+  // Handle bold text
+  formattedContent = formattedContent.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  
+  // Replace all asterisk bullet points with proper bullet characters
+  // This handles both standard bullets and those with colons
+  formattedContent = formattedContent.replace(/^\* (.+)$/gm, '• $1');
+  formattedContent = formattedContent.replace(/\n\* /g, '\n• ');
+  
+  // STEP 3: Handle line breaks
+  formattedContent = formattedContent.replace(/\n/g, '<br>');
+  
+  // STEP 4: Final clean-up - catch any remaining asterisks
+  formattedContent = formattedContent.replace(/<br>\* /g, '<br>• ');
+  
+  // Special case clean-up for any missed patterns
+  formattedContent = formattedContent.replace(/ \* /g, '<br>• ');
   
   return formattedContent;
 };
