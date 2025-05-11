@@ -53,21 +53,33 @@ export type Database = {
           conversation_id: string
           created_at: string | null
           id: string
+          max_tokens: number | null
+          model: string | null
+          response: string | null
           sender_type: string
+          stream: boolean | null
         }
         Insert: {
           content: string
           conversation_id: string
           created_at?: string | null
           id?: string
+          max_tokens?: number | null
+          model?: string | null
+          response?: string | null
           sender_type: string
+          stream?: boolean | null
         }
         Update: {
           content?: string
           conversation_id?: string
           created_at?: string | null
           id?: string
+          max_tokens?: number | null
+          model?: string | null
+          response?: string | null
           sender_type?: string
+          stream?: boolean | null
         }
         Relationships: [
           {

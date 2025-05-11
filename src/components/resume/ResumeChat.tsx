@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,7 +27,8 @@ type Message = {
 // Create storage keys for persisting chat state
 const STORAGE_KEYS = {
   MESSAGES: 'resume_chat_messages',
-  WELCOME_SHOWN: 'resume_welcome_shown'
+  WELCOME_SHOWN: 'resume_welcome_shown',
+  CONVERSATION_ID: 'resume_conversation_id'
 };
 
 const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
@@ -38,6 +40,7 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const [streamController, setStreamController] = useState<AbortController | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [welcomeMessageShown, setWelcomeMessageShown] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   
   // Enhanced typing animation state
   const contentBufferRef = useRef<string[]>([]);
@@ -45,12 +48,21 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const isTypingRef = useRef(false);
   const currentStreamingIdRef = useRef<string | null>(null);
   
-  // Load persisted messages from localStorage
+  // Add refs for full content
+  const fullContentRef = useRef('');
+  const typingSpeedRef = useRef(5); // ms per character
+  
+  // Load persisted conversation ID and messages from localStorage
   useEffect(() => {
     if (user) {
       try {
         const savedMessages = localStorage.getItem(`${STORAGE_KEYS.MESSAGES}_${user.id}`);
         const welcomeShown = localStorage.getItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`);
+        const savedConversationId = localStorage.getItem(`${STORAGE_KEYS.CONVERSATION_ID}_${user.id}`);
+        
+        if (savedConversationId) {
+          setConversationId(savedConversationId);
+        }
         
         if (savedMessages) {
           const parsedMessages = JSON.parse(savedMessages);
@@ -71,6 +83,54 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
       }
     }
   }, [user]);
+  
+  // Helper function to store a message in the database
+  const storeMessageInDB = async (message: Message, model?: string, maxTokens?: number, stream?: boolean) => {
+    if (!user || !conversationId) return;
+    
+    try {
+      // Determine sender type based on message role
+      const senderType = message.role;
+      
+      // Store message in database
+      await supabase.from('assistant_messages').insert({
+        conversation_id: conversationId,
+        content: message.content,
+        sender_type: senderType,
+        model: model || 'meta-llama/Llama-3-8b-chat-hf', // Default model
+        max_tokens: maxTokens || 1024,
+        stream: stream || false
+      });
+      
+      console.log(`Stored ${senderType} message in database`);
+    } catch (error) {
+      console.error('Error storing message in database:', error);
+    }
+  };
+
+  // Helper function to create a new conversation in the database
+  const createConversation = async (): Promise<string | null> => {
+    if (!user) return null;
+    
+    try {
+      const { data, error } = await supabase.from('assistant_conversations').insert({
+        user_id: user.id,
+        is_active: true,
+        session_id: `resume-chat-${Date.now()}`
+      }).select('id').single();
+      
+      if (error) throw error;
+      if (!data) throw new Error('No conversation ID returned');
+      
+      // Store the conversation ID in localStorage
+      localStorage.setItem(`${STORAGE_KEYS.CONVERSATION_ID}_${user.id}`, data.id);
+      console.log('Created new conversation:', data.id);
+      return data.id;
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      return null;
+    }
+  };
   
   // Clean up typing interval on unmount
   useEffect(() => {
@@ -164,14 +224,16 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
     const systemContent = `You are a professional resume coach assisting a user with their resume.
     
 Resume Context: Grade ${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%). 
-Key themes for improvement: ${resumeAnalysis.themes.join(', ')}.
-Elevator pitch: ${resumeAnalysis.elevator_pitch}
+Key themes for improvement: ${resumeAnalysis.themes && resumeAnalysis.themes.join 
+      ? resumeAnalysis.themes.join(', ') 
+      : 'Need to improve overall'}.
+Elevator pitch: ${resumeAnalysis.elevator_pitch || 'Not provided'}
 
 Provide helpful, specific advice as a resume coach. Be constructive, honest, and professional.`;
     
     return {
       id: `system-${Date.now()}`,
-      role: 'system',
+      role: 'system' as const,
       content: systemContent,
       displayContent: systemContent,
       timestamp: new Date(),
@@ -184,9 +246,17 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
     if (resumeAnalysis && user && !welcomeMessageShown) {
       setIsLoading(true);
       
-      // Initial operation to fetch assessment
+      // Initial operation to fetch assessment and create conversation if needed
       (async () => {
         try {
+          // Create a new conversation if one doesn't exist
+          if (!conversationId) {
+            const newConversationId = await createConversation();
+            if (newConversationId) {
+              setConversationId(newConversationId);
+            }
+          }
+          
           const { data, error } = await supabase
             .from('resumes')
             .select('initial_assessment')
@@ -248,9 +318,15 @@ ${initialAssessment}
           const systemMessage = createSystemMessage();
           
           // Set messages with system message (if available) and welcome message
-          setMessages(systemMessage ? [systemMessage, welcomeMessage] : [welcomeMessage]);
+          const initialMessages = systemMessage ? [systemMessage, welcomeMessage] : [welcomeMessage];
+          setMessages(initialMessages);
           setWelcomeMessageShown(true);
           localStorage.setItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`, 'true');
+          
+          // Store welcome message in DB
+          if (conversationId || newConversationId) {
+            await storeMessageInDB(welcomeMessage);
+          }
           
         } catch (error) {
           console.error('Error with assessment:', error);
@@ -274,19 +350,40 @@ Let's start by discussing your experience: **What specific challenges did you ta
           const systemMessage = createSystemMessage();
           
           // Set messages with system message (if available) and welcome message
-          setMessages(systemMessage ? [systemMessage, welcomeMessage] : [welcomeMessage]);
+          const initialMessages = systemMessage ? [systemMessage, welcomeMessage] : [welcomeMessage];
+          setMessages(initialMessages);
           setWelcomeMessageShown(true);
           localStorage.setItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`, 'true');
+          
+          // Store welcome message in DB even in error case
+          if (conversationId) {
+            await storeMessageInDB(welcomeMessage);
+          }
           
         } finally {
           setIsLoading(false);
         }
       })();
     }
-  }, [resumeAnalysis, user, welcomeMessageShown, createSystemMessage]);
+  }, [resumeAnalysis, user, welcomeMessageShown, createSystemMessage, conversationId]);
   
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
+
+    // Create a new conversation if one doesn't exist yet
+    if (!conversationId && user) {
+      const newConversationId = await createConversation();
+      if (newConversationId) {
+        setConversationId(newConversationId);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to create conversation. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -296,6 +393,9 @@ Let's start by discussing your experience: **What specific challenges did you ta
       timestamp: new Date(),
       useTypingAnimation: false // User messages don't need typing animation
     };
+    
+    // Store user message in database
+    await storeMessageInDB(userMessage);
     
     // Create a placeholder streaming message
     const streamingMessage: Message = {
@@ -311,6 +411,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
     // Reset the buffer and set current streaming ID
     contentBufferRef.current = [];
     currentStreamingIdRef.current = streamingMessage.id;
+    fullContentRef.current = ''; // Reset full content
     
     setMessages(prev => [...prev, userMessage, streamingMessage]);
     setInputValue('');
@@ -342,11 +443,14 @@ Let's start by discussing your experience: **What specific challenges did you ta
       
       console.log('Invoking together-ai function with chat history');
       
+      const selectedModel = 'meta-llama/Llama-3-8b-chat-hf';
+      const maxTokens = 1024;
+      
       const response = await supabase.functions.invoke('together-ai', {
         body: { 
           chatHistory,
-          model: 'meta-llama/Llama-3-8b-chat-hf',
-          max_tokens: 1024,
+          model: selectedModel,
+          max_tokens: maxTokens,
           stream: true
         }
       });
@@ -425,11 +529,14 @@ Let's start by discussing your experience: **What specific challenges did you ta
                   const newText = jsonData.choices[0].delta.content;
                   console.log('Received new text:', newText);
                   
+                  // Add to full content reference
+                  fullContentRef.current += newText;
+                  
                   // Update the full message content in state
                   setMessages(prev => {
                     const updatedMessages = prev.map(msg => {
                       if (msg.id === streamingMessage.id) {
-                        return { ...msg, content: msg.content + newText };
+                        return { ...msg, content: fullContentRef.current };
                       }
                       return msg;
                     });
@@ -446,10 +553,13 @@ Let's start by discussing your experience: **What specific challenges did you ta
                   const newText = jsonData.choices[0].text;
                   console.log('Received new text (legacy format):', newText);
                   
+                  // Add to full content reference
+                  fullContentRef.current += newText;
+                  
                   setMessages(prev => {
                     const updatedMessages = prev.map(msg => {
                       if (msg.id === streamingMessage.id) {
-                        return { ...msg, content: msg.content + newText };
+                        return { ...msg, content: fullContentRef.current };
                       }
                       return msg;
                     });
@@ -490,6 +600,15 @@ Let's start by discussing your experience: **What specific challenges did you ta
         ));
         
         setStreamController(null);
+        
+        // Store the completed AI message in database
+        const completedMessage = {
+          ...streamingMessage,
+          content: fullContentRef.current,
+          isStreaming: false
+        };
+        
+        await storeMessageInDB(completedMessage, selectedModel, maxTokens, true);
       }
       
     } catch (error) {
@@ -521,6 +640,9 @@ Let's start by discussing your experience: **What specific challenges did you ta
       
       // Remove any streaming messages and add fallback
       setMessages(prev => [...prev.filter(msg => !msg.isStreaming), fallbackMessage]);
+      
+      // Store fallback message in database
+      await storeMessageInDB(fallbackMessage);
       
     } finally {
       setIsLoading(false);
