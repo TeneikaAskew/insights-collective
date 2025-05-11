@@ -7,6 +7,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTogetherAI } from '@/hooks/useTogetherAI';
 
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
@@ -17,6 +18,7 @@ type Message = {
   role: 'assistant' | 'user';
   content: string;
   timestamp: Date;
+  isStreaming?: boolean;
 };
 
 const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
@@ -25,6 +27,10 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { generateText, isLoading: isGenerating } = useTogetherAI({
+    model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+    maxTokens: 1024
+  });
   
   // Scroll to bottom whenever messages change
   useEffect(() => {
@@ -120,7 +126,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
   }, [resumeAnalysis, user]);
   
   const handleSendMessage = async () => {
-    if (!inputValue.trim() || isLoading) return;
+    if (!inputValue.trim() || isLoading || isGenerating) return;
     
     const userMessage: Message = {
       id: `user-${Date.now()}`,
@@ -141,28 +147,41 @@ Let's start by discussing your experience: **What specific challenges did you ta
          Elevator pitch: ${resumeAnalysis.elevator_pitch}` : 
         'No resume analysis available.';
       
-      // Call the Edge Function
-      const { data, error } = await supabase.functions.invoke('assistant-ai', {
-        body: {
-          query: userMessage.content,
-          careerFocus: 'Data',
-          careerPath: 'Data Analyst',
-          salaryCap: 120000,
-          assistantType: 'Resume Coach',
-          context
-        }
-      });
+      // Prepare prompt with context and conversation history
+      let conversationHistory = messages.map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`).join('\n\n');
       
-      if (error) throw error;
+      const prompt = `You are a professional resume coach assisting a user with their resume. 
       
-      const assistantMessage: Message = {
+Resume Context: ${context}
+
+Previous conversation:
+${conversationHistory}
+
+User's latest message: ${inputValue}
+
+Respond with helpful, specific advice as a resume coach. Be constructive, honest, and professional.`;
+
+      // Create a placeholder streaming message
+      const streamingMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
-        content: data?.response || "I'm sorry, I couldn't process your request at this time.",
+        content: '',
         timestamp: new Date(),
+        isStreaming: true
       };
       
-      setMessages(prev => [...prev, assistantMessage]);
+      setMessages(prev => [...prev, streamingMessage]);
+      
+      // Use Together.AI streaming 
+      const response = await generateText(prompt);
+      
+      // Update the streaming message with the full response
+      setMessages(prev => prev.map(msg => 
+        msg.id === streamingMessage.id 
+          ? { ...msg, content: response || "I'm sorry, I couldn't process your request at this time.", isStreaming: false }
+          : msg
+      ));
+      
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -247,6 +266,10 @@ Let's start by discussing your experience: **What specific challenges did you ta
               ) : (
                 <div>{message.content}</div>
               )}
+              
+              {message.isStreaming && (
+                <span className="inline-block w-1.5 h-4 bg-slate-400 ml-1 animate-pulse"></span>
+              )}
             </div>
           </div>
         ))}
@@ -259,7 +282,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
           </div>
         )}
         
-        {isLoading && (
+        {isLoading && !messages.some(m => m.isStreaming) && (
           <div className="flex justify-start">
             <div className="max-w-3xl p-3 rounded-lg bg-slate-100 text-slate-800">
               <div className="flex space-x-2">
@@ -282,10 +305,11 @@ Let's start by discussing your experience: **What specific challenges did you ta
             placeholder="Describe the challenges, actions, and results from your first role..."
             className="flex-1 resize-none"
             rows={2}
+            disabled={isLoading || isGenerating}
           />
           <Button 
             onClick={handleSendMessage} 
-            disabled={isLoading || !inputValue.trim()}
+            disabled={isLoading || isGenerating || !inputValue.trim()}
             className="self-end"
           >
             <Send className="h-4 w-4" />
