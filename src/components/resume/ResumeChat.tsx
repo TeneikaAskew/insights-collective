@@ -506,7 +506,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
           console.log('Line does not start with data:');
         }
       }
-      }
+      // }
     } catch (error) {
       console.error('Error processing stream:', error);
       // Still update with whatever content we got
