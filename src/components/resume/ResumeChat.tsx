@@ -8,6 +8,7 @@ import { ResumeAnalysis } from '@/components/assistants/types';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatMessage } from '@/components/assistants/utils/messageFormatting';
+import { useToast } from '@/hooks/use-toast';
 
 interface ResumeChatProps {
   resumeAnalysis: ResumeAnalysis | null;
@@ -23,6 +24,7 @@ type Message = {
 
 const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -178,15 +180,14 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       const controller = new AbortController();
       setStreamController(controller);
       
-      // Call the Together AI streaming endpoint
+      // Call the Together AI streaming endpoint - Remove the signal property that's causing the error
       const response = await supabase.functions.invoke('together-ai', {
         body: { 
           prompt,
           model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
           max_tokens: 1024,
           stream: true
-        },
-        signal: controller.signal
+        }
       });
       
       if (response.error) {
@@ -243,6 +244,12 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
       
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      toast({
+        title: "Error",
+        description: "Failed to get a response from the AI. Please try again.",
+        variant: "destructive"
+      });
       
       // Fallback response
       const fallbackMessage: Message = {
