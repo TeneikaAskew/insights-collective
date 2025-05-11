@@ -20,8 +20,8 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
-          <main className={`flex-1 w-full overflow-y-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
-            <div className="min-h-full">
+          <main className={`flex-1 w-full h-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
+            <div className="h-full">
               {children}
             </div>
           </main>

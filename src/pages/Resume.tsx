@@ -652,7 +652,7 @@ const Resume = () => {
     hasLoadedAnalysis
   });
   return <AppLayout fullWidth>
-      <div className="mx-auto py-6 space-y-6 px-6 max-w-full max-h-full overflow-y-auto">
+      <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
@@ -671,11 +671,23 @@ const Resume = () => {
           </div>
         </div>
 
-        {/* ... keep existing code (storage error alert) */}
+        {storageError && <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Storage Error</AlertTitle>
+            <AlertDescription>
+              {storageError}
+            </AlertDescription>
+          </Alert>}
 
-        {/* ... keep existing code (career alignments) */}
+        {careerAlignments && careerAlignments.length > 0 && 
+          <div className="space-y-2">
+            {careerAlignments.map((alignment, index) => (
+              <div key={index}>{/* Alignment content would go here */}</div>
+            ))}
+          </div>
+        }
 
-        {/* Resume analysis section */}
+        {/* Single section layout with the analysis section */}
         <ResumeAnalysisSection 
           loading={loading} 
           isAnalyzing={isAnalyzing} 
@@ -693,7 +705,6 @@ const Resume = () => {
           fileError={storageError} 
         />
 
-        {/* Chat component with fixed max height */}
         {showCareerChat && analysis && <ResumeChat resumeAnalysis={analysis} />}
       </div>
     </AppLayout>;
