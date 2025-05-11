@@ -20,6 +20,7 @@ type Message = {
   timestamp: Date;
   isStreaming?: boolean;
   displayContent?: string; // This is what will be shown to the user
+  useTypingAnimation?: boolean; // NEW: Flag to control typing animation
 };
 
 // Create storage keys for persisting chat state
@@ -56,7 +57,8 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
           // Ensure displayContent matches content for loaded messages
           const messagesWithDisplay = parsedMessages.map((msg: Message) => ({
             ...msg,
-            displayContent: msg.content
+            displayContent: msg.content,
+            useTypingAnimation: false // No typing animation for loaded messages
           }));
           setMessages(messagesWithDisplay);
         }
@@ -83,7 +85,10 @@ const ResumeChat: React.FC<ResumeChatProps> = ({ resumeAnalysis }) => {
   useEffect(() => {
     if (user && messages.length > 0) {
       // Filter out system messages before saving
-      const messagesToSave = messages.filter(msg => msg.role !== 'system');
+      const messagesToSave = messages
+        .filter(msg => msg.role !== 'system')
+        .map(({ useTypingAnimation, displayContent, ...msg }) => msg); // Remove typing-related properties
+      
       localStorage.setItem(`${STORAGE_KEYS.MESSAGES}_${user.id}`, JSON.stringify(messagesToSave));
     }
   }, [messages, user]);
@@ -167,7 +172,9 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
       id: `system-${Date.now()}`,
       role: 'system',
       content: systemContent,
-      timestamp: new Date()
+      displayContent: systemContent,
+      timestamp: new Date(),
+      useTypingAnimation: false
     };
   }, [resumeAnalysis]);
   
@@ -176,26 +183,7 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
     if (resumeAnalysis && user && !welcomeMessageShown) {
       setIsLoading(true);
       
-      // Create basic welcome message with basic info
-      const welcomeMessage: Message = {
-        id: `welcome-${Date.now()}`,
-        role: 'assistant',
-        content: `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.`,
-        displayContent: '', // Start empty for typing effect
-        timestamp: new Date(),
-      };
-      
-      // Create system message with resume context
-      const systemMessage = createSystemMessage();
-      
-      // Set initial messages with system message if available
-      setMessages(systemMessage ? [systemMessage, welcomeMessage] : [welcomeMessage]);
-      
-      // Setup for welcome message typing
-      currentStreamingIdRef.current = welcomeMessage.id;
-      contentBufferRef.current = [];
-      
-      // Try to fetch stored assessment from the database
+      // Initial operation to fetch assessment
       (async () => {
         try {
           const { data, error } = await supabase
@@ -237,7 +225,7 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
             }
           }
           
-          // Update welcome message with assessment
+          // Create welcome message with assessment - NO TYPING ANIMATION
           const fullWelcomeContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
 
 ${initialAssessment ? `**Here's my honest assessment:**
@@ -245,50 +233,56 @@ ${initialAssessment}
 
 ` : ''}Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`;
           
-          // Update message with full content but keep empty display for typing effect
-          setMessages(prev => {
-            return prev.map(msg => {
-              if (msg.id === welcomeMessage.id) {
-                return { ...msg, content: fullWelcomeContent, displayContent: '' };
-              }
-              return msg;
-            });
-          });
+          // Create welcome message with full content visible immediately - no typing animation
+          const welcomeMessage: Message = {
+            id: `welcome-${Date.now()}`,
+            role: 'assistant',
+            content: fullWelcomeContent,
+            displayContent: fullWelcomeContent, // Same as content - no need for typing animation
+            timestamp: new Date(),
+            useTypingAnimation: false // Explicitly set to false
+          };
           
-          // Add content to buffer for typing effect
-          addContentToBuffer(fullWelcomeContent);
+          // Create system message with resume context
+          const systemMessage = createSystemMessage();
           
+          // Set messages with system message (if available) and welcome message
+          setMessages(systemMessage ? [systemMessage, welcomeMessage] : [welcomeMessage]);
           setWelcomeMessageShown(true);
           localStorage.setItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`, 'true');
+          
         } catch (error) {
           console.error('Error with assessment:', error);
           
-          // Fallback message
-          const fallbackContent = `${welcomeMessage.content}
+          // Fallback welcome message - NO TYPING ANIMATION
+          const fallbackContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
 
 Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`;
           
-          // Update message with fallback content but keep empty display for typing effect
-          setMessages(prev => {
-            return prev.map(msg => {
-              if (msg.id === welcomeMessage.id) {
-                return { ...msg, content: fallbackContent, displayContent: '' };
-              }
-              return msg;
-            });
-          });
+          // Create welcome message with full content visible immediately
+          const welcomeMessage: Message = {
+            id: `welcome-${Date.now()}`,
+            role: 'assistant',
+            content: fallbackContent,
+            displayContent: fallbackContent, // Same as content - no typing animation
+            timestamp: new Date(),
+            useTypingAnimation: false
+          };
           
-          // Add content to buffer for typing effect
-          addContentToBuffer(fallbackContent);
+          // Create system message with resume context
+          const systemMessage = createSystemMessage();
           
+          // Set messages with system message (if available) and welcome message
+          setMessages(systemMessage ? [systemMessage, welcomeMessage] : [welcomeMessage]);
           setWelcomeMessageShown(true);
           localStorage.setItem(`${STORAGE_KEYS.WELCOME_SHOWN}_${user.id}`, 'true');
+          
         } finally {
           setIsLoading(false);
         }
       })();
     }
-  }, [resumeAnalysis, user, welcomeMessageShown, addContentToBuffer, createSystemMessage]);
+  }, [resumeAnalysis, user, welcomeMessageShown, createSystemMessage]);
   
   const handleSendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -299,6 +293,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
       content: inputValue,
       displayContent: inputValue,
       timestamp: new Date(),
+      useTypingAnimation: false // User messages don't need typing animation
     };
     
     // Create a placeholder streaming message
@@ -308,7 +303,8 @@ Let's start by discussing your experience: **What specific challenges did you ta
       content: '',
       displayContent: '',
       timestamp: new Date(),
-      isStreaming: true
+      isStreaming: true,
+      useTypingAnimation: true // THIS message WILL use typing animation
     };
     
     // Reset the buffer and set current streaming ID
@@ -441,8 +437,10 @@ Let's start by discussing your experience: **What specific challenges did you ta
                     return updatedMessages;
                   });
                   
-                  // Add new text to buffer for word-by-word typing
-                  addContentToBuffer(newText);
+                  // Only add to buffer if this message uses typing animation
+                  if (streamingMessage.useTypingAnimation) {
+                    addContentToBuffer(newText);
+                  }
                 }
                 // Fallback for the older completions API format
                 else if (jsonData.choices && jsonData.choices[0]?.text) {
@@ -459,7 +457,10 @@ Let's start by discussing your experience: **What specific challenges did you ta
                     return updatedMessages;
                   });
                   
-                  addContentToBuffer(newText);
+                  // Only add to buffer if this message uses typing animation
+                  if (streamingMessage.useTypingAnimation) {
+                    addContentToBuffer(newText);
+                  }
                 }
               } catch (e) {
                 console.warn('Error parsing SSE data:', e, 'Line:', line);
@@ -514,17 +515,13 @@ Let's start by discussing your experience: **What specific challenges did you ta
         id: `assistant-fallback-${Date.now()}`,
         role: 'assistant',
         content: fallbackContent,
-        displayContent: '',
+        displayContent: fallbackContent, // No typing animation for fallback
         timestamp: new Date(),
+        useTypingAnimation: false
       };
       
       // Remove any streaming messages and add fallback
       setMessages(prev => [...prev.filter(msg => !msg.isStreaming), fallbackMessage]);
-      
-      // Setup typing animation for fallback message
-      currentStreamingIdRef.current = fallbackMessage.id;
-      contentBufferRef.current = [];
-      addContentToBuffer(fallbackContent);
       
     } finally {
       setIsLoading(false);
@@ -560,7 +557,9 @@ Let's start by discussing your experience: **What specific challenges did you ta
                       className="prose prose-slate max-w-none"
                       dangerouslySetInnerHTML={{ 
                         __html: formatMessage(
-                          message.displayContent || ''
+                          // For assistant messages, use displayContent if using typing animation,
+                          // otherwise just use the full content
+                          message.useTypingAnimation ? (message.displayContent || '') : message.content
                         )
                       }}
                     />
