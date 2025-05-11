@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -380,13 +379,13 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
   };
   
   return (
-    <Card className="w-full mt-6 mb-6 flex flex-col">
-      <CardHeader className="px-4 py-3 border-b bg-gradient-to-r from-blue-500 to-blue-600">
+    <Card className="w-full mt-6 mb-6 flex flex-col max-h-[600px]">
+      <CardHeader className="px-4 py-3 border-b bg-gradient-to-r from-blue-500 to-blue-600 flex-shrink-0">
         <CardTitle className="text-lg text-white">AI Career Recommendations</CardTitle>
         <div className="text-xs text-blue-100">Get personalized career advice powered by Together.ai</div>
       </CardHeader>
       
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[500px]">
+      <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
           <div key={message.id} className={`flex ${
             message.role === 'assistant' 
@@ -436,7 +435,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
         <div ref={messagesEndRef} />
       </CardContent>
       
-      <CardFooter className="p-4 border-t">
+      <CardFooter className="p-4 border-t flex-shrink-0">
         <div className="flex space-x-2 w-full">
           <Textarea
             value={inputValue}
