@@ -380,7 +380,7 @@ Respond with helpful, specific advice as a resume coach. Be constructive, honest
   
   return (
     <div className="w-full">
-      <ScrollArea className="h-[600px] px-1"> {/* Increased height from previous ~400px */}
+      <ScrollArea className="h-[900px] px-1"> {/* Increased height from previous ~400px */}
         <div className="space-y-4 p-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${
