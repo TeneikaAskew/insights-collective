@@ -343,7 +343,7 @@ export function useResumeAnalysis() {
           .from('career_quiz_attempts')
           .select('top_recommended_path')
           .eq('user_id', user.id)
-          .order('completed_at', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(1)
           .single();
         
