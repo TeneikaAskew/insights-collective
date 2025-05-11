@@ -60,6 +60,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     setShowUrlError(false);
 
     try {
+      console.log("Starting Job Description Extraction for: ", jobUrl)
       const response = await supabase.functions.invoke('scrape-job-description', {
         body: { url: jobUrl }
       });
