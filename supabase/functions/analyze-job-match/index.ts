@@ -1,401 +1,248 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// Supabase Edge Function for resume-job matching analysis
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { corsHeaders } from '../_shared/utils.ts';
 
-// Export comprehensive CORS headers for use across the application
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
-  'Access-Control-Allow-Credentials': 'true',
-  'Access-Control-Max-Age': '86400'
-};
-
-interface JobMatchRequest {
-  jobDescription: string;
+// Custom types for our analyzer
+interface AnalysisRequest {
   resumeText: string;
+  jobDescription: string;
 }
 
 interface SkillMatch {
   skill: string;
-  found: boolean;
   importance: 'high' | 'medium' | 'low';
+  matched: boolean;
 }
 
-interface JobAnalysis {
+interface KeywordMatch {
+  keyword: string;
+  frequency: number;
+  matched: boolean;
+}
+
+interface AnalysisResult {
+  overallScore: number;
+  keywordMatches: KeywordMatch[];
+  missingKeywords: string[];
   technicalSkills: SkillMatch[];
   functionalSkills: SkillMatch[];
   responsibilities: SkillMatch[];
-  overallScore: number;
-  suggestions: string[];
+  improvementSuggestions: string[];
 }
 
-// Import directly from npm modules for token counting
-import { encoding_for_model } from "npm:@dqbd/tiktoken";
-async function countTokens(text: string, model = 'gpt-4o-mini') {
-  const enc = await encoding_for_model(model);
-  const tokenCount = enc.encode(text).length;
-  enc.free();
-  return tokenCount;
-}
-
-// Track failed endpoints globally - persist across function calls
-const failedEndpoints: Record<string, number> = {
-  ANWAN: 0,
-  GROQ: 0,
-  TOGETHER: 0
-};
-
-// Maximum failures before skipping an endpoint
-const MAX_FAILURES = 4;
-
-// Function to check if an endpoint should be skipped
-function shouldSkipEndpoint(endpoint: string): boolean {
-  return (failedEndpoints[endpoint] || 0) >= MAX_FAILURES;
-}
-
-// Function to record a failure for an endpoint
-function recordEndpointFailure(endpoint: string, isDailyLimit: boolean = false): void {
-  if (isDailyLimit) {
-    failedEndpoints[endpoint] = MAX_FAILURES;
-    console.log(`${endpoint} has reached daily rate limit - skipping for the rest of the session`);
-  } else {
-    failedEndpoints[endpoint] = (failedEndpoints[endpoint] || 0) + 1;
-    console.log(`${endpoint} failure count: ${failedEndpoints[endpoint]}/${MAX_FAILURES}`);
-  }
-}
-
-/**
- * callLLMAPI
- * • tries available endpoints in order based on their failure status
- * • skips endpoints that have failed more than MAX_FAILURES times
- *
- * @param system      System-role instructions (what the assistant "is")
- * @param user        User-role prompt (what you want it to do)
- */
-async function callLLMAPI(
-  system: string,
-  user: string
-): Promise<string> {
-  // Try endpoints in order of preference, skipping any that have exceeded failure threshold
-  const combined = [
-    `system: ${system}`,
-    `user: ${user}`
-  ].join('\n\n');
-  const n = await countTokens(combined, 'gpt-4o-mini');
-  console.log(`Prompt uses ${n} tokens`);
-  if (n > 131_072) {
-    console.warn('🚨 exceeds max context! trim or chunk it.');
-  }
-  
-  if (!shouldSkipEndpoint('ANWAN')) {
-    try {
-      return await callANWANAPI(system, user);
-    } catch (error) {
-      console.error('ANWAN API failed:', error.message);
-      // Check for daily rate limit message
-      const isDailyLimit = error.message.includes('per day') || 
-                          error.message.includes('daily limit') || 
-                          error.message.includes('wait 24 hours');
-      
-      // Only increment failure counter for rate limits or serious errors
-      if ((error as any).status === 429 || (error as any).status >= 500) {
-        recordEndpointFailure('ANWAN', isDailyLimit);
-      }
-    }
-  }
-
-  if (!shouldSkipEndpoint('GROQ')) {
-    try {
-      return await callGROQAPI(system, user);
-    } catch (error) {
-      console.error('GROQ API failed:', error.message);
-      // Check for daily rate limit message
-      const isDailyLimit = error.message.includes('per day') || 
-                          error.message.includes('daily limit') || 
-                          error.message.includes('wait 24 hours');
-      
-      if ((error as any).status === 429 || (error as any).status >= 500) {
-        recordEndpointFailure('GROQ', isDailyLimit);
-      }
-    }
-  }
-
-  if (!shouldSkipEndpoint('TOGETHER')) {
-    try {
-      return await callTOGETHERAPI(system, user);
-    } catch (error) {
-      console.error('TOGETHER API failed:', error.message);
-      // Check for daily rate limit message
-      const isDailyLimit = error.message.includes('per day') || 
-                          error.message.includes('daily limit') || 
-                          error.message.includes('wait 24 hours') ||
-                          error.message.includes('quota');
-      
-      if ((error as any).status === 429 || (error as any).status >= 500) {
-        recordEndpointFailure('TOGETHER', isDailyLimit);
-      }
-    }
-  }
-
-  // If we reached here, all viable endpoints failed
-  throw new Error('All LLM endpoints failed or are disabled due to past failures');
-}
-
-// ANWAN API call
-async function callANWANAPI(system: string, user: string): Promise<string> {
-  const ANWAN_API_KEY = Deno.env.get('ANWAN');
-  if (!ANWAN_API_KEY) throw new Error('ANWAN API key not found in environment');
-
-  const anwanUrl = 'https://api.awanllm.com/v1/chat/completions';
-  
-  const resp = await fetch(anwanUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${ANWAN_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'Meta-Llama-3-8B-Instruct',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      temperature: 0.7,
-      max_tokens: 1000
-    })
-  });
-
-  if (!resp.ok) {
-    const txt = await resp.text();
-    // Store the full response text to check for daily limit patterns
-    const error = new Error(`ANWAN API failed: ${resp.status} ${txt}`);
-    // @ts-ignore - Adding status property to Error object
-    error.status = resp.status;
-    throw error;
-  }
-
-  const json = await resp.json();
-  return json.choices?.[0]?.message?.content;
-}
-
-// GROQ API call
-async function callGROQAPI(system: string, user: string): Promise<string> {
-  const GROQ_API_KEY = Deno.env.get('GROQ');
-  if (!GROQ_API_KEY) throw new Error('GROQ API key not found in environment');
-
-  const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
-  
-  const resp = await fetch(groqUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'compound-beta-mini',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      temperature: 0.7,
-      max_tokens: 1000
-    })
-  });
-
-  if (!resp.ok) {
-    const txt = await resp.text();
-    const error = new Error(`GROQ API failed: ${resp.status} ${txt}`);
-    // @ts-ignore - Adding status property to Error object
-    error.status = resp.status;
-    throw error;
-  }
-
-  const json = await resp.json();
-  return json.choices?.[0]?.message?.content;
-}
-
-// TOGETHER API call
-async function callTOGETHERAPI(system: string, user: string): Promise<string> {
-  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
-  if (!TOGETHER_API_KEY) throw new Error('TOGETHER API key not found in environment');
-
-  const togetherUrl = 'https://api.together.xyz/v1/chat/completions';
-  
-  const resp = await fetch(togetherUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${TOGETHER_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user }
-      ],
-      temperature: 0.7,
-      max_tokens: 1000
-    })
-  });
-
-  if (!resp.ok) {
-    const txt = await resp.text();
-    const error = new Error(`TOGETHER API failed: ${resp.status} ${txt}`);
-    // @ts-ignore - Adding status property to Error object
-    error.status = resp.status;
-    throw error;
-  }
-
-  const json = await resp.json();
-  return json.choices?.[0]?.message?.content;
-}
-
-/**
- * callLLMWithRetry
- * • wraps callLLMAPI in exponential-backoff retry
- *
- * @param system      System-role instructions
- * @param user        User-role prompt
- * @param attempt     (internal) current retry number
- * @param maxAttempts Maximum retries before giving up
- */
-async function callLLMWithRetry(
-  system: string,
-  user: string,
-  attempt = 1,
-  maxAttempts = 4
-): Promise<string> {
+// Function to call LLM API (OpenAI or Together AI, etc.)
+async function callLLMAPI(resume: string, jobDescription: string) {
+  // Implement your LLM API call here - this is a simplified example
   try {
-    console.log(`callLLMWithRetry: Attempt ${attempt}/${maxAttempts}`);
-    return await callLLMAPI(system, user);
-  } catch (err: any) {
-    if (attempt < maxAttempts) {
-      // exponential backoff
-      let waitMs = 1000 * Math.pow(2, attempt);
-
-      // if error says "try again in Xs"
-      const m = err.message.match(/try again in (\d+.?\d*)s/i);
-      if (m) {
-        waitMs = Math.ceil(parseFloat(m[1]) * 1000) + 500;
-        console.log(`Extracted wait=${waitMs}ms from error message`);
-      }
-
-      // jitter
-      waitMs += Math.floor(Math.random() * 500);
-      console.log(`Waiting ${waitMs}ms before retry #${attempt+1}`);
-      await new Promise(r => setTimeout(r, waitMs));
-
-      return callLLMWithRetry(system, user, attempt + 1, maxAttempts);
+    const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
+    
+    if (!TOGETHER_API_KEY) {
+      throw new Error('Together API key not found');
     }
-
-    console.error(`Max retry attempts (${maxAttempts}) reached.`);
-    throw err;
+    
+    const prompt = `
+    You are an AI resume analyzer specialized in matching resumes to job descriptions.
+    
+    RESUME TEXT:
+    ${resume.slice(0, 4000)}
+    
+    JOB DESCRIPTION:
+    ${jobDescription.slice(0, 2000)}
+    
+    Please analyze how well the resume matches the job description according to the following criteria:
+    1. Calculate an overall compatibility score as a percentage (0-100)
+    2. Identify keywords from the job description and check if they appear in the resume
+    3. List keywords from the job description that are missing from the resume
+    4. Analyze technical skills required (with importance level high/medium/low) and check if they're in the resume
+    5. Analyze functional skills required (with importance level high/medium/low) and check if they're in the resume
+    6. Analyze responsibilities mentioned (with importance level high/medium/low) and check if they're addressed
+    7. Provide 5-7 specific suggestions for improving the resume for this job
+    
+    Format your response as valid JSON with the following structure:
+    {
+      "overallScore": number,
+      "keywordMatches": [{"keyword": string, "frequency": number, "matched": boolean}],
+      "missingKeywords": [string],
+      "technicalSkills": [{"skill": string, "importance": "high"|"medium"|"low", "matched": boolean}],
+      "functionalSkills": [{"skill": string, "importance": "high"|"medium"|"low", "matched": boolean}],
+      "responsibilities": [{"skill": string, "importance": "high"|"medium"|"low", "matched": boolean}],
+      "improvementSuggestions": [string]
+    }
+    `;
+    
+    const response = await fetch('https://api.together.xyz/v1/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${TOGETHER_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+        prompt,
+        temperature: 0.7,
+        max_tokens: 2000,
+      }),
+    });
+    
+    const result = await response.json();
+    
+    if (!result.choices || !result.choices[0] || !result.choices[0].text) {
+      throw new Error('Invalid response from Together AI');
+    }
+    
+    // Extract JSON from the response text
+    const text = result.choices[0].text.trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    
+    if (!jsonMatch) {
+      throw new Error('Could not extract JSON from API response');
+    }
+    
+    // Parse the JSON
+    try {
+      const analysisResult = JSON.parse(jsonMatch[0]);
+      return analysisResult;
+    } catch (jsonError) {
+      console.error('JSON parsing error:', jsonError);
+      throw new Error('Failed to parse JSON from API response');
+    }
+  } catch (error) {
+    console.error('LLM API call failed:', error);
+    throw error;
   }
+}
+
+// Basic keyword extraction function (fallback if API fails)
+function extractKeywords(text: string): string[] {
+  // Remove common stopwords, convert to lowercase, split by non-word characters
+  const stopwords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'of']);
+  const words = text.toLowerCase().split(/\W+/).filter(word => 
+    word.length > 3 && !stopwords.has(word)
+  );
+  
+  // Return unique words
+  return Array.from(new Set(words));
+}
+
+// Count word occurrences
+function countOccurrences(text: string, word: string): number {
+  return (text.toLowerCase().match(new RegExp(`\\b${word.toLowerCase()}\\b`, 'g')) || []).length;
+}
+
+// Fallback analysis function
+function performBasicAnalysis(resumeText: string, jobDescription: string): AnalysisResult {
+  const resumeLower = resumeText.toLowerCase();
+  const jobDescLower = jobDescription.toLowerCase();
+  
+  // Extract keywords from job description
+  const keywords = extractKeywords(jobDescLower);
+  
+  // Match keywords with resume
+  const keywordMatches = keywords.map(keyword => ({
+    keyword,
+    frequency: countOccurrences(jobDescLower, keyword),
+    matched: resumeLower.includes(keyword.toLowerCase())
+  }));
+  
+  // Get missing keywords
+  const missingKeywords = keywords.filter(keyword => 
+    !resumeLower.includes(keyword.toLowerCase())
+  );
+  
+  // Calculate match percentage
+  const matchedCount = keywordMatches.filter(k => k.matched).length;
+  const matchPercentage = Math.round((matchedCount / keywords.length) * 100);
+  
+  // Generate simple skills lists
+  const technicalSkills: SkillMatch[] = [
+    'sql', 'python', 'javascript', 'java', 'react', 'angular', 'node', 'aws', 'azure', 'docker',
+    'kubernetes', 'machine learning', 'data science', 'tableau', 'power bi'
+  ].filter(skill => jobDescLower.includes(skill))
+   .map(skill => ({
+     skill,
+     importance: countOccurrences(jobDescLower, skill) > 1 ? 'high' : 'medium',
+     matched: resumeLower.includes(skill)
+   }));
+  
+  const functionalSkills: SkillMatch[] = [
+    'leadership', 'communication', 'presentation', 'strategy', 'analysis', 'project management',
+    'team building', 'mentoring', 'collaboration', 'innovation', 'problem solving'
+  ].filter(skill => jobDescLower.includes(skill))
+   .map(skill => ({
+     skill,
+     importance: countOccurrences(jobDescLower, skill) > 1 ? 'high' : 'medium',
+     matched: resumeLower.includes(skill)
+   }));
+  
+  const responsibilities: SkillMatch[] = [
+    'manage', 'develop', 'create', 'design', 'implement', 'analyze', 'lead', 'coordinate',
+    'present', 'report', 'research', 'optimize', 'monitor'
+  ].filter(resp => jobDescLower.includes(resp))
+   .map(resp => ({
+     skill: resp,
+     importance: countOccurrences(jobDescLower, resp) > 2 ? 'high' : 'medium',
+     matched: resumeLower.includes(resp)
+   }));
+  
+  return {
+    overallScore: Math.min(100, matchPercentage),
+    keywordMatches,
+    missingKeywords,
+    technicalSkills,
+    functionalSkills,
+    responsibilities,
+    improvementSuggestions: [
+      "Add more keywords from the job description to your resume.",
+      "Include specific metrics and achievements that match the job requirements.",
+      "Tailor your professional summary to highlight relevant experience.",
+      "Consider reorganizing your resume sections to prioritize relevant skills.",
+      "Include industry-specific terminology found in the job description."
+    ]
+  };
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // Handle CORS for browser requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', { headers: corsHeaders });
   }
-
+  
   try {
-    const { jobDescription, resumeText }: JobMatchRequest = await req.json();
+    // Parse request body
+    const requestData: AnalysisRequest = await req.json();
+    const { resumeText, jobDescription } = requestData;
     
-    if (!jobDescription || !resumeText) {
+    // Validate input
+    if (!resumeText || !jobDescription) {
       return new Response(
-        JSON.stringify({ error: "Job description and resume text are required" }), 
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        }
+        JSON.stringify({ error: 'Both resume text and job description are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Truncate inputs to avoid token limits
-    const truncatedJobDescription = jobDescription.length > 2500 
-      ? jobDescription.substring(0, 2500) + "..." 
-      : jobDescription;
     
-    const truncatedResumeText = resumeText.length > 2500 
-      ? resumeText.substring(0, 2500) + "..." 
-      : resumeText;
+    // Try to use the LLM API for analysis
+    let analysisResult: AnalysisResult;
     
-    // Prepare the system prompt
-    const systemPrompt = `You are an ATS (Applicant Tracking System) expert analyzing how well a resume matches a job description.
-    You will extract important elements from the job description and check if they appear in the resume.
-    Return a JSON object with the following structure:
-    {
-      "technicalSkills": [{"skill": "skill name", "found": boolean, "importance": "high|medium|low"}],
-      "functionalSkills": [{"skill": "skill name", "found": boolean, "importance": "high|medium|low"}],
-      "responsibilities": [{"skill": "verb or responsibility", "found": boolean, "importance": "high|medium|low"}],
-      "overallScore": number (0-100),
-      "suggestions": ["suggestion 1", "suggestion 2", ...]
-    }
-    
-    Technical skills are hard skills, tools, technologies, and domain knowledge.
-    Functional skills are soft skills, methodologies, and role-specific abilities.
-    Responsibilities are duties and actions expected in the role.
-    
-    For each item, determine if it appears in the resume (found: true/false) and its importance (high/medium/low) based on emphasis and frequency in the job description.
-    Calculate an overall compatibility score (0-100).
-    Provide 3-5 specific suggestions to improve resume compatibility.`;
-
-    // Prepare the user prompt
-    const userPrompt = `Job Description:
-    ${truncatedJobDescription}
-    
-    Resume:
-    ${truncatedResumeText}
-    
-    Analyze how well this resume matches the job requirements and provide the results in the requested JSON format.`;
-
     try {
-      // Call the LLM API and parse the response
-      const llmResponse = await callLLMWithRetry(systemPrompt, userPrompt);
-      
-      // Extract the JSON response
-      let jsonMatch = llmResponse.match(/```json\n([\s\S]*?)\n```/);
-      let analysisData: JobAnalysis;
-      
-      if (jsonMatch && jsonMatch[1]) {
-        // If JSON is wrapped in code blocks
-        analysisData = JSON.parse(jsonMatch[1]);
-      } else {
-        // Try to parse the entire response as JSON
-        try {
-          analysisData = JSON.parse(llmResponse);
-        } catch (parseError) {
-          // If not valid JSON, extract anything that looks like a JSON object
-          const possibleJson = llmResponse.match(/\{[\s\S]*\}/);
-          if (possibleJson) {
-            analysisData = JSON.parse(possibleJson[0]);
-          } else {
-            throw new Error("Could not parse LLM response as JSON");
-          }
-        }
-      }
-      
-      // Return the analyzed data
-      return new Response(
-        JSON.stringify(analysisData), 
-        { 
-          headers: { ...corsHeaders, "Content-Type": "application/json" } 
-        }
-      );
-    } catch (llmError) {
-      console.error("LLM analysis error:", llmError);
-      throw new Error("Failed to analyze with AI: " + llmError.message);
+      analysisResult = await callLLMAPI(resumeText, jobDescription);
+    } catch (apiError) {
+      console.error('LLM API analysis failed, falling back to basic analysis:', apiError);
+      // Fall back to basic keyword matching
+      analysisResult = performBasicAnalysis(resumeText, jobDescription);
     }
-  } catch (error) {
-    console.error("Error in analyze-job-match function:", error);
     
     return new Response(
-      JSON.stringify({ error: error.message || "An unexpected error occurred" }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      }
+      JSON.stringify(analysisResult),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+    
+  } catch (error) {
+    console.error('Error processing request:', error);
+    
+    return new Response(
+      JSON.stringify({ error: 'Failed to analyze resume-job compatibility' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

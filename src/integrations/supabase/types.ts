@@ -1080,6 +1080,7 @@ export type Database = {
       resumes: {
         Row: {
           analysis: Json | null
+          analysis_complete: boolean | null
           career_alignment_score: number | null
           enhanced_analysis: Json | null
           fallback_analysis: Json | null
@@ -1096,6 +1097,7 @@ export type Database = {
         }
         Insert: {
           analysis?: Json | null
+          analysis_complete?: boolean | null
           career_alignment_score?: number | null
           enhanced_analysis?: Json | null
           fallback_analysis?: Json | null
@@ -1112,6 +1114,7 @@ export type Database = {
         }
         Update: {
           analysis?: Json | null
+          analysis_complete?: boolean | null
           career_alignment_score?: number | null
           enhanced_analysis?: Json | null
           fallback_analysis?: Json | null
