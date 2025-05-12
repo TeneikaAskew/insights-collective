@@ -1,14 +1,21 @@
-
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { FileUp, Download, Trash2, FileIcon } from 'lucide-react';
+import { FileUpload, FilePdfIcon, Trash2, Download } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { ResumeGrade } from '@/components/resume/ResumeGrade';
+import { ResumeFeedback } from '@/components/resume/ResumeFeedback';
+import { ResumeBullets } from '@/components/resume/ResumeBullets';
+import { ResumeElevatorPitch } from '@/components/resume/ResumeElevatorPitch';
+import { ResumeKeywords } from '@/components/resume/ResumeKeywords';
+import { ResumeCareerBenefits } from '@/components/resume/ResumeCareerBenefits';
+import { ResumePdfViewer } from '@/components/resume/ResumePdfViewer';
+import { ResumeChat } from '@/components/resume/ResumeChat';
+import { ResumeRecommendations } from '@/components/resume/ResumeRecommendations';
 import { Badge } from '@/components/ui/badge';
+import { ResumeJobMatch } from '@/components/resume/ResumeJobMatch';
 import { ResumeAnalysis } from '@/components/assistants/types';
-import { Resume } from '@/hooks/resume/useResume';
-import ResumeChat from '@/components/resume/ResumeChat';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Resume } from '@/types/supabase';
 
 // Props interface
 interface ResumeAnalysisSectionProps {
@@ -34,16 +41,6 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<string>("resume");
 
-  // Simple PDF viewer component
-  const ResumePdfViewer = ({ pdfUrl }: { pdfUrl: string }) => (
-    <iframe
-      src={`${pdfUrl}#toolbar=0&navpanes=0&view=FitH`}
-      title="Resume Preview"
-      className="w-full aspect-[8.5/11] border rounded-md"
-      style={{ height: '250px', maxHeight: '60vh' }}
-    />
-  );
-
   return (
     <div className="h-full flex flex-col">
       <Tabs 
@@ -62,7 +59,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
           {/* Resume tab content */}
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             <Card className="col-span-1">
-              <CardContent className="flex flex-col space-y-4 pt-6">
+              <CardContent className="flex flex-col space-y-4">
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-semibold">Upload Resume</h2>
                   {resume?.file_url && <Button variant="secondary" size="sm" onClick={handleDownload}>
@@ -73,13 +70,13 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 <input type="file" id="resume-upload" className="hidden" onChange={handleFileChange} />
                 <Button asChild variant="outline" disabled={loading || isAnalyzing}>
                   <label htmlFor="resume-upload" className="cursor-pointer">
-                    <FileUp className="h-4 w-4 mr-2" />
+                    <FileUpload className="h-4 w-4 mr-2" />
                     {resumeFile ? resumeFile.name : 'Select a file'}
                   </label>
                 </Button>
                 {fileError && <Badge variant="destructive">{fileError}</Badge>}
                 <div className="flex space-x-2">
-                  <Button variant="default" disabled={uploading || loading || isAnalyzing || !resumeFile} onClick={handleUpload}>
+                  <Button variant="primary" disabled={uploading || loading || isAnalyzing || !resumeFile} onClick={handleUpload}>
                     {uploading ? 'Uploading...' : 'Upload'}
                   </Button>
                   {resume && <Button variant="destructive" disabled={loading || isAnalyzing} onClick={handleDelete}>
@@ -91,10 +88,10 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             </Card>
 
             <Card className="col-span-1">
-              <CardContent className="flex flex-col space-y-4 pt-6">
+              <CardContent className="flex flex-col space-y-4">
                 <h2 className="text-lg font-semibold">Resume Preview</h2>
                 {pdfPreviewUrl ? <ResumePdfViewer pdfUrl={pdfPreviewUrl} /> : <div className="flex items-center justify-center h-48 bg-gray-100 text-gray-500 rounded-md">
-                    {resume?.file_url ? <FileIcon className="h-12 w-12" /> : 'No Preview Available'}
+                    {resume?.file_url ? <FilePdfIcon className="h-12 w-12" /> : 'No Preview Available'}
                   </div>}
               </CardContent>
             </Card>
@@ -103,67 +100,63 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
 
         <TabsContent value="analysis" className="flex-1 h-full">
           {/* Analysis tab content */}
-          {analysis && !loading && !isAnalyzing ? 
-            <ScrollArea className="h-full pr-4">
-              <div className="grid gap-4 grid-cols-1 md:grid-cols-2 mb-6">
-                <Card className="col-span-1">
-                  <CardContent className="flex flex-col space-y-4 pt-6">
-                    <h2 className="text-lg font-semibold">Resume Grade</h2>
-                    <div className="flex items-center space-x-2">
-                      <div className="text-4xl font-bold">{analysis.letter_grade}</div>
-                      <div className="text-2xl font-medium">{analysis.resume_percent}%</div>
-                    </div>
-                  </CardContent>
-                </Card>
+          {analysis && !loading && !isAnalyzing ? <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
+              <Card className="col-span-1">
+                <CardContent className="flex flex-col space-y-4">
+                  <h2 className="text-lg font-semibold">Resume Grade</h2>
+                  <ResumeGrade resumePercent={analysis.resume_percent} letterGrade={analysis.letter_grade} />
+                </CardContent>
+              </Card>
 
-                <Card className="col-span-1">
-                  <CardContent className="flex flex-col space-y-4 pt-6">
-                    <h2 className="text-lg font-semibold">Key Feedback</h2>
-                    <div className="space-y-2">
-                      {analysis.themes && analysis.themes.map((theme, index) => (
-                        <div key={index} className="p-2 bg-gray-50 rounded-md text-sm">{theme}</div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+              <Card className="col-span-1">
+                <CardContent className="flex flex-col space-y-4">
+                  <h2 className="text-lg font-semibold">Key Feedback</h2>
+                  <ResumeFeedback themes={analysis.themes} />
+                </CardContent>
+              </Card>
 
-                <Card className="col-span-1">
-                  <CardContent className="flex flex-col space-y-4 pt-6">
-                    <h2 className="text-lg font-semibold">Elevator Pitch</h2>
-                    <p className="text-sm">{analysis.elevator_pitch}</p>
-                  </CardContent>
-                </Card>
+              <Card className="col-span-1">
+                <CardContent className="flex flex-col space-y-4">
+                  <h2 className="text-lg font-semibold">Elevator Pitch</h2>
+                  <ResumeElevatorPitch elevatorPitch={analysis.elevator_pitch} />
+                </CardContent>
+              </Card>
 
-                {/* Replace with something else since keywords doesn't exist */}
-                <Card className="col-span-1">
-                  <CardContent className="flex flex-col space-y-4 pt-6">
-                    <h2 className="text-lg font-semibold">Explanation</h2>
-                    <p className="text-sm">{analysis.explanation}</p>
-                  </CardContent>
-                </Card>
+              <Card className="col-span-1">
+                <CardContent className="flex flex-col space-y-4">
+                  <h2 className="text-lg font-semibold">Key Skills & Keywords</h2>
+                  <ResumeKeywords keywords={analysis.keywords} />
+                </CardContent>
+              </Card>
 
-                {/* Replace with something else since benefits doesn't exist */}
-                <Card className="col-span-2">
-                  <CardContent className="flex flex-col space-y-4 pt-6">
-                    <h2 className="text-lg font-semibold">Bullet Points Analysis</h2>
-                    {analysis.bullets && (
-                      <div className="space-y-4">
-                        {analysis.bullets.slice(0, 3).map((bullet, index) => (
-                          <div key={index} className="border p-3 rounded-md">
-                            <p className="font-medium mb-1">Original</p>
-                            <p className="text-sm text-gray-600 mb-2">{bullet.original}</p>
-                            <p className="font-medium mb-1">Improved</p>
-                            <p className="text-sm text-gray-800">{bullet.improved_bullet}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </ScrollArea> 
-            : 
-            <Card>
+              <Card className="col-span-1">
+                <CardContent className="flex flex-col space-y-4">
+                  <h2 className="text-lg font-semibold">Career Benefits</h2>
+                  <ResumeCareerBenefits benefits={analysis.benefits} />
+                </CardContent>
+              </Card>
+
+              <Card className="col-span-1">
+                <CardContent className="flex flex-col space-y-4">
+                  <h2 className="text-lg font-semibold">Job Match</h2>
+                  <ResumeJobMatch />
+                </CardContent>
+              </Card>
+
+              <Card className="col-span-2">
+                <CardContent className="flex flex-col space-y-4">
+                  <h2 className="text-lg font-semibold">Improved Bullets</h2>
+                  <ResumeBullets bullets={analysis.bullets} />
+                </CardContent>
+              </Card>
+
+              <Card className="col-span-2">
+                <CardContent className="flex flex-col space-y-4">
+                  <h2 className="text-lg font-semibold">Recommendations</h2>
+                  <ResumeRecommendations />
+                </CardContent>
+              </Card>
+            </div> : <Card>
               <CardContent className="p-6">
                 <div className="text-center">
                   {loading || isAnalyzing ? <p className="text-muted-foreground">Analyzing your resume...</p> : <p className="text-muted-foreground">
@@ -171,8 +164,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                     </p>}
                 </div>
               </CardContent>
-            </Card>
-          }
+            </Card>}
         </TabsContent>
 
         <TabsContent value="chat" className="flex-1 flex flex-col h-full">
