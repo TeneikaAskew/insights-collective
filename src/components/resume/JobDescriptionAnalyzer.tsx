@@ -1265,7 +1265,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-blue-600 underline hover:text-blue-800"
-                    >Use this 100% ATS-optimized resume template
+                    > Use this 100% ATS-optimized resume template
                     </a> to increase your chances further.
                   </p>
                 </div>
