@@ -657,8 +657,8 @@ Let's start by discussing your experience: **What specific challenges did you ta
   };
   
   return (
-    <div className="w-full">
-      <ScrollArea className="h-[900px] px-1">
+    <div className="w-full h-full flex flex-col">
+      <ScrollArea className="flex-1 px-1 min-h-0 max-h-[calc(100vh-250px)]">
         <div className="space-y-4 p-4">
           {messages
             .filter(message => message.role !== 'system') // Hide system messages from the UI
@@ -718,7 +718,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
         </div>
       </ScrollArea>
       
-      <div className="p-4 border-t mt-2">
+      <div className="p-4 border-t mt-auto">
         <div className="flex space-x-2 w-full">
           <Textarea
             value={inputValue}
@@ -732,10 +732,8 @@ Let's start by discussing your experience: **What specific challenges did you ta
           <Button 
             onClick={handleSendMessage} 
             disabled={isLoading || !inputValue.trim()}
-            className="self-end"
-          >
+            aria-label="Send message">
             <Send className="h-4 w-4" />
-            <span className="sr-only">Send</span>
           </Button>
         </div>
       </div>
