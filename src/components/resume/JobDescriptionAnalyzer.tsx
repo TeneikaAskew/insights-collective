@@ -547,10 +547,14 @@ const analyzeJobMatch = async () => {
     const keywordScore = Math.round((matchedCount / (keywordCount || 1)) * 100);
     
     console.log(`[Job Description Analyzer] Keyword analysis complete. Match Score: ${keywordScore}%`);
-    console.log(`[Job Description Analyzer] Matched keywords: ${matchedKeywords.length}, Missing keywords: ${missingKeywords.length}`);
+    console.log(`[Job Description Analyzer] Matched keywords: ${matchedKeywords.length}, Missing keywords: ${missingKeywords.length} `);
     
     // STEP 2: Try to use AI for the skill analysis and improvement suggestions
     let analysisResult;
+    const preCalculatedKeywords = {
+      matchedKeywords: matchedKeywords.map(k => k.keyword),
+      missingKeywords: missingKeywords
+    };
     
     try {
       console.log("[Job Description Analyzer] Calling AI for skill analysis\n", processedResumeText, processedJobDescription, preCalculatedKeywords);
@@ -561,10 +565,7 @@ const analyzeJobMatch = async () => {
           resumeText: processedResumeText, 
           jobDescription: processedJobDescription,
           // Pass the pre-calculated keywords to avoid duplicating work
-          preCalculatedKeywords: {
-            matchedKeywords: matchedKeywords.map(k => k.keyword),
-            missingKeywords: missingKeywords
-          }
+          preCalculatedKeywords
         }
       });
 
