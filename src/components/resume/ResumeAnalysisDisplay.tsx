@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
@@ -136,39 +137,39 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             </div>
           ) : (
             <div className="border rounded-md p-4">
-              <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                <File className="h-6 w-6 text-primary shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm sm:text-base truncate">
+              <div className="flex items-center space-x-3">
+                <File className="h-8 w-8 text-primary" />
+                <div className="flex-1">
+                  <p className="font-medium">
                     {resumeFile ? resumeFile.name : (resume?.file_name || resume?.file_path?.split('/').pop())}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-sm text-muted-foreground">
                     {resumeFile
                       ? `${(resumeFile.size / 1024 / 1024).toFixed(2)} MB`
                       : resume?.uploaded_at ? `Uploaded on ${new Date(resume.uploaded_at).toLocaleDateString()}` : 'Previously uploaded'}
                   </p>
                 </div>
-                <div className="flex gap-1 sm:gap-2 ml-auto">
+                <div className="flex gap-2">
                   {resume?.file_url && !resumeFile && (
-                    <Button variant="outline" size="icon" onClick={handleDownload} title="Download Resume" className="h-8 w-8">
-                      <DownloadCloud className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <Button variant="outline" size="icon" onClick={handleDownload} title="Download Resume">
+                      <DownloadCloud className="h-4 w-4" />
                     </Button>
                   )}
-                  <Button variant="destructive" size="icon" onClick={handleDelete} title={resumeFile ? "Clear selection" : "Delete uploaded resume"} className="h-8 w-8">
-                    <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <Button variant="destructive" size="icon" onClick={handleDelete} title={resumeFile ? "Clear selection" : "Delete uploaded resume"}>
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                   <input
-                    type="file"
-                    accept=".pdf,.docx"
-                    id="resume-replace-display"
-                    className="hidden"
-                    onChange={handleFileChange}
-                    disabled={uploading || isAnalyzing}
-                  />
+                      type="file"
+                      accept=".pdf,.docx"
+                      id="resume-replace-display"
+                      className="hidden"
+                      onChange={handleFileChange}
+                      disabled={uploading || isAnalyzing}
+                    />
                   {(resume || resumeFile) && (
-                    <Button variant="outline" size="icon" asChild title="Replace Resume" className="h-8 w-8">
-                      <label htmlFor="resume-replace-display">
-                        <FileUp className="h-3 w-3 sm:h-4 sm:w-4" />
+                    <Button variant="outline" size="icon" asChild title="Replace Resume">
+                       <label htmlFor="resume-replace-display">
+                        <FileUp className="h-4 w-4" />
                       </label>
                     </Button>
                   )}
