@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -319,11 +318,12 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
           <TabsTrigger value="results" disabled={!analysisResult && !isAnalyzing}>Analysis Results</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="job-input" className="space-y-4 pt-4">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Job Posting URL (Optional)</h3>
-              <div className="flex flex-col sm:flex-row gap-2">
+        <TabsContent value="job-input" className="space-y-5 pt-5">
+          <div className="space-y-5">
+            {/* Job URL Input Section - Enhanced for mobile */}
+            <div className="space-y-3">
+              <h3 className="text-lg font-semibold">Job Posting URL <span className="text-sm font-normal text-muted-foreground">(Optional)</span></h3>
+              <div className="flex flex-col sm:flex-row gap-3">
                 <Input
                   placeholder="https://example.com/jobs/123"
                   value={jobUrl}
@@ -334,14 +334,19 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   onClick={handleUrlExtract} 
                   disabled={isExtracting || !jobUrl}
                   className="whitespace-nowrap"
+                  variant="secondary"
                 >
                   {isExtracting ? <Spinner size="sm" className="mr-2" /> : null}
                   {isExtracting ? "Extracting..." : "Extract Description"}
                 </Button>
               </div>
+              <p className="text-sm text-muted-foreground">
+                Paste a job posting URL and click extract to automatically import the job description
+              </p>
             </div>
             
-            <div className="space-y-2">
+            {/* Job Description Textarea - Enhanced for usability */}
+            <div className="space-y-3">
               <h3 className="text-lg font-semibold">Job Description</h3>
               <Textarea
                 placeholder="Paste the job description here..."
@@ -350,123 +355,172 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 rows={10}
                 className="resize-none"
               />
+              <p className="text-sm text-muted-foreground">
+                Enter the complete job description to get the most accurate analysis
+              </p>
             </div>
             
+            {/* Action Button - Enhanced with clear state indication */}
             <div className="pt-2">
               <Button 
                 onClick={analyzeJobMatch} 
                 disabled={isAnalyzing || !jobDescription || !resumeText}
                 className="w-full sm:w-auto"
+                size="lg"
               >
                 {isAnalyzing ? <Spinner size="sm" className="mr-2" /> : null}
-                {isAnalyzing ? "Analyzing..." : "Analyze Compatibility"}
+                {isAnalyzing ? 
+                  "Analyzing..." : 
+                  !resumeText ? 
+                    "Upload Resume First" : 
+                    !jobDescription ? 
+                      "Enter Job Description" : 
+                      "Analyze Compatibility"
+                }
               </Button>
+              {!resumeText && (
+                <p className="text-sm text-amber-600 mt-2">
+                  <AlertCircle className="h-4 w-4 inline-block mr-1" />
+                  You need to upload your resume first before analyzing
+                </p>
+              )}
             </div>
           </div>
         </TabsContent>
         
-        <TabsContent value="results" className="space-y-6 pt-4" ref={resultRef}>
+        <TabsContent value="results" className="space-y-6 pt-5" ref={resultRef}>
           {isAnalyzing ? (
             <div className="flex flex-col items-center justify-center p-8 space-y-4">
-              <Spinner size="lg" />
+              <div className="relative">
+                <Spinner size="lg" className="text-primary" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-xs font-semibold text-primary">{Math.floor(Math.random() * 30) + 70}%</span>
+                </div>
+              </div>
               <p className="text-lg font-medium text-center">
                 Analyzing your resume against the job description...
               </p>
               <p className="text-sm text-muted-foreground text-center">
-                This may take a moment as we perform a detailed analysis of compatibility.
+                Our AI is comparing your skills and experience with the job requirements.
               </p>
             </div>
           ) : analysisResult ? (
             <div className="space-y-8">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+              {/* Header Section - Redesigned */}
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-muted/20 p-4 rounded-lg">
                 <div>
-                  <h2 className="text-xl font-semibold">Job Description Analysis</h2>
-                  <p className="text-sm text-muted-foreground">Using AI-powered analysis</p>
+                  <h2 className="text-xl font-semibold">Job Match Analysis</h2>
+                  <p className="text-sm text-muted-foreground">AI-powered compatibility assessment</p>
                 </div>
-                <Button variant="outline" size="sm" onClick={copyResults}>
-                  <CopyIcon className="h-4 w-4 mr-2" />
+                <Button variant="outline" size="sm" onClick={copyResults} className="gap-2">
+                  <CopyIcon className="h-4 w-4" />
                   Copy Results
                 </Button>
               </div>
 
-              {/* Overall Compatibility Score */}
-              <div className="space-y-2">
+              {/* Overall Compatibility Score - Enhanced visual presentation */}
+              <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-medium text-lg">Overall Compatibility</h3>
-                  <span className={`text-2xl font-bold ${getScoreColor(analysisResult.overallScore)}`}>
+                  <span className={`text-2xl font-bold px-4 py-2 rounded-full ${getScoreBackground(analysisResult.overallScore)} ${getScoreColor(analysisResult.overallScore)}`}>
                     {analysisResult.overallScore}%
                   </span>
                 </div>
-                <Progress 
-                  value={analysisResult.overallScore} 
-                  className="h-3 bg-gray-100" 
-                />
+                <div className="relative pt-1">
+                  <Progress 
+                    value={analysisResult.overallScore} 
+                    className="h-3 rounded-full" 
+                    indicatorClassName={`rounded-full ${
+                      analysisResult.overallScore >= 80 ? 'bg-green-500' : 
+                      analysisResult.overallScore >= 60 ? 'bg-amber-500' : 
+                      'bg-red-500'
+                    }`}
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>Low Match</span>
+                    <span>Moderate Match</span>
+                    <span>Strong Match</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Keyword Analysis with Tabs */}
+              {/* Keyword Analysis with Tabs - Enhanced for clarity */}
               <div className="space-y-4">
                 <h3 className="font-medium text-lg">Keyword Evaluation</h3>
                 <Tabs defaultValue="matched" className="w-full">
                   <TabsList className="grid grid-cols-2 mb-4">
                     <TabsTrigger value="matched">
-                      Matched Keywords
-                      <span className="ml-2 bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded">
-                        {analysisResult.keywordMatches.filter(k => k.matched).length}
+                      <span className="flex items-center gap-1">
+                        <Check className="h-4 w-4 text-green-600" />
+                        Matched Keywords 
+                        <Badge variant="outline" className="bg-green-100 text-green-800 ml-1">
+                          {analysisResult.keywordMatches.filter(k => k.matched).length}
+                        </Badge>
                       </span>
                     </TabsTrigger>
                     <TabsTrigger value="missing">
-                      Missing Keywords
-                      <span className="ml-2 bg-red-100 text-red-800 text-xs font-medium px-2 py-0.5 rounded">
-                        {analysisResult.missingKeywords.length}
+                      <span className="flex items-center gap-1">
+                        <X className="h-4 w-4 text-red-600" />
+                        Missing Keywords
+                        <Badge variant="outline" className="bg-red-100 text-red-800 ml-1">
+                          {analysisResult.missingKeywords.length}
+                        </Badge>
                       </span>
                     </TabsTrigger>
                   </TabsList>
                   <TabsContent value="matched" className="mt-0">
-                    <div className="bg-muted/30 rounded-md p-4">
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Keywords in the job description that appear in your resume:
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {analysisResult.keywordMatches
-                          .filter(k => k.matched)
-                          .map((match, index) => (
-                            <Badge key={index} className="bg-green-100 text-green-800 border border-green-200">
-                              {match.keyword} {match.frequency > 1 ? `${match.frequency}×` : ''}
-                            </Badge>
-                          ))
-                        }
-                        {analysisResult.keywordMatches.filter(k => k.matched).length === 0 && (
-                          <p className="text-sm italic text-muted-foreground">No matched keywords found</p>
-                        )}
-                      </div>
-                    </div>
+                    <Card className="border-green-100">
+                      <CardContent className="p-4">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Keywords in the job description that appear in your resume:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {analysisResult.keywordMatches
+                            .filter(k => k.matched)
+                            .map((match, index) => (
+                              <Badge key={index} className="bg-green-100 text-green-800 border border-green-200 py-1">
+                                {match.keyword} {match.frequency > 1 ? `${match.frequency}×` : ''}
+                              </Badge>
+                            ))
+                          }
+                          {analysisResult.keywordMatches.filter(k => k.matched).length === 0 && (
+                            <p className="text-sm italic text-muted-foreground">No matched keywords found</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
                   <TabsContent value="missing" className="mt-0">
-                    <div className="bg-muted/30 rounded-md p-4">
-                      <p className="text-sm text-muted-foreground mb-3">
-                        Important keywords in the job description missing from your resume:
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {analysisResult.missingKeywords.map((keyword, index) => (
-                          <Badge key={index} variant="outline" className="bg-red-50 border-red-200">
-                            {keyword}
-                          </Badge>
-                        ))}
-                        {analysisResult.missingKeywords.length === 0 && (
-                          <p className="text-sm italic text-muted-foreground">No missing keywords found</p>
-                        )}
-                      </div>
-                    </div>
+                    <Card className="border-red-100">
+                      <CardContent className="p-4">
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Important keywords in the job description missing from your resume:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {analysisResult.missingKeywords.map((keyword, index) => (
+                            <Badge key={index} variant="outline" className="bg-red-50 border-red-200 py-1">
+                              {keyword}
+                            </Badge>
+                          ))}
+                          {analysisResult.missingKeywords.length === 0 && (
+                            <p className="text-sm italic text-muted-foreground">No missing keywords found</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
                 </Tabs>
               </div>
               
-              {/* Skills Section */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Skills Section - Enhanced for better readability */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Technical Skills */}
                 <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <h4 className="font-semibold">Technical Skills</h4>
+                  <CardContent className="p-4 pt-5 space-y-3">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Badge className="bg-blue-100 text-blue-800 rounded-sm">Technical</Badge>
+                      Skills
+                    </h4>
                     <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.technicalSkills.map((skill, index) => (
@@ -491,8 +545,11 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 
                 {/* Functional Skills */}
                 <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <h4 className="font-semibold">Functional Skills</h4>
+                  <CardContent className="p-4 pt-5 space-y-3">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Badge className="bg-purple-100 text-purple-800 rounded-sm">Functional</Badge>
+                      Skills
+                    </h4>
                     <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.functionalSkills.map((skill, index) => (
@@ -517,8 +574,11 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 
                 {/* Responsibilities */}
                 <Card>
-                  <CardContent className="p-4 space-y-3">
-                    <h4 className="font-semibold">Responsibilities</h4>
+                  <CardContent className="p-4 pt-5 space-y-3">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Badge className="bg-amber-100 text-amber-800 rounded-sm">Key</Badge>
+                      Responsibilities
+                    </h4>
                     <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.responsibilities.map((resp, index) => (
@@ -542,22 +602,28 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </Card>
               </div>
               
-              {/* Improvement Suggestions */}
-              <Card className={`${getScoreBackground(analysisResult.overallScore)} border-0`}>
+              {/* Improvement Suggestions - Enhanced visual appeal */}
+              <Card className={`${getScoreBackground(analysisResult.overallScore)} border-0 overflow-hidden`}>
+                <div className="absolute top-0 right-0 w-24 h-24 bg-black/5 rounded-full -mr-12 -mt-12"></div>
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-center gap-2">
                     <TrendingUp className={`h-5 w-5 ${getScoreColor(analysisResult.overallScore)}`} />
                     <h3 className="font-semibold">Improvement Suggestions</h3>
                   </div>
-                  <ul className="space-y-2 list-disc pl-5">
+                  <ul className="space-y-3 list-none">
                     {analysisResult.improvementSuggestions.map((suggestion, index) => (
-                      <li key={index} className="text-sm">{suggestion}</li>
+                      <li key={index} className="flex items-start gap-2">
+                        <span className="flex-shrink-0 rounded-full bg-white w-5 h-5 flex items-center justify-center mt-0.5">
+                          {index + 1}
+                        </span>
+                        <span className="text-sm">{suggestion}</span>
+                      </li>
                     ))}
                   </ul>
                 </CardContent>
               </Card>
 
-              {/* Pro Tip */}
+              {/* Pro Tip - Enhanced visual appeal */}
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start space-x-3">
                 <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>

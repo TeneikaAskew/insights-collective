@@ -99,9 +99,11 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     );
   };
 
-  return (
-    <div className="space-y-6">
-      <Card>
+  // BEGIN REORGANIZED LAYOUT
+  // First section is the Upload Card, always visible at the top
+  const renderUploadCard = () => {
+    return (
+      <Card className="mb-6">
         <CardHeader>
           <CardTitle>Your Resume</CardTitle>
           <CardDescription>
@@ -118,7 +120,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           )}
 
           {(!resume && !resumeFile) ? (
-            <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-10 text-center">
+            <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-8 text-center">
               <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
               <p className="text-muted-foreground mb-4">Drag and drop your resume here, or click to browse</p>
               <input
@@ -188,6 +190,13 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           </CardFooter>
         )}
       </Card>
+    );
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Always show Upload Card at the top */}
+      {renderUploadCard()}
 
       {needsImprovementAlert && (
         <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
@@ -198,6 +207,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           </AlertDescription>
         </Alert>
       )}
+      
       {excellentResumeAlert && (
         <Alert className="bg-green-50 text-green-800 border-green-200">
           <Sparkles className="h-4 w-4 text-green-600" />
@@ -211,8 +221,9 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       {(analysis || resume || resumeFile) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1 order-2 md:order-1">
+            {/* Preview Section - Moved to appear below upload div */}
             {(resume || resumeFile) && (
-              <Card>
+              <Card className="mb-6">
                 <CardHeader>
                   <CardTitle>Resume Preview</CardTitle>
                 </CardHeader>
@@ -223,7 +234,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             )}
 
             {analysis && (
-              <Card className="mt-6">
+              <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
@@ -280,7 +291,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                   <p className="text-muted-foreground">
                     {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
                   </p>
-                   {!resumeFile && !resume && ( <Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
+                  {!resumeFile && !resume && ( <Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
                 </CardContent>
               </Card>
             )}
