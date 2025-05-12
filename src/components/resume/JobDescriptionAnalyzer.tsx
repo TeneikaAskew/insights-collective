@@ -65,12 +65,12 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
         body: { url: jobUrl }
       });
 
-      console.log("Job Description Response: ", response)
+      // console.log("Job Description Response: ", response)
       console.log("Job Description Response: ", response.data)
 
-      if (response.data?.description) {
+      if (response.data?.jobDescription) {
         
-        setJobDescription(response.data.description);
+        setJobDescription(response.data.jobDescription);
         toast({
           title: "Job description extracted",
           description: "Successfully extracted content from the URL."
