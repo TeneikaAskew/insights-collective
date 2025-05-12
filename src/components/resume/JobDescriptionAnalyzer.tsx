@@ -81,12 +81,12 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
         setJobDescription(data.jobDescription);
         toast({
           title: "Description Extracted",
-          jobDescription: "Job description was successfully extracted",
+          description: "Job description was successfully extracted",
         });
       } else {
         toast({
           title: "Extraction Failed",
-          jobDescription: "Could not extract job description from URL",
+          description: "Could not extract job description from URL",
           variant: "destructive",
         });
       }
@@ -429,11 +429,10 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 <div className="relative pt-1">
                   <Progress 
                     value={analysisResult.overallScore} 
-                    className="h-3 rounded-full" 
-                    indicatorClassName={`rounded-full ${
-                      analysisResult.overallScore >= 80 ? 'bg-green-500' : 
-                      analysisResult.overallScore >= 60 ? 'bg-amber-500' : 
-                      'bg-red-500'
+                    className={`h-3 rounded-full ${
+                      analysisResult.overallScore >= 80 ? 'bg-gray-200 [&>div]:bg-green-500' : 
+                      analysisResult.overallScore >= 60 ? 'bg-gray-200 [&>div]:bg-amber-500' : 
+                      'bg-gray-200 [&>div]:bg-red-500'
                     }`}
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
