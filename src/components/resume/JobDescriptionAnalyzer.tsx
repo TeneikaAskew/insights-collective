@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Copy, CheckCircle, AlertCircle, ExternalLink, Search } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { removeStopwords, eng } from './dist/stopword.esm.mjs';
+// import { removeStopwords, eng } from './dist/stopword.esm.mjs';
+import { removeStopwords, eng } from 'stopword';
 
 interface JobDescriptionAnalyzerProps {
   resumeText: string | null;
