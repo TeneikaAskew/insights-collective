@@ -254,7 +254,9 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       
       // Use the original or filtered text based on your preference
       // You can switch between these two approaches
-      const useFiltering = false; // Set to true to use stopword filtering before sending to AI
+      // const useFiltering = false; // Set to true to use stopword filtering before sending to AI
+      
+      const useFiltering = true; // Set to true to use stopword filtering before sending to AI
       
       const response = await supabase.functions.invoke('analyze-job-match', {
         body: { 
