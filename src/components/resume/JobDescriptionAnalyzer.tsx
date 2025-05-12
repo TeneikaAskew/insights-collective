@@ -147,7 +147,8 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     "thank", "thanks", "contact", "email", "phone", "resume", "cover", "letter", "today", "ago", "new", "old",
     "good", "great", "best", "better", "within", "www", "http", "https", "com", "org", "net", "know", "knowledge",
     "information", "info", "provide", "provides", "provided", "providing", "support", "supports", "supported",
-    "supporting", "include", "includes", "including", "included", "ensure", "ensures", "ensuring", "ensured"
+    "supporting", "include", "includes", "including", "included", "ensure", "ensures", "ensuring", "ensured", 
+    "gender", "religion", "sex", "age"
   ];
     // Function to remove stopwords manually
   const removeStopwords = (words: string[], stopwords: string[]): string[] => {
