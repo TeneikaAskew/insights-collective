@@ -503,6 +503,15 @@ export function useResumeAnalysis() {
             userId: user.id
           }
         });
+
+        console.log("Edge function raw response:", {
+          data: analysisData,
+          error,
+          dataType: typeof analysisData,
+          isNull: analysisData === null,
+          isUndefined: analysisData === undefined,
+          hasProperties: analysisData ? Object.keys(analysisData).length : 'N/A'
+        });
         
         if (error) {
           console.error("Edge function error:", error);
