@@ -14,7 +14,6 @@ const getUserId = async () => {
   const {
     data
   } = await supabase.auth.getUser();
-  
   return data?.user?.id;
 };
 interface OverallScoreCardProps {
@@ -44,21 +43,21 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   const {
     careerAlignments
   } = useResumeAnalysis();
-  // const { user } = useAuth(); // Add useAuth hook to access user information
+  
+  const { user } = useAuth(); // Add useAuth hook to access user information
+  console.log('Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
+  console.log('Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
+  console.log('Resume data:', localStorage.getItem(`resume_data_${user.id}`));
 
-  // // Use user.id safely with optional chaining to prevent errors if user is null
-  // console.log('[OverallScoreCard] Resume analysis data:', userId ? localStorage.getItem(`resume_analysis_${userId}`) : 'No user ID available');
-  // console.log('[OverallScoreCard] Resume text data:', userId ? localStorage.getItem(`resume_text_${userId}`) : 'No user ID available');
-  // console.log('[OverallScoreCard] Resume data:', userId ? localStorage.getItem(`resume_data_${userId}`) : 'No user ID available');
+
+  // Use user.id safely with optional chaining to prevent errors if user is null
+  console.log('[OverallScoreCard] Resume analysis data:', user?.id ? localStorage.getItem(`resume_analysis_${userId}`) : 'No user ID available');
+  console.log('[OverallScoreCard] Resume text data:', user?.id ? localStorage.getItem(`resume_text_${userId}`) : 'No user ID available');
+  console.log('[OverallScoreCard] Resume data:', user?.id ? localStorage.getItem(`resume_data_${userId}`) : 'No user ID available');
 
 
   // Check for roast (keep existing functionality)
   useEffect(() => {
-      // Use user.id safely with optional chaining to prevent errors if user is null
-    console.log('[OverallScoreCard] Resume analysis data:', userId ? localStorage.getItem(`resume_analysis_${userId}`) : 'No user ID available');
-    console.log('[OverallScoreCard] Resume text data:', userId ? localStorage.getItem(`resume_text_${userId}`) : 'No user ID available');
-    console.log('[OverallScoreCard] Resume data:', userId ? localStorage.getItem(`resume_data_${userId}`) : 'No user ID available');
-
     console.log("Checking if roast exists yet for: ", userId);
     if (userId) {
       const checkForRoast = async () => {
