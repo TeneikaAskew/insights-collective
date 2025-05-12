@@ -315,11 +315,13 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
 
     // Persist analysis and trigger roast
     if (userId) {
-      await supabase.from('resumes').update({ analysis: enhanced, updated_at: new Date().toISOString() })
+      await supabase.from('resumes').update({ analysis: enhanced, analysis_complete: true, updated_at: new Date().toISOString() })
         .eq('user_id', userId);
       console.log('Saved analysis to database');
      
     }
+
+      console.log('Successfully updated analysis_complete to TRUE for user:', userId);
 
     return enhanced;
 
