@@ -157,13 +157,13 @@ const ATSScoreCard: React.FC<ATSScoreCardProps> = ({ analysis }) => {
               <AlertCircle className="h-5 w-5 text-blue-600 mr-3 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm text-blue-900">
-                  <span className="font-medium">Pro Tip:</span> Most employers use ATS systems to filter resumes. A score above 80% significantly increases your chances of getting past automated filters and into human hands.
+                  <span className="font-medium">Pro Tip:</span> Most employers use ATS systems to filter resumes. A score above 80% significantly increases your chances of getting past automated filters and into human hands. 
                   <a 
                       href="https://docs.google.com/document/d/1CKGglaXyYad16IFiYSDpGd2ofro5dYmi4eD1JNeHkD4/edit?usp=sharing" 
                       target="_blank" 
                       rel="noopener noreferrer"
                       className="text-blue-600 underline hover:text-blue-800"
-                    > Use this 100% ATS-optimized resume template
+                    >Use this 100% ATS-optimized resume template
                     </a> to increase your chances further.
                 </p>
               </div>
