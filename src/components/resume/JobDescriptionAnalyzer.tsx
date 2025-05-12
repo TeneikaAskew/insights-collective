@@ -406,8 +406,8 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       // Apply text filtering if enabled
       const processedResumeText = useFiltering ? filterText(resumeText) : resumeText;
       const processedJobDescription = useFiltering ? filterText(jobDescription) : jobDescription;
-      console.log("[Job Description Analyzer] Processed Resume to API: ", processedResumeText)
-      console.log("[Job Description Analyzer] Processed JD to API: ", processedJobDescription)
+      console.log("[Job Description Analyzer] Processed Resume to API: ", processedResumeText[:4000])
+      console.log("[Job Description Analyzer] Processed JD to API: ", processedJobDescription[:2000])
       
       // First try to use the AI-powered analysis
       let result;
