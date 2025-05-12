@@ -538,7 +538,7 @@ const analyzeJobMatch = async () => {
     // Extract missing keywords (limit to 50)
     const missingKeywords = sortedKeywords
       .filter(kw => kw.resumeFrequency === 0)
-      .slice(0, 50)
+      .slice(0, 150)
       .map(kw => kw.keyword);
     
     // Calculate basic match score based on keyword matches
