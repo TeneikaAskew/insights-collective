@@ -1,4 +1,4 @@
-consteng=[
+const eng=[
 'about',
 'after',
 'all',
@@ -119,7 +119,7 @@ consteng=[
 'against',
 
 'aren't',
-'aren’t',
+'aren't',
 'arent',
 'ask',
 'asking',
@@ -140,7 +140,7 @@ consteng=[
 'brief',
 'briefly',
 'beyond',
-'can’t',
+'can't',
 'cannot',
 'causes',
 'certain',
