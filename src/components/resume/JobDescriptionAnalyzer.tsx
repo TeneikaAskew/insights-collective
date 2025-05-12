@@ -179,162 +179,268 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       // Rejoin the filtered words
       return filteredWords.join(' ');
     };
-
-  // Evaluate keywords with advanced stopword handling
-  const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluation[] => {
-    // Apply text filtering if enabled
-    const processedJobText = filterText(jobText);
-    const processedResumeText = filterText(resumeText);
+// Enhanced evaluateKeywords function for better keyword extraction and matching
+const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluation[] => {
+  // Apply text filtering (this is already done in the main function)
+  const processedJobText = jobText;
+  const processedResumeText = resumeText;
+  
+  // Convert to lowercase for case-insensitive matching
+  const jobTextLower = processedJobText.toLowerCase();
+  const resumeTextLower = processedResumeText.toLowerCase();
+  
+  // Clean and extract words from job description
+  const jobWords = jobTextLower
+    .replace(/[^\w\s-]/g, ' ')   // Remove punctuation except hyphens
+    .split(/\s+/)                // Split by whitespace
+    .filter(word => 
+      (word.length > 2 || FILTERING_CONFIG.importantShortTerms.includes(word)) && // Keep important short terms
+      !/^\d+$/.test(word)        // Filter out numbers
+    );
+  
+  // Remove stopwords if filtering is enabled
+  const filteredJobWords = useFiltering ? 
+    removeStopwords(jobWords, [...eng, ...jobStopwords]) : 
+    jobWords;
+  
+  // Count frequency of each word in job description
+  const jobWordFrequency: {[key: string]: number} = {};
+  filteredJobWords.forEach(word => {
+    jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
+  });
+  
+  // Extract important compound terms (2-3 word phrases that appear multiple times)
+  const extractCompoundTerms = (text: string): {[key: string]: number} => {
+    const result: {[key: string]: number} = {};
+    const words = text.toLowerCase()
+      .replace(/[^\w\s-]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length > 2 && !/^\d+$/.test(w));
     
-    // Clean and extract words from job description
-    // const jobWords = jobText.toLowerCase()
-    //   .replace(/[^\w\s-]/g, ' ')   // Remove punctuation except hyphens
-    //   .split(/\s+/)                // Split by whitespace
-    //   .filter(word => 
-    //     word.length > 2 &&         // Filter out very short words
-    //     !/^\d+$/.test(word)        // Filter out numbers
-    //   );
-
-    // Clean and extract words from job description
-    const jobWords = processedJobText.split(/\s+/);
-    
-    // Use our custom removeStopwords function
-    // const filteredJobWords = removeStopwords(jobWords, [...eng, ...jobStopwords]);
-    
-    // // Count frequency of each meaningful word in job description
-    // const jobWordFrequency: {[key: string]: number} = {};
-    // filteredJobWords.forEach(word => {
-    //   jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
-    // });
-    
-    // // Also look for important compound terms (2-3 word phrases that appear multiple times)
-    // const extractCompoundTerms = (text: string): {[key: string]: number} => {
-    //   const result: {[key: string]: number} = {};
-    //   const words = text.toLowerCase().replace(/[^\w\s-]/g, ' ').split(/\s+/);
-    //   const filteredWords = removeStopwords(words, [...eng, ...jobStopwords]);
+    if (useFiltering) {
+      // Only look for compound terms with meaningful words
+      const filteredWords = removeStopwords(words, [...eng, ...jobStopwords]);
       
-    //   // Create a map to preserve original positions after stopword removal
-    //   const positionMap: number[] = [];
-    //   words.forEach((word, index) => {
-    //     if (word.length > 2 && ![...eng, ...jobStopwords].includes(word) && !/^\d+$/.test(word)) {
-    //       positionMap.push(index);
-    //     }
-    //   });
-      
-    //   // Extract 2-word and 3-word phrases from filtered words
-    //   for (let i = 0; i < filteredWords.length - 1; i++) {
-    //     // Check if these filtered words were originally adjacent in the text
-    //     const origPos1 = positionMap[i];
-    //     const origPos2 = positionMap[i+1];
-        
-    //     if (origPos2 - origPos1 <= 2) { // Allow for one stopword in between
-    //       // 2-word phrase
-    //       const phrase = `${filteredWords[i]} ${filteredWords[i+1]}`;
-    //       result[phrase] = (result[phrase] || 0) + 1;
-    //     }
-        
-    //     // 3-word phrase
-    //     if (i < filteredWords.length - 2) {
-    //       const origPos3 = positionMap[i+2];
-          
-    //       if (origPos3 - origPos1 <= 4) { // Allow for stopwords in between
-    //         const phrase = `${filteredWords[i]} ${filteredWords[i+1]} ${filteredWords[i+2]}`;
-    //         result[phrase] = (result[phrase] || 0) + 1;
-    //       }
-    //     }
-    //   }
-      
-    //   return result;
-    // };
-    
-    // const compoundTerms = extractCompoundTerms(jobText);
-
-    // Count frequency of each word in job description
-    const jobWordFrequency: {[key: string]: number} = {};
-    jobWords.forEach(word => {
-      jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
-    });
-    
-    // Also look for important compound terms (2-3 word phrases that appear multiple times)
-    const extractCompoundTerms = (text: string): {[key: string]: number} => {
-      const result: {[key: string]: number} = {};
-      const words = text.split(/\s+/);
-      
-      // Create a map to preserve original positions
-      const positionMap: number[] = [];
-      words.forEach((word, index) => {
-        positionMap.push(index);
-      });
-      
-      // Extract 2-word and 3-word phrases
-      for (let i = 0; i < words.length - 1; i++) {
-        // Check if these words were originally adjacent in the text
-        const origPos1 = positionMap[i];
-        const origPos2 = positionMap[i+1];
-        
-        if (origPos2 - origPos1 <= 2) { // Allow for one stopword in between
-          // 2-word phrase
-          const phrase = `${words[i]} ${words[i+1]}`;
-          result[phrase] = (result[phrase] || 0) + 1;
-        }
-        
-        // 3-word phrase
-        if (i < words.length - 2) {
-          const origPos3 = positionMap[i+2];
-          
-          if (origPos3 - origPos1 <= 4) { // Allow for stopwords in between
-            const phrase = `${words[i]} ${words[i+1]} ${words[i+2]}`;
-            result[phrase] = (result[phrase] || 0) + 1;
-          }
-        }
+      // Extract 2-word phrases from filtered words
+      for (let i = 0; i < filteredWords.length - 1; i++) {
+        const phrase = `${filteredWords[i]} ${filteredWords[i+1]}`;
+        result[phrase] = (result[phrase] || 0) + 1;
       }
       
-      return result;
-    };
-    
-    const compoundTerms = extractCompoundTerms(processedJobText);
-    
-    // Merge single words and important compound terms
-    for (const [term, count] of Object.entries(compoundTerms)) {
-      if (count >= 2) { // Only include terms that appear at least twice
-        jobWordFrequency[term] = count;
+      // Extract 3-word phrases
+      for (let i = 0; i < filteredWords.length - 2; i++) {
+        const phrase = `${filteredWords[i]} ${filteredWords[i+1]} ${filteredWords[i+2]}`;
+        result[phrase] = (result[phrase] || 0) + 1;
+      }
+    } else {
+      // If filtering is disabled, use all words for compound terms
+      for (let i = 0; i < words.length - 1; i++) {
+        const phrase = `${words[i]} ${words[i+1]}`;
+        result[phrase] = (result[phrase] || 0) + 1;
+      }
+      
+      for (let i = 0; i < words.length - 2; i++) {
+        const phrase = `${words[i]} ${words[i+1]} ${words[i+2]}`;
+        result[phrase] = (result[phrase] || 0) + 1;
       }
     }
     
-    // Get top keywords by frequency (words that appear multiple times)
-    const keywordsToEvaluate = Object.entries(jobWordFrequency)
-      .filter(([_, count]) => count >= 2)  // Only words that appear at least twice
-      .sort((a, b) => b[1] - a[1])         // Sort by frequency, highest first
-      .slice(0, 30)                        // Take top 30 keywords
-      .map(([word]) => word);
+    return result;
+  };
+  
+  const compoundTerms = extractCompoundTerms(processedJobText);
+  
+  // Merge single words and important compound terms
+  for (const [term, count] of Object.entries(compoundTerms)) {
+    if (count >= 2) { // Only include terms that appear at least twice
+      jobWordFrequency[term] = count;
+    }
+  }
+  
+  // Get top keywords by frequency (words that appear multiple times)
+  const keywordsToEvaluate = Object.entries(jobWordFrequency)
+    .filter(([_, count]) => count >= 2)  // Only words that appear at least twice
+    .sort((a, b) => b[1] - a[1])         // Sort by frequency, highest first
+    .slice(0, 100)                       // Take top 100 keywords (we'll limit matched/unmatched later)
+    .map(([word]) => word);
+  
+  // Now evaluate each keyword's presence in resume
+  const keywordEvaluation: KeywordEvaluation[] = keywordsToEvaluate.map(keyword => {
+    // Create a regex to properly count occurrences with word boundaries
+    const escapedKeyword = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const keywordRegex = new RegExp(`\\b${escapedKeyword}\\b`, 'gi');
+    const resumeMatches = (resumeTextLower.match(keywordRegex) || []).length;
+    const jobMatches = jobWordFrequency[keyword];
     
-    // Now evaluate each keyword's presence in resume
-    const keywordEvaluation: KeywordEvaluation[] = keywordsToEvaluate.map(keyword => {
-      // Count occurrences in resume
-      // const resumeLower = resumeText.toLowerCase();
-      // const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'g');
-      // const resumeMatches = (resumeLower.match(keywordRegex) || []).length;
-      // const jobMatches = jobWordFrequency[keyword];
+    // Calculate a match percentage (capped at 100%)
+    const matchPercentage = Math.min(100, Math.round((resumeMatches / jobMatches) * 100));
+    
+    return {
+      keyword,
+      jobFrequency: jobMatches,
+      resumeFrequency: resumeMatches,
+      matchPercentage,
+      isImportant: jobMatches >= 3  // Consider keywords that appear 3+ times as important
+    };
+  });
+  
+  return keywordEvaluation;
+};
+  // // Evaluate keywords with advanced stopword handling
+  // const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluation[] => {
+  //   // Apply text filtering if enabled
+  //   const processedJobText = filterText(jobText);
+  //   const processedResumeText = filterText(resumeText);
+    
+  //   // Clean and extract words from job description
+  //   // const jobWords = jobText.toLowerCase()
+  //   //   .replace(/[^\w\s-]/g, ' ')   // Remove punctuation except hyphens
+  //   //   .split(/\s+/)                // Split by whitespace
+  //   //   .filter(word => 
+  //   //     word.length > 2 &&         // Filter out very short words
+  //   //     !/^\d+$/.test(word)        // Filter out numbers
+  //   //   );
+
+  //   // Clean and extract words from job description
+  //   const jobWords = processedJobText.split(/\s+/);
+    
+  //   // Use our custom removeStopwords function
+  //   // const filteredJobWords = removeStopwords(jobWords, [...eng, ...jobStopwords]);
+    
+  //   // // Count frequency of each meaningful word in job description
+  //   // const jobWordFrequency: {[key: string]: number} = {};
+  //   // filteredJobWords.forEach(word => {
+  //   //   jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
+  //   // });
+    
+  //   // // Also look for important compound terms (2-3 word phrases that appear multiple times)
+  //   // const extractCompoundTerms = (text: string): {[key: string]: number} => {
+  //   //   const result: {[key: string]: number} = {};
+  //   //   const words = text.toLowerCase().replace(/[^\w\s-]/g, ' ').split(/\s+/);
+  //   //   const filteredWords = removeStopwords(words, [...eng, ...jobStopwords]);
+      
+  //   //   // Create a map to preserve original positions after stopword removal
+  //   //   const positionMap: number[] = [];
+  //   //   words.forEach((word, index) => {
+  //   //     if (word.length > 2 && ![...eng, ...jobStopwords].includes(word) && !/^\d+$/.test(word)) {
+  //   //       positionMap.push(index);
+  //   //     }
+  //   //   });
+      
+  //   //   // Extract 2-word and 3-word phrases from filtered words
+  //   //   for (let i = 0; i < filteredWords.length - 1; i++) {
+  //   //     // Check if these filtered words were originally adjacent in the text
+  //   //     const origPos1 = positionMap[i];
+  //   //     const origPos2 = positionMap[i+1];
+        
+  //   //     if (origPos2 - origPos1 <= 2) { // Allow for one stopword in between
+  //   //       // 2-word phrase
+  //   //       const phrase = `${filteredWords[i]} ${filteredWords[i+1]}`;
+  //   //       result[phrase] = (result[phrase] || 0) + 1;
+  //   //     }
+        
+  //   //     // 3-word phrase
+  //   //     if (i < filteredWords.length - 2) {
+  //   //       const origPos3 = positionMap[i+2];
+          
+  //   //       if (origPos3 - origPos1 <= 4) { // Allow for stopwords in between
+  //   //         const phrase = `${filteredWords[i]} ${filteredWords[i+1]} ${filteredWords[i+2]}`;
+  //   //         result[phrase] = (result[phrase] || 0) + 1;
+  //   //       }
+  //   //     }
+  //   //   }
+      
+  //   //   return result;
+  //   // };
+    
+  //   // const compoundTerms = extractCompoundTerms(jobText);
+
+  //   // Count frequency of each word in job description
+  //   const jobWordFrequency: {[key: string]: number} = {};
+  //   jobWords.forEach(word => {
+  //     jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
+  //   });
+    
+  //   // Also look for important compound terms (2-3 word phrases that appear multiple times)
+  //   const extractCompoundTerms = (text: string): {[key: string]: number} => {
+  //     const result: {[key: string]: number} = {};
+  //     const words = text.split(/\s+/);
+      
+  //     // Create a map to preserve original positions
+  //     const positionMap: number[] = [];
+  //     words.forEach((word, index) => {
+  //       positionMap.push(index);
+  //     });
+      
+  //     // Extract 2-word and 3-word phrases
+  //     for (let i = 0; i < words.length - 1; i++) {
+  //       // Check if these words were originally adjacent in the text
+  //       const origPos1 = positionMap[i];
+  //       const origPos2 = positionMap[i+1];
+        
+  //       if (origPos2 - origPos1 <= 2) { // Allow for one stopword in between
+  //         // 2-word phrase
+  //         const phrase = `${words[i]} ${words[i+1]}`;
+  //         result[phrase] = (result[phrase] || 0) + 1;
+  //       }
+        
+  //       // 3-word phrase
+  //       if (i < words.length - 2) {
+  //         const origPos3 = positionMap[i+2];
+          
+  //         if (origPos3 - origPos1 <= 4) { // Allow for stopwords in between
+  //           const phrase = `${words[i]} ${words[i+1]} ${words[i+2]}`;
+  //           result[phrase] = (result[phrase] || 0) + 1;
+  //         }
+  //       }
+  //     }
+      
+  //     return result;
+  //   };
+    
+  //   const compoundTerms = extractCompoundTerms(processedJobText);
+    
+  //   // Merge single words and important compound terms
+  //   for (const [term, count] of Object.entries(compoundTerms)) {
+  //     if (count >= 2) { // Only include terms that appear at least twice
+  //       jobWordFrequency[term] = count;
+  //     }
+  //   }
+    
+  //   // Get top keywords by frequency (words that appear multiple times)
+  //   const keywordsToEvaluate = Object.entries(jobWordFrequency)
+  //     .filter(([_, count]) => count >= 2)  // Only words that appear at least twice
+  //     .sort((a, b) => b[1] - a[1])         // Sort by frequency, highest first
+  //     .slice(0, 30)                        // Take top 30 keywords
+  //     .map(([word]) => word);
+    
+  //   // Now evaluate each keyword's presence in resume
+  //   const keywordEvaluation: KeywordEvaluation[] = keywordsToEvaluate.map(keyword => {
+  //     // Count occurrences in resume
+  //     // const resumeLower = resumeText.toLowerCase();
+  //     // const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'g');
+  //     // const resumeMatches = (resumeLower.match(keywordRegex) || []).length;
+  //     // const jobMatches = jobWordFrequency[keyword];
 
      
-      const keywordRegex = new RegExp(`\\b${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'gi');
-      const resumeMatches = (processedResumeText.match(keywordRegex) || []).length;
-      const jobMatches = jobWordFrequency[keyword];
+  //     const keywordRegex = new RegExp(`\\b${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'gi');
+  //     const resumeMatches = (processedResumeText.match(keywordRegex) || []).length;
+  //     const jobMatches = jobWordFrequency[keyword];
       
-      // Calculate a match percentage (capped at 100%)
-      const matchPercentage = Math.min(100, Math.round((resumeMatches / jobMatches) * 100));
+  //     // Calculate a match percentage (capped at 100%)
+  //     const matchPercentage = Math.min(100, Math.round((resumeMatches / jobMatches) * 100));
       
-      return {
-        keyword,
-        jobFrequency: jobMatches,
-        resumeFrequency: resumeMatches,
-        matchPercentage,
-        isImportant: jobMatches >= 2  // Consider keywords that appear 3+ times as important
-      };
-    });
+  //     return {
+  //       keyword,
+  //       jobFrequency: jobMatches,
+  //       resumeFrequency: resumeMatches,
+  //       matchPercentage,
+  //       isImportant: jobMatches >= 2  // Consider keywords that appear 3+ times as important
+  //     };
+  //   });
     
-    return keywordEvaluation;
-  };
+  //   return keywordEvaluation;
+  // };
 
   const handleUrlExtract = async () => {
     if (!jobUrl) {
@@ -379,120 +485,273 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       setIsExtracting(false);
     }
   };
+// Modified analyzeJobMatch function that:
+// 1. Uses standard keyword matching locally
+// 2. Still uses LLM for skills and improvement suggestions
+// 3. Limits matched/unmatched keywords to 50 each
 
-  const analyzeJobMatch = async () => {
-    if (!resumeText) {
-      toast({
-        title: "Resume Required",
-        description: "Please upload your resume first",
-        variant: "destructive",
-      });
-      return;
-    }
+const analyzeJobMatch = async () => {
+  if (!resumeText) {
+    toast({
+      title: "Resume Required",
+      description: "Please upload your resume first",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    if (!jobDescription) {
-      toast({
-        title: "Job Description Required",
-        description: "Please enter or extract a job description",
-        variant: "destructive",
-      });
-      return;
-    }
+  if (!jobDescription) {
+    toast({
+      title: "Job Description Required",
+      description: "Please enter or extract a job description",
+      variant: "destructive",
+    });
+    return;
+  }
 
-    setIsAnalyzing(true);
-    setActiveTab('results');
+  setIsAnalyzing(true);
+  setActiveTab('results');
 
+  try {
+    // Apply text filtering if enabled
+    const processedResumeText = useFiltering ? filterText(resumeText) : resumeText;
+    const processedJobDescription = useFiltering ? filterText(jobDescription) : jobDescription;
+
+    console.log("[Job Description Analyzer] Starting local keyword analysis");
+    
+    // STEP 1: Perform standard keyword evaluation locally
+    const keywordEvaluations = evaluateKeywords(processedJobDescription, processedResumeText);
+    
+    // Sort keywords by importance (frequency in job description)
+    const sortedKeywords = keywordEvaluations.sort((a, b) => b.jobFrequency - a.jobFrequency);
+    
+    // Extract matched keywords (limit to 50)
+    const matchedKeywords = sortedKeywords
+      .filter(kw => kw.resumeFrequency > 0)
+      .slice(0, 50)
+      .map(kw => ({
+        keyword: kw.keyword,
+        frequency: kw.jobFrequency,
+        matched: true
+      }));
+    
+    // Extract missing keywords (limit to 50)
+    const missingKeywords = sortedKeywords
+      .filter(kw => kw.resumeFrequency === 0)
+      .slice(0, 50)
+      .map(kw => kw.keyword);
+    
+    // Calculate basic match score based on keyword matches
+    const keywordCount = sortedKeywords.length;
+    const matchedCount = sortedKeywords.filter(kw => kw.resumeFrequency > 0).length;
+    const keywordScore = Math.round((matchedCount / (keywordCount || 1)) * 100);
+    
+    console.log(`[Job Description Analyzer] Keyword analysis complete. Match Score: ${keywordScore}%`);
+    console.log(`[Job Description Analyzer] Matched keywords: ${matchedKeywords.length}, Missing keywords: ${missingKeywords.length}`);
+    
+    // STEP 2: Try to use AI for the skill analysis and improvement suggestions
+    let analysisResult;
+    
     try {
-      // Apply text filtering if enabled
-      const processedResumeText = useFiltering ? filterText(resumeText) : resumeText;
-      const processedJobDescription = useFiltering ? filterText(jobDescription) : jobDescription;
-      console.log("[Job Description Analyzer] Processed Resume to API: ", processedResumeText)
-      console.log("[Job Description Analyzer] Processed JD to API: ", processedJobDescription)
+      console.log("[Job Description Analyzer] Calling AI for skill analysis");
       
-      // First try to use the AI-powered analysis
-      let result;
-      try {
-        const { data, error } = await supabase.functions.invoke('analyze-job-match', {
-          body: {  resumeText: processedResumeText, 
-            jobDescription: processedJobDescription,
-                   preCalculatedKeywords: {
+      // Call AI for skill analysis only
+      const { data, error } = await supabase.functions.invoke('analyze-job-skills', {
+        body: {
+          resumeText: processedResumeText, 
+          jobDescription: processedJobDescription,
+          // Pass the pre-calculated keywords to avoid duplicating work
+          preCalculatedKeywords: {
             matchedKeywords: matchedKeywords.map(k => k.keyword),
             missingKeywords: missingKeywords
           }
-              // resumeText, jobDescription 
-                }
-        });
-
-        if (error) throw new Error(error.message);
-        result = data;
-      } catch (aiError) {
-        console.error("AI analysis failed, falling back to basic analysis:", aiError);
-        
-        // Fallback to basic keyword matching
-        const jobDescLower = jobDescription.toLowerCase();
-        const resumeLower = resumeText.toLowerCase();
-        
-        // Extract keywords (simple approach)
-        const keywords = extractKeywords(jobDescLower);
-        const matchedWords = keywords.filter(word => resumeLower.includes(word));
-        
-        // Calculate simple score
-        const matchScore = Math.round((matchedWords.length / keywords.length) * 100);
-        
-        // Create fallback result
-        result = {
-          overallScore: Math.min(100, matchScore),
-          keywordMatches: keywords.map(keyword => ({
-            keyword,
-            frequency: countOccurrences(jobDescLower, keyword),
-            matched: resumeLower.includes(keyword)
-          })),
-          missingKeywords: keywords.filter(word => !resumeLower.includes(word)),
-          technicalSkills: extractSkills(jobDescLower, resumeLower, 'technical'),
-          functionalSkills: extractSkills(jobDescLower, resumeLower, 'functional'),
-          responsibilities: extractSkills(jobDescLower, resumeLower, 'responsibility'),
-          improvementSuggestions: [
-            "Tailor your resume to include more keywords from the job description.",
-            "Add specific examples that demonstrate your relevant experience.",
-            "Consider reorganizing your resume to highlight the most relevant skills first."
-          ]
-        };
-      }
-
-      setAnalysisResult(result);
-
-      // Scroll to results after a brief delay to allow rendering
-      setTimeout(() => {
-        if (resultRef.current) {
-          resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-      }, 100);
+      });
+
+      if (error) throw new Error(error.message);
       
-      toast({
-        title: "Analysis Complete",
-        description: "Your resume has been analyzed against the job description.",
-      });
-    } catch (error) {
-      console.error("Error analyzing job match:", error);
-      toast({
-        title: "Analysis Error",
-        description: "An error occurred during analysis. Please try again.",
-        variant: "destructive",
-      });
-      setAnalysisResult({
-        overallScore: 0,
-        keywordMatches: [],
-        missingKeywords: [],
-        technicalSkills: [],
-        functionalSkills: [],
-        responsibilities: [],
-        improvementSuggestions: [],
-        error: "Analysis failed. Please try again."
-      });
-    } finally {
-      setIsAnalyzing(false);
+      // Combine standard keyword analysis with AI skill analysis
+      analysisResult = {
+        // Use our calculated score as a base, but allow the AI to adjust it if provided
+        overallScore: data.overallScore || keywordScore,
+        // Use our standard keyword matching results
+        keywordMatches: matchedKeywords,
+        missingKeywords: missingKeywords,
+        // Use AI-generated skill analysis
+        technicalSkills: data.technicalSkills || [],
+        functionalSkills: data.functionalSkills || [],
+        responsibilities: data.responsibilities || [],
+        improvementSuggestions: data.improvementSuggestions || []
+      };
+      
+      console.log("[Job Description Analyzer] AI skill analysis complete");
+    } catch (aiError) {
+      console.error("AI skill analysis failed, using basic analysis for all parts:", aiError);
+      
+      // Fallback to completely local analysis using the old methods
+      analysisResult = {
+        overallScore: keywordScore,
+        keywordMatches: matchedKeywords,
+        missingKeywords: missingKeywords,
+        technicalSkills: extractSkills(processedJobDescription, processedResumeText, 'technical'),
+        functionalSkills: extractSkills(processedJobDescription, processedResumeText, 'functional'),
+        responsibilities: extractSkills(processedJobDescription, processedResumeText, 'responsibility'),
+        improvementSuggestions: [
+          "Tailor your resume to include the missing keywords from the job description.",
+          "Add specific examples that demonstrate your relevant experience.",
+          "Consider reorganizing your resume to highlight the most relevant skills first.",
+          "Include metrics and achievements that show your impact in previous roles.",
+          "Focus on matching both technical and soft skills mentioned in the job posting."
+        ]
+      };
+      
+      console.log("[Job Description Analyzer] Fallback local analysis complete");
     }
-  };
+
+    // Set the analysis result for rendering
+    setAnalysisResult(analysisResult);
+
+    // Scroll to results after a brief delay to allow rendering
+    setTimeout(() => {
+      if (resultRef.current) {
+        resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+    
+    toast({
+      title: "Analysis Complete",
+      description: "Your resume has been analyzed against the job description.",
+    });
+  } catch (error) {
+    console.error("Error analyzing job match:", error);
+    toast({
+      title: "Analysis Error",
+      description: "An error occurred during analysis. Please try again.",
+      variant: "destructive",
+    });
+    setAnalysisResult({
+      overallScore: 0,
+      keywordMatches: [],
+      missingKeywords: [],
+      technicalSkills: [],
+      functionalSkills: [],
+      responsibilities: [],
+      improvementSuggestions: [],
+      error: "Analysis failed. Please try again."
+    });
+  } finally {
+    setIsAnalyzing(false);
+  }
+};
+  // const analyzeJobMatch = async () => {
+  //   if (!resumeText) {
+  //     toast({
+  //       title: "Resume Required",
+  //       description: "Please upload your resume first",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
+
+  //   if (!jobDescription) {
+  //     toast({
+  //       title: "Job Description Required",
+  //       description: "Please enter or extract a job description",
+  //       variant: "destructive",
+  //     });
+  //     return;
+  //   }
+
+  //   setIsAnalyzing(true);
+  //   setActiveTab('results');
+
+  //   try {
+  //     // Apply text filtering if enabled
+  //     const processedResumeText = useFiltering ? filterText(resumeText) : resumeText;
+  //     const processedJobDescription = useFiltering ? filterText(jobDescription) : jobDescription;
+  //     console.log("[Job Description Analyzer] Processed Resume to API: ", processedResumeText)
+  //     console.log("[Job Description Analyzer] Processed JD to API: ", processedJobDescription)
+      
+  //     // First try to use the AI-powered analysis
+  //     let result;
+  //     try {
+  //       const { data, error } = await supabase.functions.invoke('analyze-job-match', {
+  //         body: {  resumeText: processedResumeText, 
+  //           jobDescription: processedJobDescription 
+  //             // resumeText, jobDescription 
+  //               }
+  //       });
+
+  //       if (error) throw new Error(error.message);
+  //       result = data;
+  //     } catch (aiError) {
+  //       console.error("AI analysis failed, falling back to basic analysis:", aiError);
+        
+  //       // Fallback to basic keyword matching
+  //       const jobDescLower = jobDescription.toLowerCase();
+  //       const resumeLower = resumeText.toLowerCase();
+        
+  //       // Extract keywords (simple approach)
+  //       const keywords = extractKeywords(jobDescLower);
+  //       const matchedWords = keywords.filter(word => resumeLower.includes(word));
+        
+  //       // Calculate simple score
+  //       const matchScore = Math.round((matchedWords.length / keywords.length) * 100);
+        
+  //       // Create fallback result
+  //       result = {
+  //         overallScore: Math.min(100, matchScore),
+  //         keywordMatches: keywords.map(keyword => ({
+  //           keyword,
+  //           frequency: countOccurrences(jobDescLower, keyword),
+  //           matched: resumeLower.includes(keyword)
+  //         })),
+  //         missingKeywords: keywords.filter(word => !resumeLower.includes(word)),
+  //         technicalSkills: extractSkills(jobDescLower, resumeLower, 'technical'),
+  //         functionalSkills: extractSkills(jobDescLower, resumeLower, 'functional'),
+  //         responsibilities: extractSkills(jobDescLower, resumeLower, 'responsibility'),
+  //         improvementSuggestions: [
+  //           "Tailor your resume to include more keywords from the job description.",
+  //           "Add specific examples that demonstrate your relevant experience.",
+  //           "Consider reorganizing your resume to highlight the most relevant skills first."
+  //         ]
+  //       };
+  //     }
+
+  //     setAnalysisResult(result);
+
+  //     // Scroll to results after a brief delay to allow rendering
+  //     setTimeout(() => {
+  //       if (resultRef.current) {
+  //         resultRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  //       }
+  //     }, 100);
+      
+  //     toast({
+  //       title: "Analysis Complete",
+  //       description: "Your resume has been analyzed against the job description.",
+  //     });
+  //   } catch (error) {
+  //     console.error("Error analyzing job match:", error);
+  //     toast({
+  //       title: "Analysis Error",
+  //       description: "An error occurred during analysis. Please try again.",
+  //       variant: "destructive",
+  //     });
+  //     setAnalysisResult({
+  //       overallScore: 0,
+  //       keywordMatches: [],
+  //       missingKeywords: [],
+  //       technicalSkills: [],
+  //       functionalSkills: [],
+  //       responsibilities: [],
+  //       improvementSuggestions: [],
+  //       error: "Analysis failed. Please try again."
+  //     });
+  //   } finally {
+  //     setIsAnalyzing(false);
+  //   }
+  // };
 
   const extractKeywords = (text: string): string[] => {
     const commonWords = ['and', 'the', 'in', 'to', 'of', 'for', 'a', 'an', 'with', 'by', 'on', 'at'];
