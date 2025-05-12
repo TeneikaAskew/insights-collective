@@ -553,7 +553,7 @@ const analyzeJobMatch = async () => {
     let analysisResult;
     
     try {
-      console.log("[Job Description Analyzer] Calling AI for skill analysis");
+      console.log("[Job Description Analyzer] Calling AI for skill analysis\n", processedResumeText, processedJobDescription, preCalculatedKeywords);
       
       // Call AI for skill analysis only
       const { data, error } = await supabase.functions.invoke('analyze-job-match', {
