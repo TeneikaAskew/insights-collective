@@ -13,6 +13,8 @@ import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+// Import English stopwords if available or define them
+import { eng } from '@/lib/stopwords_eng';
 
 interface JobDescriptionAnalyzerProps {
   resumeText: string | null;
@@ -127,9 +129,28 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     try {
       // First try to use the AI-powered analysis
       let result;
+         // Optionally pre-process job description and resume to remove stopwords
+      const jobWords = jobDescription.toLowerCase().split(/\s+/);
+      const resumeWords = resumeText.toLowerCase().split(/\s+/);
+      
+      // Use our removeStopwords function with the English stopwords
+      const filteredJobWords = removeStopwords(jobWords, [...eng, ...jobStopwords]);
+      const filteredResumeWords = removeStopwords(resumeWords, [...eng, ...jobStopwords]);
+      
+      // Convert back to text
+      const filteredJobDescription = filteredJobWords.join(' ');
+      const filteredResumeText = filteredResumeWords.join(' ');
+      
+      // Use the original or filtered text based on your preference
+      // You can switch between these two approaches
+      const useFiltering = true; // Set to true to use stopword filtering before sending to AI
+      
       try {
         const { data, error } = await supabase.functions.invoke('analyze-job-match', {
-          body: { resumeText, jobDescription }
+          body: {    resumeText: useFiltering ? filteredResumeText : resumeText, 
+            jobDescription: useFiltering ? filteredJobDescription : jobDescription 
+          // resumeText, jobDescription 
+                }
         });
 
         if (error) throw new Error(error.message);
@@ -406,7 +427,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
             </div>
           ) : analysisResult ? (
             <div className="space-y-8">
-              {/* Header Section */}
+              {/* Header Section - Redesigned */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-muted/20 p-4 rounded-lg">
                 <div>
                   <h2 className="text-xl font-semibold">Job Match Analysis</h2>
@@ -418,7 +439,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </Button>
               </div>
 
-              {/* Overall Compatibility Score */}
+              {/* Overall Compatibility Score - Enhanced visual presentation */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-medium text-lg">Overall Compatibility</h3>
@@ -443,7 +464,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </div>
               </div>
 
-              {/* Keyword Analysis with Tabs */}
+              {/* Keyword Analysis with Tabs - Enhanced for clarity */}
               <div className="space-y-4">
                 <h3 className="font-medium text-lg">Keyword Evaluation</h3>
                 <Tabs defaultValue="matched" className="w-full">
@@ -511,16 +532,16 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </Tabs>
               </div>
               
-              {/* Skills Section - Increased height for better visibility */}
+              {/* Skills Section - Enhanced for better readability */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Technical Skills - Increased height */}
+                {/* Technical Skills */}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
                       <Badge className="bg-blue-100 text-blue-800 rounded-sm">Technical</Badge>
                       Skills
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.technicalSkills.map((skill, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
@@ -542,14 +563,14 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   </CardContent>
                 </Card>
                 
-                {/* Functional Skills - Increased height */}
+                {/* Functional Skills */}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
                       <Badge className="bg-purple-100 text-purple-800 rounded-sm">Functional</Badge>
                       Skills
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.functionalSkills.map((skill, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
@@ -571,14 +592,14 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   </CardContent>
                 </Card>
                 
-                {/* Responsibilities - Increased height */}
+                {/* Responsibilities */}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
                       <Badge className="bg-amber-100 text-amber-800 rounded-sm">Key</Badge>
                       Responsibilities
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.responsibilities.map((resp, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
@@ -601,7 +622,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </Card>
               </div>
               
-              {/* Improvement Suggestions */}
+              {/* Improvement Suggestions - Enhanced visual appeal */}
               <Card className={`${getScoreBackground(analysisResult.overallScore)} border-0 overflow-hidden`}>
                 <div className="absolute top-0 right-0 w-24 h-24 bg-black/5 rounded-full -mr-12 -mt-12"></div>
                 <CardContent className="p-5 space-y-3">
@@ -622,20 +643,12 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </CardContent>
               </Card>
 
-              {/* Pro Tip - Added resume template link */}
+              {/* Pro Tip - Enhanced visual appeal */}
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start space-x-3">
                 <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm text-blue-900">
-                    <span className="font-medium">Pro Tip:</span> Tailoring your resume for each job application increases your chances of passing ATS filters by up to 60%. Focus on incorporating the missing keywords and skills identified above.{" "}
-                    <a 
-                      href="https://docs.google.com/document/d/1CKGglaXyYad16IFiYSDpGd2ofro5dYmi4eD1JNeHkD4/edit?usp=sharing" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline hover:text-blue-800"
-                    >
-                      Use this 100% ATS-optimized resume template
-                    </a> to increase your chances further.
+                    <span className="font-medium">Pro Tip:</span> Tailoring your resume for each job application increases your chances of passing ATS filters by up to 60%. Focus on incorporating the missing keywords and skills identified above.
                   </p>
                 </div>
               </div>
