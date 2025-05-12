@@ -59,7 +59,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
           {/* Resume tab content */}
           <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
             <Card className="col-span-1">
-              <CardContent className="flex flex-col space-y-4">
+              <CardContent className="flex flex-col space-y-3>
                 <div className="flex justify-between items-start">
                   <h2 className="text-lg font-semibold">Upload Resume</h2>
                   {resume?.file_url && <Button variant="secondary" size="sm" onClick={handleDownload}>
