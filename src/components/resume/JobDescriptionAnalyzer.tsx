@@ -148,7 +148,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     "good", "great", "best", "better", "within", "www", "http", "https", "com", "org", "net", "know", "knowledge",
     "information", "info", "provide", "provides", "provided", "providing", "support", "supports", "supported",
     "supporting", "include", "includes", "including", "included", "ensure", "ensures", "ensuring", "ensured", 
-    "gender", "religion", "sex", "age",
+    "gender", "religion", "sex", "age", "inc", "llc", "ltd",
     
     // Added job posting jargon (should be filtered as stopwords)
     "environment", "environments", "dynamic", "fast-paced", "fast", "paced", "growth", "growing",
