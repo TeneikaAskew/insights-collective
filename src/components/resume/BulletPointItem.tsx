@@ -76,8 +76,8 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           <div className="flex-1 text-left mr-4 line-clamp-1">
             {original ? original.substring(0, 80) + '...' : `Bullet point ${index + 1}`}
           </div>
-          <Badge className={getBadgeColor(bullet_total, 45)}>
-            Score: {bullet_total}/45
+          <Badge className={getBadgeColor(bullet_total,90)}>
+            Score: {bullet_total}/90
           </Badge>
         </div>
       </AccordionTrigger>
