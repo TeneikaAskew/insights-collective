@@ -45,15 +45,15 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   } = useResumeAnalysis();
   
   const { user } = useAuth(); // Add useAuth hook to access user information
-  console.log('Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
-  console.log('Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
-  console.log('Resume data:', localStorage.getItem(`resume_data_${user.id}`));
+  console.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
+  console.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
+  console.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${user.id}`));
 
 
   // Use user.id safely with optional chaining to prevent errors if user is null
-  console.log('[OverallScoreCard] Resume analysis data:', user?.id ? localStorage.getItem(`resume_analysis_${userId}`) : 'No user ID available');
-  console.log('[OverallScoreCard] Resume text data:', user?.id ? localStorage.getItem(`resume_text_${userId}`) : 'No user ID available');
-  console.log('[OverallScoreCard] Resume data:', user?.id ? localStorage.getItem(`resume_data_${userId}`) : 'No user ID available');
+  // console.log('[OverallScoreCard] Resume analysis data:', user?.id ? localStorage.getItem(`resume_analysis_${userId}`) : 'No user ID available');
+  // console.log('[OverallScoreCard] Resume text data:', user?.id ? localStorage.getItem(`resume_text_${userId}`) : 'No user ID available');
+  // console.log('[OverallScoreCard] Resume data:', user?.id ? localStorage.getItem(`resume_data_${userId}`) : 'No user ID available');
 
 
   // Check for roast (keep existing functionality)
