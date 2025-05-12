@@ -1141,9 +1141,129 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   </TabsContent>
                 </Tabs>
               </div>
-              
+              // Modify these three ScrollArea sections in your JobDescriptionAnalyzer component
+
+
               {/* Skills Section - Enhanced for better readability */}
+              
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Technical Skills - UPDATED to show matched skills first */}
+                <Card>
+                  <CardContent className="p-4 pt-5 space-y-3">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Badge className="bg-blue-100 text-blue-800 rounded-sm">Technical</Badge>
+                      Skills
+                    </h4>
+                    <ScrollArea className="h-[350px] pr-4">
+                      <div className="space-y-2">
+                        {/* Show matched skills first */}
+                        {analysisResult.technicalSkills
+                          .sort((a, b) => {
+                            // Sort by matched status first (true comes before false)
+                            if (a.matched && !b.matched) return -1;
+                            if (!a.matched && b.matched) return 1;
+                            
+                            // Then sort by importance
+                            const importanceOrder = { high: 0, medium: 1, low: 2 };
+                            return importanceOrder[a.importance] - importanceOrder[b.importance];
+                          })
+                          .map((skill, index) => (
+                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${skill.matched ? 'bg-green-50' : 'bg-muted/30'}`}>
+                              <div className="flex items-center gap-2">
+                                {skill.matched ? 
+                                  <Check className="h-4 w-4 text-green-600" /> : 
+                                  <X className="h-4 w-4 text-red-600" />
+                                }
+                                <span>{skill.skill}</span>
+                              </div>
+                              {getImportanceBadge(skill.importance)}
+                            </div>
+                          ))}
+                        {analysisResult.technicalSkills.length === 0 && (
+                          <p className="text-sm italic text-muted-foreground">No technical skills identified</p>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+                
+                {/* Functional Skills - UPDATED to show matched skills first */}
+                <Card>
+                  <CardContent className="p-4 pt-5 space-y-3">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Badge className="bg-purple-100 text-purple-800 rounded-sm">Functional</Badge>
+                      Skills
+                    </h4>
+                    <ScrollArea className="h-[350px] pr-4">
+                      <div className="space-y-2">
+                        {analysisResult.functionalSkills
+                          .sort((a, b) => {
+                            // Sort by matched status first (true comes before false)
+                            if (a.matched && !b.matched) return -1;
+                            if (!a.matched && b.matched) return 1;
+                            
+                            // Then sort by importance
+                            const importanceOrder = { high: 0, medium: 1, low: 2 };
+                            return importanceOrder[a.importance] - importanceOrder[b.importance];
+                          })
+                          .map((skill, index) => (
+                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${skill.matched ? 'bg-green-50' : 'bg-muted/30'}`}>
+                              <div className="flex items-center gap-2">
+                                {skill.matched ? 
+                                  <Check className="h-4 w-4 text-green-600" /> : 
+                                  <X className="h-4 w-4 text-red-600" />
+                                }
+                                <span>{skill.skill}</span>
+                              </div>
+                              {getImportanceBadge(skill.importance)}
+                            </div>
+                          ))}
+                        {analysisResult.functionalSkills.length === 0 && (
+                          <p className="text-sm italic text-muted-foreground">No functional skills identified</p>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
+                
+                {/* Responsibilities - UPDATED to show matched responsibilities first */}
+                <Card>
+                  <CardContent className="p-4 pt-5 space-y-3">
+                    <h4 className="font-semibold flex items-center gap-2">
+                      <Badge className="bg-amber-100 text-amber-800 rounded-sm">Key</Badge>
+                      Responsibilities
+                    </h4>
+                    <ScrollArea className="h-[350px] pr-4">
+                      <div className="space-y-2">
+                        {analysisResult.responsibilities
+                          .sort((a, b) => {
+                            // Sort by matched status first (true comes before false)
+                            if (a.matched && !b.matched) return -1;
+                            if (!a.matched && b.matched) return 1;
+                            
+                            // Then sort by importance
+                            const importanceOrder = { high: 0, medium: 1, low: 2 };
+                            return importanceOrder[a.importance] - importanceOrder[b.importance];
+                          })
+                          .map((resp, index) => (
+                            <div key={index} className={`flex justify-between items-center p-2 rounded-md ${resp.matched ? 'bg-green-50' : 'bg-muted/30'}`}>
+                              <div className="flex items-center gap-2">
+                                {resp.matched ? 
+                                  <Check className="h-4 w-4 text-green-600" /> : 
+                                  <X className="h-4 w-4 text-red-600" />
+                                }
+                                <span>{resp.skill}</span>
+                              </div>
+                              {getImportanceBadge(resp.importance)}
+                            </div>
+                          ))}
+                        {analysisResult.responsibilities.length === 0 && (
+                          <p className="text-sm italic text-muted-foreground">No responsibilities identified</p>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  </CardContent>
+                </Card>
                 {/* Technical Skills */}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
