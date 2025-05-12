@@ -20,11 +20,34 @@ const STORAGE_KEYS = {
   JOB_URL: 'job_description_url',
   JOB_DESCRIPTION: 'job_description_text',
   ACTIVE_TAB: 'job_analyzer_active_tab',
-  ANALYSIS_RESULT: 'job_analysis_result'
+  ANALYSIS_RESULT: 'job_analysis_result',
+  USE_FILTERING: 'job_analyzer_use_filtering' // New storage key for the filtering toggle
+
 };
 
 // Import stopwords for keyword extraction
 import { eng } from '@/lib/stopwords_eng';
+
+// Configuration for text filtering
+const FILTERING_CONFIG = {
+  // Default is true - enable filtering
+  useFiltering: true,
+  
+  // Common important acronyms and abbreviations to preserve even if they're short
+  importantShortTerms: [
+    // Technical acronyms
+    'ai', 'ml', 'bi', 'ui', 'ux', 'qa', 'pm', 'hr', 'pr', 'ar', 'vr',
+    'crm', 'erp', 'seo', 'api', 'etl', 'sql', 'css', 'aws', 'gcp', 'mvc',
+    // Technical abbreviations
+    'dev', 'app', 'sys', 'eng', 'sec', 'ops', 'prd', 'tst', 'doc', 'db',
+    // Education acronyms
+    'phd', 'mba', 'bsc', 'bba', 'ms', 'ma', 'ba', 'bs',
+    // Business acronyms
+    'ceo', 'cto', 'cfo', 'coo', 'vp', 'roi', 'kpi', 'p&l', 'b2b', 'b2c', 'sla',
+    // Common software and tools
+    'sap', 'ios', 'git', 'jira', 'agile'
+  ]
+};
 
 interface JobDescriptionAnalyzerProps {
   resumeText: string | null;
@@ -70,6 +93,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
   const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
   const resultRef = useRef<HTMLDivElement>(null);
+  const [useFiltering, setUseFiltering] = useState<boolean>(FILTERING_CONFIG.useFiltering);
   
   const form = useForm({
     defaultValues: {
@@ -77,6 +101,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       jobDescription: '',
     }
   });
+
 
    // Save to localStorage whenever these values change
   useEffect(() => {
@@ -97,6 +122,19 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     }
   }, [analysisResult]);
 
+     // Additional useEffect to handle the filtering preference
+  useEffect(() => {
+    const savedFilteringPref = localStorage.getItem(STORAGE_KEYS.USE_FILTERING);
+    if (savedFilteringPref !== null) {
+      setUseFiltering(savedFilteringPref === 'true');
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.USE_FILTERING, useFiltering.toString());
+  }, [useFiltering]);
+
+
   // Job-specific stopwords
   const jobStopwords = [
     // Common job posting words with little resume-matching value
@@ -116,59 +154,136 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     const stopwordSet = new Set(stopwords);
     return words.filter(word => !stopwordSet.has(word));
   };
+  
+  // Function to filter text while preserving important acronyms
+    const filterText = (text: string, preserveAcronyms = true): string => {
+      if (!useFiltering) return text;
+      
+      const importantTermsSet = new Set(FILTERING_CONFIG.importantShortTerms);
+      
+      // First pass: split and clean the text
+      const words = text.toLowerCase()
+        .replace(/[^\w\s-]/g, ' ')  // Remove punctuation except hyphens
+        .split(/\s+/)               // Split by whitespace
+        .filter(word => {
+          // Keep words longer than 2 chars OR important acronyms regardless of length
+          return word.length > 2 || (preserveAcronyms && importantTermsSet.has(word.toLowerCase()));
+        })
+        .filter(word => !/^\d+$/.test(word)); // Filter out numbers
+      
+      // Second pass: remove stopwords
+      const filteredWords = useFiltering ? 
+        removeStopwords(words, [...eng, ...jobStopwords]) : 
+        words;
+      
+      // Rejoin the filtered words
+      return filteredWords.join(' ');
+    };
 
   // Evaluate keywords with advanced stopword handling
   const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluation[] => {
+    // Apply text filtering if enabled
+    const processedJobText = filterText(jobText);
+    const processedResumeText = filterText(resumeText);
+    
     // Clean and extract words from job description
-    const jobWords = jobText.toLowerCase()
-      .replace(/[^\w\s-]/g, ' ')   // Remove punctuation except hyphens
-      .split(/\s+/)                // Split by whitespace
-      .filter(word => 
-        word.length > 2 &&         // Filter out very short words
-        !/^\d+$/.test(word)        // Filter out numbers
-      );
+    // const jobWords = jobText.toLowerCase()
+    //   .replace(/[^\w\s-]/g, ' ')   // Remove punctuation except hyphens
+    //   .split(/\s+/)                // Split by whitespace
+    //   .filter(word => 
+    //     word.length > 2 &&         // Filter out very short words
+    //     !/^\d+$/.test(word)        // Filter out numbers
+    //   );
+
+    // Clean and extract words from job description
+    const jobWords = processedJobText.split(/\s+/);
     
     // Use our custom removeStopwords function
-    const filteredJobWords = removeStopwords(jobWords, [...eng, ...jobStopwords]);
+    // const filteredJobWords = removeStopwords(jobWords, [...eng, ...jobStopwords]);
     
-    // Count frequency of each meaningful word in job description
+    // // Count frequency of each meaningful word in job description
+    // const jobWordFrequency: {[key: string]: number} = {};
+    // filteredJobWords.forEach(word => {
+    //   jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
+    // });
+    
+    // // Also look for important compound terms (2-3 word phrases that appear multiple times)
+    // const extractCompoundTerms = (text: string): {[key: string]: number} => {
+    //   const result: {[key: string]: number} = {};
+    //   const words = text.toLowerCase().replace(/[^\w\s-]/g, ' ').split(/\s+/);
+    //   const filteredWords = removeStopwords(words, [...eng, ...jobStopwords]);
+      
+    //   // Create a map to preserve original positions after stopword removal
+    //   const positionMap: number[] = [];
+    //   words.forEach((word, index) => {
+    //     if (word.length > 2 && ![...eng, ...jobStopwords].includes(word) && !/^\d+$/.test(word)) {
+    //       positionMap.push(index);
+    //     }
+    //   });
+      
+    //   // Extract 2-word and 3-word phrases from filtered words
+    //   for (let i = 0; i < filteredWords.length - 1; i++) {
+    //     // Check if these filtered words were originally adjacent in the text
+    //     const origPos1 = positionMap[i];
+    //     const origPos2 = positionMap[i+1];
+        
+    //     if (origPos2 - origPos1 <= 2) { // Allow for one stopword in between
+    //       // 2-word phrase
+    //       const phrase = `${filteredWords[i]} ${filteredWords[i+1]}`;
+    //       result[phrase] = (result[phrase] || 0) + 1;
+    //     }
+        
+    //     // 3-word phrase
+    //     if (i < filteredWords.length - 2) {
+    //       const origPos3 = positionMap[i+2];
+          
+    //       if (origPos3 - origPos1 <= 4) { // Allow for stopwords in between
+    //         const phrase = `${filteredWords[i]} ${filteredWords[i+1]} ${filteredWords[i+2]}`;
+    //         result[phrase] = (result[phrase] || 0) + 1;
+    //       }
+    //     }
+    //   }
+      
+    //   return result;
+    // };
+    
+    // const compoundTerms = extractCompoundTerms(jobText);
+
+    // Count frequency of each word in job description
     const jobWordFrequency: {[key: string]: number} = {};
-    filteredJobWords.forEach(word => {
+    jobWords.forEach(word => {
       jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
     });
     
     // Also look for important compound terms (2-3 word phrases that appear multiple times)
     const extractCompoundTerms = (text: string): {[key: string]: number} => {
       const result: {[key: string]: number} = {};
-      const words = text.toLowerCase().replace(/[^\w\s-]/g, ' ').split(/\s+/);
-      const filteredWords = removeStopwords(words, [...eng, ...jobStopwords]);
+      const words = text.split(/\s+/);
       
-      // Create a map to preserve original positions after stopword removal
+      // Create a map to preserve original positions
       const positionMap: number[] = [];
       words.forEach((word, index) => {
-        if (word.length > 2 && ![...eng, ...jobStopwords].includes(word) && !/^\d+$/.test(word)) {
-          positionMap.push(index);
-        }
+        positionMap.push(index);
       });
       
-      // Extract 2-word and 3-word phrases from filtered words
-      for (let i = 0; i < filteredWords.length - 1; i++) {
-        // Check if these filtered words were originally adjacent in the text
+      // Extract 2-word and 3-word phrases
+      for (let i = 0; i < words.length - 1; i++) {
+        // Check if these words were originally adjacent in the text
         const origPos1 = positionMap[i];
         const origPos2 = positionMap[i+1];
         
         if (origPos2 - origPos1 <= 2) { // Allow for one stopword in between
           // 2-word phrase
-          const phrase = `${filteredWords[i]} ${filteredWords[i+1]}`;
+          const phrase = `${words[i]} ${words[i+1]}`;
           result[phrase] = (result[phrase] || 0) + 1;
         }
         
         // 3-word phrase
-        if (i < filteredWords.length - 2) {
+        if (i < words.length - 2) {
           const origPos3 = positionMap[i+2];
           
           if (origPos3 - origPos1 <= 4) { // Allow for stopwords in between
-            const phrase = `${filteredWords[i]} ${filteredWords[i+1]} ${filteredWords[i+2]}`;
+            const phrase = `${words[i]} ${words[i+1]} ${words[i+2]}`;
             result[phrase] = (result[phrase] || 0) + 1;
           }
         }
@@ -177,7 +292,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       return result;
     };
     
-    const compoundTerms = extractCompoundTerms(jobText);
+    const compoundTerms = extractCompoundTerms(processedJobText);
     
     // Merge single words and important compound terms
     for (const [term, count] of Object.entries(compoundTerms)) {
@@ -196,9 +311,14 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     // Now evaluate each keyword's presence in resume
     const keywordEvaluation: KeywordEvaluation[] = keywordsToEvaluate.map(keyword => {
       // Count occurrences in resume
-      const resumeLower = resumeText.toLowerCase();
-      const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'g');
-      const resumeMatches = (resumeLower.match(keywordRegex) || []).length;
+      // const resumeLower = resumeText.toLowerCase();
+      // const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'g');
+      // const resumeMatches = (resumeLower.match(keywordRegex) || []).length;
+      // const jobMatches = jobWordFrequency[keyword];
+
+     
+      const keywordRegex = new RegExp(`\\b${keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}\\b`, 'gi');
+      const resumeMatches = (processedResumeText.match(keywordRegex) || []).length;
       const jobMatches = jobWordFrequency[keyword];
       
       // Calculate a match percentage (capped at 100%)
@@ -209,7 +329,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
         jobFrequency: jobMatches,
         resumeFrequency: resumeMatches,
         matchPercentage,
-        isImportant: jobMatches >= 3  // Consider keywords that appear 3+ times as important
+        isImportant: jobMatches >= 2  // Consider keywords that appear 3+ times as important
       };
     });
     
@@ -283,11 +403,18 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     setActiveTab('results');
 
     try {
+      // Apply text filtering if enabled
+      const processedResumeText = useFiltering ? filterText(resumeText) : resumeText;
+      const processedJobDescription = useFiltering ? filterText(jobDescription) : jobDescription;
+      
       // First try to use the AI-powered analysis
       let result;
       try {
         const { data, error } = await supabase.functions.invoke('analyze-job-match', {
-          body: { resumeText, jobDescription }
+          body: {  resumeText: processedResumeText, 
+            jobDescription: processedJobDescription 
+              // resumeText, jobDescription 
+                }
         });
 
         if (error) throw new Error(error.message);
@@ -502,7 +629,25 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 Paste a job posting URL and click extract to automatically import the job description
               </p>
             </div>
-            
+            {/* Added Advanced Options Section */}
+            <div className="space-y-3 p-3 border border-dashed border-muted-foreground/30 rounded-md bg-muted/10">
+              <div className="flex justify-between items-center">
+                <h4 className="text-sm font-semibold">Advanced Options</h4>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8 px-2"
+                  onClick={() => setUseFiltering(!useFiltering)}
+                >
+                  <span className={`mr-2 h-4 w-4 rounded-full ${useFiltering ? 'bg-primary' : 'bg-muted-foreground/30'}`}></span>
+                  {useFiltering ? 'Enhanced Filtering On' : 'Basic Analysis'}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Enhanced filtering removes common words and preserves important terms like "AI", "ML", "UI/UX", etc. 
+                for more accurate matching.
+              </p>
+            </div>
             {/* Job Description Textarea - Enhanced for usability */}
             <div className="space-y-3">
               <h3 className="text-lg font-semibold">Job Description</h3>
