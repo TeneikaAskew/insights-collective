@@ -823,7 +823,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                       <Badge className="bg-blue-100 text-blue-800 rounded-sm">Technical</Badge>
                       Skills
                     </h4>
-                    <ScrollArea className="h-[400px] pr-4">
+                    <ScrollArea className="h-[300px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.technicalSkills.map((skill, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
