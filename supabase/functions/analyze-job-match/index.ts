@@ -2,7 +2,13 @@
 // Supabase Edge Function for resume-job matching analysis
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { corsHeaders } from '../_shared/utils.ts';
-
+import { encoding_for_model } from 'npm:@dqbd/tiktoken';
+async function countTokens(text, model = 'gpt-4o-mini') {
+  const enc = await encoding_for_model(model);
+  const tokenCount = enc.encode(text).length;
+  enc.free();
+  return tokenCount;
+}
 // Custom types for our analyzer
 interface AnalysisRequest {
   resumeText: string;
@@ -70,7 +76,13 @@ async function callLLMAPI(resume: string, jobDescription: string) {
       "improvementSuggestions": [string]
     }
     `;
-    
+
+      const n = await countTokens(prompt, 'gpt-4o-mini');
+      console.log(`Prompt uses ${n} tokens`);
+      if (n > 131_072) {
+        console.warn('🚨 exceeds max context! trim or chunk it.');
+      // you could even throw here, or slice off part of `user`
+      }
     const response = await fetch('https://api.together.xyz/v1/completions', {
       method: 'POST',
       headers: {
@@ -86,6 +98,7 @@ async function callLLMAPI(resume: string, jobDescription: string) {
     });
     
     const result = await response.json();
+    console.log("AI Response: ", result)
     
     if (!result.choices || !result.choices[0] || !result.choices[0].text) {
       throw new Error('Invalid response from Together AI');
@@ -93,7 +106,9 @@ async function callLLMAPI(resume: string, jobDescription: string) {
     
     // Extract JSON from the response text
     const text = result.choices[0].text.trim();
+    console.log("Text from Choices: ", text)
     const jsonMatch = text.match(/\{[\s\S]*\}/);
+    console.log("JSON Match: ", jsonMatch)
     
     if (!jsonMatch) {
       throw new Error('Could not extract JSON from API response');
@@ -102,6 +117,7 @@ async function callLLMAPI(resume: string, jobDescription: string) {
     // Parse the JSON
     try {
       const analysisResult = JSON.parse(jsonMatch[0]);
+      console.log("Parsed JSON: ", analysisResult)
       return analysisResult;
     } catch (jsonError) {
       console.error('JSON parsing error:', jsonError);
@@ -113,94 +129,94 @@ async function callLLMAPI(resume: string, jobDescription: string) {
   }
 }
 
-// Basic keyword extraction function (fallback if API fails)
-function extractKeywords(text: string): string[] {
-  // Remove common stopwords, convert to lowercase, split by non-word characters
-  const stopwords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'of']);
-  const words = text.toLowerCase().split(/\W+/).filter(word => 
-    word.length > 3 && !stopwords.has(word)
-  );
+// // Basic keyword extraction function (fallback if API fails)
+// function extractKeywords(text: string): string[] {
+//   // Remove common stopwords, convert to lowercase, split by non-word characters
+//   const stopwords = new Set(['a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'with', 'by', 'of']);
+//   const words = text.toLowerCase().split(/\W+/).filter(word => 
+//     word.length > 3 && !stopwords.has(word)
+//   );
   
-  // Return unique words
-  return Array.from(new Set(words));
-}
+//   // Return unique words
+//   return Array.from(new Set(words));
+// }
 
-// Count word occurrences
-function countOccurrences(text: string, word: string): number {
-  return (text.toLowerCase().match(new RegExp(`\\b${word.toLowerCase()}\\b`, 'g')) || []).length;
-}
+// // Count word occurrences
+// function countOccurrences(text: string, word: string): number {
+//   return (text.toLowerCase().match(new RegExp(`\\b${word.toLowerCase()}\\b`, 'g')) || []).length;
+// }
 
-// Fallback analysis function
-function performBasicAnalysis(resumeText: string, jobDescription: string): AnalysisResult {
-  const resumeLower = resumeText.toLowerCase();
-  const jobDescLower = jobDescription.toLowerCase();
+// // Fallback analysis function
+// function performBasicAnalysis(resumeText: string, jobDescription: string): AnalysisResult {
+//   const resumeLower = resumeText.toLowerCase();
+//   const jobDescLower = jobDescription.toLowerCase();
   
-  // Extract keywords from job description
-  const keywords = extractKeywords(jobDescLower);
+//   // Extract keywords from job description
+//   const keywords = extractKeywords(jobDescLower);
   
-  // Match keywords with resume
-  const keywordMatches = keywords.map(keyword => ({
-    keyword,
-    frequency: countOccurrences(jobDescLower, keyword),
-    matched: resumeLower.includes(keyword.toLowerCase())
-  }));
+//   // Match keywords with resume
+//   const keywordMatches = keywords.map(keyword => ({
+//     keyword,
+//     frequency: countOccurrences(jobDescLower, keyword),
+//     matched: resumeLower.includes(keyword.toLowerCase())
+//   }));
   
-  // Get missing keywords
-  const missingKeywords = keywords.filter(keyword => 
-    !resumeLower.includes(keyword.toLowerCase())
-  );
+//   // Get missing keywords
+//   const missingKeywords = keywords.filter(keyword => 
+//     !resumeLower.includes(keyword.toLowerCase())
+//   );
   
-  // Calculate match percentage
-  const matchedCount = keywordMatches.filter(k => k.matched).length;
-  const matchPercentage = Math.round((matchedCount / keywords.length) * 100);
+//   // Calculate match percentage
+//   const matchedCount = keywordMatches.filter(k => k.matched).length;
+//   const matchPercentage = Math.round((matchedCount / keywords.length) * 100);
   
-  // Generate simple skills lists
-  const technicalSkills: SkillMatch[] = [
-    'sql', 'python', 'javascript', 'java', 'react', 'angular', 'node', 'aws', 'azure', 'docker',
-    'kubernetes', 'machine learning', 'data science', 'tableau', 'power bi'
-  ].filter(skill => jobDescLower.includes(skill))
-   .map(skill => ({
-     skill,
-     importance: countOccurrences(jobDescLower, skill) > 1 ? 'high' : 'medium',
-     matched: resumeLower.includes(skill)
-   }));
+//   // Generate simple skills lists
+//   const technicalSkills: SkillMatch[] = [
+//     'sql', 'python', 'javascript', 'java', 'react', 'angular', 'node', 'aws', 'azure', 'docker',
+//     'kubernetes', 'machine learning', 'data science', 'tableau', 'power bi'
+//   ].filter(skill => jobDescLower.includes(skill))
+//    .map(skill => ({
+//      skill,
+//      importance: countOccurrences(jobDescLower, skill) > 1 ? 'high' : 'medium',
+//      matched: resumeLower.includes(skill)
+//    }));
   
-  const functionalSkills: SkillMatch[] = [
-    'leadership', 'communication', 'presentation', 'strategy', 'analysis', 'project management',
-    'team building', 'mentoring', 'collaboration', 'innovation', 'problem solving'
-  ].filter(skill => jobDescLower.includes(skill))
-   .map(skill => ({
-     skill,
-     importance: countOccurrences(jobDescLower, skill) > 1 ? 'high' : 'medium',
-     matched: resumeLower.includes(skill)
-   }));
+//   const functionalSkills: SkillMatch[] = [
+//     'leadership', 'communication', 'presentation', 'strategy', 'analysis', 'project management',
+//     'team building', 'mentoring', 'collaboration', 'innovation', 'problem solving'
+//   ].filter(skill => jobDescLower.includes(skill))
+//    .map(skill => ({
+//      skill,
+//      importance: countOccurrences(jobDescLower, skill) > 1 ? 'high' : 'medium',
+//      matched: resumeLower.includes(skill)
+//    }));
   
-  const responsibilities: SkillMatch[] = [
-    'manage', 'develop', 'create', 'design', 'implement', 'analyze', 'lead', 'coordinate',
-    'present', 'report', 'research', 'optimize', 'monitor'
-  ].filter(resp => jobDescLower.includes(resp))
-   .map(resp => ({
-     skill: resp,
-     importance: countOccurrences(jobDescLower, resp) > 2 ? 'high' : 'medium',
-     matched: resumeLower.includes(resp)
-   }));
+//   const responsibilities: SkillMatch[] = [
+//     'manage', 'develop', 'create', 'design', 'implement', 'analyze', 'lead', 'coordinate',
+//     'present', 'report', 'research', 'optimize', 'monitor'
+//   ].filter(resp => jobDescLower.includes(resp))
+//    .map(resp => ({
+//      skill: resp,
+//      importance: countOccurrences(jobDescLower, resp) > 2 ? 'high' : 'medium',
+//      matched: resumeLower.includes(resp)
+//    }));
   
-  return {
-    overallScore: Math.min(100, matchPercentage),
-    keywordMatches,
-    missingKeywords,
-    technicalSkills,
-    functionalSkills,
-    responsibilities,
-    improvementSuggestions: [
-      "Add more keywords from the job description to your resume.",
-      "Include specific metrics and achievements that match the job requirements.",
-      "Tailor your professional summary to highlight relevant experience.",
-      "Consider reorganizing your resume sections to prioritize relevant skills.",
-      "Include industry-specific terminology found in the job description."
-    ]
-  };
-}
+//   return {
+//     overallScore: Math.min(100, matchPercentage),
+//     keywordMatches,
+//     missingKeywords,
+//     technicalSkills,
+//     functionalSkills,
+//     responsibilities,
+//     improvementSuggestions: [
+//       "Add more keywords from the job description to your resume.",
+//       "Include specific metrics and achievements that match the job requirements.",
+//       "Tailor your professional summary to highlight relevant experience.",
+//       "Consider reorganizing your resume sections to prioritize relevant skills.",
+//       "Include industry-specific terminology found in the job description."
+//     ]
+//   };
+// }
 
 serve(async (req) => {
   // Handle CORS for browser requests
