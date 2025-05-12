@@ -44,10 +44,10 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     careerAlignments
   } = useResumeAnalysis();
   
-  const { user } = useAuth(); // Add useAuth hook to access user information
-  console.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
-  console.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
-  console.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${user.id}`));
+  // const { user } = useAuth(); // Add useAuth hook to access user information
+  // console.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
+  // console.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
+  // console.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${user.id}`));
 
 
   // Use user.id safely with optional chaining to prevent errors if user is null
