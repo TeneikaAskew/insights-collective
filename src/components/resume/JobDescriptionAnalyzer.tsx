@@ -137,7 +137,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
 
   // Job-specific stopwords
   const jobStopwords = [
-    // Common job posting words with little resume-matching value
+    // Original stopwords - generic job posting terminology
     "job", "work", "position", "company", "team", "experience", "ability", "role", "candidate", "applicant", 
     "qualified", "qualification", "opportunity", "career", "employment", "salary", "compensation", "benefit",
     "benefits", "responsibilities", "requirements", "required", "preferred", "ideal", "strong", "excellent", 
@@ -148,7 +148,68 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     "good", "great", "best", "better", "within", "www", "http", "https", "com", "org", "net", "know", "knowledge",
     "information", "info", "provide", "provides", "provided", "providing", "support", "supports", "supported",
     "supporting", "include", "includes", "including", "included", "ensure", "ensures", "ensuring", "ensured", 
-    "gender", "religion", "sex", "age"
+    "gender", "religion", "sex", "age",
+    
+    // Added job posting jargon (should be filtered as stopwords)
+    "environment", "environments", "dynamic", "fast-paced", "fast", "paced", "growth", "growing",
+    "mission", "vision", "minimum", "maximum", "entry", "level", "senior", "junior", "mid", "lead",
+    "deadline", "deadlines", "target", "targets", "goal", "goals", "objective", "objectives",
+    "equal", "opportunity", "employer", "remote", "hybrid", "onsite", "on-site", "in-office", 
+    "telecommute", "telecommuting", "virtual", "office", "location", "locations", "based",
+    "industry", "industries", "sector", "sectors", "field", "fields", "department", "departmental",
+    "division", "divisions", "unit", "units", "organization", "organizational", "corporation", "corporate",
+    "enterprise", "enterprises", "agency", "agencies", "firm", "firms", "startup", "startups", "institution",
+    "institutions", "group", "groups", "primary", "secondary", "main", "core", "key", "critical", "crucial",
+    "essential", "important", "significant", "relevant", "appropriate", "suitable", "desirable", "necessary",
+    "welcome", "welcomes", "welcoming", "welcomed", "join", "joining", "joins", "joined", "qualified",
+    "extensive", "possibilities", "possibility", "option", "options", "attractive",
+    "amazing", "exciting", "lifestyle", "life", "balance", "balanced",
+    
+    // Common phrases from images that appear as n-grams but should be filtered
+    "will", "person", "every", "place", "does", "think", "world", "meets", "rest", "inc",
+    "game", "premium", "studios", "products", "composition", "timelines"
+  ];
+  
+  // Important soft skills and capabilities (should NOT be in stopwords - these are valuable matching points)
+  const valuableSoftSkills = [
+    // Leadership & interpersonal skills
+    "leadership", "manage", "management", "managing", "manages", "managed", 
+    "oversee", "overseeing", "oversees", "oversaw", 
+    "supervise", "supervising", "supervises", "supervised",
+    "interpersonal", "communication", "verbal", "written", "oral",
+    "collaborate", "collaboration", "collaborating",
+    "coordinate", "coordinates", "coordinating", "coordinated",
+    
+    // Problem solving & analytical skills
+    "problem", "problems", "solve", "solves", "solving", "solved", 
+    "solution", "solutions", "detail", "details", "detailed", "oriented",
+    "multi", "task", "tasking", "prioritize", "prioritizes", "prioritizing", "prioritized",
+    
+    // Personal qualities & attributes
+    "passion", "passionate", "culture", "innovative", "skilled", "skill", "skills",
+    "dedication", "dedicated", "commitment", "committed", 
+    "enthusiastic", "enthusiasm", "competitive", "competency", "competencies", 
+    "proficiency", "proficient", "thorough", "understanding", "understands",
+    "values", "integrity", "professional", "professionalism",
+    "initiative", "initiatives", "drive", "drives", "driving", "driven",
+    "flexible", "flexibility", "adaptable", "adaptability",
+    "diverse", "diversity", "inclusive", "inclusion",
+    "thriving", "thrives", "thrive", "challenging", "challenge", "challenges", "challenged",
+    "rewarding", "reward", "rewards", "rewarded", 
+    "satisfying", "satisfaction", "satisfactory", 
+    "fulfilling", "fulfillment", "fulfill", "fulfils",
+    
+    // Technical / execution skills
+    "implement", "implements", "implementing", "implemented", 
+    "develop", "develops", "developing", "developed",
+    "maintain", "maintains", "maintaining", "maintained", 
+    "establish", "establishes", "establishing", "established",
+    
+    // Valuable terms from the images
+    "grow", "dream", "people", "create", "push", "edges", "looks", "quality", 
+    "obliterate", "boundaries", "explore", "potential", "constantly", "evolving", 
+    "mindset", "achievers", "leaders", "visionaries", "imagination", "seeks", 
+    "expertise", "speed", "standards", "outfit"
   ];
     // Function to remove stopwords manually
   const removeStopwords = (words: string[], stopwords: string[]): string[] => {
