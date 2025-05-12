@@ -406,6 +406,8 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       // Apply text filtering if enabled
       const processedResumeText = useFiltering ? filterText(resumeText) : resumeText;
       const processedJobDescription = useFiltering ? filterText(jobDescription) : jobDescription;
+      console.log("[Job Description Analyzer] Processed Resume to API: ", processedResumeText)
+      console.log("[Job Description Analyzer] Processed JD to API: ", processedJobDescription)
       
       // First try to use the AI-powered analysis
       let result;
@@ -881,7 +883,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                       <Badge className="bg-amber-100 text-amber-800 rounded-sm">Key</Badge>
                       Responsibilities
                     </h4>
-                    <ScrollArea className="h-[200px] pr-4">
+                    <ScrollArea className="h-[300px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.responsibilities.map((resp, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
