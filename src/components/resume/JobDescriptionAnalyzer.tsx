@@ -1264,7 +1264,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                     </ScrollArea>
                   </CardContent>
                 </Card>
-                
+              </div>
               
               {/* Improvement Suggestions - Enhanced visual appeal */}
               <Card className={`${getScoreBackground(analysisResult.overallScore)} border-0 overflow-hidden`}>
