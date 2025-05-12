@@ -65,7 +65,8 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
         body: { url: jobUrl }
       });
 
-      console.log("Response: ", response)
+      console.log("Job Description Response: ", response)
+      console.log("Job Description Response: ", response.data)
 
       if (response.data?.description) {
         
