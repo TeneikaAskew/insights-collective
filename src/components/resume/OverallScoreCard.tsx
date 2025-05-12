@@ -43,6 +43,11 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     careerAlignments
   } = useResumeAnalysis();
 
+  console.log('Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
+  console.log('Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
+  console.log('Resume data:', localStorage.getItem(`resume_data_${user.id}`));
+
+
   // Check for roast (keep existing functionality)
   useEffect(() => {
     console.log("Checking if roast exists yet for: ", userId);
