@@ -71,22 +71,23 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
 
     setIsExtracting(true);
     try {
+      console.log("Starting Job Extraction from: ", jobUrl)
       const { data, error } = await supabase.functions.invoke('scrape-job-description', {
         body: { url: jobUrl }
       });
 
       if (error) throw new Error(error.message);
       
-      if (data?.description) {
-        setJobDescription(data.description);
+      if (data?.jobDescription) {
+        setJobDescription(data.jobDescription);
         toast({
           title: "Description Extracted",
-          description: "Job description was successfully extracted",
+          jobDescription: "Job description was successfully extracted",
         });
       } else {
         toast({
           title: "Extraction Failed",
-          description: "Could not extract job description from URL",
+          jobDescription: "Could not extract job description from URL",
           variant: "destructive",
         });
       }
