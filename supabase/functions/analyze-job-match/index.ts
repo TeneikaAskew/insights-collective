@@ -58,6 +58,7 @@ async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKey
   // Use Mixtral or Llama model based on availability
   const model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'; // or 'mistralai/Mixtral-8x7B-Instruct-v0.1'
   console.log(`Using model: ${model}`);
+  // *** FIXED: Updated the API request to use the correct chat completion format ***
   const response = await fetch('https://api.together.xyz/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -66,22 +67,28 @@ async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKey
     },
     body: JSON.stringify({
       model,
-      prompt,
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful AI assistant that provides JSON responses."
+        },
+        {
+          role: "user",
+          content: prompt
+        }
+      ],
       temperature: 0.2,
-      max_tokens: 2000,
-      stop: [
-        "\n\n",
-        "```"
-      ]
+      max_tokens: 2000
     })
   });
   const result = await response.json();
   console.log("AI Response: ", result);
-  if (!result.choices || !result.choices[0] || !result.choices[0].text) {
+  // *** FIXED: Updated to handle the chat completion response format ***
+  if (!result.choices || result.choices.length === 0 || !result.choices[0].message || !result.choices[0].message.content) {
     throw new Error('Invalid response from Together AI');
   }
-  // Get the raw text from the completion
-  const rawText = result.choices[0].text.trim();
+  // Get the content from the message
+  const rawText = result.choices[0].message.content.trim();
   console.log("Raw text length:", rawText.length);
   // Extract and clean JSON
   const cleanedJson = extractCleanJson(rawText);
