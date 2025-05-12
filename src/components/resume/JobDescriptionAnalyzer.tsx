@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,17 @@ import { useForm } from 'react-hook-form';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 
+// Storage keys for local storage
+const STORAGE_KEYS = {
+  JOB_URL: 'job_description_url',
+  JOB_DESCRIPTION: 'job_description_text',
+  ACTIVE_TAB: 'job_analyzer_active_tab',
+  ANALYSIS_RESULT: 'job_analysis_result'
+};
+
+// Import stopwords for keyword extraction
+import { eng } from '@/lib/stopwords_eng';
+
 interface JobDescriptionAnalyzerProps {
   resumeText: string | null;
 }
@@ -28,6 +40,14 @@ interface SkillMatch {
   skill: string;
   importance: 'high' | 'medium' | 'low';
   matched: boolean;
+}
+
+interface KeywordEvaluation {
+  keyword: string;
+  jobFrequency: number;
+  resumeFrequency: number;
+  matchPercentage: number;
+  isImportant: boolean;
 }
 
 interface AnalysisResult {
@@ -57,6 +77,144 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       jobDescription: '',
     }
   });
+
+   // Save to localStorage whenever these values change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.JOB_URL, jobUrl);
+  }, [jobUrl]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.JOB_DESCRIPTION, jobDescription);
+  }, [jobDescription]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (analysisResult) {
+      localStorage.setItem(STORAGE_KEYS.ANALYSIS_RESULT, JSON.stringify(analysisResult));
+    }
+  }, [analysisResult]);
+
+  // Job-specific stopwords
+  const jobStopwords = [
+    // Common job posting words with little resume-matching value
+    "job", "work", "position", "company", "team", "experience", "ability", "role", "candidate", "applicant", 
+    "qualified", "qualification", "opportunity", "career", "employment", "salary", "compensation", "benefit",
+    "benefits", "responsibilities", "requirements", "required", "preferred", "ideal", "strong", "excellent", 
+    "outstanding", "exceptional", "proven", "demonstrated", "years", "month", "months", "year", "day", "days",
+    "week", "weeks", "time", "full", "part", "duties", "tasks", "responsible", "responsibility", "successful",
+    "success", "perform", "performing", "performs", "performed", "apply", "application", "applications", "please",
+    "thank", "thanks", "contact", "email", "phone", "resume", "cover", "letter", "today", "ago", "new", "old",
+    "good", "great", "best", "better", "within", "www", "http", "https", "com", "org", "net", "know", "knowledge",
+    "information", "info", "provide", "provides", "provided", "providing", "support", "supports", "supported",
+    "supporting", "include", "includes", "including", "included", "ensure", "ensures", "ensuring", "ensured"
+  ];
+    // Function to remove stopwords manually
+  const removeStopwords = (words: string[], stopwords: string[]): string[] => {
+    const stopwordSet = new Set(stopwords);
+    return words.filter(word => !stopwordSet.has(word));
+  };
+
+  // Evaluate keywords with advanced stopword handling
+  const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluation[] => {
+    // Clean and extract words from job description
+    const jobWords = jobText.toLowerCase()
+      .replace(/[^\w\s-]/g, ' ')   // Remove punctuation except hyphens
+      .split(/\s+/)                // Split by whitespace
+      .filter(word => 
+        word.length > 2 &&         // Filter out very short words
+        !/^\d+$/.test(word)        // Filter out numbers
+      );
+    
+    // Use our custom removeStopwords function
+    const filteredJobWords = removeStopwords(jobWords, [...eng, ...jobStopwords]);
+    
+    // Count frequency of each meaningful word in job description
+    const jobWordFrequency: {[key: string]: number} = {};
+    filteredJobWords.forEach(word => {
+      jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
+    });
+    
+    // Also look for important compound terms (2-3 word phrases that appear multiple times)
+    const extractCompoundTerms = (text: string): {[key: string]: number} => {
+      const result: {[key: string]: number} = {};
+      const words = text.toLowerCase().replace(/[^\w\s-]/g, ' ').split(/\s+/);
+      const filteredWords = removeStopwords(words, [...eng, ...jobStopwords]);
+      
+      // Create a map to preserve original positions after stopword removal
+      const positionMap: number[] = [];
+      words.forEach((word, index) => {
+        if (word.length > 2 && ![...eng, ...jobStopwords].includes(word) && !/^\d+$/.test(word)) {
+          positionMap.push(index);
+        }
+      });
+      
+      // Extract 2-word and 3-word phrases from filtered words
+      for (let i = 0; i < filteredWords.length - 1; i++) {
+        // Check if these filtered words were originally adjacent in the text
+        const origPos1 = positionMap[i];
+        const origPos2 = positionMap[i+1];
+        
+        if (origPos2 - origPos1 <= 2) { // Allow for one stopword in between
+          // 2-word phrase
+          const phrase = `${filteredWords[i]} ${filteredWords[i+1]}`;
+          result[phrase] = (result[phrase] || 0) + 1;
+        }
+        
+        // 3-word phrase
+        if (i < filteredWords.length - 2) {
+          const origPos3 = positionMap[i+2];
+          
+          if (origPos3 - origPos1 <= 4) { // Allow for stopwords in between
+            const phrase = `${filteredWords[i]} ${filteredWords[i+1]} ${filteredWords[i+2]}`;
+            result[phrase] = (result[phrase] || 0) + 1;
+          }
+        }
+      }
+      
+      return result;
+    };
+    
+    const compoundTerms = extractCompoundTerms(jobText);
+    
+    // Merge single words and important compound terms
+    for (const [term, count] of Object.entries(compoundTerms)) {
+      if (count >= 2) { // Only include terms that appear at least twice
+        jobWordFrequency[term] = count;
+      }
+    }
+    
+    // Get top keywords by frequency (words that appear multiple times)
+    const keywordsToEvaluate = Object.entries(jobWordFrequency)
+      .filter(([_, count]) => count >= 2)  // Only words that appear at least twice
+      .sort((a, b) => b[1] - a[1])         // Sort by frequency, highest first
+      .slice(0, 30)                        // Take top 30 keywords
+      .map(([word]) => word);
+    
+    // Now evaluate each keyword's presence in resume
+    const keywordEvaluation: KeywordEvaluation[] = keywordsToEvaluate.map(keyword => {
+      // Count occurrences in resume
+      const resumeLower = resumeText.toLowerCase();
+      const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'g');
+      const resumeMatches = (resumeLower.match(keywordRegex) || []).length;
+      const jobMatches = jobWordFrequency[keyword];
+      
+      // Calculate a match percentage (capped at 100%)
+      const matchPercentage = Math.min(100, Math.round((resumeMatches / jobMatches) * 100));
+      
+      return {
+        keyword,
+        jobFrequency: jobMatches,
+        resumeFrequency: resumeMatches,
+        matchPercentage,
+        isImportant: jobMatches >= 3  // Consider keywords that appear 3+ times as important
+      };
+    });
+    
+    return keywordEvaluation;
+  };
 
   const handleUrlExtract = async () => {
     if (!jobUrl) {
@@ -406,7 +564,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
             </div>
           ) : analysisResult ? (
             <div className="space-y-8">
-              {/* Header Section */}
+              {/* Header Section - Redesigned */}
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-muted/20 p-4 rounded-lg">
                 <div>
                   <h2 className="text-xl font-semibold">Job Match Analysis</h2>
@@ -418,7 +576,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </Button>
               </div>
 
-              {/* Overall Compatibility Score */}
+              {/* Overall Compatibility Score - Enhanced visual presentation */}
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <h3 className="font-medium text-lg">Overall Compatibility</h3>
@@ -443,7 +601,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </div>
               </div>
 
-              {/* Keyword Analysis with Tabs */}
+              {/* Keyword Analysis with Tabs - Enhanced for clarity */}
               <div className="space-y-4">
                 <h3 className="font-medium text-lg">Keyword Evaluation</h3>
                 <Tabs defaultValue="matched" className="w-full">
@@ -511,16 +669,16 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </Tabs>
               </div>
               
-              {/* Skills Section - Increased height for better visibility */}
+              {/* Skills Section - Enhanced for better readability */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Technical Skills - Increased height */}
+                {/* Technical Skills */}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
                       <Badge className="bg-blue-100 text-blue-800 rounded-sm">Technical</Badge>
                       Skills
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.technicalSkills.map((skill, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
@@ -542,14 +700,14 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   </CardContent>
                 </Card>
                 
-                {/* Functional Skills - Increased height */}
+                {/* Functional Skills */}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
                       <Badge className="bg-purple-100 text-purple-800 rounded-sm">Functional</Badge>
                       Skills
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.functionalSkills.map((skill, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
@@ -571,14 +729,14 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                   </CardContent>
                 </Card>
                 
-                {/* Responsibilities - Increased height */}
+                {/* Responsibilities */}
                 <Card>
                   <CardContent className="p-4 pt-5 space-y-3">
                     <h4 className="font-semibold flex items-center gap-2">
                       <Badge className="bg-amber-100 text-amber-800 rounded-sm">Key</Badge>
                       Responsibilities
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[200px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.responsibilities.map((resp, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
@@ -601,7 +759,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </Card>
               </div>
               
-              {/* Improvement Suggestions */}
+              {/* Improvement Suggestions - Enhanced visual appeal */}
               <Card className={`${getScoreBackground(analysisResult.overallScore)} border-0 overflow-hidden`}>
                 <div className="absolute top-0 right-0 w-24 h-24 bg-black/5 rounded-full -mr-12 -mt-12"></div>
                 <CardContent className="p-5 space-y-3">
@@ -622,20 +780,12 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 </CardContent>
               </Card>
 
-              {/* Pro Tip - Added resume template link */}
+              {/* Pro Tip - Enhanced visual appeal */}
               <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 flex items-start space-x-3">
                 <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
                 <div>
                   <p className="text-sm text-blue-900">
-                    <span className="font-medium">Pro Tip:</span> Tailoring your resume for each job application increases your chances of passing ATS filters by up to 60%. Focus on incorporating the missing keywords and skills identified above.{" "}
-                    <a 
-                      href="https://docs.google.com/document/d/1CKGglaXyYad16IFiYSDpGd2ofro5dYmi4eD1JNeHkD4/edit?usp=sharing" 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 underline hover:text-blue-800"
-                    >
-                      Use this 100% ATS-optimized resume template
-                    </a> to increase your chances further.
+                    <span className="font-medium">Pro Tip:</span> Tailoring your resume for each job application increases your chances of passing ATS filters by up to 60%. Focus on incorporating the missing keywords and skills identified above.
                   </p>
                 </div>
               </div>
