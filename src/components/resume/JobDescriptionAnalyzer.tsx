@@ -1259,6 +1259,14 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                 <div>
                   <p className="text-sm text-blue-900">
                     <span className="font-medium">Pro Tip:</span> Tailoring your resume for each job application increases your chances of passing ATS filters by up to 60%. Focus on incorporating the missing keywords and skills identified above.
+                     <a 
+                      href="https://docs.google.com/document/d/1CKGglaXyYad16IFiYSDpGd2ofro5dYmi4eD1JNeHkD4/edit?usp=sharing" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-600 underline hover:text-blue-800"
+                    >
+                      Use this 100% ATS-optimized resume template
+                    </a> to increase your chances further.
                   </p>
                 </div>
               </div>
