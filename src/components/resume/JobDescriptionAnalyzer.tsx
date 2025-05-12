@@ -42,31 +42,12 @@ interface AnalysisResult {
 }
 
 const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeText }) => {
-  // const [activeTab, setActiveTab] = useState<string>('job-input');
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    // Try to restore active tab from localStorage
-    const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
-    return savedTab || 'job-input';
-  });
-  
-  const [jobUrl, setJobUrl] = useState<string>(() => {
-    // Try to restore job URL from localStorage
-    return localStorage.getItem(STORAGE_KEYS.JOB_URL) || '';
-  });
-  
-  const [jobDescription, setJobDescription] = useState<string>(() => {
-    // Try to restore job description from localStorage
-    return localStorage.getItem(STORAGE_KEYS.JOB_DESCRIPTION) || '';
-  });
+  const [activeTab, setActiveTab] = useState<string>('job-input');
+  const [jobUrl, setJobUrl] = useState<string>('');
   const [jobDescription, setJobDescription] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
-  // const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(() => {
-      // Try to restore analysis result from localStorage
-      const savedResult = localStorage.getItem(STORAGE_KEYS.ANALYSIS_RESULT);
-      return savedResult ? JSON.parse(savedResult) : null;
-    });
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
   const resultRef = useRef<HTMLDivElement>(null);
   
@@ -76,6 +57,144 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
       jobDescription: '',
     }
   });
+
+   // Save to localStorage whenever these values change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.JOB_URL, jobUrl);
+  }, [jobUrl]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.JOB_DESCRIPTION, jobDescription);
+  }, [jobDescription]);
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.ACTIVE_TAB, activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (analysisResult) {
+      localStorage.setItem(STORAGE_KEYS.ANALYSIS_RESULT, JSON.stringify(analysisResult));
+    }
+  }, [analysisResult]);
+
+  // Job-specific stopwords
+  const jobStopwords = [
+    // Common job posting words with little resume-matching value
+    "job", "work", "position", "company", "team", "experience", "ability", "role", "candidate", "applicant", 
+    "qualified", "qualification", "opportunity", "career", "employment", "salary", "compensation", "benefit",
+    "benefits", "responsibilities", "requirements", "required", "preferred", "ideal", "strong", "excellent", 
+    "outstanding", "exceptional", "proven", "demonstrated", "years", "month", "months", "year", "day", "days",
+    "week", "weeks", "time", "full", "part", "duties", "tasks", "responsible", "responsibility", "successful",
+    "success", "perform", "performing", "performs", "performed", "apply", "application", "applications", "please",
+    "thank", "thanks", "contact", "email", "phone", "resume", "cover", "letter", "today", "ago", "new", "old",
+    "good", "great", "best", "better", "within", "www", "http", "https", "com", "org", "net", "know", "knowledge",
+    "information", "info", "provide", "provides", "provided", "providing", "support", "supports", "supported",
+    "supporting", "include", "includes", "including", "included", "ensure", "ensures", "ensuring", "ensured"
+  ];
+    // Function to remove stopwords manually
+  const removeStopwords = (words: string[], stopwords: string[]): string[] => {
+    const stopwordSet = new Set(stopwords);
+    return words.filter(word => !stopwordSet.has(word));
+  };
+
+  // Evaluate keywords with advanced stopword handling
+  const evaluateKeywords = (jobText: string, resumeText: string): KeywordEvaluation[] => {
+    // Clean and extract words from job description
+    const jobWords = jobText.toLowerCase()
+      .replace(/[^\w\s-]/g, ' ')   // Remove punctuation except hyphens
+      .split(/\s+/)                // Split by whitespace
+      .filter(word => 
+        word.length > 2 &&         // Filter out very short words
+        !/^\d+$/.test(word)        // Filter out numbers
+      );
+    
+    // Use our custom removeStopwords function
+    const filteredJobWords = removeStopwords(jobWords, [...eng, ...jobStopwords]);
+    
+    // Count frequency of each meaningful word in job description
+    const jobWordFrequency: {[key: string]: number} = {};
+    filteredJobWords.forEach(word => {
+      jobWordFrequency[word] = (jobWordFrequency[word] || 0) + 1;
+    });
+    
+    // Also look for important compound terms (2-3 word phrases that appear multiple times)
+    const extractCompoundTerms = (text: string): {[key: string]: number} => {
+      const result: {[key: string]: number} = {};
+      const words = text.toLowerCase().replace(/[^\w\s-]/g, ' ').split(/\s+/);
+      const filteredWords = removeStopwords(words, [...eng, ...jobStopwords]);
+      
+      // Create a map to preserve original positions after stopword removal
+      const positionMap: number[] = [];
+      words.forEach((word, index) => {
+        if (word.length > 2 && ![...eng, ...jobStopwords].includes(word) && !/^\d+$/.test(word)) {
+          positionMap.push(index);
+        }
+      });
+      
+      // Extract 2-word and 3-word phrases from filtered words
+      for (let i = 0; i < filteredWords.length - 1; i++) {
+        // Check if these filtered words were originally adjacent in the text
+        const origPos1 = positionMap[i];
+        const origPos2 = positionMap[i+1];
+        
+        if (origPos2 - origPos1 <= 2) { // Allow for one stopword in between
+          // 2-word phrase
+          const phrase = `${filteredWords[i]} ${filteredWords[i+1]}`;
+          result[phrase] = (result[phrase] || 0) + 1;
+        }
+        
+        // 3-word phrase
+        if (i < filteredWords.length - 2) {
+          const origPos3 = positionMap[i+2];
+          
+          if (origPos3 - origPos1 <= 4) { // Allow for stopwords in between
+            const phrase = `${filteredWords[i]} ${filteredWords[i+1]} ${filteredWords[i+2]}`;
+            result[phrase] = (result[phrase] || 0) + 1;
+          }
+        }
+      }
+      
+      return result;
+    };
+    
+    const compoundTerms = extractCompoundTerms(jobText);
+    
+    // Merge single words and important compound terms
+    for (const [term, count] of Object.entries(compoundTerms)) {
+      if (count >= 2) { // Only include terms that appear at least twice
+        jobWordFrequency[term] = count;
+      }
+    }
+    
+    // Get top keywords by frequency (words that appear multiple times)
+    const keywordsToEvaluate = Object.entries(jobWordFrequency)
+      .filter(([_, count]) => count >= 2)  // Only words that appear at least twice
+      .sort((a, b) => b[1] - a[1])         // Sort by frequency, highest first
+      .slice(0, 30)                        // Take top 30 keywords
+      .map(([word]) => word);
+    
+    // Now evaluate each keyword's presence in resume
+    const keywordEvaluation: KeywordEvaluation[] = keywordsToEvaluate.map(keyword => {
+      // Count occurrences in resume
+      const resumeLower = resumeText.toLowerCase();
+      const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'g');
+      const resumeMatches = (resumeLower.match(keywordRegex) || []).length;
+      const jobMatches = jobWordFrequency[keyword];
+      
+      // Calculate a match percentage (capped at 100%)
+      const matchPercentage = Math.min(100, Math.round((resumeMatches / jobMatches) * 100));
+      
+      return {
+        keyword,
+        jobFrequency: jobMatches,
+        resumeFrequency: resumeMatches,
+        matchPercentage,
+        isImportant: jobMatches >= 3  // Consider keywords that appear 3+ times as important
+      };
+    });
+    
+    return keywordEvaluation;
+  };
 
   const handleUrlExtract = async () => {
     if (!jobUrl) {
