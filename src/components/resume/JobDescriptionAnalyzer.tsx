@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,6 +15,17 @@ import { useForm } from 'react-hook-form';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 
+// Storage keys for local storage
+const STORAGE_KEYS = {
+  JOB_URL: 'job_description_url',
+  JOB_DESCRIPTION: 'job_description_text',
+  ACTIVE_TAB: 'job_analyzer_active_tab',
+  ANALYSIS_RESULT: 'job_analysis_result'
+};
+
+// Import stopwords for keyword extraction
+import { eng } from '@/lib/stopwords_eng';
+
 interface JobDescriptionAnalyzerProps {
   resumeText: string | null;
 }
@@ -28,6 +40,14 @@ interface SkillMatch {
   skill: string;
   importance: 'high' | 'medium' | 'low';
   matched: boolean;
+}
+
+interface KeywordEvaluation {
+  keyword: string;
+  jobFrequency: number;
+  resumeFrequency: number;
+  matchPercentage: number;
+  isImportant: boolean;
 }
 
 interface AnalysisResult {
