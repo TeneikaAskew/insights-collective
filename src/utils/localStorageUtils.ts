@@ -84,6 +84,43 @@ export class LocalStorageUtils {
   }
 
   /**
+   * Clear all items from localStorage that match any of the provided patterns
+   */
+  static clearItemsByPatterns(patterns: string[]): void {
+    console.log(`Clearing all localStorage items matching patterns: ${patterns.join(', ')}`);
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key) {
+        const keyLower = key.toLowerCase();
+        const shouldRemove = patterns.some(pattern => keyLower.includes(pattern.toLowerCase()));
+        if (shouldRemove) {
+          console.log(`Removing localStorage item: ${key}`);
+          localStorage.removeItem(key);
+        }
+      }
+    }
+  }
+
+  /**
+   * Clear specific job-related items from localStorage
+   */
+  static clearJobItems(): void {
+    console.log('Clearing job-related items from localStorage');
+    const jobKeys = [
+      'job_description_url',
+      'job_description_text',
+      'job_analyzer_active_tab', 
+      'job_analysis_result',
+      'job_analyzer_use_filtering'
+    ];
+    
+    jobKeys.forEach(key => {
+      localStorage.removeItem(key);
+      console.log(`Removed job-related key: ${key}`);
+    });
+  }
+
+  /**
    * Print all items to console
    */
   static logAllItems(): void {

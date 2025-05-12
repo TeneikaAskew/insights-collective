@@ -11,6 +11,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { LocalStorageUtils } from '@/utils/localStorageUtils';
 
 const Resume = () => {
   // Add a debug helper function
@@ -529,11 +530,40 @@ const Resume = () => {
     hasLoadedEnhancedRef.current = false;
     logDebug('UserAction', 'Reset hasLoadedEnhancedRef for refresh');
 
-    // Clear localStorage cache before refreshing data
+    // Clear localStorage items related to resume, analysis, and job
     if (user) {
+      // Clear all existing cached data for the user
       localStorage.removeItem(`resume_analysis_${user.id}`);
       logDebug('UserAction', 'Cleared localStorage cache for user');
+      
+      // Clear all items containing "resume", "analysis", or "job"
+      for (let i = localStorage.length - 1; i >= 0; i--) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.toLowerCase().includes('resume') || 
+          key.toLowerCase().includes('analysis') || 
+          key.toLowerCase().includes('job')
+        )) {
+          logDebug('UserAction', `Removing localStorage item: ${key}`);
+          localStorage.removeItem(key);
+        }
+      }
+      
+      // Clear specific job-related keys
+      const jobKeys = [
+        'job_description_url',
+        'job_description_text',
+        'job_analyzer_active_tab',
+        'job_analysis_result',
+        'job_analyzer_use_filtering'
+      ];
+      
+      jobKeys.forEach(key => {
+        localStorage.removeItem(key);
+        logDebug('UserAction', `Removed job-related key: ${key}`);
+      });
     }
+
     try {
       logDebug('UserAction', 'Calling refreshResume');
       await refreshResume();

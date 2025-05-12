@@ -18,6 +18,14 @@ const LocalStorageDebug: React.FC = () => {
     LocalStorageUtils.clearResumeItems(userId);
     refreshItems();
   };
+  
+  const clearAllResumeAndJobData = () => {
+    // Clear all items with resume, analysis, or job in the key
+    LocalStorageUtils.clearItemsByPatterns(['resume', 'analysis', 'job']);
+    // Also clear specific job keys
+    LocalStorageUtils.clearJobItems();
+    refreshItems();
+  };
 
   const exportData = () => {
     const data = LocalStorageUtils.exportToJSON();
@@ -43,8 +51,11 @@ const LocalStorageDebug: React.FC = () => {
         <Button onClick={clearResumeData} variant="destructive">
           Clear Resume Data
         </Button>
+        <Button onClick={clearAllResumeAndJobData} variant="destructive">
+          Clear All Resume/Job Data
+        </Button>
         <Button onClick={exportData} variant="secondary">
-          Export JSON.
+          Export JSON
         </Button>
       </div>
 
