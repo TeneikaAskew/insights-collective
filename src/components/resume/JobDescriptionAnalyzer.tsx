@@ -1089,7 +1089,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                       <Badge className="bg-blue-100 text-blue-800 rounded-sm">Technical</Badge>
                       Skills
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[350px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.technicalSkills.map((skill, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
@@ -1118,7 +1118,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                       <Badge className="bg-purple-100 text-purple-800 rounded-sm">Functional</Badge>
                       Skills
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[350px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.functionalSkills.map((skill, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
@@ -1147,7 +1147,7 @@ ${analysisResult.improvementSuggestions.map(s => `- ${s}`).join('\n')}
                       <Badge className="bg-amber-100 text-amber-800 rounded-sm">Key</Badge>
                       Responsibilities
                     </h4>
-                    <ScrollArea className="h-[300px] pr-4">
+                    <ScrollArea className="h-[350px] pr-4">
                       <div className="space-y-2">
                         {analysisResult.responsibilities.map((resp, index) => (
                           <div key={index} className="flex justify-between items-center p-2 rounded-md bg-muted/30">
