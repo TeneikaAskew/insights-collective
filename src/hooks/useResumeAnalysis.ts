@@ -512,6 +512,32 @@ export function useResumeAnalysis() {
           isUndefined: analysisData === undefined,
           hasProperties: analysisData ? Object.keys(analysisData).length : 'N/A'
         });
+
+        // More detailed validation
+        if (error) {
+          throw new Error(`Edge function error: ${error.message}`);
+        }
+        
+        // Check for various forms of empty/invalid responses
+        if (!analysisData) {
+          throw new Error("Edge function returned null or undefined");
+        }
+        
+        if (typeof analysisData !== 'object') {
+          throw new Error(`Edge function returned non-object type: ${typeof analysisData}`);
+        }
+        
+        if (Object.keys(analysisData).length === 0) {
+          throw new Error("Edge function returned empty object");
+        }
+        
+        // Check for required fields
+        const requiredFields = ['resume_percent', 'letter_grade', 'themes'];
+        const missingFields = requiredFields.filter(field => !(field in analysisData));
+        
+        if (missingFields.length > 0) {
+          throw new Error(`Edge function response missing required fields: ${missingFields.join(', ')}`);
+        }
         
         if (error) {
           console.error("Edge function error:", error);
