@@ -7,6 +7,7 @@ import { MessageSquare, Download } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Get user ID if authenticated - keep this outside component to avoid execution during render
 const getUserId = async () => {
@@ -42,10 +43,12 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
   const {
     careerAlignments
   } = useResumeAnalysis();
+  const { user } = useAuth(); // Add useAuth hook to access user information
 
-  console.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
-  console.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
-  console.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${user.id}`));
+  // Use user.id safely with optional chaining to prevent errors if user is null
+  console.log('[OverallScoreCard] Resume analysis data:', user?.id ? localStorage.getItem(`resume_analysis_${user.id}`) : 'No user ID available');
+  console.log('[OverallScoreCard] Resume text data:', user?.id ? localStorage.getItem(`resume_text_${user.id}`) : 'No user ID available');
+  console.log('[OverallScoreCard] Resume data:', user?.id ? localStorage.getItem(`resume_data_${user.id}`) : 'No user ID available');
 
 
   // Check for roast (keep existing functionality)
