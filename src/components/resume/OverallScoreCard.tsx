@@ -43,9 +43,9 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
     careerAlignments
   } = useResumeAnalysis();
 
-  console.log('Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
-  console.log('Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
-  console.log('Resume data:', localStorage.getItem(`resume_data_${user.id}`));
+  console.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
+  console.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
+  console.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${user.id}`));
 
 
   // Check for roast (keep existing functionality)
