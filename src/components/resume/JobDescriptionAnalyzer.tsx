@@ -13,6 +13,8 @@ import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+// Import English stopwords if available or define them
+import { eng } from '@/lib/stopwords_eng';
 
 interface JobDescriptionAnalyzerProps {
   resumeText: string | null;
@@ -42,31 +44,12 @@ interface AnalysisResult {
 }
 
 const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeText }) => {
-  // const [activeTab, setActiveTab] = useState<string>('job-input');
-  const [activeTab, setActiveTab] = useState<string>(() => {
-    // Try to restore active tab from localStorage
-    const savedTab = localStorage.getItem(STORAGE_KEYS.ACTIVE_TAB);
-    return savedTab || 'job-input';
-  });
-  
-  const [jobUrl, setJobUrl] = useState<string>(() => {
-    // Try to restore job URL from localStorage
-    return localStorage.getItem(STORAGE_KEYS.JOB_URL) || '';
-  });
-  
-  const [jobDescription, setJobDescription] = useState<string>(() => {
-    // Try to restore job description from localStorage
-    return localStorage.getItem(STORAGE_KEYS.JOB_DESCRIPTION) || '';
-  });
+  const [activeTab, setActiveTab] = useState<string>('job-input');
+  const [jobUrl, setJobUrl] = useState<string>('');
   const [jobDescription, setJobDescription] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isExtracting, setIsExtracting] = useState<boolean>(false);
-  // const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(() => {
-      // Try to restore analysis result from localStorage
-      const savedResult = localStorage.getItem(STORAGE_KEYS.ANALYSIS_RESULT);
-      return savedResult ? JSON.parse(savedResult) : null;
-    });
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
   const { toast } = useToast();
   const resultRef = useRef<HTMLDivElement>(null);
   
@@ -146,9 +129,28 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     try {
       // First try to use the AI-powered analysis
       let result;
+         // Optionally pre-process job description and resume to remove stopwords
+      const jobWords = jobDescription.toLowerCase().split(/\s+/);
+      const resumeWords = resumeText.toLowerCase().split(/\s+/);
+      
+      // Use our removeStopwords function with the English stopwords
+      const filteredJobWords = removeStopwords(jobWords, [...eng, ...jobStopwords]);
+      const filteredResumeWords = removeStopwords(resumeWords, [...eng, ...jobStopwords]);
+      
+      // Convert back to text
+      const filteredJobDescription = filteredJobWords.join(' ');
+      const filteredResumeText = filteredResumeWords.join(' ');
+      
+      // Use the original or filtered text based on your preference
+      // You can switch between these two approaches
+      const useFiltering = true; // Set to true to use stopword filtering before sending to AI
+      
       try {
         const { data, error } = await supabase.functions.invoke('analyze-job-match', {
-          body: { resumeText, jobDescription }
+          body: {    resumeText: useFiltering ? filteredResumeText : resumeText, 
+            jobDescription: useFiltering ? filteredJobDescription : jobDescription 
+          // resumeText, jobDescription 
+                }
         });
 
         if (error) throw new Error(error.message);
