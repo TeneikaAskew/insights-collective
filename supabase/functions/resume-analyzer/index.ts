@@ -550,6 +550,8 @@ export async function bulletImprover(userId, enhanced = null) {
 //   }
 // });
 
+// Updated index.ts with more comprehensive fix
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -564,39 +566,54 @@ serve(async (req) => {
   console.log('URL:', url, 'Path:', path);
 
   try {
-    // Parse the request body once
-    const { action, resumeText, text, userId } = await req.json();
-    console.log('Action:', action, 'User:', userId, 'Text length:', (resumeText || text)?.length || 0);
+    // Parse the request body
+    const requestData = await req.json();
+    console.log('Request data:', JSON.stringify(requestData));
     
-    // Special endpoint for improving bullets - handle this first before any other processing
+    const { action, resumeText, text, userId } = requestData;
+    
+    // IMPORTANT: Special-case the improve-bullets action FIRST
+    // before ANY other processing
     if (action === 'improve-bullets' && userId) {
-      console.log('Running bullet improver only');
-      const result = await bulletImprover(userId);
-      return new Response(JSON.stringify(result), {
-        headers: { 'Content-Type': 'application/json', ...corsHeaders }
-      });
+      console.log('IMPROVE-BULLETS action detected, userId:', userId);
+      try {
+        const result = await bulletImprover(userId);
+        console.log('bulletImprover completed successfully');
+        return new Response(JSON.stringify(result), {
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      } catch (improvementError) {
+        console.error('Error in improve-bullets handler:', improvementError);
+        return new Response(JSON.stringify({ 
+          error: 'Failed to improve bullets',
+          details: improvementError.message
+        }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        });
+      }
     }
 
-    // For all other actions, proceed with standard analysis flow
+    // For ALL OTHER ACTIONS, continue with the normal flow
     const resolvedText = resumeText || text;
-    console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
+    console.log('Normal flow - User:', userId, 'Text length:', resolvedText?.length || 0);
 
     // Consolidated sentence detection + analysis (main flow)
     if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path) {
       console.log('Running sentence detection + analysis');
 
-      // Optionally trigger the roast in the background 
+      // Start the roast process in the background if text is provided
       if (resolvedText) {
         getResumeRoast(resolvedText, userId);
       }
 
-      // Only run sentence detection if we have text
+      // IMPORTANT CHECK: Only attempt to detect sentences if we have text
       let sentences = [];
       if (resolvedText) {
         sentences = await detectSentences(resolvedText, userId);
         console.log('Direct detectSentences():', sentences.length);
       } else if (userId) {
-        // If no text but we have userId, try to load sentences from database
+        // If no text but userId is provided, try to load from database
         console.log('No text provided, attempting to load sentences from database');
         try {
           const { data: existingData } = await supabase
@@ -610,32 +627,39 @@ serve(async (req) => {
           if (existingData?.sentences && Array.isArray(existingData.sentences)) {
             sentences = existingData.sentences;
             console.log(`Loaded ${sentences.length} sentences from database`);
+          } else {
+            console.log('No sentences found in database, using empty array');
           }
-        } catch (error) {
-          console.error('Error loading sentences from database:', error);
+        } catch (loadError) {
+          console.error('Error loading sentences from database:', loadError);
+          // Continue with empty array
         }
       }
 
-      // Run resume analysis 
+      // Run the analysis with whatever sentences we have (may be empty array)
       const analysisResult = await analyzeResume(resolvedText, userId, sentences);
       
-      // Prepare the response
-      const response = new Response(JSON.stringify(analysisResult), {
+      return new Response(JSON.stringify(analysisResult), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
-      
-      return response;
     }
 
-    // Fallback: unrecognized path or action
+    // Fallback for unrecognized paths/actions
     console.log('No handler for path:', path, 'or action:', action);
-    return new Response(JSON.stringify({ error: 'Not found' }), {
+    return new Response(JSON.stringify({ 
+      error: 'Not found', 
+      path, 
+      action 
+    }), {
       status: 404,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
   } catch (err) {
-    console.error('Error:', err);
-    return new Response(JSON.stringify({ error: err.message || 'Internal error' }), {
+    console.error('Error in request handler:', err);
+    return new Response(JSON.stringify({ 
+      error: err.message || 'Internal error',
+      stack: err.stack 
+    }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
