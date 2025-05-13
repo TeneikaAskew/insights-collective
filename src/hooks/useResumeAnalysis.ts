@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -744,4 +745,70 @@ export function useResumeAnalysis() {
         
         toast({
           title: "Initial Resume Analysis Complete",
-          description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.
+          description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.resume_percent}%). We're now improving your bullet points.`,
+        });
+        
+        return true;
+      } catch (err) {
+        console.error("Error in resume analysis:", err);
+        toast({
+          title: "Analysis Failed",
+          description: "We encountered an error analyzing your resume. Please try again later.",
+          variant: "destructive"
+        });
+        return false;
+      }
+    } catch (err) {
+      console.error("Error in resume analysis outer try block:", err);
+      return false;
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // Helper function to clean up potential artifacts in the analysis data
+  const cleanAnalysisOutput = (data: any) => {
+    // Make a deep copy to avoid mutating the original object
+    const cleaned = JSON.parse(JSON.stringify(data));
+    
+    // Check if any string values contain prompt markers or other artifacts
+    // and clean them up if needed
+    Object.keys(cleaned).forEach(key => {
+      if (typeof cleaned[key] === 'string') {
+        // Remove any potential artifacts like "###" markers, etc.
+        cleaned[key] = cleaned[key].replace(/###.*?###/g, '').trim();
+      } else if (Array.isArray(cleaned[key])) {
+        // Handle arrays (like bullet points)
+        cleaned[key] = cleaned[key].map(item => {
+          if (typeof item === 'string') {
+            return item.replace(/###.*?###/g, '').trim();
+          } else if (typeof item === 'object' && item !== null) {
+            // Handle objects within arrays (like bullet point objects)
+            Object.keys(item).forEach(itemKey => {
+              if (typeof item[itemKey] === 'string') {
+                item[itemKey] = item[itemKey].replace(/###.*?###/g, '').trim();
+              }
+            });
+          }
+          return item;
+        });
+      }
+    });
+    
+    return cleaned;
+  };
+
+  return {
+    analysis,
+    setAnalysis,
+    isAnalyzing,
+    analyzeResume,
+    careerAlignments,
+    isPollingForImprovements,
+    setIsPollingForImprovements,
+    improvedBullets,
+    setImprovedBullets,
+    pollingIntervalRef
+  };
+}
+
