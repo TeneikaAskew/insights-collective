@@ -111,7 +111,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
       <CardContent className="flex flex-col">
         {showTabs ? (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-grow">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6"> {/* Changed from 5 to 4 columns to remove career fit */}
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <ChartBar className="h-4 w-4" />
                 <span>Overview</span>
@@ -130,8 +130,8 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
               </TabsTrigger>
             </TabsList>
 
-            <div className="flex-grow flex flex-col">
-              <TabsContent value="overview" className="mt-0 flex-grow">
+            <div className="flex-grow flex flex-col" style={{ minHeight: 0 }}>
+              <TabsContent value="overview" className="mt-0 flex-grow h-full">
                 <ResumeAnalysisDisplay
                   analysis={analysis}
                   onStartCareerChat={handleCareerChatStart}
@@ -151,17 +151,19 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
               
               {analysis && ( // Conditionally render other tabs only if analysis exists
                 <>
-                  <TabsContent value="storytelling" className="mt-0 flex-grow">
+                  <TabsContent value="storytelling" className="mt-0 flex-grow h-full">
                     <BulletPointsAnalysisCard
                       bullets={analysis.bullets || []}
                       isAnalyzing={isAnalyzing} // Pass isAnalyzing if needed by this component
                     />
                   </TabsContent>
-                  <TabsContent value="ats" className="mt-0 flex-grow">
+                  <TabsContent value="ats" className="mt-0 flex-grow h-full">
                     <ATSScoreCard analysis={analysis} />
                   </TabsContent>
-                  <TabsContent value="chat" className="mt-0 flex-grow flex flex-col h-full">
-                    {analysis && <ResumeChat resumeAnalysis={analysis} />}
+                  <TabsContent value="chat" className="mt-0 flex-grow h-full">
+                    <div className="h-full flex flex-col">
+                      {analysis && <ResumeChat resumeAnalysis={analysis} />}
+                    </div>
                   </TabsContent>
                 </>
               )}
@@ -187,7 +189,11 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
         )}
         
         {/* Only show chat outside of tabs when analysis exists but tabs are not shown */}
-        {analysis && !showTabs && showCareerChat && <ResumeChat resumeAnalysis={analysis} />}
+        {analysis && !showTabs && showCareerChat && (
+          <div className="h-full flex flex-col" style={{ height: '60vh', maxHeight: '500px' }}>
+            <ResumeChat resumeAnalysis={analysis} />
+          </div>
+        )}
       </CardContent>
     </Card>
   );
