@@ -265,9 +265,12 @@ export function useResumeAnalysis() {
   const [analysis, setAnalysis] = useState<ResumeAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [careerAlignments, setCareerAlignments] = useState<CareerAlignment[]>([]);
+  const [isPollingForImprovements, setIsPollingForImprovements] = useState(false);
+  const [improvedBullets, setImprovedBullets] = useState<any[] | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const hasLoadedAnalysis = useRef(false);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (user && !hasLoadedAnalysis.current) {
@@ -301,6 +304,95 @@ export function useResumeAnalysis() {
     }
   }, [user]);
 
+  // Clean up the interval when component unmounts
+  useEffect(() => {
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+
+  // Poll for improved bullets
+  const pollForImprovedBullets = async (userId: string) => {
+    if (!userId) return;
+
+    setIsPollingForImprovements(true);
+    let attempts = 0;
+    const maxAttempts = 10; // Stop polling after 10 attempts (about 50 seconds)
+
+    const startPolling = () => {
+      pollingIntervalRef.current = setInterval(async () => {
+        attempts++;
+        
+        console.log(`Polling for improved bullets: attempt ${attempts}`);
+
+        try {
+          // Call a special endpoint to check for improved bullets
+          const { data, error } = await supabase.functions.invoke('resume-analyzer', {
+            body: { 
+              action: 'get-improved-bullets',
+              userId: userId
+            }
+          });
+
+          if (error) {
+            console.error("Error polling for improved bullets:", error);
+          } else if (data?.improved_bullets && data.improved_bullets.length > 0) {
+            console.log("Received improved bullets:", data.improved_bullets.length);
+            
+            // We have the improved bullets - update the analysis
+            setImprovedBullets(data.improved_bullets);
+            
+            // Also update the full analysis object with the improved bullets
+            setAnalysis(prevAnalysis => {
+              if (!prevAnalysis) return prevAnalysis;
+              
+              return {
+                ...prevAnalysis,
+                bullets: data.improved_bullets
+              };
+            });
+            
+            // Success - we can stop polling
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+            }
+            setIsPollingForImprovements(false);
+            
+            // Notify the user
+            toast({
+              title: "Resume Analysis Completed",
+              description: "We've enhanced your bullet points with suggestions for improvement!",
+            });
+            
+            return;
+          } else if (data?.improvement_complete === false) {
+            // The server indicates improvements aren't ready yet
+            console.log("Improvements still processing...");
+          }
+          
+          // Stop polling after max attempts
+          if (attempts >= maxAttempts) {
+            console.log("Max polling attempts reached");
+            if (pollingIntervalRef.current) {
+              clearInterval(pollingIntervalRef.current);
+            }
+            setIsPollingForImprovements(false);
+          }
+        } catch (err) {
+          console.error("Error in polling:", err);
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+          }
+          setIsPollingForImprovements(false);
+        }
+      }, 5000); // Poll every 5 seconds
+    };
+
+    startPolling();
+  };
+
   // Analyze keywords in the resume and update the analysis
   const analyzeKeywordsInResume = (resumeText: string, analysisData: ResumeAnalysis) => {
     if (!resumeText || !analysisData) return analysisData;
@@ -330,7 +422,6 @@ export function useResumeAnalysis() {
     return updatedAnalysis;
   };
 
-  
   // Calculate career alignments based on resume analysis
   const calculateCareerAlignments = async (analysisData: ResumeAnalysis) => {
     if (!analysisData) return;
@@ -588,9 +679,9 @@ export function useResumeAnalysis() {
         setAnalysis(enhancedData as ResumeAnalysis);
         calculateCareerAlignments(enhancedData as ResumeAnalysis);
         
-        // // Fetch and store the assessment in parallel
-        // fetchAndStoreAssessment(text, user.id)
-        //   .catch(err => console.error("Error fetching assessment:", err));
+        // Start polling for improved bullets
+        console.log("Starting to poll for improved bullets");
+        pollForImprovedBullets(user.id);
         
         // Also update the analysis in the resume record
         try {
@@ -612,8 +703,8 @@ export function useResumeAnalysis() {
         }
         
         toast({
-          title: "Resume Analysis Complete",
-          description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.resume_percent}%)`,
+          title: "Initial Resume Analysis Complete",
+          description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.resume_percent}%). We're generating detailed bullet point improvements in the background.`,
         });
         
         return true;
@@ -765,10 +856,13 @@ export function useResumeAnalysis() {
     analysis,
     setAnalysis,
     isAnalyzing,
+    isPollingForImprovements,
+    improvedBullets,
     analyzeResume,
     careerAlignments,
     fetchAndStoreAssessment,
     analyzeKeywordsInResume,
-    CAREER_KEYWORDS
+    CAREER_KEYWORDS,
+    pollForImprovedBullets
   };
 }

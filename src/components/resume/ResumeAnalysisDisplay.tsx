@@ -4,7 +4,7 @@ import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
 import OverallScoreCard from './OverallScoreCard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, TrendingUp, Sparkles, FileUp, File, DownloadCloud, Trash2, AlertCircle } from 'lucide-react';
+import { AlertTriangle, TrendingUp, Sparkles, FileUp, File, DownloadCloud, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -23,6 +23,7 @@ interface ResumeAnalysisDisplayProps {
   handleDownload: () => void;
   uploading: boolean;
   isAnalyzing: boolean;
+  isPollingForImprovements?: boolean; // New prop for polling state
   pdfPreviewUrl: string | null;
   fileError: string | null;
 }
@@ -40,6 +41,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   handleDownload,
   uploading,
   isAnalyzing,
+  isPollingForImprovements = false,
   pdfPreviewUrl,
   fileError,
 }) => {
@@ -241,6 +243,12 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                     <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
                     <span>Key Insights</span>
                   </CardTitle>
+                  {isPollingForImprovements && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Generating improved bullet points...</span>
+                    </div>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">

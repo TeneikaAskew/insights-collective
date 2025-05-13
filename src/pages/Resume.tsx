@@ -40,7 +40,8 @@ const Resume = () => {
     isAnalyzing,
     analyzeResume,
     careerAlignments,
-    setAnalysis
+    setAnalysis,
+    isPollingForImprovements
   } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -675,6 +676,7 @@ const Resume = () => {
     isAnalyzing,
     isRefreshing,
     isLoadingEnhancedBullets,
+    isPollingForImprovements,
     hasAnalysis: !!analysis,
     hasResume: !!resume,
     hasLoadedAnalysis
@@ -685,8 +687,8 @@ const Resume = () => {
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
           <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={handleCheckEnhancements} disabled={loading || isLoadingEnhancedBullets}>
-              {isLoadingEnhancedBullets ? <>
+            <Button variant="outline" size="sm" onClick={handleCheckEnhancements} disabled={loading || isLoadingEnhancedBullets || isPollingForImprovements}>
+              {isLoadingEnhancedBullets || isPollingForImprovements ? <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   Loading Improvements...
                 </> : <>Check for Improvements</>}
@@ -719,6 +721,7 @@ const Resume = () => {
         <ResumeAnalysisSection 
           loading={loading} 
           isAnalyzing={isAnalyzing} 
+          isPollingForImprovements={isPollingForImprovements} 
           analysis={analysis} 
           resume={resume} 
           handleStartCareerChat={handleStartCareerChat} 

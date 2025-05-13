@@ -20,6 +20,7 @@ interface ResumeAnalysisSectionProps {
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   hasAnalysis?: boolean;
   showCareerChat: boolean;
+  isPollingForImprovements?: boolean; // New prop for polling state
 
   // Props for upload functionality, passed to ResumeAnalysisDisplay
   resumeFile: File | null;
@@ -47,6 +48,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   handleDownload,
   fileError,
   showCareerChat,
+  isPollingForImprovements = false,
 }) => {
   // State to track active tab
   const [activeTab, setActiveTab] = useState("overview");
@@ -144,6 +146,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                   handleDownload={handleDownload}
                   uploading={uploading}
                   isAnalyzing={isAnalyzing}
+                  isPollingForImprovements={isPollingForImprovements}
                   pdfPreviewUrl={pdfPreviewUrl}
                   fileError={fileError}
                 />
@@ -154,7 +157,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                   <TabsContent value="storytelling" className="mt-0 flex-grow h-full">
                     <BulletPointsAnalysisCard
                       bullets={analysis.bullets || []}
-                      isAnalyzing={isAnalyzing} // Pass isAnalyzing if needed by this component
+                      isAnalyzing={isAnalyzing || isPollingForImprovements} // Pass both loading states
                     />
                   </TabsContent>
                   <TabsContent value="ats" className="mt-0 flex-grow h-full">
