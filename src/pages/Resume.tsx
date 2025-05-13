@@ -42,10 +42,7 @@ const Resume = () => {
     analyzeResume,
     careerAlignments,
     setAnalysis,
-    isPollingForImprovements,
-    setIsPollingForImprovements,
-    improvedBullets,
-    setImprovedBullets
+    isPollingForImprovements
   } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -59,7 +56,6 @@ const Resume = () => {
   const subscriptionRef = useRef(null);
   const currentResumeIdRef = useRef(null);
   const hasLoadedEnhancedRef = useRef(false);
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Set up and clean up real-time subscription with better logging
   useEffect(() => {
@@ -680,57 +676,6 @@ const Resume = () => {
           variant: 'default'
         });
         setIsLoadingEnhancedBullets(false);
-
-        logDebug('CheckEnhancements', 'Running bullet improver');
-        toast({
-          title: 'No Enhancements',
-          description: 'Running Bullet Improver Edge Function.',
-          variant: 'default'
-        });
-
-        // Call a special endpoint to check for improved bullets
-          const { data, error } = await supabase.functions.invoke('resume-analyzer', {
-            body: { 
-              action: 'improve-bullets',
-              userId: user.id,
-              // careerGoals: careerGoals || undefined
-            }
-          });
-        if (error) {
-            console.error("Error polling for improved bullets:", error);
-          } else if (data?.improved_bullets && data.improved_bullets.length > 0) {
-            console.log("Received improved bullets:", data.improved_bullets.length);
-            
-            // We have the improved bullets - update the analysis
-            setImprovedBullets(data.improved_bullets);
-            
-            // Also update the full analysis object with the improved bullets
-            setAnalysis(prevAnalysis => {
-              if (!prevAnalysis) return prevAnalysis;
-              
-              return {
-                ...prevAnalysis,
-                bullets: data.improved_bullets
-              };
-            });
-            
-            // Success - we can stop polling
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-            }
-            setIsPollingForImprovements(false);
-            
-            // Notify the user
-            toast({
-              title: "Resume Analysis Completed",
-              description: "We've enhanced your bullet points with suggestions for improvement!",
-            });
-            
-            return;
-          } else if (data?.improvement_complete === false) {
-            // The server indicates improvements aren't ready yet
-            console.log("Improvements still processing...");
-          }
       }
     } catch (err) {
       logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
