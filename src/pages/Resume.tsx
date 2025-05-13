@@ -677,6 +677,13 @@ const Resume = () => {
         });
         setIsLoadingEnhancedBullets(false);
 
+        logDebug('CheckEnhancements', 'Running bullet improver');
+        toast({
+          title: 'No Enhancements',
+          description: 'Running Bullet Improver Edge Function.',
+          variant: 'default'
+        });
+
         // Call a special endpoint to check for improved bullets
           const { data, error } = await supabase.functions.invoke('resume-analyzer', {
             body: { 
