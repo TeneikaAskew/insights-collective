@@ -194,6 +194,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   };
 
   return (
+    {renderUploadCard()}
     <div className="space-y-6">
       {needsImprovementAlert && (
         <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
