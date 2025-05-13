@@ -6,4 +6,4 @@ export {
   ToastProvider,
   type Toast,
   type ToastActionElement
-} from "@/components/ui/toast";
+} from "@/hooks/use-toast";
