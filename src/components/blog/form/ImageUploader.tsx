@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Upload, Image, Search } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
 import {
   Dialog,
@@ -28,7 +28,6 @@ export function ImageUploader({
   onTogglePreview 
 }: ImageUploaderProps) {
   const { uploadFile, uploading } = useStorageUpload();
-  const { toast } = useToast();
   const [previewError, setPreviewError] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");

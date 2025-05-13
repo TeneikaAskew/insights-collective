@@ -6,6 +6,8 @@ import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+const ToastProvider = ToastPrimitives.Provider
+
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
   React.ComponentPropsWithoutRef<typeof ToastPrimitives.Viewport>
@@ -113,19 +115,14 @@ type ToastProps = React.ComponentPropsWithoutRef<typeof Toast>
 
 type ToastActionElement = React.ReactElement<typeof ToastAction>
 
-// Define and export types here
-export { type ToastProps, type ToastActionElement }
-// Re-export components
 export {
+  type ToastProps,
+  type ToastActionElement,
+  ToastProvider,
+  ToastViewport,
   Toast,
   ToastTitle,
   ToastDescription,
   ToastClose,
   ToastAction,
-  ToastViewport,
 }
-// Export ToastPrimitives.Provider directly
-export const ToastProvider = ToastPrimitives.Provider;
-
-// Import from use-toast.tsx to re-export functions
-export { useToast } from "@/hooks/use-toast";
