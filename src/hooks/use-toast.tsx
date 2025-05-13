@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import type {
   ToastActionElement,
@@ -202,7 +203,7 @@ export function useToast() {
   return context
 }
 
-// For backwards compatibility - now properly implemented
+// For convenience - now properly implemented
 export const toast = (props: Toast) => {
   console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
   throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")

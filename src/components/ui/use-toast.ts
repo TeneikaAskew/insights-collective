@@ -1,5 +1,5 @@
 
-// Re-export from the toast component
+// Re-export from the hook implementation
 export { 
   useToast,
   toast,

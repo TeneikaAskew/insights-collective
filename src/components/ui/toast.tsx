@@ -124,5 +124,8 @@ export {
   ToastAction,
   ToastViewport,
 }
-// Export functions from the hook
-export { useToast, toast, ToastProvider } from "@/hooks/use-toast"
+// Export ToastPrimitives.Provider directly
+export const ToastProvider = ToastPrimitives.Provider;
+
+// Import from use-toast.tsx to re-export functions
+export { useToast } from "@/hooks/use-toast";
