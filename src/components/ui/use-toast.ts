@@ -1,5 +1,5 @@
 
-// Re-export directly from the UI component
+// Re-export from the toast component
 export { 
   useToast,
   toast,
