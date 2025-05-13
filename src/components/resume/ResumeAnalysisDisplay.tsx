@@ -82,7 +82,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     }
     const docxFile = resumeFile || (resume?.file_name?.toLowerCase().endsWith('.docx') ? resume : null);
     if (docxFile) {
-       const fileName = resumeFile ? resumeFile.name : resume?.file_name;
+      const fileName = resumeFile ? resumeFile.name : resume?.file_name;
       return (
         <div className="w-full aspect-[8.5/6] border rounded-md flex flex-col items-center justify-center bg-accent/10" style={{ height: '250px', maxHeight: '60vh' }}>
           <File className="h-12 w-12 text-muted-foreground mb-2" />
@@ -154,17 +154,17 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                       <DownloadCloud className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   )}
-                  <Button variant="destructive" size="icon" onClick={handleDelete} title={resumeFile ? "Clear selection" : "Delete uploaded resume"}  className="h-8 w-8">
+                  <Button variant="destructive" size="icon" onClick={handleDelete} title={resumeFile ? "Clear selection" : "Delete uploaded resume"} className="h-8 w-8">
                     <Trash2 className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                   <input
-                      type="file"
-                      accept=".pdf,.docx"
-                      id="resume-replace-display"
-                      className="hidden"
-                      onChange={handleFileChange}
-                      disabled={uploading || isAnalyzing}
-                    />
+                    type="file"
+                    accept=".pdf,.docx"
+                    id="resume-replace-display"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    disabled={uploading || isAnalyzing}
+                  />
                   {(resume || resumeFile) && (
                     <Button variant="outline" size="icon" asChild title="Replace Resume" className="h-8 w-8">
                       <label htmlFor="resume-replace-display">
@@ -232,33 +232,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 </CardContent>
               </Card>
             )}
-          </div>
 
-          {/* Right Column - Analysis */}
-          <div className="md:col-span-2">
-            {analysis ? (
-              <OverallScoreCard
-                letterGrade={letter_grade}
-                resumePercent={resume_percent}
-                elevatorPitch={elevator_pitch}
-                themes={themes || []}
-                explanation={explanation}
-                onStartCareerChat={onStartCareerChat}
-                userId={userId}
-                hasAnalysis={hasAnalysis}
-              />
-            ) : (
-              <Card className="h-full flex items-center justify-center min-h-[200px]">
-                <CardContent className="text-center p-6">
-                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
-                    {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
-                  </p>
-                  {!resumeFile && !resume && ( <Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
-                </CardContent>
-              </Card>
-            )}
-            
+            {/* Key Insights Section - Show if analysis exists */}
             {analysis && (
               <Card className="mt-6">
                 <CardHeader className="pb-2">
@@ -293,6 +268,32 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                         : 0}/45</p>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Right Column - Analysis */}
+          <div className="md:col-span-2">
+            {analysis ? (
+              <OverallScoreCard
+                letterGrade={letter_grade}
+                resumePercent={resume_percent}
+                elevatorPitch={elevator_pitch}
+                themes={themes || []}
+                explanation={explanation}
+                onStartCareerChat={onStartCareerChat}
+                userId={userId}
+                hasAnalysis={hasAnalysis}
+              />
+            ) : (
+              <Card className="h-full flex items-center justify-center min-h-[200px]">
+                <CardContent className="text-center p-6">
+                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
+                  </p>
+                  {!resumeFile && !resume && (<Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
                 </CardContent>
               </Card>
             )}
