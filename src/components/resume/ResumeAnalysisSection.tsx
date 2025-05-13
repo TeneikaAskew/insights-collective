@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { FileUpload, FilePdfIcon, Trash2, Download } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+// import { Card, CardContent } from '@/components/ui/card';
 import { ResumeGrade } from '@/components/resume/ResumeGrade';
 import { ResumeFeedback } from '@/components/resume/ResumeFeedback';
 import { ResumeBullets } from '@/components/resume/ResumeBullets';
@@ -16,6 +16,17 @@ import { Badge } from '@/components/ui/badge';
 import { ResumeJobMatch } from '@/components/resume/ResumeJobMatch';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import { Resume } from '@/types/supabase';
+
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ResumeAnalysis } from '@/components/assistants/types';
+import type { Resume } from '../../hooks/resume/useResume'; // Adjusted import path
+import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
+import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FileCheck, ChartBar, Target, MessageCircle } from 'lucide-react';
+import ATSScoreCard from './ATSScoreCard';
+import ResumeChat from './ResumeChat';
+
 
 // Props interface
 interface ResumeAnalysisSectionProps {
