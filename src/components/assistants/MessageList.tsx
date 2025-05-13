@@ -2,6 +2,7 @@
 import React, { useRef, useEffect } from 'react';
 import { Message } from './types';
 import MessageDisplay from './MessageDisplay';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface MessageListProps {
   messages: Message[];
@@ -17,7 +18,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
   }, [messages]);
   
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    <div className="flex-1 p-4 space-y-4 overflow-hidden">
       {messages.map((message) => (
         <MessageDisplay key={message.id} message={message} />
       ))}
