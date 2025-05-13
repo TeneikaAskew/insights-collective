@@ -1,192 +1,193 @@
-import React, { useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { FileUpload, FilePdfIcon, Trash2, Download } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { ResumeGrade } from '@/components/resume/ResumeGrade';
-import { ResumeFeedback } from '@/components/resume/ResumeFeedback';
-import { ResumeBullets } from '@/components/resume/ResumeBullets';
-import { ResumeElevatorPitch } from '@/components/resume/ResumeElevatorPitch';
-import { ResumeKeywords } from '@/components/resume/ResumeKeywords';
-import { ResumeCareerBenefits } from '@/components/resume/ResumeCareerBenefits';
-import { ResumePdfViewer } from '@/components/resume/ResumePdfViewer';
-import { ResumeChat } from '@/components/resume/ResumeChat';
-import { ResumeRecommendations } from '@/components/resume/ResumeRecommendations';
-import { Badge } from '@/components/ui/badge';
-import { ResumeJobMatch } from '@/components/resume/ResumeJobMatch';
-import { ResumeAnalysis } from '@/components/assistants/types';
-import { Resume } from '@/types/supabase';
 
-// Props interface
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ResumeAnalysis } from '@/components/assistants/types';
+import type { Resume } from '../../hooks/resume/useResume'; // Adjusted import path
+import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
+import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { FileCheck, ChartBar, Target, MessageCircle } from 'lucide-react';
+import ATSScoreCard from './ATSScoreCard';
+import ResumeChat from './ResumeChat';
+
 interface ResumeAnalysisSectionProps {
-  loading: boolean;
-  isAnalyzing: boolean;
+  loading: boolean; // True if initial resume/analysis data is loading
+  isAnalyzing: boolean; // True if AI analysis is in progress
   analysis: ResumeAnalysis | null;
   resume: Resume | null;
   handleStartCareerChat: () => void;
   handleFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  hasAnalysis: boolean;
+  hasAnalysis?: boolean;
+  showCareerChat: boolean;
+
+  // Props for upload functionality, passed to ResumeAnalysisDisplay
   resumeFile: File | null;
   pdfPreviewUrl: string | null;
-  uploading: boolean;
-  handleUpload: () => void;
-  handleDelete: () => void;
+  uploading: boolean; // True if file upload to storage is in progress
+  handleUpload: () => Promise<void>;
+  handleDelete: () => Promise<void>;
   handleDownload: () => void;
   fileError: string | null;
-  showCareerChat: boolean;
 }
 
 const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
-  loading, isAnalyzing, analysis, resume, handleStartCareerChat, handleFileChange, hasAnalysis, resumeFile, pdfPreviewUrl, uploading, handleUpload, handleDelete, handleDownload, fileError, showCareerChat
+  loading,
+  isAnalyzing,
+  analysis,
+  resume,
+  handleStartCareerChat,
+  handleFileChange,
+  hasAnalysis = false,
+  resumeFile,
+  pdfPreviewUrl,
+  uploading,
+  handleUpload,
+  handleDelete,
+  handleDownload,
+  fileError,
+  showCareerChat,
 }) => {
-  const [activeTab, setActiveTab] = useState<string>("resume");
+  // State to track active tab
+  const [activeTab, setActiveTab] = useState("overview");
+  
+  // Function to handle starting career chat
+  const handleCareerChatStart = () => {
+    handleStartCareerChat();
+    setActiveTab("chat");
+  };
+
+  if (loading && !resume && !analysis && !resumeFile && !fileError) {
+    return (
+      <Card className="shadow-lg border-t-4 border-t-[#9b87f5]">
+        <CardHeader className="pb-2">
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle className="text-2xl font-bold">Resume Analysis</CardTitle>
+              <CardDescription className="text-base">
+                Get personalized insights and recommendations based on your resume and career goals.
+              </CardDescription>
+            </div>
+            <div className="flex items-center bg-muted rounded-full px-4 py-1 h-8 w-48 animate-pulse" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4 animate-pulse">
+            <div className="h-40 bg-muted rounded w-full mb-6"></div> {/* Placeholder for upload card */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 space-y-4">
+                <div className="h-48 bg-muted rounded"></div>
+              </div>
+              <div className="md:col-span-1 space-y-4">
+                <div className="h-32 bg-muted rounded"></div>
+                <div className="h-32 bg-muted rounded"></div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const showTabs = !!analysis; // Show tabs only if analysis data is present.
 
   return (
-    <div className="h-full flex flex-col">
-      <Tabs 
-        defaultValue="resume" 
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="flex-1 flex flex-col h-full" // Make tabs expand to fill container
-      >
-        <TabsList className="grid grid-cols-3 mb-4">
-          <TabsTrigger value="resume">Resume</TabsTrigger>
-          <TabsTrigger value="analysis" disabled={!hasAnalysis || loading || isAnalyzing}>Analysis</TabsTrigger>
-          <TabsTrigger value="chat" disabled={!hasAnalysis || loading || isAnalyzing}>Chat</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="resume" className="flex-1 flex flex-col">
-          {/* Resume tab content */}
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-            <Card className="col-span-1">
-              <CardContent className="flex flex-col space-y-4">
-                <div className="flex justify-between items-start">
-                  <h2 className="text-lg font-semibold">Upload Resume</h2>
-                  {resume?.file_url && <Button variant="secondary" size="sm" onClick={handleDownload}>
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
-                    </Button>}
-                </div>
-                <input type="file" id="resume-upload" className="hidden" onChange={handleFileChange} />
-                <Button asChild variant="outline" disabled={loading || isAnalyzing}>
-                  <label htmlFor="resume-upload" className="cursor-pointer">
-                    <FileUpload className="h-4 w-4 mr-2" />
-                    {resumeFile ? resumeFile.name : 'Select a file'}
-                  </label>
-                </Button>
-                {fileError && <Badge variant="destructive">{fileError}</Badge>}
-                <div className="flex space-x-2">
-                  <Button variant="primary" disabled={uploading || loading || isAnalyzing || !resumeFile} onClick={handleUpload}>
-                    {uploading ? 'Uploading...' : 'Upload'}
-                  </Button>
-                  {resume && <Button variant="destructive" disabled={loading || isAnalyzing} onClick={handleDelete}>
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete
-                    </Button>}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="col-span-1">
-              <CardContent className="flex flex-col space-y-4">
-                <h2 className="text-lg font-semibold">Resume Preview</h2>
-                {pdfPreviewUrl ? <ResumePdfViewer pdfUrl={pdfPreviewUrl} /> : <div className="flex items-center justify-center h-48 bg-gray-100 text-gray-500 rounded-md">
-                    {resume?.file_url ? <FilePdfIcon className="h-12 w-12" /> : 'No Preview Available'}
-                  </div>}
-              </CardContent>
-            </Card>
+    <Card className="shadow-lg border-t-4 border-t-[#9b87f5]">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle className="text-2xl font-bold">Resume Analysis</CardTitle>
+            <CardDescription className="text-base">
+              Get personalized insights and recommendations based on your resume and career goals.
+            </CardDescription>
           </div>
-        </TabsContent>
-
-        <TabsContent value="analysis" className="flex-1 h-full">
-          {/* Analysis tab content */}
-          {analysis && !loading && !isAnalyzing ? <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
-              <Card className="col-span-1">
-                <CardContent className="flex flex-col space-y-4">
-                  <h2 className="text-lg font-semibold">Resume Grade</h2>
-                  <ResumeGrade resumePercent={analysis.resume_percent} letterGrade={analysis.letter_grade} />
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-1">
-                <CardContent className="flex flex-col space-y-4">
-                  <h2 className="text-lg font-semibold">Key Feedback</h2>
-                  <ResumeFeedback themes={analysis.themes} />
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-1">
-                <CardContent className="flex flex-col space-y-4">
-                  <h2 className="text-lg font-semibold">Elevator Pitch</h2>
-                  <ResumeElevatorPitch elevatorPitch={analysis.elevator_pitch} />
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-1">
-                <CardContent className="flex flex-col space-y-4">
-                  <h2 className="text-lg font-semibold">Key Skills & Keywords</h2>
-                  <ResumeKeywords keywords={analysis.keywords} />
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-1">
-                <CardContent className="flex flex-col space-y-4">
-                  <h2 className="text-lg font-semibold">Career Benefits</h2>
-                  <ResumeCareerBenefits benefits={analysis.benefits} />
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-1">
-                <CardContent className="flex flex-col space-y-4">
-                  <h2 className="text-lg font-semibold">Job Match</h2>
-                  <ResumeJobMatch />
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-2">
-                <CardContent className="flex flex-col space-y-4">
-                  <h2 className="text-lg font-semibold">Improved Bullets</h2>
-                  <ResumeBullets bullets={analysis.bullets} />
-                </CardContent>
-              </Card>
-
-              <Card className="col-span-2">
-                <CardContent className="flex flex-col space-y-4">
-                  <h2 className="text-lg font-semibold">Recommendations</h2>
-                  <ResumeRecommendations />
-                </CardContent>
-              </Card>
-            </div> : <Card>
-              <CardContent className="p-6">
-                <div className="text-center">
-                  {loading || isAnalyzing ? <p className="text-muted-foreground">Analyzing your resume...</p> : <p className="text-muted-foreground">
-                      Upload and analyze your resume to see detailed feedback.
-                    </p>}
-                </div>
-              </CardContent>
-            </Card>}
-        </TabsContent>
-
-        <TabsContent value="chat" className="flex-1 flex flex-col h-full">
-          {/* Chat tab content */}
-          {hasAnalysis && analysis ? (
-            <div className="h-full flex flex-col">
-              <ResumeChat resumeAnalysis={analysis} />
+          {analysis && ( // Show award badge only if analysis is available
+            <div className="flex items-center bg-[#9b87f5]/10 rounded-full px-4 py-1">
+              <span className="text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
             </div>
-          ) : (
-            <Card>
-              <CardContent className="p-6">
-                <div className="text-center">
-                  <p className="text-muted-foreground mb-4">
-                    Upload and analyze your resume to use the AI chat assistant.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
           )}
-        </TabsContent>
-      </Tabs>
-    </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        {showTabs ? (
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6"> {/* Changed from 5 to 4 columns to remove career fit */}
+              <TabsTrigger value="overview" className="flex items-center gap-2">
+                <ChartBar className="h-4 w-4" />
+                <span>Overview</span>
+              </TabsTrigger>
+              <TabsTrigger value="storytelling" className="flex items-center gap-2" disabled={!analysis?.bullets?.length}>
+                <Target className="h-4 w-4" />
+                <span>Storytelling</span>
+              </TabsTrigger>
+              <TabsTrigger value="ats" className="flex items-center gap-2" disabled={!analysis}>
+                <FileCheck className="h-4 w-4" />
+                <span>ATS Score</span>
+              </TabsTrigger>
+              <TabsTrigger value="chat" className="flex items-center gap-2" disabled={!analysis}>
+                <MessageCircle className="h-4 w-4" />
+                <span>Chat</span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="mt-0">
+              <ResumeAnalysisDisplay
+                analysis={analysis}
+                onStartCareerChat={handleCareerChatStart}
+                hasAnalysis={hasAnalysis}
+                resume={resume}
+                resumeFile={resumeFile}
+                handleFileChange={handleFileChange}
+                handleUpload={handleUpload}
+                handleDelete={handleDelete}
+                handleDownload={handleDownload}
+                uploading={uploading}
+                isAnalyzing={isAnalyzing}
+                pdfPreviewUrl={pdfPreviewUrl}
+                fileError={fileError}
+              />
+            </TabsContent>
+            
+            {analysis && ( // Conditionally render other tabs only if analysis exists
+              <>
+                <TabsContent value="storytelling" className="mt-0">
+                  <BulletPointsAnalysisCard
+                    bullets={analysis.bullets || []}
+                    isAnalyzing={isAnalyzing} // Pass isAnalyzing if needed by this component
+                  />
+                </TabsContent>
+                <TabsContent value="ats" className="mt-0">
+                  <ATSScoreCard analysis={analysis} />
+                </TabsContent>
+                <TabsContent value="chat" className="mt-0">
+                  {analysis && <ResumeChat resumeAnalysis={analysis} />}
+                </TabsContent>
+              </>
+            )}
+          </Tabs>
+        ) : (
+          // If no analysis, ResumeAnalysisDisplay will show the upload UI
+          <ResumeAnalysisDisplay
+            analysis={null}
+            onStartCareerChat={handleCareerChatStart}
+            hasAnalysis={false}
+            resume={resume}
+            resumeFile={resumeFile}
+            handleFileChange={handleFileChange}
+            handleUpload={handleUpload}
+            handleDelete={handleDelete}
+            handleDownload={handleDownload}
+            uploading={uploading}
+            isAnalyzing={isAnalyzing}
+            pdfPreviewUrl={pdfPreviewUrl}
+            fileError={fileError}
+          />
+        )}
+        
+        {/* Only show chat outside of tabs when analysis exists but tabs are not shown */}
+        {analysis && !showTabs && showCareerChat && <ResumeChat resumeAnalysis={analysis} />}
+      </CardContent>
+    </Card>
   );
 };
 

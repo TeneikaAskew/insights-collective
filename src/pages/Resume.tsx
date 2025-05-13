@@ -668,7 +668,6 @@ const Resume = () => {
     logDebug('Render', 'User not authenticated, showing login wall');
     return <ResumeLoginWall />;
   }
-  
   const loading = resumeLoading || isAnalyzing || isRefreshing;
   logDebug('Render', 'Rendering main component', {
     loading,
@@ -680,67 +679,60 @@ const Resume = () => {
     hasResume: !!resume,
     hasLoadedAnalysis
   });
-  
   return <AppLayout fullWidth>
-      <div className="flex flex-col h-full">
-        <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Resume Management</h1>
+      <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Resume Management</h1>
+          
+          <div className="flex space-x-2">
+            <Button variant="outline" size="sm" onClick={handleCheckEnhancements} disabled={loading || isLoadingEnhancedBullets}>
+              {isLoadingEnhancedBullets ? <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Loading Improvements...
+                </> : <>Check for Improvements</>}
+            </Button>
             
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm" onClick={handleCheckEnhancements} disabled={loading || isLoadingEnhancedBullets}>
-                {isLoadingEnhancedBullets ? <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Loading Improvements...
-                  </> : <>Check for Improvements</>}
-              </Button>
-              
-              <Button variant="outline" size="sm" onClick={handleRefreshData} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh Data
-              </Button>
-            </div>
-          </div>
-
-          {storageError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Storage Error</AlertTitle>
-              <AlertDescription>
-                {storageError}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {careerAlignments && careerAlignments.length > 0 && (
-            <div className="space-y-2">
-              {careerAlignments.map((alignment, index) => (
-                <div key={index}>{/* Alignment content would go here */}</div>
-              ))}
-            </div>
-          )}
-
-          {/* Main content area with flex-1 to take remaining space */}
-          <div className="flex-1 min-h-0">
-            <ResumeAnalysisSection 
-              loading={loading} 
-              isAnalyzing={isAnalyzing} 
-              analysis={analysis} 
-              resume={resume} 
-              handleStartCareerChat={handleStartCareerChat} 
-              handleFileChange={handleFileChange} 
-              hasAnalysis={!!analysis} 
-              resumeFile={resumeFile} 
-              pdfPreviewUrl={pdfPreviewUrl} 
-              uploading={uploading} 
-              handleUpload={handleUpload} 
-              handleDelete={handleDelete} 
-              handleDownload={handleDownload} 
-              fileError={storageError}
-              showCareerChat={showCareerChat}
-            />
+            <Button variant="outline" size="sm" onClick={handleRefreshData} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh Data
+            </Button>
           </div>
         </div>
+
+        {storageError && <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Storage Error</AlertTitle>
+            <AlertDescription>
+              {storageError}
+            </AlertDescription>
+          </Alert>}
+
+        {careerAlignments && careerAlignments.length > 0 && 
+          <div className="space-y-2">
+            {careerAlignments.map((alignment, index) => (
+              <div key={index}>{/* Alignment content would go here */}</div>
+            ))}
+          </div>
+        }
+
+        {/* Pass showCareerChat state to ResumeAnalysisSection */}
+        <ResumeAnalysisSection 
+          loading={loading} 
+          isAnalyzing={isAnalyzing} 
+          analysis={analysis} 
+          resume={resume} 
+          handleStartCareerChat={handleStartCareerChat} 
+          handleFileChange={handleFileChange} 
+          hasAnalysis={!!analysis} 
+          resumeFile={resumeFile} 
+          pdfPreviewUrl={pdfPreviewUrl} 
+          uploading={uploading} 
+          handleUpload={handleUpload} 
+          handleDelete={handleDelete} 
+          handleDownload={handleDownload} 
+          fileError={storageError}
+          showCareerChat={showCareerChat}
+        />
       </div>
     </AppLayout>;
 };
