@@ -8,6 +8,7 @@ const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
 
 export type Toast = Omit<ToasterToast, "id">
+export type { ToastActionElement } // Explicitly export the type that was missing
 
 type ToasterToast = ToastProps & {
   id: string
