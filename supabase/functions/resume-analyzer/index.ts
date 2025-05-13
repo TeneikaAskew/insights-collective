@@ -461,97 +461,6 @@ export async function bulletImprover(userId, enhanced = null) {
   }
 }
 
-// serve(async (req) => {
-//   // Handle CORS preflight
-//   if (req.method === 'OPTIONS') {
-//     return new Response(null, {
-//       status: 200,
-//       headers: corsHeaders
-//     });
-//   }
-
-//   const url = new URL(req.url);
-//   const path = url.pathname.split('/').pop();
-//   console.log('URL:', url, 'Path:', path);
-
-//   try {
-//     // Parse the request body once
-//     const { action, resumeText, text, userId } = await req.json();
-//     const resolvedText = resumeText || text;
-//     console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
-
-//     // Consolidated sentence detection + analysis (main flow)
-//     if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path || !action) {
-//       console.log('Running sentence detection + analysis');
-
-//       getResumeRoast(resolvedText, userId);
-
-//       const sentences = await detectSentences(resolvedText, userId);
-//       console.log('Direct detectSentences():', sentences.length);
-
-//       // Run resume analysis first
-//       const analysisResult = await analyzeResume(resolvedText, userId, sentences);
-
-//       // const improvedBullets = await bulletImprover(userId, analysisResult);
-//       // console.log('Bullet improvements: ',improvedBullets);
-      
-//       // Prepare the response before starting the background process
-//       // const response = new Response(JSON.stringify(sentences), {
-//       const response = new Response(JSON.stringify(analysisResult), {
-        
-//       // const response = new Response(JSON.stringify(improvedBullets), {
-//         headers: { 'Content-Type': 'application/json', ...corsHeaders }
-//       });
-      
-//       // // Trigger background processing AFTER preparing the response
-//       // if (userId) {
-//       //   console.log('Triggering background bullet improvements');
-//       //   // Use setTimeout to ensure this runs after the response is sent
-//       //   setTimeout(async () => {
-//       //     try {
-//       //       console.log('Starting background bullet improvement process');
-//       //       await bulletImprover(userId, analysisResult);
-//       //     } catch (bgError) {
-//       //       console.error('Background bullet improvement failed:', bgError);
-//       //     }
-//       //   }, 50);
-//       // }
-//       // Fire and forget
-//       // console.log('Starting background bullet improvement process');
-//       // bulletImprover(userId, analysisResult)
-//       //   .then(() => console.log('✅ bulletImprover completed'))
-//       //   .catch((err) => console.error('❌ bulletImprover error:', err));
-      
-//       // Return the response immediately
-//       return response;
-//     }
-    
-//     // Special endpoint just for improving bullets (can be called separately)
-//     if (action === 'improve-bullets' && userId) {
-//       console.log('Running bullet improver only');
-//       const result = await bulletImprover(userId);
-//       return new Response(JSON.stringify(result), {
-//         headers: { 'Content-Type': 'application/json', ...corsHeaders }
-//       });
-//     }
-
-//     // Fallback: unrecognized path or action
-//     console.log('No handler for path:', path, 'or action:', action);
-//     return new Response(JSON.stringify({ error: 'Not found' }), {
-//       status: 404,
-//       headers: { 'Content-Type': 'application/json', ...corsHeaders }
-//     });
-//   } catch (err) {
-//     console.error('Error:', err);
-//     return new Response(JSON.stringify({ error: err.message || 'Internal error' }), {
-//       status: 500,
-//       headers: { 'Content-Type': 'application/json', ...corsHeaders }
-//     });
-//   }
-// });
-
-// Updated index.ts with more comprehensive fix
-
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -566,105 +475,82 @@ serve(async (req) => {
   console.log('URL:', url, 'Path:', path);
 
   try {
-    // Parse the request body
-    const requestData = await req.json();
-    console.log('Request data:', JSON.stringify(requestData));
-    
-    const { action, resumeText, text, userId } = requestData;
-    
-    // IMPORTANT: Special-case the improve-bullets action FIRST
-    // before ANY other processing
-    if (action === 'improve-bullets' && userId) {
-      console.log('IMPROVE-BULLETS action detected, userId:', userId);
-      try {
-        const result = await bulletImprover(userId);
-        console.log('bulletImprover completed successfully');
-        return new Response(JSON.stringify(result), {
-          headers: { 'Content-Type': 'application/json', ...corsHeaders }
-        });
-      } catch (improvementError) {
-        console.error('Error in improve-bullets handler:', improvementError);
-        return new Response(JSON.stringify({ 
-          error: 'Failed to improve bullets',
-          details: improvementError.message
-        }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json', ...corsHeaders }
-        });
-      }
-    }
-
-    // For ALL OTHER ACTIONS, continue with the normal flow
+    // Parse the request body once
+    const { action, resumeText, text, userId } = await req.json();
     const resolvedText = resumeText || text;
-    console.log('Normal flow - User:', userId, 'Text length:', resolvedText?.length || 0);
+    console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
 
     // Consolidated sentence detection + analysis (main flow)
-    if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path) {
+    if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path || !action) {
       console.log('Running sentence detection + analysis');
 
-      // Start the roast process in the background if text is provided
-      if (resolvedText) {
-        getResumeRoast(resolvedText, userId);
-      }
+      getResumeRoast(resolvedText, userId);
 
-      // IMPORTANT CHECK: Only attempt to detect sentences if we have text
-      let sentences = [];
-      if (resolvedText) {
-        sentences = await detectSentences(resolvedText, userId);
-        console.log('Direct detectSentences():', sentences.length);
-      } else if (userId) {
-        // If no text but userId is provided, try to load from database
-        console.log('No text provided, attempting to load sentences from database');
-        try {
-          const { data: existingData } = await supabase
-            .from('resumes')
-            .select('sentences')
-            .eq('user_id', userId)
-            .order('uploaded_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-            
-          if (existingData?.sentences && Array.isArray(existingData.sentences)) {
-            sentences = existingData.sentences;
-            console.log(`Loaded ${sentences.length} sentences from database`);
-          } else {
-            console.log('No sentences found in database, using empty array');
-          }
-        } catch (loadError) {
-          console.error('Error loading sentences from database:', loadError);
-          // Continue with empty array
-        }
-      }
+      const sentences = await detectSentences(resolvedText, userId);
+      console.log('Direct detectSentences():', sentences.length);
 
-      // Run the analysis with whatever sentences we have (may be empty array)
+      // Run resume analysis first
       const analysisResult = await analyzeResume(resolvedText, userId, sentences);
+
+      // const improvedBullets = await bulletImprover(userId, analysisResult);
+      // console.log('Bullet improvements: ',improvedBullets);
       
-      return new Response(JSON.stringify(analysisResult), {
+      // Prepare the response before starting the background process
+      // const response = new Response(JSON.stringify(sentences), {
+      const response = new Response(JSON.stringify(analysisResult), {
+        
+      // const response = new Response(JSON.stringify(improvedBullets), {
+        headers: { 'Content-Type': 'application/json', ...corsHeaders }
+      });
+      
+      // // Trigger background processing AFTER preparing the response
+      // if (userId) {
+      //   console.log('Triggering background bullet improvements');
+      //   // Use setTimeout to ensure this runs after the response is sent
+      //   setTimeout(async () => {
+      //     try {
+      //       console.log('Starting background bullet improvement process');
+      //       await bulletImprover(userId, analysisResult);
+      //     } catch (bgError) {
+      //       console.error('Background bullet improvement failed:', bgError);
+      //     }
+      //   }, 50);
+      // }
+      // Fire and forget
+      // console.log('Starting background bullet improvement process');
+      // bulletImprover(userId, analysisResult)
+      //   .then(() => console.log('✅ bulletImprover completed'))
+      //   .catch((err) => console.error('❌ bulletImprover error:', err));
+      
+      // Return the response immediately
+      return response;
+    }
+    
+    // Special endpoint just for improving bullets (can be called separately)
+    if (action === 'improve-bullets' && userId) {
+      console.log('Running bullet improver only');
+      const result = await bulletImprover(userId);
+      return new Response(JSON.stringify(result), {
         headers: { 'Content-Type': 'application/json', ...corsHeaders }
       });
     }
 
-    // Fallback for unrecognized paths/actions
+    // Fallback: unrecognized path or action
     console.log('No handler for path:', path, 'or action:', action);
-    return new Response(JSON.stringify({ 
-      error: 'Not found', 
-      path, 
-      action 
-    }), {
+    return new Response(JSON.stringify({ error: 'Not found' }), {
       status: 404,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
   } catch (err) {
-    console.error('Error in request handler:', err);
-    return new Response(JSON.stringify({ 
-      error: err.message || 'Internal error',
-      stack: err.stack 
-    }), {
+    console.error('Error:', err);
+    return new Response(JSON.stringify({ error: err.message || 'Internal error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json', ...corsHeaders }
     });
   }
 });
+
+
 // export async function bulletImprover(userId) {
 //   try {
 //     console.log(`Starting background bullet improvement for userId: ${userId}`);
