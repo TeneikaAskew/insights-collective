@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FileCheck, ChartBar, Target, MessageCircle } from 'lucide-react';
 import ATSScoreCard from './ATSScoreCard';
 import ResumeChat from './ResumeChat';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface ResumeAnalysisSectionProps {
   loading: boolean; // True if initial resume/analysis data is loading
@@ -163,9 +162,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                   </TabsContent>
                   <TabsContent value="chat" className="mt-0 flex-grow h-full">
                     <div className="h-full flex flex-col">
-                      <ScrollArea className="flex-grow h-[500px]">
-                        {analysis && <ResumeChat resumeAnalysis={analysis} />}
-                      </ScrollArea>
+                      {analysis && <ResumeChat resumeAnalysis={analysis} />}
                     </div>
                   </TabsContent>
                 </>
@@ -173,7 +170,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             </div>
           </Tabs>
         ) : (
-          // If no analysis, ResumeAnalysisDisplay will always show the upload UI
+          // If no analysis, ResumeAnalysisDisplay will show the upload UI
           <ResumeAnalysisDisplay
             analysis={null}
             onStartCareerChat={handleCareerChatStart}
@@ -193,10 +190,8 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
         
         {/* Only show chat outside of tabs when analysis exists but tabs are not shown */}
         {analysis && !showTabs && showCareerChat && (
-          <div className="h-[500px] flex flex-col">
-            <ScrollArea className="flex-grow">
-              <ResumeChat resumeAnalysis={analysis} />
-            </ScrollArea>
+          <div className="h-full flex flex-col" style={{ height: '60vh', maxHeight: '500px' }}>
+            <ResumeChat resumeAnalysis={analysis} />
           </div>
         )}
       </CardContent>
