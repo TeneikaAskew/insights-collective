@@ -1,3 +1,9 @@
 
-// Re-export from the hooks directory
-export { useToast } from "@/hooks/use-toast";
+// Re-export directly from the UI component
+export { 
+  useToast,
+  toast,
+  ToastProvider,
+  type Toast,
+  type ToastActionElement
+} from "@/components/ui/toast";

@@ -6,7 +6,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PageVisibilityProvider } from "./contexts/PageVisibilityContext";
-import { ToastProvider } from "@/hooks/use-toast";
+import { ToastProvider } from "@/components/ui/toast";
 
 // Import page components
 import Index from "./pages/Index";
