@@ -11,7 +11,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { LocalStorageUtils } from '@/utils/localStorageUtils';
 
 const Resume = () => {
   // Add a debug helper function
@@ -530,40 +529,11 @@ const Resume = () => {
     hasLoadedEnhancedRef.current = false;
     logDebug('UserAction', 'Reset hasLoadedEnhancedRef for refresh');
 
-    // Clear localStorage items related to resume, analysis, and job
+    // Clear localStorage cache before refreshing data
     if (user) {
-      // Clear all existing cached data for the user
       localStorage.removeItem(`resume_analysis_${user.id}`);
       logDebug('UserAction', 'Cleared localStorage cache for user');
-      
-      // Clear all items containing "resume", "analysis", or "job"
-      for (let i = localStorage.length - 1; i >= 0; i--) {
-        const key = localStorage.key(i);
-        if (key && (
-          key.toLowerCase().includes('resume') || 
-          key.toLowerCase().includes('analysis') || 
-          key.toLowerCase().includes('job')
-        )) {
-          logDebug('UserAction', `Removing localStorage item: ${key}`);
-          localStorage.removeItem(key);
-        }
-      }
-      
-      // Clear specific job-related keys
-      const jobKeys = [
-        'job_description_url',
-        'job_description_text',
-        'job_analyzer_active_tab',
-        'job_analysis_result',
-        'job_analyzer_use_filtering'
-      ];
-      
-      jobKeys.forEach(key => {
-        localStorage.removeItem(key);
-        logDebug('UserAction', `Removed job-related key: ${key}`);
-      });
     }
-
     try {
       logDebug('UserAction', 'Calling refreshResume');
       await refreshResume();
@@ -668,7 +638,6 @@ const Resume = () => {
     logDebug('Render', 'User not authenticated, showing login wall');
     return <ResumeLoginWall />;
   }
-  
   const loading = resumeLoading || isAnalyzing || isRefreshing;
   logDebug('Render', 'Rendering main component', {
     loading,
@@ -680,67 +649,60 @@ const Resume = () => {
     hasResume: !!resume,
     hasLoadedAnalysis
   });
-  
   return <AppLayout fullWidth>
-      <div className="flex flex-col h-full">
-        <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Resume Management</h1>
+      <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold">Resume Management</h1>
+          
+          <div className="flex space-x-2">
+            <Button variant="outline" size="sm" onClick={handleCheckEnhancements} disabled={loading || isLoadingEnhancedBullets}>
+              {isLoadingEnhancedBullets ? <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Loading Improvements...
+                </> : <>Check for Improvements</>}
+            </Button>
             
-            <div className="flex space-x-2">
-              <Button variant="outline" size="sm" onClick={handleCheckEnhancements} disabled={loading || isLoadingEnhancedBullets}>
-                {isLoadingEnhancedBullets ? <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Loading Improvements...
-                  </> : <>Check for Improvements</>}
-              </Button>
-              
-              <Button variant="outline" size="sm" onClick={handleRefreshData} disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh Data
-              </Button>
-            </div>
-          </div>
-
-          {storageError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Storage Error</AlertTitle>
-              <AlertDescription>
-                {storageError}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {careerAlignments && careerAlignments.length > 0 && (
-            <div className="space-y-2">
-              {careerAlignments.map((alignment, index) => (
-                <div key={index}>{/* Alignment content would go here */}</div>
-              ))}
-            </div>
-          )}
-
-          {/* Main content area with flex-1 to take remaining space */}
-          <div className="flex-1 min-h-0">
-            <ResumeAnalysisSection 
-              loading={loading} 
-              isAnalyzing={isAnalyzing} 
-              analysis={analysis} 
-              resume={resume} 
-              handleStartCareerChat={handleStartCareerChat} 
-              handleFileChange={handleFileChange} 
-              hasAnalysis={!!analysis} 
-              resumeFile={resumeFile} 
-              pdfPreviewUrl={pdfPreviewUrl} 
-              uploading={uploading} 
-              handleUpload={handleUpload} 
-              handleDelete={handleDelete} 
-              handleDownload={handleDownload} 
-              fileError={storageError}
-              showCareerChat={showCareerChat}
-            />
+            <Button variant="outline" size="sm" onClick={handleRefreshData} disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh Data
+            </Button>
           </div>
         </div>
+
+        {storageError && <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Storage Error</AlertTitle>
+            <AlertDescription>
+              {storageError}
+            </AlertDescription>
+          </Alert>}
+
+        {careerAlignments && careerAlignments.length > 0 && 
+          <div className="space-y-2">
+            {careerAlignments.map((alignment, index) => (
+              <div key={index}>{/* Alignment content would go here */}</div>
+            ))}
+          </div>
+        }
+
+        {/* Pass showCareerChat state to ResumeAnalysisSection */}
+        <ResumeAnalysisSection 
+          loading={loading} 
+          isAnalyzing={isAnalyzing} 
+          analysis={analysis} 
+          resume={resume} 
+          handleStartCareerChat={handleStartCareerChat} 
+          handleFileChange={handleFileChange} 
+          hasAnalysis={!!analysis} 
+          resumeFile={resumeFile} 
+          pdfPreviewUrl={pdfPreviewUrl} 
+          uploading={uploading} 
+          handleUpload={handleUpload} 
+          handleDelete={handleDelete} 
+          handleDownload={handleDownload} 
+          fileError={storageError}
+          showCareerChat={showCareerChat}
+        />
       </div>
     </AppLayout>;
 };
