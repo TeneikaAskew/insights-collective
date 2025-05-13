@@ -17,6 +17,8 @@ export async function improveBullet(bulletData: any): Promise<any> {
     
     // Make API call to rewrite the bullet
     const groqPrompt = constructGroqPrompt(bulletData);
+
+    
     const result = await callLLMWithRetry("", groqPrompt);
     
     // Parse the response to extract the rewritten bullet and tips
@@ -61,7 +63,7 @@ function constructGroqPrompt(bulletData: any): string {
   4. Making it more concise and focused
   5. Incorporating relevant industry terms
   
-  Respond in JSON format with 'rewritten' and 'tips' only; 'rewritten' for the improved bullet and 'tips' for specific improvement advice.
+  Respond in JSON format with 'rewritten' and 'tips' only; 'rewritten' for the improved bullet point/sentence and 'tips' for the specific improvement advice.
   `;
   
   return prompt;
@@ -110,7 +112,7 @@ function processGroqResponse(response: any, originalBullet: any): any {
     }
     
     // Last resort fallback
-    console.warn("Could not parse GROQ response, returning original bullet", error);
+    console.warn("Could not parse GROQ response, returning original bullet");
     return {
       rewritten: originalBullet.original,
       tips: "Could not generate specific tips. Consider adding metrics and using stronger action verbs."
