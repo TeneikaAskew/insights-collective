@@ -17,7 +17,7 @@ const MessageList: React.FC<MessageListProps> = ({ messages, isLoading }) => {
   }, [messages]);
   
   return (
-    <div className="flex-1 overflow-y-auto p-4 space-y-4 max-h-[calc(100vh-200px)]">
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
       {messages.map((message) => (
         <MessageDisplay key={message.id} message={message} />
       ))}
