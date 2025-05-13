@@ -681,7 +681,7 @@ const Resume = () => {
           const { data, error } = await supabase.functions.invoke('resume-analyzer', {
             body: { 
               action: 'improve-bullets',
-              userId: userId,
+              userId: user.id,
               // careerGoals: careerGoals || undefined
             }
           });
