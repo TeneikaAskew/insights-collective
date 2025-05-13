@@ -12,7 +12,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { LocalStorageUtils } from '@/utils/localStorageUtils';
 
 const Resume = () => {
   // Add a debug helper function
@@ -20,6 +19,11 @@ const Resume = () => {
     const timestamp = new Date().toISOString();
     console.log(`[${timestamp}][${area}] ${message}`, data || '');
   };
+
+  // Track render count to debug infinite loops
+  const renderCount = useRef(0);
+  logDebug('LifeCycle', `Component rendering ${renderCount.current++} times`);
+  
   const {
     user,
     isAuthenticated
@@ -36,6 +40,8 @@ const Resume = () => {
     deleteResume,
     refreshResume
   } = useResume();
+  
+  // Get all properties from the hook but explicitly destructure setters
   const {
     analysis,
     isAnalyzing,
@@ -45,8 +51,10 @@ const Resume = () => {
     isPollingForImprovements,
     setIsPollingForImprovements,
     improvedBullets,
-    setImprovedBullets
+    setImprovedBullets,
+    pollingIntervalRef
   } = useResumeAnalysis();
+  
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [extractedText, setExtractedText] = useState<string | null>(null);
@@ -56,10 +64,11 @@ const Resume = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingEnhancedBullets, setIsLoadingEnhancedBullets] = useState(false);
   const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
+  
   const subscriptionRef = useRef(null);
   const currentResumeIdRef = useRef(null);
   const hasLoadedEnhancedRef = useRef(false);
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const isInitialLoad = useRef(true);  // Add this ref to track initial load
 
   // Set up and clean up real-time subscription with better logging
   useEffect(() => {
@@ -121,7 +130,7 @@ const Resume = () => {
     };
   }, [user, resume]);
 
-  // Show analysis overlay when analyzing starts
+  // Show analysis overlay when analyzing starts - with added safety check
   useEffect(() => {
     if (isAnalyzing) {
       setShowAnalysisOverlay(true);
@@ -198,8 +207,17 @@ const Resume = () => {
     logDebug('EnhancedUpdate', 'Setting isLoadingEnhancedBullets to false');
     setIsLoadingEnhancedBullets(false);
   };
+  
   useEffect(() => {
     let isMounted = true;
+    
+    // Skip if not first render to prevent infinite loops
+    if (!isInitialLoad.current) {
+      return;
+    }
+    
+    isInitialLoad.current = false;
+    
     const loadInitialData = async () => {
       logDebug('InitialData', 'Starting loadInitialData');
       if (initialLoadComplete || !user) {
@@ -224,20 +242,34 @@ const Resume = () => {
         }
       }
     };
+    
     loadInitialData();
+    
     return () => {
       isMounted = false;
       logDebug('InitialData', 'Component unmounted, setting isMounted to false');
     };
   }, [user, initialLoadComplete, refreshResume]);
+  
+  // Modified to use a ref to prevent excessive runs
+  const hasCheckedAnalysis = useRef(false);
+  
   useEffect(() => {
+    // Skip if we've already checked to prevent loops
+    if (hasCheckedAnalysis.current) {
+      return;
+    }
+    
     logDebug('AnalysisLoader', 'Checking if analysis should be loaded from resume', {
       hasResumeAnalysis: !!resume?.analysis,
       hasAnalysis: !!analysis,
       hasLoadedAnalysis,
       hasUser: !!user
     });
+    
     if (resume?.analysis && !analysis && !hasLoadedAnalysis && user) {
+      hasCheckedAnalysis.current = true;
+      
       try {
         // Only load from resume.analysis if we don't have cached data
         // or if the cached data is stale
@@ -284,8 +316,15 @@ const Resume = () => {
     }
   }, [resume, analysis, setAnalysis, hasLoadedAnalysis, user]);
 
-  // Initial load of enhanced analysis
+  // Initial load of enhanced analysis with guard against multiple runs
+  const hasAttemptedEnhancedLoad = useRef(false);
+  
   useEffect(() => {
+    // Skip if we've already tried to prevent loops
+    if (hasAttemptedEnhancedLoad.current) {
+      return;
+    }
+    
     const loadEnhancedAnalysis = async () => {
       logDebug('InitialLoad', 'Starting loadEnhancedAnalysis check');
       if (!user) {
@@ -304,6 +343,9 @@ const Resume = () => {
         logDebug('InitialLoad', 'Enhanced bullets already loaded, skipping load');
         return;
       }
+      
+      hasAttemptedEnhancedLoad.current = true;
+      
       logDebug('InitialLoad', `Loading enhanced analysis for resume ID: ${resume.id}`);
       try {
         setIsLoadingEnhancedBullets(true);
@@ -337,6 +379,8 @@ const Resume = () => {
     };
     loadEnhancedAnalysis();
   }, [user, analysis, resume]);
+  
+  // File handler with cleanup and efficiency improvements
   useEffect(() => {
     logDebug('FileHandler', 'File change detected', {
       hasFile: !!resumeFile
@@ -390,7 +434,16 @@ const Resume = () => {
       }
     };
   }, [resumeFile, toast]);
+  
+  // Analysis runner with guard to prevent loops
+  const hasRunAnalysis = useRef(false);
+  
   useEffect(() => {
+    // Skip if already run to prevent loops
+    if (hasRunAnalysis.current) {
+      return;
+    }
+    
     logDebug('AnalysisRunner', 'Checking if analysis needs to be run', {
       hasResumeText: !!resume?.text,
       hasAnalysis: !!analysis,
@@ -398,7 +451,10 @@ const Resume = () => {
       hasLoadedAnalysis,
       initialLoadComplete
     });
+    
     if (resume?.text && !analysis && !isAnalyzing && !hasLoadedAnalysis && initialLoadComplete) {
+      hasRunAnalysis.current = true;
+      
       logDebug('AnalysisRunner', 'Starting analysis of resume text');
       analyzeResume(resume.text).then(success => {
         if (success) {
@@ -419,6 +475,7 @@ const Resume = () => {
       });
     }
   }, [resume, analysis, analyzeResume, isAnalyzing, hasLoadedAnalysis, initialLoadComplete]);
+  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     logDebug('UserAction', 'File input changed', {
@@ -434,6 +491,11 @@ const Resume = () => {
       // Reset enhanced bullets flag when uploading a new file
       hasLoadedEnhancedRef.current = false;
       logDebug('UserAction', 'Reset hasLoadedEnhancedRef due to new file');
+      
+      // Reset analysis check and load flags when a new file is uploaded
+      hasCheckedAnalysis.current = false;
+      hasAttemptedEnhancedLoad.current = false;
+      hasRunAnalysis.current = false;
     } else {
       logDebug('UserAction', 'Invalid file type rejected');
       toast({
@@ -443,6 +505,7 @@ const Resume = () => {
       });
     }
   };
+  
   const handleUpload = async () => {
     logDebug('UserAction', 'Upload requested', {
       hasFile: !!resumeFile,
@@ -468,6 +531,12 @@ const Resume = () => {
     // Reset enhanced bullets flag
     hasLoadedEnhancedRef.current = false;
     logDebug('UserAction', 'Reset hasLoadedEnhancedRef for upload');
+    
+    // Reset analysis check and load flags when uploading
+    hasCheckedAnalysis.current = false;
+    hasAttemptedEnhancedLoad.current = false;
+    hasRunAnalysis.current = false;
+    
     try {
       logDebug('UserAction', 'Calling uploadResume');
       const ok = await uploadResume(resumeFile, extractedText);
@@ -510,6 +579,7 @@ const Resume = () => {
       }
     }
   };
+  
   const handleDelete = async () => {
     logDebug('UserAction', 'Delete requested');
     try {
@@ -528,6 +598,12 @@ const Resume = () => {
       // Reset enhanced bullets flag and resume ID
       hasLoadedEnhancedRef.current = false;
       currentResumeIdRef.current = null;
+      
+      // Reset analysis check flags when deleting
+      hasCheckedAnalysis.current = false;
+      hasAttemptedEnhancedLoad.current = false;
+      hasRunAnalysis.current = false;
+      
       logDebug('UserAction', 'Reset hasLoadedEnhancedRef and currentResumeIdRef after delete');
     } catch (error) {
       logDebug('UserAction', 'Delete error:', error);
@@ -538,16 +614,19 @@ const Resume = () => {
       });
     }
   };
+  
   const handleDownload = () => {
     logDebug('UserAction', 'Download requested', {
       hasFileUrl: !!resume?.file_url
     });
     if (resume?.file_url) window.open(resume.file_url, '_blank');
   };
+  
   const handleStartCareerChat = () => {
     logDebug('UserAction', 'Career chat requested');
     setShowCareerChat(true);
   };
+  
   const handleRefreshData = async () => {
     logDebug('UserAction', 'Refresh data requested');
     setIsRefreshing(true);
@@ -557,6 +636,11 @@ const Resume = () => {
     // Reset enhanced bullets flag
     hasLoadedEnhancedRef.current = false;
     logDebug('UserAction', 'Reset hasLoadedEnhancedRef for refresh');
+    
+    // Reset analysis check flags when refreshing
+    hasCheckedAnalysis.current = false;
+    hasAttemptedEnhancedLoad.current = false;
+    hasRunAnalysis.current = false;
 
     // Clear localStorage items related to resume, analysis, and job
     if (user) {
@@ -609,7 +693,7 @@ const Resume = () => {
           handleEnhancedAnalysisUpdate(data.enhanced_analysis);
         } else {
           logDebug('UserAction', 'No enhanced analysis found during refresh');
-          setIsLoadingEnhancedBullets(true);
+          setIsLoadingEnhancedBullets(false);
         }
       } else {
         logDebug('UserAction', 'No resume ID available for enhanced analysis check during refresh');
@@ -635,6 +719,7 @@ const Resume = () => {
       logDebug('UserAction', 'Finished refresh, set isRefreshing to false');
     }
   };
+  
   const handleCheckEnhancements = async () => {
     if (!user || !resume || !resume.id) {
       logDebug('CheckEnhancements', 'Missing user, resume or resume ID', {
@@ -743,11 +828,14 @@ const Resume = () => {
       setIsLoadingEnhancedBullets(false);
     }
   };
+
   if (!isAuthenticated) {
     logDebug('Render', 'User not authenticated, showing login wall');
     return <ResumeLoginWall />;
   }
+  
   const loading = resumeLoading || isAnalyzing || isRefreshing;
+  
   logDebug('Render', 'Rendering main component', {
     loading,
     resumeLoading,
@@ -759,6 +847,7 @@ const Resume = () => {
     hasResume: !!resume,
     hasLoadedAnalysis
   });
+  
   return <AppLayout fullWidth>
       <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
         {/* Analysis overlay that appears during processing */}

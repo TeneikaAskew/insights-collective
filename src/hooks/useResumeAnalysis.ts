@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -272,11 +271,18 @@ export function useResumeAnalysis() {
   const { user } = useAuth();
   const hasLoadedAnalysis = useRef(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Track if an update is in progress to prevent infinite loops
+  const isUpdatingRef = useRef(false);
 
   useEffect(() => {
-    if (user && !hasLoadedAnalysis.current) {
-      hasLoadedAnalysis.current = true;
+    // Skip loading if we're already loading or no user
+    if (isUpdatingRef.current || !user || hasLoadedAnalysis.current) {
+      return;
+    }
 
+    isUpdatingRef.current = true;
+    
+    try {
       const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
       console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
 
@@ -302,6 +308,10 @@ export function useResumeAnalysis() {
           console.error('Error analyzing keywords in resume:', error);
         }
       }
+      
+      hasLoadedAnalysis.current = true;
+    } finally {
+      isUpdatingRef.current = false;
     }
   }, [user]);
 
@@ -310,17 +320,27 @@ export function useResumeAnalysis() {
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
   }, []);
 
-  // Poll for improved bullets
+  // Poll for improved bullets - Now with better guards against infinite loops
   const pollForImprovedBullets = async (userId: string) => {
     if (!userId) return;
+    
+    // Don't start polling if already polling
+    if (isPollingForImprovements) return;
 
     setIsPollingForImprovements(true);
     let attempts = 0;
     const maxAttempts = 10; // Stop polling after 10 attempts (about 50 seconds)
+
+    // Clear any existing interval first to prevent duplicates
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
 
     const startPolling = () => {
       pollingIntervalRef.current = setInterval(async () => {
@@ -362,6 +382,7 @@ export function useResumeAnalysis() {
             // Success - we can stop polling
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
             }
             setIsPollingForImprovements(false);
             
@@ -382,6 +403,7 @@ export function useResumeAnalysis() {
             console.log("Max polling attempts reached");
             if (pollingIntervalRef.current) {
               clearInterval(pollingIntervalRef.current);
+              pollingIntervalRef.current = null;
             }
             setIsPollingForImprovements(false);
           }
@@ -389,6 +411,7 @@ export function useResumeAnalysis() {
           console.error("Error in polling:", err);
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
           }
           setIsPollingForImprovements(false);
         }
@@ -577,6 +600,12 @@ export function useResumeAnalysis() {
       return false;
     }
     
+    // Prevent running if already analyzing to avoid duplicate runs
+    if (isAnalyzing) {
+      console.log("Already analyzing, skipping duplicate run");
+      return false;
+    }
+    
     // Clear localStorage cache for this user before starting a new analysis
     if (user) {
       localStorage.removeItem(`resume_analysis_${user.id}`);
@@ -637,11 +666,6 @@ export function useResumeAnalysis() {
         
         if (missingFields.length > 0) {
           throw new Error(`Edge function response missing required fields: ${missingFields.join(', ')}`);
-        }
-        
-        if (error) {
-          console.error("Edge function error:", error);
-          throw error;
         }
         
         console.log("Resume analysis complete:", analysisData ? "Success" : "No data returned");
@@ -720,83 +744,4 @@ export function useResumeAnalysis() {
         
         toast({
           title: "Initial Resume Analysis Complete",
-          description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.resume_percent}%). We're generating detailed bullet point improvements in the background.`,
-        });
-        
-        return true;
-      } catch (functionError) {
-        // ... keep existing code (error handling and fallback logic)
-      }
-    } catch (error) {
-      // ... keep existing code (error handling)
-    } finally {
-      // setIsLoadingResults: false
-      setIsAnalyzing(false);
-    }
-  };
-
-  // Clean up any AI prompt markers or formatting artifacts
-  const cleanAnalysisOutput = (data: any) => {
-    if (!data) return data;
-    
-    const cleanedData = { ...data };
-    
-    // Clean text fields by removing prompt indicators like "*", "##", "- ***" etc.
-    if (cleanedData.elevator_pitch) {
-      cleanedData.elevator_pitch = cleanedData.elevator_pitch
-        .replace(/\*\*|\*|##|```|\[\[.*?\]\]|\n/g, '')
-        .trim();
-    }
-    
-    if (cleanedData.explanation) {
-      cleanedData.explanation = cleanedData.explanation
-        .replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, '')
-        .replace(/^.*?:(.*)/gm, '$1') // Remove field labels like "Resume Grade Explanation:"
-        .trim();
-    }
-    
-    // Clean up theme entries
-    if (cleanedData.themes && Array.isArray(cleanedData.themes)) {
-      cleanedData.themes = cleanedData.themes.map((theme: string) => 
-        theme.replace(/^[-*\s]*\*\*\*|^\s*-\s*\*\*\*|\*\*\*|:/g, '')
-          .replace(/^\s*[–-]\s*/g, '')
-          .trim()
-      );
-    }
-    
-    // Clean up bullet entries
-    if (cleanedData.bullets && Array.isArray(cleanedData.bullets)) {
-      cleanedData.bullets = cleanedData.bullets.map((bullet: any) => {
-        if (bullet.improved_bullet) {
-          bullet.improved_bullet = bullet.improved_bullet
-            .replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, '')
-            .trim();
-        }
-        if (bullet.explanation) {
-          bullet.explanation = bullet.explanation
-            .replace(/\*\*|\*|##|```|\[\[.*?\]\]/g, '')
-            .trim();
-        }
-        return bullet;
-      });
-    }
-    
-    return cleanedData;
-  };
-
-  return {
-    analysis,
-    setAnalysis,
-    isAnalyzing,
-    isPollingForImprovements,
-    setIsPollingForImprovements,
-    improvedBullets,
-    setImprovedBullets,
-    analyzeResume,
-    careerAlignments,
-    fetchAndStoreAssessment,
-    analyzeKeywordsInResume,
-    CAREER_KEYWORDS,
-    pollForImprovedBullets
-  };
-}
+          description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.
