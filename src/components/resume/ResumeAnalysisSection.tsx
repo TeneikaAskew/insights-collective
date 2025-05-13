@@ -108,9 +108,9 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
           )}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex flex-col">
         {showTabs ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-grow">
             <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6"> {/* Changed from 5 to 4 columns to remove career fit */}
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <ChartBar className="h-4 w-4" />
@@ -130,40 +130,42 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="overview" className="mt-0">
-              <ResumeAnalysisDisplay
-                analysis={analysis}
-                onStartCareerChat={handleCareerChatStart}
-                hasAnalysis={hasAnalysis}
-                resume={resume}
-                resumeFile={resumeFile}
-                handleFileChange={handleFileChange}
-                handleUpload={handleUpload}
-                handleDelete={handleDelete}
-                handleDownload={handleDownload}
-                uploading={uploading}
-                isAnalyzing={isAnalyzing}
-                pdfPreviewUrl={pdfPreviewUrl}
-                fileError={fileError}
-              />
-            </TabsContent>
-            
-            {analysis && ( // Conditionally render other tabs only if analysis exists
-              <>
-                <TabsContent value="storytelling" className="mt-0">
-                  <BulletPointsAnalysisCard
-                    bullets={analysis.bullets || []}
-                    isAnalyzing={isAnalyzing} // Pass isAnalyzing if needed by this component
-                  />
-                </TabsContent>
-                <TabsContent value="ats" className="mt-0">
-                  <ATSScoreCard analysis={analysis} />
-                </TabsContent>
-                <TabsContent value="chat" className="mt-0">
-                  {analysis && <ResumeChat resumeAnalysis={analysis} />}
-                </TabsContent>
-              </>
-            )}
+            <div className="flex-grow flex flex-col">
+              <TabsContent value="overview" className="mt-0 flex-grow">
+                <ResumeAnalysisDisplay
+                  analysis={analysis}
+                  onStartCareerChat={handleCareerChatStart}
+                  hasAnalysis={hasAnalysis}
+                  resume={resume}
+                  resumeFile={resumeFile}
+                  handleFileChange={handleFileChange}
+                  handleUpload={handleUpload}
+                  handleDelete={handleDelete}
+                  handleDownload={handleDownload}
+                  uploading={uploading}
+                  isAnalyzing={isAnalyzing}
+                  pdfPreviewUrl={pdfPreviewUrl}
+                  fileError={fileError}
+                />
+              </TabsContent>
+              
+              {analysis && ( // Conditionally render other tabs only if analysis exists
+                <>
+                  <TabsContent value="storytelling" className="mt-0 flex-grow">
+                    <BulletPointsAnalysisCard
+                      bullets={analysis.bullets || []}
+                      isAnalyzing={isAnalyzing} // Pass isAnalyzing if needed by this component
+                    />
+                  </TabsContent>
+                  <TabsContent value="ats" className="mt-0 flex-grow">
+                    <ATSScoreCard analysis={analysis} />
+                  </TabsContent>
+                  <TabsContent value="chat" className="mt-0 flex-grow flex flex-col h-full">
+                    {analysis && <ResumeChat resumeAnalysis={analysis} />}
+                  </TabsContent>
+                </>
+              )}
+            </div>
           </Tabs>
         ) : (
           // If no analysis, ResumeAnalysisDisplay will show the upload UI

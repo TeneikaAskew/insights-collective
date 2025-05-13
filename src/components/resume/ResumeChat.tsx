@@ -657,8 +657,8 @@ Let's start by discussing your experience: **What specific challenges did you ta
   };
   
   return (
-    <div className="w-full">
-      <ScrollArea className="h-[900px] px-1">
+    <div className="flex flex-col h-full">
+      <ScrollArea className="flex-1 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 250px)' }}>
         <div className="space-y-4 p-4">
           {messages
             .filter(message => message.role !== 'system') // Hide system messages from the UI
@@ -718,7 +718,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
         </div>
       </ScrollArea>
       
-      <div className="p-4 border-t mt-2">
+      <div className="p-4 border-t mt-auto">
         <div className="flex space-x-2 w-full">
           <Textarea
             value={inputValue}
