@@ -99,8 +99,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     );
   };
 
-  // BEGIN REORGANIZED LAYOUT
-  // First section is the Upload Card, always visible at the top
+  // Render the upload card - always visible
   const renderUploadCard = () => {
     return (
       <Card className="mb-6">
@@ -195,7 +194,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
   return (
     <div>
-      {renderUploadCard()}
       <div className="space-y-6">
         {needsImprovementAlert && (
           <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
@@ -217,86 +215,89 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
           </Alert>
         )}
 
-        {(analysis || resume || resumeFile) && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-1 order-2 md:order-1">
-              {/* Preview Section */}
-              {(resume || resumeFile) && (
-                <Card className="mb-6">
-                  <CardHeader>
-                    <CardTitle>Resume Preview</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {renderFilePreviewLocal()}
-                  </CardContent>
-                </Card>
-              )}
-
-              {analysis && (
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
-                      <span>Key Insights</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {highestScoringBullet && (
-                        <div className="border-l-4 border-green-400 pl-3 py-1">
-                          <p className="text-xs text-muted-foreground mb-1">STRONGEST POINT</p>
-                          <p className="text-sm">{highestScoringBullet.original}</p>
-                        </div>
-                      )}
-                      {lowestScoringBullet && (
-                        <div className="border-l-4 border-amber-400 pl-3 py-1">
-                          <p className="text-xs text-muted-foreground mb-1">NEEDS IMPROVEMENT</p>
-                          <p className="text-sm">{lowestScoringBullet.original}</p>
-                        </div>
-                      )}
-                      <div className="border-l-4 border-blue-400 pl-3 py-1">
-                        <p className="text-xs text-muted-foreground mb-1">INDUSTRY ALIGNMENT</p>
-                        <p className="text-sm">{(resume_percent > 75) ? 'Strong' : (resume_percent > 60) ? 'Fair' : 'Weak'} industry alignment</p>
-                      </div>
-                      <div className="border-l-4 border-purple-400 pl-3 py-1">
-                        <p className="text-xs text-muted-foreground mb-1">STORYTELLING QUALITY</p>
-                        <p className="text-sm">{bullets ? bullets.length : 0} bullet points analyzed</p>
-                        <p className="text-xs text-muted-foreground">Average quality score: {bullets ?
-                          Math.round(bullets.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / (bullets.length || 1))
-                          : 0}/45</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            <div className="md:col-span-2 order-1 md:order-2">
-              {analysis ? (
-                <OverallScoreCard
-                  letterGrade={letter_grade}
-                  resumePercent={resume_percent}
-                  elevatorPitch={elevator_pitch}
-                  themes={themes || []}
-                  explanation={explanation}
-                  onStartCareerChat={onStartCareerChat}
-                  userId={userId}
-                  hasAnalysis={hasAnalysis}
-                />
-              ) : (
-                <Card className="h-full flex items-center justify-center min-h-[200px]">
-                  <CardContent className="text-center p-6">
-                    <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">
-                      {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
-                    </p>
-                    {!resumeFile && !resume && ( <Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Left Column - Always show upload section and preview */}
+          <div className="md:col-span-1">
+            {/* Upload Section - Always visible */}
+            {renderUploadCard()}
+            
+            {/* Preview Section - Show if resume exists */}
+            {(resume || resumeFile) && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Resume Preview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {renderFilePreviewLocal()}
+                </CardContent>
+              </Card>
+            )}
           </div>
-        )}
+
+          {/* Right Column - Analysis */}
+          <div className="md:col-span-2">
+            {analysis ? (
+              <OverallScoreCard
+                letterGrade={letter_grade}
+                resumePercent={resume_percent}
+                elevatorPitch={elevator_pitch}
+                themes={themes || []}
+                explanation={explanation}
+                onStartCareerChat={onStartCareerChat}
+                userId={userId}
+                hasAnalysis={hasAnalysis}
+              />
+            ) : (
+              <Card className="h-full flex items-center justify-center min-h-[200px]">
+                <CardContent className="text-center p-6">
+                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
+                  </p>
+                  {!resumeFile && !resume && ( <Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
+                </CardContent>
+              </Card>
+            )}
+            
+            {analysis && (
+              <Card className="mt-6">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
+                    <span>Key Insights</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {highestScoringBullet && (
+                      <div className="border-l-4 border-green-400 pl-3 py-1">
+                        <p className="text-xs text-muted-foreground mb-1">STRONGEST POINT</p>
+                        <p className="text-sm">{highestScoringBullet.original}</p>
+                      </div>
+                    )}
+                    {lowestScoringBullet && (
+                      <div className="border-l-4 border-amber-400 pl-3 py-1">
+                        <p className="text-xs text-muted-foreground mb-1">NEEDS IMPROVEMENT</p>
+                        <p className="text-sm">{lowestScoringBullet.original}</p>
+                      </div>
+                    )}
+                    <div className="border-l-4 border-blue-400 pl-3 py-1">
+                      <p className="text-xs text-muted-foreground mb-1">INDUSTRY ALIGNMENT</p>
+                      <p className="text-sm">{(resume_percent > 75) ? 'Strong' : (resume_percent > 60) ? 'Fair' : 'Weak'} industry alignment</p>
+                    </div>
+                    <div className="border-l-4 border-purple-400 pl-3 py-1">
+                      <p className="text-xs text-muted-foreground mb-1">STORYTELLING QUALITY</p>
+                      <p className="text-sm">{bullets ? bullets.length : 0} bullet points analyzed</p>
+                      <p className="text-xs text-muted-foreground">Average quality score: {bullets ?
+                        Math.round(bullets.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / (bullets.length || 1))
+                        : 0}/45</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
