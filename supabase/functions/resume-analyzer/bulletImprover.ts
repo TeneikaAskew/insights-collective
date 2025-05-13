@@ -62,12 +62,8 @@ function constructGroqPrompt(bulletData: any): string {
   3. Adding specific metrics if missing
   4. Making it more concise and focused
   5. Incorporating relevant industry terms
-
-  Store the improved bullet in 'rewritten' and any tips used to improve it in 'tips'
   
-  Respond in JSON format with 'rewritten' and 'tips' only; 
-  'rewritten' for the improved bullet point/sentence and 
-  'tips' for the specific improvement advice.
+  Respond in JSON format with 'rewritten' and 'tips' only; 'rewritten' for the improved bullet point/sentence and 'tips' for the specific improvement advice.
   `;
   
   return prompt;
