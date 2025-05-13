@@ -331,7 +331,7 @@ export function useResumeAnalysis() {
           // Call a special endpoint to check for improved bullets
           const { data, error } = await supabase.functions.invoke('resume-analyzer', {
             body: { 
-              action: 'get-improved-bullets',
+              action: 'improve-bullets',
               userId: userId
             }
           });
