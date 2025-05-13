@@ -42,7 +42,10 @@ const Resume = () => {
     analyzeResume,
     careerAlignments,
     setAnalysis,
-    isPollingForImprovements
+    isPollingForImprovements,
+    setIsPollingForImprovements,
+    improvedBullets,
+    setImprovedBullets
   } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -56,6 +59,7 @@ const Resume = () => {
   const subscriptionRef = useRef(null);
   const currentResumeIdRef = useRef(null);
   const hasLoadedEnhancedRef = useRef(false);
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Set up and clean up real-time subscription with better logging
   useEffect(() => {
@@ -677,11 +681,18 @@ const Resume = () => {
         });
         setIsLoadingEnhancedBullets(false);
 
+        logDebug('CheckEnhancements', 'Running bullet improver');
+        toast({
+          title: 'No Enhancements',
+          description: 'Running Bullet Improver Edge Function.',
+          variant: 'default'
+        });
+
         // Call a special endpoint to check for improved bullets
           const { data, error } = await supabase.functions.invoke('resume-analyzer', {
             body: { 
               action: 'improve-bullets',
-              userId: userId,
+              userId: user.id,
               // careerGoals: careerGoals || undefined
             }
           });
@@ -720,8 +731,6 @@ const Resume = () => {
             // The server indicates improvements aren't ready yet
             console.log("Improvements still processing...");
           }
-
-        
       }
     } catch (err) {
       logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
