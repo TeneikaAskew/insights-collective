@@ -196,7 +196,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   return (
     <div className="space-y-6">
       {/* Always show Upload Card at the top */}
-      {/*  {renderUploadCard()} */ }
+      {renderUploadCard()}{/*  {renderUploadCard()} */ }
 
       {needsImprovementAlert && (
         <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
