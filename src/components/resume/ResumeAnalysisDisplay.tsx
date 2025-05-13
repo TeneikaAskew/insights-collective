@@ -151,7 +151,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 </div>
                 <div className="flex gap-1 sm:gap-2 ml-auto">
                   {resume?.file_url && !resumeFile && (
-                    <Button variant="outline" size="icon" onClick={handleDownload} title="Download Resume" className="h-8 w-8>
+                    <Button variant="outline" size="icon" onClick={handleDownload} title="Download Resume" className="h-8 w-8">
                       <DownloadCloud className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   )}
@@ -168,7 +168,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                     />
                   {(resume || resumeFile) && (
                     <Button variant="outline" size="icon" asChild title="Replace Resume" className="h-8 w-8">
-                       <label htmlFor="resume-replace-display">
+                      <label htmlFor="resume-replace-display">
                         <FileUp className="h-3 w-3 sm:h-4 sm:w-4" />
                       </label>
                     </Button>
@@ -196,7 +196,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   return (
     <div className="space-y-6">
       {/* Always show Upload Card at the top */}
-      {renderUploadCard()}{/*  {renderUploadCard()} */ }
+      {renderUploadCard()}
 
       {needsImprovementAlert && (
         <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
@@ -221,9 +221,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       {(analysis || resume || resumeFile) && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1 order-2 md:order-1">
-            {/* Preview Section - Moved to appear below upload div */}
-             {/* Always show Upload Card at the top */}
-            {renderUploadCard()}
+            {/* Preview Section */}
             {(resume || resumeFile) && (
               <Card className="mb-6">
                 <CardHeader>
