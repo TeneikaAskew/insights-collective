@@ -5,7 +5,6 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { useToast, ToastProvider } from "@/hooks/use-toast"
 
 const ToastViewport = React.forwardRef<
   React.ElementRef<typeof ToastPrimitives.Viewport>,
@@ -125,5 +124,5 @@ export {
   ToastAction,
   ToastViewport,
 }
-// Re-export functions from the hook
-export { useToast, toast } from "@/hooks/use-toast"
+// Export functions from the hook
+export { useToast, toast, ToastProvider } from "@/hooks/use-toast"
