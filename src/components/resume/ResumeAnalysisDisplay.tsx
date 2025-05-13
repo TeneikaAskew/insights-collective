@@ -196,7 +196,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   return (
     <div className="space-y-6">
       {/* Always show Upload Card at the top */}
-      {renderUploadCard()}
+      {/*  {renderUploadCard()} */ }
 
       {needsImprovementAlert && (
         <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
@@ -222,6 +222,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1 order-2 md:order-1">
             {/* Preview Section - Moved to appear below upload div */}
+             {/* Always show Upload Card at the top */}
+            {renderUploadCard()}
             {(resume || resumeFile) && (
               <Card className="mb-6">
                 <CardHeader>

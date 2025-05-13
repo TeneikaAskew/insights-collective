@@ -98,5 +98,7 @@ export const formatMessage = (content: string): string => {
   formattedContent = formattedContent.replace(/ \* /g, '<br>• ');
   formattedContent = formattedContent.replace(/\* /g, '• ');
   
+  formattedContent = formattedContent.replace(/\**/g, '');
+  
   return formattedContent;
 };
