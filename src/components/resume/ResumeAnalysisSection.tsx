@@ -190,7 +190,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
         
         {/* Only show chat outside of tabs when analysis exists but tabs are not shown */}
         {analysis && !showTabs && showCareerChat && (
-          <div className="h-full flex flex-col" style={{ height: 'calc(100vh - 400px)', minHeight: '500px' }}>
+          <div className="h-full flex flex-col" style={{ height: '60vh', maxHeight: '500px' }}>
             <ResumeChat resumeAnalysis={analysis} />
           </div>
         )}

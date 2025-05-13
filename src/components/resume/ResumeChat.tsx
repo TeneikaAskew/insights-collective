@@ -658,7 +658,7 @@ Let's start by discussing your experience: **What specific challenges did you ta
   
   return (
     <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1 overflow-y-auto" style={{ height: 'calc(100vh - 250px)' }}>
+      <ScrollArea className="flex-1 overflow-y-auto" style={{ height: '70vh', maxHeight: '600px' }}>
         <div className="space-y-4 p-4">
           {messages
             .filter(message => message.role !== 'system') // Hide system messages from the UI
