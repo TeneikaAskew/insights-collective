@@ -336,7 +336,7 @@ export function useResumeAnalysis() {
             body: { 
               action: 'improve-bullets',
               userId: userId,
-              // careerGoals: careerGoals || undefined
+              careerGoals: careerGoals || undefined
             }
           });
 
