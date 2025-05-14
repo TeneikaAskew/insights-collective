@@ -61,7 +61,9 @@ function constructGroqPrompt(bulletData: any): string {
   4. Making it more concise and focused
   5. Incorporating relevant industry terms
   
-  Respond in JSON format with 'rewritten' and 'tips' only; 'rewritten' for the improved bullet and 'tips' for specific improvement advice.
+  Respond in JSON format with 'rewritten' and 'tips' only; 
+  'rewritten' for the improved bullet point/sentence and 
+  'tips' for the specific improvement advice.
   `;
   
   return prompt;
