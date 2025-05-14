@@ -22,7 +22,7 @@ const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
   const upcomingEvents = mockService.getEvents().slice(0, 3);
   
-  // Create sections array first
+  // Create sections array first.
   const sections = [
     { id: 'hero', Component: HeroSection, threshold: 0.1 },
     { id: 'personalizedPathway', Component: PersonalizedPathway, threshold: 0.3 },
