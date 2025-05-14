@@ -1,0 +1,18 @@
+
+// This is the main hook implementation file
+import { useToast as useToastUI } from "@/components/ui/toast";
+import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
+
+export type { ToastProps };
+export type ToastActionProps = React.ComponentProps<typeof ToastActionElement>;
+
+export const useToast = useToastUI;
+
+// Re-export the toast function for backward compatibility
+// This allows components to continue using `import { toast } from "@/hooks/use-toast"`
+export const { toast } = useToastUI();
+
+// This component doesn't need to do anything as the actual provider is in @/components/ui/toaster
+export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
+  return <>{children}</>;
+};
