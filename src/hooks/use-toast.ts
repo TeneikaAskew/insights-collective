@@ -9,7 +9,10 @@ import type {
 export type { ToastProps };
 export type ToastActionProps = React.ComponentPropsWithoutRef<typeof ToastActionElement>;
 
+// Import the useToast hook from the UI component
 import { useToast as useToastUI } from "@/components/ui/toast";
+
+// Re-export the useToast hook
 export const useToast = useToastUI;
 
 // Re-export the toast function for backward compatibility
