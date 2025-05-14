@@ -684,6 +684,11 @@ const Resume = () => {
           variant: 'default'
         });
         setIsLoadingEnhancedBullets(false);
+        
+        // Only proceed if we're not already polling
+        if (isPollingForImprovements) {
+          return;
+        }
 
 
         /////////////////////////////////////////////////////////////////////////
@@ -736,7 +741,11 @@ const Resume = () => {
           } else if (data?.improvement_complete === false) {
             // The server indicates improvements aren't ready yet
             console.log("Improvements still processing...");
-          }
+          setIsLoadingEnhancedBullets(false);
+        } else {
+          // No improvements and no error - stop loading state
+          setIsLoadingEnhancedBullets(false);
+        }
 
         
       }
@@ -750,6 +759,14 @@ const Resume = () => {
       });
       setIsLoadingEnhancedBullets(false);
     }
+
+    // Make sure we're not polling anymore regardless of outcome
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    setIsPollingForImprovements(false);
+    
       //////////////////////////////////////////////////////////////////////////
   };
   if (!isAuthenticated) {
