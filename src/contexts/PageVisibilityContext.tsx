@@ -158,14 +158,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
     const channel = supabase.channel('online-users');
     
-    // Define user presence data with correct property access
+    // Define user presence data with safer property access
     const userPresence = {
       id: user.id,
-      // Safely access nested properties with optional chaining
+      // Safely access name from user metadata
       name: user.user_metadata?.name || 
-            ((user.user_metadata?.first_name || user.user_metadata?.firstName || '') + ' ' + 
-            (user.user_metadata?.last_name || user.user_metadata?.lastName || '')).trim() || 
-            'Anonymous',
+            (user.user_metadata && 
+              typeof user.user_metadata === 'object' && 
+              'name' in user.user_metadata ? 
+              user.user_metadata.name : 'Anonymous'),
       email: user.email || '',
       avatar: user.user_metadata?.avatar_url || '',
       path: location.pathname,
