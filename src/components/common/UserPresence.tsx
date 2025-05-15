@@ -13,11 +13,12 @@ export function UserPresence() {
     <div className="flex -space-x-2">
       <TooltipProvider delayDuration={300}>
         {activeUsers.slice(0, 5).map((user, index) => {
+          // Handle null values safely
           const initials = `${(user.first_name?.[0] || '').toUpperCase()}${(user.last_name?.[0] || '').toUpperCase()}`;
           const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'User';
           
           return (
-            <Tooltip key={user.id}>
+            <Tooltip key={`${user.id}-${index}`}>
               <TooltipTrigger asChild>
                 <Avatar className="w-8 h-8 border-2 border-background transition-all hover:z-10 hover:-translate-y-1">
                   <AvatarImage src={user.avatar_url || ''} alt={fullName} />
@@ -29,7 +30,7 @@ export function UserPresence() {
               <TooltipContent side="bottom">
                 <p>{fullName}</p>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(user.last_seen).toLocaleTimeString()}
+                  Last seen: {new Date(user.last_seen).toLocaleTimeString()}
                 </p>
               </TooltipContent>
             </Tooltip>

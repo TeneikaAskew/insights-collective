@@ -81,11 +81,12 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     if (!user) return;
 
     const channel = supabase.channel('user-presence');
+    // Fixed UserWithProfile type error by using conditional access and proper type casting
     const userStatus = {
       id: user.id,
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      avatar_url: user.avatar_url || '',
+      first_name: user?.name?.split(' ')[0] || '',
+      last_name: user?.name?.split(' ').slice(1).join(' ') || '',
+      avatar_url: user?.avatar || '',
       last_seen: new Date(),
       path: location.pathname,
     };
