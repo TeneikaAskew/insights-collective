@@ -1,3 +1,4 @@
+
 import React, {
   createContext,
   useContext,
@@ -6,9 +7,9 @@ import React, {
   useCallback,
 } from 'react';
 import { useAuth } from './AuthContext';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/utils'; // Fix import path
 import { useQuery } from '@tanstack/react-query';
-import { extractRoutes } from '@/utils/routeUtils';
+import { extractRoutes, extractRouteName } from '@/utils/routeUtils';
 import { useNavigate } from 'react-router-dom';
 
 // Add these type definitions at the top of the file
@@ -23,7 +24,11 @@ interface UserProfile {
 interface UserWithProfile {
   id: string;
   profile?: UserProfile;
-  // Add other user properties as needed
+  user_metadata?: {
+    avatar_url?: string;
+    name?: string;
+    role?: string; // Add role to match usage in code
+  };
 }
 
 // Add this function to safely extract user profile data
@@ -97,7 +102,11 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     import('../App').then((module) => {
       const appRoutes = module.default?.();
       if (appRoutes && appRoutes.props && appRoutes.props.children) {
-        const routes = extractRoutes(React.Children.toArray(appRoutes.props.children));
+        // Fix: Cast children to ReactElement[] type before passing to extractRoutes
+        const reactChildren = React.Children.toArray(appRoutes.props.children)
+          .filter(child => React.isValidElement(child)) as React.ReactElement[];
+        
+        const routes = extractRoutes(reactChildren);
         const paths = routes.map(route => route.path);
         setAvailableRoutes(paths);
       } else {
@@ -202,6 +211,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       return false;
     }
 
+    // Fix user.user_metadata.role access check
     if (user?.user_metadata?.role === 'admin') {
       return true; // Admins can see all pages
     }
@@ -213,6 +223,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       return false; // Default to not visible if no setting is found
     }
 
+    // Fix user.user_metadata.role access check
     if (user?.user_metadata?.role === 'instructor') {
       return page.visible_to_instructors;
     }
@@ -272,25 +283,26 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         return;
       }
 
-      // Prepare the new page visibility entries
+      // Prepare the new page visibility entries with proper type
       const newPageVisibilityEntries = newRoutes.map(route => ({
         page_path: route,
-        page_name: extractRouteName(route),
+        page_name: extractRouteName(route), // Now properly imported from routeUtils
         visible_to_users: false, // Default to not visible
         visible_to_instructors: false, // Default to not visible
       }));
 
       // Insert the new entries into the database
-      const { error: insertError } = await supabase
+      const { error: insertError, data: insertedData } = await supabase
         .from('page_visibility')
-        .insert(newPageVisibilityEntries);
+        .insert(newPageVisibilityEntries)
+        .select(); // Add select to get the inserted data with IDs
 
       if (insertError) {
         throw insertError;
       }
 
-      // Update local state with the new entries
-      setPageVisibility(prev => [...prev, ...newPageVisibilityEntries]);
+      // Update local state with the inserted data (which includes IDs)
+      setPageVisibility(prev => [...prev, ...(insertedData || [])]);
     } catch (error) {
       console.error("Error syncing available pages:", error);
       throw error;

@@ -1,6 +1,5 @@
 
 import React, { ReactElement } from 'react';
-import { Route } from 'react-router-dom';
 
 interface RouteElement {
   path?: string;
