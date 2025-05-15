@@ -28,8 +28,7 @@ import {
   CheckCircle, 
   UserCheck,
   Users,
-  RefreshCw,
-  EyeOff
+  RefreshCw
 } from 'lucide-react';
 import {
   Tooltip,
@@ -39,22 +38,13 @@ import {
 } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 
 const AdminPageVisibility = () => {
-  const { 
-    pageVisibility, 
-    isLoading, 
-    updatePageVisibility, 
-    syncAvailablePages, 
-    activeSessions 
-  } = usePageVisibility();
-  
+  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages } = usePageVisibility();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<{added: number} | null>(null);
 
   const filteredPages = pageVisibility.filter(page => 
     page.page_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -85,14 +75,11 @@ const AdminPageVisibility = () => {
   const handleSyncPages = async () => {
     try {
       setSyncing(true);
-      const result = await syncAvailablePages();
-      setSyncResult(result);
+      await syncAvailablePages();
       
       toast({
-        title: result.added > 0 ? "Pages synced" : "No new pages found",
-        description: result.added > 0 
-          ? `Added ${result.added} new pages to visibility settings.` 
-          : "No new pages were found to add to visibility settings.",
+        title: "Pages synced",
+        description: "All available pages have been synced with the visibility settings.",
       });
     } catch (error) {
       toast({
@@ -103,19 +90,7 @@ const AdminPageVisibility = () => {
       console.error("Failed to sync pages:", error);
     } finally {
       setSyncing(false);
-      // Clear the result after a delay
-      setTimeout(() => setSyncResult(null), 5000);
     }
-  };
-
-  // Get initials from name
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
   };
 
   return (
@@ -128,50 +103,6 @@ const AdminPageVisibility = () => {
           </p>
         </div>
 
-        {/* Active Users Card */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Users</CardTitle>
-            <CardDescription>
-              Users currently online in the application
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {activeSessions.length === 0 ? (
-                <p className="text-muted-foreground">No active users at the moment</p>
-              ) : (
-                activeSessions.map((session) => (
-                  <TooltipProvider key={session.id}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="relative">
-                          <Avatar className="h-10 w-10 border-2 border-primary-foreground">
-                            {session.avatar ? (
-                              <AvatarImage src={session.avatar} alt={session.name} />
-                            ) : (
-                              <AvatarFallback>{getInitials(session.name)}</AvatarFallback>
-                            )}
-                          </Avatar>
-                          <span className="absolute -bottom-1 -right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-background"></span>
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs">
-                        <div className="space-y-1 text-sm">
-                          <p className="font-semibold">{session.name}</p>
-                          <p className="text-xs opacity-75">{session.email}</p>
-                          <p className="text-xs">Currently viewing: {session.path}</p>
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Page Visibility Card */}
         <Card>
           <CardHeader>
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -201,17 +132,6 @@ const AdminPageVisibility = () => {
                 </Button>
               </div>
             </div>
-            {syncResult && syncResult.added > 0 && (
-              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 self-start mt-2">
-                <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                {syncResult.added} new pages added
-              </Badge>
-            )}
-            {syncResult && syncResult.added === 0 && (
-              <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 self-start mt-2">
-                All pages are already synced
-              </Badge>
-            )}
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">
@@ -272,26 +192,21 @@ const AdminPageVisibility = () => {
                     filteredPages.map((page) => (
                       <TableRow key={page.id}>
                         <TableCell className="font-medium">
-                          <div className="flex items-center">
-                            {page.page_name}
-                            {!page.visible_to_users && (
-                              <EyeOff className="ml-2 h-3.5 w-3.5 text-red-500" />
-                            )}
-                            {page.page_path.includes(':') && (
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span>
-                                      <Info className="h-4 w-4 inline ml-2 text-muted-foreground" />
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Dynamic route with parameters</p>
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            )}
-                          </div>
+                          {page.page_name}
+                          {page.page_path.includes(':') && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span>
+                                    <Info className="h-4 w-4 inline ml-2 text-muted-foreground" />
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Dynamic route with parameters</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {page.page_path}

@@ -20,20 +20,20 @@ export default function PageVisibilityGuard({ children }) {
 
   return (
     <div className="relative min-h-screen">
-      {/* Render the original content with strong blur and low opacity */}
-      <div className="opacity-10 pointer-events-none filter blur-md absolute inset-0 overflow-hidden">
+      {/* Render the original content with blur and pointer-events disabled */}
+      <div className="opacity-50 pointer-events-none filter blur-[2px]">
         {children}
       </div>
 
       {/* Overlay with "Coming Soon" message */}
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50">
-        <div className="text-center p-8 bg-white/90 dark:bg-gray-800/90 rounded-lg shadow-xl max-w-md animate-in fade-in duration-500">
+      <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="text-center p-8 bg-white/80 rounded-lg shadow-lg max-w-md animate-fade-in">
           <Clock className="mx-auto h-16 w-16 text-primary mb-4 animate-pulse" />
           <h2 className="text-2xl font-bold text-primary mb-2">
-            Access Restricted
+            Coming Soon
           </h2>
-          <p className="text-gray-700 dark:text-gray-300">
-            This page isn't available to your user role yet. Please contact an administrator for access.
+          <p className="text-gray-700">
+            This page isn't available yet. Check back later for updates.
           </p>
         </div>
       </div>

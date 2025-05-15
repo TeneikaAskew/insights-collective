@@ -1,4 +1,6 @@
+
 import { ReactElement } from 'react';
+import { Route } from 'react-router-dom';
 
 interface RouteElement {
   path?: string;
@@ -25,81 +27,34 @@ export const extractRouteName = (path: string): string => {
     .join(' ');
 };
 
-// Enhanced route extraction logic to better capture all routes
 export const extractRoutes = (children: ReactElement[]): RouteInfo[] => {
   const routes: RouteInfo[] = [];
-  const visitedPaths = new Set<string>();
 
-  // Helper function to process route elements recursively
-  const processRoute = (element: ReactElement, parentPath: string = '') => {
+  const processRoute = (element: ReactElement) => {
     if (!element || !element.props) return;
 
-    // Get the current route's path
-    const currentPath = element.props.path;
+    const { path } = element.props as RouteElement;
     
-    if (currentPath) {
-      // Construct the full path by combining parent and current paths
-      const fullPath = currentPath.startsWith('/')
-        ? currentPath
-        : `${parentPath}/${currentPath}`.replace(/\/+/g, '/');
-      
-      // Process non-dynamic routes at this level
-      if (!fullPath.includes('*') && !visitedPaths.has(fullPath)) {
-        visitedPaths.add(fullPath);
-        routes.push({
-          path: fullPath,
-          name: extractRouteName(fullPath),
-        });
-      }
-    }
+    // Skip routes without paths or dynamic segments at root level
+    if (!path || path === '*' || path.includes(':')) return;
+    
+    routes.push({
+      path,
+      name: extractRouteName(path),
+    });
 
-    // Process children
-    const children = element.props.children;
-    if (children) {
-      const nextParentPath = currentPath 
-        ? (currentPath.startsWith('/') ? currentPath : `${parentPath}/${currentPath}`.replace(/\/+/g, '/'))
-        : parentPath;
-        
-      if (Array.isArray(children)) {
-        children.forEach(child => {
-          if (child) processRoute(child as ReactElement, nextParentPath);
+    // Process nested routes if they exist
+    if (element.props.children) {
+      if (Array.isArray(element.props.children)) {
+        element.props.children.forEach(child => {
+          if (child) processRoute(child as ReactElement);
         });
-      } else if (React.isValidElement(children)) {
-        processRoute(children, nextParentPath);
+      } else if (element.props.children.props?.path) {
+        processRoute(element.props.children as ReactElement);
       }
     }
   };
 
-  // Process all routes
   children.forEach(child => processRoute(child));
-  
-  return routes;
-};
-
-// New function to extract routes from sidebar navigation
-export const extractSidebarRoutes = (navItems: any[]): RouteInfo[] => {
-  const routes: RouteInfo[] = [];
-  const visitedPaths = new Set<string>();
-  
-  const processNavItem = (item: any) => {
-    // Process current item
-    if (item.url || item.path) {
-      const path = item.url || item.path;
-      if (!visitedPaths.has(path)) {
-        visitedPaths.add(path);
-        routes.push({
-          path,
-          name: item.title || extractRouteName(path),
-        });
-      }
-    }
-    
-    // Process children if any
-    if (item.children && Array.isArray(item.children)) {
-      item.children.forEach(processNavItem);
-    }
-  };
-  
-  navItems.forEach(processNavItem);
   return routes;
 };

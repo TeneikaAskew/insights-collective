@@ -1,8 +1,8 @@
 
 import * as React from "react"
 import type {
-  ToastProps,
   ToastActionElement,
+  ToastProps,
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
@@ -188,25 +188,23 @@ export function ToastProvider({
     <ToastContext.Provider value={contextValue}>
       {children}
     </ToastContext.Provider>
-  );
+  )
 }
 
 // Hook for consuming toast context
 export function useToast() {
-  const context = React.useContext(ToastContext);
+  const context = React.useContext(ToastContext)
   
   if (!context) {
-    throw new Error("useToast must be used within a ToastProvider");
+    throw new Error("useToast must be used within a ToastProvider")
   }
   
-  return context;
+  return context
 }
 
-// Export the types needed by other components
-export type { ToastProps, ToastActionElement };
-
-// Deprecated direct call method - for backwards compatibility
+// For backwards compatibility - NOTE: This won't work outside of components
+// This is now a wrapper around the useToast hook
 export const toast = (props: Toast) => {
-  console.error("Direct toast() call is deprecated. Use useToast() hook instead.");
-  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.");
-};
+  console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
+  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
+}
