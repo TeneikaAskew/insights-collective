@@ -119,7 +119,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       }
 
       // Find routes that need to be added
-      const existingPathsSet = new Set((existingRoutes || []).map(r => r.path ? r.path : r.page_path));
+      const existingPathsSet = new Set((existingRoutes || []).map(r => r.page_path));
       const routesToAdd = allRoutes.filter(route => !existingPathsSet.has(route.path));
 
       if (routesToAdd.length > 0) {
@@ -162,9 +162,9 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     // Define user presence data
     const userPresence = {
       id: user.id,
-      name: user.name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Anonymous',
+      name: user.user_metadata?.name || `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || 'Anonymous',
       email: user.email || '',
-      avatar: user.avatar_url || user.avatar,
+      avatar: user.user_metadata?.avatar_url || '',
       path: location.pathname,
       lastActive: new Date().toISOString()
     };
@@ -173,8 +173,28 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        const userStates = Object.values(state).flat() as UserSession[];
-        setActiveSessions(userStates);
+        const presenceKeys = Object.keys(state);
+        
+        // Properly transform presence state into UserSession objects
+        const userSessionsArray: UserSession[] = [];
+        
+        presenceKeys.forEach(key => {
+          const userPresences = state[key] as Array<any>;
+          userPresences.forEach(presence => {
+            if (presence.id && presence.name && presence.email) {
+              userSessionsArray.push({
+                id: presence.id,
+                name: presence.name,
+                email: presence.email,
+                avatar: presence.avatar,
+                path: presence.path || '',
+                lastActive: presence.lastActive || new Date().toISOString()
+              });
+            }
+          });
+        });
+        
+        setActiveSessions(userSessionsArray);
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
         console.log('User joined:', newPresences);

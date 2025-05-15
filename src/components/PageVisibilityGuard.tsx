@@ -21,12 +21,12 @@ export default function PageVisibilityGuard({ children }) {
   return (
     <div className="relative min-h-screen">
       {/* Render the original content with strong blur and low opacity */}
-      <div className="opacity-20 pointer-events-none filter blur-md absolute inset-0 overflow-hidden">
+      <div className="opacity-10 pointer-events-none filter blur-md absolute inset-0 overflow-hidden">
         {children}
       </div>
 
       {/* Overlay with "Coming Soon" message */}
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50">
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50">
         <div className="text-center p-8 bg-white/90 dark:bg-gray-800/90 rounded-lg shadow-xl max-w-md animate-in fade-in duration-500">
           <Clock className="mx-auto h-16 w-16 text-primary mb-4 animate-pulse" />
           <h2 className="text-2xl font-bold text-primary mb-2">
