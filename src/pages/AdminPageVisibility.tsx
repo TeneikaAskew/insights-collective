@@ -28,7 +28,10 @@ import {
   CheckCircle, 
   UserCheck,
   Users,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff,
+  UsersRound
 } from 'lucide-react';
 import {
   Tooltip,
@@ -38,18 +41,27 @@ import {
 } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { UserPresence } from '@/components/common/UserPresence';
 
 const AdminPageVisibility = () => {
-  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages } = usePageVisibility();
+  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages, activeUsers } = usePageVisibility();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const [syncing, setSyncing] = useState(false);
+  const [showSystemPages, setShowSystemPages] = useState(false);
 
-  const filteredPages = pageVisibility.filter(page => 
-    page.page_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    page.page_path.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPages = pageVisibility.filter(page => {
+    // Filter by search query
+    const matchesSearch = 
+      page.page_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      page.page_path.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Filter system pages (those starting with /admin) unless showSystemPages is true
+    const isSystemPage = page.page_path.startsWith('/admin');
+    
+    return matchesSearch && (showSystemPages || !isSystemPage);
+  });
 
   const handleVisibilityChange = async (id: string, field: 'visible_to_users' | 'visible_to_instructors', value: boolean) => {
     try {
@@ -107,12 +119,36 @@ const AdminPageVisibility = () => {
           <CardHeader>
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
+                <CardTitle>Active Users</CardTitle>
+                <CardDescription>
+                  Users currently online in the application
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center space-x-4">
+                <UsersRound className="h-6 w-6 text-muted-foreground" />
+                <div className="text-sm">
+                  <span className="font-medium">{activeUsers.length}</span> {activeUsers.length === 1 ? 'user' : 'users'} online
+                </div>
+                <UserPresence />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
                 <CardTitle>Page Visibility Settings</CardTitle>
                 <CardDescription>
                   Configure which user roles can access each page in the application.
                 </CardDescription>
               </div>
-              <div className="flex flex-col md:flex-row gap-2 items-end">
+              <div className="flex flex-col md:flex-row gap-2 items-start md:items-end">
                 <div className="relative w-full md:w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input 
@@ -122,14 +158,29 @@ const AdminPageVisibility = () => {
                     onChange={e => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <Button 
-                  onClick={handleSyncPages} 
-                  disabled={syncing}
-                  className="whitespace-nowrap"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                  {syncing ? 'Syncing...' : 'Sync Pages'}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="icon"
+                    onClick={() => setShowSystemPages(!showSystemPages)}
+                    className="relative"
+                  >
+                    {showSystemPages ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                    <span className="sr-only">{showSystemPages ? 'Hide' : 'Show'} system pages</span>
+                    <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-3 w-3">
+                      <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${showSystemPages ? 'bg-primary' : 'bg-muted-foreground'} opacity-75`}></span>
+                      <span className={`relative inline-flex rounded-full h-3 w-3 ${showSystemPages ? 'bg-primary' : 'bg-muted-foreground'}`}></span>
+                    </span>
+                  </Button>
+                  <Button 
+                    onClick={handleSyncPages} 
+                    disabled={syncing}
+                    className="whitespace-nowrap"
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                    {syncing ? 'Syncing...' : 'Sync Pages'}
+                  </Button>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -206,6 +257,11 @@ const AdminPageVisibility = () => {
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
+                          )}
+                          {page.page_path.startsWith('/admin') && (
+                            <Badge variant="outline" className="ml-2 bg-purple-50 text-purple-700 border-purple-200">
+                              Admin
+                            </Badge>
                           )}
                         </TableCell>
                         <TableCell className="font-mono text-xs">

@@ -11,7 +11,9 @@ export default function PageVisibilityGuard({ children }) {
 
   useEffect(() => {
     if (!isLoading) {
-      setIsVisible(isPageVisible(location.pathname));
+      const pathWithoutParams = location.pathname.split('?')[0].split('#')[0];
+      setIsVisible(isPageVisible(pathWithoutParams));
+      console.log(`[PageVisibilityGuard] Checking visibility for path: ${pathWithoutParams}, result: ${isPageVisible(pathWithoutParams)}`);
     }
   }, [location.pathname, isPageVisible, isLoading]);
 
@@ -21,13 +23,13 @@ export default function PageVisibilityGuard({ children }) {
   return (
     <div className="relative min-h-screen">
       {/* Render the original content with blur and pointer-events disabled */}
-      <div className="opacity-50 pointer-events-none filter blur-[2px]">
+      <div className="opacity-20 pointer-events-none filter blur-[4px]">
         {children}
       </div>
 
       {/* Overlay with "Coming Soon" message */}
-      <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="text-center p-8 bg-white/80 rounded-lg shadow-lg max-w-md animate-fade-in">
+      <div className="fixed inset-0 bg-white/60 backdrop-blur-lg flex items-center justify-center z-50">
+        <div className="text-center p-8 bg-white/90 rounded-lg shadow-lg max-w-md animate-fade-in border-2 border-primary/20">
           <Clock className="mx-auto h-16 w-16 text-primary mb-4 animate-pulse" />
           <h2 className="text-2xl font-bold text-primary mb-2">
             Coming Soon
