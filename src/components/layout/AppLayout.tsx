@@ -32,7 +32,7 @@ import UserPresenceBar from './UserPresenceBar';
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  fullWidth?: boolean; // Add the fullWidth prop to fix the other errors
+  fullWidth?: boolean;
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({ children, fullWidth = false }) => {
@@ -222,7 +222,76 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children, fullWidth = false }) =>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
-            {renderAuthMenuItems()}
+            {loading ? (
+              <>
+                <Skeleton className="h-10 w-[140px]" />
+                <Skeleton className="h-10 w-[140px]" />
+              </>
+            ) : !user ? (
+              <>
+                <Button asChild variant="ghost">
+                  <Link to="/login">Login</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/register">Register</Link>
+                </Button>
+              </>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={user.avatar} alt={user.name} />
+                      <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/dashboard">
+                      <LayoutDashboard className="mr-2 h-4 w-4" />
+                      <span>Dashboard</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/courses">
+                      <GraduationCap className="mr-2 h-4 w-4" />
+                      <span>My Courses</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/resume">
+                      <BookOpenCheck className="mr-2 h-4 w-4" />
+                      <span>Resume</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin">
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Admin</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/help">
+                      <HelpCircle className="mr-2 h-4 w-4" />
+                      <span>Help</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
           </div>
         </div>
       </header>

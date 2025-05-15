@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Calendar, User, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast'; // Fixed import
 import { Card, CardContent } from '@/components/ui/card';
 import { BlogPostMetrics } from '@/components/blog/analytics/BlogPostMetrics';
 

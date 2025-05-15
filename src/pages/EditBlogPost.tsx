@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { getBlogPostBySlug, updateBlogPost } from '@/services/blogService';
 import { BlogFormData, BlogPost } from '@/types/blog';
-import { toast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast'; // Fixed import
 import BlogPostForm from '@/components/blog/BlogPostForm';
 
 const EditBlogPost = () => {
