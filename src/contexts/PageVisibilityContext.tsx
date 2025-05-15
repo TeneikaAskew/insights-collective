@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -159,10 +158,14 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
     const channel = supabase.channel('online-users');
     
-    // Define user presence data
+    // Define user presence data with correct property access
     const userPresence = {
       id: user.id,
-      name: user.user_metadata?.name || `${user.user_metadata?.first_name || ''} ${user.user_metadata?.last_name || ''}`.trim() || 'Anonymous',
+      // Safely access nested properties with optional chaining
+      name: user.user_metadata?.name || 
+            ((user.user_metadata?.first_name || user.user_metadata?.firstName || '') + ' ' + 
+            (user.user_metadata?.last_name || user.user_metadata?.lastName || '')).trim() || 
+            'Anonymous',
       email: user.email || '',
       avatar: user.user_metadata?.avatar_url || '',
       path: location.pathname,
