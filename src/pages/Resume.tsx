@@ -686,9 +686,15 @@ const Resume = () => {
       setIsPollingForImprovements(false);
     } else {
       // Request improvements and start polling
+      // toast({
+      //   title: 'Processing Improvements',
+      //   description: `We're generating improvements for your resume bullets. This may take a minute.`,
+      //   variant: 'default'
+      // });
+
       toast({
         title: 'Processing Improvements',
-        description: `We're generating improvements for your resume bullets. This may take a minute.`,
+        description: "We're generating improvements for your resume bullets. This may take a minute.",
         variant: 'default'
       });
       
