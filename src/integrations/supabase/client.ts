@@ -15,6 +15,18 @@ const supabaseClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE
     storageKey: 'supabase.auth.token',
     detectSessionInUrl: true,
     flowType: 'implicit'
+  },
+  // Add global error handling for automatic token refresh
+  global: {
+    headers: {
+      'X-Client-Info': 'insights-collective-app'
+    },
+    fetch: (...args) => {
+      return fetch(...args).catch(err => {
+        console.error('Supabase fetch error:', err);
+        throw err;
+      });
+    }
   }
 });
 

@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,7 @@ export const useAuthProvider = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -17,15 +18,12 @@ export const useAuthProvider = () => {
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
+  // Derived state values
   const isAuthenticated = !!enrichedUser;
-  
-  // Add explicit isAdmin property
   const isAdmin = enrichedUser?.roles?.includes('admin') || false;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
-  // Centralized redirect path state in Auth context
-  const [redirectPath, setRedirectPath] = useState<string | null>(null);
-
+  // Store the redirect path for after login
   const storeRedirectPath = useCallback((path: string) => {
     if (path && !['/login', '/register', '/'].includes(path)) {
       localStorage.setItem('redirectAfterLogin', path);
@@ -36,18 +34,19 @@ export const useAuthProvider = () => {
     }
   }, []);
 
+  // Handle redirect after login - memoized to avoid dependency loops
   const handleRedirectAfterLogin = useCallback(() => {
+    // Pull from both state and localStorage to ensure we don't lose the path
     let redirectTo = redirectPath;
-
     if (!redirectTo) {
-      // fallback to localStorage if state lost (unlikely)
       redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
       console.log('[handleRedirectAfterLogin] Fallback redirectTo from localStorage:', redirectTo);
     } else {
       console.log('[handleRedirectAfterLogin] RedirectTo from state:', redirectTo);
     }
 
-    if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
+    // Security check - don't allow non-admins to access admin routes
+    if (enrichedUser && !enrichedUser.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
       toast({
         title: 'Access Denied',
         description: 'You do not have permission to access the admin area.',
@@ -56,23 +55,30 @@ export const useAuthProvider = () => {
       redirectTo = '/dashboard';
     }
 
+    // Clean up stored redirect path
     localStorage.removeItem('redirectAfterLogin');
     setRedirectPath(null);
     console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
     navigate(redirectTo, { replace: true });
+  }, [navigate, redirectPath, toast]);
 
-  }, [navigate, redirectPath, enrichedUser, toast]);
-
+  // Initialize authentication state
   useEffect(() => {
     let isMounted = true;
+    console.log('[useAuth] Setting up auth state listener');
 
+    // Set up auth state listener
     const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
       if (!isMounted) return;
 
       console.log('[useAuth] Auth state changed, new session:', !!newSession);
       setSession(newSession);
+      
+      // Important: Don't trigger other side effects here to prevent deadlocks
+      // Let the separate useEffect handle redirects based on session change
     });
 
+    // Get initial session
     const init = async () => {
       try {
         const { data, error } = await supabase.auth.getSession();
@@ -101,14 +107,22 @@ export const useAuthProvider = () => {
     };
   }, []);
 
+  // Handle redirects in a separate effect with proper dependencies
   useEffect(() => {
-    // On profile loaded & authenticated, perform redirect if redirect path set
+    // Only redirect if authenticated, data loaded, and have a redirect path
     if (isAuthenticated && !loading && !profileLoading && redirectPath) {
       console.log('[useAuth] Ready to redirect - isAuthenticated:', isAuthenticated, 'loading:', loading, 'profileLoading:', profileLoading);
-      handleRedirectAfterLogin();
+      
+      // Use setTimeout to prevent potential race conditions with auth state changes
+      setTimeout(() => {
+        if (isAuthenticated) {
+          handleRedirectAfterLogin();
+        }
+      }, 0);
     }
   }, [isAuthenticated, loading, profileLoading, redirectPath, handleRedirectAfterLogin]);
 
+  // Login function
   const login = useCallback(async (email: string, password: string) => {
     try {
       setLoading(true);
@@ -128,11 +142,12 @@ export const useAuthProvider = () => {
     }
   }, [toast]);
 
+  // Social sign-in function
   const socialSignIn = useCallback(async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setLoading(true);
 
-      // Get the redirect path from localStorage - this should be set before calling socialSignIn
+      // Get the redirect path from localStorage
       const redirectPath = localStorage.getItem('redirectAfterLogin') || '/resources';
       
       console.log(`[socialSignIn] Signing in with ${provider}. Redirect path: ${redirectPath}`);
@@ -157,6 +172,7 @@ export const useAuthProvider = () => {
     }
   }, [toast]);
 
+  // Registration function
   const register = useCallback(async (name: string, email: string, password: string) => {
     try {
       setLoading(true);
@@ -188,6 +204,7 @@ export const useAuthProvider = () => {
     }
   }, [navigate, toast]);
 
+  // Logout function
   const logout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
@@ -203,7 +220,8 @@ export const useAuthProvider = () => {
     }
   }, [navigate, toast]);
 
-  return {
+  // Return a memoized auth context value to prevent unnecessary re-renders
+  const authValue = useMemo(() => ({
     session,
     user: enrichedUser,
     loading: loading || profileLoading,
@@ -215,11 +233,28 @@ export const useAuthProvider = () => {
     githubSignIn: () => socialSignIn('github'),
     twitterSignIn: () => socialSignIn('twitter'),
     isAuthenticated,
-    isAdmin, // Explicitly include isAdmin property
+    isAdmin,
     isAdminAuthenticated,
     storeRedirectPath,
     handleRedirectAfterLogin,
-  };
+  }), [
+    session,
+    enrichedUser, 
+    loading, 
+    profileLoading,
+    error,
+    login,
+    register,
+    logout,
+    socialSignIn,
+    isAuthenticated,
+    isAdmin, 
+    isAdminAuthenticated,
+    storeRedirectPath,
+    handleRedirectAfterLogin
+  ]);
+
+  return authValue;
 };
 
 export type AuthContextType = ReturnType<typeof useAuthProvider>;
