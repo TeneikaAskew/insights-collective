@@ -4,8 +4,7 @@ export interface Profile {
   last_name: string | null;
   avatar_url: string | null;
   bio: string | null;
-  role: string;
-  roles: string[];
+  role: string[];
 }
 
 export interface Conversation {
