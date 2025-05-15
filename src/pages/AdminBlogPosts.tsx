@@ -25,7 +25,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, 
   DialogHeader, DialogTitle, DialogTrigger
 } from '@/components/ui/dialog';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import AppLayout from '@/components/layout/AppLayout';
 import { BlogPost } from '@/types/blog';
 import { getAllBlogPosts, deleteBlogPost, getBlogPostAnalytics } from '@/services/blogService';
@@ -33,6 +33,7 @@ import { format } from 'date-fns';
 import { BlogAnalyticsOverview } from '@/components/blog/analytics/BlogPostMetrics';
 
 const AdminBlogPosts = () => {
+  const { toast } = useToast();
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<'title' | 'publishedAt' | 'views'>('publishedAt');

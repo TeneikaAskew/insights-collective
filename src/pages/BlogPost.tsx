@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getBlogPostBySlug } from '@/services/blogService';
@@ -11,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Calendar, User, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/AuthContext';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent } from '@/components/ui/card';
 import { BlogPostMetrics } from '@/components/blog/analytics/BlogPostMetrics';
 
@@ -20,6 +19,7 @@ const BlogPost = () => {
   const [post, setPost] = useState<BlogPostType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
+  const { toast } = useToast();
   const isAdmin = user?.roles?.includes('admin') || false;
 
   useEffect(() => {
