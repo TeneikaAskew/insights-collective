@@ -788,6 +788,7 @@ export function useResumeAnalysis() {
     setAnalysis,
     isAnalyzing,
     isPollingForImprovements,
+    setIsPollingForImprovements, // Expose this setter
     improvedBullets,
     analyzeResume,
     careerAlignments,

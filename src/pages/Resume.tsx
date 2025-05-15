@@ -42,7 +42,8 @@ const Resume = () => {
     analyzeResume,
     careerAlignments,
     setAnalysis,
-    isPollingForImprovements
+    isPollingForImprovements,
+    setIsPollingForImprovements
   } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -640,54 +641,124 @@ const Resume = () => {
       });
       return;
     }
+    
     logDebug('CheckEnhancements', `Manually checking enhancements for resume ID: ${resume.id}`);
-    setIsLoadingEnhancedBullets(true);
+    
     try {
-      // Query specifically by resume ID
-      logDebug('CheckEnhancements', 'Querying Supabase for enhanced_analysis');
-      const {
-        data,
-        error
-      } = await supabase.from('resumes').select('enhanced_analysis').eq('id', resume.id).maybeSingle();
-      if (error) {
-        logDebug('CheckEnhancements', 'Error querying enhanced_analysis:', error);
-        throw error;
+      // First, check if enhanced_analysis already exists
+      const { data: checkData, error: checkError } = await supabase
+        .from('resumes')
+        .select('enhanced_analysis')
+        .eq('id', resume.id)
+        .maybeSingle();
+        
+      if (checkError) {
+        logDebug('CheckEnhancements', 'Error checking for existing enhanced analysis:', checkError);
+        throw checkError;
       }
-      logDebug('CheckEnhancements', 'Received response from Supabase', {
-        hasData: !!data,
-        hasEnhancedAnalysis: !!data?.enhanced_analysis,
-        enhancedAnalysisType: data?.enhanced_analysis ? typeof data.enhanced_analysis : 'none',
-        isArray: data?.enhanced_analysis ? Array.isArray(data.enhanced_analysis) : false,
-        length: data?.enhanced_analysis && Array.isArray(data.enhanced_analysis) ? data.enhanced_analysis.length : 0
-      });
-      if (data?.enhanced_analysis) {
-        logDebug('CheckEnhancements', 'Found enhanced analysis, passing to handler');
-        handleEnhancedAnalysisUpdate(data.enhanced_analysis);
+      
+      // If enhanced analysis already exists, use it
+      if (checkData?.enhanced_analysis && Array.isArray(checkData.enhanced_analysis) && checkData.enhanced_analysis.length > 0) {
+        logDebug('CheckEnhancements', 'Enhanced analysis already exists, using existing data');
+        
+        handleEnhancedAnalysisUpdate(checkData.enhanced_analysis);
+        
         toast({
-          title: 'Enhancements Loaded',
+          title: 'Enhancements Already Available',
           description: 'Your resume bullet improvements have been loaded.',
           variant: 'default'
         });
-      } else {
-        logDebug('CheckEnhancements', 'No enhanced analysis found in response');
+        
+        return;
+      }
+      
+      // If we get here, enhanced_analysis is empty or not in the right format, we need to request it
+      setIsLoadingEnhancedBullets(true);
+      
+      toast({
+        title: 'Checking for Improvements',
+        description: 'Requesting enhanced resume bullets...',
+        variant: 'default'
+      });
+      
+      logDebug('CheckEnhancements', 'Calling resume-analyzer edge function to request improvements');
+      
+      // Call the edge function to request improvements
+      const { data: improvementData, error: improvementError } = await supabase.functions.invoke('resume-analyzer', {
+        body: { 
+          action: 'improve-bullets',
+          userId: user.id
+        }
+      });
+      
+      if (improvementError) {
+        logDebug('CheckEnhancements', 'Error calling resume-analyzer function:', improvementError);
         toast({
-          title: 'No Enhancements',
-          description: 'No improved bullets found yet. They may still be processing.',
+          title: 'Error',
+          description: 'Could not request enhanced bullets. Please try again later.',
+          variant: 'destructive'
+        });
+        setIsLoadingEnhancedBullets(false);
+        throw improvementError;
+      }
+      
+      logDebug('CheckEnhancements', 'Resume-analyzer response:', improvementData);
+      
+      // Check if we got improved bullets immediately
+      if (improvementData?.improved_bullets && improvementData.improved_bullets.length > 0) {
+        logDebug('CheckEnhancements', `Received ${improvementData.improved_bullets.length} improved bullets immediately`);
+        
+        // Update the analysis with improved bullets
+        handleEnhancedAnalysisUpdate(improvementData.improved_bullets);
+        
+        toast({
+          title: 'Improvements Ready',
+          description: 'Your resume bullets have been enhanced with AI improvements.',
           variant: 'default'
         });
+        
+        // No need for further polling
+        setIsPollingForImprovements(false);
+      } 
+      // Check if the improvements are still processing
+      else if (improvementData?.improvement_complete === false) {
+        logDebug('CheckEnhancements', 'Improvements are still processing');
+        
+        toast({
+          title: 'Improvements in Progress',
+          description: 'Your resume bullets are being enhanced. This may take a few minutes.',
+          variant: 'default'
+        });
+        
+        // Start or continue polling
+        setIsPollingForImprovements(true);
+      } 
+      // No improvements and not processing - something might be wrong
+      else {
+        logDebug('CheckEnhancements', 'No improvements found and not processing');
+        
+        toast({
+          title: 'No Enhancements Available',
+          description: 'Could not find any bullet improvements. You may need to upload a resume first.',
+          variant: 'default'
+        });
+        
         setIsLoadingEnhancedBullets(false);
       }
     } catch (err) {
       logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
       console.error("Error checking for enhancements:", err);
+      
       toast({
         title: 'Error',
         description: 'Could not load enhanced bullets. Please try again later.',
         variant: 'destructive'
       });
+      
       setIsLoadingEnhancedBullets(false);
     }
   };
+  
   if (!isAuthenticated) {
     logDebug('Render', 'User not authenticated, showing login wall');
     return <ResumeLoginWall />;
