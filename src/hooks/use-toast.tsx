@@ -8,10 +8,14 @@ export type ToastProps = {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
-  action?: React.ReactNode
+  action?: React.ReactElement<{
+    altText: string
+    onClick: () => void
+  }>
   open?: boolean
   onOpenChange?: (open: boolean) => void
   variant?: "default" | "destructive"
+  duration?: number // Add duration to match usage
 }
 
 export type ToastActionElement = React.ReactElement<{
@@ -26,6 +30,7 @@ type ToasterToast = ToastProps & {
   title?: React.ReactNode
   description?: React.ReactNode
   action?: ToastActionElement
+  duration?: number // Add duration to match usage
 }
 
 const actionTypes = {

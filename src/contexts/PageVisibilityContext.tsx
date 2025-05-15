@@ -170,11 +170,18 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       if (status === 'SUBSCRIBED') {
         // Get user metadata
         const userData = user.user_metadata || {};
-        const firstName = userData.first_name || 
-                          (userData.name ? userData.name.split(' ')[0] : '');
-        const lastName = userData.last_name || 
-                         (userData.name && userData.name.split(' ').length > 1 ? 
-                          userData.name.split(' ').slice(1).join(' ') : '');
+        
+        // Extract first and last name, handling different data structures
+        let firstName = '';
+        let lastName = '';
+        
+        if (userData.first_name) {
+          firstName = userData.first_name;
+        } else if (userData.name) {
+          const nameParts = userData.name.split(' ');
+          firstName = nameParts[0] || '';
+          lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+        }
         
         // Track user's presence with profile information
         await channel.track({
@@ -193,11 +200,18 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     const updateActivePage = async () => {
       if (channel && user) {
         const userData = user.user_metadata || {};
-        const firstName = userData.first_name || 
-                         (userData.name ? userData.name.split(' ')[0] : '');
-        const lastName = userData.last_name || 
-                        (userData.name && userData.name.split(' ').length > 1 ? 
-                        userData.name.split(' ').slice(1).join(' ') : '');
+        
+        // Extract first and last name, handling different data structures
+        let firstName = '';
+        let lastName = '';
+        
+        if (userData.first_name) {
+          firstName = userData.first_name;
+        } else if (userData.name) {
+          const nameParts = userData.name.split(' ');
+          firstName = nameParts[0] || '';
+          lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+        }
         
         await channel.track({
           online_at: new Date().toISOString(),
@@ -224,10 +238,11 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       fetchPageVisibility();
       
       // If user is admin, sync pages
-      const userData = user.user_metadata || {};
-      const userRoles = user.app_metadata?.roles || [];
+      // Handle user roles safely
+      const isAdmin = (user.app_metadata?.roles || []).includes('admin') || 
+                      (user.user_metadata?.role === 'admin');
       
-      if (userRoles.includes('admin') || userData.role === 'admin') {
+      if (isAdmin) {
         syncAvailablePages();
       }
     } else {
@@ -239,10 +254,11 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
   const isPageVisible = (path: string): boolean => {
     // Admins can always see all pages
-    const userData = user?.user_metadata || {};
-    const userRoles = user?.app_metadata?.roles || [];
+    // Handle user roles safely
+    const isAdmin = (user?.app_metadata?.roles || []).includes('admin') || 
+                    (user?.user_metadata?.role === 'admin');
     
-    if (userRoles.includes('admin') || userData.role === 'admin') return true;
+    if (isAdmin) return true;
 
     // Find exact match or pattern match for the path
     const page = pageVisibility.find(p => 
@@ -253,7 +269,10 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     if (!page) return true; // If page isn't in the visibility list, default to visible
 
     // Check user role and page visibility
-    if (userRoles.includes('instructor') || userData.role === 'instructor') {
+    const isInstructor = (user?.app_metadata?.roles || []).includes('instructor') || 
+                         (user?.user_metadata?.role === 'instructor');
+    
+    if (isInstructor) {
       return page.visible_to_instructors;
     }
     

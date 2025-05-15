@@ -1,81 +1,91 @@
 
-import React, { ReactElement } from 'react';
+import React from 'react';
 
+// Extract route information from the DOM
+export const extractRoutes = (elements: Element[]): RouteInfo[] => {
+  const routes: RouteInfo[] = [];
+  
+  // Process route elements and create RouteInfo objects
+  elements.forEach((element) => {
+    if (element.hasAttribute('path')) {
+      const path = element.getAttribute('path') || '';
+      const name = extractRouteName(path);
+      
+      routes.push({
+        path,
+        name
+      });
+    }
+    
+    // Check for nested routes
+    if (element.children && element.children.length > 0) {
+      // Process nested routes recursively
+      const nestedRoutes = extractRoutes(Array.from(element.children));
+      routes.push(...nestedRoutes);
+    }
+  });
+  
+  return routes;
+};
+
+// Helper to extract a readable name from route paths
+export const extractRouteName = (path: string): string => {
+  // Remove leading slash and any URL parameters
+  let name = path.replace(/^\//, '').replace(/\/:[^/]+/g, '');
+  
+  // Split by remaining slashes (for nested paths)
+  const parts = name.split('/');
+  
+  // Use last meaningful part or default to "Home" for root path
+  name = parts.filter(Boolean).pop() || 'Home';
+  
+  // Convert kebab-case to Title Case and remove special characters
+  name = name
+    .split('-')
+    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+  
+  return name;
+};
+
+// Type definition for route information
 export interface RouteInfo {
   path: string;
   name: string;
 }
 
-export const extractRouteName = (path: string): string => {
-  // Remove leading slash and parameters
-  const cleanPath = path.replace(/^\//, '').split(':')[0].replace(/\/$/, '');
+// Function to build breadcrumb data from current path
+export const buildBreadcrumbs = (path: string): {path: string, label: string}[] => {
+  const parts = path.split('/').filter(Boolean);
   
-  // Handle empty path (root)
-  if (!cleanPath) return 'Home';
+  // Start with Home
+  const breadcrumbs = [{
+    path: '/',
+    label: 'Home'
+  }];
   
-  // Convert kebab-case to Title Case
-  return cleanPath
-    .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ');
-};
-
-export const extractRoutes = (children: ReactElement[]): RouteInfo[] => {
-  const routes: RouteInfo[] = [];
-
-  const processRoute = (element: ReactElement, parentPath = '') => {
-    if (!element || !element.props) return;
-
-    const props = element.props;
-    const path = props.path;
+  // Build up each level
+  let currentPath = '';
+  
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
     
-    // Skip routes without paths or with wildcard paths or direct dynamic segments at root level
-    if (!path || path === '*' || (path.includes(':') && !parentPath)) {
-      // If this route has children, still process them
-      if (props.children) {
-        const childrenArray = Array.isArray(props.children) 
-          ? props.children 
-          : [props.children];
-          
-        childrenArray.forEach(child => {
-          if (React.isValidElement(child)) {
-            processRoute(child as ReactElement, parentPath);
-          }
-        });
-      }
-      return;
-    }
+    // Skip URL parameters (starting with :)
+    if (part.startsWith(':')) continue;
     
-    // Construct full path
-    const fullPath = parentPath 
-      ? (path.startsWith('/') ? path : `${parentPath}/${path}`)
-      : path;
+    currentPath = `${currentPath}/${part}`;
     
-    // Add route to list
-    routes.push({
-      path: fullPath,
-      name: extractRouteName(fullPath),
+    // Normalize path name for display
+    const label = part
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+    
+    breadcrumbs.push({
+      path: currentPath, 
+      label
     });
-    
-    // Process nested routes
-    if (props.children) {
-      const childrenArray = Array.isArray(props.children) 
-        ? props.children 
-        : [props.children];
-        
-      childrenArray.forEach(child => {
-        if (React.isValidElement(child)) {
-          processRoute(child as ReactElement, fullPath);
-        }
-      });
-    }
-  };
-
-  children.forEach(child => {
-    if (React.isValidElement(child)) {
-      processRoute(child as ReactElement);
-    }
-  });
+  }
   
-  return routes;
+  return breadcrumbs;
 };

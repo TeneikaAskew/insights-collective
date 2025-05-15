@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -178,7 +177,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
 
         toast({
           title: "Action Plan Regenerated",
-          description: "Your updated career action plan is ready!",
+          description: "Your updated career action plan is ready!"
         });
       } else {
         console.error("CAP Error: Regeneration failed or returned invalid data.", functionData);
@@ -189,8 +188,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
       toast({
         title: "Regeneration Failed",
         description: `We couldn't regenerate your action plan. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`,
-        variant: "destructive",
-        duration: 7000
+        variant: "destructive"
       });
       // Do not clear the existing plan on failure, keep the old one
     } finally {

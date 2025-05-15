@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -59,8 +60,7 @@ const AssistantInterface = () => {
                   
                   toast({
                     title: "Quiz Results Saved",
-                    description: "Your career quiz results have been saved and are being used by the Career Coach.",
-                    duration: 5000,
+                    description: "Your career quiz results have been saved and are being used by the Career Coach."
                   });
                 }
               }
@@ -70,8 +70,7 @@ const AssistantInterface = () => {
             toast({
               title: "Error Initializing Career Coach",
               description: "There was an issue loading your quiz results. The Career Coach may not have access to your quiz data.",
-              variant: "destructive",
-              duration: 5000,
+              variant: "destructive"
             });
           } finally {
             setIsProcessing(false);
