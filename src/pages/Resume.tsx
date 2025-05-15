@@ -10,9 +10,57 @@ import { ResumeAnalysisOverlay } from '@/components/resume/ResumeAnalysisOverlay
 import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
+
+const AnalysisProgress: React.FC<{
+  isAnalyzing: boolean;
+  isPollingForImprovements: boolean;
+  pollingStatus: 'idle' | 'polling' | 'completed' | 'error';
+  pollingAttempt: number;
+}> = ({ isAnalyzing, isPollingForImprovements, pollingStatus, pollingAttempt }) => {
+  if (!isAnalyzing && !isPollingForImprovements) return null;
+
+  return (
+    <div className="mb-4 bg-slate-50 p-4 rounded-lg border border-slate-200">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <Loader2 className="h-4 w-4 mr-2 animate-spin text-primary" />
+          <span className="font-medium text-sm">
+            {isAnalyzing ? "Analyzing Resume..." : "Generating Improvements..."}
+          </span>
+        </div>
+        {pollingStatus === 'polling' && (
+          <span className="text-xs text-slate-500">
+            Attempt {pollingAttempt + 1}
+          </span>
+        )}
+      </div>
+      
+      <div className="mt-2">
+        <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+          <div 
+            className="h-full bg-primary transition-all duration-500 ease-in-out"
+            style={{ 
+              width: `${isAnalyzing ? '50%' : Math.min((pollingAttempt + 1) * 5, 100)}%`
+            }}
+          />
+        </div>
+      </div>
+      
+      <p className="mt-2 text-sm text-slate-600">
+        {isAnalyzing 
+          ? "We're analyzing your resume content and structure..."
+          : pollingStatus === 'polling'
+          ? "We're using AI to enhance your bullet points for maximum impact..."
+          : pollingStatus === 'error'
+          ? "Taking longer than expected. You can continue using other features while we work on improvements."
+          : "Almost done! Finalizing your improvements..."}
+      </p>
+    </div>
+  );
+};
 
 const Resume = () => {
   // Add a debug helper function
@@ -42,7 +90,9 @@ const Resume = () => {
     analyzeResume,
     careerAlignments,
     setAnalysis,
-    isPollingForImprovements
+    isPollingForImprovements,
+    pollingStatus,
+    pollingAttempt
   } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -717,7 +767,12 @@ const Resume = () => {
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
           <div className="flex space-x-2">
-            <Button variant="outline" size="sm" onClick={handleCheckEnhancements} disabled={loading || isLoadingEnhancedBullets || isPollingForImprovements}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCheckEnhancements} 
+              disabled={loading || isLoadingEnhancedBullets || isPollingForImprovements || pollingStatus === 'polling'}
+            >
               {isLoadingEnhancedBullets || isPollingForImprovements ? <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   Loading Improvements...
@@ -730,6 +785,14 @@ const Resume = () => {
             </Button>
           </div>
         </div>
+
+        {/* Add the new progress component */}
+        <AnalysisProgress 
+          isAnalyzing={isAnalyzing}
+          isPollingForImprovements={isPollingForImprovements}
+          pollingStatus={pollingStatus}
+          pollingAttempt={pollingAttempt}
+        />
 
         {storageError && <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
