@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -43,15 +44,6 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
   const [savedLocally, setSavedLocally] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth();
-
-  // Check if analysis exists in local storage
-  const hasExistingAnalysis = userId && localStorage.getItem(`resume_analysis_${userId}`);
-  
-  // If analysis exists in local storage, don't show the overlay
-  if (hasExistingAnalysis) return null;
-
-  // If not visible, don't render
-  if (!isVisible) return null;
 
   // Load career goals from localStorage on mount
   useEffect(() => {
@@ -137,6 +129,8 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
 
     return () => clearTimeout(debounceTimer);
   }, [careerGoals, userId]);
+
+  if (!isVisible) return null;
 
   const currentStage = ANALYSIS_STAGES[currentStageIndex];
 
