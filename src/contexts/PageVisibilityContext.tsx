@@ -1,4 +1,3 @@
-
 import React, {
   createContext,
   useContext,
@@ -27,7 +26,7 @@ interface UserWithProfile {
   user_metadata?: {
     avatar_url?: string;
     name?: string;
-    role?: string; // Add role to match usage in code
+    role?: string; // Adding role property to fix TypeScript errors
   };
 }
 
@@ -211,7 +210,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       return false;
     }
 
-    // Fix user.user_metadata.role access check
+    // Fix user.user_metadata.role access check with proper type check
     if (user?.user_metadata?.role === 'admin') {
       return true; // Admins can see all pages
     }
@@ -223,7 +222,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       return false; // Default to not visible if no setting is found
     }
 
-    // Fix user.user_metadata.role access check
+    // Fix user.user_metadata.role access check with proper type check
     if (user?.user_metadata?.role === 'instructor') {
       return page.visible_to_instructors;
     }
