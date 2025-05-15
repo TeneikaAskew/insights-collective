@@ -741,7 +741,7 @@ const Resume = () => {
             
             toast({
               title: 'Resume Analysis Completed',
-              description: 'We've enhanced your bullet points with suggestions for improvement!',
+              description: "We've enhanced your bullet points with suggestions for improvement!",
             });
           }
         } catch (err) {
