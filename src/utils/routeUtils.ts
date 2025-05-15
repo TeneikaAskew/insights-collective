@@ -1,75 +1,82 @@
 
-import React, { ReactElement } from 'react';
+import { ReactElement } from 'react';
+import { Route } from 'react-router-dom';
 
 interface RouteElement {
   path?: string;
-  props?: {
-    children?: React.ReactNode;
-    path?: string;
-  };
+  element?: ReactElement;
+  children?: RouteElement[];
 }
 
-/**
- * Recursively extracts routes from React Router components
- */
-export const extractRoutes = (children: ReactElement[]): { path: string | undefined }[] => {
-  if (!Array.isArray(children)) {
-    return [];
-  }
+export interface RouteInfo {
+  path: string;
+  name: string;
+}
 
-  const routes: { path: string | undefined }[] = [];
-
-  children.forEach((child) => {
-    if (!child || !React.isValidElement(child)) {
-      return;
-    }
-
-    // Check if it's a route element with a path prop
-    if (child.props?.path) {
-      routes.push({ path: child.props.path });
-    }
-
-    // Recursively check children
-    if (child.props?.children) {
-      const childRoutes = extractRoutes(
-        Array.isArray(child.props.children) 
-          ? child.props.children.filter(c => React.isValidElement(c)) as ReactElement[] 
-          : React.isValidElement(child.props.children) 
-            ? [child.props.children as ReactElement] 
-            : []
-      );
-      routes.push(...childRoutes);
-    }
-  });
-
-  return routes;
+export const extractRouteName = (path: string): string => {
+  // Remove leading slash and parameters
+  const cleanPath = path.replace(/^\//, '').split(':')[0].replace(/\/$/, '');
+  
+  // Handle empty path (root)
+  if (!cleanPath) return 'Home';
+  
+  // Convert kebab-case to Title Case
+  return cleanPath
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
-/**
- * Extracts a human-readable page name from a route path
- */
-export const extractRouteName = (path: string): string => {
-  // Handle index route
-  if (path === '/' || path === '*') {
-    return 'Home';
-  }
+// Improved route extraction function to handle all route patterns
+export const extractRoutes = (children: ReactElement[]): RouteInfo[] => {
+  const routes: RouteInfo[] = [];
+  const processedPaths = new Set<string>();
 
-  // Remove leading slash and params
-  let name = path
-    .replace(/^\/+/, '')  // Remove leading slashes
-    .replace(/\/+$/, '')  // Remove trailing slashes
-    .replace(/:[^/]+/g, '') // Remove route params
-    .replace(/\*$/, 'Not Found'); // Replace wildcard with "Not Found"
+  // Recursively process routes including nested routes
+  const processRoute = (element: ReactElement, parentPath: string = '') => {
+    if (!element || !element.props) return;
 
-  // Handle empty string after replacements
-  if (!name) {
-    return 'Home';
-  }
+    // Get path from props
+    const { path, children } = element.props as RouteElement;
+    
+    // Skip routes without paths or dynamic index paths
+    if (path === undefined || path === '*') return;
 
-  // Convert to title case and replace hyphens/underscores with spaces
-  return name
-    .split(/[/\-_]/)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .filter(Boolean)
-    .join(' ');
+    // Create full path by combining parent path and current path
+    const fullPath = path.startsWith('/') 
+      ? path 
+      : parentPath 
+        ? `${parentPath}/${path}`.replace(/\/+/g, '/') 
+        : path;
+        
+    // Add route if we haven't processed this path yet and it's not a parameter route
+    if (!processedPaths.has(fullPath) && !fullPath.includes('*')) {
+      processedPaths.add(fullPath);
+      
+      // Only add routes that don't start with parameters at the root level
+      if (!fullPath.startsWith('/:')) {
+        routes.push({
+          path: fullPath,
+          name: extractRouteName(fullPath),
+        });
+      }
+    }
+
+    // Process nested routes
+    if (children) {
+      if (Array.isArray(children)) {
+        children.forEach(child => {
+          if (child) processRoute(child as ReactElement, fullPath);
+        });
+      } else if (React.isValidElement(children)) {
+        processRoute(children as ReactElement, fullPath);
+      }
+    }
+  };
+
+  // Process all route elements at the root level
+  children.forEach(child => processRoute(child));
+  
+  console.log('Extracted routes:', routes);
+  return routes;
 };

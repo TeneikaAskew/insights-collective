@@ -202,13 +202,8 @@ export function useToast() {
   return context
 }
 
-// Export the toast function for compatibility
+// Preserve the toast function for backward compatibility
 export const toast = (props: Toast) => {
-  console.warn("Direct toast() call is deprecated. Use useToast() hook instead.")
-  // Create a dummy implementation to prevent runtime errors
-  return {
-    id: "toast-error",
-    dismiss: () => {},
-    update: () => {},
-  }
+  console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
+  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
 }

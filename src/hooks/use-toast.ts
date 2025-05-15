@@ -1,3 +1,4 @@
 
-// Export the toast hook and provider from the actual implementation file
-export * from './use-toast.tsx';
+import { useToast as useToastPrimitive } from "@/components/ui/use-toast";
+
+export const useToast = useToastPrimitive;

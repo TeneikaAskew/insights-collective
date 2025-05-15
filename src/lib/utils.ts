@@ -18,6 +18,3 @@ export function slugify(text: string): string {
     .replace(/^-+/, '')             // Trim - from start of text
     .replace(/-+$/, '');            // Trim - from end of text
 }
-
-// Export supabase client from the correct location
-export { supabase } from "@/integrations/supabase/client";

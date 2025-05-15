@@ -1,324 +1,265 @@
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  useCallback,
-} from 'react';
-import { useAuth } from './AuthContext';
-import { supabase } from '@/lib/utils'; // Fix import path
-import { useQuery } from '@tanstack/react-query';
-import { extractRoutes, extractRouteName } from '@/utils/routeUtils';
-import { useNavigate } from 'react-router-dom';
 
-// Add these type definitions at the top of the file
-interface UserProfile {
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
-  id: string;
-  last_seen: string;
-}
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
+import { extractRoutes, type RouteInfo } from '@/utils/routeUtils';
 
-interface UserWithProfile {
-  id: string;
-  profile?: UserProfile;
-  user_metadata?: {
-    avatar_url?: string;
-    name?: string;
-    role?: string; // Adding role property to fix TypeScript errors
-  };
-}
-
-// Add this function to safely extract user profile data
-const extractUserProfile = (user: UserWithProfile): UserProfile => {
-  return {
-    id: user.id,
-    first_name: user.profile?.first_name || null,
-    last_name: user.profile?.last_name || null,
-    avatar_url: user.profile?.avatar_url || null,
-    last_seen: new Date().toISOString(),
-  };
-};
-
-interface PageVisibilityContextType {
-  pageVisibility: PageVisibility[];
-  isPageVisible: (path: string) => boolean;
-  isLoading: boolean;
-  updatePageVisibility: (id: string, updates: Partial<PageVisibility>) => Promise<void>;
-  syncAvailablePages: () => Promise<void>;
-  onlineUsers: UserProfile[];
-}
-
-interface PageVisibility {
+type PageVisibility = {
   id: string;
   page_path: string;
   page_name: string;
   visible_to_users: boolean;
   visible_to_instructors: boolean;
-}
+};
+
+type OnlineUser = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  avatar_url: string | null;
+  last_seen: string;
+};
+
+type PageVisibilityContextType = {
+  pageVisibility: PageVisibility[];
+  isLoading: boolean;
+  isPageVisible: (path: string) => boolean;
+  updatePageVisibility: (id: string, updates: Partial<PageVisibility>) => Promise<void>;
+  refreshPageVisibility: () => Promise<void>;
+  syncAvailablePages: () => Promise<void>;
+  onlineUsers: OnlineUser[];
+};
 
 const PageVisibilityContext = createContext<PageVisibilityContextType | undefined>(undefined);
 
+// Helper function to match paths with parameters like /courses/:courseId
+const matchPathPattern = (pattern: string, path: string): boolean => {
+  const patternParts = pattern.split('/').filter(Boolean);
+  const pathParts = path.split('/').filter(Boolean);
+
+  if (patternParts.length !== pathParts.length) return false;
+
+  return patternParts.every((part, i) => 
+    part.startsWith(':') || part === pathParts[i]
+  );
+};
+
 export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { session, user } = useAuth();
+  const { user } = useAuth(); // This hook must be used inside AuthProvider
   const [pageVisibility, setPageVisibility] = useState<PageVisibility[]>([]);
-  const [availableRoutes, setAvailableRoutes] = useState<string[]>([]);
-  const [onlineUsers, setOnlineUsers] = useState<UserProfile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
+  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
 
-  // Fetch initial page visibility settings
-  useEffect(() => {
-    const fetchPageVisibility = async () => {
+  // Fetch page visibility settings from the database
+  const fetchPageVisibility = useCallback(async () => {
+    try {
       setIsLoading(true);
-      try {
-        if (!session) {
-          console.warn('No session found, skipping page visibility fetch.');
-          return;
-        }
+      const { data, error } = await supabase
+        .from('page_visibility')
+        .select('*')
+        .order('page_name');
 
-        const { data, error } = await supabase
-          .from('page_visibility')
-          .select('*');
-
-        if (error) {
-          console.error("Error fetching page visibility:", error);
-        } else {
-          setPageVisibility(data || []);
-        }
-      } finally {
-        setIsLoading(false);
+      if (error) {
+        console.error('Error fetching page visibility:', error);
+        return;
       }
-    };
 
-    fetchPageVisibility();
-  }, [session]);
-
-  // Fetch available routes on component mount
-  useEffect(() => {
-    // Delay the import to avoid issues during server-side rendering
-    import('../App').then((module) => {
-      const appRoutes = module.default?.();
-      if (appRoutes && appRoutes.props && appRoutes.props.children) {
-        // Fix: Cast children to ReactElement[] type before passing to extractRoutes
-        const reactChildren = React.Children.toArray(appRoutes.props.children)
-          .filter(child => React.isValidElement(child)) as React.ReactElement[];
-        
-        const routes = extractRoutes(reactChildren);
-        const paths = routes.map(route => route.path);
-        setAvailableRoutes(paths);
-      } else {
-        console.warn("Could not extract routes from App component.");
-      }
-    }).catch(error => {
-      console.error("Error importing App component:", error);
-    });
+      setPageVisibility(data || []);
+    } catch (error) {
+      console.error('Error in fetchPageVisibility:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Realtime presence tracking
-  useEffect(() => {
-    if (!session) {
-      console.log('No session, cannot initialize presence');
-      return;
-    }
-
-    let channel = supabase.channel('online_users', { config: { presence: { key: user?.id } } })
-
-    channel.on('presence', { event: 'sync' }, async () => {
-      const presenceState = channel.presenceState();
-      console.log('Presence sync:', presenceState);
-
-      // Extract user IDs from presence state
-      const userIds = Object.keys(presenceState);
-
-      if (userIds.length === 0) {
-        setOnlineUsers([]);
-        return;
-      }
-
-      // Fetch user profiles in a single query
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url, last_seen')
-        .in('id', userIds);
-
-      if (error) {
-        console.error('Error fetching user profiles:', error);
-        return;
-      }
-
-      // Format user data for the presence tracking
-      const formattedUsers = profiles.map(profile => ({
-        id: profile.id,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        avatar_url: profile.avatar_url,
-        last_seen: new Date().toISOString(),
-      }));
-
-      setOnlineUsers(formattedUsers);
-    });
-
-    channel.on('presence', { event: 'join' }, async ({ key }) => {
-      console.log('User joined:', key);
-      // Fetch the profile of the user who joined
-      const { data: profile, error } = await supabase
-        .from('profiles')
-        .select('id, first_name, last_name, avatar_url, last_seen')
-        .eq('id', key)
-        .single();
-
-      if (error) {
-        console.error('Error fetching user profile:', error);
-        return;
-      }
-
-      // Format user data for presence tracking
-      const userPresence = {
-        id: profile.id,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        avatar_url: profile.avatar_url,
-        last_seen: new Date().toISOString(),
-      };
-
-      setOnlineUsers(prevUsers => [...prevUsers, userPresence]);
-    });
-
-    channel.on('presence', { event: 'leave' }, async ({ key }) => {
-      console.log('User left:', key);
-      setOnlineUsers(prevUsers => prevUsers.filter(u => u.id !== key));
-    });
-
-    channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        const presence = channel.track({ user_id: user?.id, online_at: new Date().toISOString() });
-        console.log('Presence tracked:', presence);
-      }
-    });
-
-    return () => {
-      console.log('Unsubscribing from presence channel');
-      channel.unsubscribe();
+  // Setup presence channel to track online users
+  const setupPresenceChannel = useCallback(() => {
+    if (!user) return null;
+    
+    const channel = supabase.channel('online_users');
+    
+    const userStatus = {
+      user_id: user.id,
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      avatar_url: user.avatar_url || '',
+      online_at: new Date().toISOString(),
     };
-  }, [session, user?.id]);
+    
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const presentUsers: OnlineUser[] = [];
+        
+        Object.entries(state).forEach(([, presences]) => {
+          const presenceArray = presences as any[];
+          presenceArray.forEach(presence => {
+            if (presence.user_id) {
+              presentUsers.push({
+                id: presence.user_id,
+                first_name: presence.first_name,
+                last_name: presence.last_name,
+                avatar_url: presence.avatar_url,
+                last_seen: presence.online_at,
+              });
+            }
+          });
+        });
+        
+        setOnlineUsers(presentUsers);
+      })
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          await channel.track(userStatus);
+        }
+      });
+      
+    return channel;
+  }, [user]);
 
-  const isPageVisible = useCallback((path: string) => {
-    if (!session) {
-      console.warn('No session, cannot determine page visibility. Defaulting to false.');
-      return false;
+  // This function will sync available routes with the page_visibility table
+  const syncAvailablePages = useCallback(async () => {
+    try {
+      // Get all existing routes using the utility function
+      const rootElement = document.querySelector('#root')?.firstElementChild as Element;
+      if (!rootElement || !rootElement.children) {
+        console.error('Could not find routes in DOM');
+        return;
+      }
+      
+      const availableRoutes = extractRoutes(Array.from(rootElement.children) as any);
+      console.log('Extracted routes:', availableRoutes);
+
+      // Get current routes in the visibility table
+      const { data: existingRoutes, error: fetchError } = await supabase
+        .from('page_visibility')
+        .select('page_path');
+
+      if (fetchError) {
+        console.error('Error fetching existing routes:', fetchError);
+        return;
+      }
+
+      // Find routes that need to be added
+      const existingPathsSet = new Set((existingRoutes || []).map(r => r.page_path));
+      const routesToAdd = availableRoutes.filter(route => !existingPathsSet.has(route.path));
+
+      if (routesToAdd.length > 0) {
+        // Insert new routes with default visibility settings
+        const { error: insertError } = await supabase
+          .from('page_visibility')
+          .insert(
+            routesToAdd.map(route => ({
+              page_path: route.path,
+              page_name: route.name,
+              visible_to_users: true,
+              visible_to_instructors: true,
+            }))
+          );
+
+        if (insertError) {
+          console.error('Error adding new routes to visibility table:', insertError);
+        } else {
+          console.log(`Added ${routesToAdd.length} new routes to visibility table`);
+          // Refresh the visibility data after update
+          await fetchPageVisibility();
+        }
+      }
+    } catch (error) {
+      console.error('Error in syncAvailablePages:', error);
     }
+  }, [fetchPageVisibility]);
 
-    // Fix user.user_metadata.role access check with proper type check
-    if (user?.user_metadata?.role === 'admin') {
-      return true; // Admins can see all pages
+  useEffect(() => {
+    if (user) {
+      fetchPageVisibility();
+      
+      // Set up presence channel
+      const presenceChannel = setupPresenceChannel();
+      
+      // If user is admin, sync pages
+      if (user.role === 'admin') {
+        syncAvailablePages();
+      }
+      
+      // Set up interval to sync pages daily (for admins only)
+      let syncInterval: number | undefined;
+      if (user.role === 'admin') {
+        syncInterval = window.setInterval(() => {
+          syncAvailablePages();
+        }, 24 * 60 * 60 * 1000); // 24 hours
+      }
+      
+      return () => {
+        if (syncInterval) clearInterval(syncInterval);
+        if (presenceChannel) supabase.removeChannel(presenceChannel);
+      };
+    } else {
+      // Handle case when user is not authenticated
+      setIsLoading(false);
+      setPageVisibility([]);
     }
+  }, [user, fetchPageVisibility, syncAvailablePages, setupPresenceChannel]);
 
-    const page = pageVisibility.find(p => p.page_path === path);
+  const isPageVisible = useCallback((path: string): boolean => {
+    // Admins can always see all pages
+    if (user?.role === 'admin') return true;
 
-    if (!page) {
-      console.warn(`No visibility setting found for path: ${path}. Defaulting to false.`);
-      return false; // Default to not visible if no setting is found
-    }
+    // Find exact match or pattern match for the path
+    const page = pageVisibility.find(p => 
+      p.page_path === path || 
+      (p.page_path.includes(':') && matchPathPattern(p.page_path, path))
+    );
 
-    // Fix user.user_metadata.role access check with proper type check
-    if (user?.user_metadata?.role === 'instructor') {
+    if (!page) return true; // If page isn't in the visibility list, default to visible
+
+    // Check user role and page visibility
+    if (user?.role === 'instructor') {
       return page.visible_to_instructors;
     }
-
-    return page.visible_to_users; // Default for regular users
-  }, [session, user?.user_metadata?.role, pageVisibility]);
+    
+    return page.visible_to_users;
+  }, [pageVisibility, user]);
 
   const updatePageVisibility = async (id: string, updates: Partial<PageVisibility>) => {
     try {
       const { error } = await supabase
         .from('page_visibility')
-        .update(updates)
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id);
 
       if (error) {
+        console.error('Error updating page visibility:', error);
         throw error;
       }
 
-      // Optimistically update the local state
-      setPageVisibility(prev =>
-        prev.map(page => (page.id === id ? { ...page, ...updates } : page))
-      );
+      // Refresh the list after update
+      await fetchPageVisibility();
     } catch (error) {
-      console.error("Error updating page visibility:", error);
+      console.error('Error in updatePageVisibility:', error);
       throw error;
     }
   };
 
-  const syncAvailablePages = async () => {
-    if (!session) {
-      console.warn('No session, cannot sync available pages.');
-      return;
-    }
-
-    if (!availableRoutes) {
-      console.warn('No available routes to sync.');
-      return;
-    }
-
-    try {
-      // Fetch existing page visibility settings
-      const { data: existingPages, error: fetchError } = await supabase
-        .from('page_visibility')
-        .select('page_path');
-
-      if (fetchError) {
-        throw fetchError;
-      }
-
-      const existingPaths = existingPages?.map(page => page.page_path) || [];
-
-      // Identify new routes that are not yet in the page visibility settings
-      const newRoutes = availableRoutes.filter(route => !existingPaths.includes(route));
-
-      if (newRoutes.length === 0) {
-        console.log('No new routes to add.');
-        return;
-      }
-
-      // Prepare the new page visibility entries with proper type
-      const newPageVisibilityEntries = newRoutes.map(route => ({
-        page_path: route,
-        page_name: extractRouteName(route), // Now properly imported from routeUtils
-        visible_to_users: false, // Default to not visible
-        visible_to_instructors: false, // Default to not visible
-      }));
-
-      // Insert the new entries into the database
-      const { error: insertError, data: insertedData } = await supabase
-        .from('page_visibility')
-        .insert(newPageVisibilityEntries)
-        .select(); // Add select to get the inserted data with IDs
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      // Update local state with the inserted data (which includes IDs)
-      setPageVisibility(prev => [...prev, ...(insertedData || [])]);
-    } catch (error) {
-      console.error("Error syncing available pages:", error);
-      throw error;
-    }
-  };
-
-  const value: PageVisibilityContextType = {
-    pageVisibility,
-    isPageVisible,
-    isLoading,
-    updatePageVisibility,
-    syncAvailablePages,
-    onlineUsers,
+  const refreshPageVisibility = async () => {
+    return fetchPageVisibility();
   };
 
   return (
-    <PageVisibilityContext.Provider value={value}>
+    <PageVisibilityContext.Provider 
+      value={{ 
+        pageVisibility, 
+        isLoading, 
+        isPageVisible, 
+        updatePageVisibility,
+        refreshPageVisibility,
+        syncAvailablePages,
+        onlineUsers
+      }}
+    >
       {children}
     </PageVisibilityContext.Provider>
   );
@@ -327,7 +268,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 export const usePageVisibility = () => {
   const context = useContext(PageVisibilityContext);
   if (context === undefined) {
-    throw new Error("usePageVisibility must be used within a PageVisibilityProvider");
+    throw new Error('usePageVisibility must be used within a PageVisibilityProvider');
   }
   return context;
 };
