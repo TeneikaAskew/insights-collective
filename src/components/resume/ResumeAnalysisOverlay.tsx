@@ -183,7 +183,7 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
           </div>
           
           <div className="text-center text-sm text-muted-foreground">
-            <p>Analysis typically takes 20-30 seconds to complete</p>
+            <p>Analysis typically takes 60-90 seconds to complete</p>
           </div>
         </div>
       </div>

@@ -131,7 +131,7 @@ const Login = () => {
                 Sign in with Google
               </Button>
               
-              <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('github')} disabled={!!socialLoading}>
+              {/* <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('github')} disabled={!!socialLoading}>
                 {socialLoading === 'github' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaGithub className="mr-2 h-4 w-4" />}
                 Sign in with GitHub
               </Button>
@@ -139,7 +139,7 @@ const Login = () => {
               <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('twitter')} disabled={!!socialLoading}>
                 {socialLoading === 'twitter' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaTwitter className="mr-2 h-4 w-4" />}
                 Sign in with Twitter
-              </Button>
+              </Button> */}
             </div>
 
             <div className="relative my-6">
