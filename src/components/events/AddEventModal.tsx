@@ -1,2 +1,4 @@
 
-export { AddEventModal } from './modals/AddEventModal';
+import { AddEventModal } from './modals/AddEventModal';
+
+export { AddEventModal };

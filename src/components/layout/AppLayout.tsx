@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -24,26 +25,28 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "@/components/ui/dropdown-menu"
-import { MoonIcon, SunIcon, User, GraduationCap, BookOpenCheck, Settings, HelpCircle, Exit, LayoutDashboard } from 'lucide-react';
-import { useTheme } from '@/components/theme-provider';
+import { MoonIcon, SunIcon, User, GraduationCap, BookOpenCheck, Settings, HelpCircle, LogOut, LayoutDashboard } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import UserPresenceBar from './UserPresenceBar';
 
 interface AppLayoutProps {
   children: React.ReactNode;
+  fullWidth?: boolean; // Add the fullWidth prop to fix the other errors
 }
 
-const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
-  const { user, signOut } = useAuth();
-  const { profile, isLoading } = useUserProfile();
+const AppLayout: React.FC<AppLayoutProps> = ({ children, fullWidth = false }) => {
+  const { user, logout } = useAuth();
+  const { enrichedUser, loading } = useUserProfile();
   const { toast } = useToast();
   const location = useLocation();
-  const { setTheme } = useTheme();
+
+  // For theme toggling - we'll create a simpler version since @/components/theme-provider is missing
+  const [theme, setTheme] = React.useState<'light' | 'dark' | 'system'>('light');
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await logout();
       toast({
         title: "Signed out",
         description: "You have been successfully signed out.",
@@ -58,7 +61,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   };
 
   const renderAuthMenuItems = () => {
-    if (isLoading) {
+    if (loading) {
       return (
         <>
           <Skeleton className="h-10 w-[140px]" />
@@ -85,8 +88,8 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="relative h-8 w-8 rounded-full">
             <Avatar className="h-8 w-8">
-              <AvatarImage src={profile?.avatar_url || user?.avatar} alt={profile?.first_name || user?.name} />
-              <AvatarFallback>{profile?.first_name?.charAt(0)}{profile?.last_name?.charAt(0)}</AvatarFallback>
+              <AvatarImage src={user.avatar} alt={user.name} />
+              <AvatarFallback>{user.name?.charAt(0)}</AvatarFallback>
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
@@ -131,7 +134,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               </Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleSignOut}>
-              <Exit className="mr-2 h-4 w-4" />
+              <LogOut className="mr-2 h-4 w-4" />
               <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -212,7 +215,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" forceMount>
-                <DropdownMenuRadioGroup value={useTheme().theme} onValueChange={setTheme}>
+                <DropdownMenuRadioGroup value={theme} onValueChange={(value) => setTheme(value as 'light' | 'dark' | 'system')}>
                   <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
                   <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
@@ -224,7 +227,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         </div>
       </header>
       <main className="flex-1">
-        <div className="container py-12">
+        <div className={`${fullWidth ? '' : 'container'} py-12`}>
           {children}
         </div>
       </main>
