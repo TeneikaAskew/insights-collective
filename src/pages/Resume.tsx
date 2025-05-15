@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast.tsx';
+import { useToast } from '@/hooks/use-toast';
 import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
@@ -42,11 +42,7 @@ const Resume = () => {
     analyzeResume,
     careerAlignments,
     setAnalysis,
-    isPollingForImprovements,
-    setIsPollingForImprovements,
-    improvedBullets,
-    setImprovedBullets,
-    pollForImprovedBullets
+    isPollingForImprovements
   } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -59,18 +55,7 @@ const Resume = () => {
   const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
   const subscriptionRef = useRef(null);
   const currentResumeIdRef = useRef(null);
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasLoadedEnhancedRef = useRef(false);
-  
-  // Clean up the polling interval when component unmounts
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, []);
 
   // Set up and clean up real-time subscription with better logging
   useEffect(() => {
@@ -209,8 +194,6 @@ const Resume = () => {
     logDebug('EnhancedUpdate', 'Setting isLoadingEnhancedBullets to false');
     setIsLoadingEnhancedBullets(false);
   };
-  
-  // useEffects for initial loading
   useEffect(() => {
     let isMounted = true;
     const loadInitialData = async () => {
@@ -350,8 +333,6 @@ const Resume = () => {
     };
     loadEnhancedAnalysis();
   }, [user, analysis, resume]);
-  
-  // File handling
   useEffect(() => {
     logDebug('FileHandler', 'File change detected', {
       hasFile: !!resumeFile
@@ -405,8 +386,6 @@ const Resume = () => {
       }
     };
   }, [resumeFile, toast]);
-  
-  // Analysis runner
   useEffect(() => {
     logDebug('AnalysisRunner', 'Checking if analysis needs to be run', {
       hasResumeText: !!resume?.text,
@@ -436,7 +415,6 @@ const Resume = () => {
       });
     }
   }, [resume, analysis, analyzeResume, isAnalyzing, hasLoadedAnalysis, initialLoadComplete]);
-  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     logDebug('UserAction', 'File input changed', {
@@ -461,7 +439,6 @@ const Resume = () => {
       });
     }
   };
-  
   const handleUpload = async () => {
     logDebug('UserAction', 'Upload requested', {
       hasFile: !!resumeFile,
@@ -529,7 +506,6 @@ const Resume = () => {
       }
     }
   };
-  
   const handleDelete = async () => {
     logDebug('UserAction', 'Delete requested');
     try {
@@ -558,19 +534,16 @@ const Resume = () => {
       });
     }
   };
-  
   const handleDownload = () => {
     logDebug('UserAction', 'Download requested', {
       hasFileUrl: !!resume?.file_url
     });
     if (resume?.file_url) window.open(resume.file_url, '_blank');
   };
-  
   const handleStartCareerChat = () => {
     logDebug('UserAction', 'Career chat requested');
     setShowCareerChat(true);
   };
-  
   const handleRefreshData = async () => {
     logDebug('UserAction', 'Refresh data requested');
     setIsRefreshing(true);
@@ -658,7 +631,6 @@ const Resume = () => {
       logDebug('UserAction', 'Finished refresh, set isRefreshing to false');
     }
   };
-
   const handleCheckEnhancements = async () => {
     if (!user || !resume || !resume.id) {
       logDebug('CheckEnhancements', 'Missing user, resume or resume ID', {
@@ -668,90 +640,42 @@ const Resume = () => {
       });
       return;
     }
-    
     logDebug('CheckEnhancements', `Manually checking enhancements for resume ID: ${resume.id}`);
     setIsLoadingEnhancedBullets(true);
-    setIsPollingForImprovements(true);
-    
     try {
-      // First check if we already have enhanced analysis
-      const { data, error } = await supabase.from('resumes')
-        .select('enhanced_analysis')
-        .eq('id', resume.id)
-        .maybeSingle();
-        
+      // Query specifically by resume ID
+      logDebug('CheckEnhancements', 'Querying Supabase for enhanced_analysis');
+      const {
+        data,
+        error
+      } = await supabase.from('resumes').select('enhanced_analysis').eq('id', resume.id).maybeSingle();
       if (error) {
+        logDebug('CheckEnhancements', 'Error querying enhanced_analysis:', error);
         throw error;
       }
-      
+      logDebug('CheckEnhancements', 'Received response from Supabase', {
+        hasData: !!data,
+        hasEnhancedAnalysis: !!data?.enhanced_analysis,
+        enhancedAnalysisType: data?.enhanced_analysis ? typeof data.enhanced_analysis : 'none',
+        isArray: data?.enhanced_analysis ? Array.isArray(data.enhanced_analysis) : false,
+        length: data?.enhanced_analysis && Array.isArray(data.enhanced_analysis) ? data.enhanced_analysis.length : 0
+      });
       if (data?.enhanced_analysis) {
-        // We already have enhanced analysis, use it
+        logDebug('CheckEnhancements', 'Found enhanced analysis, passing to handler');
         handleEnhancedAnalysisUpdate(data.enhanced_analysis);
         toast({
           title: 'Enhancements Loaded',
           description: 'Your resume bullet improvements have been loaded.',
           variant: 'default'
         });
-        setIsPollingForImprovements(false);
       } else {
-        // Request improvements and start polling
+        logDebug('CheckEnhancements', 'No enhanced analysis found in response');
         toast({
-          title: 'Processing Improvements',
-          description: "We're generating improvements for your resume bullets. This may take a minute.",
+          title: 'No Enhancements',
+          description: 'No improved bullets found yet. They may still be processing.',
           variant: 'default'
         });
-        
-        // Request improvements
-        const { data: requestData, error: requestError } = await supabase.functions.invoke('resume-analyzer', {
-          body: { 
-            action: 'improve-bullets',
-            userId: user.id,
-          }
-        });
-        
-        if (requestError) {
-          throw requestError;
-        }
-        
-        // Start polling for results
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-        }
-        
-        pollingIntervalRef.current = setInterval(async () => {
-          try {
-            const { data: pollData, error: pollError } = await supabase.from('resumes')
-              .select('enhanced_analysis')
-              .eq('id', resume.id)
-              .maybeSingle();
-              
-            if (pollError) {
-              throw pollError;
-            }
-            
-            if (pollData?.enhanced_analysis) {
-              // We have results!
-              handleEnhancedAnalysisUpdate(pollData.enhanced_analysis);
-              
-              // Success - stop polling
-              if (pollingIntervalRef.current) {
-                clearInterval(pollingIntervalRef.current);
-                pollingIntervalRef.current = null;
-              }
-              
-              setIsPollingForImprovements(false);
-              setIsLoadingEnhancedBullets(false);
-              
-              toast({
-                title: 'Resume Analysis Completed',
-                description: "We've enhanced your bullet points with suggestions for improvement!",
-              });
-            }
-          } catch (err) {
-            console.error("Error polling for improvements:", err);
-            // Don't stop polling on errors - just continue trying
-          }
-        }, 5000); // Poll every 5 seconds
+        setIsLoadingEnhancedBullets(false);
       }
     } catch (err) {
       logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
@@ -762,15 +686,12 @@ const Resume = () => {
         variant: 'destructive'
       });
       setIsLoadingEnhancedBullets(false);
-      setIsPollingForImprovements(false);
     }
   };
-
   if (!isAuthenticated) {
     logDebug('Render', 'User not authenticated, showing login wall');
     return <ResumeLoginWall />;
   }
-
   const loading = resumeLoading || isAnalyzing || isRefreshing;
   logDebug('Render', 'Rendering main component', {
     loading,
@@ -783,7 +704,6 @@ const Resume = () => {
     hasResume: !!resume,
     hasLoadedAnalysis
   });
-  
   return <AppLayout fullWidth>
       <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
         {/* Analysis overlay that appears during processing */}

@@ -1,3 +1,3 @@
 
 // Re-export from the hooks directory
-export { useToast, toast, ToastProvider } from "@/hooks/use-toast.tsx";
+export { useToast } from "@/hooks/use-toast";

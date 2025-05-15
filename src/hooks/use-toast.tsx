@@ -2,24 +2,20 @@
 import * as React from "react"
 import type {
   ToastActionElement,
+  ToastProps,
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
 
-// First define the base ToasterToast type without circular references
-export interface ToasterToast {
-  id: string;
-  title?: React.ReactNode;
-  description?: React.ReactNode;
-  action?: ToastActionElement;
-  variant?: "default" | "destructive";
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}
-
-// Then define Toast as a subset of ToasterToast
 export type Toast = Omit<ToasterToast, "id">
+
+type ToasterToast = ToastProps & {
+  id: string
+  title?: React.ReactNode
+  description?: React.ReactNode
+  action?: ToastActionElement
+}
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -204,4 +200,11 @@ export function useToast() {
   }
   
   return context
+}
+
+// For backwards compatibility - NOTE: This won't work outside of components
+// This is now a wrapper around the useToast hook
+export const toast = (props: Toast) => {
+  console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
+  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
 }
