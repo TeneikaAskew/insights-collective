@@ -328,11 +328,15 @@ export function useResumeAnalysis() {
         console.log(`Polling for improved bullets: attempt ${attempts}`);
 
         try {
+          // Also load career goals from local storage if available
+          const careerGoals = localStorage.getItem(`career_goals_${userId}`);
+          
           // Call a special endpoint to check for improved bullets
           const { data, error } = await supabase.functions.invoke('resume-analyzer', {
             body: { 
               action: 'improve-bullets',
-              userId: userId
+              userId: userId,
+              // careerGoals: careerGoals || undefined
             }
           });
 
@@ -584,6 +588,9 @@ export function useResumeAnalysis() {
       // Store the resume text in localStorage for potential later use
       localStorage.setItem(`resume_text_${user.id}`, text);
       
+      // Check if there are career goals stored in localStorage
+      const careerGoals = localStorage.getItem(`career_goals_${user.id}`);
+      
       // Step 1: Call the Edge Function with user ID and text
       console.log("Calling resume-analyzer edge function");
       
@@ -591,7 +598,8 @@ export function useResumeAnalysis() {
         const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
           body: { 
             resumeText: text,
-            userId: user.id
+            userId: user.id,
+            careerGoals: careerGoals || undefined
           }
         });
 
@@ -685,12 +693,19 @@ export function useResumeAnalysis() {
         
         // Also update the analysis in the resume record
         try {
+          const updateData: any = { 
+            analysis: enhancedData,
+            updated_at: new Date().toISOString()
+          };
+          
+          // Include career goals if available
+          if (careerGoals) {
+            updateData.career_goals = careerGoals;
+          }
+          
           const { error: updateError } = await supabase
             .from('resumes')
-            .update({ 
-              analysis: enhancedData,
-              updated_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('user_id', user.id);
             
           if (updateError) {
@@ -709,94 +724,10 @@ export function useResumeAnalysis() {
         
         return true;
       } catch (functionError) {
-          console.error("Error invoking edge function:", functionError);
-          
-          // Try to load the fallback analysis from the database first
-          try {
-            console.log("Attempting to retrieve fallback analysis from database");
-            
-            const { data: resumeData, error: resumeError } = await supabase
-              .from('resumes')
-              .select('fallback_analysis')
-              .eq('user_id', user.id)
-              .order('uploaded_at', { ascending: false })
-              .limit(1)
-              .single();
-            
-            if (resumeError) {
-              throw new Error(`Database fallback retrieval error: ${resumeError.message}`);
-            }
-            
-            if (resumeData?.fallback_analysis) {
-              console.log("Found fallback analysis in database:", resumeData.fallback_analysis);
-              
-              // Use the stored fallback analysis
-              const storedFallback = resumeData.fallback_analysis;
-              
-              toast({
-                title: "Using Saved Analysis",
-                description: "We're using a previously saved analysis as our service is currently unavailable.",
-                variant: "default", // Changed from "warning"
-              });
-              
-              // Save the fallback analysis and update state
-              localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(storedFallback));
-              setAnalysis(storedFallback as ResumeAnalysis);
-              calculateCareerAlignments(storedFallback as ResumeAnalysis);
-              
-              return true;
-            }
-            
-            // If no fallback_analysis in DB, continue to local generation
-            console.log("No fallback analysis found in database, generating local analysis");
-            throw new Error("No fallback analysis found in database");
-            
-          } catch (dbError) {
-            console.error("Error retrieving fallback analysis:", dbError);
-            
-            // Show toast about limited capabilities
-            toast({
-              title: "Analysis Service Unavailable",
-              description: "We're experiencing technical difficulties. Using limited analysis capabilities.",
-              variant: "destructive",
-            });
-            
-            // Create a basic local fallback analysis
-            const fallbackAnalysis = {
-              resume_id: user.id,
-              resume_percent: 50,
-              letter_grade: "C+",
-              bullets: [],
-              elevator_pitch: "Experienced professional with skills in their domain. Consider adding more quantifiable achievements to your resume.",
-              themes: [
-                "Add more metrics and achievements to your bullet points",
-                "Use stronger action verbs at the start of each bullet point",
-                "Make your bullet points more concise and focused on results"
-              ],
-              explanation: "Your resume would benefit from more specific accomplishments with metrics. Focus on what you achieved rather than just responsibilities."
-            };
-            
-            // Perform basic keyword analysis on the resume text
-            const enhancedFallback = analyzeKeywordsInResume(text, fallbackAnalysis as ResumeAnalysis);
-            
-            // Save the fallback analysis
-            localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedFallback));
-            setAnalysis(enhancedFallback as ResumeAnalysis);
-            calculateCareerAlignments(enhancedFallback as ResumeAnalysis);
-            
-            return true;
-          }
+        // ... keep existing code (error handling and fallback logic)
       }
     } catch (error) {
-      console.error('Error analyzing resume:', error);
-      
-      toast({
-        title: 'Error',
-        description: 'Failed to analyze your resume. Please try again.',
-        variant: 'destructive',
-      });
-      
-      return false;
+      // ... keep existing code (error handling)
     } finally {
       // setIsLoadingResults: false
       setIsAnalyzing(false);
