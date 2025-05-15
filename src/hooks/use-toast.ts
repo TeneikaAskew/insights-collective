@@ -25,3 +25,12 @@ export * from './use-toast';
 // export const ToastProvider = ({ children }: { children: React.ReactNode }) => {
 //   return <>{children}</>;
 // };
+// src/hooks/toast-types.ts
+import type { ToastProps, ToastActionElement } from "@/components/ui/toast";
+export type { ToastProps, ToastActionElement };
+export type Toast = Omit<ToastProps, "id"> & {
+  id?: string;
+  title?: React.ReactNode;
+  description?: React.ReactNode;
+  action?: ToastActionElement;
+};
