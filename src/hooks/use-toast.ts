@@ -2,11 +2,9 @@
 import * as React from "react";
 import { 
   Toast,
-  ToastActionElement
+  ToastActionElement, 
+  ToastProps 
 } from "@/components/ui/toast";
-
-// Re-export the types needed
-export type { Toast, ToastActionElement };
 
 const TOAST_LIMIT = 20;
 const TOAST_REMOVE_DELAY = 1000000;
@@ -21,6 +19,9 @@ interface ToasterToast {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
+
+// Redefine Toast type without circular references
+type Toast = Omit<ToasterToast, "id">;
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -192,5 +193,4 @@ function useToast() {
   };
 }
 
-// Export the key functions but not the ToastProvider (we'll use the one from use-toast.tsx)
 export { useToast, toast };
