@@ -641,13 +641,19 @@ const Resume = () => {
     try {
       logDebug('UserAction', 'Calling refreshResume');
       await refreshResume();
+
+      // Check for enhanced analysis
       if (resume && resume.id) {
         logDebug('UserAction', `Checking for enhanced analysis for resume ID: ${resume.id}`);
+        setIsLoadingEnhancedBullets(true);
+        
         // Check for enhanced analysis for the specific resume
-        const {
-          data,
-          error
-        } = await supabase.from('resumes').select('enhanced_analysis').eq('id', resume.id).maybeSingle();
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('enhanced_analysis')
+          .eq('id', resume.id)
+          .maybeSingle();
+
         if (error) {
           logDebug('UserAction', 'Error fetching enhanced analysis during refresh:', error);
         } else if (data?.enhanced_analysis) {
@@ -655,11 +661,31 @@ const Resume = () => {
           handleEnhancedAnalysisUpdate(data.enhanced_analysis);
         } else {
           logDebug('UserAction', 'No enhanced analysis found during refresh');
-          setIsLoadingEnhancedBullets(true);
+          // If no enhanced analysis found, try to get it
+          try {
+            const { data: enhancedData, error: enhancedError } = await supabase.functions.invoke('resume-analyzer', {
+              body: { 
+                action: 'improve-bullets',
+                userId: user?.id,
+                careerGoals: localStorage.getItem(`career_goals_${user?.id}`) || undefined
+              }
+            });
+
+            if (enhancedError) {
+              throw enhancedError;
+            }
+
+            if (enhancedData?.improved_bullets && enhancedData.improved_bullets.length > 0) {
+              handleEnhancedAnalysisUpdate(enhancedData.improved_bullets);
+            }
+          } catch (enhancedErr) {
+            console.error("Error checking for enhancements:", enhancedErr);
+          }
         }
       } else {
         logDebug('UserAction', 'No resume ID available for enhanced analysis check during refresh');
       }
+
       logDebug('UserAction', 'Refresh completed successfully');
       toast({
         title: 'Refreshed',
@@ -679,63 +705,6 @@ const Resume = () => {
     } finally {
       setIsRefreshing(false);
       logDebug('UserAction', 'Finished refresh, set isRefreshing to false');
-    }
-  };
-  const handleCheckEnhancements = async () => {
-    if (!user || !resume || !resume.id) {
-      logDebug('CheckEnhancements', 'Missing user, resume or resume ID', {
-        hasUser: !!user,
-        hasResume: !!resume,
-        resumeId: resume?.id
-      });
-      return;
-    }
-    logDebug('CheckEnhancements', `Manually checking enhancements for resume ID: ${resume.id}`);
-    setIsLoadingEnhancedBullets(true);
-    try {
-      // Query specifically by resume ID
-      logDebug('CheckEnhancements', 'Querying Supabase for enhanced_analysis');
-      const {
-        data,
-        error
-      } = await supabase.from('resumes').select('enhanced_analysis').eq('id', resume.id).maybeSingle();
-      if (error) {
-        logDebug('CheckEnhancements', 'Error querying enhanced_analysis:', error);
-        throw error;
-      }
-      logDebug('CheckEnhancements', 'Received response from Supabase', {
-        hasData: !!data,
-        hasEnhancedAnalysis: !!data?.enhanced_analysis,
-        enhancedAnalysisType: data?.enhanced_analysis ? typeof data.enhanced_analysis : 'none',
-        isArray: data?.enhanced_analysis ? Array.isArray(data.enhanced_analysis) : false,
-        length: data?.enhanced_analysis && Array.isArray(data.enhanced_analysis) ? data.enhanced_analysis.length : 0
-      });
-      if (data?.enhanced_analysis) {
-        logDebug('CheckEnhancements', 'Found enhanced analysis, passing to handler');
-        handleEnhancedAnalysisUpdate(data.enhanced_analysis);
-        toast({
-          title: 'Enhancements Loaded',
-          description: 'Your resume bullet improvements have been loaded.',
-          variant: 'default'
-        });
-      } else {
-        logDebug('CheckEnhancements', 'No enhanced analysis found in response');
-        toast({
-          title: 'No Enhancements',
-          description: 'No improved bullets found yet. They may still be processing.',
-          variant: 'default'
-        });
-        setIsLoadingEnhancedBullets(false);
-      }
-    } catch (err) {
-      logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
-      console.error("Error checking for enhancements:", err);
-      toast({
-        title: 'Error',
-        description: 'Could not load enhanced bullets. Please try again later.',
-        variant: 'destructive'
-      });
-      setIsLoadingEnhancedBullets(false);
     }
   };
   if (!isAuthenticated) {
@@ -770,18 +739,11 @@ const Resume = () => {
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleCheckEnhancements} 
-              disabled={loading || isLoadingEnhancedBullets || isPollingForImprovements || pollingStatus === 'polling'}
+              onClick={handleRefreshData} 
+              disabled={loading || isLoadingEnhancedBullets || isPollingForImprovements || isRefreshing}
             >
-              {isLoadingEnhancedBullets || isPollingForImprovements ? <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Loading Improvements...
-                </> : <>Check for Improvements</>}
-            </Button>
-            
-            <Button variant="outline" size="sm" onClick={handleRefreshData} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh Data
+              {isRefreshing || isLoadingEnhancedBullets || isPollingForImprovements ? 'Refreshing...' : 'Refresh Data'}
             </Button>
           </div>
         </div>
