@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Upload, Image, Search } from 'lucide-react';
-import { toast } from '@/hooks/use-toast'; // Fixed import
+import { toast } from '@/hooks/use-toast';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
 import {
   Dialog,

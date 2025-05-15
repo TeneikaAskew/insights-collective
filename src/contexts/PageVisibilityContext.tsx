@@ -1,12 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from 'react-router-dom';
-import { extractAllRoutes, extractConfigRoutes, type RouteInfo } from '@/utils/routeUtils';
-import { useUserProfile } from '@/hooks/useUserProfile';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { extractRoutes, type RouteInfo } from '@/utils/routeUtils';
 
 type PageVisibility = {
   id: string;
@@ -16,14 +12,6 @@ type PageVisibility = {
   visible_to_instructors: boolean;
 };
 
-interface UserPresence {
-  user_id: string;
-  name?: string;
-  avatar_url?: string;
-  last_active: string;
-  current_path?: string;
-}
-
 type PageVisibilityContextType = {
   pageVisibility: PageVisibility[];
   isLoading: boolean;
@@ -31,7 +19,6 @@ type PageVisibilityContextType = {
   updatePageVisibility: (id: string, updates: Partial<PageVisibility>) => Promise<void>;
   refreshPageVisibility: () => Promise<void>;
   syncAvailablePages: () => Promise<void>;
-  onlineUsers: UserPresence[];
 };
 
 const PageVisibilityContext = createContext<PageVisibilityContextType | undefined>(undefined);
@@ -55,8 +42,6 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   const { user } = useAuth(); // This hook must be used inside AuthProvider
   const [pageVisibility, setPageVisibility] = useState<PageVisibility[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [onlineUsers, setOnlineUsers] = useState<UserPresence[]>([]);
-  const location = useLocation();
 
   const fetchPageVisibility = async () => {
     try {
@@ -82,53 +67,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   // This function will sync available routes with the page_visibility table
   const syncAvailablePages = async () => {
     try {
-      // Get all existing routes from the DOM-rendered routes
-      const rootElement = document.querySelector('#root')?.firstElementChild;
-      if (!rootElement) {
+      // Get all existing routes using the utility function
+      const routeElements = document.querySelector('#root')?.firstElementChild?.children;
+      if (!routeElements) {
         console.error('Could not find routes in DOM');
         return;
       }
       
-      // Extract all routes including nested ones
-      const availableRoutes = extractAllRoutes(rootElement as any);
-      
-      // Also extract routes from sidebar/navbar configs if they exist
-      const sidebarElements = document.querySelectorAll('[data-sidebar="menu-button"]');
-      const navbarElements = document.querySelectorAll('nav a');
-      
-      // Extract hrefs from sidebar and navbar elements
-      const navRoutes: RouteInfo[] = [];
-      
-      sidebarElements.forEach((el: Element) => {
-        const link = el.closest('a');
-        if (link && link.getAttribute('href') && !link.getAttribute('href')?.startsWith('#')) {
-          const path = link.getAttribute('href') || '';
-          navRoutes.push({
-            path,
-            name: link.textContent?.trim() || getPageNameFromPath(path)
-          });
-        }
-      });
-      
-      navbarElements.forEach((link: Element) => {
-        if (link.getAttribute('href') && !link.getAttribute('href')?.startsWith('#')) {
-          const path = link.getAttribute('href') || '';
-          navRoutes.push({
-            path,
-            name: link.textContent?.trim() || getPageNameFromPath(path)
-          });
-        }
-      });
-      
-      // Combine all routes and remove duplicates
-      const allRoutes = [...availableRoutes, ...navRoutes];
-      const uniqueRoutes = Array.from(new Set(allRoutes.map(r => r.path)))
-        .map(path => {
-          const route = allRoutes.find(r => r.path === path);
-          return route!;
-        });
-      
-      console.log('All detected routes:', uniqueRoutes);
+      const availableRoutes = extractRoutes(Array.from(routeElements) as any);
+      console.log('Extracted routes:', availableRoutes);
 
       // Get current routes in the visibility table
       const { data: existingRoutes, error: fetchError } = await supabase
@@ -142,7 +89,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
       // Find routes that need to be added
       const existingPathsSet = new Set((existingRoutes || []).map(r => r.page_path));
-      const routesToAdd = uniqueRoutes.filter(route => !existingPathsSet.has(route.path));
+      const routesToAdd = availableRoutes.filter(route => !existingPathsSet.has(route.path));
 
       if (routesToAdd.length > 0) {
         // Insert new routes with default visibility settings
@@ -164,89 +111,11 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           // Refresh the visibility data after update
           await fetchPageVisibility();
         }
-      } else {
-        console.log('No new routes to add to visibility table');
       }
     } catch (error) {
       console.error('Error in syncAvailablePages:', error);
     }
   };
-
-  // Setup presence channel for real-time user presence
-  useEffect(() => {
-    if (!user) return;
-    
-    // Create presence channel
-    const presenceChannel = supabase.channel('online-users');
-    
-    // Track current path when location changes
-    const updatePresence = () => {
-      if (presenceChannel && user) {
-        const userInfo = {
-          name: user.name || '',
-          avatar_url: user.avatar || ''
-        };
-        
-        presenceChannel.track({
-          user_id: user.id,
-          user_info: userInfo,
-          last_active: new Date().toISOString(),
-          current_path: location.pathname
-        }).then(() => {
-          console.log('Presence updated with path:', location.pathname);
-        }).catch(err => {
-          console.error('Error updating presence:', err);
-        });
-      }
-    };
-
-    // Subscribe to presence changes
-    presenceChannel
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState();
-        
-        // Convert presence state to array of user info
-        const usersOnline: UserPresence[] = [];
-        
-        Object.entries(state).forEach(([userId, presences]) => {
-          if (Array.isArray(presences) && presences.length > 0) {
-            // Get the first presence for each user (most recent)
-            const presence = presences[0] as any;
-            
-            if (presence.user_info) {
-              usersOnline.push({
-                user_id: userId,
-                name: presence.user_info.name || undefined,
-                avatar_url: presence.user_info.avatar_url || undefined,
-                last_active: presence.last_active || new Date().toISOString(),
-                current_path: presence.current_path
-              });
-            }
-          }
-        });
-        
-        setOnlineUsers(usersOnline);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          // Initial presence track after subscription
-          updatePresence();
-        }
-      });
-
-    // Set up effect to update presence when location changes
-    const handleLocationChange = () => {
-      updatePresence();
-    };
-    
-    // Add the location change effect
-    handleLocationChange();
-    
-    return () => {
-      // Unsubscribe when component unmounts
-      supabase.removeChannel(presenceChannel);
-    };
-  }, [user, location.pathname]);
 
   useEffect(() => {
     if (user) {
@@ -342,8 +211,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         isPageVisible, 
         updatePageVisibility,
         refreshPageVisibility,
-        syncAvailablePages,
-        onlineUsers
+        syncAvailablePages
       }}
     >
       {children}

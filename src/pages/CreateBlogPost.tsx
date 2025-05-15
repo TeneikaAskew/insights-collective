@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { createBlogPost } from '@/services/blogService';
 import { BlogFormData } from '@/types/blog';
-import { toast } from '@/hooks/use-toast'; // Fixed import
+import { toast } from '@/hooks/use-toast';
 import BlogPostForm from '@/components/blog/BlogPostForm';
 
 const CreateBlogPost = () => {

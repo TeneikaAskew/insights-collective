@@ -1,8 +1,8 @@
+
 import { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { useToast } from '@/hooks/use-toast';
-import UserPresenceBar from '@/components/layout/UserPresenceBar';
 import { 
   Card, 
   CardContent, 
@@ -95,7 +95,6 @@ const AdminPageVisibility = () => {
 
   return (
     <AppLayout>
-      <UserPresenceBar />
       <div className="space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Page Visibility Manager</h1>
