@@ -1,7 +1,7 @@
-
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocation } from 'react-router-dom';
 import { extractRoutes, type RouteInfo } from '@/utils/routeUtils';
 
 type PageVisibility = {
@@ -12,14 +12,6 @@ type PageVisibility = {
   visible_to_instructors: boolean;
 };
 
-type OnlineUser = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  avatar_url: string | null;
-  last_seen: string;
-};
-
 type PageVisibilityContextType = {
   pageVisibility: PageVisibility[];
   isLoading: boolean;
@@ -27,31 +19,31 @@ type PageVisibilityContextType = {
   updatePageVisibility: (id: string, updates: Partial<PageVisibility>) => Promise<void>;
   refreshPageVisibility: () => Promise<void>;
   syncAvailablePages: () => Promise<void>;
-  onlineUsers: OnlineUser[];
 };
 
 const PageVisibilityContext = createContext<PageVisibilityContextType | undefined>(undefined);
 
-// Helper function to match paths with parameters like /courses/:courseId
-const matchPathPattern = (pattern: string, path: string): boolean => {
-  const patternParts = pattern.split('/').filter(Boolean);
-  const pathParts = path.split('/').filter(Boolean);
-
-  if (patternParts.length !== pathParts.length) return false;
-
-  return patternParts.every((part, i) => 
-    part.startsWith(':') || part === pathParts[i]
-  );
+// Helper function to extract page names from paths
+const getPageNameFromPath = (path: string): string => {
+  // Remove leading slash and parameters
+  const cleanPath = path.replace(/^\//, '').split(':')[0].replace(/\/$/, '');
+  
+  // Handle empty path (root)
+  if (!cleanPath) return 'Home';
+  
+  // Convert kebab-case to Title Case
+  return cleanPath
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
 };
 
 export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth(); // This hook must be used inside AuthProvider
   const [pageVisibility, setPageVisibility] = useState<PageVisibility[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
 
-  // Fetch page visibility settings from the database
-  const fetchPageVisibility = useCallback(async () => {
+  const fetchPageVisibility = async () => {
     try {
       setIsLoading(true);
       const { data, error } = await supabase
@@ -70,64 +62,19 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     } finally {
       setIsLoading(false);
     }
-  }, []);
-
-  // Setup presence channel to track online users
-  const setupPresenceChannel = useCallback(() => {
-    if (!user) return null;
-    
-    const channel = supabase.channel('online_users');
-    
-    const userStatus = {
-      user_id: user.id,
-      first_name: user.first_name || '',
-      last_name: user.last_name || '',
-      avatar_url: user.avatar_url || '',
-      online_at: new Date().toISOString(),
-    };
-    
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const presentUsers: OnlineUser[] = [];
-        
-        Object.entries(state).forEach(([, presences]) => {
-          const presenceArray = presences as any[];
-          presenceArray.forEach(presence => {
-            if (presence.user_id) {
-              presentUsers.push({
-                id: presence.user_id,
-                first_name: presence.first_name,
-                last_name: presence.last_name,
-                avatar_url: presence.avatar_url,
-                last_seen: presence.online_at,
-              });
-            }
-          });
-        });
-        
-        setOnlineUsers(presentUsers);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await channel.track(userStatus);
-        }
-      });
-      
-    return channel;
-  }, [user]);
+  };
 
   // This function will sync available routes with the page_visibility table
-  const syncAvailablePages = useCallback(async () => {
+  const syncAvailablePages = async () => {
     try {
       // Get all existing routes using the utility function
-      const rootElement = document.querySelector('#root')?.firstElementChild as Element;
-      if (!rootElement || !rootElement.children) {
+      const routeElements = document.querySelector('#root')?.firstElementChild?.children;
+      if (!routeElements) {
         console.error('Could not find routes in DOM');
         return;
       }
       
-      const availableRoutes = extractRoutes(Array.from(rootElement.children) as any);
+      const availableRoutes = extractRoutes(Array.from(routeElements) as any);
       console.log('Extracted routes:', availableRoutes);
 
       // Get current routes in the visibility table
@@ -168,14 +115,11 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     } catch (error) {
       console.error('Error in syncAvailablePages:', error);
     }
-  }, [fetchPageVisibility]);
+  };
 
   useEffect(() => {
     if (user) {
       fetchPageVisibility();
-      
-      // Set up presence channel
-      const presenceChannel = setupPresenceChannel();
       
       // If user is admin, sync pages
       if (user.role === 'admin') {
@@ -192,16 +136,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       
       return () => {
         if (syncInterval) clearInterval(syncInterval);
-        if (presenceChannel) supabase.removeChannel(presenceChannel);
       };
     } else {
       // Handle case when user is not authenticated
       setIsLoading(false);
       setPageVisibility([]);
     }
-  }, [user, fetchPageVisibility, syncAvailablePages, setupPresenceChannel]);
+  }, [user]);
 
-  const isPageVisible = useCallback((path: string): boolean => {
+  const isPageVisible = (path: string): boolean => {
     // Admins can always see all pages
     if (user?.role === 'admin') return true;
 
@@ -219,7 +162,19 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     }
     
     return page.visible_to_users;
-  }, [pageVisibility, user]);
+  };
+
+  // Helper to match paths with parameters like /courses/:courseId
+  const matchPathPattern = (pattern: string, path: string): boolean => {
+    const patternParts = pattern.split('/');
+    const pathParts = path.split('/');
+
+    if (patternParts.length !== pathParts.length) return false;
+
+    return patternParts.every((part, i) => 
+      part.startsWith(':') || part === pathParts[i]
+    );
+  };
 
   const updatePageVisibility = async (id: string, updates: Partial<PageVisibility>) => {
     try {
@@ -256,8 +211,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         isPageVisible, 
         updatePageVisibility,
         refreshPageVisibility,
-        syncAvailablePages,
-        onlineUsers
+        syncAvailablePages
       }}
     >
       {children}

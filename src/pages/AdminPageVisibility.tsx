@@ -28,8 +28,7 @@ import {
   CheckCircle, 
   UserCheck,
   Users,
-  RefreshCw,
-  Activity
+  RefreshCw
 } from 'lucide-react';
 import {
   Tooltip,
@@ -39,12 +38,9 @@ import {
 } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const AdminPageVisibility = () => {
-  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages, onlineUsers } = usePageVisibility();
+  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages } = usePageVisibility();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
@@ -97,13 +93,6 @@ const AdminPageVisibility = () => {
     }
   };
 
-  // Get initials for avatar fallback
-  const getInitials = (firstName: string | null, lastName: string | null) => {
-    const first = firstName?.charAt(0) || '';
-    const last = lastName?.charAt(0) || '';
-    return (first + last).toUpperCase() || '?';
-  };
-
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -114,227 +103,159 @@ const AdminPageVisibility = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="visibility">
-          <TabsList>
-            <TabsTrigger value="visibility">Page Visibility</TabsTrigger>
-            <TabsTrigger value="presence">
-              Online Users
-              <Badge variant="secondary" className="ml-2">{onlineUsers.length}</Badge>
-            </TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="visibility" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <CardTitle>Page Visibility Settings</CardTitle>
-                    <CardDescription>
-                      Configure which user roles can access each page in the application.
-                    </CardDescription>
-                  </div>
-                  <div className="flex flex-col md:flex-row gap-2 items-end">
-                    <div className="relative w-full md:w-64">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input 
-                        placeholder="Search pages..." 
-                        className="pl-10"
-                        value={searchQuery}
-                        onChange={e => setSearchQuery(e.target.value)}
-                      />
-                    </div>
-                    <Button 
-                      onClick={handleSyncPages} 
-                      disabled={syncing}
-                      className="whitespace-nowrap"
-                    >
-                      <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                      {syncing ? 'Syncing...' : 'Sync Pages'}
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="rounded-md border">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[300px]">Page</TableHead>
-                        <TableHead className="w-[150px]">Path</TableHead>
-                        <TableHead className="text-center">
-                          <div className="flex items-center justify-center">
-                            <Users className="h-4 w-4 mr-2" />
-                            <span>All Users</span>
-                          </div>
-                        </TableHead>
-                        <TableHead className="text-center">
-                          <div className="flex items-center justify-center">
-                            <UserCheck className="h-4 w-4 mr-2" />
-                            <span>Instructors</span>
-                          </div>
-                        </TableHead>
-                        <TableHead className="text-center">
-                          <div className="flex items-center justify-center">
-                            <Shield className="h-4 w-4 mr-2" />
-                            <span>Admins</span>
-                          </div>
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isLoading ? (
-                        // Skeleton loader when data is loading
-                        Array.from({ length: 6 }).map((_, index) => (
-                          <TableRow key={`skeleton-${index}`}>
-                            <TableCell>
-                              <Skeleton className="h-4 w-[250px]" />
-                            </TableCell>
-                            <TableCell>
-                              <Skeleton className="h-4 w-[100px]" />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Skeleton className="h-6 w-10 mx-auto" />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Skeleton className="h-6 w-10 mx-auto" />
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Skeleton className="h-6 w-10 mx-auto" />
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      ) : filteredPages.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                            No pages match your search.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredPages.map((page) => (
-                          <TableRow key={page.id}>
-                            <TableCell className="font-medium">
-                              {page.page_name}
-                              {page.page_path.includes(':') && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span>
-                                        <Info className="h-4 w-4 inline ml-2 text-muted-foreground" />
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Dynamic route with parameters</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </TableCell>
-                            <TableCell className="font-mono text-xs">
-                              {page.page_path}
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex justify-center">
-                                <Switch
-                                  checked={page.visible_to_users}
-                                  disabled={updating[page.id + 'visible_to_users']}
-                                  onCheckedChange={(checked) => 
-                                    handleVisibilityChange(page.id, 'visible_to_users', checked)
-                                  }
-                                />
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex justify-center">
-                                <Switch
-                                  checked={page.visible_to_instructors}
-                                  disabled={updating[page.id + 'visible_to_instructors']}
-                                  onCheckedChange={(checked) => 
-                                    handleVisibilityChange(page.id, 'visible_to_instructors', checked)
-                                  }
-                                />
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <div className="flex justify-center">
-                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                                  Always
-                                </Badge>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-                <div className="mt-4 text-sm text-muted-foreground">
-                  <p>
-                    <strong>Notes:</strong> Pages not visible to a user role will show a "Coming Soon" overlay. 
-                    Admin users will always have access to all pages regardless of these settings.
-                    Click "Sync Pages" to detect newly added pages in the application.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          
-          <TabsContent value="presence" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Activity className="h-5 w-5 mr-2" />
-                  Active Users
-                </CardTitle>
+        <Card>
+          <CardHeader>
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <CardTitle>Page Visibility Settings</CardTitle>
                 <CardDescription>
-                  Users currently logged in and active on the platform.
+                  Configure which user roles can access each page in the application.
                 </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {onlineUsers.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
-                    <p>No users currently online</p>
-                  </div>
-                ) : (
-                  <div>
-                    <ScrollArea className="h-[300px] pr-4">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {onlineUsers.map((user) => (
-                          <div key={user.id} className="flex items-center space-x-3 p-3 rounded-lg bg-muted/30 border">
+              </div>
+              <div className="flex flex-col md:flex-row gap-2 items-end">
+                <div className="relative w-full md:w-64">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input 
+                    placeholder="Search pages..." 
+                    className="pl-10"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                <Button 
+                  onClick={handleSyncPages} 
+                  disabled={syncing}
+                  className="whitespace-nowrap"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing...' : 'Sync Pages'}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-[300px]">Page</TableHead>
+                    <TableHead className="w-[150px]">Path</TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center">
+                        <Users className="h-4 w-4 mr-2" />
+                        <span>All Users</span>
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center">
+                        <UserCheck className="h-4 w-4 mr-2" />
+                        <span>Instructors</span>
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center">
+                        <Shield className="h-4 w-4 mr-2" />
+                        <span>Admins</span>
+                      </div>
+                    </TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    // Skeleton loader when data is loading
+                    Array.from({ length: 6 }).map((_, index) => (
+                      <TableRow key={`skeleton-${index}`}>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[250px]" />
+                        </TableCell>
+                        <TableCell>
+                          <Skeleton className="h-4 w-[100px]" />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Skeleton className="h-6 w-10 mx-auto" />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Skeleton className="h-6 w-10 mx-auto" />
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <Skeleton className="h-6 w-10 mx-auto" />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : filteredPages.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                        No pages match your search.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredPages.map((page) => (
+                      <TableRow key={page.id}>
+                        <TableCell className="font-medium">
+                          {page.page_name}
+                          {page.page_path.includes(':') && (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Avatar>
-                                    <AvatarImage src={user.avatar_url || undefined} alt={`${user.first_name} ${user.last_name}`} />
-                                    <AvatarFallback className="bg-primary text-primary-foreground">
-                                      {getInitials(user.first_name, user.last_name)}
-                                    </AvatarFallback>
-                                  </Avatar>
+                                  <span>
+                                    <Info className="h-4 w-4 inline ml-2 text-muted-foreground" />
+                                  </span>
                                 </TooltipTrigger>
-                                <TooltipContent side="top">
-                                  <p className="font-medium">{user.first_name} {user.last_name}</p>
-                                  <p className="text-xs text-muted-foreground">Online since {new Date(user.last_seen).toLocaleTimeString()}</p>
+                                <TooltipContent>
+                                  <p>Dynamic route with parameters</p>
                                 </TooltipContent>
                               </Tooltip>
                             </TooltipProvider>
-                            <div className="space-y-1 overflow-hidden">
-                              <p className="text-sm font-medium truncate">{user.first_name} {user.last_name}</p>
-                              <div className="flex items-center">
-                                <div className="h-2 w-2 rounded-full bg-green-500 mr-2"></div>
-                                <p className="text-xs text-muted-foreground">Online</p>
-                              </div>
-                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs">
+                          {page.page_path}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center">
+                            <Switch
+                              checked={page.visible_to_users}
+                              disabled={updating[page.id + 'visible_to_users']}
+                              onCheckedChange={(checked) => 
+                                handleVisibilityChange(page.id, 'visible_to_users', checked)
+                              }
+                            />
                           </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center">
+                            <Switch
+                              checked={page.visible_to_instructors}
+                              disabled={updating[page.id + 'visible_to_instructors']}
+                              onCheckedChange={(checked) => 
+                                handleVisibilityChange(page.id, 'visible_to_instructors', checked)
+                              }
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center">
+                          <div className="flex justify-center">
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                              Always
+                            </Badge>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="mt-4 text-sm text-muted-foreground">
+              <p>
+                <strong>Notes:</strong> Pages not visible to a user role will show a "Coming Soon" overlay. 
+                Admin users will always have access to all pages regardless of these settings.
+                Click "Sync Pages" to detect newly added pages in the application.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );
