@@ -167,12 +167,18 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     // Subscribe to the channel
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
+        // Get user metadata
+        const firstName = user.user_metadata?.first_name || 
+                          (user.user_metadata?.name ? user.user_metadata.name.split(' ')[0] : '');
+        const lastName = user.user_metadata?.last_name || 
+                         (user.user_metadata?.name && user.user_metadata.name.split(' ').length > 1 ? 
+                          user.user_metadata.name.split(' ').slice(1).join(' ') : '');
+        
         // Track user's presence with profile information
         await channel.track({
           online_at: new Date().toISOString(),
-          first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || '',
-          last_name: user.user_metadata?.last_name || 
-                    (user.user_metadata?.name?.split(' ').length > 1 ? user.user_metadata.name.split(' ').slice(1).join(' ') : ''),
+          first_name: firstName,
+          last_name: lastName,
           avatar_url: user.user_metadata?.avatar_url || '',
           last_active_page: location.pathname
         });
@@ -184,11 +190,16 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     // Update user's active page when location changes
     const updateActivePage = async () => {
       if (channel && user) {
+        const firstName = user.user_metadata?.first_name || 
+                         (user.user_metadata?.name ? user.user_metadata.name.split(' ')[0] : '');
+        const lastName = user.user_metadata?.last_name || 
+                        (user.user_metadata?.name && user.user_metadata.name.split(' ').length > 1 ? 
+                        user.user_metadata.name.split(' ').slice(1).join(' ') : '');
+        
         await channel.track({
           online_at: new Date().toISOString(),
-          first_name: user.user_metadata?.first_name || user.user_metadata?.name?.split(' ')[0] || '',
-          last_name: user.user_metadata?.last_name || 
-                    (user.user_metadata?.name?.split(' ').length > 1 ? user.user_metadata.name.split(' ').slice(1).join(' ') : ''),
+          first_name: firstName,
+          last_name: lastName,
           avatar_url: user.user_metadata?.avatar_url || '',
           last_active_page: location.pathname
         });
@@ -210,7 +221,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       fetchPageVisibility();
       
       // If user is admin, sync pages
-      if (user.app_metadata?.role === 'admin' || user.user_metadata?.role === 'admin') {
+      if (user.app_metadata?.roles?.includes('admin') || 
+          user.user_metadata?.role === 'admin') {
         syncAvailablePages();
       }
     } else {
@@ -222,7 +234,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
   const isPageVisible = (path: string): boolean => {
     // Admins can always see all pages
-    if (user?.app_metadata?.role === 'admin' || user?.user_metadata?.role === 'admin') return true;
+    if (user?.app_metadata?.roles?.includes('admin') || 
+        user?.user_metadata?.role === 'admin') return true;
 
     // Find exact match or pattern match for the path
     const page = pageVisibility.find(p => 
@@ -233,7 +246,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     if (!page) return true; // If page isn't in the visibility list, default to visible
 
     // Check user role and page visibility
-    if (user?.app_metadata?.role === 'instructor' || user?.user_metadata?.role === 'instructor') {
+    if (user?.app_metadata?.roles?.includes('instructor') || 
+        user?.user_metadata?.role === 'instructor') {
       return page.visible_to_instructors;
     }
     
