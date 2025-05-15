@@ -517,10 +517,10 @@ serve(async (req) => {
       //   }, 50);
       // }
       // Fire and forget
-      // console.log('Starting background bullet improvement process');
-      // bulletImprover(userId, analysisResult)
-      //   .then(() => console.log('✅ bulletImprover completed'))
-      //   .catch((err) => console.error('❌ bulletImprover error:', err));
+      console.log('Starting background bullet improvement process');
+      bulletImprover(userId, analysisResult)
+        .then(() => console.log('✅ bulletImprover completed'))
+        .catch((err) => console.error('❌ bulletImprover error:', err));
       
       // Return the response immediately
       return response;
