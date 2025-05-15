@@ -10,7 +10,7 @@ const TOAST_REMOVE_DELAY = 1000000
 
 export type Toast = Omit<ToasterToast, "id">
 
-export type ToasterToast = ToastProps & {
+type ToasterToast = ToastProps & {
   id: string
   title?: React.ReactNode
   description?: React.ReactNode
@@ -111,6 +111,7 @@ export const reducer = (state: State, action: Action): State => {
   }
 }
 
+// Create a proper provider component
 export function ToastProvider({
   children,
 }: {
@@ -133,7 +134,7 @@ export function ToastProvider({
     }, TOAST_REMOVE_DELAY)
 
     toastTimeouts.set(toastId, timeout)
-  }, [toastTimeouts])
+  }, [toastTimeouts, dispatch])
 
   const toast = React.useCallback((props: Toast) => {
     const id = genId()
@@ -202,6 +203,7 @@ export function useToast() {
 }
 
 // For backwards compatibility - NOTE: This won't work outside of components
+// This is now a wrapper around the useToast hook
 export const toast = (props: Toast) => {
   console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
   throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
