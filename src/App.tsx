@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -94,8 +95,8 @@ const ProtectedVisibleRoute = ({ children, requireAdmin = false }) => (
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <ToastProvider>
+      <ToastProvider>
+        <BrowserRouter>
           <TooltipProvider>
             <AuthProvider>
               <PageVisibilityProvider>
@@ -186,8 +187,8 @@ function App() {
               </PageVisibilityProvider>
             </AuthProvider>
           </TooltipProvider>
-        </ToastProvider>
-      </BrowserRouter>
+        </BrowserRouter>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }

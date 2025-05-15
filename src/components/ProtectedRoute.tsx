@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
@@ -17,38 +17,36 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
   const { isAuthenticated, user, storeRedirectPath } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
-
-  React.useEffect(() => {
-    // If user not authenticated, save the intended path for redirect after login
-    if (!isAuthenticated) {
+  
+  // Only store path when needed and avoid storing login paths
+  useEffect(() => {
+    if (!isAuthenticated && location.pathname !== '/login' && location.pathname !== '/register') {
       const pathForRedirect = location.pathname + location.search;
-      // Delegate redirect path storing to context method
       storeRedirectPath(pathForRedirect);
-      console.log('[ProtectedRoute] Stored redirect path for unauthenticated user:', pathForRedirect);
+      console.log('[ProtectedRoute] Stored redirect path:', pathForRedirect);
     }
   }, [isAuthenticated, location.pathname, location.search, storeRedirectPath]);
 
+  // Handle loading state
   if (isAuthenticated === undefined) {
-    // Loading auth state: optionally render a spinner or null to reduce delay
-    return null;
+    return null; // Return nothing during loading to avoid flicker
   }
 
+  // Handle unauthenticated users
   if (!isAuthenticated) {
-    // Redirect unauthenticated users to login, preserve intended location for redirect param
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Handle admin authorization
   if (requireAdmin && !(user?.roles?.includes('admin'))) {
-    // If requires admin and user not admin, show toast and redirect to dashboard
     toast({
       title: 'Access Denied',
-      description: 'You do not have permission to access this page.',
       variant: 'destructive',
     });
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Authenticated and authorized, render children
+  // Authenticated and authorized
   return <>{children}</>;
 };
 
