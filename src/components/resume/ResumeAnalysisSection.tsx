@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -157,7 +156,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                   <TabsContent value="storytelling" className="mt-0 flex-grow h-full">
                     <BulletPointsAnalysisCard
                       bullets={analysis.bullets || []}
-                      isAnalyzing={isAnalyzing || isPollingForImprovements} // Pass both loading states
+                      isAnalyzing={isAnalyzing || isPollingForImprovements} // Pass both states to control loading overlay
                     />
                   </TabsContent>
                   <TabsContent value="ats" className="mt-0 flex-grow h-full">
