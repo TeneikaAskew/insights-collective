@@ -9,12 +9,19 @@ import {
 const TOAST_LIMIT = 20;
 const TOAST_REMOVE_DELAY = 1000000;
 
-type ToasterToast = Toast & {
+// Define ToasterToast without circular references
+interface ToasterToast {
   id: string;
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: ToastActionElement;
-};
+  variant?: "default" | "destructive";
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+// Redefine Toast type without circular references
+type Toast = Omit<ToasterToast, "id">;
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -137,9 +144,7 @@ function dispatch(action: Action) {
   });
 }
 
-type Toast = Omit<ToasterToast, "id">;
-
-function toast({ ...props }: Toast) {
+function toast(props: Toast) {
   const id = genId();
 
   const update = (props: ToasterToast) =>

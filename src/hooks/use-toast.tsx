@@ -8,30 +8,19 @@ import type {
 const TOAST_LIMIT = 1
 const TOAST_REMOVE_DELAY = 1000000
 
-export type Toast = Omit<ToasterToast, "id">
-// Define a base type first
-interface BaseToast {
+// First define the base ToasterToast type without circular references
+export interface ToasterToast {
+  id: string;
   title?: React.ReactNode;
   description?: React.ReactNode;
   action?: ToastActionElement;
-  // Include other props from ToastProps that aren't causing circular references
   variant?: "default" | "destructive";
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-// Then define the specific types
-export type Toast = BaseToast;
-
-type ToasterToast = Toast & {
-  id: string;
-};
-// type ToasterToast = ToastProps & {
-//   id: string
-//   title?: React.ReactNode
-//   description?: React.ReactNode
-//   action?: ToastActionElement
-// }
+// Then define Toast as a subset of ToasterToast
+export type Toast = Omit<ToasterToast, "id">
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
@@ -218,15 +207,8 @@ export function useToast() {
   return context
 }
 
-
-export { ToastProvider, useToast };
+// For backwards compatibility - a wrapper that throws an error
 export const toast = (props: Toast) => {
-  console.error("Direct toast() call is deprecated. Use useToast() hook instead.");
-  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.");
-};
-// // For backwards compatibility - NOTE: This won't work outside of components
-// // This is now a wrapper around the useToast hook
-// export const toast = (props: Toast) => {
-//   console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
-//   throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
-// }
+  console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
+  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
+}
