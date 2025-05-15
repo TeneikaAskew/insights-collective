@@ -1,10 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from 'react-router-dom';
-import { extractRoutes, extractRouteName, type RouteInfo } from '@/utils/routeUtils';
-import { UserWithProfile } from '@/types/supabase';
+import { extractRoutes, type RouteInfo } from '@/utils/routeUtils';
 
 type PageVisibility = {
   id: string;
@@ -14,15 +12,6 @@ type PageVisibility = {
   visible_to_instructors: boolean;
 };
 
-type UserPresence = {
-  user_id: string;
-  first_name?: string;
-  last_name?: string;
-  avatar_url?: string;
-  online_at: string;
-  last_active_page?: string;
-};
-
 type PageVisibilityContextType = {
   pageVisibility: PageVisibility[];
   isLoading: boolean;
@@ -30,18 +19,29 @@ type PageVisibilityContextType = {
   updatePageVisibility: (id: string, updates: Partial<PageVisibility>) => Promise<void>;
   refreshPageVisibility: () => Promise<void>;
   syncAvailablePages: () => Promise<void>;
-  onlineUsers: UserPresence[];
 };
 
 const PageVisibilityContext = createContext<PageVisibilityContextType | undefined>(undefined);
 
+// Helper function to extract page names from paths
+const getPageNameFromPath = (path: string): string => {
+  // Remove leading slash and parameters
+  const cleanPath = path.replace(/^\//, '').split(':')[0].replace(/\/$/, '');
+  
+  // Handle empty path (root)
+  if (!cleanPath) return 'Home';
+  
+  // Convert kebab-case to Title Case
+  return cleanPath
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+};
+
 export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
-  const location = useLocation();
+  const { user } = useAuth(); // This hook must be used inside AuthProvider
   const [pageVisibility, setPageVisibility] = useState<PageVisibility[]>([]);
-  const [onlineUsers, setOnlineUsers] = useState<UserPresence[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [presenceChannel, setPresenceChannel] = useState<any>(null);
 
   const fetchPageVisibility = async () => {
     try {
@@ -117,133 +117,26 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     }
   };
 
-  // Set up user presence tracking
-  useEffect(() => {
-    if (!user) return;
-
-    // Clean up previous channel if it exists
-    if (presenceChannel) {
-      supabase.removeChannel(presenceChannel);
-    }
-
-    // Create and subscribe to the presence channel
-    const channel = supabase.channel('online-users', {
-      config: {
-        presence: {
-          key: user.id,
-        },
-      },
-    });
-
-    // Handle presence events (sync, join, leave)
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const presentUsers: UserPresence[] = [];
-        
-        // Convert presence state to array of users
-        Object.entries(state).forEach(([key, presences]) => {
-          const userPresence = presences[0] as any;
-          if (userPresence) {
-            presentUsers.push({
-              user_id: key,
-              first_name: userPresence.first_name || '',
-              last_name: userPresence.last_name || '',
-              avatar_url: userPresence.avatar_url,
-              online_at: userPresence.online_at,
-              last_active_page: userPresence.last_active_page
-            });
-          }
-        });
-        
-        setOnlineUsers(presentUsers);
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('User joined:', key, newPresences);
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('User left:', key, leftPresences);
-      });
-
-    // Subscribe to the channel
-    channel.subscribe(async (status) => {
-      if (status === 'SUBSCRIBED') {
-        // Get user metadata
-        const userData = user?.user_metadata || {};
-        
-        // Extract first and last name, handling different data structures
-        let firstName = '';
-        let lastName = '';
-        
-        if (userData.first_name) {
-          firstName = userData.first_name;
-        } else if (userData.name) {
-          const nameParts = userData.name.split(' ');
-          firstName = nameParts[0] || '';
-          lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-        }
-        
-        // Track user's presence with profile information
-        await channel.track({
-          online_at: new Date().toISOString(),
-          first_name: firstName,
-          last_name: lastName,
-          avatar_url: userData.avatar_url || '',
-          last_active_page: location.pathname
-        });
-      }
-    });
-
-    setPresenceChannel(channel);
-    
-    // Update user's active page when location changes
-    const updateActivePage = async () => {
-      if (channel && user) {
-        const userData = user?.user_metadata || {};
-        
-        // Extract first and last name, handling different data structures
-        let firstName = '';
-        let lastName = '';
-        
-        if (userData.first_name) {
-          firstName = userData.first_name;
-        } else if (userData.name) {
-          const nameParts = userData.name.split(' ');
-          firstName = nameParts[0] || '';
-          lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
-        }
-        
-        await channel.track({
-          online_at: new Date().toISOString(),
-          first_name: firstName,
-          last_name: lastName,
-          avatar_url: userData.avatar_url || '',
-          last_active_page: location.pathname
-        });
-      }
-    };
-
-    // Update active page on location change
-    updateActivePage();
-
-    return () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, [user, location.pathname]);
-
   useEffect(() => {
     if (user) {
       fetchPageVisibility();
       
       // If user is admin, sync pages
-      // Handle user roles safely
-      const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
-      
-      if (isAdmin) {
+      if (user.role === 'admin') {
         syncAvailablePages();
       }
+      
+      // Set up interval to sync pages daily (for admins only)
+      let syncInterval: number | undefined;
+      if (user.role === 'admin') {
+        syncInterval = window.setInterval(() => {
+          syncAvailablePages();
+        }, 24 * 60 * 60 * 1000); // 24 hours
+      }
+      
+      return () => {
+        if (syncInterval) clearInterval(syncInterval);
+      };
     } else {
       // Handle case when user is not authenticated
       setIsLoading(false);
@@ -253,10 +146,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
   const isPageVisible = (path: string): boolean => {
     // Admins can always see all pages
-    // Handle user roles safely
-    const isAdmin = user?.role === 'admin' || user?.roles?.includes('admin');
-    
-    if (isAdmin) return true;
+    if (user?.role === 'admin') return true;
 
     // Find exact match or pattern match for the path
     const page = pageVisibility.find(p => 
@@ -267,9 +157,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     if (!page) return true; // If page isn't in the visibility list, default to visible
 
     // Check user role and page visibility
-    const isInstructor = user?.role === 'instructor' || user?.roles?.includes('instructor');
-    
-    if (isInstructor) {
+    if (user?.role === 'instructor') {
       return page.visible_to_instructors;
     }
     
@@ -323,8 +211,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         isPageVisible, 
         updatePageVisibility,
         refreshPageVisibility,
-        syncAvailablePages,
-        onlineUsers
+        syncAvailablePages
       }}
     >
       {children}

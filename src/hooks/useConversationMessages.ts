@@ -52,7 +52,7 @@ export function useConversationMessages(conversationId?: string) {
         // Process messages to ensure proper typing and enrich profiles
         const messagesWithProfiles = (data || []).map(message => ({
           ...message,
-          sender: message.sender ? enrichProfileWithRoles(message.sender as Profile) : null
+          sender: message.sender ? enrichProfileWithRoles(message.sender) : null
         })) as Message[];
 
         setMessages(messagesWithProfiles);
@@ -104,27 +104,22 @@ export function useConversationMessages(conversationId?: string) {
               // Create new message with sender profile
               const newMessage: Message = {
                 ...payload.new as any,
-                sender: enrichProfileWithRoles(senderData as Profile)
+                sender: enrichProfileWithRoles(senderData)
               };
               
               // Update messages state
               setMessages(prevMessages => [...prevMessages, newMessage]);
             } else {
               // Fall back to adding the message without sender data
-              const fallbackProfile = {
-                id: payload.new.sender_id,
-                first_name: 'Unknown',
-                last_name: 'User',
-                role: 'student',
-                avatar_url: null,
-                bio: null
-              } as Profile;
-              
               const newMessage: Message = {
                 ...payload.new as any,
-                sender: fallbackProfile
+                sender: {
+                  id: payload.new.sender_id,
+                  first_name: 'Unknown',
+                  last_name: 'User',
+                  roles: ['student'],
+                } as Profile
               };
-              
               setMessages(prevMessages => [...prevMessages, newMessage]);
             }
             
