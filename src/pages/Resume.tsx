@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast.tsx';
 import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
@@ -62,9 +61,7 @@ const Resume = () => {
   const currentResumeIdRef = useRef(null);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const hasLoadedEnhancedRef = useRef(false);
-  const [improvedBullets, setImprovedBullets] = useState([]);
-  const pollingIntervalRef = useRef(null);
-  const [localPollingStatus, setIsPollingForImprovements] = useState(false);
+  
   // Clean up the polling interval when component unmounts
   useEffect(() => {
     return () => {
@@ -212,6 +209,8 @@ const Resume = () => {
     logDebug('EnhancedUpdate', 'Setting isLoadingEnhancedBullets to false');
     setIsLoadingEnhancedBullets(false);
   };
+  
+  // useEffects for initial loading
   useEffect(() => {
     let isMounted = true;
     const loadInitialData = async () => {
@@ -351,6 +350,8 @@ const Resume = () => {
     };
     loadEnhancedAnalysis();
   }, [user, analysis, resume]);
+  
+  // File handling
   useEffect(() => {
     logDebug('FileHandler', 'File change detected', {
       hasFile: !!resumeFile
@@ -404,6 +405,8 @@ const Resume = () => {
       }
     };
   }, [resumeFile, toast]);
+  
+  // Analysis runner
   useEffect(() => {
     logDebug('AnalysisRunner', 'Checking if analysis needs to be run', {
       hasResumeText: !!resume?.text,
@@ -433,6 +436,7 @@ const Resume = () => {
       });
     }
   }, [resume, analysis, analyzeResume, isAnalyzing, hasLoadedAnalysis, initialLoadComplete]);
+  
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     logDebug('UserAction', 'File input changed', {
@@ -457,6 +461,7 @@ const Resume = () => {
       });
     }
   };
+  
   const handleUpload = async () => {
     logDebug('UserAction', 'Upload requested', {
       hasFile: !!resumeFile,
@@ -524,6 +529,7 @@ const Resume = () => {
       }
     }
   };
+  
   const handleDelete = async () => {
     logDebug('UserAction', 'Delete requested');
     try {
@@ -552,16 +558,19 @@ const Resume = () => {
       });
     }
   };
+  
   const handleDownload = () => {
     logDebug('UserAction', 'Download requested', {
       hasFileUrl: !!resume?.file_url
     });
     if (resume?.file_url) window.open(resume.file_url, '_blank');
   };
+  
   const handleStartCareerChat = () => {
     logDebug('UserAction', 'Career chat requested');
     setShowCareerChat(true);
   };
+  
   const handleRefreshData = async () => {
     logDebug('UserAction', 'Refresh data requested');
     setIsRefreshing(true);
@@ -651,317 +660,116 @@ const Resume = () => {
   };
 
   const handleCheckEnhancements = async () => {
-  if (!user || !resume || !resume.id) {
-    logDebug('CheckEnhancements', 'Missing user, resume or resume ID', {
-      hasUser: !!user,
-      hasResume: !!resume,
-      resumeId: resume?.id
-    });
-    return;
-  }
-  
-  logDebug('CheckEnhancements', `Manually checking enhancements for resume ID: ${resume.id}`);
-  setIsLoadingEnhancedBullets(true);
-  setIsPollingForImprovements(true);
-  
-  try {
-    // First check if we already have enhanced analysis
-    const { data, error } = await supabase.from('resumes')
-      .select('enhanced_analysis')
-      .eq('id', resume.id)
-      .maybeSingle();
-      
-    if (error) {
-      throw error;
+    if (!user || !resume || !resume.id) {
+      logDebug('CheckEnhancements', 'Missing user, resume or resume ID', {
+        hasUser: !!user,
+        hasResume: !!resume,
+        resumeId: resume?.id
+      });
+      return;
     }
     
-    if (data?.enhanced_analysis) {
-      // We already have enhanced analysis, use it
-      handleEnhancedAnalysisUpdate(data.enhanced_analysis);
-      toast({
-        title: 'Enhancements Loaded',
-        description: 'Your resume bullet improvements have been loaded.',
-        variant: 'default'
-      });
-      setIsPollingForImprovements(false);
-    } else {
-      // Request improvements and start polling
-      // toast({
-      //   title: 'Processing Improvements',
-      //   description: `We're generating improvements for your resume bullets. This may take a minute.`,
-      //   variant: 'default'
-      // });
-
-      toast({
-        title: 'Processing Improvements',
-        description: "We're generating improvements for your resume bullets. This may take a minute.",
-        variant: 'default'
-      });
-      
-      // Request improvements
-      const { data: requestData, error: requestError } = await supabase.functions.invoke('resume-analyzer', {
-        body: { 
-          action: 'improve-bullets',
-          userId: user.id,
-        }
-      });
-      
-      if (requestError) {
-        throw requestError;
+    logDebug('CheckEnhancements', `Manually checking enhancements for resume ID: ${resume.id}`);
+    setIsLoadingEnhancedBullets(true);
+    setIsPollingForImprovements(true);
+    
+    try {
+      // First check if we already have enhanced analysis
+      const { data, error } = await supabase.from('resumes')
+        .select('enhanced_analysis')
+        .eq('id', resume.id)
+        .maybeSingle();
+        
+      if (error) {
+        throw error;
       }
       
-      // Start polling for results
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-      
-      pollingIntervalRef.current = setInterval(async () => {
-        try {
-          const { data: pollData, error: pollError } = await supabase.from('resumes')
-            .select('enhanced_analysis')
-            .eq('id', resume.id)
-            .maybeSingle();
-            
-          if (pollError) {
-            throw pollError;
+      if (data?.enhanced_analysis) {
+        // We already have enhanced analysis, use it
+        handleEnhancedAnalysisUpdate(data.enhanced_analysis);
+        toast({
+          title: 'Enhancements Loaded',
+          description: 'Your resume bullet improvements have been loaded.',
+          variant: 'default'
+        });
+        setIsPollingForImprovements(false);
+      } else {
+        // Request improvements and start polling
+        toast({
+          title: 'Processing Improvements',
+          description: "We're generating improvements for your resume bullets. This may take a minute.",
+          variant: 'default'
+        });
+        
+        // Request improvements
+        const { data: requestData, error: requestError } = await supabase.functions.invoke('resume-analyzer', {
+          body: { 
+            action: 'improve-bullets',
+            userId: user.id,
           }
-          
-          if (pollData?.enhanced_analysis) {
-            // We have results!
-            handleEnhancedAnalysisUpdate(pollData.enhanced_analysis);
-            
-            // Success - stop polling
-            if (pollingIntervalRef.current) {
-              clearInterval(pollingIntervalRef.current);
-              pollingIntervalRef.current = null;
+        });
+        
+        if (requestError) {
+          throw requestError;
+        }
+        
+        // Start polling for results
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
+        }
+        
+        pollingIntervalRef.current = setInterval(async () => {
+          try {
+            const { data: pollData, error: pollError } = await supabase.from('resumes')
+              .select('enhanced_analysis')
+              .eq('id', resume.id)
+              .maybeSingle();
+              
+            if (pollError) {
+              throw pollError;
             }
             
-            setIsPollingForImprovements(false);
-            setIsLoadingEnhancedBullets(false);
-            
-            toast({
-              title: 'Resume Analysis Completed',
-              description: "We've enhanced your bullet points with suggestions for improvement!",
-            });
-          }
-        } catch (err) {
-          console.error("Error polling for improvements:", err);
-          // Don't stop polling on errors - just continue trying
-        }
-      }, 5000); // Poll every 5 seconds
-    }
-  } catch (err) {
-    logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
-    console.error("Error checking for enhancements:", err);
-    toast({
-      title: 'Error',
-      description: 'Could not load enhanced bullets. Please try again later.',
-      variant: 'destructive'
-    });
-    setIsLoadingEnhancedBullets(false);
-    setIsPollingForImprovements(false);
-  }
-};
-  // const handleCheckEnhancements = async () => {
-  //   if (!user || !resume || !resume.id) {
-  //     logDebug('CheckEnhancements', 'Missing user, resume or resume ID', {
-  //       hasUser: !!user,
-  //       hasResume: !!resume,
-  //       resumeId: resume?.id
-  //     });
-  //     return;
-  //   }
-  //   logDebug('CheckEnhancements', `Manually checking enhancements for resume ID: ${resume.id}`);
-  //   setIsLoadingEnhancedBullets(true);
-  //   try {
-  //     // Query specifically by resume ID
-  //     logDebug('CheckEnhancements', 'Querying Supabase for enhanced_analysis');
-  //     const {
-  //       data,
-  //       error
-  //     } = await supabase.from('resumes').select('enhanced_analysis').eq('id', resume.id).maybeSingle();
-  //     if (error) {
-  //       logDebug('CheckEnhancements', 'Error querying enhanced_analysis:', error);
-  //       throw error;
-  //     }
-  //     logDebug('CheckEnhancements', 'Received response from Supabase', {
-  //       hasData: !!data,
-  //       hasEnhancedAnalysis: !!data?.enhanced_analysis,
-  //       enhancedAnalysisType: data?.enhanced_analysis ? typeof data.enhanced_analysis : 'none',
-  //       isArray: data?.enhanced_analysis ? Array.isArray(data.enhanced_analysis) : false,
-  //       length: data?.enhanced_analysis && Array.isArray(data.enhanced_analysis) ? data.enhanced_analysis.length : 0
-  //     });
-  //     if (data?.enhanced_analysis) {
-  //       logDebug('CheckEnhancements', 'Found enhanced analysis, passing to handler');
-  //       handleEnhancedAnalysisUpdate(data.enhanced_analysis);
-  //       toast({
-  //         title: 'Enhancements Loaded',
-  //         description: 'Your resume bullet improvements have been loaded.',
-  //         variant: 'default'
-  //       });
-  //     } else {
-  //       logDebug('CheckEnhancements', 'No enhanced analysis found in response');
-  //       toast({
-  //         title: 'No Enhancements',
-  //         description: 'No improved bullets found yet. They may still be processing.',
-  //         variant: 'default'
-  //       });
-  //       setIsLoadingEnhancedBullets(false);
-
-  //       // Call a special endpoint to check for improved bullets
-  //       const { data, error } = await supabase.functions.invoke('resume-analyzer', {
-  //         body: { 
-  //           action: 'improve-bullets',
-  //           userId: user.id,
-  //           // careerGoals: careerGoals || undefined
-  //         }
-  //       });
-  //       if (error) {
-  //         console.error("Error polling for improved bullets:", error);
-  //       } else if (data?.improved_bullets && data.improved_bullets.length > 0) {
-  //         console.log("Received improved bullets:", data.improved_bullets.length);
-          
-  //         // We have the improved bullets - update the analysis
-  //         setImprovedBullets(data.improved_bullets);
-          
-  //         // Also update the full analysis object with the improved bullets
-  //         setAnalysis(prevAnalysis => {
-  //           if (!prevAnalysis) return prevAnalysis;
-            
-  //           return {
-  //             ...prevAnalysis,
-  //             bullets: data.improved_bullets
-  //           };
-  //         });
-          
-  //         // Success - we can stop polling
-  //         if (pollingIntervalRef.current) {
-  //           clearInterval(pollingIntervalRef.current);
-  //           pollingIntervalRef.current = null;
-  //         }
-  //         setIsPollingForImprovements(false);
-          
-  //         // Notify the user
-  //         toast({
-  //           title: "Resume Analysis Completed",
-  //           description: "We've enhanced your bullet points with suggestions for improvement!",
-  //         });
-          
-  //         return;
-  //       } else if (data?.improvement_complete === false) {
-  //         // The server indicates improvements aren't ready yet
-  //         console.log("Improvements still processing...");
-          
-  //         // Set up polling if not already polling
-  //         if (!pollingIntervalRef.current && !isPollingForImprovements) {
-  //           setIsPollingForImprovements(true);
-  //           let attempts = 0;
-  //           const maxAttempts = 10;
-            
-  //           pollingIntervalRef.current = setInterval(async () => {
-  //             attempts++;
-  //             console.log(`Polling attempt ${attempts} for improved bullets`);
+            if (pollData?.enhanced_analysis) {
+              // We have results!
+              handleEnhancedAnalysisUpdate(pollData.enhanced_analysis);
               
-  //             try {
-  //               const { data, error } = await supabase.functions.invoke('resume-analyzer', {
-  //                 body: { 
-  //                   action: 'improve-bullets',
-  //                   userId: user.id
-  //                 }
-  //               });
-                
-  //               if (error) {
-  //                 console.error("Error in polling:", error);
-  //                 if (pollingIntervalRef.current) {
-  //                   clearInterval(pollingIntervalRef.current);
-  //                   pollingIntervalRef.current = null;
-  //                 }
-  //                 setIsPollingForImprovements(false);
-  //                 return;
-  //               }
-                
-  //               if (data?.improved_bullets && data.improved_bullets.length > 0) {
-  //                 // Success - we got the improved bullets
-  //                 setImprovedBullets(data.improved_bullets);
-  //                 setAnalysis(prevAnalysis => {
-  //                   if (!prevAnalysis) return prevAnalysis;
-  //                   return {
-  //                     ...prevAnalysis,
-  //                     bullets: data.improved_bullets
-  //                   };
-  //                 });
-                  
-  //                 if (pollingIntervalRef.current) {
-  //                   clearInterval(pollingIntervalRef.current);
-  //                   pollingIntervalRef.current = null;
-  //                 }
-  //                 setIsPollingForImprovements(false);
-  //                 setIsLoadingEnhancedBullets(false);
-                  
-  //                 toast({
-  //                   title: "Resume Analysis Completed",
-  //                   description: "We've enhanced your bullet points with suggestions for improvement!",
-  //                 });
-  //               }
-                
-  //               // Stop after max attempts
-  //               if (attempts >= maxAttempts) {
-  //                 if (pollingIntervalRef.current) {
-  //                   clearInterval(pollingIntervalRef.current);
-  //                   pollingIntervalRef.current = null;
-  //                 }
-  //                 setIsPollingForImprovements(false);
-  //                 setIsLoadingEnhancedBullets(false);
-                  
-  //                 toast({
-  //                   title: "Timeout",
-  //                   description: "Could not retrieve improvements in time. Try again later.",
-  //                   variant: "destructive"
-  //                 });
-  //               }
-  //             } catch (err) {
-  //               console.error("Error in polling:", err);
-  //               if (pollingIntervalRef.current) {
-  //                 clearInterval(pollingIntervalRef.current);
-  //                 pollingIntervalRef.current = null;
-  //               }
-  //               setIsPollingForImprovements(false);
-  //               setIsLoadingEnhancedBullets(false);
-  //             }
-  //           }, 5000); // Poll every 5 seconds
-  //         }
-  //       }
-  //     }
-  //   } catch (err) {
-  //     logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
-  //     console.error("Error checking for enhancements:", err);
-  //     toast({
-  //       title: 'Error',
-  //       description: 'Could not load enhanced bullets. Please try again later.',
-  //       variant: 'destructive'
-  //     });
-  //     setIsLoadingEnhancedBullets(false);
-  //     if (pollingIntervalRef.current) {
-  //       clearInterval(pollingIntervalRef.current);
-  //       pollingIntervalRef.current = null;
-  //     }
-  //     setIsPollingForImprovements(false);
-  //   }
-  // };
+              // Success - stop polling
+              if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
+              }
+              
+              setIsPollingForImprovements(false);
+              setIsLoadingEnhancedBullets(false);
+              
+              toast({
+                title: 'Resume Analysis Completed',
+                description: "We've enhanced your bullet points with suggestions for improvement!",
+              });
+            }
+          } catch (err) {
+            console.error("Error polling for improvements:", err);
+            // Don't stop polling on errors - just continue trying
+          }
+        }, 5000); // Poll every 5 seconds
+      }
+    } catch (err) {
+      logDebug('CheckEnhancements', 'Error checking for enhancements:', err);
+      console.error("Error checking for enhancements:", err);
+      toast({
+        title: 'Error',
+        description: 'Could not load enhanced bullets. Please try again later.',
+        variant: 'destructive'
+      });
+      setIsLoadingEnhancedBullets(false);
+      setIsPollingForImprovements(false);
+    }
+  };
+
   if (!isAuthenticated) {
     logDebug('Render', 'User not authenticated, showing login wall');
     return <ResumeLoginWall />;
   }
-
-  // Add cleanup for polling interval
-  useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
-    };
-  }, []);
 
   const loading = resumeLoading || isAnalyzing || isRefreshing;
   logDebug('Render', 'Rendering main component', {
@@ -975,6 +783,7 @@ const Resume = () => {
     hasResume: !!resume,
     hasLoadedAnalysis
   });
+  
   return <AppLayout fullWidth>
       <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
         {/* Analysis overlay that appears during processing */}

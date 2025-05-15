@@ -2,7 +2,6 @@
 import * as React from "react"
 import type {
   ToastActionElement,
-  ToastProps,
 } from "@/components/ui/toast"
 
 const TOAST_LIMIT = 1
@@ -205,10 +204,4 @@ export function useToast() {
   }
   
   return context
-}
-
-// For backwards compatibility - a wrapper that throws an error
-export const toast = (props: Toast) => {
-  console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
-  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
 }

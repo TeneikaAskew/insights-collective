@@ -1,27 +1,12 @@
 
 import * as React from "react";
-import { 
-  Toast,
-  ToastActionElement, 
-  ToastProps 
-} from "@/components/ui/toast";
+import type { ToastActionElement } from "@/components/ui/toast";
+import type { Toast as ToastType, ToasterToast } from "./use-toast"; // Import the types from use-toast.tsx
 
 const TOAST_LIMIT = 20;
 const TOAST_REMOVE_DELAY = 1000000;
 
-// Define ToasterToast without circular references
-interface ToasterToast {
-  id: string;
-  title?: React.ReactNode;
-  description?: React.ReactNode;
-  action?: ToastActionElement;
-  variant?: "default" | "destructive";
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}
-
-// Redefine Toast type without circular references
-type Toast = Omit<ToasterToast, "id">;
+type Toast = ToastType; // Use the imported type
 
 const actionTypes = {
   ADD_TOAST: "ADD_TOAST",
