@@ -3,7 +3,9 @@ import React from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
+import UserPresenceBar from './UserPresenceBar';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
+import { useAuth } from '@/contexts/AuthContext';
 
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -11,8 +13,8 @@ type AppLayoutProps = {
 };
 
 const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
-  // Fixed: Use the correct property name from the hook
   const { navigateWithAuth } = useAuthenticatedNavigation();
+  const { isAuthenticated } = useAuth();
 
   return (
     <SidebarProvider>
@@ -20,6 +22,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
+          {isAuthenticated && <UserPresenceBar />}
           <main className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
             {children}
           </main>
