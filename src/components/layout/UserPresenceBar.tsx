@@ -2,83 +2,72 @@
 import React from 'react';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
-} from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
+import { Users } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
-export default function UserPresenceBar() {
+const UserPresenceBar = () => {
   const { onlineUsers } = usePageVisibility();
   const { user } = useAuth();
-  
-  if (!onlineUsers || onlineUsers.length === 0) return null;
-  
+
+  // If no online users or only the current user, don't display the bar
+  if (!onlineUsers || onlineUsers.length <= 1) {
+    return null;
+  }
+
   return (
-    <div className="flex items-center gap-1 overflow-x-auto p-1 border-b bg-background/95 backdrop-blur-sm">
-      <Badge variant="outline" className="rounded-full px-2 py-0 text-xs font-medium text-muted-foreground h-6">
-        {onlineUsers.length} online
-      </Badge>
-      
-      <div className="flex -space-x-2">
-        <TooltipProvider delayDuration={300}>
-          {onlineUsers.map((onlineUser) => {
-            const isCurrentUser = user?.id === onlineUser.user_id;
-            const initials = getInitials(onlineUser.name || '');
-            
-            return (
-              <Tooltip key={onlineUser.user_id}>
-                <TooltipTrigger asChild>
-                  <div className={`relative ${isCurrentUser ? 'z-10' : ''}`}>
-                    <Avatar className={`h-6 w-6 border ${isCurrentUser ? 'border-primary' : 'border-muted'}`}>
-                      <AvatarImage src={onlineUser.avatar_url} alt={onlineUser.name || 'User'} />
-                      <AvatarFallback className="text-[9px]">
-                        {initials}
-                      </AvatarFallback>
+    <div className="bg-muted/30 border-b py-1 px-4">
+      <div className="container flex items-center justify-end gap-1.5">
+        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Users className="h-3.5 w-3.5" />
+          <span>{onlineUsers.length} online</span>
+        </div>
+        <div className="flex -space-x-2 ml-2">
+          <TooltipProvider>
+            {onlineUsers.slice(0, 7).map((presence) => {
+              const isCurrentUser = presence.user_id === user?.id;
+              const initials = presence.name 
+                ? presence.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+                : '??';
+                
+              return (
+                <Tooltip key={presence.user_id}>
+                  <TooltipTrigger asChild>
+                    <Avatar className={`h-6 w-6 border-2 ${
+                      isCurrentUser 
+                        ? 'border-primary' 
+                        : 'border-background'
+                    }`}>
+                      <AvatarImage src={presence.avatar_url} alt={presence.name || 'User'} />
+                      <AvatarFallback className="text-[10px]">{initials}</AvatarFallback>
                     </Avatar>
-                    {isCurrentUser && (
-                      <span className="absolute bottom-[-2px] right-[-2px] h-2 w-2 rounded-full bg-primary border border-background" />
-                    )}
-                  </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    <p>{presence.name || 'Anonymous'} {isCurrentUser ? '(You)' : ''}</p>
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
+            
+            {onlineUsers.length > 7 && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Avatar className="h-6 w-6 border-2 border-background">
+                    <AvatarFallback className="text-[10px] bg-muted">
+                      +{onlineUsers.length - 7}
+                    </AvatarFallback>
+                  </Avatar>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <div className="flex flex-col text-xs">
-                    <span>{onlineUser.name || 'Anonymous User'} {isCurrentUser && '(You)'}</span>
-                    {onlineUser.current_path && (
-                      <span className="text-muted-foreground text-[10px]">
-                        On: {getPageName(onlineUser.current_path)}
-                      </span>
-                    )}
-                  </div>
+                  <p>+{onlineUsers.length - 7} more users online</p>
                 </TooltipContent>
               </Tooltip>
-            );
-          })}
-        </TooltipProvider>
+            )}
+          </TooltipProvider>
+        </div>
       </div>
     </div>
   );
-}
+};
 
-// Helper functions
-function getInitials(name: string): string {
-  return name
-    .split(' ')
-    .map(part => part[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
-
-function getPageName(path: string): string {
-  const pathParts = path.split('/').filter(Boolean);
-  if (pathParts.length === 0) return 'Home';
-  
-  const lastPart = pathParts[pathParts.length - 1];
-  const cleanPart = lastPart.replace(/[-_]/g, ' ');
-  
-  return cleanPart.charAt(0).toUpperCase() + cleanPart.slice(1);
-}
+export default UserPresenceBar;

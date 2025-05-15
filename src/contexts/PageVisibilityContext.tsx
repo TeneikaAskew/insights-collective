@@ -233,11 +233,14 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           updatePresence();
         }
       });
-    
+
     // Set up effect to update presence when location changes
-    useEffect(() => {
+    const handleLocationChange = () => {
       updatePresence();
-    }, [location.pathname]);
+    };
+    
+    // Add the location change effect
+    handleLocationChange();
     
     return () => {
       // Unsubscribe when component unmounts
