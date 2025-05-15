@@ -5,27 +5,29 @@ import { useAuthProvider, AuthContextType } from '@/hooks/useAuth';
 // Create context
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// AuthProvider wraps your app and manages session state
+// ✅ AuthProvider wraps your app and manages session state
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuthProvider();
 
-  // Only attempt redirect if authenticated and not loading
   useEffect(() => {
-    if (!auth.loading) {
-      const storedRedirect = localStorage.getItem('redirectAfterLogin');
-      
-      console.log('[AuthProvider] 🔄 Auth context init check');
-      console.log('[AuthProvider] State:', {
-        isAuthenticated: auth.isAuthenticated,
-        loading: auth.loading,
-        storedRedirect
-      });
+    const storedRedirect = localStorage.getItem('redirectAfterLogin');
 
-      // Only handle redirect if authenticated and there's a stored path
-      if (auth.isAuthenticated && storedRedirect && !['/login', '/register'].includes(storedRedirect)) {
-        console.log('[AuthProvider] ✅ Handling stored redirect:', storedRedirect);
+    console.log('[AuthProvider] 🔄 Checking auth context init');
+    console.log('[AuthProvider] State:', {
+      isAuthenticated: auth.isAuthenticated,
+      loading: auth.loading,
+      storedRedirect
+    });
+
+    if (auth.isAuthenticated && !auth.loading) {
+      if (storedRedirect && !['/login', '/register'].includes(storedRedirect)) {
+        console.log('[AuthProvider] ✅ Redirect detected. Routing to:', storedRedirect);
         auth.handleRedirectAfterLogin();
+      } else {
+        console.log('[AuthProvider] ℹ️ No redirect path needed or on login/register');
       }
+    } else {
+      console.log('[AuthProvider] ⏳ Waiting on authentication to complete...');
     }
   }, [auth.isAuthenticated, auth.loading, auth.handleRedirectAfterLogin]);
 
@@ -36,7 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-// Named hook to access auth context
+// ✅ Named hook — use this everywhere to access auth
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
