@@ -201,17 +201,8 @@ export function useToast() {
   return context
 }
 
-// Add a standalone toast function for backward compatibility
+// For backwards compatibility - NOTE: This won't work outside of components
 export const toast = (props: Toast) => {
-  console.warn("Direct toast() call is deprecated. Use useToast() hook instead.")
-  
-  // Get the context directly - this will only work inside components under ToastProvider
-  const context = React.useContext(ToastContext)
-  
-  if (!context) {
-    console.error("toast() called outside ToastProvider. This won't display any toast.")
-    return { id: "", dismiss: () => {}, update: () => {} }
-  }
-  
-  return context.toast(props)
+  console.error("Direct toast() call is deprecated. Use useToast() hook instead.")
+  throw new Error("Direct toast() calls are not supported. Use the useToast() hook instead.")
 }

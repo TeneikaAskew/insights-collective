@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -6,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { getBlogPostBySlug, updateBlogPost } from '@/services/blogService';
 import { BlogFormData, BlogPost } from '@/types/blog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import BlogPostForm from '@/components/blog/BlogPostForm';
 
 const EditBlogPost = () => {
@@ -15,7 +16,6 @@ const EditBlogPost = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [blogPost, setBlogPost] = useState<BlogPost | null>(null);
   const [isFetching, setIsFetching] = useState(true);
-  const { toast } = useToast();
 
   useEffect(() => {
     const fetchBlogPost = async () => {

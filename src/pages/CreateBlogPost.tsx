@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -6,13 +7,12 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { createBlogPost } from '@/services/blogService';
 import { BlogFormData } from '@/types/blog';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from '@/hooks/use-toast';
 import BlogPostForm from '@/components/blog/BlogPostForm';
 
 const CreateBlogPost = () => {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
 
   const handleCreatePost = async (data: BlogFormData) => {
     setIsLoading(true);
