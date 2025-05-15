@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLocation } from 'react-router-dom';
 import { extractRoutes, extractRouteName, type RouteInfo } from '@/utils/routeUtils';
+import { UserWithProfile } from '@/types/supabase';
 
 type PageVisibility = {
   id: string;
@@ -168,18 +169,19 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         // Get user metadata
-        const firstName = user.user_metadata?.first_name || 
-                          (user.user_metadata?.name ? user.user_metadata.name.split(' ')[0] : '');
-        const lastName = user.user_metadata?.last_name || 
-                         (user.user_metadata?.name && user.user_metadata.name.split(' ').length > 1 ? 
-                          user.user_metadata.name.split(' ').slice(1).join(' ') : '');
+        const userData = user.user_metadata || {};
+        const firstName = userData.first_name || 
+                          (userData.name ? userData.name.split(' ')[0] : '');
+        const lastName = userData.last_name || 
+                         (userData.name && userData.name.split(' ').length > 1 ? 
+                          userData.name.split(' ').slice(1).join(' ') : '');
         
         // Track user's presence with profile information
         await channel.track({
           online_at: new Date().toISOString(),
           first_name: firstName,
           last_name: lastName,
-          avatar_url: user.user_metadata?.avatar_url || '',
+          avatar_url: userData.avatar_url || '',
           last_active_page: location.pathname
         });
       }
@@ -190,17 +192,18 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     // Update user's active page when location changes
     const updateActivePage = async () => {
       if (channel && user) {
-        const firstName = user.user_metadata?.first_name || 
-                         (user.user_metadata?.name ? user.user_metadata.name.split(' ')[0] : '');
-        const lastName = user.user_metadata?.last_name || 
-                        (user.user_metadata?.name && user.user_metadata.name.split(' ').length > 1 ? 
-                        user.user_metadata.name.split(' ').slice(1).join(' ') : '');
+        const userData = user.user_metadata || {};
+        const firstName = userData.first_name || 
+                         (userData.name ? userData.name.split(' ')[0] : '');
+        const lastName = userData.last_name || 
+                        (userData.name && userData.name.split(' ').length > 1 ? 
+                        userData.name.split(' ').slice(1).join(' ') : '');
         
         await channel.track({
           online_at: new Date().toISOString(),
           first_name: firstName,
           last_name: lastName,
-          avatar_url: user.user_metadata?.avatar_url || '',
+          avatar_url: userData.avatar_url || '',
           last_active_page: location.pathname
         });
       }
@@ -221,8 +224,10 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       fetchPageVisibility();
       
       // If user is admin, sync pages
-      if (user.app_metadata?.roles?.includes('admin') || 
-          user.user_metadata?.role === 'admin') {
+      const userData = user.user_metadata || {};
+      const userRoles = user.app_metadata?.roles || [];
+      
+      if (userRoles.includes('admin') || userData.role === 'admin') {
         syncAvailablePages();
       }
     } else {
@@ -234,8 +239,10 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
   const isPageVisible = (path: string): boolean => {
     // Admins can always see all pages
-    if (user?.app_metadata?.roles?.includes('admin') || 
-        user?.user_metadata?.role === 'admin') return true;
+    const userData = user?.user_metadata || {};
+    const userRoles = user?.app_metadata?.roles || [];
+    
+    if (userRoles.includes('admin') || userData.role === 'admin') return true;
 
     // Find exact match or pattern match for the path
     const page = pageVisibility.find(p => 
@@ -246,8 +253,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     if (!page) return true; // If page isn't in the visibility list, default to visible
 
     // Check user role and page visibility
-    if (user?.app_metadata?.roles?.includes('instructor') || 
-        user?.user_metadata?.role === 'instructor') {
+    if (userRoles.includes('instructor') || userData.role === 'instructor') {
       return page.visible_to_instructors;
     }
     

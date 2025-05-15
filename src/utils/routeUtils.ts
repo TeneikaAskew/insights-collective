@@ -1,12 +1,5 @@
 
-import { ReactElement } from 'react';
-import { Route } from 'react-router-dom';
-
-interface RouteElement {
-  path?: string;
-  element?: ReactElement;
-  children?: RouteElement[];
-}
+import React, { ReactElement } from 'react';
 
 export interface RouteInfo {
   path: string;
@@ -33,7 +26,7 @@ export const extractRoutes = (children: ReactElement[]): RouteInfo[] => {
   const processRoute = (element: ReactElement, parentPath = '') => {
     if (!element || !element.props) return;
 
-    const props = element.props as RouteElement;
+    const props = element.props;
     const path = props.path;
     
     // Skip routes without paths or with wildcard paths or direct dynamic segments at root level
