@@ -28,7 +28,8 @@ import {
   CheckCircle, 
   UserCheck,
   Users,
-  RefreshCw
+  RefreshCw,
+  Activity
 } from 'lucide-react';
 import {
   Tooltip,
@@ -38,9 +39,12 @@ import {
 } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from "@/components/ui/separator";
 
 const AdminPageVisibility = () => {
-  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages } = usePageVisibility();
+  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages, onlineUsers } = usePageVisibility();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
@@ -93,6 +97,25 @@ const AdminPageVisibility = () => {
     }
   };
 
+  // Function to get user's initials from name
+  const getUserInitials = (firstName: string = '', lastName: string = '') => {
+    const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : '';
+    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
+    return (firstInitial + lastInitial) || '?';
+  };
+
+  // Format relative time for user's online status
+  const formatRelativeTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) return 'just now';
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`;
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
+    return `${Math.floor(diffInSeconds / 86400)}d ago`;
+  };
+
   return (
     <AppLayout>
       <div className="space-y-6">
@@ -103,159 +126,279 @@ const AdminPageVisibility = () => {
           </p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <CardTitle>Page Visibility Settings</CardTitle>
-                <CardDescription>
-                  Configure which user roles can access each page in the application.
-                </CardDescription>
-              </div>
-              <div className="flex flex-col md:flex-row gap-2 items-end">
-                <div className="relative w-full md:w-64">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search pages..." 
-                    className="pl-10"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                  />
+        <Tabs defaultValue="visibility" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="visibility">Page Visibility</TabsTrigger>
+            <TabsTrigger value="presence">
+              User Presence 
+              <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
+                {onlineUsers.length}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="visibility">
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <CardTitle>Page Visibility Settings</CardTitle>
+                    <CardDescription>
+                      Configure which user roles can access each page in the application.
+                    </CardDescription>
+                  </div>
+                  <div className="flex flex-col md:flex-row gap-2 items-end">
+                    <div className="relative w-full md:w-64">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        placeholder="Search pages..." 
+                        className="pl-10"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleSyncPages} 
+                      disabled={syncing}
+                      className="whitespace-nowrap"
+                    >
+                      <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                      {syncing ? 'Syncing...' : 'Sync Pages'}
+                    </Button>
+                  </div>
                 </div>
-                <Button 
-                  onClick={handleSyncPages} 
-                  disabled={syncing}
-                  className="whitespace-nowrap"
-                >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                  {syncing ? 'Syncing...' : 'Sync Pages'}
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[300px]">Page</TableHead>
-                    <TableHead className="w-[150px]">Path</TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center">
-                        <Users className="h-4 w-4 mr-2" />
-                        <span>All Users</span>
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center">
-                        <UserCheck className="h-4 w-4 mr-2" />
-                        <span>Instructors</span>
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center">
-                        <Shield className="h-4 w-4 mr-2" />
-                        <span>Admins</span>
-                      </div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    // Skeleton loader when data is loading
-                    Array.from({ length: 6 }).map((_, index) => (
-                      <TableRow key={`skeleton-${index}`}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-[250px]" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-[100px]" />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Skeleton className="h-6 w-10 mx-auto" />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Skeleton className="h-6 w-10 mx-auto" />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Skeleton className="h-6 w-10 mx-auto" />
-                        </TableCell>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[300px]">Page</TableHead>
+                        <TableHead className="w-[150px]">Path</TableHead>
+                        <TableHead className="text-center">
+                          <div className="flex items-center justify-center">
+                            <Users className="h-4 w-4 mr-2" />
+                            <span>All Users</span>
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <div className="flex items-center justify-center">
+                            <UserCheck className="h-4 w-4 mr-2" />
+                            <span>Instructors</span>
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-center">
+                          <div className="flex items-center justify-center">
+                            <Shield className="h-4 w-4 mr-2" />
+                            <span>Admins</span>
+                          </div>
+                        </TableHead>
                       </TableRow>
-                    ))
-                  ) : filteredPages.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                        No pages match your search.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredPages.map((page) => (
-                      <TableRow key={page.id}>
-                        <TableCell className="font-medium">
-                          {page.page_name}
-                          {page.page_path.includes(':') && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span>
-                                    <Info className="h-4 w-4 inline ml-2 text-muted-foreground" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Dynamic route with parameters</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {page.page_path}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center">
-                            <Switch
-                              checked={page.visible_to_users}
-                              disabled={updating[page.id + 'visible_to_users']}
-                              onCheckedChange={(checked) => 
-                                handleVisibilityChange(page.id, 'visible_to_users', checked)
-                              }
-                            />
+                    </TableHeader>
+                    <TableBody>
+                      {isLoading ? (
+                        // Skeleton loader when data is loading
+                        Array.from({ length: 6 }).map((_, index) => (
+                          <TableRow key={`skeleton-${index}`}>
+                            <TableCell>
+                              <Skeleton className="h-4 w-[250px]" />
+                            </TableCell>
+                            <TableCell>
+                              <Skeleton className="h-4 w-[100px]" />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Skeleton className="h-6 w-10 mx-auto" />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Skeleton className="h-6 w-10 mx-auto" />
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Skeleton className="h-6 w-10 mx-auto" />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : filteredPages.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                            No pages match your search.
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        filteredPages.map((page) => (
+                          <TableRow key={page.id}>
+                            <TableCell className="font-medium">
+                              {page.page_name}
+                              {page.page_path.includes(':') && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span>
+                                        <Info className="h-4 w-4 inline ml-2 text-muted-foreground" />
+                                      </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Dynamic route with parameters</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs">
+                              {page.page_path}
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Switch
+                                  checked={page.visible_to_users}
+                                  disabled={updating[page.id + 'visible_to_users']}
+                                  onCheckedChange={(checked) => 
+                                    handleVisibilityChange(page.id, 'visible_to_users', checked)
+                                  }
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Switch
+                                  checked={page.visible_to_instructors}
+                                  disabled={updating[page.id + 'visible_to_instructors']}
+                                  onCheckedChange={(checked) => 
+                                    handleVisibilityChange(page.id, 'visible_to_instructors', checked)
+                                  }
+                                />
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <div className="flex justify-center">
+                                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                  Always
+                                </Badge>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="mt-4 text-sm text-muted-foreground">
+                  <p>
+                    <strong>Notes:</strong> Pages not visible to a user role will show a "Coming Soon" overlay. 
+                    Admin users will always have access to all pages regardless of these settings.
+                    Click "Sync Pages" to detect newly added pages in the application.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="presence">
+            <Card>
+              <CardHeader>
+                <CardTitle>User Presence</CardTitle>
+                <CardDescription>
+                  Monitor users who are currently active on the platform.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {onlineUsers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-3" />
+                    <h3 className="text-lg font-medium">No users currently online</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Users will appear here when they are active on the platform.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex flex-wrap gap-3">
+                      {onlineUsers.map((user) => (
+                        <TooltipProvider key={user.user_id}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="relative">
+                                <Avatar className="h-12 w-12 border-2 border-primary/10 hover:border-primary/30 transition-all cursor-pointer">
+                                  <AvatarImage src={user.avatar_url || ''} alt={`${user.first_name} ${user.last_name}`} />
+                                  <AvatarFallback className="bg-primary/10 text-primary">
+                                    {getUserInitials(user.first_name, user.last_name)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 border-2 border-white" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom" className="p-4 space-y-2 max-w-xs">
+                              <div className="font-medium">{user.first_name} {user.last_name}</div>
+                              <div className="flex items-center text-xs text-muted-foreground">
+                                <Activity className="h-3 w-3 mr-1" /> 
+                                <span>Active {formatRelativeTime(user.online_at)}</span>
+                              </div>
+                              {user.last_active_page && (
+                                <div className="text-xs">
+                                  <span className="text-muted-foreground">Currently on: </span>
+                                  <span className="font-mono">{user.last_active_page}</span>
+                                </div>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ))}
+                    </div>
+                    
+                    <Separator />
+                    
+                    <div className="text-sm">
+                      <h4 className="font-medium mb-2">Active Users by Page</h4>
+                      <div className="space-y-1">
+                        {Array.from(new Set(onlineUsers.filter(u => u.last_active_page).map(u => u.last_active_page)))
+                          .sort()
+                          .map(pagePath => (
+                            <div key={pagePath} className="flex items-center justify-between py-1 px-2 rounded-md hover:bg-muted/50">
+                              <span className="font-mono text-xs">{pagePath}</span>
+                              <div className="flex -space-x-2">
+                                {onlineUsers
+                                  .filter(u => u.last_active_page === pagePath)
+                                  .slice(0, 5)
+                                  .map(user => (
+                                    <TooltipProvider key={`page-${user.user_id}`}>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Avatar className="h-6 w-6 border-2 border-background">
+                                            <AvatarImage src={user.avatar_url || ''} alt={`${user.first_name} ${user.last_name}`} />
+                                            <AvatarFallback className="text-xs">
+                                              {getUserInitials(user.first_name, user.last_name)}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          {user.first_name} {user.last_name}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ))}
+                                {onlineUsers.filter(u => u.last_active_page === pagePath).length > 5 && (
+                                  <Avatar className="h-6 w-6 border-2 border-background bg-primary/10">
+                                    <AvatarFallback className="text-xs text-primary">
+                                      +{onlineUsers.filter(u => u.last_active_page === pagePath).length - 5}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        {!onlineUsers.some(u => u.last_active_page) && (
+                          <div className="text-muted-foreground text-center py-2">
+                            No page activity data available
                           </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center">
-                            <Switch
-                              checked={page.visible_to_instructors}
-                              disabled={updating[page.id + 'visible_to_instructors']}
-                              onCheckedChange={(checked) => 
-                                handleVisibilityChange(page.id, 'visible_to_instructors', checked)
-                              }
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center">
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                              Always
-                            </Badge>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-            <div className="mt-4 text-sm text-muted-foreground">
-              <p>
-                <strong>Notes:</strong> Pages not visible to a user role will show a "Coming Soon" overlay. 
-                Admin users will always have access to all pages regardless of these settings.
-                Click "Sync Pages" to detect newly added pages in the application.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
