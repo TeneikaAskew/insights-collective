@@ -1,91 +1,87 @@
 
 import React from 'react';
 
-// Extract route information from the DOM
-export const extractRoutes = (elements: Element[]): RouteInfo[] => {
-  const routes: RouteInfo[] = [];
-  
-  // Process route elements and create RouteInfo objects
-  elements.forEach((element) => {
-    if (element.hasAttribute('path')) {
-      const path = element.getAttribute('path') || '';
-      const name = extractRouteName(path);
-      
-      routes.push({
-        path,
-        name
-      });
-    }
-    
-    // Check for nested routes
-    if (element.children && element.children.length > 0) {
-      // Process nested routes recursively
-      const nestedRoutes = extractRoutes(Array.from(element.children));
-      routes.push(...nestedRoutes);
-    }
-  });
-  
-  return routes;
-};
-
-// Helper to extract a readable name from route paths
-export const extractRouteName = (path: string): string => {
-  // Remove leading slash and any URL parameters
-  let name = path.replace(/^\//, '').replace(/\/:[^/]+/g, '');
-  
-  // Split by remaining slashes (for nested paths)
-  const parts = name.split('/');
-  
-  // Use last meaningful part or default to "Home" for root path
-  name = parts.filter(Boolean).pop() || 'Home';
-  
-  // Convert kebab-case to Title Case and remove special characters
-  name = name
-    .split('-')
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-  
-  return name;
-};
-
-// Type definition for route information
+/**
+ * Interface representing information about a route
+ */
 export interface RouteInfo {
+  /**
+   * The path of the route (e.g., "/courses/:courseId")
+   */
   path: string;
+  /**
+   * The name of the route derived from the component name or path
+   */
   name: string;
+  /**
+   * Optional flag indicating if the route is an admin route
+   */
+  isAdmin?: boolean;
 }
 
-// Function to build breadcrumb data from current path
-export const buildBreadcrumbs = (path: string): {path: string, label: string}[] => {
-  const parts = path.split('/').filter(Boolean);
-  
-  // Start with Home
-  const breadcrumbs = [{
-    path: '/',
-    label: 'Home'
-  }];
-  
-  // Build up each level
-  let currentPath = '';
-  
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    
-    // Skip URL parameters (starting with :)
-    if (part.startsWith(':')) continue;
-    
-    currentPath = `${currentPath}/${part}`;
-    
-    // Normalize path name for display
-    const label = part
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-    
-    breadcrumbs.push({
-      path: currentPath, 
-      label
-    });
+/**
+ * Extracts a route name from a component or path string
+ * 
+ * @param component React component or path string
+ * @returns A human-readable name for the route
+ */
+export const extractRouteName = (component: any): string => {
+  // If we have a direct path string
+  if (typeof component === 'string') {
+    // Remove leading/trailing slashes and convert to title case
+    return component
+      .replace(/^\/|\/$/g, '')
+      .split('/')
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ')
+      .replace(/-/g, ' ');
   }
   
-  return breadcrumbs;
+  // Try to get the displayName or name from the component
+  if (component && typeof component === 'object') {
+    const name = component.displayName || component.name;
+    if (name) {
+      // Convert CamelCase to spaces and title case
+      return name.replace(/([A-Z])/g, ' $1').trim();
+    }
+  }
+  
+  return 'Unknown Route';
+};
+
+/**
+ * Extracts routes from React Router DOM's structure
+ * 
+ * @param routes Array of route elements from React Router DOM
+ * @returns Array of route info objects
+ */
+export const extractRoutes = (routes: HTMLCollection | Element[]): RouteInfo[] => {
+  const extractedRoutes: RouteInfo[] = [];
+  
+  const processRouteElement = (element: Element) => {
+    // Check if this is a route element
+    if (element.tagName.toLowerCase() === 'route') {
+      const path = element.getAttribute('path') || '';
+      if (path) {
+        const name = extractRouteName(element.getAttribute('element') || path);
+        const isAdmin = path.startsWith('/admin') || false;
+        
+        extractedRoutes.push({
+          path,
+          name,
+          isAdmin
+        });
+      }
+    }
+    
+    // Process children routes recursively
+    if (element.children && element.children.length > 0) {
+      Array.from(element.children).forEach(processRouteElement);
+    }
+  };
+  
+  // Process all route elements
+  Array.from(routes).forEach(processRouteElement);
+  
+  return extractedRoutes;
 };

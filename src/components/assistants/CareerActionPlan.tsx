@@ -197,6 +197,61 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     }
   };
 
+  // Function to save the action plan
+  const handleSave = async () => {
+    toast({
+      title: "Saving your action plan...",
+      description: "Please wait while we update your progress.",
+      variant: "default"
+    });
+    
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to save your career action plan.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    console.log('CAP Debug: Starting save...');
+
+    try {
+      const { data: functionData, error: functionError } = await supabase.functions.invoke('save-career-action-plan', {
+        body: { userId: user.id, actionPlan: actionPlan }
+      });
+
+      console.log('CAP Debug: Save API Response:', functionData);
+
+      if (functionError) {
+        console.error("CAP Error: Save function invocation failed:", functionError);
+        throw new Error(`Function error: ${functionError.message}`);
+      }
+
+      if (functionData?.success) {
+        console.log('CAP Debug: Action plan saved successfully.');
+        toast({
+          title: "Action Plan Saved",
+          description: "Your career action plan has been successfully saved."
+        });
+      } else {
+        console.error("CAP Error: Save failed or returned invalid data.", functionData);
+        throw new Error(functionData?.error || "Failed to save the action plan.");
+      }
+    } catch (error) {
+      console.error("CAP Error: Error in handleSave:", error);
+      toast({
+        title: "Save Failed",
+        description: `We couldn't save your action plan. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`,
+        variant: "destructive"
+      });
+    } finally {
+      setIsGenerating(false);
+      console.log('CAP Debug: Save finished.');
+    }
+  };
+
   // Render generate button if no plan (based on internal state now)
   if (!actionPlan) {
     return (
@@ -270,6 +325,21 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                 </>
               ) : (
                 "Regenerate Plan"
+              )}
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSave}
+              disabled={isGenerating}
+              className="flex-grow sm:flex-grow-0"
+            >
+              {isGenerating ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Plan"
               )}
             </Button>
           </div>

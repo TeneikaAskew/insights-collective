@@ -4,7 +4,8 @@ export interface Profile {
   last_name: string | null;
   avatar_url: string | null;
   bio: string | null;
-  role: string[];
+  role: string | null;
+  roles?: string[];
 }
 
 export interface Conversation {
@@ -46,6 +47,7 @@ export interface CourseWishlist {
   created_at: string;
 }
 
+// Extend UserWithProfile to match what we're using in the app
 export interface UserWithProfile {
   id: string;
   email: string;
@@ -58,6 +60,8 @@ export interface UserWithProfile {
   user_metadata?: {
     avatar_url?: string;
     name?: string;
+    first_name?: string;
+    last_name?: string;
   };
 }
 

@@ -169,7 +169,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     channel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         // Get user metadata
-        const userData = user.user_metadata || {};
+        const userData = user?.user_metadata || {};
         
         // Extract first and last name, handling different data structures
         let firstName = '';
@@ -199,7 +199,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     // Update user's active page when location changes
     const updateActivePage = async () => {
       if (channel && user) {
-        const userData = user.user_metadata || {};
+        const userData = user?.user_metadata || {};
         
         // Extract first and last name, handling different data structures
         let firstName = '';
@@ -239,8 +239,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       
       // If user is admin, sync pages
       // Handle user roles safely
-      const isAdmin = (user.app_metadata?.roles || []).includes('admin') || 
-                      (user.user_metadata?.role === 'admin');
+      const isAdmin = user.role === 'admin' || user.roles?.includes('admin');
       
       if (isAdmin) {
         syncAvailablePages();
@@ -255,8 +254,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   const isPageVisible = (path: string): boolean => {
     // Admins can always see all pages
     // Handle user roles safely
-    const isAdmin = (user?.app_metadata?.roles || []).includes('admin') || 
-                    (user?.user_metadata?.role === 'admin');
+    const isAdmin = user?.role === 'admin' || user?.roles?.includes('admin');
     
     if (isAdmin) return true;
 
@@ -269,8 +267,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     if (!page) return true; // If page isn't in the visibility list, default to visible
 
     // Check user role and page visibility
-    const isInstructor = (user?.app_metadata?.roles || []).includes('instructor') || 
-                         (user?.user_metadata?.role === 'instructor');
+    const isInstructor = user?.role === 'instructor' || user?.roles?.includes('instructor');
     
     if (isInstructor) {
       return page.visible_to_instructors;
