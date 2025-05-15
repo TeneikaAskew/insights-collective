@@ -1082,6 +1082,7 @@ export type Database = {
           analysis: Json | null
           analysis_complete: boolean | null
           career_alignment_score: number | null
+          career_goals: string | null
           enhanced_analysis: Json | null
           fallback_analysis: Json | null
           file_path: string
@@ -1099,6 +1100,7 @@ export type Database = {
           analysis?: Json | null
           analysis_complete?: boolean | null
           career_alignment_score?: number | null
+          career_goals?: string | null
           enhanced_analysis?: Json | null
           fallback_analysis?: Json | null
           file_path: string
@@ -1116,6 +1118,7 @@ export type Database = {
           analysis?: Json | null
           analysis_complete?: boolean | null
           career_alignment_score?: number | null
+          career_goals?: string | null
           enhanced_analysis?: Json | null
           fallback_analysis?: Json | null
           file_path?: string
