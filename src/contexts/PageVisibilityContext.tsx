@@ -178,6 +178,27 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     
     // Create presence channel
     const presenceChannel = supabase.channel('online-users');
+    
+    // Track current path when location changes
+    const updatePresence = () => {
+      if (presenceChannel && user) {
+        const userInfo = {
+          name: user.name || '',
+          avatar_url: user.avatar || ''
+        };
+        
+        presenceChannel.track({
+          user_id: user.id,
+          user_info: userInfo,
+          last_active: new Date().toISOString(),
+          current_path: location.pathname
+        }).then(() => {
+          console.log('Presence updated with path:', location.pathname);
+        }).catch(err => {
+          console.error('Error updating presence:', err);
+        });
+      }
+    };
 
     // Subscribe to presence changes
     presenceChannel
@@ -208,37 +229,14 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // Track own presence after successful subscription
-          const userInfo = {
-            name: user.name,
-            avatar_url: user.avatar
-          };
-          
-          // Track user's presence
-          await presenceChannel.track({
-            user_id: user.id,
-            user_info: userInfo,
-            last_active: new Date().toISOString(),
-            current_path: location.pathname
-          });
+          // Initial presence track after subscription
+          updatePresence();
         }
       });
     
-    // Update current path when location changes
+    // Set up effect to update presence when location changes
     useEffect(() => {
-      if (presenceChannel && user) {
-        const userInfo = {
-          name: user.name,
-          avatar_url: user.avatar
-        };
-        
-        presenceChannel.track({
-          user_id: user.id,
-          user_info: userInfo,
-          last_active: new Date().toISOString(),
-          current_path: location.pathname
-        });
-      }
+      updatePresence();
     }, [location.pathname]);
     
     return () => {

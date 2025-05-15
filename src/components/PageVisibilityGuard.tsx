@@ -5,7 +5,7 @@ import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { Shield, LockIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
-export default function PageVisibilityGuard({ children }) {
+export default function PageVisibilityGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { isPageVisible, isLoading } = usePageVisibility();
   const [isVisible, setIsVisible] = useState(true);
