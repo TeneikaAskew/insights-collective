@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -190,7 +189,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         title: "Regeneration Failed",
         description: `We couldn't regenerate your action plan. Please try again. Error: ${error instanceof Error ? error.message : String(error)}`,
         variant: "destructive",
-        duration: 7000
       });
       // Do not clear the existing plan on failure, keep the old one
     } finally {

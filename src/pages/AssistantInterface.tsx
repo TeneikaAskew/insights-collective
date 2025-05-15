@@ -60,7 +60,6 @@ const AssistantInterface = () => {
                   toast({
                     title: "Quiz Results Saved",
                     description: "Your career quiz results have been saved and are being used by the Career Coach.",
-                    duration: 5000,
                   });
                 }
               }
@@ -71,7 +70,6 @@ const AssistantInterface = () => {
               title: "Error Initializing Career Coach",
               description: "There was an issue loading your quiz results. The Career Coach may not have access to your quiz data.",
               variant: "destructive",
-              duration: 5000,
             });
           } finally {
             setIsProcessing(false);
