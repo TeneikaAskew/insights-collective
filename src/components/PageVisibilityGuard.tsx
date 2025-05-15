@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from 'react';
+
+import React, { useEffect, useState, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { Clock } from 'lucide-react';
@@ -8,13 +9,17 @@ export default function PageVisibilityGuard({ children }) {
   const { isPageVisible, isLoading } = usePageVisibility();
   const [isVisible, setIsVisible] = useState(true);
 
+  // Memoize the current path to prevent unnecessary re-renders
+  const currentPath = useMemo(() => location.pathname, [location.pathname]);
+
   useEffect(() => {
     // Only update visibility if loading is complete
     if (!isLoading) {
-      const visibilityStatus = isPageVisible(location.pathname);
+      const visibilityStatus = isPageVisible(currentPath);
+      console.log(`[PageVisibilityGuard] Path: ${currentPath}, Visibility: ${visibilityStatus}`);
       setIsVisible(visibilityStatus);
     }
-  }, [location.pathname, isPageVisible, isLoading]);
+  }, [currentPath, isPageVisible, isLoading]);
 
   // During loading, just render children to avoid flash
   if (isLoading) return <>{children}</>;
@@ -25,12 +30,14 @@ export default function PageVisibilityGuard({ children }) {
   // Otherwise, render children with overlay
   return (
     <div className="relative min-h-screen">
-      <div className="opacity-50 pointer-events-none filter blur-[2px]">
+      {/* Apply blur and opacity to entire content area */}
+      <div className="absolute inset-0 opacity-30 pointer-events-none filter blur-[4px]">
         {children}
       </div>
 
-      <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50">
-        <div className="text-center p-8 bg-white/80 rounded-lg shadow-lg max-w-md">
+      {/* Overlay with coming soon message */}
+      <div className="fixed inset-0 bg-white/70 backdrop-blur-md flex items-center justify-center z-50">
+        <div className="text-center p-8 bg-white/90 rounded-lg shadow-lg max-w-md">
           <Clock className="mx-auto h-16 w-16 text-primary mb-4 animate-pulse" />
           <h2 className="text-2xl font-bold text-primary mb-2">
             Coming Soon
