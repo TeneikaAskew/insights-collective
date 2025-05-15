@@ -6,7 +6,6 @@ import { useResume } from '@/hooks/resume/useResume';
 import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import ResumeAnalysisSection from '@/components/resume/ResumeAnalysisSection';
 import ResumeLoginWall from '@/components/resume/ResumeLoginWall';
-import { ResumeAnalysisOverlay } from '@/components/resume/ResumeAnalysisOverlay';
 import { extractTextFromFile } from '@/hooks/resume/useResumeStorage';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -52,7 +51,6 @@ const Resume = () => {
   const [storageError, setStorageError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isLoadingEnhancedBullets, setIsLoadingEnhancedBullets] = useState(false);
-  const [showAnalysisOverlay, setShowAnalysisOverlay] = useState(false);
   const subscriptionRef = useRef(null);
   const currentResumeIdRef = useRef(null);
   const hasLoadedEnhancedRef = useRef(false);
@@ -116,20 +114,6 @@ const Resume = () => {
       }
     };
   }, [user, resume]);
-
-  // Show analysis overlay when analyzing starts
-  useEffect(() => {
-    if (isAnalyzing) {
-      setShowAnalysisOverlay(true);
-    } else {
-      // Hide overlay with a slight delay to ensure smooth transition
-      const timer = setTimeout(() => {
-        setShowAnalysisOverlay(false);
-      }, 1000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [isAnalyzing]);
 
   // Handle updates to enhanced_analysis with better logging
   const handleEnhancedAnalysisUpdate = enhancedAnalysis => {
@@ -453,13 +437,9 @@ const Resume = () => {
       });
       return;
     }
-    
     logDebug('UserAction', 'Starting upload process');
     setHasLoadedAnalysis(false);
     setStorageError(null);
-
-    // Show analysis overlay before starting the process
-    setShowAnalysisOverlay(true);
 
     // Reset enhanced bullets flag
     hasLoadedEnhancedRef.current = false;
@@ -491,15 +471,12 @@ const Resume = () => {
             description: 'Resume was uploaded but analysis failed. You can try again later.',
             variant: 'destructive'
           });
-          setShowAnalysisOverlay(false);
         }
       } else {
         logDebug('UserAction', 'Upload returned not OK');
-        setShowAnalysisOverlay(false);
       }
     } catch (error) {
       logDebug('UserAction', 'Upload error:', error);
-      setShowAnalysisOverlay(false);
       if (error.message?.includes('bucket') || error.message?.includes('storage')) {
         setStorageError("Resume storage is not properly configured. Please contact support.");
         logDebug('UserAction', 'Setting storage error');
@@ -706,13 +683,6 @@ const Resume = () => {
   });
   return <AppLayout fullWidth>
       <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
-        {/* Analysis overlay that appears during processing */}
-        <ResumeAnalysisOverlay 
-          isVisible={showAnalysisOverlay} 
-          userId={user?.id}
-          resumeId={resume?.id}
-        />
-        
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-bold">Resume Management</h1>
           
