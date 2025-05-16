@@ -434,6 +434,7 @@ export async function bulletImprover(userId, enhanced = null) {
       .from('resumes')
       .update({ 
         enhanced_analysis: enhancedBullets,
+        improvements_complete: true,
         updated_at: new Date().toISOString() 
       })
       .eq('user_id', userId);
