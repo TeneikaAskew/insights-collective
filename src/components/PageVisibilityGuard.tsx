@@ -25,7 +25,7 @@ export default function PageVisibilityGuard({ children }) {
         {children}
       </div>
 
-      {/* Overlay with "Coming Soon" message */}
+      {/* Overlay with "Access Restricted" message */}
       <div className="fixed inset-0 bg-white/40 dark:bg-black/40 backdrop-blur-md flex items-center justify-center z-[999]">
         <div className="text-center p-8 bg-white/80 dark:bg-gray-900/80 rounded-lg shadow-2xl max-w-md animate-fade-in border border-gray-200 dark:border-gray-700">
           <div className="rounded-full bg-gray-100 dark:bg-gray-800 p-3 w-16 h-16 mx-auto mb-4 flex items-center justify-center">

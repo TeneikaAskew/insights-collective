@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -12,22 +13,45 @@ type PresenceUser = {
   presence_ref: string;
 };
 
+// Define the type for page visibility data
+type PageVisibilityData = {
+  id: string;
+  page_path: string;
+  page_name: string;
+  visible_to_users: boolean;
+  visible_to_instructors: boolean;
+};
+
+// Define context type with all required properties
 type PageVisibilityContextType = {
   isVisible: boolean;
   onlineUsers: PresenceUser[];
   currentUserPresence: PresenceUser | null;
+  // Add the following properties needed by PageVisibilityGuard and AdminPageVisibility
+  isPageVisible: (path: string) => boolean;
+  isLoading: boolean;
+  pageVisibility: PageVisibilityData[];
+  updatePageVisibility: (id: string, updates: Partial<PageVisibilityData>) => Promise<void>;
+  syncAvailablePages: () => Promise<void>;
 };
 
 const PageVisibilityContext = createContext<PageVisibilityContextType>({
   isVisible: true,
   onlineUsers: [],
   currentUserPresence: null,
+  isPageVisible: () => true,
+  isLoading: true,
+  pageVisibility: [],
+  updatePageVisibility: async () => {},
+  syncAvailablePages: async () => {},
 });
 
 export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([]);
   const [currentUserPresence, setCurrentUserPresence] = useState<PresenceUser | null>(null);
+  const [pageVisibility, setPageVisibility] = useState<PageVisibilityData[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const { user, isAuthenticated } = useAuth();
   const [channel, setChannel] = useState<any>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -42,6 +66,27 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
+  // Fetch page visibility data
+  useEffect(() => {
+    const fetchPageVisibility = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('page_visibility')
+          .select('*');
+        
+        if (error) throw error;
+        setPageVisibility(data || []);
+      } catch (error) {
+        console.error('Error fetching page visibility:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchPageVisibility();
+  }, []);
+
   // Set up real-time presence
   useEffect(() => {
     if (!isAuthenticated || !user) return;
@@ -50,7 +95,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     setChannel(presenceChannel);
 
     // Subscribe to the channel first
-    const subscription = presenceChannel.subscribe((status) => {
+    presenceChannel.subscribe((status) => {
       console.info('Subscription status:', status);
       if (status === 'SUBSCRIBED') {
         setIsSubscribed(true);
@@ -135,7 +180,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     if (!isAuthenticated || !user || !channel || !isSubscribed) return;
 
     const heartbeatInterval = setInterval(() => {
-      if (isSubscribed) {
+      if (isSubscribed && channel) {
         const userProfile = {
           id: user.id,
           first_name: user?.user_metadata?.first_name || null,
@@ -152,11 +197,90 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     return () => clearInterval(heartbeatInterval);
   }, [isAuthenticated, user, channel, isSubscribed]);
 
+  // Check if a page is visible based on user role
+  const isPageVisible = (path: string): boolean => {
+    if (!user) return true; // Default to visible if no user (for public pages)
+    
+    const isAdmin = user.user_metadata?.role === 'admin' || 
+                   (Array.isArray(user.user_metadata?.roles) && 
+                    user.user_metadata?.roles.includes('admin'));
+    
+    if (isAdmin) return true; // Admins can see everything
+    
+    const isInstructor = user.user_metadata?.role === 'instructor' || 
+                        (Array.isArray(user.user_metadata?.roles) && 
+                         user.user_metadata?.roles.includes('instructor'));
+    
+    const pageConfig = pageVisibility.find(p => {
+      // For dynamic routes with parameters, we need to match the pattern
+      if (p.page_path.includes(':')) {
+        const pathPattern = p.page_path.replace(/:\w+/g, '[^/]+');
+        const regex = new RegExp(`^${pathPattern}$`);
+        return regex.test(path);
+      }
+      return p.page_path === path;
+    });
+    
+    if (!pageConfig) return true; // Default to visible if no config found
+    
+    return isInstructor ? pageConfig.visible_to_instructors : pageConfig.visible_to_users;
+  };
+
+  // Update page visibility
+  const updatePageVisibility = async (id: string, updates: Partial<PageVisibilityData>) => {
+    const { error } = await supabase
+      .from('page_visibility')
+      .update(updates)
+      .eq('id', id);
+    
+    if (error) throw error;
+    
+    // Update local state
+    setPageVisibility(prev => 
+      prev.map(page => page.id === id ? { ...page, ...updates } : page)
+    );
+  };
+
+  // Sync available pages with the database
+  const syncAvailablePages = async () => {
+    try {
+      // Typically this would involve scanning routes and updating the database
+      // For now, we'll just refetch the data
+      const { data, error } = await supabase
+        .from('page_visibility')
+        .select('*');
+      
+      if (error) throw error;
+      setPageVisibility(data || []);
+      return data;
+    } catch (error) {
+      console.error('Error syncing available pages:', error);
+      throw error;
+    }
+  };
+
   return (
-    <PageVisibilityContext.Provider value={{ isVisible, onlineUsers, currentUserPresence }}>
+    <PageVisibilityContext.Provider 
+      value={{ 
+        isVisible, 
+        onlineUsers, 
+        currentUserPresence,
+        isPageVisible,
+        isLoading,
+        pageVisibility,
+        updatePageVisibility,
+        syncAvailablePages
+      }}
+    >
       {children}
     </PageVisibilityContext.Provider>
   );
 };
 
-export const usePageVisibility = () => useContext(PageVisibilityContext);
+export const usePageVisibility = () => {
+  const context = useContext(PageVisibilityContext);
+  if (context === undefined) {
+    throw new Error('usePageVisibility must be used within a PageVisibilityProvider');
+  }
+  return context;
+};

@@ -60,6 +60,10 @@ export interface UserWithProfile {
   user_metadata?: {
     avatar_url?: string;
     name?: string;
+    first_name?: string;
+    last_name?: string;
+    role?: string;
+    roles?: string[];
   };
 }
 
@@ -139,6 +143,17 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           status?: string;
+        };
+      };
+      page_visibility: {
+        Row: {
+          id: string;
+          page_path: string;
+          page_name: string;
+          visible_to_users: boolean;
+          visible_to_instructors: boolean;
+          created_at?: string;
+          updated_at?: string;
         };
       };
     };
