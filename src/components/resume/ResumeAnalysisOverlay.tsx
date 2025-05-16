@@ -168,7 +168,7 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
             />
             <div className="flex justify-between items-center">
               <div className="text-sm text-muted-foreground">
-                {savedLocally ? 'Saved locally' : ''}
+                {savedLocally ? 'Saved Goals' : ''}
               </div>
               <Button 
                 variant="outline" 

@@ -103,6 +103,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
   // Render the upload card - always visible
   const renderUploadCard = () => {
+    
     return (
       <Card className="mb-6">
         <CardHeader>
@@ -179,7 +180,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             </div>
           )}
         </CardContent>
-        {resumeFile && (
+        {resumeFile && !analysis && (
           <CardFooter>
             <Button
               onClick={handleUpload}
@@ -291,7 +292,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 themes={themes || []}
                 explanation={explanation}
                 onStartCareerChat={onStartCareerChat}
-                userId={userId}
                 hasAnalysis={hasAnalysis}
               />
             ) : (

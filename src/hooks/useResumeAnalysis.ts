@@ -595,7 +595,7 @@ export function useResumeAnalysis() {
         // Update the resume record with the initial assessment
         const { error: updateError } = await supabase
           .from('resumes')
-          .update({ initial_assessment: data.roast })
+          .update({ resume_roast: data.roast })
           .eq('user_id', userId);
           
         if (updateError) {
@@ -636,7 +636,7 @@ export function useResumeAnalysis() {
       const careerGoals = localStorage.getItem(`career_goals_${user.id}`);
       
       // Step 1: Call the Edge Function with user ID and text
-      console.log("Calling resume-analyzer edge function");
+      console.log("[Resume Analysis] Starting initial resume analysis...");
       
       try {
         const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
@@ -647,13 +647,9 @@ export function useResumeAnalysis() {
           }
         });
 
-        console.log("Edge function raw response:", {
-          data: analysisData,
-          error,
-          dataType: typeof analysisData,
-          isNull: analysisData === null,
-          isUndefined: analysisData === undefined,
-          hasProperties: analysisData ? Object.keys(analysisData).length : 'N/A'
+        console.log("[Resume Analysis] Initial analysis completed", {
+          success: !!analysisData && !error,
+          hasError: !!error
         });
 
         // More detailed validation
@@ -687,7 +683,7 @@ export function useResumeAnalysis() {
           throw error;
         }
         
-        console.log("Resume analysis complete:", analysisData ? "Success" : "No data returned");
+        console.log("[Resume Analysis] Resume analysis validation complete");
         
         // Check if we have analysis data
         let finalAnalysisData = analysisData;
@@ -730,9 +726,23 @@ export function useResumeAnalysis() {
         
         setAnalysis(enhancedData as ResumeAnalysis);
         calculateCareerAlignments(enhancedData as ResumeAnalysis);
+
+        // Immediately trigger the improve-bullets function without waiting
+        console.log("[Resume Analysis] Triggering improve-bullets analysis...");
+        supabase.functions.invoke('resume-analyzer', {
+          body: { 
+            action: 'improve-bullets',
+            userId: user.id,
+            careerGoals: careerGoals || undefined
+          }
+        }).then(() => {
+          console.log("[Resume Analysis] Improve-bullets request sent successfully");
+        }).catch((err) => {
+          console.error("[Resume Analysis] Error triggering improve-bullets:", err);
+        });
         
         // Start polling for improved bullets
-        console.log("Starting to poll for improved bullets");
+        console.log("[Resume Analysis] Starting to poll for improved bullets");
         pollForImprovedBullets(user.id);
         
         // Also update the analysis in the resume record
@@ -755,7 +765,7 @@ export function useResumeAnalysis() {
           if (updateError) {
             console.error("Error updating resume with analysis:", updateError);
           } else {
-            console.log("Successfully stored analysis in resume record");
+            console.log("[Resume Analysis] Successfully stored analysis in resume record");
           }
         } catch (updateErr) {
           console.error("Error updating resume record:", updateErr);
@@ -773,7 +783,6 @@ export function useResumeAnalysis() {
     } catch (error) {
       // ... keep existing code (error handling)
     } finally {
-      // setIsLoadingResults: false
       setIsAnalyzing(false);
     }
   };

@@ -9,53 +9,41 @@ import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useAuth } from '@/contexts/AuthContext';
 
-// Get user ID if authenticated - keep this outside component to avoid execution during render
-const getUserId = async () => {
-  const {
-    data
-  } = await supabase.auth.getUser();
-  return data?.user?.id;
-};
-interface OverallScoreCardProps {
-  letterGrade: string;
-  resumePercent: number;
-  elevatorPitch: string;
-  themes: string[];
-  explanation: string;
-  onStartCareerChat: () => void;
-  hasAnalysis?: boolean;
-  userId?: string;
-}
-const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
-  letterGrade,
-  resumePercent,
-  elevatorPitch,
-  themes,
-  explanation,
-  onStartCareerChat,
-  hasAnalysis = false,
-  userId
-}) => {
-  const [isFlashing, setIsFlashing] = useState(false);
-  const [hasBeenClicked, setHasBeenClicked] = useState(false);
-  const [hasRoast, setHasRoast] = useState(false);
-  const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const {
-    careerAlignments
-  } = useResumeAnalysis();
+  interface OverallScoreCardProps {
+    letterGrade: string;
+    resumePercent: number;
+    elevatorPitch: string;
+    themes: string[];
+    explanation: string;
+    onStartCareerChat: () => void;
+    hasAnalysis?: boolean;
+  }
   
-  // const { user } = useAuth(); // Add useAuth hook to access user information
-  // console.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${user.id}`));
-  // console.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${user.id}`));
-  // console.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${user.id}`));
-
-
-  // Use user.id safely with optional chaining to prevent errors if user is null
-  // console.log('[OverallScoreCard] Resume analysis data:', user?.id ? localStorage.getItem(`resume_analysis_${userId}`) : 'No user ID available');
-  // console.log('[OverallScoreCard] Resume text data:', user?.id ? localStorage.getItem(`resume_text_${userId}`) : 'No user ID available');
-  // console.log('[OverallScoreCard] Resume data:', user?.id ? localStorage.getItem(`resume_data_${userId}`) : 'No user ID available');
-
-
+  const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
+    letterGrade,
+    resumePercent,
+    elevatorPitch,
+    themes,
+    explanation,
+    onStartCareerChat,
+    hasAnalysis = false
+  }) => {
+    const [isFlashing, setIsFlashing] = useState(false);
+    const [hasBeenClicked, setHasBeenClicked] = useState(false);
+    const [hasRoast, setHasRoast] = useState(false);
+    const flashIntervalRef = useRef<NodeJS.Timeout | null>(null);
+    const { careerAlignments } = useResumeAnalysis();
+    
+    // Get userId from the auth context
+    const { user } = useAuth();
+    const userId = user?.id;
+    
+    // console.log('[OverallScoreCard] User ID:', userId);
+    // console.log('[OverallScoreCard] Resume analysis data:', localStorage.getItem(`resume_analysis_${userId}`));
+    // console.log('[OverallScoreCard] Resume text data:', localStorage.getItem(`resume_text_${userId}`));
+    // console.log('[OverallScoreCard] Resume data:', localStorage.getItem(`resume_data_${userId}`));
+  
+    
   // Check for roast (keep existing functionality)
   useEffect(() => {
     console.log("Checking if roast exists yet for: ", userId);
@@ -65,11 +53,11 @@ const OverallScoreCard: React.FC<OverallScoreCardProps> = ({
           const {
             data,
             error
-          } = await supabase.from('resumes').select('initial_assessment').eq('user_id', userId).order('uploaded_at', {
+          } = await supabase.from('resumes').select('resumeRoast').eq('user_id', userId).order('uploaded_at', {
             ascending: false
           }).limit(1).maybeSingle();
           console.log("user: ", userId, " - Roast data", data);
-          if (!error && data?.initial_assessment) {
+          if (!error && data?.resumeRoast) {
             setHasRoast(true);
           }
         } catch (error) {

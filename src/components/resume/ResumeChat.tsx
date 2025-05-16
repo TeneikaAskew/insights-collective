@@ -259,7 +259,7 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
           
           const { data, error } = await supabase
             .from('resumes')
-            .select('initial_assessment')
+            .select('resumeRoast')
             .eq('user_id', user.id)
             .single();
           
@@ -268,10 +268,10 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
             throw error;
           }
           
-          let initialAssessment = data?.initial_assessment;
+          let resumeRoast = data?.resumeRoast;
           
           // If no stored assessment, try to fetch it
-          if (!initialAssessment && resumeAnalysis.resume_id) {
+          if (!resumeRoast && resumeAnalysis.resume_id) {
             const resumeText = localStorage.getItem(`resume_text_${resumeAnalysis.resume_id}`) || '';
             
             if (resumeText) {
@@ -285,12 +285,12 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
               if (roastError) throw roastError;
               
               if (roastData?.roast) {
-                initialAssessment = roastData.roast;
+                resumeRoast = roastData.roast;
                 
                 // Store it in the database for future use
                 await supabase
                   .from('resumes')
-                  .update({ initial_assessment: initialAssessment })
+                  .update({ resume_roast: resumeRoast })
                   .eq('user_id', user.id);
               }
             }
@@ -299,8 +299,8 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
           // Create welcome message with assessment - NO TYPING ANIMATION
           const fullWelcomeContent = `I've analyzed your resume and can help you improve it! Your resume currently has a grade of **${resumeAnalysis.letter_grade} (${resumeAnalysis.resume_percent}%)**.
 
-${initialAssessment ? `**Here's my honest assessment:**
-${initialAssessment}
+${resumeRoast ? `**Here's my honest assessment:**
+${resumeRoast}
 
 ` : ''}Let's start by discussing your experience: **What specific challenges did you tackle in your first listed role, what actions did you take, and what measurable results did you achieve?**`;
           

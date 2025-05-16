@@ -1087,7 +1087,7 @@ export type Database = {
           fallback_analysis: Json | null
           file_path: string
           id: string
-          initial_assessment: string | null
+          resume_roast: string | null
           sentences: Json | null
           sentences_updated_at: string | null
           target_role: string | null
@@ -1105,7 +1105,7 @@ export type Database = {
           fallback_analysis?: Json | null
           file_path: string
           id?: string
-          initial_assessment?: string | null
+          resumeRoast?: string | null
           sentences?: Json | null
           sentences_updated_at?: string | null
           target_role?: string | null
@@ -1123,7 +1123,7 @@ export type Database = {
           fallback_analysis?: Json | null
           file_path?: string
           id?: string
-          initial_assessment?: string | null
+          resumeRoast?: string | null
           sentences?: Json | null
           sentences_updated_at?: string | null
           target_role?: string | null

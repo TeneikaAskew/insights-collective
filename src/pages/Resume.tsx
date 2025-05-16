@@ -167,17 +167,13 @@ const Resume = () => {
     };
   }, [user, resume]);
 
-  // Show analysis overlay when analyzing starts
+  // Update the useEffect that controls overlay visibility
   useEffect(() => {
     if (isAnalyzing) {
       setShowAnalysisOverlay(true);
     } else {
-      // Hide overlay with a slight delay to ensure smooth transition
-      const timer = setTimeout(() => {
-        setShowAnalysisOverlay(false);
-      }, 1000);
-      
-      return () => clearTimeout(timer);
+      // Remove the delay and hide immediately when analysis is complete
+      setShowAnalysisOverlay(false);
     }
   }, [isAnalyzing]);
 
