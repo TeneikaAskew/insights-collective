@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, Key, Unlock, ShieldAlert, RefreshCw } from 'lucide-react';
+import { Lock, Key, Unlock, ShieldAlert, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,6 +16,7 @@ const LocalStorageDebugPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isTokenLoading, setIsTokenLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -104,11 +104,17 @@ const LocalStorageDebugPage: React.FC = () => {
     setIsRefreshing(true);
     try {
       console.log('Refreshing localStorage items...');
+      // Force a direct read from localStorage
       const allItems = LocalStorageUtils.getAllItemsAsArray();
       console.log(`Found ${allItems.length} items in localStorage`);
+      
+      // Debug each localStorage key-value pair
+      allItems.forEach(item => {
+        console.log(`LocalStorage item - Key: ${item.key}, Value length: ${item.value?.length || 0}`);
+      });
+      
       setItems(allItems);
       
-      // Show a toast notification for feedback
       toast({
         title: "Refreshed",
         description: `${allItems.length} items loaded from localStorage`,
@@ -124,6 +130,13 @@ const LocalStorageDebugPage: React.FC = () => {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  const toggleItemExpand = (key: string) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
   };
 
   const clearResumeData = () => {
@@ -270,11 +283,33 @@ const LocalStorageDebugPage: React.FC = () => {
               <div className="space-y-2">
                 {items.map(({ key, value }) => (
                   <div key={key} className="text-sm break-all border-b pb-2 last:border-0">
-                    <strong className="font-medium text-primary">{key}:</strong>{" "}
-                    <span className="text-muted-foreground">
-                      {value ? value.substring(0, 100) : 'null'}
-                      {value && value.length > 100 ? '...' : ''}
-                    </span>
+                    <div className="flex justify-between items-center">
+                      <strong className="font-medium text-primary">{key}:</strong>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => toggleItemExpand(key)}
+                        className="h-6 w-6 p-0"
+                      >
+                        {expandedItems[key] ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
+                    <div className="text-muted-foreground">
+                      {!expandedItems[key] ? (
+                        <>
+                          {value ? value.substring(0, 100) : 'null'}
+                          {value && value.length > 100 ? '...' : ''}
+                        </>
+                      ) : (
+                        <div className="mt-1 p-2 bg-secondary/20 rounded whitespace-pre-wrap">
+                          {value ? value : 'null'}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
                 {items.length === 0 && (

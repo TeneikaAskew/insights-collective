@@ -29,13 +29,16 @@ export class LocalStorageUtils {
    */
   static getAllItemsAsArray(): LocalStorageItem[] {
     const items: LocalStorageItem[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key) {
-        items.push({
-          key,
-          value: localStorage.getItem(key)
-        });
+    // Ensure we're accessing the browser's localStorage object
+    if (typeof localStorage !== 'undefined') {
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) {
+          items.push({
+            key,
+            value: localStorage.getItem(key)
+          });
+        }
       }
     }
     return items;
