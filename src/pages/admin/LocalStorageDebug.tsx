@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, Key, Unlock, ShieldAlert } from 'lucide-react';
+import { Lock, Key, Unlock, ShieldAlert, RefreshCw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
@@ -16,6 +16,7 @@ const LocalStorageDebugPage: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isTokenLoading, setIsTokenLoading] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const { toast } = useToast();
   const { user } = useAuth();
   
@@ -100,8 +101,29 @@ const LocalStorageDebugPage: React.FC = () => {
   };
 
   const refreshItems = () => {
-    const allItems = LocalStorageUtils.getAllItemsAsArray();
-    setItems(allItems);
+    setIsRefreshing(true);
+    try {
+      console.log('Refreshing localStorage items...');
+      const allItems = LocalStorageUtils.getAllItemsAsArray();
+      console.log(`Found ${allItems.length} items in localStorage`);
+      setItems(allItems);
+      
+      // Show a toast notification for feedback
+      toast({
+        title: "Refreshed",
+        description: `${allItems.length} items loaded from localStorage`,
+        variant: "default"
+      });
+    } catch (error) {
+      console.error('Error refreshing items:', error);
+      toast({
+        title: "Refresh error",
+        description: "Could not refresh localStorage items",
+        variant: "destructive"
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const clearResumeData = () => {
@@ -215,8 +237,18 @@ const LocalStorageDebugPage: React.FC = () => {
           </div>
           
           <div className="flex flex-wrap gap-2 mb-4">
-            <Button onClick={refreshItems} variant="secondary">
-              Refresh
+            <Button onClick={refreshItems} variant="secondary" disabled={isRefreshing}>
+              {isRefreshing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Refreshing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </>
+              )}
             </Button>
             <Button onClick={clearResumeData} variant="destructive">
               Clear Resume Data
