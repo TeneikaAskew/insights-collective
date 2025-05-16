@@ -1,21 +1,20 @@
 
 import { useState, useEffect } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
-// Interfaces for our data structures
+// Types
 export interface UserProfile {
   interests: string[];
   currentRole: string;
   hobbies: string;
-  resumeText?: string;
-  actionPlan?: any;
   skills?: string[];
 }
 
 export interface TargetRole {
   title: string;
+  description: string;
   coreSkills: string[];
   tools: string[];
   deliverables: string[];
@@ -31,10 +30,16 @@ export interface ProjectIdea {
   id: string;
   title: string;
   description: string;
+  roleTitle: string;
   requiredSkills: string[];
   effortLevel: string;
   impact: string;
-  roleTitle: string;
+  roadmap?: {
+    milestones: {
+      name: string;
+      description: string;
+    }[];
+  };
 }
 
 export interface UserProject {
@@ -43,9 +48,9 @@ export interface UserProject {
   description: string;
   requiredSkills: string[];
   effortLevel: string;
-  impact: string;
-  roadmap?: any;
+  impact?: string;
   status: 'Idea' | 'Planned' | 'In Progress' | 'Completed';
+  created_at?: string;
 }
 
 export function usePortfolioExplorer() {
@@ -56,259 +61,194 @@ export function usePortfolioExplorer() {
   const [userProfile, setUserProfile] = useState<UserProfile>({
     interests: [],
     currentRole: '',
-    hobbies: '',
+    hobbies: ''
   });
+  
   const [targetRoles, setTargetRoles] = useState<TargetRole[]>([]);
   const [projectIdeas, setProjectIdeas] = useState<ProjectIdea[]>([]);
   const [userProjects, setUserProjects] = useState<UserProject[]>([]);
 
-  // Fetch user's resume text and action plan on initial load
-  useEffect(() => {
-    if (!user) return;
-    
-    const fetchUserData = async () => {
-      setLoading(true);
-      try {
-        // Fetch resume text
-        const { data: resumeData, error: resumeError } = await supabase
-          .from('resumes')
-          .select('text')
-          .eq('user_id', user.id)
-          .order('uploaded_at', { ascending: false })
-          .limit(1)
-          .single();
-          
-        if (resumeError && resumeError.code !== 'PGRST116') {
-          console.error('Error fetching resume:', resumeError);
-        }
-        
-        // Fetch action plan
-        const { data: planData, error: planError } = await supabase
-          .from('career_pathway_results')
-          .select('action_plan')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
-          
-        if (planError && planError.code !== 'PGRST116') {
-          console.error('Error fetching action plan:', planError);
-        }
-
-        // Fetch user's existing projects
-        const { data: projectsData, error: projectsError } = await supabase
-          .from('portfolio_projects')
-          .select(`
-            id, 
-            title, 
-            description, 
-            required_skills,
-            effort_level,
-            impact,
-            roadmap,
-            project_status (status)
-          `)
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false });
-          
-        if (projectsError) {
-          console.error('Error fetching projects:', projectsError);
-        } else if (projectsData) {
-          // Transform projects data into our format
-          const formattedProjects: UserProject[] = projectsData.map((project) => ({
-            id: project.id,
-            title: project.title,
-            description: project.description || '',
-            requiredSkills: project.required_skills || [],
-            effortLevel: project.effort_level || '',
-            impact: project.impact || '',
-            roadmap: project.roadmap,
-            status: project.project_status?.status as any || 'Idea',
-          }));
-          
-          setUserProjects(formattedProjects);
-        }
-        
-        // Update user profile with fetched data
-        if (resumeData || planData) {
-          setUserProfile(prev => ({
-            ...prev,
-            resumeText: resumeData?.text || undefined,
-            actionPlan: planData?.action_plan || undefined,
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching user data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchUserData();
-  }, [user]);
-
-  // Handler for profile form submission
-  const handleProfileSubmit = async (profileData: {
-    interests: string[];
-    currentRole: string;
-    hobbies: string;
-  }) => {
-    if (!user) return;
-    
+  // Mock API call to get data from together-ai edge function
+  const fetchAIRecommendations = async (profile: UserProfile) => {
     setLoading(true);
+    
     try {
-      // Update user profile
-      const updatedProfile: UserProfile = {
-        ...userProfile,
-        ...profileData,
-      };
-      setUserProfile(updatedProfile);
+      // In a real implementation, this would call your together-ai edge function
+      // const response = await fetch('/api/portfolio-ai', {
+      //   method: 'POST',
+      //   body: JSON.stringify({ profile, resumeText, actionPlan })
+      // });
+      // const data = await response.json();
       
-      // Call together-ai Edge Function for analysis and recommendations
-      const togetherResponse = await supabase.functions.invoke('together-ai', {
-        body: {
-          type: 'portfolio-explorer',
-          resumeText: updatedProfile.resumeText,
-          actionPlan: updatedProfile.actionPlan,
-          questionnaireAnswers: {
-            interests: updatedProfile.interests,
-            currentRole: updatedProfile.currentRole,
-            hobbies: updatedProfile.hobbies,
-          },
+      // Mock response
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Mock target roles
+      const mockTargetRoles: TargetRole[] = [
+        {
+          title: "Data Analyst",
+          description: "Analyze and interpret data to inform business decisions",
+          coreSkills: ["SQL", "Python", "Data Visualization", "Statistical Analysis", "Excel"],
+          tools: ["Tableau", "Power BI", "Python", "R", "Excel", "SQL Server"],
+          deliverables: [
+            "Interactive dashboards showing KPIs",
+            "Monthly business reports with insights",
+            "Ad-hoc analysis for specific business questions",
+            "Data cleaning and processing pipelines"
+          ],
+          portfolioExamples: [
+            {
+              title: "Customer Segmentation Analysis",
+              type: "Case Study",
+              description: "Analysis of customer data to identify key segments for marketing campaigns",
+              link: "https://github.com/example/customer-segmentation"
+            },
+            {
+              title: "Sales Performance Dashboard",
+              type: "Visualization",
+              description: "Interactive dashboard tracking sales KPIs with drill-down capabilities"
+            },
+            {
+              title: "Churn Prediction Model",
+              type: "Analytics Project",
+              description: "Predictive model to identify customers at risk of churning based on behavior patterns"
+            }
+          ]
         },
+        {
+          title: "Frontend Developer",
+          description: "Build user interfaces and interactive web applications",
+          coreSkills: ["HTML", "CSS", "JavaScript", "React", "Responsive Design"],
+          tools: ["React", "Vue.js", "Tailwind CSS", "Figma", "Git", "Jest"],
+          deliverables: [
+            "Interactive web applications",
+            "Responsive website layouts",
+            "Component libraries",
+            "UI animations and transitions"
+          ],
+          portfolioExamples: [
+            {
+              title: "E-commerce Product Page",
+              type: "UI Component",
+              description: "Product display with image gallery, size selection and add-to-cart functionality",
+              link: "https://github.com/example/ecommerce-product-page"
+            },
+            {
+              title: "Weather Dashboard",
+              type: "Web App",
+              description: "Real-time weather app with location search and 5-day forecast"
+            },
+            {
+              title: "Component Library",
+              type: "Open Source",
+              description: "Reusable component library built with React and styled-components"
+            }
+          ]
+        }
+      ];
+      
+      // Mock project ideas
+      const mockProjectIdeas: ProjectIdea[] = [
+        {
+          id: uuidv4(),
+          title: "Sales Dashboard with Regional Comparison",
+          description: "Create an interactive dashboard that shows sales performance across different regions, with drill-down capabilities for deeper analysis.",
+          roleTitle: "Data Analyst",
+          requiredSkills: ["Tableau", "SQL", "Data Visualization"],
+          effortLevel: "Medium (10-15 hours)",
+          impact: "High - Shows technical and analytical skills"
+        },
+        {
+          id: uuidv4(),
+          title: "Customer Segmentation Analysis",
+          description: "Analyze customer data to identify distinct segments based on purchasing behavior, demographics, and engagement metrics.",
+          roleTitle: "Data Analyst",
+          requiredSkills: ["Python", "Clustering", "Data Visualization", "Statistical Analysis"],
+          effortLevel: "High (15-20 hours)",
+          impact: "High - Demonstrates analytical thinking"
+        },
+        {
+          id: uuidv4(),
+          title: "Responsive E-commerce Product Page",
+          description: "Build a fully responsive product page with image gallery, size selection, and add-to-cart functionality.",
+          roleTitle: "Frontend Developer",
+          requiredSkills: ["HTML", "CSS", "JavaScript", "React"],
+          effortLevel: "Medium (8-12 hours)",
+          impact: "Medium - Shows core frontend skills"
+        },
+        {
+          id: uuidv4(),
+          title: "Interactive Data Visualization Tool",
+          description: "Create an interactive tool that allows users to explore a dataset through various visualizations and filters.",
+          roleTitle: "Frontend Developer",
+          requiredSkills: ["JavaScript", "D3.js", "HTML", "CSS"],
+          effortLevel: "High (15-20 hours)",
+          impact: "High - Demonstrates advanced frontend capabilities"
+        }
+      ];
+      
+      // Update state with mock data
+      setTargetRoles(mockTargetRoles);
+      setProjectIdeas(mockProjectIdeas);
+      
+      // Update profile with mock skills
+      setUserProfile({
+        ...profile,
+        skills: ["Excel", "PowerPoint", "Communication", "Project Management"]
       });
       
-      if (togetherResponse.error) {
-        throw new Error(togetherResponse.error.message);
-      }
-      
-      // Parse the response from the AI
-      const aiResponse = togetherResponse.data;
-      
-      if (aiResponse.targetRoles) {
-        setTargetRoles(aiResponse.targetRoles);
-      }
-      
-      if (aiResponse.projectIdeas) {
-        setProjectIdeas(aiResponse.projectIdeas);
-      }
-      
-      if (aiResponse.userSkills) {
-        setUserProfile(prev => ({
-          ...prev,
-          skills: aiResponse.userSkills,
-        }));
-      }
-      
       toast({
-        title: "Profile analysis complete!",
-        description: "We've identified target roles and project ideas for your portfolio.",
+        title: "Profile Analysis Complete",
+        description: "We've identified potential career paths based on your profile.",
       });
-      
-    } catch (error: any) {
-      console.error('Error analyzing profile:', error);
+    } catch (error) {
+      console.error("Error fetching AI recommendations:", error);
       toast({
-        title: "Analysis failed",
-        description: error.message || "There was an error analyzing your profile. Please try again.",
         variant: "destructive",
+        title: "Error analyzing profile",
+        description: "Something went wrong. Please try again later.",
       });
     } finally {
       setLoading(false);
     }
   };
-
-  // Handler to add a new project
-  const handleAddProject = async (projectIdea: ProjectIdea) => {
-    if (!user) return;
+  
+  const handleProfileSubmit = (data: UserProfile) => {
+    setUserProfile(data);
+    fetchAIRecommendations(data);
+  };
+  
+  const handleAddProject = (project: ProjectIdea) => {
+    // Convert ProjectIdea to UserProject
+    const newProject: UserProject = {
+      id: uuidv4(),
+      title: project.title,
+      description: project.description,
+      requiredSkills: project.requiredSkills,
+      effortLevel: project.effortLevel,
+      impact: project.impact,
+      status: 'Idea',
+      created_at: new Date().toISOString()
+    };
     
-    try {
-      // Insert the project in the database
-      const { data: projectData, error: projectError } = await supabase
-        .from('portfolio_projects')
-        .insert({
-          user_id: user.id,
-          title: projectIdea.title,
-          description: projectIdea.description,
-          required_skills: projectIdea.requiredSkills,
-          effort_level: projectIdea.effortLevel,
-          impact: projectIdea.impact,
-        })
-        .select('id')
-        .single();
-        
-      if (projectError) throw projectError;
-      
-      // Insert the initial project status
-      const { error: statusError } = await supabase
-        .from('project_status')
-        .insert({
-          project_id: projectData.id,
-          status: 'Idea'
-        });
-        
-      if (statusError) throw statusError;
-      
-      // Add the project to local state
-      const newProject: UserProject = {
-        id: projectData.id,
-        title: projectIdea.title,
-        description: projectIdea.description,
-        requiredSkills: projectIdea.requiredSkills,
-        effortLevel: projectIdea.effortLevel,
-        impact: projectIdea.impact,
-        status: 'Idea',
-      };
-      
-      setUserProjects(prev => [newProject, ...prev]);
-      
-      toast({
-        title: "Project added",
-        description: `"${projectIdea.title}" has been added to your portfolio.`,
-      });
-    } catch (error: any) {
-      console.error('Error adding project:', error);
-      toast({
-        title: "Error adding project",
-        description: error.message || "There was an error adding the project. Please try again.",
-        variant: "destructive",
-      });
-    }
+    setUserProjects(prev => [...prev, newProject]);
+    
+    toast({
+      title: "Project Added",
+      description: "Project has been added to your portfolio.",
+    });
   };
-
-  // Handler to update a project's status
-  const handleUpdateProjectStatus = async (projectId: string, newStatus: 'Idea' | 'Planned' | 'In Progress' | 'Completed') => {
-    try {
-      // Update the project status in the database
-      const { error } = await supabase
-        .from('project_status')
-        .update({ status: newStatus })
-        .eq('project_id', projectId);
-        
-      if (error) throw error;
-      
-      // Update the project in local state
-      setUserProjects(prev => 
-        prev.map(project => 
-          project.id === projectId 
-            ? { ...project, status: newStatus } 
-            : project
-        )
-      );
-      
-      toast({
-        title: "Status updated",
-        description: `Project status changed to ${newStatus}.`,
-      });
-    } catch (error: any) {
-      console.error('Error updating project status:', error);
-      toast({
-        title: "Error updating status",
-        description: error.message || "There was an error updating the project status. Please try again.",
-        variant: "destructive",
-      });
-    }
+  
+  const handleUpdateProjectStatus = (projectId: string, newStatus: 'Idea' | 'Planned' | 'In Progress' | 'Completed') => {
+    setUserProjects(prev => 
+      prev.map(project => 
+        project.id === projectId 
+          ? { ...project, status: newStatus } 
+          : project
+      )
+    );
   };
-
+  
   return {
     loading,
     userProfile,
