@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { ProfileForm } from '@/components/portfolio/ProfileForm';
@@ -52,12 +51,13 @@ function PortfolioExplorer() {
     if (!user) return;
     
     // Transform the project idea into a portfolio project
-    const newProject: Partial<PortfolioProject> = {
-      title: projectIdea.title,
-      description: projectIdea.description,
+    // Ensure title is always defined with a fallback to prevent type errors
+    const newProject: Omit<PortfolioProject, 'id' | 'user_id' | 'created_at' | 'updated_at'> = {
+      title: projectIdea.title || 'Untitled Project', // Ensure title is always defined
+      description: projectIdea.description || '',
       required_skills: projectIdea.requiredSkills || projectIdea.required_skills || [],
       effort_level: projectIdea.effortLevel || projectIdea.effort_level || 'Medium',
-      impact: projectIdea.impact,
+      impact: projectIdea.impact || '',
       roadmap: projectIdea.roadmap ? { milestones: Array.isArray(projectIdea.roadmap) ? projectIdea.roadmap : [] } : undefined,
       status: 'Idea' as ProjectStatus
     };
