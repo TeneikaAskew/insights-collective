@@ -1,9 +1,14 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders } from '../_shared/utils.ts';
 
 const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
+
+// Define CORS headers directly in this file instead of importing from shared utils
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -86,23 +91,26 @@ serve(async (req) => {
     Hobbies/free time activities: ${questionnaireAnswers?.hobbies || "Not provided"}
     `;
 
-    console.log("Calling Together API with model: meta-llama/Llama-3.1-8B-Instruct-Turbo-Free");
+    // Use a valid model from Together AI
+    const validModel = 'mistralai/Mixtral-8x7B-Instruct-v0.1';
+    console.log(`Calling Together API with model: ${validModel}`);
     
-    // Call the Together AI API
-    const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+    // Call the Together AI API with correct request structure
+    const response = await fetch('https://api.together.xyz/v1/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${togetherApiKey}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'meta-llama/Llama-3.1-8B-Instruct-Turbo-Free',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userProfileText }
-        ],
+        model: validModel,
+        prompt: `${systemPrompt}\n\nUser Profile:\n${userProfileText}\n\nJSON Response:`,
         temperature: 0.7,
-        max_tokens: 2000
+        max_tokens: 2000,
+        top_p: 0.9,
+        top_k: 40,
+        repetition_penalty: 1.1,
+        stop: ["</s>", "User:", "System:"]
       })
     });
 
@@ -114,7 +122,7 @@ serve(async (req) => {
 
     const data = await response.json();
     console.log("Together API response received");
-    const aiResponse = data.choices?.[0]?.message?.content || '';
+    const aiResponse = data.choices?.[0]?.text || '';
     
     // Extract JSON from the AI response
     let portfolioData = {};
