@@ -12,9 +12,14 @@ serve(async (req) => {
   }
 
   try {
-    const { resumeText, actionPlan, questionnaireAnswers } = await req.json();
+    console.log("Portfolio ideas function called");
+    const requestBody = await req.json();
+    console.log("Request body:", JSON.stringify(requestBody));
+    
+    const { resumeText, actionPlan, questionnaireAnswers } = requestBody;
 
     if (!togetherApiKey) {
+      console.error("No Together API key configured");
       throw new Error('Together.ai API key not configured');
     }
 
@@ -81,7 +86,9 @@ serve(async (req) => {
     Hobbies/free time activities: ${questionnaireAnswers?.hobbies || "Not provided"}
     `;
 
-    // Call the Together AI API using existing function
+    console.log("Calling Together API with model: meta-llama/Llama-3.1-8B-Instruct-Turbo-Free");
+    
+    // Call the Together AI API
     const response = await fetch('https://api.together.xyz/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -106,6 +113,7 @@ serve(async (req) => {
     }
 
     const data = await response.json();
+    console.log("Together API response received");
     const aiResponse = data.choices?.[0]?.message?.content || '';
     
     // Extract JSON from the AI response
@@ -113,21 +121,26 @@ serve(async (req) => {
     try {
       // Try to parse directly first
       portfolioData = JSON.parse(aiResponse);
+      console.log("Successfully parsed JSON response");
     } catch (e) {
+      console.log("Direct JSON parsing failed, trying to extract JSON from text");
       // If direct parsing fails, try to extract JSON from text
       const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         try {
           portfolioData = JSON.parse(jsonMatch[0]);
+          console.log("Successfully extracted and parsed JSON from text");
         } catch (innerError) {
           console.error('Failed to parse JSON from AI response:', innerError);
           throw new Error('Failed to parse portfolio data from AI response');
         }
       } else {
+        console.error('No valid JSON found in AI response');
         throw new Error('No valid JSON found in AI response');
       }
     }
 
+    console.log("Returning successful response");
     return new Response(
       JSON.stringify({ success: true, data: portfolioData }),
       {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -91,6 +92,12 @@ export function usePortfolio() {
       setIsLoading(true);
 
       try {
+        console.log('Calling portfolio-ideas function with:', {
+          resumeText,
+          actionPlan,
+          questionnaireAnswers
+        });
+        
         // Call the portfolio-ideas edge function
         const { data, error } = await supabase.functions.invoke<{ success: boolean, data: PortfolioInsightData }>('portfolio-ideas', {
           body: {
@@ -100,10 +107,26 @@ export function usePortfolio() {
           }
         });
 
-        if (error) throw new Error(error.message);
-        if (!data?.success || !data?.data) throw new Error('Failed to generate portfolio ideas');
+        if (error) {
+          console.error('Edge function error:', error);
+          throw new Error(error.message);
+        }
+        
+        console.log('Response from portfolio-ideas function:', data);
+
+        if (!data?.success || !data?.data) {
+          throw new Error('Failed to generate portfolio ideas');
+        }
 
         return data.data;
+      } catch (err) {
+        console.error('Error in generatePortfolioIdeas:', err);
+        toast({
+          title: "Error",
+          description: "Failed to generate portfolio ideas. Please try again.",
+          variant: "destructive",
+        });
+        throw err;
       } finally {
         setIsLoading(false);
       }
