@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -134,8 +135,9 @@ const Resources = () => {
 
   // Process the raw tweet data separately
   const processedAllTweets = useMemo(() => {
-    console.log('[ResourcesPage] Raw tweets from useAllTweetsData hook:', (allRawTweetsData || []).length);
-    const pt = processResources(allRawTweetsData || []);
+    const tweetsArray = allRawTweetsData || [];
+    console.log('[ResourcesPage] Raw tweets from useAllTweetsData hook:', tweetsArray.length);
+    const pt = processResources(tweetsArray);
     console.log('[ResourcesPage] Processed all tweets (with sourceType):', pt.length);
     return pt;
   }, [allRawTweetsData]);

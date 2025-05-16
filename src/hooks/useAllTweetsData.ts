@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Resource } from './useResources'; // Import type
 
 // Constants for caching
-const TWEETS_CACHE_TIME = 1000 * 60 * 30; // 30 minutes
+const TWEETS_GC_TIME = 1000 * 60 * 30; // 30 minutes
 const TWEETS_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 export function useAllTweetsData() {
@@ -36,7 +36,7 @@ export function useAllTweetsData() {
     queryKey: ['allTweetsData'],
     queryFn: fetchAllTweets,
     staleTime: TWEETS_STALE_TIME, // Data will be considered fresh for 5 minutes
-    cacheTime: TWEETS_CACHE_TIME, // Cached data will be kept for 30 minutes
+    gcTime: TWEETS_GC_TIME, // Cached data will be kept for 30 minutes (renamed from cacheTime)
     refetchOnWindowFocus: false, // Prevent refetching when window gains focus
   });
 }

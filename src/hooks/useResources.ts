@@ -80,13 +80,13 @@ export const normalizeString = (str: string | null | undefined): string => {
 };
 
 // Constants for caching
-const RESOURCES_CACHE_TIME = 1000 * 60 * 30; // 30 minutes
+const RESOURCES_GC_TIME = 1000 * 60 * 30; // 30 minutes
 const RESOURCES_STALE_TIME = 1000 * 60 * 5; // 5 minutes
 
 export function useResources() {
   const { toast } = useToast();
   
-  const fetchResources = async () => {
+  const fetchResources = async (): Promise<Resource[]> => {
     console.log('Fetching resources from API');
     const { data, error } = await supabase
       .from('resources')
@@ -107,11 +107,11 @@ export function useResources() {
   };
 
   // Use React Query with caching configuration
-  const { data: resources, isLoading, error } = useQuery({
+  const { data: resources, isLoading, error } = useQuery<Resource[], Error>({
     queryKey: ['resources'],
     queryFn: fetchResources,
     staleTime: RESOURCES_STALE_TIME, // Data will be considered fresh for 5 minutes
-    cacheTime: RESOURCES_CACHE_TIME, // Cached data will be kept for 30 minutes
+    gcTime: RESOURCES_GC_TIME, // Cached data will be kept for 30 minutes (renamed from cacheTime)
     refetchOnWindowFocus: false, // Prevent refetching when window gains focus
   });
 
