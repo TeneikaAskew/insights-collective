@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { CheckCircle, AlertTriangle } from 'lucide-react';
@@ -9,7 +8,7 @@ export const isTargetMet = (score: number) => {
   return score >= 100 - 14 && score <= 100 + 14;
 };
 
-// Chart data item structure
+// Chart data item structure 
 export interface ChartDataItem {
   name: string;
   value: number;
@@ -23,17 +22,17 @@ export interface ChartDataItem {
 export const getCategoryColorClass = (category: string): string => {
   switch (category) {
     case 'action':
-      return 'bg-amber-600';
+      return 'bg-[#1F75FE]'; // insight-blue
     case 'metrics':
-      return 'bg-teal-600';
+      return 'bg-[#5ED3B5]'; // aqua-teal
     case 'clarity':
-      return 'bg-blue-500';
+      return 'bg-[#C7BCF5]'; // vira-purple
     case 'industry':
-      return 'bg-blue-800';
+      return 'bg-[#F9A826]'; // energetic-amber
     case 'achievement':
-      return 'bg-green-600';
+      return 'bg-[#2C2C2C]'; // slate-gray
     default:
-      return 'bg-gray-500';
+      return 'bg-[#2C2C2C]'; // slate-gray
   }
 };
 
@@ -41,17 +40,17 @@ export const getCategoryColorClass = (category: string): string => {
 export const getCategoryTextColorClass = (category: string): string => {
   switch (category) {
     case 'action':
-      return 'text-amber-600';
+      return 'text-[#1F75FE]'; // insight-blue
     case 'metrics':
-      return 'text-teal-600';
+      return 'text-[#5ED3B5]'; // aqua-teal
     case 'clarity':
-      return 'text-blue-500';
+      return 'text-[#C7BCF5]'; // vira-purple
     case 'industry':
-      return 'text-blue-800';
+      return 'text-[#F9A826]'; // energetic-amber
     case 'achievement':
-      return 'text-green-600';
+      return 'text-[#2C2C2C]'; // slate-gray
     default:
-      return 'text-gray-500';
+      return 'text-[#2C2C2C]'; // slate-gray
   }
 };
 

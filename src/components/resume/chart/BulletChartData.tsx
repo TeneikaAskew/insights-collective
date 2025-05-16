@@ -1,14 +1,13 @@
-
 import { BulletAnalysis } from '@/components/assistants/types';
 
 // Define bullet categories
 export const BULLET_CATEGORIES = {
-  action: { label: 'Action', color: '#3498db' },
-  metrics: { label: 'Metrics', color: '#2ecc71' },
-  clarity: { label: 'Clarity', color: '#9b59b6' },
-  industry: { label: 'Industry', color: '#e67e22' },
-  achievement: { label: 'Achievement', color: '#f1c40f' },
-  common: { label: 'Common', color: '#95a5a6' } // Adding common category that was missing
+  action: { label: 'Action', color: '#1F75FE' },    // insight-blue
+  metrics: { label: 'Metrics', color: '#5ED3B5' },  // aqua-teal
+  clarity: { label: 'Clarity', color: '#C7BCF5' },  // vira-purple
+  industry: { label: 'Industry', color: '#F9A826' }, // energetic-amber
+  achievement: { label: 'Achievement', color: '#2C2C2C' }, // slate-gray
+  common: { label: 'Common', color: '#2C2C2C' }     // slate-gray
 };
 
 // Define type for xyz_scores to avoid empty object type error
