@@ -259,7 +259,7 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
           
           const { data, error } = await supabase
             .from('resumes')
-            .select('resumeRoast')
+            .select('resume_roast')
             .eq('user_id', user.id)
             .single();
           
@@ -268,7 +268,7 @@ Provide helpful, specific advice as a resume coach. Be constructive, honest, and
             throw error;
           }
           
-          let resumeRoast = data?.resumeRoast;
+          let resumeRoast = data?.resume_roast;
           
           // If no stored assessment, try to fetch it
           if (!resumeRoast && resumeAnalysis.resume_id) {

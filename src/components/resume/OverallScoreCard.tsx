@@ -53,11 +53,11 @@ import { useAuth } from '@/contexts/AuthContext';
           const {
             data,
             error
-          } = await supabase.from('resumes').select('resumeRoast').eq('user_id', userId).order('uploaded_at', {
+          } = await supabase.from('resumes').select('resume_roast').eq('user_id', userId).order('uploaded_at', {
             ascending: false
           }).limit(1).maybeSingle();
           console.log("user: ", userId, " - Roast data", data);
-          if (!error && data?.resumeRoast) {
+          if (!error && data?.resume_roast) {
             setHasRoast(true);
           }
         } catch (error) {

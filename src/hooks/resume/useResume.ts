@@ -20,7 +20,7 @@ export interface Resume {
   career_alignment_score?: number;
   target_role?: string;
   analysis?: any;
-  resumeRoast?: string;
+  resume_roast?: string;
 }
 
 // Helper function to check if the resumes table exists
