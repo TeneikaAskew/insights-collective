@@ -1,4 +1,3 @@
-
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
@@ -7,7 +6,6 @@ import { motion } from 'framer-motion';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { getUserInitials } from '@/utils/profileUtils';
 
 const AppSidebar = () => {
   const location = useLocation();
@@ -27,12 +25,6 @@ const AppSidebar = () => {
     url: "/resume",
     icon: FileUp,
     active: location.pathname === '/resume',
-    highlight: true
-  }, {
-    title: "Portfolio Explorer",
-    url: "/portfolio-explorer",
-    icon: Briefcase,
-    active: location.pathname === '/portfolio-explorer',
     highlight: true
   }, {
     title: "Courses",
@@ -208,7 +200,7 @@ const AppSidebar = () => {
         {isAuthenticated && <div className="mb-4 px-2">
             <div className="flex items-center space-x-2 mb-2">
               <Avatar className="border-2 border-[#9b87f5]/20 w-7 h-7">
-                <AvatarImage src={user?.avatar_url || ''} alt="User avatar" />
+                <AvatarImage src={user?.avatar || ''} alt="User avatar" />
                 <AvatarFallback className="bg-[#9b87f5]/10 text-[#9b87f5] text-xs">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
