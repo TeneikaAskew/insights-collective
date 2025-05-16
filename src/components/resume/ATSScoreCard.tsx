@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -171,7 +172,7 @@ const ATSScoreCard: React.FC<ATSScoreCardProps> = ({ analysis }) => {
           </TabsContent>
           
           <TabsContent value="job-match" className="mt-0">
-            <JobDescriptionAnalyzer />
+            <JobDescriptionAnalyzer resumeText={resume?.text || null} />
           </TabsContent>
         </Tabs>
       </CardContent>

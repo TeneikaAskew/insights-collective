@@ -235,15 +235,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           }
         });
         
-        // Sort users by name for consistent ordering
-        const sortedUsers = presentUsers.sort((a, b) => {
-          const nameA = a.first_name || '';
-          const nameB = b.first_name || '';
-          return nameA.localeCompare(nameB);
-        });
-        
-        setOnlineUsers(sortedUsers);
-        console.log(`Updated presence: ${sortedUsers.length} users online`);
+        setOnlineUsers(presentUsers);
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
         console.log('User joined:', newPresences);
@@ -255,7 +247,6 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         if (status === 'SUBSCRIBED') {
           // Track the current user's presence
           await channel.track(presenceData);
-          console.log('Subscribed to presence channel');
         }
       });
     
