@@ -32,7 +32,13 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
 
   // Use existing calculated percentages from the bullet with proper type
   const xyz_scores: XYZScores = bullet.xyz_scores || {};
-  const bullet_total: number = bullet.bullet_total || 0;
+  
+  // Calculate the total score by summing up all the actual values
+  const bullet_total = (xyz_scores.action || 0) +
+                      (xyz_scores.metrics || 0) +
+                      (xyz_scores.clarity || 0) +
+                      (xyz_scores.industry || 0) +
+                      (xyz_scores.achievement || 0);
   
   // Format the data for the charts
   const dataWithPercent = [
@@ -42,7 +48,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: BULLET_CATEGORIES.action.color,
       category: 'action',
       target: 10,
-      percent: xyz_scores.action || 0
+      percent: (xyz_scores.action || 0)
     },
     {
       name: 'Metrics/Results',
@@ -50,7 +56,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: BULLET_CATEGORIES.metrics.color,
       category: 'metrics',
       target: 30,
-      percent: xyz_scores.metrics || 0
+      percent: (xyz_scores.metrics || 0)
     },
     {
       name: 'Clarity/Conciseness',
@@ -58,7 +64,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: BULLET_CATEGORIES.clarity.color,
       category: 'clarity',
       target: 15,
-      percent: xyz_scores.clarity || 0
+      percent: (xyz_scores.clarity || 0)
     },
     {
       name: 'Industry Keywords',
@@ -66,7 +72,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: BULLET_CATEGORIES.industry.color,
       category: 'industry',
       target: 25,
-      percent: xyz_scores.industry || 0
+      percent: (xyz_scores.industry || 0)
     },
     {
       name: 'Achievement Focus',
@@ -74,7 +80,7 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       fill: BULLET_CATEGORIES.achievement.color,
       category: 'achievement',
       target: 20,
-      percent: xyz_scores.achievement || 0
+      percent: (xyz_scores.achievement || 0)
     }
   ];
 
