@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useLocation } from 'react-router-dom';
 import { extractRoutes, type RouteInfo } from '@/utils/routeUtils';
 import { enrichProfileWithRoles } from '@/utils/profileUtils';
 
@@ -222,7 +223,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     setCurrentUserPresence(presenceData);
     
     // Subscribe to presence events
-    channel
+    const presence = channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState<UserPresence>();
         // Convert presence state to array of users
@@ -234,7 +235,6 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           }
         });
         
-        console.log('Online users count:', presentUsers.length);
         setOnlineUsers(presentUsers);
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {

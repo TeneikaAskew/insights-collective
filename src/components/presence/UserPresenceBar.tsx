@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Users } from 'lucide-react';
-import { getUserInitials, getFullName } from '@/utils/profileUtils';
 
 export const UserPresenceBar = () => {
   const { onlineUsers, currentUserPresence } = usePageVisibility();
@@ -16,6 +15,22 @@ export const UserPresenceBar = () => {
 
   const otherUsers = onlineUsers.filter(u => u.id !== user.id);
   const totalOnline = onlineUsers.length;
+
+  // Function to get user initials for avatar fallback
+  const getUserInitials = (firstName?: string | null, lastName?: string | null): string => {
+    if (!firstName && !lastName) return '?';
+    
+    const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : '';
+    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
+    
+    return `${firstInitial}${lastInitial}`;
+  };
+
+  // Function to get full name for tooltip
+  const getFullName = (firstName?: string | null, lastName?: string | null): string => {
+    if (!firstName && !lastName) return 'Unknown User';
+    return [firstName, lastName].filter(Boolean).join(' ');
+  };
 
   return (
     <div className="px-3 py-2 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
