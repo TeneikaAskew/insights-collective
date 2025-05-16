@@ -139,7 +139,7 @@ export function AddProjectDialog({ onAddProject }: AddProjectDialogProps) {
                     <SelectValue placeholder="Select effort level" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Low">Low (< 10 hours)</SelectItem>
+                    <SelectItem value="Low">Low ({"< 10 hours"})</SelectItem>
                     <SelectItem value="Medium">Medium (10-30 hours)</SelectItem>
                     <SelectItem value="High">High (30+ hours)</SelectItem>
                   </SelectContent>
