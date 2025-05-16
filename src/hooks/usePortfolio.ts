@@ -77,6 +77,8 @@ export function usePortfolio() {
         .from('career_pathway_results')
         .select('action_plan')
         .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (error) throw error;
