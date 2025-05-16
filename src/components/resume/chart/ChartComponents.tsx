@@ -30,7 +30,7 @@ export const getCategoryColorClass = (category: string): string => {
     case 'industry':
       return 'bg-[#F9A826]'; // energetic-amber
     case 'achievement':
-      return 'bg-[#2C2C2C]'; // slate-gray
+      return 'bg-[#8A8F9E]'; // dusty-gray
     default:
       return 'bg-[#2C2C2C]'; // slate-gray
   }
@@ -48,7 +48,7 @@ export const getCategoryTextColorClass = (category: string): string => {
     case 'industry':
       return 'text-[#F9A826]'; // energetic-amber
     case 'achievement':
-      return 'text-[#2C2C2C]'; // slate-gray
+      return 'text-[#8A8F9E]'; // dusty-gray
     default:
       return 'text-[#2C2C2C]'; // slate-gray
   }

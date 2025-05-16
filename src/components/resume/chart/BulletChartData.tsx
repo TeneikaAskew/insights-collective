@@ -6,7 +6,7 @@ export const BULLET_CATEGORIES = {
   metrics: { label: 'Metrics', color: '#5ED3B5' },  // aqua-teal
   clarity: { label: 'Clarity', color: '#C7BCF5' },  // vira-purple
   industry: { label: 'Industry', color: '#F9A826' }, // energetic-amber
-  achievement: { label: 'Achievement', color: '#2C2C2C' }, // slate-gray
+  achievement: { label: 'Achievement', color: '#8A8F9E' }, // slate-gray
   common: { label: 'Common', color: '#2C2C2C' }     // slate-gray
 };
 
