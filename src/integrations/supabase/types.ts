@@ -874,45 +874,6 @@ export type Database = {
         }
         Relationships: []
       }
-      portfolio_projects: {
-        Row: {
-          created_at: string | null
-          description: string | null
-          effort_level: string | null
-          id: string
-          impact: string | null
-          required_skills: string[] | null
-          roadmap: Json | null
-          title: string
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          description?: string | null
-          effort_level?: string | null
-          id?: string
-          impact?: string | null
-          required_skills?: string[] | null
-          roadmap?: Json | null
-          title: string
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          description?: string | null
-          effort_level?: string | null
-          id?: string
-          impact?: string | null
-          required_skills?: string[] | null
-          roadmap?: Json | null
-          title?: string
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       posts: {
         Row: {
           content: string
@@ -1031,32 +992,6 @@ export type Database = {
             columns: ["lesson_id"]
             isOneToOne: false
             referencedRelation: "lessons"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      project_status: {
-        Row: {
-          project_id: string
-          status: string
-          updated_at: string | null
-        }
-        Insert: {
-          project_id: string
-          status: string
-          updated_at?: string | null
-        }
-        Update: {
-          project_id?: string
-          status?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "project_status_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: true
-            referencedRelation: "portfolio_projects"
             referencedColumns: ["id"]
           },
         ]

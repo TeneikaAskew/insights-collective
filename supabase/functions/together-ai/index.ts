@@ -1,232 +1,415 @@
-
-// Follow Deno Deploy's best practices
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.43.0';
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
+import { corsHeaders } from '../_shared/utils.ts';
+const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
 // Handle CORS preflight requests
-async function handleCors(req: Request) {
+const handleCors = (req)=>{
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-}
-
-// Create a Supabase client with the service role key
-function createSupabaseClient(req: Request) {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  
-  // Get the authorization header from the request
-  const authHeader = req.headers.get('Authorization');
-  
-  return createClient(
-    supabaseUrl,
-    authHeader ? authHeader.replace('Bearer ', '') : supabaseKey,
-    {
-      global: {
-        headers: {
-          Authorization: authHeader || `Bearer ${supabaseKey}`,
-        },
-      },
-      auth: {
-        persistSession: false,
-      },
-    }
-  );
-}
-
-// Generate response using Together API
-async function generateWithTogetherAI(prompt: string) {
-  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
-  if (!TOGETHER_API_KEY) {
-    throw new Error('TOGETHER_API_KEY is not set');
-  }
-
-  try {
-    const response = await fetch('https://api.together.xyz/v1/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${TOGETHER_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'togethercomputer/llama-2-70b-chat',
-        prompt: prompt,
-        max_tokens: 2048,
-        temperature: 0.7,
-        top_p: 0.7,
-        top_k: 50,
-        stop: ['<|im_end|>']
-      })
+    return new Response(null, {
+      headers: corsHeaders
     });
-
-    const data = await response.json();
-    if (data.error) {
-      console.error('Together API error:', data.error);
-      throw new Error(data.error.message || 'Error calling Together API');
-    }
-
-    return data.choices[0].text;
-  } catch (error) {
-    console.error('Error calling Together API:', error);
-    throw error;
   }
-}
-
-// Process portfolio explorer data
-async function handlePortfolioExplorer(payload: any) {
-  const { resumeText, actionPlan, questionnaireAnswers } = payload;
-  
-  // Create a detailed prompt for the Together AI API
-  const prompt = `
-<|im_start|>system
-You are an expert career advisor specialized in helping users create portfolio projects that will advance their career. You will analyze the user's background, interests, and goals to recommend specific career paths and practical portfolio projects.
-
-Analyze the following information about the user:
-1. Resume text (if available)
-2. Career action plan (if available)
-3. Their current role
-4. Their professional interests
-5. Their hobbies and free-time activities
-
-Based on this analysis, you will provide:
-1. The user's key strengths and skills
-2. 2-3 target roles they should consider
-3. For each role:
-   - Core skills needed
-   - Common tools used
-   - Typical deliverables
-   - Example portfolio pieces
-4. Specific project ideas for each role, including:
-   - Title
-   - Description
-   - Required skills
-   - Effort level (easy/medium/hard or time estimate)
-   - Impact for job applications
-
-Format your response as valid JSON that can be parsed by a computer. Use the following structure:
-
-```json
-{
-  "userSkills": ["skill1", "skill2", ...],
-  "targetRoles": [
-    {
-      "title": "Role Title",
-      "coreSkills": ["skill1", "skill2", ...],
-      "tools": ["tool1", "tool2", ...],
-      "deliverables": ["deliverable1", "deliverable2", ...],
-      "portfolioExamples": [
-        {
-          "title": "Example Title",
-          "type": "GitHub / Case Study / Dashboard / etc",
-          "description": "Brief description of the example",
-          "link": "optional link to example"
-        }
-      ]
-    }
-  ],
-  "projectIdeas": [
-    {
-      "id": "unique-id-1",
-      "roleTitle": "Role Title",
-      "title": "Project Title",
-      "description": "Project Description",
-      "requiredSkills": ["skill1", "skill2", ...],
-      "effortLevel": "2-4 hours / 1 week / etc",
-      "impact": "Shows mastery of X / Demonstrates Y"
-    }
-  ]
-}
-```
-
-Make the response useful, practical, and actionable. Focus on realistic projects that showcase skills relevant to the target roles.
-<|im_end|>
-
-<|im_start|>user
-I need help creating portfolio project ideas for my career transition.
-
-Here's my information:
-${resumeText ? `\nRESUME TEXT:\n${resumeText}` : '\nNo resume text provided.'}
-
-${actionPlan ? `\nACTION PLAN:\n${JSON.stringify(actionPlan, null, 2)}` : '\nNo action plan provided.'}
-
-CURRENT ROLE: ${questionnaireAnswers.currentRole || 'Not specified'}
-
-PROFESSIONAL INTERESTS: ${questionnaireAnswers.interests ? questionnaireAnswers.interests.join(', ') : 'Not specified'}
-
-HOBBIES/FREE-TIME ACTIVITIES: ${questionnaireAnswers.hobbies || 'Not specified'}
-
-Based on this information, please analyze my profile and suggest target roles and portfolio project ideas that would help me in my career growth.
-<|im_end|>
-
-<|im_start|>assistant
-`;
-
-  try {
-    // Call Together AI API
-    const aiResponse = await generateWithTogetherAI(prompt);
-    
-    // Extract the JSON from the response
-    const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
-                     aiResponse.match(/\{[\s\S]*\}/);
-    
-    if (!jsonMatch) {
-      throw new Error('Could not extract JSON from AI response');
-    }
-    
-    let jsonString = jsonMatch[1] || jsonMatch[0];
-    
-    // Parse the JSON
-    const data = JSON.parse(jsonString);
-    
-    // Return the parsed result
-    return data;
-  } catch (error) {
-    console.error('Error in handlePortfolioExplorer:', error);
-    throw error;
+};
+// Function to convert chat history to a prompt string
+const formatChatHistoryToPrompt = (chatHistory)=>{
+  if (!chatHistory || !Array.isArray(chatHistory) || chatHistory.length === 0) {
+    throw new Error('Valid chatHistory array is required');
   }
-}
-
-// Handle request
-serve(async (req) => {
-  // Handle CORS preflight
-  const corsResponse = await handleCors(req);
+  let formattedPrompt = '';
+  // Format the chat history into a prompt string
+  // This format depends on what your LLM expects
+  for (const message of chatHistory){
+    if (message.role === 'system') {
+      formattedPrompt += `<system>\n${message.content}\n</system>\n\n`;
+    } else if (message.role === 'user') {
+      formattedPrompt += `<human>\n${message.content}\n</human>\n\n`;
+    } else if (message.role === 'assistant') {
+      formattedPrompt += `<assistant>\n${message.content}\n</assistant>\n\n`;
+    }
+  }
+  // Add the final assistant prompt to indicate it's the AI's turn to respond
+  formattedPrompt += '<assistant>\n';
+  return formattedPrompt;
+};
+// Function to handle LLaMa-specific formatting
+const formatLlamaChat = (chatHistory)=>{
+  if (!chatHistory || !Array.isArray(chatHistory) || chatHistory.length === 0) {
+    throw new Error('Valid chatHistory array is required');
+  }
+  const messages = chatHistory.map((msg)=>{
+    // Map role names to what the LLaMa model expects
+    const role = msg.role === 'user' ? 'user' : msg.role === 'assistant' ? 'assistant' : msg.role === 'system' ? 'system' : 'user';
+    return {
+      role,
+      content: msg.content
+    };
+  });
+  return {
+    messages
+  };
+};
+Deno.serve(async (req)=>{
+  // Handle CORS
+  const corsResponse = handleCors(req);
   if (corsResponse) return corsResponse;
-
   try {
-    // Parse the request body
-    const payload = await req.json();
-    const { type } = payload;
-    let result;
-
-    // Handle different request types
-    if (type === 'portfolio-explorer') {
-      result = await handlePortfolioExplorer(payload);
-    } else {
-      throw new Error(`Unsupported request type: ${type}`);
+    // Log the raw request body for debugging
+    const requestBody = await req.json();
+    console.log('Request body:', JSON.stringify(requestBody));
+    // Extract parameters with fallbacks
+    const { chatHistory, prompt, model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free', max_tokens = 1024, stream = false } = requestBody;
+    // Validate we have either chatHistory or prompt mistralai/Mixtral-8x7B-Instruct-v0.1
+    if (!chatHistory && !prompt) {
+      throw new Error('Either chatHistory or prompt is required');
     }
-
-    // Return success response
-    return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    });
-  } catch (error) {
-    console.error('Error processing request:', error);
-    
-    // Return error response
-    return new Response(
-      JSON.stringify({
-        error: error.message || 'An error occurred processing your request',
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+    if (!togetherApiKey) {
+      throw new Error('Together.ai API key not configured');
+    }
+    // Check if we're using a LLaMa model
+    const isLlamaModel = model.toLowerCase().includes('llama');
+    // Prepare the API request body
+    let apiRequestBody;
+    if (isLlamaModel) {
+      // For LLaMa models, use the chat completions API format
+      apiRequestBody = {
+        model,
+        ...formatLlamaChat(chatHistory),
+        max_tokens,
+        temperature: 0.7,
+        top_p: 0.8,
+        top_k: 50,
+        stream
+      };
+      console.log(`Making request to Together Chat Completions API for model: ${model}, streaming: ${stream}`);
+      // Call Together.ai Chat Completions API
+      const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${togetherApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apiRequestBody)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Together API error:', errorText);
+        throw new Error(`Together API returned status ${response.status}: ${errorText}`);
       }
-    );
+      // Forward the streaming response
+      if (stream) {
+        console.log('Streaming response from Together Chat Completions API');
+        return new Response(response.body, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          }
+        });
+      }
+      // For non-streaming responses
+      const data = await response.json();
+      return new Response(JSON.stringify({
+        success: true,
+        data
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
+    } else {
+      // For non-LLaMa models, use the completions API with prompt
+      // Convert chat history to prompt if needed
+      const finalPrompt = prompt || formatChatHistoryToPrompt(chatHistory);
+      apiRequestBody = {
+        model,
+        prompt: finalPrompt,
+        max_tokens,
+        temperature: 0.7,
+        top_p: 0.8,
+        top_k: 50,
+        stream
+      };
+      console.log(`Making request to Together Completions API for model: ${model}, streaming: ${stream}`);
+      // Call Together.ai Completions API
+      const response = await fetch('https://api.together.xyz/v1/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${togetherApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(apiRequestBody)
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Together API error:', errorText);
+        throw new Error(`Together API returned status ${response.status}: ${errorText}`);
+      }
+      // For streaming responses
+      if (stream) {
+        console.log('Streaming response from Together Completions API');
+        return new Response(response.body, {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive'
+          }
+        });
+      }
+      // For non-streaming responses
+      const data = await response.json();
+      return new Response(JSON.stringify({
+        success: true,
+        data
+      }), {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error in together-ai function:', error);
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
+    });
   }
-});
+}); // import { corsHeaders } from '../_shared/utils.ts';
+ // const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
+ // // Handle CORS preflight requests
+ // const handleCors = (req)=>{
+ //   if (req.method === 'OPTIONS') {
+ //     return new Response(null, {
+ //       headers: corsHeaders
+ //     });
+ //   }
+ // };
+ // Deno.serve(async (req)=>{
+ //   // Handle CORS
+ //   const corsResponse = handleCors(req);
+ //   if (corsResponse) return corsResponse;
+ //   try {
+ //     const { prompt, model, max_tokens = 1024, stream = false } = await req.json();
+ //     if (!prompt) {
+ //       console.log(prompt, model, max_tokens, stream);
+ //       throw new Error('Prompt is required');
+ //     }
+ //     if (!togetherApiKey) {
+ //       throw new Error('Together.ai API key not configured');
+ //     }
+ //     console.log(`Making request to Together API for model: ${model}, streaming: ${stream}`);
+ //     // Call Together.ai API
+ //     const response = await fetch('https://api.together.xyz/v1/completions', {
+ //       method: 'POST',
+ //       headers: {
+ //         'Authorization': `Bearer ${togetherApiKey}`,
+ //         'Content-Type': 'application/json'
+ //       },
+ //       body: JSON.stringify({
+ //         model,
+ //         prompt,
+ //         max_tokens,
+ //         temperature: 0.7,
+ //         top_p: 0.8,
+ //         top_k: 50,
+ //         stream
+ //       })
+ //     });
+ //     if (!response.ok) {
+ //       const errorText = await response.text();
+ //       console.error('Together API error:', errorText);
+ //       throw new Error(`Together API returned status ${response.status}: ${errorText}`);
+ //     }
+ //     // For streaming responses
+ //     if (stream) {
+ //       console.log('Streaming response from Together API');
+ //       return new Response(response.body, {
+ //         headers: {
+ //           ...corsHeaders,
+ //           'Content-Type': 'text/event-stream',
+ //           'Cache-Control': 'no-cache',
+ //           'Connection': 'keep-alive'
+ //         }
+ //       });
+ //     }
+ //     // For non-streaming responses
+ //     const data = await response.json();
+ //     return new Response(JSON.stringify({
+ //       success: true,
+ //       data
+ //     }), {
+ //       headers: {
+ //         ...corsHeaders,
+ //         'Content-Type': 'application/json'
+ //       }
+ //     });
+ //   } catch (error) {
+ //     console.error('Error in together-ai function:', error);
+ //     return new Response(JSON.stringify({
+ //       success: false,
+ //       error: error.message
+ //     }), {
+ //       status: 500,
+ //       headers: {
+ //         ...corsHeaders,
+ //         'Content-Type': 'application/json'
+ //       }
+ //     });
+ //   }
+ // });
+// // Import the proper Together.ai client
+// import { Together } from 'https://esm.sh/@together-ai/together-node';
+// import { corsHeaders } from '../_shared/utils.ts';
+
+// // Get API key from environment
+// const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
+
+// // Initialize Together client
+// const together = new Together({
+//   apiKey: togetherApiKey,
+// });
+
+// // Handle CORS preflight requests
+// const handleCors = (req: Request) => {
+//   if (req.method === 'OPTIONS') {
+//     return new Response(null, { headers: corsHeaders });
+//   }
+// };
+
+// Deno.serve(async (req) => {
+//   // Handle CORS
+//   const corsResponse = handleCors(req);
+//   if (corsResponse) return corsResponse;
+
+//   try {
+//     // Parse the request body
+//     const requestBody = await req.json();
+//     const { 
+//       prompt, 
+//       chatHistory = [], 
+//       model = 'meta-llama/Llama-3-8b-chat-hf', 
+//       max_tokens = 1024, 
+//       stream = false 
+//     } = requestBody;
+
+//     if (!prompt && chatHistory.length === 0) {
+//       throw new Error('Either prompt or chatHistory is required');
+//     }
+
+//     if (!togetherApiKey) {
+//       throw new Error('Together.ai API key not configured');
+//     }
+
+//     console.log(`Making request to Together API for model: ${model}, streaming: ${stream}`);
+    
+//     // Prepare messages for the chat API
+//     let messages = [];
+    
+//     // If chat history is provided, use it directly
+//     if (chatHistory.length > 0) {
+//       messages = chatHistory;
+//     } else {
+//       // Otherwise, create a basic user prompt message
+//       messages = [
+//         {
+//           role: "system",
+//           content: "You are a professional resume coach assisting users with improving their resumes. Be constructive, honest, and professional."
+//         },
+//         {
+//           role: "user",
+//           content: prompt
+//         }
+//       ];
+//     }
+
+//     // For streaming responses
+//     if (stream) {
+//       console.log('Streaming response from Together API');
+      
+//       // Create a new ReadableStream that will be returned to the client
+//       const encoder = new TextEncoder();
+//       const stream = new ReadableStream({
+//         async start(controller) {
+//           try {
+//             // Use the Together client to create a streaming completion
+//             const togetherStream = await together.chat.completions.create({
+//               model,
+//               messages,
+//               max_tokens,
+//               temperature: 0.7,
+//               top_p: 0.8,
+//               stream: true,
+//             });
+            
+//             // Process each chunk from the Together stream
+//             for await (const chunk of togetherStream) {
+//               // Format the chunk as an SSE event
+//               const content = chunk.choices?.[0]?.delta?.content || '';
+//               if (content) {
+//                 // Convert the chunk to proper SSE format
+//                 const data = JSON.stringify({
+//                   choices: [{ delta: { content } }]
+//                 });
+                
+//                 // Send the chunk to the client
+//                 controller.enqueue(encoder.encode(`data: ${data}\n\n`));
+//               }
+//             }
+            
+//             // Signal the end of the stream
+//             controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+//             controller.close();
+//           } catch (error) {
+//             console.error('Error in Together streaming:', error);
+//             controller.error(error);
+//           }
+//         }
+//       });
+      
+//       // Return the stream to the client
+//       return new Response(stream, {
+//         headers: {
+//           ...corsHeaders,
+//           'Content-Type': 'text/event-stream',
+//           'Cache-Control': 'no-cache',
+//           'Connection': 'keep-alive'
+//         }
+//       });
+//     }
+    
+//     // For non-streaming responses
+//     const response = await together.chat.completions.create({
+//       model,
+//       messages,
+//       max_tokens,
+//       temperature: 0.7,
+//       top_p: 0.8,
+//       stream: false,
+//     });
+    
+//     return new Response(JSON.stringify({
+//       success: true,
+//       data: response
+//     }), {
+//       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+//     });
+    
+//   } catch (error) {
+//     console.error('Error in together-ai function:', error);
+    
+//     return new Response(JSON.stringify({
+//       success: false,
+//       error: error.message
+//     }), {
+//       status: 500,
+//       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+//     });
+//   }
+// });
