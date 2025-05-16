@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../ui/button';
@@ -31,6 +32,7 @@ import {
   FileSpreadsheet,
   FileQuestion,
   FormInput,
+  Bug,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
@@ -112,6 +114,11 @@ const adminNavItems = [
     title: 'Page Visibility',
     icon: Layout,
     path: '/admin/page-visibility',
+  },
+  {
+    title: 'Debugging Tools',
+    icon: Bug,
+    path: '/debug',
   },
 ];
 

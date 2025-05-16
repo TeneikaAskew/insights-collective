@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -51,7 +52,8 @@ import AdminForms from "./pages/AdminForms";
 // Import guards and layout components
 import ProtectedRoute from "./components/ProtectedRoute";
 import PageVisibilityGuard from "./components/PageVisibilityGuard";
-import LocalStorageDebug from "./components/LocalStorageDebug";
+// Import the new LocalStorageDebug page
+import LocalStorageDebugPage from "./pages/LocalStorageDebug";
 
 // Import course management components
 import CourseManagement from './pages/CourseManagement';
@@ -142,6 +144,7 @@ function App() {
                   <Route path="/messages" element={<ProtectedVisibleRoute><Messages /></ProtectedVisibleRoute>} />
                   <Route path="/messages/:conversationId?" element={<ProtectedVisibleRoute><Messages /></ProtectedVisibleRoute>} />
                   <Route path="/resume" element={<ProtectedVisibleRoute><Resume /></ProtectedVisibleRoute>} />
+                  <Route path="/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
                   
                   {/* Forum routes - require authentication */}
                   <Route path="/courses/:courseId/forums" element={<ProtectedVisibleRoute><ForumList /></ProtectedVisibleRoute>} />
@@ -164,12 +167,17 @@ function App() {
                   <Route path="/admin/blog/create" element={<ProtectedVisibleRoute requireAdmin><CreateBlogPost /></ProtectedVisibleRoute>} />
                   <Route path="/admin/blog/edit/:slug" element={<ProtectedVisibleRoute requireAdmin><EditBlogPost /></ProtectedVisibleRoute>} />
                   <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin><AdminPageVisibility /></ProtectedVisibleRoute>} />
-                  <Route path="/components/LocalStorageDebug.tsx" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebug /></ProtectedVisibleRoute>} />
                   <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
+
+                  {/* Remove old LocalStorageDebug route */}
+                  {/* <Route path="/components/LocalStorageDebug.tsx" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebug /></ProtectedVisibleRoute>} /> */}
 
                   {/* Legacy redirects */}
                   <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
                   <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
+
+                  {/* Redirect old LocalStorageDebug path to new secure page */}
+                  <Route path="/components/LocalStorageDebug.tsx" element={<Navigate to="/debug" replace />} />
 
                   {/* Redirect old survey route to new form page */}
                   <Route path="/survey" element={<Navigate to="/survey/ai-fellowship" replace />} />
