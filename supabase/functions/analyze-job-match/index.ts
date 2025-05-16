@@ -117,7 +117,7 @@ async function callLLMForSkillsAnalysis(resume, jobDescription, preCalculatedKey
   }
 }
 
-// New function to filter out EEO statements from job descriptions
+// Function to filter out EEO statements from job descriptions
 function filterEEOStatements(text) {
   // Common EEO statement patterns
   const eeoPatterns = [

@@ -75,6 +75,13 @@ export function containsEEOStatement(text: string): boolean {
 }
 
 /**
+ * Checks if a single phrase is an EEO or hiring statement
+ */
+export function isEEOorHiringStatement(text: string): boolean {
+  return eeoPatterns.some(pattern => pattern.test(text));
+}
+
+/**
  * Filters EEO statements from job description text
  * Returns the filtered text with EEO statements removed
  */

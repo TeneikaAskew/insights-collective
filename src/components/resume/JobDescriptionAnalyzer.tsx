@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -10,6 +11,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { filterEEOKeywords, filterEEOStatements, isEEOorHiringStatement } from '@/utils/eeoFilter';
 
 // Enhanced stopwords list with EEO and hiring statement phrases
 const jobStopwords = [
@@ -56,26 +58,6 @@ const jobStopwords = [
   "probationary", "application process", "interview process", "background check",
   "drug test", "education requirement", "degree requirement", "experience requirement"
 ];
-
-// Create a new function to detect and filter EEO statements
-const isEEOorHiringStatement = (text) => {
-  const eeoPatterns = [
-    /equal.*opportunity.*employer/i,
-    /eeo|eeoc/i,
-    /discriminat(e|ion|ing|ory)/i,
-    /protect(ed)?\s*(class|status|veteran|characteristics)/i,
-    /diversity.*inclusion/i,
-    /inclusion.*diversity/i,
-    /affirmative\s*action/i,
-    /(regard|irrespective|regardless)\s*of\s*(race|gender|religion|age|disability|orientation)/i,
-    /we\s*(are|provide)\s*an\s*equal\s*opportunity/i,
-    /qualified\s*(applicants|candidates)/i,
-    /without\s*regard\s*to/i,
-    /prohibit(s|ed)?\s*discrimination/i
-  ];
-  
-  return eeoPatterns.some(pattern => pattern.test(text));
-};
 
 const JobDescriptionAnalyzer = () => {
   const [jobDescription, setJobDescription] = useState('');
@@ -248,7 +230,8 @@ const JobDescriptionAnalyzer = () => {
           toast({
             title: "Analysis incomplete",
             description: "No results received from job description analysis.",
-            variant: "warning"
+            // Fix the variant type error by using a supported variant type
+            variant: "destructive"
           });
           setAnalysisResult(null);
         }
@@ -309,7 +292,8 @@ const JobDescriptionAnalyzer = () => {
         toast({
           title: "Scraping incomplete",
           description: "No data received from job scraping.",
-          variant: "warning"
+          // Fix the variant type error by using a supported variant type
+          variant: "destructive"
         });
       }
     } catch (err) {

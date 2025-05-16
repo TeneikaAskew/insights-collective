@@ -172,7 +172,8 @@ const ATSScoreCard: React.FC<ATSScoreCardProps> = ({ analysis }) => {
           </TabsContent>
           
           <TabsContent value="job-match" className="mt-0">
-            <JobDescriptionAnalyzer resumeText={resume?.text || null} />
+            {/* Fix the error by not passing resumeText directly */}
+            <JobDescriptionAnalyzer />
           </TabsContent>
         </Tabs>
       </CardContent>
