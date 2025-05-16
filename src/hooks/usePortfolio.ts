@@ -1,0 +1,272 @@
+
+import { useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { PortfolioProject, ProjectStatus, QuestionnaireAnswers, PortfolioInsightData } from '@/types/portfolio';
+
+export function usePortfolio() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [isLoading, setIsLoading] = useState(false);
+  const [resumeText, setResumeText] = useState<string | null>(null);
+  const [actionPlan, setActionPlan] = useState<any | null>(null);
+
+  // Fetch user's portfolio projects
+  const { data: projects, isLoading: projectsLoading, error: projectsError } = useQuery({
+    queryKey: ['portfolio-projects', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const { data: projectsData, error: projectsError } = await supabase
+        .from('portfolio_projects')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (projectsError) throw new Error(projectsError.message);
+
+      // Fetch status for each project
+      const projectIds = projectsData.map(p => p.id);
+      const { data: statusData, error: statusError } = await supabase
+        .from('project_status')
+        .select('*')
+        .in('project_id', projectIds);
+
+      if (statusError) throw new Error(statusError.message);
+
+      // Merge projects with their status
+      return projectsData.map(project => {
+        const status = statusData?.find(s => s.project_id === project.id);
+        return {
+          ...project,
+          status: status?.status || 'Idea'
+        };
+      });
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch the user's resume text
+  const { data: resume } = useQuery({
+    queryKey: ['resume', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+
+      const { data, error } = await supabase
+        .from('resumes')
+        .select('text')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data?.text) setResumeText(data.text);
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Fetch the user's career action plan
+  const { data: plan } = useQuery({
+    queryKey: ['career-pathway-results', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+
+      const { data, error } = await supabase
+        .from('career_pathway_results')
+        .select('action_plan')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data?.action_plan) setActionPlan(data.action_plan);
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Generate portfolio ideas using the edge function
+  const generatePortfolioIdeas = useMutation({
+    mutationFn: async (questionnaireAnswers: QuestionnaireAnswers): Promise<PortfolioInsightData> => {
+      setIsLoading(true);
+
+      try {
+        // Call the portfolio-ideas edge function
+        const { data, error } = await supabase.functions.invoke<{ success: boolean, data: PortfolioInsightData }>('portfolio-ideas', {
+          body: {
+            resumeText,
+            actionPlan,
+            questionnaireAnswers
+          }
+        });
+
+        if (error) throw new Error(error.message);
+        if (!data?.success || !data?.data) throw new Error('Failed to generate portfolio ideas');
+
+        return data.data;
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  });
+
+  // Add a new project
+  const addProject = useMutation({
+    mutationFn: async (project: Omit<PortfolioProject, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+      if (!user?.id) throw new Error('User must be logged in');
+
+      // Insert the project
+      const { data: projectData, error: projectError } = await supabase
+        .from('portfolio_projects')
+        .insert([{ ...project, user_id: user.id }])
+        .select('*')
+        .single();
+
+      if (projectError) throw new Error(projectError.message);
+
+      // Add the initial status
+      const initialStatus = project.status || 'Idea';
+      const { error: statusError } = await supabase
+        .from('project_status')
+        .insert([{
+          project_id: projectData.id,
+          status: initialStatus
+        }]);
+
+      if (statusError) throw new Error(statusError.message);
+
+      return { ...projectData, status: initialStatus };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio-projects'] });
+      toast({
+        title: "Project added",
+        description: "Your project has been added to your portfolio.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error adding project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add project. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update project status
+  const updateProjectStatus = useMutation({
+    mutationFn: async ({ projectId, status }: { projectId: string, status: ProjectStatus }) => {
+      const { error } = await supabase
+        .from('project_status')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('project_id', projectId);
+
+      if (error) throw new Error(error.message);
+
+      return { projectId, status };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio-projects'] });
+      toast({
+        title: "Status updated",
+        description: "Project status has been updated.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating project status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update project status. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Update project details
+  const updateProject = useMutation({
+    mutationFn: async (project: Partial<PortfolioProject> & { id: string }) => {
+      const { id, status, ...updateData } = project;
+
+      // Update project details
+      const { error: projectError } = await supabase
+        .from('portfolio_projects')
+        .update(updateData)
+        .eq('id', id);
+
+      if (projectError) throw new Error(projectError.message);
+
+      // Update status if provided
+      if (status) {
+        const { error: statusError } = await supabase
+          .from('project_status')
+          .update({ status, updated_at: new Date().toISOString() })
+          .eq('project_id', id);
+
+        if (statusError) throw new Error(statusError.message);
+      }
+
+      return project;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio-projects'] });
+      toast({
+        title: "Project updated",
+        description: "Your project has been updated successfully.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error updating project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update project. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Delete a project
+  const deleteProject = useMutation({
+    mutationFn: async (projectId: string) => {
+      // The status will be cascade deleted due to database constraints
+      const { error } = await supabase
+        .from('portfolio_projects')
+        .delete()
+        .eq('id', projectId);
+
+      if (error) throw new Error(error.message);
+
+      return projectId;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio-projects'] });
+      toast({
+        title: "Project deleted",
+        description: "Your project has been removed from your portfolio.",
+      });
+    },
+    onError: (error) => {
+      console.error('Error deleting project:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete project. Please try again.",
+        variant: "destructive",
+      });
+    }
+  });
+
+  return {
+    projects,
+    projectsLoading,
+    projectsError,
+    resume,
+    plan,
+    generatePortfolioIdeas,
+    addProject,
+    updateProjectStatus,
+    updateProject,
+    deleteProject,
+    isLoading
+  };
+}

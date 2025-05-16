@@ -34,6 +34,7 @@ import NotFound from "./pages/NotFound";
 import CareerPathway from "./pages/CareerPathway";
 import SurveyConfirmation from "./pages/SurveyConfirmation";
 import AuthCallback from "./pages/AuthCallback";
+import PortfolioExplorer from "./pages/PortfolioExplorer";
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -146,6 +147,7 @@ function App() {
                   <Route path="/messages/:conversationId?" element={<ProtectedVisibleRoute><Messages /></ProtectedVisibleRoute>} />
                   <Route path="/resume" element={<ProtectedVisibleRoute><Resume /></ProtectedVisibleRoute>} />
                   <Route path="/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
+                  <Route path="/portfolio-explorer" element={<ProtectedVisibleRoute><PortfolioExplorer /></ProtectedVisibleRoute>} />
                   
                   {/* Forum routes - require authentication */}
                   <Route path="/courses/:courseId/forums" element={<ProtectedVisibleRoute><ForumList /></ProtectedVisibleRoute>} />
@@ -170,9 +172,6 @@ function App() {
                   <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin><AdminPageVisibility /></ProtectedVisibleRoute>} />
                   <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
                   <Route path="/admin/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
-
-                  {/* Remove old LocalStorageDebug route */}
-                  {/* <Route path="/components/LocalStorageDebug.tsx" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebug /></ProtectedVisibleRoute>} /> */}
 
                   {/* Legacy redirects */}
                   <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />

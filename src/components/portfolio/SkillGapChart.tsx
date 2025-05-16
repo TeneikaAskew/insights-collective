@@ -1,0 +1,111 @@
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
+import { Button } from '@/components/ui/button';
+import { SkillGap } from '@/types/portfolio';
+import { ExternalLink } from 'lucide-react';
+
+interface SkillGapChartProps {
+  userSkills: string[];
+  missingSkills: string[];
+  learningResources: SkillGap[];
+}
+
+export function SkillGapChart({ userSkills, missingSkills, learningResources }: SkillGapChartProps) {
+  // Calculate a simple skill completion percentage
+  const totalSkills = [...new Set([...userSkills, ...missingSkills])].length;
+  const userSkillsCount = userSkills.length;
+  const completionPercentage = Math.round((userSkillsCount / totalSkills) * 100) || 0;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Skill Gap Analysis</CardTitle>
+        <CardDescription>
+          A comparison of your current skills against what's needed for your target roles
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-6">
+          {/* Overall progress */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-medium">Skill Coverage</h4>
+              <span className="text-sm text-gray-500">{completionPercentage}%</span>
+            </div>
+            <Progress value={completionPercentage} className="h-2" />
+          </div>
+
+          <Separator />
+
+          {/* Existing Skills */}
+          <div>
+            <h4 className="text-sm font-medium mb-3">Your Current Skills</h4>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {userSkills.map((skill, idx) => (
+                <Badge key={idx} className="bg-green-100 text-green-800 hover:bg-green-200 border-0">
+                  {skill}
+                </Badge>
+              ))}
+              {userSkills.length === 0 && (
+                <span className="text-sm text-gray-500 italic">No skills detected from your profile</span>
+              )}
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Missing Skills */}
+          <div>
+            <h4 className="text-sm font-medium mb-3">Skills to Develop</h4>
+            <div className="flex flex-wrap gap-2 mb-4">
+              {missingSkills.map((skill, idx) => (
+                <Badge key={idx} variant="outline" className="border-red-300 text-red-700">
+                  {skill}
+                </Badge>
+              ))}
+              {missingSkills.length === 0 && (
+                <span className="text-sm text-gray-500 italic">Great job! You have all the required skills.</span>
+              )}
+            </div>
+          </div>
+
+          {learningResources?.length > 0 && (
+            <>
+              <Separator />
+              
+              {/* Learning resources */}
+              <div>
+                <h4 className="text-sm font-medium mb-3">Recommended Learning Resources</h4>
+                <div className="space-y-4">
+                  {learningResources.map((item, idx) => (
+                    <div key={idx} className="border rounded-lg p-3">
+                      <h5 className="font-medium text-sm mb-2">{item.skill}</h5>
+                      <ul className="space-y-2">
+                        {item.resources.map((resource, i) => (
+                          <li key={i} className="text-sm flex items-start">
+                            <div className="mr-2 mt-0.5 text-blue-500">•</div>
+                            <span>{resource}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          
+          <Button variant="outline" className="w-full mt-4" asChild>
+            <a href="https://www.coursera.org/browse/data-science" target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Explore More Learning Resources
+            </a>
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}

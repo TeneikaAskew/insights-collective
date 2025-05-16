@@ -1,3 +1,4 @@
+
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
@@ -51,6 +52,12 @@ const AppSidebar = () => {
     url: "/career-pathway",
     icon: Briefcase,
     active: location.pathname === '/career-pathway'
+  }, {
+    title: "Portfolio Explorer",
+    url: "/portfolio-explorer",
+    icon: Award,
+    active: location.pathname === '/portfolio-explorer',
+    highlight: true
   }, {
     title: "Career Agent",
     url: "/career-agent",
@@ -200,7 +207,7 @@ const AppSidebar = () => {
         {isAuthenticated && <div className="mb-4 px-2">
             <div className="flex items-center space-x-2 mb-2">
               <Avatar className="border-2 border-[#9b87f5]/20 w-7 h-7">
-                <AvatarImage src={user?.avatar || ''} alt="User avatar" />
+                <AvatarImage src={user?.avatar} alt="User avatar" />
                 <AvatarFallback className="bg-[#9b87f5]/10 text-[#9b87f5] text-xs">
                   {user?.email?.charAt(0).toUpperCase() || 'U'}
                 </AvatarFallback>
