@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -51,8 +52,9 @@ import AdminForms from "./pages/AdminForms";
 // Import guards and layout components
 import ProtectedRoute from "./components/ProtectedRoute";
 import PageVisibilityGuard from "./components/PageVisibilityGuard";
-// Import the new LocalStorageDebug page
-import LocalStorageDebugPage from "./pages/LocalStorageDebug";
+
+// Import the new LocalStorageDebug page (fixed import path)
+import LocalStorageDebugPage from "./pages/admin/LocalStorageDebug";
 
 // Import course management components
 import CourseManagement from './pages/CourseManagement';
