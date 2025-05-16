@@ -1,10 +1,13 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { useToast } from '@/hooks/use-toast';
-import { Lock, Key, Unlock, ShieldAlert, RefreshCw } from 'lucide-react';
+import { 
+  Lock, Key, Unlock, ShieldAlert, RefreshCw, ChevronDown, ChevronUp, 
+  Search, Copy, FileText, Filter, Download, Plus, Trash 
+} from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,8 +20,15 @@ const LocalStorageDebugPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isTokenLoading, setIsTokenLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [testKey, setTestKey] = useState<string>('');
+  
   const { toast } = useToast();
   const { user } = useAuth();
+  
+  const searchRef = useRef<HTMLInputElement>(null);
   
   useEffect(() => {
     const autoAuthenticate = async () => {
@@ -104,11 +114,21 @@ const LocalStorageDebugPage: React.FC = () => {
     setIsRefreshing(true);
     try {
       console.log('Refreshing localStorage items...');
+      
+      // Log all items to console first
+      LocalStorageUtils.logAllItems();
+      
+      // Get items as array
       const allItems = LocalStorageUtils.getAllItemsAsArray();
       console.log(`Found ${allItems.length} items in localStorage`);
+      
+      // Debug each localStorage key-value pair
+      allItems.forEach(item => {
+        console.log(`LocalStorage item - Key: ${item.key}, Value length: ${item.value?.length || 0}`);
+      });
+      
       setItems(allItems);
       
-      // Show a toast notification for feedback
       toast({
         title: "Refreshed",
         description: `${allItems.length} items loaded from localStorage`,
@@ -124,6 +144,13 @@ const LocalStorageDebugPage: React.FC = () => {
     } finally {
       setIsRefreshing(false);
     }
+  };
+
+  const toggleItemExpand = (key: string) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
   };
 
   const clearResumeData = () => {
@@ -162,6 +189,72 @@ const LocalStorageDebugPage: React.FC = () => {
       description: "Local storage data has been exported to a JSON file.",
       variant: "default"
     });
+  };
+  
+  const dumpToConsole = () => {
+    LocalStorageUtils.dumpToConsole();
+    toast({
+      title: "Data dumped to console",
+      description: "Local storage data has been logged to the browser console.",
+      variant: "default"
+    });
+  };
+  
+  const createTestItem = () => {
+    const key = LocalStorageUtils.createTestItem();
+    setTestKey(key);
+    refreshItems();
+    toast({
+      title: "Test item created",
+      description: `Created test item with key: ${key}`,
+      variant: "default"
+    });
+  };
+  
+  const removeTestItem = () => {
+    if (testKey) {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem(testKey);
+        toast({
+          title: "Test item removed",
+          description: `Removed test item with key: ${testKey}`,
+          variant: "default"
+        });
+        setTestKey('');
+        refreshItems();
+      }
+    }
+  };
+  
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Copied",
+      description: "Value copied to clipboard",
+      variant: "default"
+    });
+  };
+
+  // Filter and search functionality
+  const getFilteredItems = () => {
+    let filteredItems = [...items];
+    
+    // Apply category filter
+    if (filterCategory !== 'all') {
+      filteredItems = filteredItems.filter(item => 
+        item.key.toLowerCase().includes(filterCategory.toLowerCase())
+      );
+    }
+    
+    // Apply search term filter
+    if (searchTerm.trim()) {
+      filteredItems = filteredItems.filter(item => 
+        item.key.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        (item.value && item.value.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+    
+    return filteredItems;
   };
 
   if (isLoading) {
@@ -236,6 +329,7 @@ const LocalStorageDebugPage: React.FC = () => {
             </div>
           </div>
           
+          {/* Action buttons */}
           <div className="flex flex-wrap gap-2 mb-4">
             <Button onClick={refreshItems} variant="secondary" disabled={isRefreshing}>
               {isRefreshing ? (
@@ -250,6 +344,10 @@ const LocalStorageDebugPage: React.FC = () => {
                 </>
               )}
             </Button>
+            <Button onClick={dumpToConsole} variant="secondary">
+              <FileText className="h-4 w-4 mr-2" />
+              Dump to Console
+            </Button>
             <Button onClick={clearResumeData} variant="destructive">
               Clear Resume Data
             </Button>
@@ -257,32 +355,162 @@ const LocalStorageDebugPage: React.FC = () => {
               Clear All Resume/Job Data
             </Button>
             <Button onClick={exportData} variant="outline">
+              <Download className="h-4 w-4 mr-2" />
               Export JSON
             </Button>
           </div>
+          
+          {/* Test item creation section */}
+          <Card className="border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-lg">Test LocalStorage Access</CardTitle>
+              <CardDescription>Create test items to verify localStorage access</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 mb-4">
+                <Button onClick={createTestItem} variant="outline" size="sm">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Test Item
+                </Button>
+                {testKey && (
+                  <Button onClick={removeTestItem} variant="outline" size="sm">
+                    <Trash className="h-4 w-4 mr-2" />
+                    Remove Test Item
+                  </Button>
+                )}
+              </div>
+              {testKey && (
+                <div className="text-sm bg-secondary/20 p-2 rounded">
+                  <strong>Test key created:</strong> {testKey}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          {/* Search and filter */}
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  ref={searchRef}
+                  placeholder="Search keys or values..."
+                  className="pl-9"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-muted-foreground" />
+                <select
+                  className="bg-background border rounded px-2 py-2 text-sm outline-none"
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                >
+                  <option value="all">All items</option>
+                  <option value="resume">Resume items</option>
+                  <option value="job">Job items</option>
+                  <option value="auth">Auth items</option>
+                  <option value="test">Test items</option>
+                </select>
+              </div>
+            </div>
+          </div>
 
+          {/* LocalStorage data display */}
           <Card className="border">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Storage Contents</CardTitle>
-              <CardDescription>{items.length} items found in localStorage</CardDescription>
+              <CardDescription>
+                {getFilteredItems().length} of {items.length} items shown
+                {searchTerm && ` (filtered by "${searchTerm}")`}
+                {filterCategory !== 'all' && ` in category "${filterCategory}"`}
+              </CardDescription>
             </CardHeader>
             <CardContent className="max-h-[500px] overflow-auto">
               <div className="space-y-2">
-                {items.map(({ key, value }) => (
-                  <div key={key} className="text-sm break-all border-b pb-2 last:border-0">
-                    <strong className="font-medium text-primary">{key}:</strong>{" "}
-                    <span className="text-muted-foreground">
-                      {value ? value.substring(0, 100) : 'null'}
-                      {value && value.length > 100 ? '...' : ''}
-                    </span>
+                {getFilteredItems().map(({ key, value }) => (
+                  <div 
+                    key={key} 
+                    className={`text-sm break-all border-b pb-2 last:border-0 ${
+                      testKey === key ? 'bg-green-100/10 border-green-200' : ''
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <strong className="font-medium text-primary">{key}:</strong>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => copyToClipboard(value || '')}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => toggleItemExpand(key)}
+                          className="h-6 w-6 p-0"
+                        >
+                          {expandedItems[key] ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground">
+                      {!expandedItems[key] ? (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            {value ? value.substring(0, 100) : 'null'}
+                            {value && value.length > 100 ? '...' : ''}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {value ? `${value.length} chars` : '0 chars'}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-1 p-2 bg-secondary/20 rounded whitespace-pre-wrap">
+                          {value ? value : 'null'}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 ))}
+                {getFilteredItems().length === 0 && items.length > 0 && (
+                  <div className="text-sm text-muted-foreground">
+                    No items match your search criteria.
+                  </div>
+                )}
                 {items.length === 0 && (
-                  <div className="text-sm text-muted-foreground">No items found in localStorage</div>
+                  <div className="text-sm text-muted-foreground py-4 text-center">
+                    <div className="mb-2">No items found in localStorage</div>
+                    <Button onClick={createTestItem} variant="outline" size="sm">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Test Item to Verify Storage Access
+                    </Button>
+                  </div>
                 )}
               </div>
             </CardContent>
           </Card>
+          
+          {/* Browser storage context info */}
+          <div className="bg-secondary/10 p-4 rounded-md text-sm">
+            <h3 className="font-medium mb-2">Storage Context Information</h3>
+            <div className="space-y-1">
+              <p>• Current URL: {typeof window !== 'undefined' ? window.location.href : 'Unknown'}</p>
+              <p>• Domain: {typeof window !== 'undefined' ? window.location.hostname : 'Unknown'}</p>
+              <p>• Storage access status: {typeof window !== 'undefined' && window.localStorage ? 'Available' : 'Restricted'}</p>
+              <p>• Environment: {import.meta.env.MODE}</p>
+              <p>• Total localStorage items detected: {items.length}</p>
+            </div>
+          </div>
         </div>
       )}
     </div>
