@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,21 +10,23 @@ export const UserPresenceBar = () => {
   const { onlineUsers, currentUserPresence } = usePageVisibility();
   const { user } = useAuth();
 
-  if (!user || onlineUsers.length === 0) {
+  // Don't render if user isn't logged in or there are no online users
+  if (!user || !onlineUsers || onlineUsers.length === 0) {
     return null;
   }
 
+  // Filter out current user to get other online users
   const otherUsers = onlineUsers.filter(u => u.id !== user.id);
   const totalOnline = onlineUsers.length;
 
   // Function to get user initials for avatar fallback
   const getUserInitials = (firstName?: string | null, lastName?: string | null): string => {
-    if (!firstName && !lastName) return '?';
-    
-    const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : '';
-    const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : '';
-    
-    return `${firstInitial}${lastInitial}`;
+    // Return first initial of first name if available
+    if (firstName) {
+      return firstName.charAt(0).toUpperCase();
+    }
+    // Fallback to '?' if no name is available
+    return '?';
   };
 
   // Function to get full name for tooltip
@@ -78,7 +81,7 @@ export const UserPresenceBar = () => {
                         alt={getFullName(onlineUser.first_name, onlineUser.last_name)} 
                       />
                       <AvatarFallback className="text-[10px]">
-                        {getUserInitials(onlineUser.first_name, onlineUser.last_name)}
+                        {getUserInitials(onlineUser.first_name, null)}
                       </AvatarFallback>
                     </Avatar>
                     <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900"></div>

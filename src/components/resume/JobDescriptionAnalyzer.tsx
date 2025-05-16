@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,6 +13,7 @@ import { Form, FormControl, FormField, FormItem } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
+import { useResumeData } from '@/hooks/use-resume-data';
 
 // Storage keys for local storage
 const STORAGE_KEYS = {
@@ -22,7 +22,6 @@ const STORAGE_KEYS = {
   ACTIVE_TAB: 'job_analyzer_active_tab',
   ANALYSIS_RESULT: 'job_analysis_result',
   USE_FILTERING: 'job_analyzer_use_filtering' // New storage key for the filtering toggle
-
 };
 
 // Import stopwords for keyword extraction
@@ -84,7 +83,10 @@ interface AnalysisResult {
   error?: string;
 }
 
-const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeText }) => {
+const JobDescriptionAnalyzer = () => {
+  const { resume } = useResumeData();
+  const resumeText = resume?.text || null;
+  
   const [activeTab, setActiveTab] = useState<string>('job-input');
   const [jobUrl, setJobUrl] = useState<string>('');
   const [jobDescription, setJobDescription] = useState<string>('');
@@ -102,8 +104,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     }
   });
 
-
-   // Save to localStorage whenever these values change
+  // Save to localStorage whenever these values change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.JOB_URL, jobUrl);
   }, [jobUrl]);
@@ -122,7 +123,7 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
     }
   }, [analysisResult]);
 
-     // Additional useEffect to handle the filtering preference
+  // Additional useEffect to handle the filtering preference
   useEffect(() => {
     const savedFilteringPref = localStorage.getItem(STORAGE_KEYS.USE_FILTERING);
     if (savedFilteringPref !== null) {
@@ -133,7 +134,6 @@ const JobDescriptionAnalyzer: React.FC<JobDescriptionAnalyzerProps> = ({ resumeT
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.USE_FILTERING, useFiltering.toString());
   }, [useFiltering]);
-
 
   // Job-specific stopwords
   const jobStopwords = [
@@ -741,8 +741,7 @@ const analyzeJobMatch = async () => {
   //       const { data, error } = await supabase.functions.invoke('analyze-job-match', {
   //         body: {  resumeText: processedResumeText, 
   //           jobDescription: processedJobDescription 
-  //             // resumeText, jobDescription 
-  //               }
+  //             }
   //       });
 
   //       if (error) throw new Error(error.message);
