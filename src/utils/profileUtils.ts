@@ -1,3 +1,4 @@
+
 import { Profile } from "@/types/supabase";
 
 export const enrichProfileWithRoles = (profile: any): Profile => {
