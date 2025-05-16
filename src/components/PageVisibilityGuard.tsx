@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { Clock, Lock } from 'lucide-react';
 
-export default function PageVisibilityGuard({ children }) {
+export default function PageVisibilityGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const { isPageVisible, isLoading } = usePageVisibility();
   const [isVisible, setIsVisible] = useState(true);

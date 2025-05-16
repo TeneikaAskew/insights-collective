@@ -162,16 +162,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       );
     };
 
+    // Use the on method to set up event handlers instead of off
     channel.on('presence', { event: 'sync' }, handleSync);
     channel.on('presence', { event: 'join' }, handleJoin);
     channel.on('presence', { event: 'leave' }, handleLeave);
 
     return () => {
-      if (channel) {
-        channel.off('presence', { event: 'sync' }, handleSync);
-        channel.off('presence', { event: 'join' }, handleJoin);
-        channel.off('presence', { event: 'leave' }, handleLeave);
-      }
+      // Fixed: Don't use channel.off which doesn't exist, use unsubscribe instead
+      // The cleanup is already handled in the previous useEffect
+      // We don't need to manually remove listeners as unsubscribe does this
     };
   }, [channel, isSubscribed, user]);
 
@@ -242,7 +241,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   };
 
   // Sync available pages with the database
-  const syncAvailablePages = async () => {
+  // Fixed: Change return type to Promise<void> instead of returning data
+  const syncAvailablePages = async (): Promise<void> => {
     try {
       // Typically this would involve scanning routes and updating the database
       // For now, we'll just refetch the data
@@ -252,7 +252,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       
       if (error) throw error;
       setPageVisibility(data || []);
-      return data;
+      // Don't return data here to match Promise<void> return type
     } catch (error) {
       console.error('Error syncing available pages:', error);
       throw error;
