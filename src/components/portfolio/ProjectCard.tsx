@@ -33,12 +33,17 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
     isDragging,
   } = useSortable({
     id: project.id,
+    data: {
+      type: 'project',
+      project: project,
+    },
   });
   
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 50 : 'auto',
   };
   
   const handleEditSubmit = () => {
@@ -75,9 +80,9 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
         style={style}
         {...attributes}
         {...listeners}
-        className={`touch-none ${isDragging ? 'z-10' : ''}`}
+        className={`touch-none ${isDragging ? 'z-50' : ''}`}
       >
-        <Card className="shadow-sm hover:shadow transition-shadow cursor-grab">
+        <Card className="shadow-sm hover:shadow transition-shadow cursor-grab active:cursor-grabbing">
           <CardHeader className="p-3 pb-0">
             <CardTitle className="text-base flex justify-between items-start">
               <span className="truncate">{project.title}</span>
@@ -155,7 +160,11 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
               variant="ghost"
               size="sm"
               className="h-8 px-2"
-              onClick={() => setIsEditing(true)}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent triggering drag
+                setIsEditing(true);
+              }}
+              type="button"
             >
               <Edit className="h-3.5 w-3.5 mr-1" /> Edit
             </Button>
@@ -163,7 +172,11 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
               variant="ghost"
               size="sm"
               className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={(e) => {
+                e.stopPropagation(); // Prevent triggering drag
+                setShowDeleteConfirm(true);
+              }}
+              type="button"
             >
               <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
             </Button>
