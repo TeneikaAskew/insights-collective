@@ -1,4 +1,3 @@
-
 export const industryWords = [
     /* Core data & analytics */
     "data","analytics","analysis","bi","intelligence","insights","sql","nosql","python","r","scala","java","julia","sas","matlab","stata",
@@ -35,6 +34,19 @@ export const industryWords = [
     "jira","confluence","api","microservice","microservices","serverless","event","events","logging","observability"
   ];
 
+// Add specific industry keywords but exclude EEO and boilerplate terms
+export const excludedIndustryTerms = [
+  "equal", "opportunity", "employer", "eeo", "discriminate", "protected", "veteran", 
+  "status", "disability", "legally", "race", "color", "national", "origin", "sexual",
+  "orientation", "gender", "identity", "ethnicity", "marital", "citizenship", "ancestry", 
+  "genetic", "information", "accommodation", "reasonable", "affirmative", "action", 
+  "retaliation", "harassment", "recruit", "pregnancy", "pregnant", "parental", 
+  "familial", "caregiver", "military", "service", "qualified", "regardless"
+];
+
+// Filter out excluded terms from industryWords
+const filteredIndustryWords = industryWords.filter(word => !excludedIndustryTerms.includes(word));
+
 export const actionWords = [
     "accelerated", "accomplished", "achieved", "acquired", "activated", "adapted", "addressed", "administered", "advanced", "advised",
     "advocated", "aligned", "allocated", "analyzed", "applied", "appraised", "assembled", "assessed", "assigned", "assisted",
@@ -68,8 +80,13 @@ export const softSkills = [
     "initiative", "ownership", "accountability", "flexibility"
   ];
 
-export const skillsKeywords = [...industryWords, ...actionWords, ...softSkills];
+// Filter out any potential EDO terms from softSkills
+export const filteredSoftSkills = softSkills.filter(skill => !excludedIndustryTerms.includes(skill));
 
+// For keyword matching, use the filtered lists
+export const skillsKeywords = [...filteredIndustryWords, ...actionWords, ...filteredSoftSkills];
+
+// Use this to identify weak phrases in resumes
 export const weakPhrases = [
   "responsible for", "duties include", "helped with", "assisted with", "involved in", "participated in", "worked on", "tasked with",
   "supporting", "responsible to", "a part of", "contributed to", "played a role in", "worked alongside", "was part of",
@@ -81,14 +98,39 @@ export const weakPhrases = [
   "did some", "did work", "completed tasks", "carried out", "carried out tasks", "responsible", "involved", "worked", "assisted"
 ];
 
+// Function to detect EEO statements in bullet points
+export function isEEOStatement(text) {
+  const eeoPatterns = [
+    /equal.*opportunity.*employer/i,
+    /eeo|eeoc/i,
+    /discriminat(e|ion|ing|ory)/i,
+    /protect(ed)?\s*(class|status|veteran|characteristics)/i,
+    /diversity.*inclusion/i,
+    /inclusion.*diversity/i,
+    /affirmative\s*action/i,
+    /(regard|irrespective|regardless)\s*of\s*(race|gender|religion|age|disability|orientation)/i,
+    /we\s*(are|provide)\s*an\s*equal\s*opportunity/i,
+    /qualified\s*(applicants|candidates)/i,
+    /without\s*regard\s*to/i,
+    /prohibit(s|ed)?\s*discrimination/i
+  ];
+  
+  return eeoPatterns.some(pattern => pattern.test(text));
+}
+
 // Analyze word balance
-export function analyzeWordBalance(bullet: string): {
-  industry_pct: number;
-  common_pct: number;
-  action_pct: number;
-  metric_pct: number;
-  word_balance_score: number;
-} {
+export function analyzeWordBalance(bullet) {
+  // Skip analysis for EEO statements
+  if (isEEOStatement(bullet)) {
+    return {
+      industry_pct: 0,
+      common_pct: 0,
+      action_pct: 0,
+      metric_pct: 0,
+      word_balance_score: 0
+    };
+  }
+  
   const words = bullet.split(/\s+/);
   
   let industryCount = 0;
@@ -105,7 +147,7 @@ export function analyzeWordBalance(bullet: string): {
     else if (actionWords.includes(cleanWord)) {
       actionCount++;
     }
-    else if (industryWords.includes(cleanWord)) {
+    else if (filteredIndustryWords.includes(cleanWord)) {
       industryCount++;
     }
     else {
@@ -140,15 +182,21 @@ export function analyzeWordBalance(bullet: string): {
     word_balance_score
   };
 }
-// XYZ ATS Quality Check - Enhanced version
-export function xyzCheck(bullet: string): {
-  action: number,
-  metrics: number,
-  clarity: number,
-  industry: number,
-  achievement: number,
-  xyz_total: number
-} {
+
+// XYZ ATS Quality Check - Enhanced version with EEO statement filtering
+export function xyzCheck(bullet) {
+  // Skip scoring for EEO statements
+  if (isEEOStatement(bullet)) {
+    return {
+      action: 0,
+      metrics: 0,
+      clarity: 0,
+      industry: 0,
+      achievement: 0,
+      xyz_total: 0
+    };
+  }
+  
   const words = bullet.split(/\s+/);
   const wordCount = words.length;
   
@@ -163,13 +211,10 @@ export function xyzCheck(bullet: string): {
   const metrics = hasMetrics ? 30 : (hasPartialMetrics ? 15 : 0);
   
   // Clarity and conciseness check
-  // const clarity = wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5);
-  // More penalty for extremely short bullets
   const clarity = wordCount <= 7 ? 0 : (wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5));
   
-  
   // Industry relevance check
-  const industryKeywords = industryWords.filter(keyword => 
+  const industryKeywords = filteredIndustryWords.filter(keyword => 
     bullet.toLowerCase().includes(keyword.toLowerCase())
   );
   const industryKeywordCount = industryKeywords.length;
@@ -194,7 +239,8 @@ export function xyzCheck(bullet: string): {
     xyz_total
   };
 }
-// XYZ ATS Quality Check
+
+// Keep the commented out older version for reference
 // export function xyzCheck(bullet: string): {
 //   hard_soft: number;
 //   action_words: number;

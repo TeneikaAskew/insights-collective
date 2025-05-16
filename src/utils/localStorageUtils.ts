@@ -188,6 +188,40 @@ export class LocalStorageUtils {
   }
 
   /**
+   * Get job analyzer preferences
+   */
+  static getJobAnalyzerPreferences(): { useEEOFiltering: boolean } {
+    let useEEOFiltering = true; // Default to true
+    
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const savedPreference = localStorage.getItem('job_analyzer_use_filtering');
+        if (savedPreference !== null) {
+          useEEOFiltering = savedPreference === 'true';
+        }
+      } catch (error) {
+        console.error('Error getting job analyzer preferences:', error);
+      }
+    }
+    
+    return { useEEOFiltering };
+  }
+
+  /**
+   * Save job analyzer preferences
+   */
+  static saveJobAnalyzerPreferences(preferences: { useEEOFiltering: boolean }): void {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        localStorage.setItem('job_analyzer_use_filtering', preferences.useEEOFiltering.toString());
+        console.log('Saved job analyzer preferences:', preferences);
+      } catch (error) {
+        console.error('Error saving job analyzer preferences:', error);
+      }
+    }
+  }
+
+  /**
    * Print all items to console
    */
   static logAllItems(): void {
