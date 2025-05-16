@@ -118,7 +118,7 @@ const adminNavItems = [
   {
     title: 'Debugging Tools',
     icon: Bug,
-    path: '/debug',
+    path: '/admin/debug',
   },
 ];
 

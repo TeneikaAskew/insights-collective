@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -168,6 +167,7 @@ function App() {
                   <Route path="/admin/blog/edit/:slug" element={<ProtectedVisibleRoute requireAdmin><EditBlogPost /></ProtectedVisibleRoute>} />
                   <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin><AdminPageVisibility /></ProtectedVisibleRoute>} />
                   <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
 
                   {/* Remove old LocalStorageDebug route */}
                   {/* <Route path="/components/LocalStorageDebug.tsx" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebug /></ProtectedVisibleRoute>} /> */}
@@ -176,8 +176,9 @@ function App() {
                   <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
                   <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
 
-                  {/* Redirect old LocalStorageDebug path to new secure page */}
-                  <Route path="/components/LocalStorageDebug.tsx" element={<Navigate to="/debug" replace />} />
+                  {/* Redirect old LocalStorageDebug path to new admin debug page */}
+                  <Route path="/components/LocalStorageDebug.tsx" element={<Navigate to="/admin/debug" replace />} />
+                  <Route path="/debug" element={<Navigate to="/admin/debug" replace />} />
 
                   {/* Redirect old survey route to new form page */}
                   <Route path="/survey" element={<Navigate to="/survey/ai-fellowship" replace />} />

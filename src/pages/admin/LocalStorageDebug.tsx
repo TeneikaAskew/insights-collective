@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
@@ -8,19 +8,61 @@ import { Lock, Key, Unlock, ShieldAlert } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 const LocalStorageDebugPage: React.FC = () => {
   const [items, setItems] = useState<{ key: string; value: string | null }[]>([]);
   const [passcode, setPasscode] = useState<string>('');
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isTokenLoading, setIsTokenLoading] = useState<boolean>(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    const autoAuthenticate = async () => {
+      setIsLoading(true);
+      try {
+        // Only proceed if user is admin
+        if (!user?.roles?.includes('admin')) {
+          setIsLoading(false);
+          return;
+        }
+        
+        // Get the debugging token from Supabase edge function
+        const { data, error } = await supabase.functions.invoke('get-debug-token');
+        
+        if (error) {
+          console.error('Error fetching debug token:', error);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Auto-authenticate if token is retrieved successfully
+        if (data && data.token) {
+          setIsAuthenticated(true);
+          refreshItems();
+          toast({
+            title: "Access granted",
+            description: "You have been authenticated automatically.",
+            variant: "default"
+          });
+        }
+      } catch (error) {
+        console.error('Error during auto-authentication:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    autoAuthenticate();
+  }, [user, toast]);
 
   const authenticate = async () => {
-    setIsLoading(true);
+    setIsTokenLoading(true);
     
     try {
-      // Get the debugging token from Supabase secrets
+      // Get the debugging token from Supabase edge function
       const { data, error } = await supabase.functions.invoke('get-debug-token');
       
       if (error) {
@@ -53,7 +95,7 @@ const LocalStorageDebugPage: React.FC = () => {
         variant: "destructive"
       });
     } finally {
-      setIsLoading(false);
+      setIsTokenLoading(false);
     }
   };
 
@@ -63,8 +105,7 @@ const LocalStorageDebugPage: React.FC = () => {
   };
 
   const clearResumeData = () => {
-    // Replace with actual user ID from your auth context
-    const userId = '47cf8181-c9a4-4cb9-8aa4-d6967e128c36';
+    const userId = user?.id || '47cf8181-c9a4-4cb9-8aa4-d6967e128c36';
     LocalStorageUtils.clearResumeItems(userId);
     refreshItems();
     toast({
@@ -75,9 +116,7 @@ const LocalStorageDebugPage: React.FC = () => {
   };
   
   const clearAllResumeAndJobData = () => {
-    // Clear all items with resume, analysis, or job in the key
     LocalStorageUtils.clearItemsByPatterns(['resume', 'analysis', 'job']);
-    // Also clear specific job keys
     LocalStorageUtils.clearJobItems();
     refreshItems();
     toast({
@@ -102,6 +141,18 @@ const LocalStorageDebugPage: React.FC = () => {
       variant: "default"
     });
   };
+
+  if (isLoading) {
+    return (
+      <div className="container max-w-4xl py-8 flex items-center justify-center min-h-[50vh]">
+        <div className="text-center">
+          <ShieldAlert className="h-12 w-12 text-primary mx-auto animate-pulse mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Verifying credentials...</h2>
+          <p className="text-muted-foreground">Please wait while we verify your access.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-4xl py-8">
@@ -129,8 +180,8 @@ const LocalStorageDebugPage: React.FC = () => {
                     onChange={(e) => setPasscode(e.target.value)}
                     className="flex-1"
                   />
-                  <Button onClick={authenticate} disabled={isLoading}>
-                    {isLoading ? (
+                  <Button onClick={authenticate} disabled={isTokenLoading}>
+                    {isTokenLoading ? (
                       "Verifying..."
                     ) : (
                       <>

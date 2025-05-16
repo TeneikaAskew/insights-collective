@@ -1,4 +1,4 @@
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -154,9 +154,9 @@ const AppSidebar = () => {
     active: location.pathname === '/admin/settings'
   }, {
     title: "Debugging",
-    url: "@/components/LocalStorageDebug",
-    icon: Settings,
-    active: location.pathname === './components/LocalStorageDebug'
+    url: "/admin/debug",
+    icon: Bug,
+    active: location.pathname === '/admin/debug'
   }];
 
   const isAdmin = user?.roles?.includes('admin');
