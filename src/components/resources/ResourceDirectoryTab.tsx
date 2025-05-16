@@ -6,6 +6,7 @@ import { Resource } from '@/hooks/useResources';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Grid2X2, Layout, LayoutList } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 // Define the extended resource type that includes sourceType
 export type ResourceWithSourceType = Resource & {
@@ -20,6 +21,55 @@ interface ResourceDirectoryTabProps {
   loginWallVisibleItems: number;
 }
 
+// Skeleton placeholder for resource cards during loading
+const ResourceCardSkeleton = ({ isListView = false }: { isListView?: boolean }) => {
+  if (isListView) {
+    return (
+      <div className="w-full border rounded-lg p-4 shadow-sm">
+        <div className="flex flex-col md:flex-row">
+          <div className="md:w-2/3 space-y-2">
+            <div className="flex flex-wrap gap-1 mb-2">
+              <Skeleton className="h-6 w-20 rounded" />
+              <Skeleton className="h-6 w-16 rounded" />
+            </div>
+            <Skeleton className="h-16 w-full" />
+            <div className="flex flex-wrap gap-1 mt-2">
+              <Skeleton className="h-6 w-16 rounded" />
+              <Skeleton className="h-6 w-14 rounded" />
+            </div>
+          </div>
+          <div className="md:w-1/3 bg-gray-50 p-4 flex flex-col justify-between">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-10 w-full mt-2" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border rounded-lg p-4 shadow-sm h-full flex flex-col">
+      <div className="space-y-2 mb-4">
+        <div className="flex flex-wrap gap-1 mb-2">
+          <Skeleton className="h-6 w-20 rounded" />
+          <Skeleton className="h-6 w-16 rounded" />
+        </div>
+        <Skeleton className="h-20 w-full" />
+      </div>
+      <div className="flex-grow">
+        <Skeleton className="h-4 w-32 mb-2" />
+      </div>
+      <div className="space-y-3 mt-4">
+        <Skeleton className="h-10 w-full" />
+        <div className="flex flex-wrap gap-1">
+          <Skeleton className="h-6 w-16 rounded" />
+          <Skeleton className="h-6 w-14 rounded" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const ResourceDirectoryTab: React.FC<ResourceDirectoryTabProps> = ({
   isLoading,
   visibleDirectoryResources,
@@ -29,13 +79,44 @@ export const ResourceDirectoryTab: React.FC<ResourceDirectoryTabProps> = ({
 }) => {
   const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid');
 
+  // Show skeleton placeholders during loading
   if (isLoading) {
     return (
-      <div className="text-center py-12">
-        <div className="flex flex-col items-center justify-center space-y-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-          <h3 className="text-xl font-medium">Loading resources...</h3>
+      <div className="w-full">
+        <div className="flex justify-end space-x-2 mb-6">
+          <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-1 flex">
+            <Button 
+              variant={viewMode === 'grid' ? 'default' : 'ghost'} 
+              size="sm"
+              className="rounded-r-none"
+              disabled
+            >
+              <Grid2X2 className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant={viewMode === 'list' ? 'default' : 'ghost'} 
+              size="sm"
+              className="rounded-l-none"
+              disabled
+            >
+              <LayoutList className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
+
+        {viewMode === 'grid' ? (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 w-full">
+            {[...Array(6)].map((_, index) => (
+              <ResourceCardSkeleton key={index} />
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4 w-full">
+            {[...Array(6)].map((_, index) => (
+              <ResourceCardSkeleton key={index} isListView={true} />
+            ))}
+          </div>
+        )}
       </div>
     );
   }

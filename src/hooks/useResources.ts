@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -78,10 +79,15 @@ export const normalizeString = (str: string | null | undefined): string => {
     .replace(/^['"]+|['"]+$/g, ''); // Remove surrounding single or double quotes
 };
 
+// Constants for caching
+const RESOURCES_CACHE_TIME = 1000 * 60 * 30; // 30 minutes
+const RESOURCES_STALE_TIME = 1000 * 60 * 5; // 5 minutes
+
 export function useResources() {
   const { toast } = useToast();
   
   const fetchResources = async () => {
+    console.log('Fetching resources from API');
     const { data, error } = await supabase
       .from('resources')
       .select('*')
@@ -100,11 +106,16 @@ export function useResources() {
     return data || [];
   };
 
+  // Use React Query with caching configuration
   const { data: resources, isLoading, error } = useQuery({
     queryKey: ['resources'],
     queryFn: fetchResources,
+    staleTime: RESOURCES_STALE_TIME, // Data will be considered fresh for 5 minutes
+    cacheTime: RESOURCES_CACHE_TIME, // Cached data will be kept for 30 minutes
+    refetchOnWindowFocus: false, // Prevent refetching when window gains focus
   });
 
+  // Set up realtime subscription for updates
   useEffect(() => {
     const channel = supabase
       .channel('resources_changes')

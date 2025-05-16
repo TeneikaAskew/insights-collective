@@ -1,3 +1,5 @@
+
+import { useMemo } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 
 // Define bullet categories
@@ -96,4 +98,9 @@ export const prepareBulletChartData = (bullet: BulletAnalysis) => {
       { name: 'Achievement', value: xyz_scores.achievement || 0 }
     ]
   };
+};
+
+// Export a hook to memoize the chart data preparation
+export const useBulletChartData = (bullet: BulletAnalysis) => {
+  return useMemo(() => prepareBulletChartData(bullet), [bullet]);
 };

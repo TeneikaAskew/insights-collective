@@ -21,6 +21,26 @@ interface LinkedInUpdatesTabProps {
   loginWallVisibleItems: number;
 }
 
+// Skeleton component for LinkedIn posts during loading
+const LinkedInCardSkeleton = () => {
+  return (
+    <div className="border rounded-lg p-4 shadow-sm">
+      <div className="flex items-start space-x-3">
+        <Skeleton className="h-10 w-10 rounded-full" />
+        <div className="space-y-2 flex-1">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-5 w-20" />
+          </div>
+          <Skeleton className="h-16 w-full" />
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full mt-2" />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const LinkedInUpdatesTab: React.FC<LinkedInUpdatesTabProps> = ({
   isLoading,
   visibleLinkedIn,
@@ -28,21 +48,21 @@ export const LinkedInUpdatesTab: React.FC<LinkedInUpdatesTabProps> = ({
   linkedinResourcesCount,
   loginWallVisibleItems,
 }) => {
+  // Show advanced skeleton loading state
   if (isLoading) {
     return (
-      <div className="space-y-4 w-full">
-        {[...Array(3)].map((_, index) => (
-          <div key={index} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-            <div className="flex items-start space-x-3">
-              <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="space-y-2 flex-1">
-                <div className="flex items-center justify-between">
-                  <Skeleton className="h-4 w-32" />
-                  <Skeleton className="h-4 w-20" />
-                </div>
-                <Skeleton className="h-12 w-full" />
-                <Skeleton className="h-8 w-40" />
-              </div>
+      <div className="space-y-8 w-full">
+        {[...Array(2)].map((_, categoryIndex) => (
+          <div key={`category-${categoryIndex}`} className="space-y-4">
+            <div className="flex items-center space-x-2">
+              <Linkedin className="h-5 w-5 text-blue-600" />
+              <Skeleton className="h-6 w-32" />
+            </div>
+            
+            <div className="space-y-4">
+              {[...Array(2)].map((_, postIndex) => (
+                <LinkedInCardSkeleton key={`post-${categoryIndex}-${postIndex}`} />
+              ))}
             </div>
           </div>
         ))}
