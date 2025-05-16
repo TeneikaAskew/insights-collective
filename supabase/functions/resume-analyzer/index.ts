@@ -7,9 +7,6 @@ import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions
 import { detectSentences } from "./sentenceDetector.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
-// import { serveBulletImprover } from "./bulletImprover.ts";
-// Change this line:
-import { serveBulletImprover } from "./bulletImprover.ts";
 import { supabase, callLLMWithRetry, corsHeaders } from './utils.ts';
 
 // To:
@@ -264,12 +261,9 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       // // Convert to percentage (60% baseline + up to 40% from performance)
       // const percent = 60 + (weightedAverage / 45 * 40);
 
-
-    
     let grade = getLetterGrade(percent);
     if (grade === 'F') grade = 'D';
     
-
     // Base response
     const basic = {
       bullets: analyzed,
@@ -582,7 +576,7 @@ serve(async (req) => {
     console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
 
     // Consolidated sentence detection + analysis (main flow)
-    if (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path) {
+    if (!action && (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path)) {
       console.log('Running sentence detection + analysis');
 
       // Optionally trigger the roast in the background 
