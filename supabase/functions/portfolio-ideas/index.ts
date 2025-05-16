@@ -1,7 +1,11 @@
 
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders } from '../_shared/utils.ts';
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
 
@@ -86,7 +90,7 @@ serve(async (req) => {
     Hobbies/free time activities: ${questionnaireAnswers?.hobbies || "Not provided"}
     `;
 
-    console.log("Calling Together API with model: meta-llama/Llama-3.1-8B-Instruct-Turbo-Free");
+    console.log("Using model: mistralai/Mixtral-8x7B-Instruct-v0.1");
     
     // Call the Together AI API
     const response = await fetch('https://api.together.xyz/v1/chat/completions', {
@@ -96,7 +100,7 @@ serve(async (req) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: 'meta-llama/Llama-3.1-8B-Instruct-Turbo-Free',
+        model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userProfileText }

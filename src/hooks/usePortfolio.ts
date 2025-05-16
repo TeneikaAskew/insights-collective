@@ -27,23 +27,41 @@ export function usePortfolio() {
 
       if (projectsError) throw new Error(projectsError.message);
 
-      // Fetch status for each project
-      const projectIds = projectsData.map(p => p.id);
-      const { data: statusData, error: statusError } = await supabase
-        .from('project_status')
-        .select('*')
-        .in('project_id', projectIds);
+      // Fetch status for each project if needed, but since status is now part of portfolio_projects table
+      // this separate fetch is no longer necessary, but we'll leave the code here for backward compatibility
+      try {
+        const projectIds = projectsData.map(p => p.id);
+        if (projectIds.length > 0) {
+          const { data: statusData, error: statusError } = await supabase
+            .from('project_status')
+            .select('*')
+            .in('project_id', projectIds);
 
-      if (statusError) throw new Error(statusError.message);
+          if (statusError) console.error("Error fetching status data:", statusError);
 
-      // Merge projects with their status
-      return projectsData.map(project => {
-        const status = statusData?.find(s => s.project_id === project.id);
-        return {
-          ...project,
-          status: status?.status || 'Idea'
-        };
-      });
+          // Merge projects with their status if status is not already in the project
+          return projectsData.map(project => {
+            if (project.status) {
+              return project; // Status column already exists in the project
+            } else {
+              // Fallback to the separate status table
+              const status = statusData?.find(s => s.project_id === project.id);
+              return {
+                ...project,
+                status: status?.status || 'Idea'
+              };
+            }
+          });
+        }
+      } catch (err) {
+        console.error("Error processing project status:", err);
+      }
+
+      // If no separate status data or if there was an error, just return projects with default status
+      return projectsData.map(project => ({
+        ...project,
+        status: project.status || 'Idea'
+      }));
     },
     enabled: !!user?.id,
   });
@@ -140,27 +158,23 @@ export function usePortfolio() {
     mutationFn: async (project: Omit<PortfolioProject, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
       if (!user?.id) throw new Error('User must be logged in');
 
-      // Insert the project
-      const { data: projectData, error: projectError } = await supabase
+      const projectData = {
+        ...project,
+        user_id: user.id,
+        // Ensure status is included in the insert
+        status: project.status || 'Idea'
+      };
+
+      // Insert the project with status included
+      const { data: newProject, error: projectError } = await supabase
         .from('portfolio_projects')
-        .insert([{ ...project, user_id: user.id }])
+        .insert([projectData])
         .select('*')
         .single();
 
       if (projectError) throw new Error(projectError.message);
 
-      // Add the initial status
-      const initialStatus = project.status || 'Idea';
-      const { error: statusError } = await supabase
-        .from('project_status')
-        .insert([{
-          project_id: projectData.id,
-          status: initialStatus
-        }]);
-
-      if (statusError) throw new Error(statusError.message);
-
-      return { ...projectData, status: initialStatus };
+      return newProject;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-projects'] });
@@ -182,10 +196,11 @@ export function usePortfolio() {
   // Update project status
   const updateProjectStatus = useMutation({
     mutationFn: async ({ projectId, status }: { projectId: string, status: ProjectStatus }) => {
+      // Now update status directly in the portfolio_projects table
       const { error } = await supabase
-        .from('project_status')
+        .from('portfolio_projects')
         .update({ status, updated_at: new Date().toISOString() })
-        .eq('project_id', projectId);
+        .eq('id', projectId);
 
       if (error) throw new Error(error.message);
 
@@ -211,25 +226,15 @@ export function usePortfolio() {
   // Update project details
   const updateProject = useMutation({
     mutationFn: async (project: Partial<PortfolioProject> & { id: string }) => {
-      const { id, status, ...updateData } = project;
+      const { id, ...updateData } = project;
 
-      // Update project details
+      // Update project details including status if provided
       const { error: projectError } = await supabase
         .from('portfolio_projects')
         .update(updateData)
         .eq('id', id);
 
       if (projectError) throw new Error(projectError.message);
-
-      // Update status if provided
-      if (status) {
-        const { error: statusError } = await supabase
-          .from('project_status')
-          .update({ status, updated_at: new Date().toISOString() })
-          .eq('project_id', id);
-
-        if (statusError) throw new Error(statusError.message);
-      }
 
       return project;
     },
@@ -253,7 +258,7 @@ export function usePortfolio() {
   // Delete a project
   const deleteProject = useMutation({
     mutationFn: async (projectId: string) => {
-      // The status will be cascade deleted due to database constraints
+      // The status will be automatically deleted when the project is deleted
       const { error } = await supabase
         .from('portfolio_projects')
         .delete()

@@ -10,11 +10,9 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
-  arrayMove,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
-import { usePortfolio } from '@/hooks/usePortfolio';
-import { Card, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { PortfolioProject, ProjectStatus } from '@/types/portfolio';
 import { ProjectCard } from './ProjectCard';
 import { useToast } from '@/hooks/use-toast';

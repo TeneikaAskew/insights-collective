@@ -1,3 +1,4 @@
+
 export interface Profile {
   id: string;
   first_name: string | null;
@@ -17,8 +18,8 @@ export interface Conversation {
   updated_at: string;
   participants?: ConversationParticipant[];
   last_message?: Message;
-  archived?: boolean; // Ensure this field exists and is optional boolean
-  deleted_at?: string | null; // Ensure this field exists and is optional string or null
+  archived?: boolean;
+  deleted_at?: string | null;
 }
 
 export interface ConversationParticipant {
@@ -122,6 +123,22 @@ export type Database = {
           target_role: string | null;
           uploaded_at: string;
           updated_at: string;
+          text: string | null;
+        };
+      };
+      portfolio_projects: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description?: string;
+          required_skills?: string[];
+          effort_level?: string;
+          impact?: string;
+          roadmap?: any;
+          created_at?: string;
+          updated_at?: string;
+          status?: string;
         };
       };
     };

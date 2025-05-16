@@ -883,6 +883,7 @@ export type Database = {
           impact: string | null
           required_skills: string[] | null
           roadmap: Json | null
+          status: string | null
           title: string
           updated_at: string | null
           user_id: string
@@ -895,6 +896,7 @@ export type Database = {
           impact?: string | null
           required_skills?: string[] | null
           roadmap?: Json | null
+          status?: string | null
           title: string
           updated_at?: string | null
           user_id: string
@@ -907,6 +909,7 @@ export type Database = {
           impact?: string | null
           required_skills?: string[] | null
           roadmap?: Json | null
+          status?: string | null
           title?: string
           updated_at?: string | null
           user_id?: string
