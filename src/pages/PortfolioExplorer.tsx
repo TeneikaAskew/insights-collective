@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { ProfileForm } from '@/components/portfolio/ProfileForm';
 import { ProjectIdeaList } from '@/components/portfolio/ProjectIdeaList';
@@ -14,12 +14,14 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { QuestionnaireAnswers, PortfolioInsightData, ProjectIdea, ProjectStatus, PortfolioProject } from '@/types/portfolio';
 import { Check, WandSparkles } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 function PortfolioExplorer() {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('discover');
   const [portfolioData, setPortfolioData] = useState<PortfolioInsightData | null>(null);
   const [profileCompleted, setProfileCompleted] = useState(false);
+  const [savedAnswers, setSavedAnswers] = useState<QuestionnaireAnswers | null>(null);
   
   const {
     projects,
@@ -32,18 +34,118 @@ function PortfolioExplorer() {
     isLoading,
   } = usePortfolio();
 
-  const handleQuestionnaireSubmit = async (data: QuestionnaireAnswers) => {
+  // Add function to fetch existing questionnaire data
+  const fetchExistingQuestionnaire = async () => {
+    if (!user) return;
+    
     try {
+      // First try to get from local storage
+      const localData = localStorage.getItem(`portfolio_questionnaire_${user.id}`);
+      if (localData) {
+        const parsedData = JSON.parse(localData);
+        setSavedAnswers({
+          currentRole: parsedData.current_role,
+          interests: parsedData.interests,
+          hobbies: parsedData.hobbies
+        });
+        setProfileCompleted(true);
+        return;
+      }
+
+      // If not in local storage, fetch from Supabase
+      const { data, error } = await supabase
+        .from('portfolio')
+        .select('current_role, interests, hobbies')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        if (error.code !== 'PGRST116') { // Not found error
+          console.error("Error fetching questionnaire:", error);
+        }
+        return;
+      }
+
+      if (data) {
+        const answers = {
+          currentRole: data.current_role,
+          interests: data.interests,
+          hobbies: data.hobbies
+        };
+        setSavedAnswers(answers);
+        setProfileCompleted(true);
+        
+        // Save to local storage
+        localStorage.setItem(`portfolio_questionnaire_${user.id}`, JSON.stringify({
+          current_role: data.current_role,
+          interests: data.interests,
+          hobbies: data.hobbies
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching questionnaire:", error);
+    }
+  };
+
+  // Fetch existing data when component mounts
+  useEffect(() => {
+    if (user) {
+      fetchExistingQuestionnaire();
+    }
+  }, [user]);
+
+  const handleQuestionnaireSubmit = async (data: QuestionnaireAnswers) => {
+    if (!user) return;
+
+    try {
+      const now = new Date().toISOString();
+      
+      // Check if entry exists
+      const { data: existingData, error: fetchError } = await supabase
+        .from('portfolio')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .single();
+
+      const payload = {
+        user_id: user.id,
+        current_role: data.currentRole,
+        interests: data.interests,
+        hobbies: data.hobbies,
+        updated_at: now
+      };
+
+      if (!existingData) {
+        // If no existing entry, include created_at
+        payload['created_at'] = now;
+      }
+
+      // Save to Supabase
+      const { error: upsertError } = await supabase
+        .from('portfolio')
+        .upsert(payload);
+
+      if (upsertError) throw upsertError;
+
+      // Save to local storage
+      localStorage.setItem(`portfolio_questionnaire_${user.id}`, JSON.stringify({
+        current_role: data.currentRole,
+        interests: data.interests,
+        hobbies: data.hobbies
+      }));
+
+      // Generate portfolio ideas
       const result = await generatePortfolioIdeas.mutateAsync(data);
       setPortfolioData(result);
       setProfileCompleted(true);
+      setSavedAnswers(data);
       
       // Automatically move to next tab after analysis is complete
       setTimeout(() => {
         setActiveTab('ideas');
       }, 500);
     } catch (error) {
-      console.error("Error generating portfolio ideas:", error);
+      console.error("Error saving questionnaire data:", error);
     }
   };
 
@@ -146,6 +248,7 @@ function PortfolioExplorer() {
                 <ProfileForm 
                   onSubmit={handleQuestionnaireSubmit}
                   isLoading={isLoading || generatePortfolioIdeas.isPending}
+                  initialData={savedAnswers}
                 />
               </div>
               <div className="space-y-4">
