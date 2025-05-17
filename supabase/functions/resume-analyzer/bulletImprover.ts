@@ -1,29 +1,23 @@
-console.log("Bullet Extractor Endpoint hit")
+console.log("Bullet Extractor Endpoint hit");
 import { callLLMWithRetry } from './utils.ts';
 
-
 export const config = {
-  MAX_BATCHES_TO_PROCESS: 1,
-  DEFAULT_BATCH_SIZE: 5,
+  MAX_CONCURRENT_REQUESTS: 5, // Process 5 bullets simultaneously
+  MAX_TOTAL_BULLETS: 15,     // Maximum total bullets to process
   MAX_RETRIES: 5,
-  RATE_LIMIT_DELAY_MS: 2000,
-  RATE_LIMIT_JITTER_MS: 500
+  RATE_LIMIT_DELAY_MS: 1000, // Reduced from 2000
+  RATE_LIMIT_JITTER_MS: 250  // Reduced from 500
 };
 
 // This is the primary function that needs to be exported - it's imported in bulletSuggestions.ts
-export async function improveBullet(bulletData: any): Promise<any> {
+export async function improveBullet(bulletData) {
   try {
     console.log(`Improving bullet: ${bulletData.original.substring(0, 30)}...`);
-    
     // Make API call to rewrite the bullet
     const groqPrompt = constructGroqPrompt(bulletData);
-
-    
     const result = await callLLMWithRetry("", groqPrompt);
-    
     // Parse the response to extract the rewritten bullet and tips
     const processedResult = processGroqResponse(result, bulletData);
-    
     return processedResult;
   } catch (error) {
     console.error(`Error improving bullet:`, error);
@@ -36,7 +30,7 @@ export async function improveBullet(bulletData: any): Promise<any> {
 }
 
 // Helper function to construct the prompt for GROQ
-function constructGroqPrompt(bulletData: any): string {
+function constructGroqPrompt(bulletData) {
   // Construct a prompt based on the bullet data
   const prompt = `
   Rewrite this resume bullet point to make it stronger:
@@ -72,18 +66,16 @@ function constructGroqPrompt(bulletData: any): string {
   Do not use arrays or nested quotes in your response. Keep it simple.
 
   `;
-  
   return prompt;
 }
 
 // Helper function to process the GROQ response
-function processGroqResponse(response: any, originalBullet: any): any {
+function processGroqResponse(response, originalBullet) {
   try {
     // If the response is already in the expected format, return it
     if (response.rewritten && response.tips) {
       return response;
     }
-    
     // Try to parse the response if it's a JSON string
     if (typeof response === 'string') {
       try {
@@ -92,13 +84,11 @@ function processGroqResponse(response: any, originalBullet: any): any {
           return parsedResponse;
         }
       } catch (e) {
-        // Not valid JSON, continue with other parsing methods
+      // Not valid JSON, continue with other parsing methods
       }
-      
       // Try to extract from the string
       const rewrittenMatch = response.match(/["']rewritten["']\s*:\s*["']([^"']+)["']/);
       const tipsMatch = response.match(/["']tips["']\s*:\s*["']([^"']+)["']/);
-      
       if (rewrittenMatch && tipsMatch) {
         return {
           rewritten: rewrittenMatch[1],
@@ -106,7 +96,6 @@ function processGroqResponse(response: any, originalBullet: any): any {
         };
       }
     }
-    
     // Fallback: extract any content between opening/closing brackets as the rewritten bullet
     if (typeof response === 'string') {
       const contentBetweenBrackets = response.match(/\[(.*?)\]/s);
@@ -117,7 +106,6 @@ function processGroqResponse(response: any, originalBullet: any): any {
         };
       }
     }
-    
     // Last resort fallback
     console.warn("Could not parse GROQ response, returning original bullet");
     return {
@@ -133,108 +121,75 @@ function processGroqResponse(response: any, originalBullet: any): any {
   }
 }
 
-
-// Function to process a batch of bullets
-export async function processBatchQueue(batchQueue: any[], userId: string) {
+// Process bullets in parallel with controlled concurrency
+export async function processBulletsInParallel(bullets, userId) {
   try {
-    console.log(`Starting background bullet improvement for userId: ${userId}`);
+    console.log(`Starting parallel bullet improvement for userId: ${userId}`);
     
-    // Track processed batches
-    let processedBatchCount = 0;
-    let results = [];
+    // Limit total bullets to process
+    const bulletsToProcess = bullets.slice(0, config.MAX_TOTAL_BULLETS);
+    console.log(`Processing ${bulletsToProcess.length} out of ${bullets.length} total bullets`);
     
-    // Process batches up to the limit
-    for (let i = 0; i < Math.min(batchQueue.length, config.MAX_BATCHES_TO_PROCESS); i++) {
-      const batch = batchQueue[i];
-      processedBatchCount++;
+    // Create chunks of bullets to process in parallel
+    const chunks = [];
+    for (let i = 0; i < bulletsToProcess.length; i += config.MAX_CONCURRENT_REQUESTS) {
+      chunks.push(bulletsToProcess.slice(i, i + config.MAX_CONCURRENT_REQUESTS));
+    }
+    
+    const results = [];
+    
+    // Process each chunk in parallel
+    for (const chunk of chunks) {
+      console.log(`Processing chunk of ${chunk.length} bullets`);
       
-      console.log(`Processing batch ${processedBatchCount} of ${config.MAX_BATCHES_TO_PROCESS}: ${batch.length} bullets from queue`);
+      // Process all bullets in the chunk concurrently
+      const chunkPromises = chunk.map(async (bullet) => {
+        try {
+          const result = await improveBullet(bullet);
+          return {
+            id: bullet.id,
+            rewritten: result.rewritten,
+            tips: result.tips
+          };
+        } catch (err) {
+          console.error(`Error improving bullet ${bullet.id}:`, err);
+          return {
+            id: bullet.id,
+            rewritten: bullet.original,
+            error: true
+          };
+        }
+      });
       
-      // Rate limiting with jitter to avoid synchronized retries
-      if (i > 0) {
+      // Wait for all bullets in chunk to complete
+      const chunkResults = await Promise.all(chunkPromises);
+      results.push(...chunkResults);
+      
+      // Add a small delay between chunks to prevent rate limiting
+      if (chunks.indexOf(chunk) < chunks.length - 1) {
         const jitter = Math.floor(Math.random() * config.RATE_LIMIT_JITTER_MS);
-        const delay = config.RATE_LIMIT_DELAY_MS + jitter;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-      
-      try {
-        const batchResults = await improveBulletsBatch(batch, userId);
-        results = [...results, ...batchResults];
-      } catch (error) {
-        console.error(`Error processing batch ${i+1}:`, error);
-        // Add original bullets as fallback
-        const fallbackResults = batch.map((bullet: any) => ({
-          id: bullet.id,
-          rewritten: bullet.original,
-          error: true
-        }));
-        results = [...results, ...fallbackResults];
+        await new Promise(resolve => setTimeout(resolve, config.RATE_LIMIT_DELAY_MS + jitter));
       }
     }
     
-    // Handle any remaining bullets outside the batch limit
-    if (processedBatchCount < batchQueue.length) {
-      const remainingBullets = batchQueue.slice(processedBatchCount).flat();
-      console.log(`Batch limit of ${config.MAX_BATCHES_TO_PROCESS} reached. Resolving ${remainingBullets.length} remaining bullets with defaults.`);
-      
-      // Add original bullets for all remaining
-      const defaultResults = remainingBullets.map((bullet: any) => ({
+    // Handle any remaining bullets
+    const remainingBullets = bullets.slice(config.MAX_TOTAL_BULLETS);
+    if (remainingBullets.length > 0) {
+      console.log(`Returning original content for ${remainingBullets.length} remaining bullets`);
+      const defaultResults = remainingBullets.map(bullet => ({
         id: bullet.id,
         rewritten: bullet.original,
         unprocessed: true
       }));
-      
-      results = [...results, ...defaultResults];
+      results.push(...defaultResults);
     }
     
     return results;
   } catch (error) {
-    console.error('Error in processBatchQueue:', error);
+    console.error('Error in processBulletsInParallel:', error);
     throw error;
   }
 }
 
-// Function to improve a batch of bullets
-export async function improveBulletsBatch(bullets: any[], userId: string) {
-  const results = [];
-  
-  for (const bullet of bullets) {
-    console.log(`Improving bullet: ${bullet.original.substring(0, 30)}...`);
-    console.log(`Beginning rewrite of bullet points`);
-    
-    try {
-      // Use the single bullet improvement function
-      const result = await improveBullet(bullet);
-      
-      results.push({
-        id: bullet.id,
-        rewritten: result.rewritten
-      });
-    } catch (err) {
-      console.error(`Error improving bullet ${bullet.id}:`, err);
-      results.push({
-        id: bullet.id,
-        rewritten: bullet.original,
-        error: true
-      });
-    }
-  }
-  
-  return results;
-}
-
-// Batch creation utility
-export function getBatchSize(totalItems: number): number {
-  return config.DEFAULT_BATCH_SIZE;
-}
-
-// Create batches from a list of items
-export function createBatches(items: any[], batchSize: number): any[][] {
-  const batches = [];
-  
-  for (let i = 0; i < items.length; i += batchSize) {
-    batches.push(items.slice(i, i + batchSize));
-  }
-  
-  return batches;
-}
+// Export the new parallel processing function as the main interface
+export { processBulletsInParallel as processBatchQueue };
