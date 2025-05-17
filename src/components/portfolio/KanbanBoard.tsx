@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import {
   DndContext,
@@ -11,6 +10,7 @@ import {
   DragStartEvent,
   UniqueIdentifier,
   closestCorners,
+  useDroppable,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -34,6 +34,23 @@ interface KanbanBoardProps {
   onStatusChange: (projectId: string, newStatus: ProjectStatus) => void;
   onUpdateProject: (project: PortfolioProject) => void;
   onDeleteProject: (projectId: string) => void;
+}
+
+function DroppableColumn({ 
+  id, 
+  children, 
+  className 
+}: { 
+  id: string; 
+  children: React.ReactNode; 
+  className?: string;
+}) {
+  const { setNodeRef } = useDroppable({ id });
+  return (
+    <div ref={setNodeRef} className={className}>
+      {children}
+    </div>
+  );
 }
 
 export function KanbanBoard({
@@ -83,16 +100,14 @@ export function KanbanBoard({
     
     setDraggingProject(null);
     
-    // If no over target or same as active, do nothing
     if (!over) return;
     
     const projectId = active.id as string;
-    // Check if we're dropping on a status column
-    const isStatusColumn = statusColumns.some(col => col.id === over.id);
+    const newStatus = over.id as ProjectStatus;
     
-    if (isStatusColumn) {
-      const newStatus = over.id as ProjectStatus;
-      
+    // Only update if the status actually changed
+    const project = localProjects.find(p => p.id === projectId);
+    if (project && project.status !== newStatus) {
       // Call parent handler to update status in database
       onStatusChange(projectId, newStatus);
       
@@ -135,10 +150,9 @@ export function KanbanBoard({
             const columnProjects = getProjectsByStatus(column.id);
             
             return (
-              <div
+              <DroppableColumn
                 key={column.id}
                 id={column.id}
-                data-status={column.id}
                 className={`rounded-lg p-3 ${column.color} border min-h-[300px]`}
               >
                 <div className="flex justify-between items-center mb-3">
@@ -169,7 +183,7 @@ export function KanbanBoard({
                     </div>
                   )}
                 </div>
-              </div>
+              </DroppableColumn>
             );
           })}
         </div>

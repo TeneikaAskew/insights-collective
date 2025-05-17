@@ -123,9 +123,11 @@ export function usePortfolio() {
           body: {
             resumeText,
             actionPlan,
-            questionnaireAnswers
+            questionnaireAnswers,
+            userId: user.id
           }
         });
+
 
         if (error) {
           console.error('Edge function error:', error);

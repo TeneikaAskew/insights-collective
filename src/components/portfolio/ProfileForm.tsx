@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,9 +24,10 @@ const formSchema = z.object({
 interface ProfileFormProps {
   onSubmit: (data: QuestionnaireAnswers) => void;
   isLoading: boolean;
+  initialData?: QuestionnaireAnswers | null;
 }
 
-export function ProfileForm({ onSubmit, isLoading }: ProfileFormProps) {
+export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormProps) {
   const form = useForm<QuestionnaireAnswers>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -36,6 +36,13 @@ export function ProfileForm({ onSubmit, isLoading }: ProfileFormProps) {
       hobbies: "",
     },
   });
+
+  // Update form values when initialData changes
+  useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    }
+  }, [initialData, form]);
 
   return (
     <Card className="w-full">
