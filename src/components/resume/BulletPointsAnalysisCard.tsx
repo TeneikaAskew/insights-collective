@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
@@ -7,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { BulletAnalysis } from '@/components/assistants/types';
 import BulletPointItem from './BulletPointItem';
 import BulletPointChart from './BulletPointChart';
-import { Check, Edit2, X, Loader2, BookOpen, FileText, Sparkles, BarChart2 } from 'lucide-react';
+import { Check, Edit2, X, Loader2, BookOpen, FileText, Sparkles, BarChart2, Scale } from 'lucide-react';
 import { HighlightedBulletText } from './text/BulletTextParser';
 import { ScoreWithIcon } from './chart/ChartComponents';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -29,6 +28,23 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   const [viewMode, setViewMode] = useState<'list' | 'detail'>('detail');
   const [sortedBullets, setSortedBullets] = useState<BulletAnalysis[]>([]);
   const [sortMethod, setSortMethod] = useState<string>('score');
+  const [activeTab, setActiveTab] = useState('impact');
+
+  const XYZ_MAX_SCORES = {
+    action: 10,
+    metrics: 30,
+    clarity: 15,
+    industry: 25,
+    achievement: 20
+  };
+
+  const XYZ_LABELS = {
+    action: "Action Words",
+    metrics: "Metrics/Results",
+    clarity: "Clarity/Conciseness",
+    industry: "Industry Keywords",
+    achievement: "Achievement"
+  };
 
   useEffect(() => {
     if (bullets && bullets.length > 0) {
@@ -69,18 +85,45 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
 
   if (!bullets || bullets.length === 0) {
     return <Card>
-        <CardHeader>
-          <CardTitle>Resume Bullet Analysis</CardTitle>
-          <CardDescription>
-            No bullet points found in your resume. Upload a resume with well-formatted bullet points to see detailed analysis.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="h-64 flex items-center justify-center text-gray-400">
-          <p>No bullet points to analyze</p>
-        </CardContent>
-      </Card>;
+      <CardHeader>
+        <CardTitle>Resume Storytelling Analysis</CardTitle>
+        <CardDescription>
+          No bullet points found in your resume. Upload a resume with well-formatted bullet points to see detailed analysis.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="h-64 flex items-center justify-center text-gray-400">
+        <p>No bullet points to analyze</p>
+      </CardContent>
+    </Card>;
   }
 
+  // Calculate metrics
+  const bulletCount = bullets.length;
+  const calculateXYZScore = (bullet: BulletAnalysis) => 
+    (bullet?.xyz_scores?.action || 0) +
+    (bullet?.xyz_scores?.metrics || 0) +
+    (bullet?.xyz_scores?.clarity || 0) +
+    (bullet?.xyz_scores?.industry || 0) +
+    (bullet?.xyz_scores?.achievement || 0);
+    
+  const averageXYZScore = Math.round(
+    bullets.reduce((sum, bullet) => sum + calculateXYZScore(bullet), 0) / bulletCount
+  );
+  
+  const getBalanceRating = (bullet: BulletAnalysis) => {
+    if (!bullet?.word_balance) return 0;
+    const balance = bullet.word_balance;
+    const total = (balance.industry_pct || 0) + (balance.action_pct || 0) + 
+                 (balance.metric_pct || 0) + (balance.common_pct || 0);
+    return Math.round(total / 4); // Average of all percentages
+  };
+  
+  const averageBalanceRating = Math.round(
+    bullets.reduce((sum, bullet) => sum + getBalanceRating(bullet), 0) / bulletCount
+  );
+  
+  const improvableBullets = bullets.filter(b => calculateXYZScore(b) < 80).length;
+  const strongBullets = bullets.filter(b => calculateXYZScore(b) >= 80).length;
   const selectedBullet = bullets[selectedBulletIndex < bullets.length ? selectedBulletIndex : 0] || bullets[0];
   const displayBullet = editedBullet || selectedBullet;
 
@@ -163,60 +206,252 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
     return null;
   };
 
-  const totalXYZScore = 
-    (displayBullet?.xyz_scores?.action || 0) +
-    (displayBullet?.xyz_scores?.metrics || 0) +
-    (displayBullet?.xyz_scores?.clarity || 0) +
-    (displayBullet?.xyz_scores?.industry || 0) +
-    (displayBullet?.xyz_scores?.achievement || 0);
-
-  // Calculate some metrics for the summary
-  const bulletCount = bullets.length;
-  const averageScore = Math.round(bullets.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / bulletCount);
-  const improvableBullets = bullets.filter(b => (b?.bullet_total || 0) < 30).length;
-  const strongBullets = bullets.filter(b => (b?.bullet_total || 0) >= 35).length;
-
   return (
     <Card className="relative">
       {renderLoadingOverlay()}
-      <CardHeader className={`${isAnalyzing ? "opacity-50" : ""} flex flex-row items-center justify-between`}>
-        <div>
-          <CardTitle>Storytelling Analysis</CardTitle>
-          <CardDescription>How effectively your resume tells your professional story</CardDescription>
-        </div>
-        <div>
+      <CardHeader className={`${isAnalyzing ? "opacity-50" : ""}`}>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <CardTitle>Resume Storytelling Analysis</CardTitle>
+            <CardDescription>Transform your experience into compelling stories</CardDescription>
+          </div>
           <Tabs defaultValue={viewMode} onValueChange={(value) => setViewMode(value as 'list' | 'detail')}>
             <TabsList className="grid w-full grid-cols-2 h-8">
-              <TabsTrigger 
-                value="detail" 
-                className={`${viewMode === 'detail' ? 'bg-[#9b87f5] text-white' : ''}`}
-              >
+              <TabsTrigger value="detail" className={`${viewMode === 'detail' ? 'bg-[#9b87f5] text-white' : ''}`}>
                 <FileText className="h-4 w-4 mr-1" />
                 Detail
               </TabsTrigger>
-              <TabsTrigger 
-                value="list" 
-                className={`${viewMode === 'list' ? 'bg-[#9b87f5] text-white' : ''}`}
-              >
+              <TabsTrigger value="list" className={`${viewMode === 'list' ? 'bg-[#9b87f5] text-white' : ''}`}>
                 <BookOpen className="h-4 w-4 mr-1" />
                 All
               </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
+
+        <div className="grid grid-cols-5 gap-4">
+          <Card className="bg-purple-50 border-purple-100">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-800">Total Bullets</p>
+                  <p className="text-2xl font-bold text-purple-900">{bulletCount}</p>
+                </div>
+                <FileText className="h-8 w-8 text-purple-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-blue-50 border-blue-100">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-800">XYZ Average</p>
+                  <p className="text-2xl font-bold text-blue-900">{averageXYZScore}%</p>
+                </div>
+                <BarChart2 className="h-8 w-8 text-blue-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-indigo-50 border-indigo-100">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-indigo-800">Balance Rating</p>
+                  <p className="text-2xl font-bold text-indigo-900">{averageBalanceRating}%</p>
+                </div>
+                <Scale className="h-8 w-8 text-indigo-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-green-50 border-green-100">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-800">Strong Points</p>
+                  <p className="text-2xl font-bold text-green-900">{strongBullets}</p>
+                </div>
+                <Sparkles className="h-8 w-8 text-green-500" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-amber-50 border-amber-100">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-amber-800">Need Work</p>
+                  <p className="text-2xl font-bold text-amber-900">{improvableBullets}</p>
+                </div>
+                <Edit2 className="h-8 w-8 text-amber-500" />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </CardHeader>
-      
-      <CardContent className={`space-y-6 ${isAnalyzing ? "opacity-50" : ""}`}>
-        {viewMode === 'list' ? (
+
+      <CardContent>
+        {viewMode === 'detail' ? (
+          <div className="space-y-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+                <TabsTrigger value="impact">Impact</TabsTrigger>
+                <TabsTrigger value="analysis">Analysis</TabsTrigger>
+                <TabsTrigger value="improve">Improve</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="impact" className="space-y-4">
+                <div className="flex space-x-4 items-start">
+                  <div className="flex-1">
+                    <label className="block text-sm font-medium mb-2">Select a bullet point:</label>
+                    <select 
+                      className="w-full border rounded p-2"
+                      value={selectedBulletIndex}
+                      onChange={e => {
+                        setSelectedBulletIndex(parseInt(e.target.value));
+                        setEditedBullet(null);
+                        setIsEditing(false);
+                      }}
+                      disabled={isAnalyzing}
+                    >
+                      {bullets.map((bullet, idx) => (
+                        <option key={idx} value={idx}>
+                          {bullet?.original?.substring(0, 100)}...
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-lg font-medium mb-2">Original Bullet</h3>
+                  <div className="text-gray-700">
+                    <HighlightedBulletText text={selectedBullet?.original || ''} />
+                  </div>
+                </div>
+
+                <BulletPointChart bullet={displayBullet} />
+              </TabsContent>
+
+              <TabsContent value="analysis" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">Word Balance</h3>
+                    <div className="space-y-3">
+                      {Object.entries(displayBullet?.word_balance || {}).map(([key, value]) => (
+                        <div key={key} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="capitalize">{key.replace('_pct', '')}</span>
+                            <span className="font-medium">{value}%</span>
+                          </div>
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-[#9b87f5] rounded-full"
+                              style={{ width: `${value}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-medium mb-4">XYZ Quality</h3>
+                    <div className="space-y-3">
+                      {Object.entries(displayBullet?.xyz_scores || {}).map(([key, value]) => (
+                        <div key={key} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span className="capitalize">{XYZ_LABELS[key as keyof typeof XYZ_LABELS]}</span>
+                            <span className="font-medium">{value}/{XYZ_MAX_SCORES[key as keyof typeof XYZ_MAX_SCORES]}</span>
+                          </div>
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-[#9b87f5] rounded-full"
+                              style={{ width: `${(value/XYZ_MAX_SCORES[key as keyof typeof XYZ_MAX_SCORES]) * 100}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="improve" className="space-y-4">
+                <div className="bg-green-50 border border-green-100 rounded-lg p-4">
+                  <h3 className="text-lg font-medium mb-2 text-green-800">AI Improved Version</h3>
+                  <p className="text-gray-700">
+                    {displayBullet?.rewritten || "No improvements available yet"}
+                  </p>
+                </div>
+
+                {displayBullet?.rewritten && displayBullet.rewritten !== displayBullet.original && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Impact Analysis</h3>
+                    <BulletPointChart bullet={{
+                      ...displayBullet,
+                      original: displayBullet.rewritten
+                    }} />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <h3 className="text-lg font-medium">Improvement Tips</h3>
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
+                    <ul className="list-disc list-inside space-y-2 text-gray-700">
+                      {Array.isArray(displayBullet?.tips) 
+                        ? displayBullet.tips.map((tip, index) => (
+                            <li key={index}>{tip}</li>
+                          ))
+                        : <li>{displayBullet?.tips || "No tips available"}</li>
+                      }
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    onClick={handleEdit}
+                    className="bg-[#9b87f5] hover:bg-[#8B5CF6] text-white"
+                  >
+                    <Edit2 className="h-4 w-4 mr-2" />
+                    Edit Bullet Point
+                  </Button>
+                </div>
+
+                {isEditing && (
+                  <div className="space-y-4 bg-white border rounded-lg p-4">
+                    <Textarea 
+                      value={editedText}
+                      onChange={e => setEditedText(e.target.value)}
+                      className="min-h-[100px]"
+                      placeholder="Edit your bullet point here..."
+                    />
+                    <div className="flex justify-end space-x-2">
+                      <Button variant="outline" onClick={handleCancel}>
+                        <X className="h-4 w-4 mr-1" /> Cancel
+                      </Button>
+                      <Button onClick={handleSave}>
+                        <Check className="h-4 w-4 mr-1" /> Save Changes
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          </div>
+        ) : (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <BarChart2 className="h-4 w-4 text-[#9b87f5]" />
-                <h3 className="font-medium">Resume Bullet Points ({bulletCount})</h3>
+                <h3 className="font-medium">All Bullet Points ({bulletCount})</h3>
               </div>
               
               <select 
-                className="text-sm border rounded px-2 py-1" 
+                className="text-sm border rounded px-2 py-1"
                 value={sortMethod}
                 onChange={(e) => sortBullets(e.target.value)}
               >
@@ -226,209 +461,12 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
               </select>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-              <div className="bg-green-50 border border-green-100 rounded-md p-3 flex items-center space-x-3">
-                <div className="bg-green-100 rounded-full p-1.5">
-                  <Sparkles className="h-4 w-4 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-green-800">Strong Bullets</p>
-                  <p className="text-xs text-green-600">{strongBullets} bullet points</p>
-                </div>
-              </div>
-              
-              <div className="bg-amber-50 border border-amber-100 rounded-md p-3 flex items-center space-x-3">
-                <div className="bg-amber-100 rounded-full p-1.5">
-                  <Edit2 className="h-4 w-4 text-amber-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-amber-800">Need Improvement</p>
-                  <p className="text-xs text-amber-600">{improvableBullets} bullet points</p>
-                </div>
-              </div>
-            </div>
-            
             <Accordion type="multiple" className="space-y-2">
               {sortedBullets.map((bullet, index) => (
                 <BulletPointItem key={index} bullet={bullet} index={index} />
               ))}
             </Accordion>
           </div>
-        ) : (
-          <>
-            <div>
-              <label className="block text-sm font-medium mb-2">Select a bullet point:</label>
-              <select 
-                className="w-full border rounded p-2 text-ellipsis overflow-hidden" 
-                value={selectedBulletIndex} 
-                onChange={e => {
-                  setSelectedBulletIndex(parseInt(e.target.value));
-                  setEditedBullet(null);
-                  setIsEditing(false);
-                }} 
-                style={{
-                  maxWidth: '100%',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}
-                disabled={isAnalyzing}
-              >
-                {bullets.map((bullet, idx) => (
-                  <option 
-                    key={idx} 
-                    value={idx} 
-                    style={{
-                      maxWidth: '100%',
-                      whiteSpace: 'normal'
-                    }}
-                  >
-                    {bullet?.original || `Bullet point ${idx + 1}`}
-                  </option>
-                ))}
-              </select>
-            </div>
-            
-            <div className="text-center py-2">
-              <div className="mt-2 text-lg">
-                <HighlightedBulletText text={selectedBullet?.original || ''} />
-              </div>
-            </div>
-            
-            {displayBullet && <BulletPointChart bullet={displayBullet} />}
-
-            <div className="mt-6 border-t pt-4">
-              <h4 className="text-lg font-semibold mb-4">Score Breakdown:</h4>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h5 className="font-medium text-sm mb-2">Word Balance ({displayBullet?.word_balance_score || 0}/25)</h5>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>Industry:</span>
-                      <span className="font-medium">{displayBullet?.word_balance?.industry_pct || 0}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Common:</span>
-                      <span className="font-medium">{displayBullet?.word_balance?.common_pct || 0}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Action:</span>
-                      <span className="font-medium">{displayBullet?.word_balance?.action_pct || 0}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Metric:</span>
-                      <span className="font-medium">{displayBullet?.word_balance?.metric_pct || 0}%</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h5 className="font-medium text-sm mb-2">XYZ Quality ({totalXYZScore}/100)</h5>
-                  <div className="space-y-2">
-                    <ScoreWithIcon score={displayBullet?.xyz_scores?.action || 0} maxScore={10} label="Action Words" />
-                    <ScoreWithIcon score={displayBullet?.xyz_scores?.metrics || 0} maxScore={30} label="Metrics/Results" />
-                    <ScoreWithIcon score={displayBullet?.xyz_scores?.clarity || 0} maxScore={15} label="Clarity/Conciseness" />
-                    <ScoreWithIcon score={displayBullet?.xyz_scores?.industry || 0} maxScore={25} label="Industry Keywords" />
-                    <ScoreWithIcon score={displayBullet?.xyz_scores?.achievement || 0} maxScore={20} label="Achievement Focus" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4 mt-6 border-t pt-4">
-              <div>
-                <h4 className="text-md font-semibold mb-2">Original:</h4>
-                <div className="text-sm bg-slate-50 p-3 rounded">
-                  <HighlightedBulletText text={displayBullet?.original || ''} />
-                </div>
-              </div>
-              
-              <div>
-                <h4 className="text-md font-semibold mb-2 flex items-center">
-                  <span>Suggested Improvement:</span>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="ml-2 h-6 p-1" 
-                    onClick={isEditing ? undefined : handleEdit} 
-                    disabled={isEditing || isAnalyzing || !hasImprovements}
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                </h4>
-                
-                {isEditing ? (
-                  <div className="space-y-2">
-                    <Textarea 
-                      value={editedText} 
-                      onChange={e => setEditedText(e.target.value)} 
-                      className="min-h-[100px] text-sm" 
-                      placeholder="Edit your bullet point here..." 
-                    />
-                    <div className="flex space-x-2 justify-end">
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        onClick={handleCancel} 
-                        className="flex items-center"
-                      >
-                        <X className="h-4 w-4 mr-1" /> Cancel
-                      </Button>
-                      <Button 
-                        variant="default" 
-                        size="sm" 
-                        onClick={handleSave} 
-                        className="flex items-center"
-                      >
-                        <Check className="h-4 w-4 mr-1" /> Save
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-green-50 p-3 rounded text-gray-700">
-                    {getRewrittenText()}
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {showImprovements && displayBullet?.rewritten && displayBullet.rewritten !== displayBullet.original && (
-              <div className="mt-6 border-t pt-4">
-                <div className="text-center mb-4">
-                  <div className="text-lg">
-                    <HighlightedBulletText text={displayBullet?.rewritten || ''} />
-                  </div>
-                </div>
-                
-                <BulletPointChart bullet={{
-                  ...displayBullet,
-                  original: displayBullet.rewritten,
-                  bullet_total: Math.min(45, displayBullet.bullet_total + 10),
-                  xyz_scores: {
-                    action: Math.min(10, displayBullet.xyz_scores.action + 1),
-                    metrics: Math.min(30, displayBullet.xyz_scores.metrics + 3),
-                    clarity: Math.min(15, displayBullet.xyz_scores.clarity + 2),
-                    industry: Math.min(25, displayBullet.xyz_scores.industry + 3),
-                    achievement: Math.min(20, displayBullet.xyz_scores.achievement + 1)
-                  },
-                  word_balance_score: Math.min(25, displayBullet.word_balance_score + 5),
-                  word_balance: {
-                    industry_pct: Math.min(45, displayBullet.word_balance.industry_pct + 5),
-                    common_pct: Math.max(25, displayBullet.word_balance.common_pct - 2),
-                    action_pct: Math.min(15, displayBullet.word_balance.action_pct + 2),
-                    metric_pct: Math.min(15, displayBullet.word_balance.metric_pct + 2)
-                  }
-                }} />
-              </div>
-            )}
-
-            <div className="mt-6 border-t pt-4">
-              <h4 className="text-md font-semibold mb-2">Improvement Tips:</h4>
-              <p className="text-md text-slate-700">
-                {getTips()}
-              </p>
-            </div>
-          </>
         )}
       </CardContent>
     </Card>
