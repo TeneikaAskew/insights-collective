@@ -91,7 +91,9 @@ const Resume = () => {
     careerAlignments,
     setAnalysis,
     isPollingForImprovements,
+    setIsPollingForImprovements,
     pollingStatus,
+    setPollingStatus,
     pollingAttempt
   } = useResumeAnalysis();
   const [showCareerChat, setShowCareerChat] = useState(false);
@@ -169,13 +171,13 @@ const Resume = () => {
 
   // Update the useEffect that controls overlay visibility
   useEffect(() => {
-    if (isAnalyzing) {
+    if (isAnalyzing || (isPollingForImprovements && pollingStatus === 'polling')) {
       setShowAnalysisOverlay(true);
     } else {
-      // Remove the delay and hide immediately when analysis is complete
+      // Hide overlay when both analysis and polling are complete
       setShowAnalysisOverlay(false);
     }
-  }, [isAnalyzing]);
+  }, [isAnalyzing, isPollingForImprovements, pollingStatus]);
 
   // Handle updates to enhanced_analysis with better logging
   const handleEnhancedAnalysisUpdate = enhancedAnalysis => {
@@ -223,6 +225,14 @@ const Resume = () => {
         });
         logDebug('EnhancedUpdate', 'Setting hasLoadedEnhancedRef to true');
         hasLoadedEnhancedRef.current = true;
+        
+        // Update polling states
+        setIsPollingForImprovements(false);
+        setPollingStatus('completed');
+        
+        // Hide the overlay
+        setShowAnalysisOverlay(false);
+        
         toast({
           title: 'Resume Bullet Improvements Ready',
           description: 'Your resume bullets have been enhanced with AI improvements.',
@@ -230,10 +240,18 @@ const Resume = () => {
         });
       } else {
         logDebug('EnhancedUpdate', 'Enhanced analysis is not an array or is empty', enhancedAnalysis);
+        // If enhanced analysis is invalid, stop polling and hide overlay
+        setIsPollingForImprovements(false);
+        setPollingStatus('error');
+        setShowAnalysisOverlay(false);
       }
     } catch (err) {
       logDebug('EnhancedUpdate', 'Error processing enhanced bullets:', err);
       console.error("Error processing enhanced bullets:", err);
+      // On error, stop polling and hide overlay
+      setIsPollingForImprovements(false);
+      setPollingStatus('error');
+      setShowAnalysisOverlay(false);
     }
 
     // Done loading enhanced bullets
