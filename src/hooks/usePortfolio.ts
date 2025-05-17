@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -124,10 +123,9 @@ export function usePortfolio() {
             resumeText,
             actionPlan,
             questionnaireAnswers,
-            userId: user.id
+            userId: user?.id
           }
         });
-
 
         if (error) {
           console.error('Edge function error:', error);
@@ -152,6 +150,14 @@ export function usePortfolio() {
       } finally {
         setIsLoading(false);
       }
+    },
+    onError: (error) => {
+      console.error('Error generating portfolio ideas:', error);
+      toast({
+        title: "Error",
+        description: "Failed to generate portfolio ideas. Please try again.",
+        variant: "destructive",
+      });
     }
   });
 

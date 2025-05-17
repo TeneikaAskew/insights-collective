@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   DndContext,
@@ -10,6 +11,7 @@ import {
   DragStartEvent,
   UniqueIdentifier,
   closestCorners,
+  useDroppable
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -82,6 +84,14 @@ export function KanbanBoard({
     })
   );
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const draggedProject = localProjects.find(project => project.id === active.id);
+    if (draggedProject) {
+      setDraggingProject(draggedProject);
+    }
+  };
+
   // Handle drag end event
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -119,6 +129,8 @@ export function KanbanBoard({
         description: `Project moved to ${newStatus}`,
       });
     }
+    
+    setDraggingProject(null);
   };
 
   const getProjectsByStatus = (status: ProjectStatus) => {
@@ -136,6 +148,7 @@ export function KanbanBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         sensors={sensors}
+        collisionDetection={closestCorners}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statusColumns.map((column) => {
@@ -181,12 +194,16 @@ export function KanbanBoard({
         </div>
         
         {draggingProject && createPortal(
-          <div className="fixed top-0 left-0 bg-black bg-opacity-50 w-full h-full flex items-center justify-center z-50">
-            <div className="bg-white p-4 rounded-lg shadow-lg max-w-md">
-              <h3 className="text-lg font-medium">Moving: {draggingProject.title}</h3>
-              <p className="text-gray-500 text-sm">Drag to the desired column</p>
-            </div>
-          </div>,
+          <DragOverlay>
+            <Card className="shadow-lg opacity-80 w-[300px]">
+              <div className="p-3">
+                <h4 className="text-sm font-medium">{draggingProject.title}</h4>
+                <p className="text-xs text-gray-500 line-clamp-2 mt-1">
+                  {draggingProject.description || 'No description'}
+                </p>
+              </div>
+            </Card>
+          </DragOverlay>,
           document.body
         )}
       </DndContext>

@@ -124,6 +124,7 @@ function App() {
                   <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
                   <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
                   <Route path="/survey/:slug" element={<SurveyPage />} />
+                  <Route path="/resources" element={<Resources />} />
                   
                   {/* Protected form routes - need special handling for correct redirect flow */}
                   <Route path="/survey/:slug/edit" element={<ProtectedRoute requireAdmin={true}><SurveyFormEdit /></ProtectedRoute>} />
@@ -137,7 +138,6 @@ function App() {
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />
                   <Route path="/courses/:courseId/modules/:moduleId" element={<ProtectedVisibleRoute><ModuleDetail /></ProtectedVisibleRoute>} />
-                  <Route path="/resources" element={<ProtectedVisibleRoute><Resources /></ProtectedVisibleRoute>} />
                   <Route path="/notifications" element={<ProtectedVisibleRoute><Notifications /></ProtectedVisibleRoute>} />
                   <Route path="/profile" element={<ProtectedVisibleRoute><Profile /></ProtectedVisibleRoute>} />
                   <Route path="/calendar" element={<ProtectedVisibleRoute><Calendar /></ProtectedVisibleRoute>} />
