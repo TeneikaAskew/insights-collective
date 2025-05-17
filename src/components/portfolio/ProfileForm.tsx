@@ -51,6 +51,7 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
       await onSubmit(data);
     } catch (error) {
       console.error("Error submitting form:", error);
+      // Form submission failed - we'll let the parent component handle the error
     }
   };
 

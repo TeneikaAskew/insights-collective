@@ -112,12 +112,17 @@ export function usePortfolio() {
       setIsLoading(true);
 
       try {
-        console.log('Calling portfolio-ideas function with:', {
-          resumeText,
-          actionPlan,
+        console.log('Preparing to call portfolio-ideas function with:', {
+          resumeText: resumeText ? 'Provided' : 'Not provided',
+          actionPlan: actionPlan ? 'Provided' : 'Not provided',
           questionnaireAnswers,
-          userId: user?.id
+          userId: user?.id || 'No user ID'
         });
+        
+        if (!user?.id) {
+          console.error('User is not authenticated');
+          throw new Error('User must be logged in to generate portfolio ideas');
+        }
         
         // Call the portfolio-ideas edge function
         const { data, error } = await supabase.functions.invoke<{ success: boolean, data: PortfolioInsightData }>('portfolio-ideas', {
@@ -125,19 +130,24 @@ export function usePortfolio() {
             resumeText,
             actionPlan,
             questionnaireAnswers,
-            userId: user?.id
+            userId: user.id
           }
+        });
+
+        console.log('Response received from portfolio-ideas function:', { 
+          success: data?.success, 
+          dataAvailable: !!data?.data,
+          error
         });
 
         if (error) {
           console.error('Edge function error:', error);
-          throw new Error(error.message);
+          throw new Error(`Edge function error: ${error.message}`);
         }
         
-        console.log('Response from portfolio-ideas function:', data);
-
         if (!data?.success || !data?.data) {
-          throw new Error('Failed to generate portfolio ideas');
+          console.error('Invalid response from portfolio-ideas function:', data);
+          throw new Error('Failed to generate portfolio ideas: Invalid response from server');
         }
 
         return data.data;
