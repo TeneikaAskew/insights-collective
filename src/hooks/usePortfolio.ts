@@ -115,7 +115,8 @@ export function usePortfolio() {
         console.log('Calling portfolio-ideas function with:', {
           resumeText,
           actionPlan,
-          questionnaireAnswers
+          questionnaireAnswers,
+          userId: user.id
         });
         
         // Call the portfolio-ideas edge function
