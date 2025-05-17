@@ -102,7 +102,11 @@ const Profile = () => {
   }, [user, isAuthenticated, navigate]);
 
   const handleSaveProfile = async () => {
-    await updateProfile(formData);
+    try {
+      await updateProfile(formData);
+    } catch (error) {
+      console.error('Error saving profile:', error);
+    }
   };
 
   if (!user) return null;

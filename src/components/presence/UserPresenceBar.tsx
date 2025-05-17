@@ -1,15 +1,34 @@
-
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Users } from 'lucide-react';
 import { getUserInitials, getFullName } from '@/utils/profileUtils';
+import { supabase } from '@/integrations/supabase/client';
 
 export const UserPresenceBar = () => {
   const { onlineUsers, currentUserPresence } = usePageVisibility();
   const { user } = useAuth();
+  const [profileData, setProfileData] = useState<{ avatar_url?: string; first_name?: string; last_name?: string } | null>(null);
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (!user) return;
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, avatar_url')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && profile) {
+        setProfileData(profile);
+      }
+    };
+
+    fetchProfileData();
+  }, [user]);
 
   if (!user || onlineUsers.length === 0) {
     return null;
@@ -17,6 +36,11 @@ export const UserPresenceBar = () => {
 
   const otherUsers = onlineUsers.filter(u => u.id !== user.id);
   const totalOnline = onlineUsers.length;
+
+  // Get current user's display info, prioritizing profile data
+  const currentUserFirstName = profileData?.first_name || currentUserPresence?.first_name || user?.user_metadata?.first_name;
+  const currentUserLastName = profileData?.last_name || currentUserPresence?.last_name || user?.user_metadata?.last_name;
+  const currentUserAvatar = profileData?.avatar_url || currentUserPresence?.avatar_url || user?.user_metadata?.avatar_url;
 
   return (
     <div className="px-3 py-2 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
@@ -36,18 +60,18 @@ export const UserPresenceBar = () => {
                 <div className="relative">
                   <Avatar className="h-6 w-6 border-2 border-primary">
                     <AvatarImage 
-                      src={currentUserPresence?.avatar_url || ''} 
+                      src={currentUserAvatar}
                       alt="You" 
                     />
                     <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                      {getUserInitials(currentUserPresence?.first_name, currentUserPresence?.last_name)}
+                      {getUserInitials(currentUserFirstName, currentUserLastName)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-white dark:border-gray-900"></div>
                 </div>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="text-xs">
-                <p>You ({getFullName(currentUserPresence?.first_name, currentUserPresence?.last_name)})</p>
+                <p>You ({getFullName(currentUserFirstName, currentUserLastName)})</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -60,7 +84,7 @@ export const UserPresenceBar = () => {
                   <div className="relative">
                     <Avatar className="h-6 w-6 border-2 border-white dark:border-gray-900">
                       <AvatarImage 
-                        src={onlineUser.avatar_url || ''} 
+                        src={onlineUser.avatar_url} 
                         alt={getFullName(onlineUser.first_name, onlineUser.last_name)} 
                       />
                       <AvatarFallback className="text-[10px]">
