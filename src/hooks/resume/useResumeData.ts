@@ -11,8 +11,6 @@ interface Resume {
   file_path: string;
   text: string | null;
   analysis: any;
-  career_alignment_score: number;
-  target_role: string;
   uploaded_at: string;
   updated_at: string;
   file_url?: string;
@@ -24,8 +22,6 @@ interface CreateResumeData {
   file_path: string;
   text?: string | null;
   analysis?: any;
-  career_alignment_score?: number;
-  target_role?: string;
 }
 
 // Interface for updating an existing resume record
@@ -33,8 +29,6 @@ interface UpdateResumeData {
   file_path?: string;
   text?: string | null;
   analysis?: any;
-  career_alignment_score?: number;
-  target_role?: string;
   updated_at?: string;
 }
 

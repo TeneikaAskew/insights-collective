@@ -123,8 +123,6 @@ export type Database = {
           user_id: string;
           file_path: string;
           analysis: any;
-          career_alignment_score: number | null;
-          target_role: string | null;
           uploaded_at: string;
           updated_at: string;
           text: string | null;

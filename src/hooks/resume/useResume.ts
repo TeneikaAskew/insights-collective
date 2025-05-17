@@ -17,8 +17,6 @@ export interface Resume {
   created_at?: string; // Optional since it's derived
   uploaded_at?: string; // Database field
   updated_at: string;
-  career_alignment_score?: number;
-  target_role?: string;
   analysis?: any;
   resume_roast?: string;
 }
