@@ -1,41 +1,28 @@
 
 import React, { useState } from 'react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { PortfolioProject } from '@/types/portfolio';
+import { Badge } from '@/components/ui/badge';
+import { Trash2, Edit, ChevronDown, ChevronUp } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { MoreHorizontal, Trash, Edit, GripVertical } from 'lucide-react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { PortfolioProject } from '@/types/portfolio';
 
 interface ProjectCardProps {
   project: PortfolioProject;
+  onDelete: (id: string) => void;
   onUpdate: (project: PortfolioProject) => void;
-  onDelete: (projectId: string) => void;
 }
 
-export function ProjectCard({ project, onUpdate, onDelete }: ProjectCardProps) {
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editedProject, setEditedProject] = useState<PortfolioProject>(project);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedProject, setEditedProject] = useState(project);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const {
     attributes,
@@ -46,213 +33,227 @@ export function ProjectCard({ project, onUpdate, onDelete }: ProjectCardProps) {
     isDragging,
   } = useSortable({
     id: project.id,
-    data: {
-      type: 'project',
-      project,
-    },
   });
-
+  
   const style = {
-    transform: CSS.Translate.toString(transform),
+    transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 10 : 1,
   };
-
-  const handleEditSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  
+  const handleEditSubmit = () => {
     onUpdate(editedProject);
-    setIsEditDialogOpen(false);
+    setIsEditing(false);
   };
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setEditedProject((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleConfirmDelete = () => {
+  
+  const handleDeleteConfirm = () => {
     onDelete(project.id);
-    setIsDeleteDialogOpen(false);
+    setShowDeleteConfirm(false);
   };
+
+  // Determine card status colors
+  let statusColor = '';
+  switch (project.status) {
+    case 'Idea':
+      statusColor = 'bg-gray-100 text-gray-800';
+      break;
+    case 'Planned':
+      statusColor = 'bg-blue-100 text-blue-800';
+      break;
+    case 'In Progress':
+      statusColor = 'bg-amber-100 text-amber-800';
+      break;
+    case 'Completed':
+      statusColor = 'bg-green-100 text-green-800';
+      break;
+  }
 
   return (
-    <Card
-      ref={setNodeRef}
-      style={style}
-      className="mb-3 border shadow-sm"
-    >
-      <div className="p-3">
-        <div className="flex items-start justify-between">
-          <div className="flex-grow">
-            <h3 className="font-medium text-sm">{project.title}</h3>
-            <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-              {project.description || "No description"}
+    <>
+      <div
+        ref={setNodeRef}
+        style={style}
+        {...attributes}
+        {...listeners}
+        className={`touch-none ${isDragging ? 'z-10' : ''}`}
+      >
+        <Card className="shadow-sm hover:shadow transition-shadow cursor-grab">
+          <CardHeader className="p-3 pb-0">
+            <CardTitle className="text-base flex justify-between items-start">
+              <span className="truncate">{project.title}</span>
+              <Badge className={`ml-2 ${statusColor}`}>{project.status}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-3 text-sm">
+            <p className="text-gray-500 text-xs mb-2 line-clamp-2">
+              {project.description || 'No description provided'}
             </p>
-          </div>
+            
+            {(project.required_skills?.length > 0 || project.effort_level || project.impact) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full h-6 p-0 text-xs text-gray-500 flex items-center justify-center"
+                onClick={() => setIsExpanded(!isExpanded)}
+              >
+                {isExpanded ? (
+                  <>
+                    <ChevronUp className="h-3 w-3 mr-1" /> Show less
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3 mr-1" /> Show details
+                  </>
+                )}
+              </Button>
+            )}
 
-          <div className="flex">
+            {isExpanded && (
+              <div className="pt-2 space-y-2 text-xs">
+                {project.required_skills?.length > 0 && (
+                  <div>
+                    <p className="font-medium mb-1">Required Skills</p>
+                    <div className="flex flex-wrap gap-1">
+                      {project.required_skills.map((skill, i) => (
+                        <Badge key={i} variant="outline" className="text-xs">
+                          {skill}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {project.effort_level && (
+                  <div>
+                    <p className="font-medium mb-1">Effort Level</p>
+                    <p className="text-gray-600">{project.effort_level}</p>
+                  </div>
+                )}
+                
+                {project.impact && (
+                  <div>
+                    <p className="font-medium mb-1">Impact</p>
+                    <p className="text-gray-600">{project.impact}</p>
+                  </div>
+                )}
+                
+                {project.roadmap?.milestones?.length > 0 && (
+                  <div>
+                    <p className="font-medium mb-1">Milestones</p>
+                    <ul className="list-disc list-inside">
+                      {project.roadmap.milestones.map((milestone, i) => (
+                        <li key={i} className="text-gray-600">{milestone}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+          <CardFooter className="p-3 pt-0 flex justify-between">
             <Button
               variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              {...attributes}
-              {...listeners}
+              size="sm"
+              className="h-8 px-2"
+              onClick={() => setIsEditing(true)}
             >
-              <GripVertical className="h-4 w-4 cursor-grab" />
-              <span className="sr-only">Drag</span>
+              <Edit className="h-3.5 w-3.5 mr-1" /> Edit
             </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6">
-                  <MoreHorizontal className="h-4 w-4" />
-                  <span className="sr-only">Open menu</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setIsEditDialogOpen(true)}>
-                  <Edit className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  className="text-red-600"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                >
-                  <Trash className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-
-        {project.required_skills && project.required_skills.length > 0 && (
-          <div className="mt-2">
-            <div className="flex flex-wrap gap-1">
-              {project.required_skills.slice(0, 3).map((skill, index) => (
-                <span
-                  key={index}
-                  className="px-1.5 py-0.5 bg-[#9b87f5]/10 text-[#9b87f5] text-xs rounded-md"
-                >
-                  {skill}
-                </span>
-              ))}
-              {project.required_skills.length > 3 && (
-                <span className="px-1.5 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-md">
-                  +{project.required_skills.length - 3} more
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {project.effort_level && (
-          <div className="mt-2 flex items-center gap-1">
-            <span className="text-xs text-gray-500">Effort:</span>
-            <span className="text-xs font-medium">
-              {project.effort_level}
-            </span>
-          </div>
-        )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
+            </Button>
+          </CardFooter>
+        </Card>
       </div>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
-              Update your project details.
+              Update the details of your portfolio project.
             </DialogDescription>
           </DialogHeader>
-
-          <form onSubmit={handleEditSubmit}>
-            <div className="space-y-4 py-2">
-              <div>
-                <Label htmlFor="title">Project Title</Label>
-                <Input
-                  id="title"
-                  name="title"
-                  value={editedProject.title}
-                  onChange={handleInputChange}
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  name="description"
-                  value={editedProject.description || ""}
-                  onChange={handleInputChange}
-                  rows={3}
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="effort_level">Effort Level</Label>
-                <select
-                  id="effort_level"
-                  name="effort_level"
-                  value={editedProject.effort_level || "Medium"}
-                  onChange={(e) => handleInputChange(e as any)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  <option value="Low">Low</option>
-                  <option value="Medium">Medium</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="title">Project Title</Label>
+              <Input
+                id="title"
+                value={editedProject.title}
+                onChange={(e) => setEditedProject({ ...editedProject, title: e.target.value })}
+              />
             </div>
-
-            <DialogFooter className="mt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setIsEditDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="submit">Save Changes</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Project</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this project? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-4">
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setIsDeleteDialogOpen(false)}
-            >
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={editedProject.description || ''}
+                onChange={(e) => setEditedProject({ ...editedProject, description: e.target.value })}
+                rows={3}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="effort">Effort Level</Label>
+              <Input
+                id="effort"
+                value={editedProject.effort_level || ''}
+                onChange={(e) => setEditedProject({ ...editedProject, effort_level: e.target.value })}
+                placeholder="e.g., Low, Medium, High"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="impact">Impact Statement</Label>
+              <Textarea
+                id="impact"
+                value={editedProject.impact || ''}
+                onChange={(e) => setEditedProject({ ...editedProject, impact: e.target.value })}
+                rows={2}
+                placeholder="Why is this project valuable to showcase?"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditing(false)}>
               Cancel
             </Button>
-            <Button 
-              type="button" 
-              variant="destructive" 
-              onClick={handleConfirmDelete}
-            >
-              Delete
+            <Button onClick={handleEditSubmit}>
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the project "{project.title}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteConfirm}>
+              Delete Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

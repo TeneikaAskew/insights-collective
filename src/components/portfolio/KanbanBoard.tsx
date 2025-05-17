@@ -7,11 +7,6 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  DragOverlay,
-  DragStartEvent,
-  UniqueIdentifier,
-  closestCorners,
-  useDroppable
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -35,23 +30,6 @@ interface KanbanBoardProps {
   onStatusChange: (projectId: string, newStatus: ProjectStatus) => void;
   onUpdateProject: (project: PortfolioProject) => void;
   onDeleteProject: (projectId: string) => void;
-}
-
-function DroppableColumn({ 
-  id, 
-  children, 
-  className 
-}: { 
-  id: string; 
-  children: React.ReactNode; 
-  className?: string;
-}) {
-  const { setNodeRef } = useDroppable({ id });
-  return (
-    <div ref={setNodeRef} className={className}>
-      {children}
-    </div>
-  );
 }
 
 export function KanbanBoard({
@@ -84,14 +62,6 @@ export function KanbanBoard({
     })
   );
 
-  const handleDragStart = (event: DragStartEvent) => {
-    const { active } = event;
-    const draggedProject = localProjects.find(project => project.id === active.id);
-    if (draggedProject) {
-      setDraggingProject(draggedProject);
-    }
-  };
-
   // Handle drag end event
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -101,36 +71,37 @@ export function KanbanBoard({
       return;
     }
     
-    // If no over target or same as active, do nothing
-    if (!over) return;
-    
+    // Find the new status column
     const projectId = active.id as string;
-    // Check if we're dropping on a status column
-    const isStatusColumn = statusColumns.some(col => col.id === over.id);
+    const targetColumn = over.id as ProjectStatus;
     
-    if (isStatusColumn) {
-      const newStatus = over.id as ProjectStatus;
-      
-      // Call parent handler to update status in database
-      onStatusChange(projectId, newStatus);
-      
-      // Optimistically update local state
-      setLocalProjects(prevProjects => 
-        prevProjects.map(project => 
-          project.id === projectId 
-            ? { ...project, status: newStatus }
-            : project
-        )
-      );
-      
-      // Show toast notification
-      toast({
-        title: "Status updated",
-        description: `Project moved to ${newStatus}`,
-      });
+    if (!statusColumns.map(col => col.id).includes(targetColumn)) {
+      setDraggingProject(null);
+      return;
     }
     
+    // Call the parent status change handler
+    onStatusChange(projectId, targetColumn);
+    
+    // Update the local state optimistically
+    const updatedProjects = localProjects.map(project => {
+      if (project.id === projectId) {
+        return { ...project, status: targetColumn };
+      }
+      return project;
+    });
+    
+    setLocalProjects(updatedProjects);
     setDraggingProject(null);
+  };
+
+  // Start dragging
+  const handleDragStart = (event: any) => {
+    const projectId = event.active.id;
+    const project = localProjects.find((p) => p.id === projectId);
+    if (project) {
+      setDraggingProject(project);
+    }
   };
 
   const getProjectsByStatus = (status: ProjectStatus) => {
@@ -148,14 +119,13 @@ export function KanbanBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         sensors={sensors}
-        collisionDetection={closestCorners}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statusColumns.map((column) => {
             const columnProjects = getProjectsByStatus(column.id);
             
             return (
-              <DroppableColumn
+              <div
                 key={column.id}
                 id={column.id}
                 className={`rounded-lg p-3 ${column.color} border min-h-[300px]`}
@@ -188,22 +158,18 @@ export function KanbanBoard({
                     </div>
                   )}
                 </div>
-              </DroppableColumn>
+              </div>
             );
           })}
         </div>
         
         {draggingProject && createPortal(
-          <DragOverlay>
-            <Card className="shadow-lg opacity-80 w-[300px]">
-              <div className="p-3">
-                <h4 className="text-sm font-medium">{draggingProject.title}</h4>
-                <p className="text-xs text-gray-500 line-clamp-2 mt-1">
-                  {draggingProject.description || 'No description'}
-                </p>
-              </div>
-            </Card>
-          </DragOverlay>,
+          <div className="fixed top-0 left-0 bg-black bg-opacity-50 w-full h-full flex items-center justify-center z-50">
+            <div className="bg-white p-4 rounded-lg shadow-lg max-w-md">
+              <h3 className="text-lg font-medium">Moving: {draggingProject.title}</h3>
+              <p className="text-gray-500 text-sm">Drag to the desired column</p>
+            </div>
+          </div>,
           document.body
         )}
       </DndContext>

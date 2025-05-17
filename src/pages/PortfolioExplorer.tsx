@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { ProfileForm } from '@/components/portfolio/ProfileForm';
 import { ProjectIdeaList } from '@/components/portfolio/ProjectIdeaList';
@@ -14,14 +14,12 @@ import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { QuestionnaireAnswers, PortfolioInsightData, ProjectIdea, ProjectStatus, PortfolioProject } from '@/types/portfolio';
 import { Check, WandSparkles } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 
 function PortfolioExplorer() {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('discover');
   const [portfolioData, setPortfolioData] = useState<PortfolioInsightData | null>(null);
   const [profileCompleted, setProfileCompleted] = useState(false);
-  const [savedAnswers, setSavedAnswers] = useState<QuestionnaireAnswers | null>(null);
   
   const {
     projects,
@@ -34,73 +32,18 @@ function PortfolioExplorer() {
     isLoading,
   } = usePortfolio();
 
-  // Add function to fetch existing questionnaire data
-  const fetchExistingQuestionnaire = async () => {
-    if (!user) return;
-    
-    try {
-      const { data, error } = await supabase
-        .from('portfolio')
-        .select('current_role, interests, hobbies')
-        .eq('user_id', user.id)
-        .single();
-
-      if (error) {
-        if (error.code !== 'PGRST116') { // Not found error
-          console.error("Error fetching questionnaire:", error);
-        }
-        return;
-      }
-
-      if (data) {
-        setSavedAnswers({
-          currentRole: data.current_role,
-          interests: data.interests,
-          hobbies: data.hobbies
-        });
-        setProfileCompleted(true);
-      }
-    } catch (error) {
-      console.error("Error fetching questionnaire:", error);
-    }
-  };
-
-  // Fetch existing data when component mounts
-  useEffect(() => {
-    if (user) {
-      fetchExistingQuestionnaire();
-    }
-  }, [user]);
-
   const handleQuestionnaireSubmit = async (data: QuestionnaireAnswers) => {
-    if (!user) return;
-
     try {
-      // Save to Supabase
-      const { error: upsertError } = await supabase
-        .from('portfolio')
-        .upsert({
-          user_id: user.id,
-          current_role: data.currentRole,
-          interests: data.interests,
-          hobbies: data.hobbies,
-          updated_at: new Date().toISOString()
-        });
-
-      if (upsertError) throw upsertError;
-
-      // Generate portfolio ideas
       const result = await generatePortfolioIdeas.mutateAsync(data);
       setPortfolioData(result);
       setProfileCompleted(true);
-      setSavedAnswers(data);
       
       // Automatically move to next tab after analysis is complete
       setTimeout(() => {
         setActiveTab('ideas');
       }, 500);
     } catch (error) {
-      console.error("Error saving questionnaire data:", error);
+      console.error("Error generating portfolio ideas:", error);
     }
   };
 
@@ -203,7 +146,6 @@ function PortfolioExplorer() {
                 <ProfileForm 
                   onSubmit={handleQuestionnaireSubmit}
                   isLoading={isLoading || generatePortfolioIdeas.isPending}
-                  initialData={savedAnswers}
                 />
               </div>
               <div className="space-y-4">

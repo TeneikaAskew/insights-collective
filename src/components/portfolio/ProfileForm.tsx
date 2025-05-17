@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,10 +25,9 @@ const formSchema = z.object({
 interface ProfileFormProps {
   onSubmit: (data: QuestionnaireAnswers) => void;
   isLoading: boolean;
-  initialData?: QuestionnaireAnswers | null;
 }
 
-export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormProps) {
+export function ProfileForm({ onSubmit, isLoading }: ProfileFormProps) {
   const form = useForm<QuestionnaireAnswers>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -36,18 +35,6 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
       currentRole: "",
       hobbies: "",
     },
-  });
-
-  // Update form values when initialData changes
-  useEffect(() => {
-    if (initialData) {
-      form.reset(initialData);
-    }
-  }, [initialData, form]);
-
-  const handleSubmit = form.handleSubmit((data) => {
-    console.log('Form submitted with data:', data);
-    onSubmit(data);
   });
 
   return (
@@ -60,7 +47,7 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="interests"
@@ -111,11 +98,7 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
               )}
             />
 
-            <Button 
-              type="submit" 
-              className="w-full bg-[#9b87f5] hover:bg-[#8B5CF6]" 
-              disabled={isLoading}
-            >
+            <Button type="submit" className="w-full bg-[#9b87f5] hover:bg-[#8B5CF6]" disabled={isLoading}>
               {isLoading ? "Analyzing..." : "Generate Portfolio Recommendations"}
             </Button>
           </form>

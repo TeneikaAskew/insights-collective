@@ -874,36 +874,6 @@ export type Database = {
         }
         Relationships: []
       }
-      portfolio: {
-        Row: {
-          created_at: string
-          current_role: string | null
-          hobbies: string | null
-          id: number
-          interests: string | null
-          recommendations: Json | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          current_role?: string | null
-          hobbies?: string | null
-          id?: number
-          interests?: string | null
-          recommendations?: Json | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          current_role?: string | null
-          hobbies?: string | null
-          id?: number
-          interests?: string | null
-          recommendations?: Json | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       portfolio_projects: {
         Row: {
           created_at: string | null
