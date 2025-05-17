@@ -322,6 +322,9 @@ const Resume = () => {
       } catch (err) {
         logDebug('AnalysisLoader', 'Error setting analysis from resume:', err);
         console.error("Error setting analysis from resume:", err);
+        // On error, reset states to allow retry
+        setHasLoadedAnalysis(false);
+        setAnalysis(null);
       }
     }
   }, [resume, analysis, setAnalysis, hasLoadedAnalysis, user]);
@@ -448,16 +451,18 @@ const Resume = () => {
           setHasLoadedAnalysis(true);
           setIsLoadingEnhancedBullets(true); // Start waiting for enhanced bullets
           logDebug('AnalysisRunner', 'Set isLoadingEnhancedBullets to true');
-
-          // Reset enhanced bullets flag when loading a new analysis
-          hasLoadedEnhancedRef.current = false;
-          logDebug('AnalysisRunner', 'Reset hasLoadedEnhancedRef to false');
         } else {
           logDebug('AnalysisRunner', 'Analysis did not complete successfully');
+          // Reset states to allow retry
+          setHasLoadedAnalysis(false);
+          setAnalysis(null);
         }
       }).catch(err => {
         logDebug('AnalysisRunner', 'Error analyzing resume:', err);
         console.error("Error analyzing resume:", err);
+        // Reset states on error
+        setHasLoadedAnalysis(false);
+        setAnalysis(null);
       });
     }
   }, [resume, analysis, analyzeResume, isAnalyzing, hasLoadedAnalysis, initialLoadComplete]);

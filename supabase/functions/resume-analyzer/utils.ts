@@ -1,174 +1,133 @@
 // This function sets up Supabase client with service role key credentials from env
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
-function getSupabaseClient() {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('getSupabaseClient: Missing Supabase credentials in environment variables!');
-    throw new Error('Missing Supabase credentials');
-  }
-  return createClient(supabaseUrl, supabaseKey);
-}
-
-export const supabase = getSupabaseClient();
-
-
 import { encoding_for_model } from 'npm:@dqbd/tiktoken';
-async function countTokens(text, model = 'gpt-4o-mini') {
-  const enc = await encoding_for_model(model);
-  const tokenCount = enc.encode(text).length;
-  enc.free();
-  return tokenCount;
-}
-// Track failed endpoints globally - persist across function calls
-// This will keep track of how many times each endpoint has failed
-const failedEndpoints: Record<string, number> = {
-  ANWAN: 0,
-  GROQ: 0,
-  TOGETHER: 0
+
+// API Rate Limits Configuration
+const API_CONFIG = {
+  ANWAN: {
+    DELAY_MS: 2000,    // 0.5 req/sec
+    MAX_RETRIES: 3,
+    DAILY_LIMIT: 1000  // Adjust based on your plan
+  },
+  GROQ: {
+    DELAY_MS: 1000,    // 1 req/sec
+    MAX_RETRIES: 3,
+    DAILY_LIMIT: 1000  // Adjust based on your plan
+  },
+  TOGETHER: {
+    DELAY_MS: 1500,    // 0.67 req/sec (40 RPM)
+    MAX_RETRIES: 3,
+    DAILY_LIMIT: 1000  // Adjust based on your plan
+  }
 };
 
-// Maximum failures before skipping an endpoint
-const MAX_FAILURES = 4;
-
-// Function to check if an endpoint should be skipped
-function shouldSkipEndpoint(endpoint: string): boolean {
-  return (failedEndpoints[endpoint] || 0) >= MAX_FAILURES;
+// Endpoint status tracking
+interface EndpointStatus {
+  lastCallTime: number;
+  dailyCallCount: number;
+  failureCount: number;
+  isDisabled: boolean;
+  resetTime?: number;
 }
 
-// Function to record a failure for an endpoint
-// If isDailyLimit is true, immediately set count to MAX_FAILURES
-function recordEndpointFailure(endpoint: string, isDailyLimit: boolean = false): void {
-  if (isDailyLimit) {
-    failedEndpoints[endpoint] = MAX_FAILURES;
-    console.log(`${endpoint} has reached daily rate limit - skipping for the rest of the session`);
-  } else {
-    failedEndpoints[endpoint] = (failedEndpoints[endpoint] || 0) + 1;
-    console.log(`${endpoint} failure count: ${failedEndpoints[endpoint]}/${MAX_FAILURES}`);
-  }
-}
-
-// Safe JSON parse with fallback
-export function safeJsonParse(jsonString: string, fallback: any): any {
-  try {
-    return JSON.parse(jsonString);
-  } catch (e) {
-    console.error("Error parsing JSON:", e);
-    return fallback;
-  }
-}
-
-// Handle API errors consistently
-export function handleApiError(error: any, defaultMessage = "An unexpected error occurred"): string {
-  if (typeof error === 'string') return error;
-  return error?.message || defaultMessage;
-}
-
-// Export comprehensive CORS headers for use across the application
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
-  'Access-Control-Allow-Credentials': 'true',
-  'Access-Control-Max-Age': '86400'
+const endpointStatus: Record<string, EndpointStatus> = {
+  ANWAN: { lastCallTime: 0, dailyCallCount: 0, failureCount: 0, isDisabled: false },
+  GROQ: { lastCallTime: 0, dailyCallCount: 0, failureCount: 0, isDisabled: false },
+  TOGETHER: { lastCallTime: 0, dailyCallCount: 0, failureCount: 0, isDisabled: false }
 };
 
-// Handle OPTIONS preflight requests
-export function handleOptions(req: Request) {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
-  return null;
+// Reset daily counters at midnight UTC
+function scheduleCounterReset() {
+  const now = Date.now();
+  const tomorrow = new Date();
+  tomorrow.setUTCHours(24, 0, 0, 0);
+  const timeUntilReset = tomorrow.getTime() - now;
+
+  setTimeout(() => {
+    Object.keys(endpointStatus).forEach(endpoint => {
+      endpointStatus[endpoint].dailyCallCount = 0;
+      endpointStatus[endpoint].failureCount = 0;
+      endpointStatus[endpoint].isDisabled = false;
+      endpointStatus[endpoint].resetTime = undefined;
+    });
+    scheduleCounterReset(); // Schedule next reset
+  }, timeUntilReset);
 }
 
-// ─────────── new helpers for GROQ/ANWAN/TOGETHER ───────────
+scheduleCounterReset();
 
-/**
- * callLLMAPI
- * • tries available endpoints in order based on their failure status
- * • skips endpoints that have failed more than MAX_FAILURES times
- *
- * @param system      System-role instructions (what the assistant "is")
- * @param user        User-role prompt (what you want it to do)
- */
-export async function callLLMAPI(
-  system: string,
-  user: string
-): Promise<string> {
-  // Try endpoints in order of preference, skipping any that have exceeded failure threshold
-    const combined = [
-    `system: ${system}`,
-    `user: ${user}`
-  ].join('\n\n');
-  const n = await countTokens(combined, 'gpt-4o-mini');
-  console.log(`Prompt uses ${n} tokens`);
-  if (n > 131_072) {
-    console.warn('🚨 exceeds max context! trim or chunk it.');
-  // you could even throw here, or slice off part of `user`
+// Input validation
+function validateInput(system: string, user: string): void {
+  if (!system?.trim()) {
+    throw new Error('System prompt cannot be empty');
   }
-  if (!shouldSkipEndpoint('ANWAN')) {
-    try {
-      return await callANWANAPI(system, user);
-    } catch (error) {
-      console.error('ANWAN API failed:', error.message);
-      // Check for daily rate limit message
-      const isDailyLimit = error.message.includes('per day') || 
-                          error.message.includes('daily limit') || 
-                          error.message.includes('wait 24 hours');
-      
-      // Only increment failure counter for rate limits or serious errors
-      if (error.status === 429 || error.status >= 500) {
-        recordEndpointFailure('ANWAN', isDailyLimit);
-      }
+  if (!user?.trim()) {
+    throw new Error('User prompt cannot be empty');
+  }
+}
+
+// Rate limiting helper
+async function enforceRateLimit(endpoint: string): Promise<void> {
+  const status = endpointStatus[endpoint];
+  const config = API_CONFIG[endpoint];
+  const now = Date.now();
+  
+  // Check if enough time has passed since last call
+  const timeSinceLastCall = now - status.lastCallTime;
+  if (timeSinceLastCall < config.DELAY_MS) {
+    const waitTime = config.DELAY_MS - timeSinceLastCall;
+    await new Promise(resolve => setTimeout(resolve, waitTime));
+  }
+  
+  status.lastCallTime = Date.now();
+  status.dailyCallCount++;
+}
+
+// Check if endpoint should be used
+function canUseEndpoint(endpoint: string): boolean {
+  const status = endpointStatus[endpoint];
+  const config = API_CONFIG[endpoint];
+  
+  if (status.isDisabled) return false;
+  if (status.dailyCallCount >= config.DAILY_LIMIT) {
+    status.isDisabled = true;
+    return false;
+  }
+  if (status.failureCount >= config.MAX_RETRIES) {
+    status.isDisabled = true;
+    return false;
+  }
+  
+  return true;
+}
+
+// Handle API response
+function handleApiResponse(endpoint: string, response: Response, responseText: string): void {
+  const status = endpointStatus[endpoint];
+  
+  if (response.status === 429) {
+    status.failureCount++;
+    if (responseText.includes('per day') || responseText.includes('daily limit')) {
+      status.isDisabled = true;
+      status.resetTime = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
     }
+  } else if (!response.ok) {
+    status.failureCount++;
   }
-
-  if (!shouldSkipEndpoint('GROQ')) {
-    try {
-      return await callGROQAPI(system, user);
-    } catch (error) {
-      console.error('GROQ API failed:', error.message);
-      // Check for daily rate limit message
-      const isDailyLimit = error.message.includes('per day') || 
-                          error.message.includes('daily limit') || 
-                          error.message.includes('wait 24 hours');
-      
-      if (error.status === 429 || error.status >= 500) {
-        recordEndpointFailure('GROQ', isDailyLimit);
-      }
-    }
-  }
-
-  if (!shouldSkipEndpoint('TOGETHER')) {
-    try {
-      return await callTOGETHERAPI(system, user);
-    } catch (error) {
-      console.error('TOGETHER API failed:', error.message);
-      // Check for daily rate limit message
-      const isDailyLimit = error.message.includes('per day') || 
-                          error.message.includes('daily limit') || 
-                          error.message.includes('wait 24 hours') ||
-                          error.message.includes('quota');
-      
-      if (error.status === 429 || error.status >= 500) {
-        recordEndpointFailure('TOGETHER', isDailyLimit);
-      }
-    }
-  }
-
-  // If we reached here, all viable endpoints failed
-  throw new Error('All LLM endpoints failed or are disabled due to past failures');
 }
 
 // ANWAN API call
 async function callANWANAPI(system: string, user: string): Promise<string> {
-  const ANWAN_API_KEY = Deno.env.get('ANWAN');
-  if (!ANWAN_API_KEY) throw new Error('ANWAN API key not found in environment');
+  if (!canUseEndpoint('ANWAN')) {
+    throw new Error('ANWAN API is currently disabled');
+  }
 
-  const anwanUrl = 'https://api.awanllm.com/v1/chat/completions';
+  const ANWAN_API_KEY = Deno.env.get('ANWAN');
+  if (!ANWAN_API_KEY) throw new Error('ANWAN API key not found');
+
+  await enforceRateLimit('ANWAN');
   
-  const resp = await fetch(anwanUrl, {
+  const resp = await fetch('https://api.awanllm.com/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${ANWAN_API_KEY}`,
@@ -185,31 +144,37 @@ async function callANWANAPI(system: string, user: string): Promise<string> {
     })
   });
 
+  const responseText = await resp.text();
+  handleApiResponse('ANWAN', resp, responseText);
+
   if (!resp.ok) {
-    const txt = await resp.text();
-    // Store the full response text to check for daily limit patterns
-    const error = new Error(`ANWAN API failed: ${resp.status} ${txt}`);
-    // @ts-ignore - Adding status property to Error object
-    error.status = resp.status;
-    throw error;
+    throw new Error(`ANWAN API failed: ${resp.status} ${responseText}`);
   }
 
-  const json = await resp.json();
-  return json.choices?.[0]?.message?.content;
+  try {
+    const json = JSON.parse(responseText);
+    return json.choices?.[0]?.message?.content;
+  } catch (e) {
+    throw new Error(`Failed to parse ANWAN response: ${e.message}`);
+  }
 }
 
 // GROQ API call
 async function callGROQAPI(system: string, user: string): Promise<string> {
-  const GROQ_API_KEY = Deno.env.get('GROQ');
-  if (!GROQ_API_KEY) throw new Error('GROQ API key not found in environment');
+  if (!canUseEndpoint('GROQ')) {
+    throw new Error('GROQ API is currently disabled');
+  }
 
-  const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
+  const GROQ_API_KEY = Deno.env.get('GROQ');
+  if (!GROQ_API_KEY) throw new Error('GROQ API key not found');
+
+  await enforceRateLimit('GROQ');
   
-  const resp = await fetch(groqUrl, {
+  const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${GROQ_API_KEY}`
+      'Authorization': `Bearer ${GROQ_API_KEY}`,
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       model: 'compound-beta-mini',
@@ -222,30 +187,37 @@ async function callGROQAPI(system: string, user: string): Promise<string> {
     })
   });
 
+  const responseText = await resp.text();
+  handleApiResponse('GROQ', resp, responseText);
+
   if (!resp.ok) {
-    const txt = await resp.text();
-    const error = new Error(`GROQ API failed: ${resp.status} ${txt}`);
-    // @ts-ignore - Adding status property to Error object
-    error.status = resp.status;
-    throw error;
+    throw new Error(`GROQ API failed: ${resp.status} ${responseText}`);
   }
 
-  const json = await resp.json();
-  return json.choices?.[0]?.message?.content;
+  try {
+    const json = JSON.parse(responseText);
+    return json.choices?.[0]?.message?.content;
+  } catch (e) {
+    throw new Error(`Failed to parse GROQ response: ${e.message}`);
+  }
 }
 
 // TOGETHER API call
 async function callTOGETHERAPI(system: string, user: string): Promise<string> {
-  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
-  if (!TOGETHER_API_KEY) throw new Error('TOGETHER API key not found in environment');
+  if (!canUseEndpoint('TOGETHER')) {
+    throw new Error('TOGETHER API is currently disabled');
+  }
 
-  const togetherUrl = 'https://api.together.xyz/v1/chat/completions';
+  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
+  if (!TOGETHER_API_KEY) throw new Error('TOGETHER API key not found');
+
+  await enforceRateLimit('TOGETHER');
   
-  const resp = await fetch(togetherUrl, {
+  const resp = await fetch('https://api.together.xyz/v1/chat/completions', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${TOGETHER_API_KEY}`
+      'Authorization': `Bearer ${TOGETHER_API_KEY}`,
+      'Content-Type': 'application/json'
     },
     body: JSON.stringify({
       model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
@@ -258,242 +230,127 @@ async function callTOGETHERAPI(system: string, user: string): Promise<string> {
     })
   });
 
+  const responseText = await resp.text();
+  handleApiResponse('TOGETHER', resp, responseText);
+
   if (!resp.ok) {
-    const txt = await resp.text();
-    const error = new Error(`TOGETHER API failed: ${resp.status} ${txt}`);
-    // @ts-ignore - Adding status property to Error object
-    error.status = resp.status;
-    throw error;
+    throw new Error(`TOGETHER API failed: ${resp.status} ${responseText}`);
   }
 
-  const json = await resp.json();
-  return json.choices?.[0]?.message?.content;
+  try {
+    const json = JSON.parse(responseText);
+    return json.choices?.[0]?.message?.content;
+  } catch (e) {
+    throw new Error(`Failed to parse TOGETHER response: ${e.message}`);
+  }
 }
 
-/**
- * callLLMWithRetry
- * • wraps callLLMAPI in exponential-backoff retry
- *
- * @param system      System-role instructions
- * @param user        User-role prompt
- * @param attempt     (internal) current retry number
- * @param maxAttempts Maximum retries before giving up
- */
+// Main LLM API call function with smart endpoint selection
+export async function callLLMAPI(system: string, user: string): Promise<string> {
+  validateInput(system, user);
+  
+  // Get available endpoints
+  const availableEndpoints = Object.keys(API_CONFIG).filter(canUseEndpoint);
+  if (availableEndpoints.length === 0) {
+    throw new Error('No API endpoints are currently available');
+  }
+
+  // Try each available endpoint
+  for (const endpoint of availableEndpoints) {
+    try {
+      switch (endpoint) {
+        case 'ANWAN':
+          return await callANWANAPI(system, user);
+        case 'GROQ':
+          return await callGROQAPI(system, user);
+        case 'TOGETHER':
+          return await callTOGETHERAPI(system, user);
+      }
+    } catch (error) {
+      console.error(`${endpoint} API call failed:`, error);
+      // Continue to next endpoint if available
+      if (endpoint === availableEndpoints[availableEndpoints.length - 1]) {
+        throw error; // Throw if this was the last available endpoint
+      }
+    }
+  }
+
+  throw new Error('All available endpoints failed');
+}
+
+// Retry wrapper with exponential backoff
 export async function callLLMWithRetry(
   system: string,
   user: string,
   attempt = 1,
-  maxAttempts = 4
+  maxAttempts = 3
 ): Promise<string> {
   try {
-    console.log(`callLLMWithRetry: Attempt ${attempt}/${maxAttempts}`);
     return await callLLMAPI(system, user);
-  } catch (err: any) {
-    if (attempt < maxAttempts) {
-      // exponential backoff
-      let waitMs = 1000 * Math.pow(2, attempt);
-
-      // if error says "try again in Xs"
-      const m = err.message.match(/try again in (\d+.?\d*)s/i);
-      if (m) {
-        waitMs = Math.ceil(parseFloat(m[1]) * 1000) + 500;
-        console.log(`Extracted wait=${waitMs}ms from error message`);
-      }
-
-      // jitter
-      waitMs += Math.floor(Math.random() * 500);
-      console.log(`Waiting ${waitMs}ms before retry #${attempt+1}`);
-      await new Promise(r => setTimeout(r, waitMs));
-
-      return callLLMWithRetry(system, user, attempt + 1, maxAttempts);
+  } catch (error) {
+    if (attempt >= maxAttempts) {
+      throw error;
     }
 
-    console.error(`Max retry attempts (${maxAttempts}) reached.`);
-    throw err;
+    // Calculate backoff with jitter
+    const baseDelay = Math.min(1000 * Math.pow(2, attempt), 10000);
+    const jitter = Math.random() * 1000;
+    const delay = baseDelay + jitter;
+
+    console.log(`Attempt ${attempt} failed, retrying in ${delay}ms`);
+    await new Promise(resolve => setTimeout(resolve, delay));
+
+    return callLLMWithRetry(system, user, attempt + 1, maxAttempts);
   }
 }
 
-// Function to reset failure counts (useful for testing or manual resets)
-export function resetEndpointFailures(specificEndpoint?: string): void {
-  if (specificEndpoint && specificEndpoint in failedEndpoints) {
-    failedEndpoints[specificEndpoint] = 0;
-    console.log(`Failure count for ${specificEndpoint} has been reset`);
-  } else {
-    Object.keys(failedEndpoints).forEach(key => {
-      failedEndpoints[key] = 0;
-    });
-    console.log('All endpoint failure counts have been reset');
+// Export other utility functions
+export const supabase = getSupabaseClient();
+
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
+  'Access-Control-Allow-Credentials': 'true',
+  'Access-Control-Max-Age': '86400'
+};
+
+// Utility functions
+export function handleOptions(req: Request) {
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+  return null;
+}
+
+function getSupabaseClient() {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+  const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase credentials');
+  }
+  return createClient(supabaseUrl, supabaseKey);
+}
+
+// Export endpoint status checking functions
+export function getEndpointStatus() {
+  return Object.entries(endpointStatus).map(([endpoint, status]) => ({
+    endpoint,
+    isAvailable: canUseEndpoint(endpoint),
+    dailyCallCount: status.dailyCallCount,
+    failureCount: status.failureCount,
+    isDisabled: status.isDisabled,
+    resetTime: status.resetTime
+  }));
+}
+
+export function resetEndpoint(endpoint: string) {
+  if (endpoint in endpointStatus) {
+    endpointStatus[endpoint] = {
+      lastCallTime: 0,
+      dailyCallCount: 0,
+      failureCount: 0,
+      isDisabled: false
+    };
   }
 }
-
-// Function to log current endpoint status
-export function logEndpointStatus(): void {
-  console.log('Current endpoint status:');
-  Object.entries(failedEndpoints).forEach(([endpoint, count]) => {
-    const status = count >= MAX_FAILURES ? 'DISABLED' : 'ACTIVE';
-    console.log(`- ${endpoint}: ${count}/${MAX_FAILURES} failures (${status})`);
-  });
-}
-// // This function sets up Supabase client with service role key credentials from env
-// import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-// function getSupabaseClient() {
-//   const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-//   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-//   if (!supabaseUrl || !supabaseKey) {
-//     console.error('getSupabaseClient: Missing Supabase credentials in environment variables!');
-//     throw new Error('Missing Supabase credentials');
-//   }
-//   return createClient(supabaseUrl, supabaseKey);
-// }
-// export const supabase = getSupabaseClient();
-
-// // Safe JSON parse with fallback
-// export function safeJsonParse(jsonString: string, fallback: any): any {
-//   try {
-//     return JSON.parse(jsonString);
-//   } catch (e) {
-//     console.error("Error parsing JSON:", e);
-//     return fallback;
-//   }
-// }
-
-// // Handle API errors consistently
-// export function handleApiError(error: any, defaultMessage = "An unexpected error occurred"): string {
-//   if (typeof error === 'string') return error;
-//   return error?.message || defaultMessage;
-// }
-
-// // Export comprehensive CORS headers for use across the application
-// export const corsHeaders = {
-//   'Access-Control-Allow-Origin': '*',
-//   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-//   'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
-//   'Access-Control-Allow-Credentials': 'true',
-//   'Access-Control-Max-Age': '86400'
-// };
-
-// // Handle OPTIONS preflight requests
-// export function handleOptions(req: Request) {
-//   if (req.method === 'OPTIONS') {
-//     return new Response('ok', { headers: corsHeaders });
-//   }
-//   return null;
-// }
-
-
-
-// // ─────────── new helpers for GROQ/ANWAN ───────────
-
-// /**
-//  * callGroqAPI
-//  *  • tries ANWAN (Meta-Llama-3-8B-Instruct) first,
-//  *    then falls back to GROQ (compound-beta-mini).
-//  *
-//  * @param system      System-role instructions (what the assistant “is”)
-//  * @param user        User-role prompt (what you want it to do)
-//  */
-// export async function callGroqAPI(
-//   system: string,
-//   user: string
-// ): Promise<string> {
-//   const ANWAN_API_KEY = Deno.env.get('ANWAN');
-//   if (!ANWAN_API_KEY) throw new Error('ANWAN API key not found in environment');
-//   const GROQ_API_KEY = Deno.env.get('GROQ');
-//   if (!GROQ_API_KEY) throw new Error('GROQ API key not found in environment');
-
-//   const anwanUrl = 'https://api.awanllm.com/v1/chat/completions';
-//   const groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
-
-//   // 1️⃣ Try ANWAN
-//   let resp = await fetch(anwanUrl, {
-//     method: 'POST',
-//     headers: {
-//       'Authorization': `Bearer ${ANWAN_API_KEY}`,
-//         'Content-Type': 'application/json'
-      
-//     },
-//     body: JSON.stringify({
-//       model: 'Meta-Llama-3-8B-Instruct',
-//       messages: [
-//         { role: 'system', content: system },
-//         { role: 'user',   content: user   }
-//       ],
-//       temperature: 0.7,
-//       max_tokens: 500
-//     })
-//   });
-
-//   // 2️⃣ On 429 or error → fallback to GROQ
-//   if (resp.status === 429 || !resp.ok) {
-//     // console.warn(`ANWAN failed (status ${resp.status}), falling back to GROQ`);
-//     const body = await resp.text();
-//     console.error(`Switching to GROQ API -ANWAN failed (status ${resp.status} – body: ${body})`);
-//     resp = await fetch(groqUrl, {
-//       method: 'POST',
-//       headers: {
-//         'Content-Type': 'application/json',
-//         'Authorization': `Bearer ${GROQ_API_KEY}`
-//       },
-//       body: JSON.stringify({
-//         model: 'compound-beta-mini',
-//         messages: [
-//           { role: 'system', content: system },
-//           { role: 'user',   content: user   }
-//         ],
-//         temperature: 0.7,
-//         max_tokens: 500
-//       })
-//     });
-//   }
-
-//   if (!resp.ok) {
-//     const txt = await resp.text();
-//     throw new Error(`Chat completion failed: ${resp.status} ${txt}`);
-//   }
-
-//   const json = await resp.json();
-//   return json.choices?.[0]?.message?.content;
-// }
-
-// /**
-//  * callGroqWithRetry
-//  *  • wraps callGroqAPI in exponential-backoff retry
-//  *
-//  * @param system      System-role instructions
-//  * @param user        User-role prompt
-//  * @param attempt     (internal) current retry number
-//  * @param maxAttempts Maximum retries before giving up
-//  */
-// export async function callGroqWithRetry(
-//   system: string,
-//   user: string,
-//   attempt = 1,
-//   maxAttempts = 4
-// ): Promise<string> {
-//   try {
-//     console.log(`callGroqWithRetry: Attempt ${attempt}/${maxAttempts}`);
-//     return await callGroqAPI(system, user);
-//   } catch (err: any) {
-//     if (attempt < maxAttempts) {
-//       // exponential backoff
-//       let waitMs = 1000 * Math.pow(2, attempt);
-
-//       // if error says “try again in Xs”
-//       const m = err.message.match(/try again in (\d+\.?\d*)s/i);
-//       if (m) {
-//         waitMs = Math.ceil(parseFloat(m[1]) * 1000) + 500;
-//         console.log(`Extracted wait=${waitMs}ms from error message`);
-//       }
-
-//       // jitter
-//       waitMs += Math.floor(Math.random() * 500);
-//       console.log(`Waiting ${waitMs}ms before retry #${attempt+1}`);
-//       await new Promise(r => setTimeout(r, waitMs));
-
-//       return callGroqWithRetry(system, user, attempt + 1, maxAttempts);
-//     }
-
-//     console.error(`Max retry attempts (${maxAttempts}) reached.`);
-//     throw err;
-//   }
-// }

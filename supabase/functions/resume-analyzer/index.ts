@@ -1,4 +1,3 @@
-// Add this at the top of the file
 console.log('Resume Roast and Analyzer function hit');
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";

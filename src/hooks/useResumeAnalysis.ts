@@ -283,6 +283,14 @@ export function useResumeAnalysis() {
   const [pollingAttempt, setPollingAttempt] = useState(0);
   const backoffTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Reset analysis state when user changes
+  useEffect(() => {
+    if (!user) {
+      setAnalysis(null);
+      hasLoadedAnalysis.current = false;
+    }
+  }, [user]);
+
   useEffect(() => {
     if (user && !hasLoadedAnalysis.current) {
       hasLoadedAnalysis.current = true;
@@ -620,12 +628,18 @@ export function useResumeAnalysis() {
       return false;
     }
     
-    // Clear localStorage cache for this user before starting a new analysis
-    if (user) {
-      localStorage.removeItem(`resume_analysis_${user.id}`);
-    }
-    
+    // Reset all states at the start
+    setAnalysis(null);
+    hasLoadedAnalysis.current = false;
     setIsAnalyzing(true);
+    setIsPollingForImprovements(false);
+    setPollingStatus('idle');
+    setPollingAttempt(0);
+    
+    // Clear localStorage cache for this user before starting a new analysis
+    localStorage.removeItem(`resume_analysis_${user.id}`);
+    localStorage.removeItem(`resume_text_${user.id}`);
+    
     console.log("Starting resume analysis with text of length:", text.length);
     
     try {
@@ -635,153 +649,102 @@ export function useResumeAnalysis() {
       // Check if there are career goals stored in localStorage
       const careerGoals = localStorage.getItem(`career_goals_${user.id}`);
       
-      // Step 1: Call the Edge Function with user ID and text
       console.log("[Resume Analysis] Starting initial resume analysis...");
       
-      try {
-        const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
-          body: { 
-            resumeText: text,
-            userId: user.id,
-            careerGoals: careerGoals || undefined
-          }
-        });
+      const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
+        body: { 
+          resumeText: text,
+          userId: user.id,
+          careerGoals: careerGoals || undefined
+        }
+      });
 
-        console.log("[Resume Analysis] Initial analysis completed", {
-          success: !!analysisData && !error,
-          hasError: !!error
-        });
+      console.log("[Resume Analysis] Initial analysis completed", {
+        success: !!analysisData && !error,
+        hasError: !!error
+      });
 
-        // More detailed validation
-        if (error) {
-          throw new Error(`Edge function error: ${error.message}`);
-        }
-        
-        // Check for various forms of empty/invalid responses
-        if (!analysisData) {
-          throw new Error("Edge function returned null or undefined");
-        }
-        
-        if (typeof analysisData !== 'object') {
-          throw new Error(`Edge function returned non-object type: ${typeof analysisData}`);
-        }
-        
-        if (Object.keys(analysisData).length === 0) {
-          throw new Error("Edge function returned empty object");
-        }
-        
-        // Check for required fields
-        const requiredFields = ['resume_percent', 'letter_grade', 'themes'];
-        const missingFields = requiredFields.filter(field => !(field in analysisData));
-        
-        if (missingFields.length > 0) {
-          throw new Error(`Edge function response missing required fields: ${missingFields.join(', ')}`);
-        }
-        
-        if (error) {
-          console.error("Edge function error:", error);
-          throw error;
-        }
-        
-        console.log("[Resume Analysis] Resume analysis validation complete");
-        
-        // Check if we have analysis data
-        let finalAnalysisData = analysisData;
-        
-        if (!finalAnalysisData) {
-          console.warn("No analysis returned from edge function; attempting fallback to DB");
-        
-          const { data: resumeRecord, error: fetchError } = await supabase
-            .from('resumes')
-            .select('analysis')
-            .eq('user_id', user.id)
-            .maybeSingle();
-        
-          if (fetchError) {
-            console.error("Error fetching stored analysis from database:", fetchError);
-            throw new Error("No analysis returned and database fetch failed");
-          }
-        
-          if (resumeRecord?.analysis) {
-            console.warn("Using existing analysis from DB");
-            finalAnalysisData = resumeRecord.analysis;
-          } else {
-            throw new Error("No analysis data returned from edge function or DB");
-          }
-        }
-        
-        // Clean up any prompt markers or artifacts in the analysis data
-        const cleanedData = cleanAnalysisOutput(finalAnalysisData);
-        
-        // Add the resume ID to the analysis data
-        cleanedData.resume_id = user.id;
-        
-        // Perform keyword analysis on the resume text
-        const enhancedData = analyzeKeywordsInResume(text, cleanedData as ResumeAnalysis);
-        
-        // Save the analysis to localStorage for persistence
-        if (enhancedData && user) {
-          localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedData));
-        }
-        
-        setAnalysis(enhancedData as ResumeAnalysis);
-        calculateCareerAlignments(enhancedData as ResumeAnalysis);
-
-        // Immediately trigger the improve-bullets function without waiting
-        console.log("[Resume Analysis] Triggering improve-bullets analysis...");
-        supabase.functions.invoke('resume-analyzer', {
-          body: { 
-            action: 'improve-bullets',
-            userId: user.id,
-            careerGoals: careerGoals || undefined
-          }
-        }).then(() => {
-          console.log("[Resume Analysis] Improve-bullets request sent successfully");
-        }).catch((err) => {
-          console.error("[Resume Analysis] Error triggering improve-bullets:", err);
-        });
-        
-        // Start polling for improved bullets
-        console.log("[Resume Analysis] Starting to poll for improved bullets");
-        pollForImprovedBullets(user.id);
-        
-        // Also update the analysis in the resume record
-        try {
-          const updateData: any = { 
-            analysis: enhancedData,
-            updated_at: new Date().toISOString()
-          };
-          
-          // Include career goals if available
-          if (careerGoals) {
-            updateData.career_goals = careerGoals;
-          }
-          
-          const { error: updateError } = await supabase
-            .from('resumes')
-            .update(updateData)
-            .eq('user_id', user.id);
-            
-          if (updateError) {
-            console.error("Error updating resume with analysis:", updateError);
-          } else {
-            console.log("[Resume Analysis] Successfully stored analysis in resume record");
-          }
-        } catch (updateErr) {
-          console.error("Error updating resume record:", updateErr);
-        }
-        
-        toast({
-          title: "Initial Resume Analysis Complete",
-          description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.resume_percent}%). We're generating detailed bullet point improvements in the background.`,
-        });
-        
-        return true;
-      } catch (functionError) {
-        // ... keep existing code (error handling and fallback logic)
+      if (error) {
+        throw new Error(`Edge function error: ${error.message}`);
       }
+      
+      if (!analysisData || typeof analysisData !== 'object' || Object.keys(analysisData).length === 0) {
+        throw new Error("Invalid or empty analysis data returned");
+      }
+      
+      // Validate required fields
+      const requiredFields = ['resume_percent', 'letter_grade', 'themes'];
+      const missingFields = requiredFields.filter(field => !(field in analysisData));
+      
+      if (missingFields.length > 0) {
+        throw new Error(`Analysis missing required fields: ${missingFields.join(', ')}`);
+      }
+      
+      // Clean and enhance the analysis data
+      const cleanedData = cleanAnalysisOutput(analysisData);
+      cleanedData.resume_id = user.id;
+      
+      // Perform keyword analysis
+      const enhancedData = analyzeKeywordsInResume(text, cleanedData as ResumeAnalysis);
+      
+      // Update states and storage
+      setAnalysis(enhancedData as ResumeAnalysis);
+      localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedData));
+      calculateCareerAlignments(enhancedData as ResumeAnalysis);
+      hasLoadedAnalysis.current = true;
+
+      // Start polling for improvements
+      console.log("[Resume Analysis] Triggering improve-bullets analysis...");
+      supabase.functions.invoke('resume-analyzer', {
+        body: { 
+          action: 'improve-bullets',
+          userId: user.id,
+          careerGoals: careerGoals || undefined
+        }
+      }).then(() => {
+        console.log("[Resume Analysis] Improve-bullets request sent successfully");
+        pollForImprovedBullets(user.id);
+      }).catch((err) => {
+        console.error("[Resume Analysis] Error triggering improve-bullets:", err);
+      });
+      
+      // Update the analysis in the resume record
+      try {
+        const updateData = { 
+          analysis: enhancedData,
+          updated_at: new Date().toISOString()
+        };
+        
+        if (careerGoals) {
+          updateData.career_goals = careerGoals;
+        }
+        
+        await supabase
+          .from('resumes')
+          .update(updateData)
+          .eq('user_id', user.id);
+          
+        console.log("[Resume Analysis] Successfully stored analysis in resume record");
+      } catch (updateErr) {
+        console.error("Error updating resume record:", updateErr);
+      }
+      
+      toast({
+        title: "Initial Resume Analysis Complete",
+        description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.resume_percent}%). We're generating detailed bullet point improvements in the background.`,
+      });
+      
+      return true;
     } catch (error) {
-      // ... keep existing code (error handling)
+      console.error('Analysis error:', error);
+      setAnalysis(null);
+      hasLoadedAnalysis.current = false;
+      toast({
+        title: 'Analysis Failed',
+        description: error.message || 'Failed to analyze resume. Please try again.',
+        variant: 'destructive'
+      });
+      return false;
     } finally {
       setIsAnalyzing(false);
     }
