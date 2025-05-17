@@ -710,7 +710,11 @@ export function useResumeAnalysis() {
       
       // Update the analysis in the resume record
       try {
-        const updateData = { 
+        const updateData: { 
+          analysis: ResumeAnalysis; 
+          updated_at: string;
+          career_goals?: string;
+        } = { 
           analysis: enhancedData,
           updated_at: new Date().toISOString()
         };
