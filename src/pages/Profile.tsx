@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -125,21 +124,21 @@ const Profile = () => {
         </div>
 
         <div className="grid gap-6 md:grid-cols-[1fr_2fr]">
-          <Card>
-            <CardContent className="p-6">
-              <ProfileAvatar />
-              
-              <div className="mt-4 flex flex-wrap gap-1 justify-center">
-                {user.roles?.map(role => (
-                  <Badge key={role} variant={role === 'admin' ? 'destructive' : role === 'instructor' ? 'outline' : 'default'} className="capitalize">
-                    {role}
-                  </Badge>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
           <div className="space-y-6">
+            <Card>
+              <CardContent className="p-6">
+                <ProfileAvatar />
+                
+                <div className="mt-4 flex flex-wrap gap-1 justify-center">
+                  {user.roles?.map(role => (
+                    <Badge key={role} variant={role === 'admin' ? 'destructive' : role === 'instructor' ? 'outline' : 'default'} className="capitalize">
+                      {role}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle>Account Information</CardTitle>
@@ -195,7 +194,9 @@ const Profile = () => {
                 />
               </CardContent>
             </Card>
+          </div>
 
+          <div className="space-y-6">
             <Card id="quiz-results">
               <CardHeader>
                 <CardTitle>Career Path Quiz Results</CardTitle>

@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -130,17 +129,22 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
     const handleSync = () => {
       const newState = channel.presenceState();
-      const allUsers: PresenceUser[] = [];
+      const uniqueUsers = new Map<string, PresenceUser>();
       
       Object.keys(newState).forEach(key => {
         newState[key].forEach((presence: PresenceUser) => {
-          allUsers.push(presence);
+          // Only keep the most recent presence for each user
+          if (!uniqueUsers.has(presence.id) || 
+              new Date(presence.online_at) > new Date(uniqueUsers.get(presence.id)!.online_at)) {
+            uniqueUsers.set(presence.id, presence);
+          }
           if (presence.id === user?.id) {
             setCurrentUserPresence(presence);
           }
         });
       });
       
+      const allUsers: PresenceUser[] = Array.from(uniqueUsers.values());
       setOnlineUsers(allUsers);
       console.info('Online users count:', allUsers.length);
     };
@@ -148,18 +152,35 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     const handleJoin = ({ key, newPresences }: { key: string; newPresences: PresenceUser[] }) => {
       console.info('User joined:', newPresences);
       setOnlineUsers(prev => {
-        // Remove any existing entries for these users
-        const filtered = prev.filter(user => !newPresences.some(p => p.id === user.id));
-        // Add the new presences
-        return [...filtered, ...newPresences];
+        const uniqueUsers = new Map();
+        
+        // Add existing users to map
+        prev.forEach(user => uniqueUsers.set(user.id, user));
+        
+        // Update or add new presences
+        newPresences.forEach(presence => {
+          if (!uniqueUsers.has(presence.id) || 
+              new Date(presence.online_at) > new Date(uniqueUsers.get(presence.id)!.online_at)) {
+            uniqueUsers.set(presence.id, presence);
+          }
+        });
+        
+        return Array.from(uniqueUsers.values());
       });
     };
 
     const handleLeave = ({ key, leftPresences }: { key: string; leftPresences: PresenceUser[] }) => {
       console.info('User left:', leftPresences);
-      setOnlineUsers(prev => 
-        prev.filter(user => !leftPresences.some(left => left.id === user.id))
-      );
+      setOnlineUsers(prev => {
+        const uniqueUsers = new Map(prev.map(user => [user.id, user]));
+        
+        // Remove users who left
+        leftPresences.forEach(presence => {
+          uniqueUsers.delete(presence.id);
+        });
+        
+        return Array.from(uniqueUsers.values());
+      });
     };
 
     // Use the on method to set up event handlers instead of off
