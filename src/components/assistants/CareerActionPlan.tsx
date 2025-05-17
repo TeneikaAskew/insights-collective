@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -21,11 +20,14 @@ import {
   GraduationCap,
   MessageSquare,
   Target,
-  Loader2
+  Loader2,
+  ArrowRightCircle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
+import { usePortfolio } from '@/hooks/usePortfolio';
 
 interface CourseData {
   title: string;
@@ -95,15 +97,14 @@ const isValidTimeframe = (data: any): data is ActionPlanTimeframe => {
 };
 
 const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }) => {
-  // Internal state to hold the action plan, primarily derived from the prop
   const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
-  // State to track if regeneration is in progress
   const [isGenerating, setIsGenerating] = useState(false);
-  // State for the currently active tab
-  const [activeTimeframe, setActiveTimeframe] = useState<keyof ActionPlan>("6_weeks"); // Default to 6 weeks
-
+  const [activeTimeframe, setActiveTimeframe] = useState<keyof ActionPlan>("6_weeks");
+  
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { addProject } = usePortfolio();
 
   // Effect to update internal state when the prop changes
   useEffect(() => {
@@ -199,7 +200,69 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     }
   };
 
-  // Render generate button if no plan (based on internal state now)
+  const handleAddToPortfolio = async (type: 'project' | 'content' | 'milestone', data: any, timeframe: string) => {
+    try {
+      let projectData;
+      
+      switch(type) {
+        case 'project':
+          projectData = {
+            title: data.title,
+            description: data.description,
+            required_skills: [],
+            effort_level: 'Medium',
+            status: 'Idea',
+            type: 'project',
+            timeframe: timeframe
+          };
+          break;
+        
+        case 'content':
+          projectData = {
+            title: `Content: ${data.platform}`,
+            description: `Create content about: ${data.topics.join(', ')}`,
+            required_skills: data.topics,
+            effort_level: 'Low',
+            status: 'Idea',
+            type: 'content',
+            timeframe: timeframe
+          };
+          break;
+        
+        case 'milestone':
+          projectData = {
+            title: `Milestone: ${data}`,
+            description: `Career milestone to achieve: ${data}`,
+            required_skills: [],
+            effort_level: 'Medium',
+            status: 'Idea',
+            type: 'milestone',
+            timeframe: timeframe
+          };
+          break;
+      }
+
+      await addProject.mutateAsync(projectData);
+      
+      toast({
+        title: "Added to Portfolio",
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} has been added to your portfolio.`,
+      });
+    } catch (error) {
+      console.error('Error adding to portfolio:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add item to portfolio. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePortfolioAction = () => {
+    navigate('/portfolio-explorer');
+  };
+
+  // Render generate button if no plan
   if (!actionPlan) {
     return (
       <Card className="w-full mt-6">
@@ -211,7 +274,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         </CardHeader>
         <CardContent className="flex justify-center p-6">
           <Button
-            onClick={regenerateActionPlan} // Use regenerate function directly
+            onClick={regenerateActionPlan}
             disabled={isGenerating}
             size="lg"
             className="w-full sm:w-auto"
@@ -230,19 +293,9 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     );
   }
 
-  // Get the valid keys that exist in the current action plan state
   const validTimeframeKeys = Object.keys(actionPlan).filter(key =>
     timeframeLabels[key as keyof ActionPlan] && isValidTimeframe(actionPlan[key as keyof ActionPlan])
   ) as Array<keyof ActionPlan>;
-
-  console.log("CAP Debug: Render - Valid timeframe keys:", validTimeframeKeys);
-  console.log("CAP Debug: Render - Current active timeframe:", activeTimeframe);
-
-  // Ensure the active timeframe is valid among the available keys
-  const currentActiveTimeframe = validTimeframeKeys.includes(activeTimeframe) ? activeTimeframe : (validTimeframeKeys[0] || "6_weeks");
-  if (currentActiveTimeframe !== activeTimeframe) {
-     console.warn(`CAP Warn: Render - Active timeframe '${activeTimeframe}' invalid or data missing, switching to '${currentActiveTimeframe}'.`);
-  }
 
   return (
     <Card className="w-full mt-6">
@@ -255,15 +308,13 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
             </CardDescription>
           </div>
           <div className="mt-4 sm:mt-0 flex gap-2">
-            {/* Clear Plan Button - Sets internal state to null */}
-            <Button variant="outline" size="sm" onClick={() => { setActionPlan(null); console.log('CAP Debug: Plan cleared by user.'); }} className="flex-grow sm:flex-grow-0">
+            <Button variant="outline" size="sm" onClick={() => setActionPlan(null)}>
               Clear Plan
             </Button>
             <Button
               size="sm"
               onClick={regenerateActionPlan}
               disabled={isGenerating}
-              className="flex-grow sm:flex-grow-0"
             >
               {isGenerating ? (
                 <>
@@ -276,49 +327,23 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
             </Button>
           </div>
         </div>
-
-        {/* Tabs for timeframe selection */}
-        <Tabs
-           value={currentActiveTimeframe} // Use the validated active timeframe
-           onValueChange={(value) => {
-             console.log("CAP Debug: Tab changed to:", value);
-             if (validTimeframeKeys.includes(value as keyof ActionPlan)) {
-               setActiveTimeframe(value as keyof ActionPlan);
-             } else {
-               console.warn(`CAP Warn: Attempted to switch to invalid tab value: ${value}`);
-             }
-           }}
-           className="mt-4"
-         >
+      </CardHeader>
+      <CardContent>
+        <Tabs value={activeTimeframe} onValueChange={(value) => setActiveTimeframe(value as keyof ActionPlan)}>
           <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 w-full">
             {validTimeframeKeys.map((key) => (
-              <TabsTrigger key={key} value={key} className="text-xs sm:text-sm">
+              <TabsTrigger key={key} value={key}>
                 {timeframeLabels[key]}
               </TabsTrigger>
             ))}
           </TabsList>
 
-         {/* Render content for each timeframe tab */}
           {validTimeframeKeys.map((timeframeKey) => {
-            // Get data for the current timeframe key being mapped
             const timeframeData = actionPlan[timeframeKey];
+            if (!isValidTimeframe(timeframeData)) return null;
 
-            console.log(`CAP Debug: Processing TabsContent for ${timeframeKey}. Data available:`, !!timeframeData);
-
-            // Ensure data exists for this key before rendering content
-            if (!isValidTimeframe(timeframeData)) {
-              console.warn(`CAP Warn: No valid data found for timeframe key: ${timeframeKey}. Rendering placeholder.`);
-              return (
-                <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6">
-                  <p className="text-muted-foreground p-4">No action plan details available for this timeframe ({timeframeLabels[timeframeKey]}).</p>
-                </TabsContent>
-              );
-            }
-
-            // Render the actual content if data is present
             return (
               <TabsContent key={timeframeKey} value={timeframeKey} className="mt-6 space-y-6">
-                {/* Narrative/Overview Section */}
                 <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
                   <h3 className="font-semibold text-lg mb-2">{timeframeLabels[timeframeKey]} Overview</h3>
                   <p className="italic text-muted-foreground">
@@ -326,11 +351,10 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                   </p>
                 </div>
 
-                {/* Accordion for Details */}
-                <Accordion type="multiple" className="w-full" defaultValue={["skills", "projects", "content", "milestones"]}>
-                  {/* Skills Section */}
+                <Accordion type="multiple" defaultValue={["skills", "projects", "content", "milestones"]}>
+                  {/* Skills Section - No Portfolio Integration */}
                   <AccordionItem value="skills">
-                    <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
+                    <AccordionTrigger>
                       <div className="flex items-center">
                         <GraduationCap className="mr-2 h-5 w-5 text-primary" />
                         Skills to Acquire
@@ -339,60 +363,21 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {Array.isArray(timeframeData.skills) && timeframeData.skills.length > 0 ? (
-                          timeframeData.skills.map((skillItem, idx) => {
-                            // Validate the skill object structure
-                            if (!skillItem || typeof skillItem !== 'object') {
-                              return null;
-                            }
-                            
-                            return (
-                              <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-2 border-b border-border/30 last:border-b-0">
-                                <h4 className="font-semibold text-primary/90">
-                                  {typeof skillItem.name === 'string' ? skillItem.name : 'Unnamed Skill'}
-                                </h4>
-                                {Array.isArray(skillItem.courses) && skillItem.courses.length > 0 ? (
-                                  <ul className="space-y-1 list-disc pl-5">
-                                    {skillItem.courses.map((course, courseIdx) => {
-                                      // Handle different course data formats
-                                      let courseTitle = '';
-                                      let courseProvider = '';
-                                      let courseUrl = '';
-                                      
-                                      if (typeof course === 'string') {
-                                        courseTitle = course;
-                                      } else if (course && typeof course === 'object') {
-                                        courseTitle = course.title || 'Unnamed Course';
-                                        courseProvider = course.provider || '';
-                                        courseUrl = course.url || '';
-                                      }
-                                      
-                                      if (!courseTitle) return null;
-                                      
-                                      return (
-                                        <li key={`course-${timeframeKey}-${idx}-${courseIdx}`} className="text-sm">
-                                          <span className="font-medium">{courseTitle}</span>
-                                          {courseProvider && (
-                                            <span className="text-muted-foreground ml-1 text-xs">
-                                              ({courseProvider})
-                                            </span>
-                                          )}
-                                          {courseUrl && (
-                                            <a href={courseUrl} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 hover:underline text-xs">
-                                              [Link]
-                                            </a>
-                                          )}
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                ) : (
-                                  <p className="text-sm text-muted-foreground pl-1">No specific courses listed for this skill.</p>
-                                )}
+                          timeframeData.skills.map((skillItem, idx) => (
+                            <div key={`skill-${timeframeKey}-${idx}`} className="space-y-2 pb-4 border-b border-border/30 last:border-b-0">
+                              <div>
+                                <h4 className="font-semibold text-primary/90">{skillItem.name}</h4>
+                                {Array.isArray(skillItem.courses) && skillItem.courses.map((course, courseIdx) => (
+                                  <div key={courseIdx} className="mt-1">
+                                    <p className="text-sm">{course.title}</p>
+                                    <p className="text-xs text-muted-foreground">{course.provider}</p>
+                                  </div>
+                                ))}
                               </div>
-                            );
-                          })
+                            </div>
+                          ))
                         ) : (
-                          <p className="text-muted-foreground text-sm">No specific skills listed for this period.</p>
+                          <p className="text-muted-foreground">No skills defined for this timeframe.</p>
                         )}
                       </div>
                     </AccordionContent>
@@ -400,7 +385,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
 
                   {/* Projects Section */}
                   <AccordionItem value="projects">
-                    <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
+                    <AccordionTrigger>
                       <div className="flex items-center">
                         <Briefcase className="mr-2 h-5 w-5 text-primary" />
                         Projects to Build
@@ -409,19 +394,23 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {Array.isArray(timeframeData.projects) && timeframeData.projects.length > 0 ? (
-                          timeframeData.projects.map((project, idx) => {
-                            // Validate project object
-                            if (!project || typeof project !== 'object') return null;
-                            
-                            return (
-                              <div key={`project-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                                <h4 className="font-semibold text-primary/90">{project.title || 'Unnamed Project'}</h4>
-                                <p className="text-sm text-muted-foreground">{project.description || 'No description.'}</p>
+                          timeframeData.projects.map((project, idx) => (
+                            <div key={`project-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
+                              <div>
+                                <h4 className="font-semibold">{project.title}</h4>
+                                <p className="text-sm text-muted-foreground">{project.description}</p>
                               </div>
-                            );
-                          })
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddToPortfolio('project', project, timeframeLabels[timeframeKey])}
+                              >
+                                Add to Portfolio
+                              </Button>
+                            </div>
+                          ))
                         ) : (
-                          <p className="text-muted-foreground text-sm">No specific projects listed for this period.</p>
+                          <p className="text-muted-foreground">No projects defined for this timeframe.</p>
                         )}
                       </div>
                     </AccordionContent>
@@ -429,7 +418,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
 
                   {/* Content Section */}
                   <AccordionItem value="content">
-                    <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
+                    <AccordionTrigger>
                       <div className="flex items-center">
                         <MessageSquare className="mr-2 h-5 w-5 text-primary" />
                         Content to Share
@@ -438,32 +427,27 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {Array.isArray(timeframeData.content) && timeframeData.content.length > 0 ? (
-                          timeframeData.content.map((contentItem, idx) => {
-                            // Validate content item object
-                            if (!contentItem || typeof contentItem !== 'object') return null;
-                            
-                            return (
-                              <div key={`content-${timeframeKey}-${idx}`} className="space-y-1 pb-2 border-b border-border/30 last:border-b-0">
-                                <h4 className="font-semibold text-primary/90">{contentItem.platform || 'Unspecified Platform'}</h4>
-                                {Array.isArray(contentItem.topics) && contentItem.topics.length > 0 ? (
-                                  <ul className="list-disc pl-5 space-y-1">
-                                    {contentItem.topics.map((topic, topicIdx) => {
-                                      if (typeof topic !== 'string' && typeof topic !== 'number') return null;
-                                      return (
-                                        <li key={`topic-${timeframeKey}-${idx}-${topicIdx}`} className="text-sm">
-                                          {String(topic) || 'Unspecified Topic'}
-                                        </li>
-                                      );
-                                    })}
-                                  </ul>
-                                ) : (
-                                  <p className="text-sm text-muted-foreground pl-1">No specific topics listed for this platform.</p>
-                                )}
+                          timeframeData.content.map((contentItem, idx) => (
+                            <div key={`content-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
+                              <div>
+                                <h4 className="font-semibold">{contentItem.platform}</h4>
+                                <ul className="list-disc pl-5 mt-2">
+                                  {contentItem.topics.map((topic, topicIdx) => (
+                                    <li key={topicIdx} className="text-sm">{topic}</li>
+                                  ))}
+                                </ul>
                               </div>
-                            );
-                          })
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddToPortfolio('content', contentItem, timeframeLabels[timeframeKey])}
+                              >
+                                Add to Portfolio
+                              </Button>
+                            </div>
+                          ))
                         ) : (
-                          <p className="text-muted-foreground text-sm">No specific content sharing goals listed for this period.</p>
+                          <p className="text-muted-foreground">No content sharing goals defined for this timeframe.</p>
                         )}
                       </div>
                     </AccordionContent>
@@ -471,37 +455,46 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
 
                   {/* Milestones Section */}
                   <AccordionItem value="milestones">
-                    <AccordionTrigger className="py-3 text-base font-medium hover:no-underline">
+                    <AccordionTrigger>
                       <div className="flex items-center">
                         <Target className="mr-2 h-5 w-5 text-primary" />
                         Milestones to Achieve
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
-                      <div className="pl-8 pt-2">
+                      <div className="space-y-4 pl-8 pt-2">
                         {Array.isArray(timeframeData.milestones) && timeframeData.milestones.length > 0 ? (
-                          <ul className="list-disc pl-5 space-y-2">
-                            {timeframeData.milestones.map((milestone, idx) => {
-                              if (typeof milestone !== 'string' && typeof milestone !== 'number') return null;
-                              return (
-                                <li key={`milestone-${timeframeKey}-${idx}`} className="text-sm">
-                                  {String(milestone) || 'Unspecified Milestone'}
-                                </li>
-                              );
-                            })}
-                          </ul>
+                          timeframeData.milestones.map((milestone, idx) => (
+                            <div key={`milestone-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
+                              <p className="text-sm">{milestone}</p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleAddToPortfolio('milestone', milestone, timeframeLabels[timeframeKey])}
+                              >
+                                Add to Portfolio
+                              </Button>
+                            </div>
+                          ))
                         ) : (
-                          <p className="text-muted-foreground text-sm">No specific milestones listed for this period.</p>
+                          <p className="text-muted-foreground">No milestones defined for this timeframe.</p>
                         )}
                       </div>
                     </AccordionContent>
                   </AccordionItem>
                 </Accordion>
+
+                <div className="flex justify-center pt-6">
+                  <Button onClick={handlePortfolioAction} className="gap-2">
+                    Go to Portfolio Explorer
+                    <ArrowRightCircle className="h-4 w-4" />
+                  </Button>
+                </div>
               </TabsContent>
             );
           })}
         </Tabs>
-      </CardHeader>
+      </CardContent>
     </Card>
   );
 };

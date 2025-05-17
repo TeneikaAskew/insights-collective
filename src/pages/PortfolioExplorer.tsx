@@ -330,6 +330,18 @@ function PortfolioExplorer() {
             ) : portfolioData ? (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2">
+                  <div className="flex justify-between items-center mb-4">
+                    <h2 className="text-xl font-semibold">Project Ideas</h2>
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setPortfolioData(null);
+                        setActiveTab('discover');
+                      }}
+                    >
+                      Update Project Ideas
+                    </Button>
+                  </div>
                   <ProjectIdeaList 
                     targetRoles={portfolioData.targetRoles} 
                     onAddProject={handleAddProject}
@@ -342,6 +354,41 @@ function PortfolioExplorer() {
                     learningResources={portfolioData.skillGaps.learningResources}
                   />
                 </div>
+              </div>
+            ) : savedAnswers ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Generate Project Ideas</CardTitle>
+                    <CardDescription>
+                      Your profile is complete. Click below to generate personalized project ideas.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-col items-center gap-4">
+                    <Button 
+                      onClick={() => handleQuestionnaireSubmit(savedAnswers)}
+                      disabled={generatePortfolioIdeas.isPending}
+                    >
+                      {generatePortfolioIdeas.isPending ? (
+                        <>
+                          <Spinner size="sm" className="mr-2" />
+                          Generating Ideas...
+                        </>
+                      ) : (
+                        'Generate Project Ideas'
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline"
+                      onClick={() => {
+                        setSavedAnswers(null);
+                        setActiveTab('discover');
+                      }}
+                    >
+                      Update Profile First
+                    </Button>
+                  </CardContent>
+                </Card>
               </div>
             ) : (
               <Card>

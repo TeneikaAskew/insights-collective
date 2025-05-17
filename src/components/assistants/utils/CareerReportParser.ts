@@ -1,5 +1,28 @@
 import { CareerReportData } from './types';
 
+// Helper function to clean text from markdown and special characters
+const cleanText = (text: string): string => {
+  if (!text) return '';
+  return text
+    .replace(/\*\*/g, '') // Remove bold markdown
+    .replace(/\*/g, '')    // Remove italic markdown
+    .replace(/---+/g, '')  // Remove horizontal rules
+    .replace(/`/g, '')     // Remove code blocks
+    .replace(/#+\s/g, '')  // Remove heading markers
+    .replace(/\n{3,}/g, '\n\n') // Normalize multiple newlines
+    .trim();
+};
+
+// Helper function to clean list items
+const cleanListItem = (item: string): string => {
+  return item
+    .replace(/^[-*•]\s*/, '') // Remove list markers
+    .replace(/^\d+\.\s*/, '') // Remove numbered list markers
+    .replace(/\*\*/g, '')     // Remove bold markdown
+    .replace(/\*/g, '')       // Remove italic markdown
+    .trim();
+};
+
 export const parseCareerReport = (reportData: any): CareerReportData => {
   if (!reportData) {
     console.error("No report data provided to parser");
@@ -25,35 +48,47 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
 
     console.log("Report text for parsing:", reportText);
 
+    // Clean the entire text first
+    const cleanedText = cleanText(reportText);
+
     // Extract sections using regex patterns
-    const summaryMatch = /Summary:(.+?)(?=Recommended Roles:|$)/s.exec(reportText);
-    const recommendedRolesMatch = /Recommended Roles:(.+?)(?=Skills and Matching Courses:|$)/s.exec(reportText);
-    const skillsMatch = /Skills and Matching Courses:(.+?)(?=Next-Step Career Recommendations:|$)/s.exec(reportText);
-    const pathStepsMatch = /Path to Your Aspirational Role:(.+?)(?=Remote Work Considerations:|By following|$)/s.exec(reportText);
+    const summaryMatch = /Summary:(.+?)(?=Recommended Roles:|$)/s.exec(cleanedText);
+    const recommendedRolesMatch = /Recommended Roles:(.+?)(?=Skills and Matching Courses:|$)/s.exec(cleanedText);
+    const skillsMatch = /Skills and Matching Courses:(.+?)(?=Next-Step Career Recommendations:|$)/s.exec(cleanedText);
+    const pathStepsMatch = /Path to Your Aspirational Role:(.+?)(?=Remote Work Considerations:|By following|$)/s.exec(cleanedText);
     
     // Extract roles from the text
     const recommendedRoles = extractNumberedItems(recommendedRolesMatch ? recommendedRolesMatch[1] : '')
-      .map(role => ({
-        title: role.split(':')[0]?.trim() || role.trim(),
-        description: role.split(':').slice(1).join(':').trim() || '',
-        salaryRange: '$80-120K', // Default salary range
-        matchPercentage: 85 // Default match percentage
-      }));
+      .map(role => {
+        const [title, ...descParts] = role.split(':');
+        const description = descParts.join(':').trim();
+        const salaryMatch = description.match(/\$[\d,]+ *- *\$?[\d,]+K?/i) || 
+                          description.match(/\$[\d,.]+ *[KMB]? *(?:per|a|\/|\-) *year/i);
+        
+        return {
+          title: cleanText(title || role.trim()),
+          description: cleanText(description || ''),
+          salaryRange: salaryMatch ? salaryMatch[0] : '$80-120K',
+          matchPercentage: 85 // Default match percentage
+        };
+      });
     
     // Extract skills and courses
     const skillsAndCourses = extractSkillsAndCourses(skillsMatch ? skillsMatch[1] : '');
     
-    // Extract career path steps
+    // Extract career path steps with better cleaning
     const careerPathSteps = extractNumberedItems(pathStepsMatch ? pathStepsMatch[1] : '')
-      .map(step => ({
-        title: step.split(/:(.+)/, 2)[0]?.trim() || `Career Step`,
-        description: step.split(/:(.+)/, 2)[1]?.trim() || step.trim()
-      }));
+      .map(step => {
+        const [title, ...descParts] = step.split(':');
+        return {
+          title: cleanText(title || 'Career Step'),
+          description: cleanText(descParts.join(':') || step),
+          timeframe: extractTimeframe(step)
+        };
+      });
 
     // Sanitize summary
-    const summary = summaryMatch 
-      ? summaryMatch[1].trim() 
-      : 'Based on your responses, we\'ve created a personalized career pathway report.';
+    const summary = cleanText(summaryMatch ? summaryMatch[1] : 'Based on your responses, we\'ve created a personalized career pathway report.');
 
     return {
       userName: 'there', // Default name
@@ -80,58 +115,74 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
   }
 };
 
+// Helper function to extract timeframe from text
+function extractTimeframe(text: string): string {
+  const timeframeMatch = text.match(/(\d+[-\s]?\d*\s*(?:weeks?|months?|years?))/i);
+  return timeframeMatch ? timeframeMatch[1] : '';
+}
+
 // Helper function to extract numbered items from text
 function extractNumberedItems(text: string): string[] {
   if (!text || text.trim().length === 0) return [];
   
-  // Look for numbered items (1. Item, 2. Item, etc.)
-  const matches = text.match(/\d+\.\s*([^\d]+?)(?=\d+\.|$)/g);
+  // Look for numbered items (1. Item, 2. Item, etc.) or bullet points
+  const matches = text.match(/(?:\d+\.|\*|-)\s*([^\n]+)/g);
   
   if (!matches) {
     // If no numbered items found, just return the text as a single item
-    return [text.trim()];
+    return [cleanText(text)];
   }
   
-  return matches.map(item => {
-    // Remove the number and trim
-    return item.replace(/^\d+\.?\s*/, '').trim();
-  }).filter(item => item.length > 0);
+  return matches.map(item => cleanListItem(item))
+    .filter(item => item.length > 0);
 }
 
 // Helper function to extract skills and courses from table or text
-function extractSkillsAndCourses(skillsText: string): Array<{skill: string, course: string, level?: string}> {
+function extractSkillsAndCourses(skillsText: string): Array<{skill: string, course: string, level?: string, provider?: string}> {
   if (!skillsText || skillsText.trim().length === 0) return [];
   
+  // Clean the text first
+  const cleanedText = cleanText(skillsText);
+  
   // Check if there's a markdown table
-  const tableRows = skillsText.match(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g);
+  const tableRows = cleanedText.match(/\|\s*([^|]+)\s*\|\s*([^|]+)\s*\|/g);
   
   if (tableRows) {
     // Extract rows from markdown table
     return tableRows.slice(1) // Skip header row
       .map(row => {
-        const [, skill = '', course = ''] = row.split('|').map(cell => cell.trim());
+        const cells = row.split('|')
+          .map(cell => cleanText(cell))
+          .filter(cell => cell.length > 0);
+        
+        if (cells.length < 2) return null;
+        
+        const [skill, courseInfo] = cells;
+        const providerMatch = courseInfo.match(/\((.*?)\)/);
+        
         return {
-          skill,
-          course,
+          skill: skill.trim(),
+          course: courseInfo.replace(/\(.*?\)/, '').trim(), // Remove provider info from course
+          provider: providerMatch ? providerMatch[1] : undefined,
           level: 'Intermediate' // Default level
         };
       })
-      .filter(item => item.skill && item.course);
+      .filter(item => item !== null);
   } else {
     // Handle case without table format
-    // Look for lines with a skill followed by a description
-    const items = skillsText.split('\n')
-      .map(line => line.trim())
+    const items = cleanedText.split('\n')
+      .map(line => cleanListItem(line))
       .filter(line => line.length > 0);
       
     return items.map(item => {
-      // Try to extract skill and course
       const [skill, ...rest] = item.split(':');
-      const course = rest.join(':').trim();
+      const courseInfo = rest.join(':').trim();
+      const providerMatch = courseInfo.match(/\((.*?)\)/);
       
       return {
-        skill: skill.replace(/^[•-]\s*/, '').trim(),
-        course: course || 'Recommended course not specified',
+        skill: skill.trim(),
+        course: courseInfo.replace(/\(.*?\)/, '').trim(),
+        provider: providerMatch ? providerMatch[1] : undefined,
         level: 'Intermediate' // Default level
       };
     });

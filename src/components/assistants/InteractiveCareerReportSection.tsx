@@ -28,8 +28,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { Progress } from '@/components/ui/progress';
 import { useCareerCoach } from '@/hooks/useCareerCoach';
+import { usePortfolio } from '@/hooks/usePortfolio';
 import CareerActionPlan from './CareerActionPlan';
 import { CareerReportData } from './utils/types';
+import { useToast } from '@/hooks/use-toast';
 
 const sampleReportData: CareerReportData = {
   userName: "Joshua B. Brown",
@@ -120,6 +122,8 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
   const [activeTab, setActiveTab] = useState('overview');
   const navigate = useNavigate();
   const { initiateCareerCoachChat } = useCareerCoach();
+  const { addProject } = usePortfolio();
+  const { toast } = useToast();
 
   const handleTakeQuiz = () => {
     navigate('/#quiz-section');
@@ -138,6 +142,66 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
     // Convert role title to URL-friendly format and navigate
     const roleSlug = roleTitle.toLowerCase().replace(/\s+/g, '-');
     navigate(`/explore-data-careers?role=${roleSlug}`);
+  };
+
+  const handleAddToPortfolio = async (type: 'milestone' | 'content' | 'project', item: any) => {
+    try {
+      let projectData;
+      
+      switch(type) {
+        case 'milestone':
+          projectData = {
+            title: `Career Milestone: ${item}`,
+            description: `Career pathway milestone: ${item}`,
+            required_skills: [],
+            effort_level: 'Medium',
+            status: 'Idea',
+            type: 'milestone'
+          };
+          break;
+        
+        case 'content':
+          projectData = {
+            title: `Content Creation: ${item.platform}`,
+            description: `Create content about: ${item.topics.join(', ')}`,
+            required_skills: item.topics,
+            effort_level: 'Low',
+            status: 'Idea',
+            type: 'content'
+          };
+          break;
+        
+        case 'project':
+          projectData = {
+            title: item.title,
+            description: item.description,
+            required_skills: [],
+            effort_level: 'Medium',
+            status: 'Idea',
+            type: 'project'
+          };
+          break;
+      }
+
+      await addProject.mutateAsync(projectData);
+      
+      toast({
+        title: "Added to Portfolio",
+        description: "Item has been added to your portfolio projects.",
+      });
+    } catch (error) {
+      console.error('Error adding to portfolio:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add item to portfolio. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handlePortfolioAction = () => {
+    // If no portfolio data exists, navigate to portfolio explorer
+    navigate('/portfolio-explorer');
   };
 
   return (
@@ -413,11 +477,70 @@ const InteractiveCareerReportSection: React.FC<InteractiveCareerReportSectionPro
                         <p className="text-sm text-muted-foreground mt-1">
                           {step.description}
                         </p>
+                        {step.timeframe && (
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            Estimated time: {step.timeframe}
+                          </div>
+                        )}
+                        <div className="mt-3">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleAddToPortfolio('milestone', step.description)}
+                          >
+                            Add to Portfolio
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
+
+              <Card className="mt-8">
+                <CardHeader>
+                  <CardTitle className="text-lg">Take Action on Your Plan</CardTitle>
+                  <CardDescription>
+                    Start working on your career development by adding these items to your portfolio
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="font-medium mb-2">Suggested Projects</h4>
+                      <div className="space-y-2">
+                        {reportData.careerPathSteps.map((step, index) => (
+                          <div key={index} className="flex items-center justify-between p-2 rounded-lg border">
+                            <div className="flex-1">
+                              <p className="font-medium">{step.title}</p>
+                              <p className="text-sm text-muted-foreground">{step.description}</p>
+                            </div>
+                            <Button 
+                              variant="outline" 
+                              size="sm"
+                              onClick={() => handleAddToPortfolio('project', {
+                                title: step.title,
+                                description: step.description
+                              })}
+                            >
+                              Add to Portfolio
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <div className="text-center pt-4">
+                      <Button onClick={handlePortfolioAction}>
+                        Go to Portfolio Explorer
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Plan and track your career development projects
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
 
               <div className="text-center pt-6">
                 <Button onClick={startCareerChat}>
