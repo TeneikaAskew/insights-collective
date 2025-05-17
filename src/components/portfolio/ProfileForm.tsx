@@ -44,6 +44,11 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
     }
   }, [initialData, form]);
 
+  const handleSubmit = form.handleSubmit((data) => {
+    console.log('Form submitted with data:', data);
+    onSubmit(data);
+  });
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -54,7 +59,7 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <FormField
               control={form.control}
               name="interests"

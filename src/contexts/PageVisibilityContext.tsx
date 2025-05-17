@@ -158,13 +158,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   // Update the reconnection logic
   const attemptReconnect = useCallback(async () => {
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.error('Max reconnection attempts reached');
+      console.error('Max reconnection attempts reached, will try again in 5 minutes');
+      setTimeout(() => {
+        setReconnectAttempts(0);
+      }, 300000); // Reset after 5 minutes
       return;
     }
 
     const delay = RECONNECT_DELAY * Math.pow(2, reconnectAttempts);
-    console.log(`Attempting to reconnect in ${delay}ms...`);
-
+    
     try {
       if (channel) {
         await channel.unsubscribe();
@@ -174,7 +176,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         await new Promise(resolve => setTimeout(resolve, delay));
         
         // Create a new channel instance instead of reusing the old one
-        const newChannel = supabase.channel('online-users', {
+        const newChannel = supabase.channel(`online-users-${Date.now()}`, {
           config: {
             presence: {
               key: user?.id,
@@ -199,13 +201,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
     let presenceChannel: any = null;
     let reconnectTimeout: NodeJS.Timeout | null = null;
+    let isCleaningUp = false;
 
     const setupChannel = async () => {
       if (presenceChannel) {
         await presenceChannel.unsubscribe();
       }
 
-      presenceChannel = supabase.channel('online-users', {
+      const channelId = `online-users-${Date.now()}`;
+      presenceChannel = supabase.channel(channelId, {
         config: {
           presence: {
             key: user.id,
@@ -216,6 +220,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       setChannel(presenceChannel);
 
       const handleError = async (error: any) => {
+        if (isCleaningUp) return; // Don't handle errors during cleanup
+
         console.error('Presence channel error:', error);
         if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
           if (reconnectTimeout) clearTimeout(reconnectTimeout);
@@ -224,35 +230,40 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           console.error('Max reconnection attempts reached');
           // Reset reconnection attempts after a longer delay
           setTimeout(() => {
-            setReconnectAttempts(0);
-            setupChannel();
+            if (!isCleaningUp) {
+              setReconnectAttempts(0);
+              setupChannel();
+            }
           }, RECONNECT_DELAY * 10);
         }
       };
 
       presenceChannel.subscribe(async (status: string) => {
-        console.info('Subscription status:', status);
+        if (isCleaningUp) return; // Don't handle status changes during cleanup
+
         if (status === 'SUBSCRIBED') {
           setIsSubscribed(true);
           setReconnectAttempts(0);
 
           try {
-            // Track presence after successfully subscribed
             const userProfile = await createUserProfile(user.id);
             await presenceChannel.track(userProfile);
-            console.info('Presence tracking started');
           } catch (err) {
             console.error('Error tracking presence:', err);
             handleError(err);
           }
         } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
           setIsSubscribed(false);
-          handleError(new Error(`Channel status: ${status}`));
+          // Only attempt reconnect if not cleaning up and not at max attempts
+          if (!isCleaningUp && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            handleError(new Error(`Channel status: ${status}`));
+          }
         }
       });
 
       // Set up presence event handlers with error handling
       presenceChannel.on('presence', { event: 'sync' }, () => {
+        if (isCleaningUp) return;
         try {
           const newState = presenceChannel.presenceState();
           const allUsers: PresenceUser[] = [];
@@ -267,15 +278,14 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           });
           
           setOnlineUsers(allUsers);
-          console.info('Online users count:', allUsers.length);
         } catch (error) {
           console.error('Error handling presence sync:', error);
         }
       });
 
       presenceChannel.on('presence', { event: 'join' }, ({ key, newPresences }: { key: string; newPresences: PresenceUser[] }) => {
+        if (isCleaningUp) return;
         try {
-          console.info('User joined:', newPresences);
           setOnlineUsers(prev => {
             const filtered = prev.filter(user => !newPresences.some(p => p.id === user.id));
             return [...filtered, ...newPresences];
@@ -286,8 +296,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       });
 
       presenceChannel.on('presence', { event: 'leave' }, ({ key, leftPresences }: { key: string; leftPresences: PresenceUser[] }) => {
+        if (isCleaningUp) return;
         try {
-          console.info('User left:', leftPresences);
           setOnlineUsers(prev => 
             prev.filter(user => !leftPresences.some(left => left.id === user.id))
           );
@@ -302,6 +312,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
     // Cleanup function
     return () => {
+      isCleaningUp = true;
       if (reconnectTimeout) {
         clearTimeout(reconnectTimeout);
       }
