@@ -2,7 +2,7 @@ console.log('Resume Roast and Analyzer function hit');
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
-import { rewriteBullet, generateTips, generateThemes } from "./bulletSuggestions.ts";
+import { generateThemes } from "./bulletSuggestions.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
@@ -301,7 +301,6 @@ export async function bulletImprover(userId, enhanced = null) {
   try {
     console.log(`Starting parallel bullet improvement for userId: ${userId}`);
     const { processBatchQueue } = await import('./bulletImprover.ts');
-    
     let bullets;
     // First try to use the provided enhanced analysis if available
     if (enhanced?.bullets && enhanced.bullets.length > 0) {
@@ -310,67 +309,58 @@ export async function bulletImprover(userId, enhanced = null) {
     } else {
       // Fall back to fetching from database
       console.log('No enhanced analysis provided, fetching from database');
-      const { data: currentData, error: fetchError } = await supabase.from('resumes')
-        .select('analysis, text')
-        .eq('user_id', userId)
-        .order('uploaded_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
+      const { data: currentData, error: fetchError } = await supabase.from('resumes').select('analysis, text').eq('user_id', userId).order('uploaded_at', {
+        ascending: false
+      }).limit(1).maybeSingle();
       if (fetchError) {
         console.error('Error fetching current analysis:', fetchError);
-        return { success: false, error: 'Failed to fetch analysis' };
+        return {
+          success: false,
+          error: 'Failed to fetch analysis'
+        };
       }
-
       if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
         console.error('No bullets found in analysis');
-        return { success: false, error: 'No bullets found' };
+        return {
+          success: false,
+          error: 'No bullets found'
+        };
       }
-
       bullets = currentData.analysis.bullets;
     }
-
     console.log(`Found ${bullets.length} bullets to improve`);
-
     // Sort bullets by score so we process the highest scoring ones first
-    const sortedBullets = [...bullets].sort((a, b) => b.bullet_total - a.bullet_total);
-    
+    const sortedBullets = [
+      ...bullets
+    ].sort((a, b)=>b.bullet_total - a.bullet_total);
     // Process bullets in parallel
     const enhancedBullets = await processBatchQueue(sortedBullets, userId);
-    
     // Map the enhanced bullets back to their original positions
-    const finalBullets = bullets.map(originalBullet => {
-      const enhanced = enhancedBullets.find(eb => eb.id === originalBullet.id);
+    const finalBullets = bullets.map((originalBullet)=>{
+      const enhanced = enhancedBullets.find((eb)=>eb.id === originalBullet.id);
       return enhanced || {
         ...originalBullet,
         rewritten: originalBullet.original,
         tips: "This bullet wasn't processed."
       };
     });
-
-    const processedCount = finalBullets.filter(b => b.rewritten !== b.original).length;
+    const processedCount = finalBullets.filter((b)=>b.rewritten !== b.original).length;
     console.log(`Successfully processed ${processedCount} out of ${bullets.length} bullets`);
-
     // Store the enhanced bullets in a separate column
-    const result = await supabase.from('resumes')
-      .update({
-        enhanced_analysis: finalBullets,
-        improvements_complete: true,
-        updated_at: new Date().toISOString()
-      })
-      .eq('user_id', userId);
-
+    const result = await supabase.from('resumes').update({
+      enhanced_analysis: finalBullets,
+      improvements_complete: true,
+      updated_at: new Date().toISOString()
+    }).eq('user_id', userId);
     if (result.error) {
       throw result.error;
     }
-
     console.log('Successfully saved improved bullets to database');
     return {
       success: true,
       count: finalBullets.length,
       processed: processedCount
     };
-
   } catch (error) {
     console.error('Bullet improver error:', error);
     return {
