@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -44,6 +45,15 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
     }
   }, [initialData, form]);
 
+  const handleSubmit = async (data: QuestionnaireAnswers) => {
+    console.log("Form submitted with data:", data);
+    try {
+      await onSubmit(data);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -54,7 +64,7 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="interests"
@@ -105,7 +115,11 @@ export function ProfileForm({ onSubmit, isLoading, initialData }: ProfileFormPro
               )}
             />
 
-            <Button type="submit" className="w-full bg-[#9b87f5] hover:bg-[#8B5CF6]" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full bg-[#9b87f5] hover:bg-[#8B5CF6]" 
+              disabled={isLoading}
+            >
               {isLoading ? "Analyzing..." : "Generate Portfolio Recommendations"}
             </Button>
           </form>
