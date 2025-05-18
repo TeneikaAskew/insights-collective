@@ -1,5 +1,5 @@
-import React from 'react';
-import Editor from '@monaco-editor/react';
+import React, { useRef, useEffect } from 'react';
+import * as monaco from 'monaco-editor';
 import { useTheme } from 'next-themes';
 
 interface MonacoEditorProps {
@@ -19,14 +19,74 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
   width = '100%',
   readOnly = false,
 }) => {
+  const editorRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
+  const editor = useRef<monaco.editor.IStandaloneCodeEditor | null>(null);
 
-  const handleEditorChange = (value: string | undefined) => {
-    onChange(value || '');
-  };
+  useEffect(() => {
+    if (editorRef.current) {
+      editor.current = monaco.editor.create(editorRef.current, {
+        value: code,
+        language,
+        theme: theme === 'dark' ? 'vs-dark' : 'vs-light',
+        automaticLayout: true,
+        minimap: {
+          enabled: false,
+        },
+        scrollBeyondLastLine: false,
+        fontSize: 14,
+        lineNumbers: 'on',
+        readOnly,
+        wordWrap: 'on',
+        renderWhitespace: 'selection',
+        contextmenu: true,
+        lineHeight: 21,
+        padding: {
+          top: 10,
+          bottom: 10,
+        },
+        suggestOnTriggerCharacters: true,
+        quickSuggestions: true,
+        folding: true,
+        renderControlCharacters: true,
+        renderIndentGuides: true,
+        renderLineHighlight: 'all',
+      });
+
+      editor.current.onDidChangeModelContent(() => {
+        onChange(editor.current?.getValue() || '');
+      });
+
+      return () => {
+        editor.current?.dispose();
+      };
+    }
+  }, []);
+
+  useEffect(() => {
+    if (editor.current) {
+      const currentValue = editor.current.getValue();
+      if (currentValue !== code) {
+        editor.current.setValue(code);
+      }
+    }
+  }, [code]);
+
+  useEffect(() => {
+    if (editor.current) {
+      monaco.editor.setModelLanguage(editor.current.getModel()!, language);
+    }
+  }, [language]);
+
+  useEffect(() => {
+    if (editor.current) {
+      monaco.editor.setTheme(theme === 'dark' ? 'vs-dark' : 'vs-light');
+    }
+  }, [theme]);
 
   return (
     <div
+      ref={editorRef}
       style={{
         height,
         width,
@@ -34,32 +94,6 @@ export const MonacoEditor: React.FC<MonacoEditorProps> = ({
         borderRadius: '8px',
         overflow: 'hidden',
       }}
-    >
-      <Editor
-        height={height}
-        language={language}
-        value={code}
-        theme={theme === 'dark' ? 'vs-dark' : 'vs-light'}
-        onChange={handleEditorChange}
-        options={{
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          fontSize: 14,
-          lineNumbers: 'on',
-          readOnly,
-          wordWrap: 'on',
-          renderWhitespace: 'selection',
-          contextmenu: true,
-          lineHeight: 21,
-          padding: { top: 10, bottom: 10 },
-          suggestOnTriggerCharacters: true,
-          quickSuggestions: true,
-          folding: true,
-          renderControlCharacters: true,
-          guides: { indentation: true },
-          renderLineHighlight: 'all',
-        }}
-      />
-    </div>
+    />
   );
 }; 
