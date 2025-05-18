@@ -75,7 +75,6 @@ const InterviewPrep: React.FC = () => {
       <PageTitle 
         title="Interview Preparation" 
         subtitle="Prepare for your interviews with AI-powered tools" 
-        icon={<Briefcase className="h-6 w-6" />}
       />
       
       <Tabs defaultValue="job-descriptions">

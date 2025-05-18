@@ -14,7 +14,7 @@ import { Link } from 'react-router-dom';
 import { Spinner } from '@/components/ui/spinner';
 
 export default function CourseManagement() {
-  const { courseId } = useParams<{ courseId: string }>();
+  const { id: courseId } = useParams<{ id: string }>();
   const { course, isLoading, error } = useCourseData(courseId);
   const [activeTab, setActiveTab] = useState('details');
   const navigate = useNavigate();
@@ -33,7 +33,7 @@ export default function CourseManagement() {
       <AppLayout>
         <div className="container mx-auto py-8">
           <div className="flex justify-center items-center h-[50vh]">
-            <Spinner size="lg" />
+            <Spinner className="h-8 w-8" />
           </div>
         </div>
       </AppLayout>

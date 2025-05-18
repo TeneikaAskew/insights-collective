@@ -6,9 +6,10 @@ import Navbar from './Navbar';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { UserPresenceBar } from '@/components/presence/UserPresenceBar';
 import { useAuth } from '@/contexts/AuthContext';
+import { Outlet } from 'react-router-dom';
 
-type AppLayoutProps = {
-  children: React.ReactNode;
+export type AppLayoutProps = {
+  children?: React.ReactNode;
   fullWidth?: boolean;
 };
 
@@ -24,7 +25,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
           <Navbar />
           {isAuthenticated && <UserPresenceBar />}
           <main className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
-            {children}
+            {children || <Outlet />}
           </main>
           <footer className="p-4 w-full border-t text-center text-sm text-gray-500">
             © {new Date().getFullYear()} Insights Collective. All rights reserved.

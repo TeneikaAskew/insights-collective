@@ -81,8 +81,8 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             
-            <Route path="/" element={<AppLayout />}>
-              <Route index element={<Index />} />
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<Index />} />
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="user-dashboard" element={
                 <ProtectedRoute>
@@ -152,97 +152,97 @@ function App() {
               
               {/* Admin Routes */}
               <Route path="admin" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminDashboard />
                 </ProtectedRoute>
               } />
               <Route path="admin/activity" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminActivity />
                 </ProtectedRoute>
               } />
               <Route path="admin/courses" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminCourses />
                 </ProtectedRoute>
               } />
               <Route path="admin/courses/:id" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminCourseEdit />
                 </ProtectedRoute>
               } />
               <Route path="admin/users" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminUsers />
                 </ProtectedRoute>
               } />
               <Route path="admin/enrollments" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminEnrollments />
                 </ProtectedRoute>
               } />
               <Route path="admin/events" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminEvents />
                 </ProtectedRoute>
               } />
               <Route path="admin/resources" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminResources />
                 </ProtectedRoute>
               } />
               <Route path="admin/certificates" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminCertificates />
                 </ProtectedRoute>
               } />
               <Route path="admin/forms" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminForms />
                 </ProtectedRoute>
               } />
               <Route path="admin/forms/:id" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <FormManagement />
                 </ProtectedRoute>
               } />
               <Route path="admin/forms/:id/unified" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <UnifiedFormManagement />
                 </ProtectedRoute>
               } />
               <Route path="admin/page-visibility" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminPageVisibility />
                 </ProtectedRoute>
               } />
               <Route path="admin/blog" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <AdminBlogPosts />
                 </ProtectedRoute>
               } />
               <Route path="admin/blog/create" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <CreateBlogPost />
                 </ProtectedRoute>
               } />
               <Route path="admin/blog/edit/:id" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <EditBlogPost />
                 </ProtectedRoute>
               } />
               <Route path="admin/survey/create" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <SurveyFormCreate />
                 </ProtectedRoute>
               } />
               <Route path="admin/survey/edit/:id" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <SurveyFormEdit />
                 </ProtectedRoute>
               } />
               <Route path="admin/debug" element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute requireAdmin={true}>
                   <LocalStorageDebug />
                 </ProtectedRoute>
               } />
