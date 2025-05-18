@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -35,6 +34,14 @@ import CareerPathway from "./pages/CareerPathway";
 import SurveyConfirmation from "./pages/SurveyConfirmation";
 import AuthCallback from "./pages/AuthCallback";
 import PortfolioExplorer from "./pages/PortfolioExplorer";
+
+// Import Interview Prep pages
+import InterviewPrep from "./pages/InterviewPrep";
+import JobDescription from "./pages/interview-prep/JobDescription";
+import StarPractice from "./pages/interview-prep/StarPractice";
+import CodePractice from "./pages/interview-prep/CodePractice";
+import MockInterviews from "./pages/interview-prep/MockInterviews";
+import MockInterviewRoom from "./pages/interview-prep/MockInterviewRoom";
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -125,6 +132,14 @@ function App() {
                   <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
                   <Route path="/survey/:slug" element={<SurveyPage />} />
                   
+                  {/* Interview Prep routes - require authentication */}
+                  <Route path="/interview-prep" element={<ProtectedVisibleRoute><InterviewPrep /></ProtectedVisibleRoute>} />
+                  <Route path="/interview-prep/job-description" element={<ProtectedVisibleRoute><JobDescription /></ProtectedVisibleRoute>} />
+                  <Route path="/interview-prep/star-practice" element={<ProtectedVisibleRoute><StarPractice /></ProtectedVisibleRoute>} />
+                  <Route path="/interview-prep/code-practice" element={<ProtectedVisibleRoute><CodePractice /></ProtectedVisibleRoute>} />
+                  <Route path="/interview-prep/mock-interviews" element={<ProtectedVisibleRoute><MockInterviews /></ProtectedVisibleRoute>} />
+                  <Route path="/interview-prep/mock-interview/:sessionId" element={<ProtectedVisibleRoute><MockInterviewRoom /></ProtectedVisibleRoute>} />
+
                   {/* Protected form routes - need special handling for correct redirect flow */}
                   <Route path="/survey/:slug/edit" element={<ProtectedRoute requireAdmin={true}><SurveyFormEdit /></ProtectedRoute>} />
                   

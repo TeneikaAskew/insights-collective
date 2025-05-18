@@ -1,10 +1,13 @@
-
-import { useState, useEffect, useCallback } from 'react';
-import { Session } from '@supabase/supabase-js';
+import { useState, useEffect, createContext, useContext, useCallback } from 'react';
+import { User, Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
+
+export interface EnrichedUser extends User {
+  roles?: string[];
+}
 
 export const useAuthProvider = () => {
   const [session, setSession] = useState<Session | null>(null);
@@ -215,7 +218,7 @@ export const useAuthProvider = () => {
     githubSignIn: () => socialSignIn('github'),
     twitterSignIn: () => socialSignIn('twitter'),
     isAuthenticated,
-    isAdmin, // Explicitly include isAdmin property
+    isAdmin,
     isAdminAuthenticated,
     storeRedirectPath,
     handleRedirectAfterLogin,

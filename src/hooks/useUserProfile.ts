@@ -1,103 +1,71 @@
-
 import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { UserWithProfile } from '@/types/supabase';
+import { EnrichedUser } from './useAuth';
+
+interface UserProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  roles: string[];
+  email: string;
+  avatar_url?: string;
+  title?: string;
+  company?: string;
+  bio?: string;
+  social_links?: {
+    github?: string;
+    linkedin?: string;
+    twitter?: string;
+  };
+}
 
 /**
  * Enriches a Supabase auth user with profile data from the database
  */
-export const useUserProfile = (authUser: User | null) => {
-  const [enrichedUser, setEnrichedUser] = useState<UserWithProfile | null>(null);
+export function useUserProfile(user: User | null) {
+  const [enrichedUser, setEnrichedUser] = useState<EnrichedUser | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const [error, setError] = useState<Error | null>(null);
+
   useEffect(() => {
-    if (!authUser) {
+    if (!user) {
       setEnrichedUser(null);
       setLoading(false);
       return;
     }
-    
-    const enrichUserData = async () => {
+
+    const loadProfile = async () => {
       try {
-        // Initialize enriched user with auth user data
-        const userWithProfile: UserWithProfile = {
-          ...authUser,
-          email: authUser.email || '', // Ensure email is always set
-          name: authUser.user_metadata?.name,
-          avatar: authUser.user_metadata?.avatar_url,
-        };
-        
-        // Get profile data
-        const { data: profile, error: profileError } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', authUser.id)
+          .eq('id', user.id)
           .single();
-        
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Error fetching profile:', profileError);
-        }
-        
-        if (profile) {
-          // Add profile data to enriched user
-          userWithProfile.name = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || undefined;
-          userWithProfile.avatar = profile.avatar_url || undefined;
-          userWithProfile.bio = profile.bio || undefined;
-          userWithProfile.role = profile.role || 'student';
-          
-          // Parse roles from profile
-          if (profile.roles) {
-            userWithProfile.roles = Array.isArray(profile.roles) 
-              ? profile.roles 
-              : (profile.roles || 'student').split(',').map(r => r.trim());
-          } else if (profile.role) {
-            // If only role is available, convert it to roles array
-            userWithProfile.roles = [profile.role, 'student'];
-          } else {
-            // Default to student role if no roles are set
-            userWithProfile.roles = ['student'];
-          }
-            
-          // Ensure student is always a base role
-          if (!userWithProfile.roles.includes('student')) {
-            userWithProfile.roles.push('student');
-          }
-        } else {
-          // Set default roles if no profile
-          userWithProfile.roles = ['student'];
-        }
-        
-        // Get enrolled courses
-        const { data: enrollments, error: enrollmentsError } = await supabase
-          .from('enrollments')
-          .select('course_id')
-          .eq('user_id', authUser.id);
-        
-        if (enrollmentsError) {
-          console.error('Error fetching enrollments:', enrollmentsError);
-        }
-        
-        if (enrollments) {
-          userWithProfile.enrolledCourses = enrollments.map(e => e.course_id);
-        }
-        
-        setEnrichedUser(userWithProfile);
-      } catch (error) {
-        console.error('Error enriching user data:', error);
-        // Return partially enriched user on error
+
+        if (error) throw error;
+
+        // Combine auth user data with profile data
         setEnrichedUser({
-          ...authUser,
-          email: authUser.email || '',
-          roles: ['student'], // Default role
+          ...user,
+          ...profile,
+          roles: profile.roles || []
+        });
+      } catch (err) {
+        console.error('Error loading user profile:', err);
+        setError(err as Error);
+        // Still set the basic user data even if profile fetch fails
+        setEnrichedUser({
+          ...user,
+          roles: []
         });
       } finally {
         setLoading(false);
       }
     };
-    
-    enrichUserData();
-  }, [authUser]);
-  
-  return { enrichedUser, loading };
-};
+
+    loadProfile();
+  }, [user]);
+
+  return { enrichedUser, loading, error };
+}
