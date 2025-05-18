@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useStudyGuides } from '@/hooks/useStudyGuides';
@@ -8,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
-import { ChevronLeft, Calendar, Lightbulb, ListChecks, Star, CheckCircle2, Progress } from 'lucide-react';
+import { ChevronLeft, Calendar, Lightbulb, ListChecks, Star, CheckCircle2, BarChart, Progress } from 'lucide-react';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
@@ -254,7 +253,7 @@ const StudyGuideDetail: React.FC = () => {
                   <CardContent className="pt-6">
                     <div className="flex items-center justify-between mb-2">
                       <h3 className="font-medium flex items-center">
-                        <Progress className="h-4 w-4 mr-2" />
+                        <BarChart className="h-4 w-4 mr-2" />
                         Study Progress
                       </h3>
                       <span className="font-semibold">
