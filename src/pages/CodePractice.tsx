@@ -4,26 +4,12 @@ import { CodeChallengeEditor } from '@/components/code-practice/CodeChallengeEdi
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CodingStats } from '@/components/code-practice/CodingStats';
-import { useToast } from '@/components/ui/use-toast';
-
-interface Challenge {
-  id: string;
-  title: string;
-  prompt: string;
-  testCases: Array<{
-    input: string;
-    expected_output: string;
-  }>;
-  topic_tags: string[];
-  difficulty: string;
-}
 
 export const CodePractice: React.FC = () => {
   const [selectedChallenge, setSelectedChallenge] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('challenges');
-  const { toast } = useToast();
 
-  const challenges: Challenge[] = [
+  const challenges = [
     {
       id: '1',
       title: 'Binary Tree Level Order Traversal',
@@ -55,14 +41,6 @@ export const CodePractice: React.FC = () => {
   const handleChallengeSelect = (challengeId: string) => {
     setSelectedChallenge(challengeId);
     setActiveTab('editor');
-  };
-
-  const handleSubmit = async (code: string) => {
-    // This would typically make an API call to validate the solution
-    toast({
-      title: "Solution submitted",
-      description: "Your solution is being evaluated...",
-    });
   };
 
   const selectedChallengeData = challenges.find(c => c.id === selectedChallenge);
@@ -100,8 +78,9 @@ export const CodePractice: React.FC = () => {
           <TabsContent value="editor">
             {selectedChallengeData && (
               <CodeChallengeEditor
-                challenge={selectedChallengeData}
-                onSubmit={handleSubmit}
+                title={selectedChallengeData.title}
+                prompt={selectedChallengeData.prompt}
+                testCases={selectedChallengeData.testCases}
               />
             )}
           </TabsContent>
