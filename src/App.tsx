@@ -85,6 +85,13 @@ import SurveyFormCreate from "./pages/survey/SurveyFormCreate";
 import UnifiedFormManagement from "./pages/admin/UnifiedFormManagement";
 import FormManagement from "./pages/admin/FormManagement";
 
+// Import interview prep components
+import { CodePractice } from '@/pages/CodePractice';
+import { StudyGuideGenerator } from '@/components/study-guide/StudyGuideGenerator';
+import { MockInterviewRoom } from '@/components/mock-interview/MockInterviewRoom';
+import { RecommendationEngine } from '@/components/recommendations/RecommendationEngine';
+import { Dashboard as InterviewPrepDashboard } from '@/components/dashboard/Dashboard';
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
