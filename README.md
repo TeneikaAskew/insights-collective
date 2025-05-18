@@ -1,3 +1,113 @@
+# Interview Preparation Suite
+
+A comprehensive interview preparation platform built with React, Vite, and Supabase. The platform helps users prepare for technical interviews through various features like code practice, STAR responses, mock interviews, and AI-powered study guides.
+
+## Features
+
+- **Code Practice**
+  - Monaco Editor integration for multiple programming languages
+  - WebAssembly-based code execution sandbox
+  - AI-powered code review using Together.ai
+  - Difficulty levels and topic tags
+
+- **STAR Response System**
+  - Form-based response creation
+  - Response organization and categorization
+  - AI-powered feedback and suggestions
+
+- **Mock Interview System**
+  - Real-time video/audio interviews using WebRTC
+  - Peer matching system
+  - Interview recording and playback
+  - AI-powered feedback
+
+- **Study Guide Generator**
+  - Job description analysis
+  - Customized learning paths
+  - Resource recommendations
+  - Progress tracking
+
+- **Dashboard**
+  - Progress overview
+  - Recent activity tracking
+  - Upcoming interviews
+  - Performance metrics
+
+## Tech Stack
+
+- **Frontend**
+  - React with TypeScript
+  - Vite for build tooling
+  - Tailwind CSS with shadcn/ui components
+  - Monaco Editor for code editing
+  - WebRTC for video/audio communication
+
+- **Backend**
+  - Supabase for database and authentication
+  - Edge Functions for serverless computing
+  - Together.ai for AI capabilities
+
+## Getting Started
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/interview-prep-suite.git
+   cd interview-prep-suite
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+   Fill in the required environment variables:
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_TOGETHER_API_KEY`
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Project Structure
+
+```
+src/
+  ├── components/         # Reusable UI components
+  │   ├── code-practice/ # Code practice components
+  │   ├── mock-interview/# Mock interview components
+  │   ├── study-guide/   # Study guide components
+  │   └── ui/            # shadcn/ui components
+  ├── contexts/          # React contexts
+  ├── hooks/             # Custom hooks
+  ├── lib/              # Utility functions
+  ├── pages/            # Route components
+  └── types/            # TypeScript type definitions
+
+supabase/
+  └── functions/        # Edge functions
+      ├── execute-code/ # Code execution function
+      ├── review-code/  # Code review function
+      └── generate-study-guide/ # Study guide generation
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Commit your changes
+4. Push to the branch
+5. Open a pull request
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details
+
 # Welcome to your Lovable project
 
 ## Project info
