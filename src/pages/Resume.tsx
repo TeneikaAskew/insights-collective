@@ -171,8 +171,11 @@ const Resume = () => {
 
   // Update the useEffect that controls overlay visibility
   useEffect(() => {
-    if (isAnalyzing || (isPollingForImprovements && pollingStatus === 'polling')) {
+    if (isAnalyzing) {
       setShowAnalysisOverlay(true);
+    } else if (isPollingForImprovements) {
+      // Only show overlay while actively polling
+      setShowAnalysisOverlay(pollingStatus === 'polling');
     } else {
       // Hide overlay when both analysis and polling are complete
       setShowAnalysisOverlay(false);
@@ -181,22 +184,16 @@ const Resume = () => {
 
   // Handle updates to enhanced_analysis with better logging
   const handleEnhancedAnalysisUpdate = enhancedAnalysis => {
-    logDebug('EnhancedUpdate', 'Starting handleEnhancedAnalysisUpdate');
-    if (!enhancedAnalysis) {
-      logDebug('EnhancedUpdate', 'No enhanced analysis data provided');
-      return;
-    }
-    if (!analysis) {
-      logDebug('EnhancedUpdate', 'No analysis object to update');
-      return;
-    }
+    // If we've already loaded enhanced bullets for this analysis, ignore the update
     if (hasLoadedEnhancedRef.current) {
-      logDebug('EnhancedUpdate', 'Enhanced bullets already loaded, skipping update');
+      logDebug('EnhancedUpdate', 'Ignoring update - enhanced bullets already loaded');
       return;
     }
+
     logDebug('EnhancedUpdate', 'Processing enhanced analysis update', enhancedAnalysis);
+    setIsLoadingEnhancedBullets(true);
+
     try {
-      // Check if the enhanced analysis has rewritten bullets and is an array
       if (Array.isArray(enhancedAnalysis) && enhancedAnalysis.length > 0) {
         logDebug('EnhancedUpdate', `Found ${enhancedAnalysis.length} enhanced bullets`);
 
@@ -218,19 +215,17 @@ const Resume = () => {
           logDebug('EnhancedUpdate', `No enhanced match found for bullet: ${bullet.original.substring(0, 30)}...`);
           return bullet;
         });
+
         logDebug('EnhancedUpdate', 'Updated bullets', updatedBullets);
         setAnalysis({
           ...analysis,
           bullets: updatedBullets
         });
-        logDebug('EnhancedUpdate', 'Setting hasLoadedEnhancedRef to true');
+
+        // Mark as loaded and update states
         hasLoadedEnhancedRef.current = true;
-        
-        // Update polling states
         setIsPollingForImprovements(false);
         setPollingStatus('completed');
-        
-        // Hide the overlay
         setShowAnalysisOverlay(false);
         
         toast({
