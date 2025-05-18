@@ -108,11 +108,11 @@ function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <AuthProvider>
-            <PageVisibilityProvider>
-              <ToastProvider>
-                <TooltipProvider>
+        <AuthProvider>
+          <PageVisibilityProvider>
+            <ToastProvider>
+              <TooltipProvider>
+                <BrowserRouter>
                   <div className="min-h-screen bg-background flex">
                     <Sidebar expanded={true} setExpanded={() => {}} />
                     <div className="flex-1">
@@ -187,11 +187,11 @@ function App() {
                       <Sonner />
                     </div>
                   </div>
-                </TooltipProvider>
-              </ToastProvider>
-            </PageVisibilityProvider>
-          </AuthProvider>
-        </BrowserRouter>
+                </BrowserRouter>
+              </TooltipProvider>
+            </ToastProvider>
+          </PageVisibilityProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>
   );
