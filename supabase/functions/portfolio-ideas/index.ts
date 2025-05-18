@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
@@ -95,31 +96,6 @@ serve(async (req)=>{
     Current role: ${questionnaireAnswers?.currentRole || "Not provided"}
     Hobbies/free time activities: ${questionnaireAnswers?.hobbies || "Not provided"}
     `;
-    // const model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'; //'mistralai/Mixtral-8x7B-Instruct-v0.1'
-    // console.log("Using model: ", model);
-    // // Call the Together AI API
-    // const response = await fetch('https://api.together.xyz/v1/chat/completions', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${togetherApiKey}`,
-    //     'Content-Type': 'application/json'
-    //   },
-    //   body: JSON.stringify({
-    //     model: model,
-    //     messages: [
-    //       {
-    //         role: 'system',
-    //         content: systemPrompt
-    //       },
-    //       {
-    //         role: 'user',
-    //         content: userProfileText
-    //       }
-    //     ],
-    //     temperature: 0.7,
-    //     max_tokens: 7000
-    //   })
-    // });
     // Use Mixtral or Llama model based on availability
     const model = 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free'; // or 'mistralai/Mixtral-8x7B-Instruct-v0.1'
     console.log(`Using model: ${model}`);
@@ -170,14 +146,7 @@ serve(async (req)=>{
       if (jsonMatch) {
         try {
           portfolioData = JSON.parse(jsonMatch[0]);
-          console.log("Successfully extracted and parsed JSON from text", portfolioData);
-          if (userId) {
-            await supabase.from('resumes').insert({
-              recommendation: portfolioData,
-              created_at: new Date().toISOString()
-            }).eq('user_id', userId);
-            console.log('Saved portfolio ideas to database');
-          }
+          console.log("Successfully extracted and parsed JSON from text");
         } catch (innerError) {
           console.error('Failed to parse JSON from AI response:', innerError);
           throw new Error('Failed to parse portfolio data from AI response');
@@ -187,6 +156,82 @@ serve(async (req)=>{
         throw new Error('No valid JSON found in AI response');
       }
     }
+    
+    // Store the recommendations in the portfolio table
+    if (userId) {
+      try {
+        const now = new Date().toISOString();
+        
+        // First, check if we have an entry for this user
+        const { data: existingData, error: fetchError } = await supabase
+          .from('portfolio')
+          .select('*')
+          .eq('user_id', userId)
+          .maybeSingle();
+          
+        if (fetchError && fetchError.code !== 'PGRST116') {
+          console.error('Error fetching portfolio data:', fetchError);
+        }
+        
+        if (existingData) {
+          // Update existing record
+          const { data: updatedData, error: updateError } = await supabase
+            .from('portfolio')
+            .update({
+              recommendations: portfolioData,
+              updated_at: now
+            })
+            .eq('user_id', userId);
+            
+          if (updateError) {
+            console.error('Error updating portfolio data:', updateError);
+          } else {
+            console.log('Updated portfolio recommendations in database');
+          }
+        } else {
+          // Insert new record with questionnaire data if available
+          const { data: insertedData, error: insertError } = await supabase
+            .from('portfolio')
+            .insert({
+              user_id: userId,
+              recommendations: portfolioData,
+              current_role: questionnaireAnswers?.currentRole,
+              interests: questionnaireAnswers?.interests,
+              hobbies: questionnaireAnswers?.hobbies,
+              created_at: now,
+              updated_at: now
+            });
+            
+          if (insertError) {
+            console.error('Error inserting portfolio data:', insertError);
+          } else {
+            console.log('Saved portfolio recommendations to database');
+          }
+        }
+      } catch (dbError) {
+        console.error('Error storing portfolio data in database:', dbError);
+      }
+      
+      // For backward compatibility, also save to resumes table
+      try {
+        const { error: resumeError } = await supabase
+          .from('resumes')
+          .insert({
+            user_id: userId,
+            recommendation: portfolioData,
+            created_at: new Date().toISOString()
+          });
+        
+        if (resumeError) {
+          console.error('Error saving to resumes table:', resumeError);
+        } else {
+          console.log('Also saved portfolio ideas to resumes table for compatibility');
+        }
+      } catch (error) {
+        console.error('Error in legacy resumes table storage:', error);
+      }
+    }
+    
     console.log("Returning successful response");
     return new Response(JSON.stringify({
       success: true,

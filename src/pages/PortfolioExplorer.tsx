@@ -115,15 +115,18 @@ function PortfolioExplorer() {
     }
   }, [user]);
 
-  const handleRefresh = () => {
-    refetchRecommendations();
-  };
-
   const handleQuestionnaireSubmit = async (data: QuestionnaireAnswers) => {
     if (!user) return;
 
     try {
       const now = new Date().toISOString();
+      
+      // Save to local storage first for immediate access
+      localStorage.setItem(`portfolio_questionnaire_${user.id}`, JSON.stringify({
+        current_role: data.currentRole,
+        interests: data.interests,
+        hobbies: data.hobbies
+      }));
       
       // Check if entry exists
       const { data: existingData, error: fetchError } = await supabase
@@ -151,13 +154,6 @@ function PortfolioExplorer() {
         .upsert(payload);
 
       if (upsertError) throw upsertError;
-
-      // Save to local storage
-      localStorage.setItem(`portfolio_questionnaire_${user.id}`, JSON.stringify({
-        current_role: data.currentRole,
-        interests: data.interests,
-        hobbies: data.hobbies
-      }));
 
       // Generate portfolio ideas
       const result = await generatePortfolioIdeas.mutateAsync(data);
@@ -357,27 +353,16 @@ function PortfolioExplorer() {
                 <div className="lg:col-span-2">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold">Project Ideas</h2>
-                    <div className="flex gap-2">
-                      <Button 
-                        size="sm"
-                        variant="outline"
-                        onClick={handleRefresh}
-                        className="flex items-center gap-1"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Refresh Data
-                      </Button>
-                      <Button 
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setPortfolioData(null);
-                          setActiveTab('discover');
-                        }}
-                      >
-                        Update Profile
-                      </Button>
-                    </div>
+                    <Button 
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setPortfolioData(null);
+                        setActiveTab('discover');
+                      }}
+                    >
+                      Update Profile
+                    </Button>
                   </div>
                   <ProjectIdeaList 
                     targetRoles={portfolioData.targetRoles} 
@@ -411,14 +396,6 @@ function PortfolioExplorer() {
                   className="bg-[#9b87f5] hover:bg-[#8B5CF6] mb-4"
                 >
                   Load Your Previous Recommendations
-                </Button>
-                <Button 
-                  variant="outline"
-                  onClick={handleRefresh}
-                  className="flex items-center gap-1"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh Data
                 </Button>
               </div>
             ) : savedAnswers ? (

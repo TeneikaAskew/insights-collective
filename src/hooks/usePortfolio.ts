@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +13,9 @@ export function usePortfolio() {
   const [isLoading, setIsLoading] = useState(false);
   const [resumeText, setResumeText] = useState<string | null>(null);
   const [actionPlan, setActionPlan] = useState<any | null>(null);
+  
+  // Key for local storage
+  const getLocalStorageKey = () => `portfolio_recommendations_${user?.id}`;
 
   // Fetch user's portfolio projects
   const { data: projects, isLoading: projectsLoading, error: projectsError } = useQuery({
@@ -71,39 +75,65 @@ export function usePortfolio() {
     queryFn: async () => {
       if (!user?.id) return null;
 
+      // First check local storage for most recent recommendations
       try {
-        // First check the portfolio table which is the primary source
+        const localData = localStorage.getItem(getLocalStorageKey());
+        if (localData) {
+          console.info('Found portfolio recommendations in local storage');
+          return JSON.parse(localData) as PortfolioInsightData;
+        }
+      } catch (err) {
+        console.error('Error retrieving from local storage:', err);
+      }
+
+      try {
+        // Then check the portfolio table which is the primary source
         const { data: portfolioData, error: portfolioError } = await supabase
           .from('portfolio')
           .select('recommendations')
           .eq('user_id', user.id)
-          .order('updated_at', { ascending: false })
-          .limit(1)
           .maybeSingle();
 
         if (portfolioError) {
           console.error('Error fetching portfolio recommendations from portfolio table:', portfolioError);
         } else if (portfolioData?.recommendations) {
           console.info('Found portfolio recommendations in portfolio table');
+          
+          // Store in local storage for faster retrieval next time
+          try {
+            localStorage.setItem(getLocalStorageKey(), JSON.stringify(portfolioData.recommendations));
+          } catch (storageErr) {
+            console.error('Error storing recommendations in local storage:', storageErr);
+          }
+          
           return portfolioData.recommendations as PortfolioInsightData;
         }
 
         // Fallback to the resumes table as a secondary source
         const { data: resumeData, error: resumeError } = await supabase
           .from('resumes')
-          .select('recommendation, created_at')
+          .select('recommendation')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
-          .limit(1);
+          .limit(1)
+          .maybeSingle();
 
         if (resumeError) {
           console.error('Error fetching portfolio recommendations from resumes table:', resumeError);
           return null;
         }
 
-        if (resumeData && resumeData.length > 0 && resumeData[0].recommendation) {
+        if (resumeData?.recommendation) {
           console.info('Found previous portfolio recommendations in resumes table');
-          return resumeData[0].recommendation as PortfolioInsightData;
+          
+          // Store in local storage for faster retrieval next time
+          try {
+            localStorage.setItem(getLocalStorageKey(), JSON.stringify(resumeData.recommendation));
+          } catch (storageErr) {
+            console.error('Error storing recommendations in local storage:', storageErr);
+          }
+          
+          return resumeData.recommendation as PortfolioInsightData;
         }
 
         console.info('No previous portfolio recommendations found');
@@ -114,7 +144,7 @@ export function usePortfolio() {
       }
     },
     enabled: !!user?.id,
-    staleTime: 60000, // Keep fresh for 1 minute
+    staleTime: 300000, // Keep fresh for 5 minutes
   });
 
   // Fetch the user's resume text
@@ -193,6 +223,13 @@ export function usePortfolio() {
 
         if (!data?.success || !data?.data) {
           throw new Error('Failed to generate portfolio ideas');
+        }
+
+        // Store in local storage
+        try {
+          localStorage.setItem(getLocalStorageKey(), JSON.stringify(data.data));
+        } catch (storageErr) {
+          console.error('Error storing recommendations in local storage:', storageErr);
         }
 
         // Invalidate recommendations cache to trigger refetch
