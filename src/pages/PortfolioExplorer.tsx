@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { ProfileForm } from '@/components/portfolio/ProfileForm';
@@ -32,7 +33,18 @@ function PortfolioExplorer() {
     updateProject,
     deleteProject,
     isLoading,
+    previousRecommendations,
+    recommendationsLoading
   } = usePortfolio();
+
+  // Set portfolio data from previous recommendations if available
+  useEffect(() => {
+    if (previousRecommendations && !portfolioData) {
+      console.log('Setting portfolio data from previous recommendations');
+      setPortfolioData(previousRecommendations);
+      setProfileCompleted(true);
+    }
+  }, [previousRecommendations, portfolioData]);
 
   // Add function to fetch existing questionnaire data
   const fetchExistingQuestionnaire = async () => {
@@ -355,6 +367,29 @@ function PortfolioExplorer() {
                   />
                 </div>
               </div>
+            ) : previousRecommendations ? (
+              // Show loading indicator while fetching previous recommendations
+              recommendationsLoading ? (
+                <div className="flex flex-col items-center justify-center h-64">
+                  <Spinner size="lg" />
+                  <p className="mt-4 text-gray-500">Loading your previous portfolio recommendations...</p>
+                </div>
+              ) : (
+                // This should never reach here as useEffect should set portfolioData from previousRecommendations
+                <div className="flex flex-col items-center justify-center h-64">
+                  <Button 
+                    onClick={() => {
+                      if (previousRecommendations) {
+                        setPortfolioData(previousRecommendations);
+                      } else if (savedAnswers) {
+                        handleQuestionnaireSubmit(savedAnswers);
+                      }
+                    }}
+                  >
+                    Load Previous Recommendations
+                  </Button>
+                </div>
+              )
             ) : savedAnswers ? (
               <div className="flex flex-col items-center justify-center h-64">
                 <Card>
@@ -368,6 +403,7 @@ function PortfolioExplorer() {
                     <Button 
                       onClick={() => handleQuestionnaireSubmit(savedAnswers)}
                       disabled={generatePortfolioIdeas.isPending}
+                      className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
                     >
                       {generatePortfolioIdeas.isPending ? (
                         <>

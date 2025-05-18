@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -66,6 +65,39 @@ export function usePortfolio() {
     enabled: !!user?.id,
   });
 
+  // Fetch previously generated portfolio recommendations
+  const { data: previousRecommendations, isLoading: recommendationsLoading } = useQuery({
+    queryKey: ['portfolio-recommendations', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+
+      try {
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('recommendation, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error('Error fetching portfolio recommendations:', error);
+          return null;
+        }
+
+        if (data && data.length > 0 && data[0].recommendation) {
+          console.info('Found previous portfolio recommendations');
+          return data[0].recommendation as PortfolioInsightData;
+        }
+
+        return null;
+      } catch (err) {
+        console.error('Error in fetchPreviousRecommendations:', err);
+        return null;
+      }
+    },
+    enabled: !!user?.id
+  });
+
   // Fetch the user's resume text
   const { data: resume } = useQuery({
     queryKey: ['resume', user?.id],
@@ -109,6 +141,10 @@ export function usePortfolio() {
   // Generate portfolio ideas using the edge function
   const generatePortfolioIdeas = useMutation({
     mutationFn: async (questionnaireAnswers: QuestionnaireAnswers): Promise<PortfolioInsightData> => {
+      if (!user?.id) {
+        throw new Error('User must be logged in to generate portfolio ideas');
+      }
+
       setIsLoading(true);
 
       try {
@@ -124,7 +160,8 @@ export function usePortfolio() {
           body: {
             resumeText,
             actionPlan,
-            questionnaireAnswers
+            questionnaireAnswers,
+            userId: user.id
           }
         });
 
@@ -139,6 +176,9 @@ export function usePortfolio() {
           throw new Error('Failed to generate portfolio ideas');
         }
 
+        // Invalidate recommendations cache to trigger refetch
+        queryClient.invalidateQueries({ queryKey: ['portfolio-recommendations', user.id] });
+
         return data.data;
       } catch (err) {
         console.error('Error in generatePortfolioIdeas:', err);
@@ -151,6 +191,12 @@ export function usePortfolio() {
       } finally {
         setIsLoading(false);
       }
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Portfolio ideas generated successfully",
+      });
     }
   });
 
@@ -297,6 +343,8 @@ export function usePortfolio() {
     updateProjectStatus,
     updateProject,
     deleteProject,
-    isLoading
+    isLoading,
+    previousRecommendations,
+    recommendationsLoading
   };
 }
