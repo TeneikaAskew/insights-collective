@@ -7,14 +7,13 @@ import { useToast } from '@/hooks/use-toast';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
-  requiredRole?: string;
 }
 
 /**
  * ProtectedRoute component centralizes authentication and authorization,
  * stores intended redirect path, and routes accordingly.
  */
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = false, requiredRole = '' }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = false }) => {
   const { isAuthenticated, user, storeRedirectPath } = useAuth();
   const location = useLocation();
   const { toast } = useToast();
@@ -41,16 +40,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
 
   if (requireAdmin && !(user?.roles?.includes('admin'))) {
     // If requires admin and user not admin, show toast and redirect to dashboard
-    toast({
-      title: 'Access Denied',
-      description: 'You do not have permission to access this page.',
-      variant: 'destructive',
-    });
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  if (requiredRole && !(user?.roles?.includes(requiredRole))) {
-    // If requires specific role and user doesn't have it, show toast and redirect to dashboard
     toast({
       title: 'Access Denied',
       description: 'You do not have permission to access this page.',

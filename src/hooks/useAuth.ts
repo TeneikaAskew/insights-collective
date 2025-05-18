@@ -223,3 +223,6 @@ export const useAuthProvider = () => {
 };
 
 export type AuthContextType = ReturnType<typeof useAuthProvider>;
+
+// Export the useAuthProvider function as useAuth
+export const useAuth = useAuthProvider;
