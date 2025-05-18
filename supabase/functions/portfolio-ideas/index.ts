@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
@@ -156,33 +155,21 @@ serve(async (req)=>{
         throw new Error('No valid JSON found in AI response');
       }
     }
-    
     // Store the recommendations in the portfolio table
     if (userId) {
       try {
         const now = new Date().toISOString();
-        
         // First, check if we have an entry for this user
-        const { data: existingData, error: fetchError } = await supabase
-          .from('portfolio')
-          .select('*')
-          .eq('user_id', userId)
-          .maybeSingle();
-          
+        const { data: existingData, error: fetchError } = await supabase.from('portfolio').select('*').eq('user_id', userId).maybeSingle();
         if (fetchError && fetchError.code !== 'PGRST116') {
           console.error('Error fetching portfolio data:', fetchError);
         }
-        
         if (existingData) {
           // Update existing record
-          const { data: updatedData, error: updateError } = await supabase
-            .from('portfolio')
-            .update({
-              recommendations: portfolioData,
-              updated_at: now
-            })
-            .eq('user_id', userId);
-            
+          const { data: updatedData, error: updateError } = await supabase.from('portfolio').update({
+            recommendations: portfolioData,
+            updated_at: now
+          }).eq('user_id', userId);
           if (updateError) {
             console.error('Error updating portfolio data:', updateError);
           } else {
@@ -190,18 +177,15 @@ serve(async (req)=>{
           }
         } else {
           // Insert new record with questionnaire data if available
-          const { data: insertedData, error: insertError } = await supabase
-            .from('portfolio')
-            .insert({
-              user_id: userId,
-              recommendations: portfolioData,
-              current_role: questionnaireAnswers?.currentRole,
-              interests: questionnaireAnswers?.interests,
-              hobbies: questionnaireAnswers?.hobbies,
-              created_at: now,
-              updated_at: now
-            });
-            
+          const { data: insertedData, error: insertError } = await supabase.from('portfolio').insert({
+            user_id: userId,
+            recommendations: portfolioData,
+            current_role: questionnaireAnswers?.currentRole,
+            interests: questionnaireAnswers?.interests,
+            hobbies: questionnaireAnswers?.hobbies,
+            created_at: now,
+            updated_at: now
+          });
           if (insertError) {
             console.error('Error inserting portfolio data:', insertError);
           } else {
@@ -211,10 +195,22 @@ serve(async (req)=>{
       } catch (dbError) {
         console.error('Error storing portfolio data in database:', dbError);
       }
-      
-      // Removed code that was storing to resumes table
+      // For backward compatibility, also save to resumes table
+      try {
+        const { error: resumeError } = await supabase.from('resumes').insert({
+          user_id: userId,
+          recommendation: portfolioData,
+          created_at: new Date().toISOString()
+        });
+        if (resumeError) {
+          console.error('Error saving to resumes table:', resumeError);
+        } else {
+          console.log('Also saved portfolio ideas to resumes table for compatibility');
+        }
+      } catch (error) {
+        console.error('Error in legacy resumes table storage:', error);
+      }
     }
-    
     console.log("Returning successful response");
     return new Response(JSON.stringify({
       success: true,
