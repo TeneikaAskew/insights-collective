@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -35,6 +34,7 @@ import CareerPathway from "./pages/CareerPathway";
 import SurveyConfirmation from "./pages/SurveyConfirmation";
 import AuthCallback from "./pages/AuthCallback";
 import PortfolioExplorer from "./pages/PortfolioExplorer";
+import InterviewPrep from "./pages/InterviewPrep";
 
 // Import admin pages
 import AdminDashboard from "./pages/AdminDashboard";
@@ -78,6 +78,9 @@ import SurveyFormEdit from "./pages/survey/SurveyFormEdit";
 import SurveyFormCreate from "./pages/survey/SurveyFormCreate";
 import UnifiedFormManagement from "./pages/admin/UnifiedFormManagement";
 import FormManagement from "./pages/admin/FormManagement";
+
+// Import Mock Interview Room component
+import MockInterviewRoom from "./components/mock-interview/MockInterviewRoom";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -136,6 +139,8 @@ function App() {
                   
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />
+                  <Route path="/interview-prep/*" element={<ProtectedVisibleRoute><InterviewPrep /></ProtectedVisibleRoute>} />
+                  <Route path="/mock-interview/:sessionId" element={<ProtectedVisibleRoute><MockInterviewRoom /></ProtectedVisibleRoute>} />
                   <Route path="/courses/:courseId/modules/:moduleId" element={<ProtectedVisibleRoute><ModuleDetail /></ProtectedVisibleRoute>} />
                   <Route path="/resources" element={<ProtectedVisibleRoute><Resources /></ProtectedVisibleRoute>} />
                   <Route path="/notifications" element={<ProtectedVisibleRoute><Notifications /></ProtectedVisibleRoute>} />
