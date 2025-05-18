@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../ui/button';
@@ -32,13 +33,10 @@ import {
   FileQuestion,
   FormInput,
   Bug,
-  Code2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 
 interface NavItem {
   title: string;
@@ -129,7 +127,6 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false
   const navigate = useNavigate();
   const location = useLocation();
   const [isMounted, setIsMounted] = useState(false);
-  const pathname = usePathname();
 
   const isAdmin = user?.roles?.includes('admin');
 
@@ -184,39 +181,6 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false
     </ul>
   );
 
-  const sidebarItems = [
-    {
-      title: 'Dashboard',
-      href: '/dashboard',
-      icon: Home,
-    },
-    {
-      title: 'Job Descriptions',
-      href: '/job-descriptions',
-      icon: Briefcase,
-    },
-    {
-      title: 'Study Guides',
-      href: '/study-guides',
-      icon: GraduationCap,
-    },
-    {
-      title: 'STAR Responses',
-      href: '/star-responses',
-      icon: FileText,
-    },
-    {
-      title: 'Code Practice',
-      href: '/code-practice',
-      icon: Code2,
-    },
-    {
-      title: 'Mock Interviews',
-      href: '/mock-interviews',
-      icon: Users,
-    },
-  ];
-
   return (
     <div
       className={cn(
@@ -257,23 +221,76 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false
         <div className="flex-1">
           <p className="px-2 text-sm py-1">Main</p>
           <ul className="flex flex-col space-y-1">
-            {sidebarItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.href}>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground',
-                      pathname === item.href ? 'bg-accent text-accent-foreground' : 'transparent'
-                    )}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.title}
-                  </Link>
-                </li>
-              );
-            })}
+            <li>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
+                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
+                  )
+                }
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                <span>Dashboard</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/courses"
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
+                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
+                  )
+                }
+              >
+                <GraduationCap className="h-4 w-4" />
+                <span>Courses</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/resources"
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
+                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
+                  )
+                }
+              >
+                <Book className="h-4 w-4" />
+                <span>Resources</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/events"
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
+                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
+                  )
+                }
+              >
+                <Calendar className="h-4 w-4" />
+                <span>Events</span>
+              </NavLink>
+            </li>
+            <li>
+              <NavLink
+                to="/forums"
+                className={({ isActive }) =>
+                  cn(
+                    "flex items-center space-x-2 p-2 rounded-md hover:bg-secondary",
+                    isActive ? "font-medium bg-secondary text-secondary-foreground" : "text-muted-foreground"
+                  )
+                }
+              >
+                <MessageSquare className="h-4 w-4" />
+                <span>Forums</span>
+              </NavLink>
+            </li>
           </ul>
           <p className="px-2 text-sm py-1">Account</p>
           <ul className="flex flex-col space-y-1">
