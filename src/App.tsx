@@ -101,9 +101,9 @@ const ProtectedVisibleRoute = ({ children, requireAdmin = false }) => (
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <ToastProvider>
-          <TooltipProvider>
+      <ToastProvider>
+        <TooltipProvider>
+          <BrowserRouter>
             <AuthProvider>
               <PageVisibilityProvider>
                 <Toaster />
@@ -132,10 +132,10 @@ function App() {
                   <Route path="/survey/:slug/edit" element={<ProtectedRoute requireAdmin={true}><SurveyFormEdit /></ProtectedRoute>} />
                   
                   {/* Form routes */}
-                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/forms/submissions/:slug/submission/:submissionId" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/form-management/*" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin={true}><UnifiedFormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin={true}><FormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms/submissions/:slug/submission/:submissionId" element={<ProtectedVisibleRoute requireAdmin={true}><FormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/form-management/*" element={<ProtectedVisibleRoute requireAdmin={true}><FormManagement /></ProtectedVisibleRoute>} />
                   
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />
@@ -151,7 +151,7 @@ function App() {
                   <Route path="/messages" element={<ProtectedVisibleRoute><Messages /></ProtectedVisibleRoute>} />
                   <Route path="/messages/:conversationId?" element={<ProtectedVisibleRoute><Messages /></ProtectedVisibleRoute>} />
                   <Route path="/resume" element={<ProtectedVisibleRoute><Resume /></ProtectedVisibleRoute>} />
-                  <Route path="/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
+                  <Route path="/debug" element={<ProtectedVisibleRoute requireAdmin={true}><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
                   <Route path="/portfolio-explorer" element={<ProtectedVisibleRoute><PortfolioExplorer /></ProtectedVisibleRoute>} />
                   
                   {/* Forum routes - require authentication */}
@@ -160,23 +160,23 @@ function App() {
                   <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ProtectedVisibleRoute><ThreadDetail /></ProtectedVisibleRoute>} />
                   
                   {/* Admin routes */}
-                  <Route path="/admin" element={<ProtectedVisibleRoute requireAdmin><AdminDashboard /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/activity" element={<ProtectedVisibleRoute requireAdmin><AdminActivity /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/courses" element={<ProtectedVisibleRoute requireAdmin><CourseManagementDashboard /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/courses/:courseId/edit" element={<ProtectedVisibleRoute requireAdmin><CourseManagement /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/courses/new" element={<ProtectedVisibleRoute requireAdmin><AdminCourseEdit /></ProtectedVisibleRoute>} />
+                  <Route path="/admin" element={<ProtectedVisibleRoute requireAdmin={true}><AdminDashboard /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/activity" element={<ProtectedVisibleRoute requireAdmin={true}><AdminActivity /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/courses" element={<ProtectedVisibleRoute requireAdmin={true}><CourseManagementDashboard /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/courses/:courseId/edit" element={<ProtectedVisibleRoute requireAdmin={true}><CourseManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/courses/new" element={<ProtectedVisibleRoute requireAdmin={true}><AdminCourseEdit /></ProtectedVisibleRoute>} />
                   <Route path="/courses/:courseId/materials" element={<ProtectedVisibleRoute><CourseManageMaterials /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/users" element={<ProtectedVisibleRoute requireAdmin><AdminUsers /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/enrollments" element={<ProtectedVisibleRoute requireAdmin><AdminEnrollments /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/certificates" element={<ProtectedVisibleRoute requireAdmin><AdminCertificates /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/resources" element={<ProtectedVisibleRoute requireAdmin><AdminResources /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/events" element={<ProtectedVisibleRoute requireAdmin><AdminEvents /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/blog" element={<ProtectedVisibleRoute requireAdmin><AdminBlogPosts /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/blog/create" element={<ProtectedVisibleRoute requireAdmin><CreateBlogPost /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/blog/edit/:slug" element={<ProtectedVisibleRoute requireAdmin><EditBlogPost /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin><AdminPageVisibility /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
-                  <Route path="/admin/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/users" element={<ProtectedVisibleRoute requireAdmin={true}><AdminUsers /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/enrollments" element={<ProtectedVisibleRoute requireAdmin={true}><AdminEnrollments /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/certificates" element={<ProtectedVisibleRoute requireAdmin={true}><AdminCertificates /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/resources" element={<ProtectedVisibleRoute requireAdmin={true}><AdminResources /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/events" element={<ProtectedVisibleRoute requireAdmin={true}><AdminEvents /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/blog" element={<ProtectedVisibleRoute requireAdmin={true}><AdminBlogPosts /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/blog/create" element={<ProtectedVisibleRoute requireAdmin={true}><CreateBlogPost /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/blog/edit/:slug" element={<ProtectedVisibleRoute requireAdmin={true}><EditBlogPost /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin={true}><AdminPageVisibility /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin={true}><UnifiedFormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/debug" element={<ProtectedVisibleRoute requireAdmin={true}><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
 
                   {/* Legacy redirects */}
                   <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
@@ -200,9 +200,9 @@ function App() {
                 </Routes>
               </PageVisibilityProvider>
             </AuthProvider>
-          </TooltipProvider>
-        </ToastProvider>
-      </BrowserRouter>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ToastProvider>
     </QueryClientProvider>
   );
 }
