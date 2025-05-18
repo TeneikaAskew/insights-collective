@@ -692,65 +692,41 @@ export function useResumeAnalysis() {
       localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedData));
       calculateCareerAlignments(enhancedData as ResumeAnalysis);
       hasLoadedAnalysis.current = true;
+      setIsAnalyzing(false); // Set analyzing to false before starting improvements
 
       // Start polling for improvements
       console.log("[Resume Analysis] Triggering improve-bullets analysis...");
-      supabase.functions.invoke('resume-analyzer', {
-        body: { 
-          action: 'improve-bullets',
-          userId: user.id,
-          careerGoals: careerGoals || undefined
-        }
-      }).then(() => {
-        console.log("[Resume Analysis] Improve-bullets request sent successfully");
-        pollForImprovedBullets(user.id);
-      }).catch((err) => {
-        console.error("[Resume Analysis] Error triggering improve-bullets:", err);
-      });
-      
-      // Update the analysis in the resume record
       try {
-        const updateData: { 
-          analysis: ResumeAnalysis; 
-          updated_at: string;
-          career_goals?: string;
-        } = { 
-          analysis: enhancedData,
-          updated_at: new Date().toISOString()
-        };
-        
-        if (careerGoals) {
-          updateData.career_goals = careerGoals;
-        }
-        
-        await supabase
-          .from('resumes')
-          .update(updateData)
-          .eq('user_id', user.id);
-          
-        console.log("[Resume Analysis] Successfully stored analysis in resume record");
-      } catch (updateErr) {
-        console.error("Error updating resume record:", updateErr);
+        await supabase.functions.invoke('resume-analyzer', {
+          body: { 
+            action: 'improve-bullets',
+            userId: user.id,
+            careerGoals: careerGoals || undefined
+          }
+        });
+        console.log("[Resume Analysis] Improve-bullets request sent successfully");
+        // Start polling after successful request
+        setIsPollingForImprovements(true);
+        setPollingStatus('polling');
+        pollForImprovedBullets(user.id);
+      } catch (err) {
+        console.error("[Resume Analysis] Error triggering improve-bullets:", err);
+        setIsPollingForImprovements(false);
+        setPollingStatus('error');
       }
-      
-      toast({
-        title: "Initial Resume Analysis Complete",
-        description: `Your resume received a grade of ${enhancedData.letter_grade} (${enhancedData.resume_percent}%). We're generating detailed bullet point improvements in the background.`,
-      });
-      
+
       return true;
-    } catch (error) {
-      console.error('Analysis error:', error);
-      setAnalysis(null);
-      hasLoadedAnalysis.current = false;
+    } catch (err) {
+      console.error("Error in analyzeResume:", err);
+      setIsAnalyzing(false);
+      setIsPollingForImprovements(false);
+      setPollingStatus('error');
       toast({
-        title: 'Analysis Failed',
-        description: error.message || 'Failed to analyze resume. Please try again.',
-        variant: 'destructive'
+        title: "Analysis Error",
+        description: "There was an error analyzing your resume. Please try again.",
+        variant: "destructive"
       });
       return false;
-    } finally {
-      setIsAnalyzing(false);
     }
   };
 

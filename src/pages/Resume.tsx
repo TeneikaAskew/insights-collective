@@ -173,16 +173,16 @@ const Resume = () => {
   useEffect(() => {
     if (isAnalyzing) {
       setShowAnalysisOverlay(true);
-    } else if (isPollingForImprovements) {
-      // Only show overlay while actively polling
-      setShowAnalysisOverlay(pollingStatus === 'polling');
+    } else if (isPollingForImprovements && pollingStatus === 'polling') {
+      // Only show overlay while actively polling for improvements
+      setShowAnalysisOverlay(true);
     } else {
       // Hide overlay when both analysis and polling are complete
       setShowAnalysisOverlay(false);
     }
   }, [isAnalyzing, isPollingForImprovements, pollingStatus]);
 
-  // Handle updates to enhanced_analysis with better logging
+  // Handle updates to enhanced_analysis with better state management
   const handleEnhancedAnalysisUpdate = enhancedAnalysis => {
     // If we've already loaded enhanced bullets for this analysis, ignore the update
     if (hasLoadedEnhancedRef.current) {
@@ -191,14 +191,10 @@ const Resume = () => {
     }
 
     logDebug('EnhancedUpdate', 'Processing enhanced analysis update', enhancedAnalysis);
-    setIsLoadingEnhancedBullets(true);
 
     try {
       if (Array.isArray(enhancedAnalysis) && enhancedAnalysis.length > 0) {
         logDebug('EnhancedUpdate', `Found ${enhancedAnalysis.length} enhanced bullets`);
-
-        // Debug original bullets
-        logDebug('EnhancedUpdate', 'Original bullets', analysis.bullets);
 
         // Update the analysis with enhanced bullets
         const updatedBullets = analysis.bullets.map(bullet => {
@@ -226,7 +222,6 @@ const Resume = () => {
         hasLoadedEnhancedRef.current = true;
         setIsPollingForImprovements(false);
         setPollingStatus('completed');
-        setShowAnalysisOverlay(false);
         
         toast({
           title: 'Resume Bullet Improvements Ready',
@@ -235,23 +230,15 @@ const Resume = () => {
         });
       } else {
         logDebug('EnhancedUpdate', 'Enhanced analysis is not an array or is empty', enhancedAnalysis);
-        // If enhanced analysis is invalid, stop polling and hide overlay
         setIsPollingForImprovements(false);
         setPollingStatus('error');
-        setShowAnalysisOverlay(false);
       }
     } catch (err) {
       logDebug('EnhancedUpdate', 'Error processing enhanced bullets:', err);
       console.error("Error processing enhanced bullets:", err);
-      // On error, stop polling and hide overlay
       setIsPollingForImprovements(false);
       setPollingStatus('error');
-      setShowAnalysisOverlay(false);
     }
-
-    // Done loading enhanced bullets
-    logDebug('EnhancedUpdate', 'Setting isLoadingEnhancedBullets to false');
-    setIsLoadingEnhancedBullets(false);
   };
   useEffect(() => {
     let isMounted = true;
@@ -456,24 +443,23 @@ const Resume = () => {
       hasLoadedAnalysis,
       initialLoadComplete
     });
+
+    // Only run analysis if we have resume text, no analysis yet, and not currently analyzing
     if (resume?.text && !analysis && !isAnalyzing && !hasLoadedAnalysis && initialLoadComplete) {
       logDebug('AnalysisRunner', 'Starting analysis of resume text');
       analyzeResume(resume.text).then(success => {
         if (success) {
           logDebug('AnalysisRunner', 'Analysis completed successfully');
           setHasLoadedAnalysis(true);
-          setIsLoadingEnhancedBullets(true); // Start waiting for enhanced bullets
-          logDebug('AnalysisRunner', 'Set isLoadingEnhancedBullets to true');
+          // Don't set isLoadingEnhancedBullets here since it will be handled by the polling logic
         } else {
           logDebug('AnalysisRunner', 'Analysis did not complete successfully');
-          // Reset states to allow retry
           setHasLoadedAnalysis(false);
           setAnalysis(null);
         }
       }).catch(err => {
         logDebug('AnalysisRunner', 'Error analyzing resume:', err);
         console.error("Error analyzing resume:", err);
-        // Reset states on error
         setHasLoadedAnalysis(false);
         setAnalysis(null);
       });
