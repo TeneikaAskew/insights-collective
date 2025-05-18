@@ -14,7 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { QuestionnaireAnswers, PortfolioInsightData, ProjectIdea, ProjectStatus, PortfolioProject } from '@/types/portfolio';
-import { Check, WandSparkles } from 'lucide-react';
+import { Check, RefreshCw, WandSparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 function PortfolioExplorer() {
@@ -34,17 +34,26 @@ function PortfolioExplorer() {
     deleteProject,
     isLoading,
     previousRecommendations,
-    recommendationsLoading
+    recommendationsLoading,
+    refetchRecommendations
   } = usePortfolio();
 
   // Set portfolio data from previous recommendations if available
   useEffect(() => {
     if (previousRecommendations && !portfolioData) {
-      console.log('Setting portfolio data from previous recommendations');
+      console.log('Setting portfolio data from previous recommendations:', previousRecommendations);
       setPortfolioData(previousRecommendations);
       setProfileCompleted(true);
     }
   }, [previousRecommendations, portfolioData]);
+
+  // Update active tab when portfolio data becomes available
+  useEffect(() => {
+    if (portfolioData && activeTab === 'discover') {
+      // If data is available and we're on discover tab, move to ideas tab
+      setActiveTab('ideas');
+    }
+  }, [portfolioData, activeTab]);
 
   // Add function to fetch existing questionnaire data
   const fetchExistingQuestionnaire = async () => {
@@ -105,6 +114,10 @@ function PortfolioExplorer() {
       fetchExistingQuestionnaire();
     }
   }, [user]);
+
+  const handleRefresh = () => {
+    refetchRecommendations();
+  };
 
   const handleQuestionnaireSubmit = async (data: QuestionnaireAnswers) => {
     if (!user) return;
@@ -344,15 +357,27 @@ function PortfolioExplorer() {
                 <div className="lg:col-span-2">
                   <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl font-semibold">Project Ideas</h2>
-                    <Button 
-                      variant="outline"
-                      onClick={() => {
-                        setPortfolioData(null);
-                        setActiveTab('discover');
-                      }}
-                    >
-                      Update Project Ideas
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={handleRefresh}
+                        className="flex items-center gap-1"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Refresh Data
+                      </Button>
+                      <Button 
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setPortfolioData(null);
+                          setActiveTab('discover');
+                        }}
+                      >
+                        Update Profile
+                      </Button>
+                    </div>
                   </div>
                   <ProjectIdeaList 
                     targetRoles={portfolioData.targetRoles} 
@@ -367,29 +392,35 @@ function PortfolioExplorer() {
                   />
                 </div>
               </div>
-            ) : previousRecommendations ? (
+            ) : recommendationsLoading ? (
               // Show loading indicator while fetching previous recommendations
-              recommendationsLoading ? (
-                <div className="flex flex-col items-center justify-center h-64">
-                  <Spinner size="lg" />
-                  <p className="mt-4 text-gray-500">Loading your previous portfolio recommendations...</p>
-                </div>
-              ) : (
-                // This should never reach here as useEffect should set portfolioData from previousRecommendations
-                <div className="flex flex-col items-center justify-center h-64">
-                  <Button 
-                    onClick={() => {
-                      if (previousRecommendations) {
-                        setPortfolioData(previousRecommendations);
-                      } else if (savedAnswers) {
-                        handleQuestionnaireSubmit(savedAnswers);
-                      }
-                    }}
-                  >
-                    Load Previous Recommendations
-                  </Button>
-                </div>
-              )
+              <div className="flex flex-col items-center justify-center h-64">
+                <Spinner size="lg" />
+                <p className="mt-4 text-gray-500">Loading your previous portfolio recommendations...</p>
+              </div>
+            ) : previousRecommendations ? (
+              // This should handle the case when previousRecommendations exists but hasn't been set to portfolioData yet
+              <div className="flex flex-col items-center justify-center h-64">
+                <Button 
+                  onClick={() => {
+                    if (previousRecommendations) {
+                      console.log("Loading previous recommendations:", previousRecommendations);
+                      setPortfolioData(previousRecommendations);
+                    }
+                  }}
+                  className="bg-[#9b87f5] hover:bg-[#8B5CF6] mb-4"
+                >
+                  Load Your Previous Recommendations
+                </Button>
+                <Button 
+                  variant="outline"
+                  onClick={handleRefresh}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh Data
+                </Button>
+              </div>
             ) : savedAnswers ? (
               <div className="flex flex-col items-center justify-center h-64">
                 <Card>

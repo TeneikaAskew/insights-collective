@@ -65,37 +65,56 @@ export function usePortfolio() {
     enabled: !!user?.id,
   });
 
-  // Fetch previously generated portfolio recommendations
-  const { data: previousRecommendations, isLoading: recommendationsLoading } = useQuery({
+  // Fetch previously generated portfolio recommendations - improved reliability
+  const { data: previousRecommendations, isLoading: recommendationsLoading, refetch: refetchRecommendations } = useQuery({
     queryKey: ['portfolio-recommendations', user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
 
       try {
-        const { data, error } = await supabase
+        // First check the portfolio table which is the primary source
+        const { data: portfolioData, error: portfolioError } = await supabase
+          .from('portfolio')
+          .select('recommendations')
+          .eq('user_id', user.id)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (portfolioError) {
+          console.error('Error fetching portfolio recommendations from portfolio table:', portfolioError);
+        } else if (portfolioData?.recommendations) {
+          console.info('Found portfolio recommendations in portfolio table');
+          return portfolioData.recommendations as PortfolioInsightData;
+        }
+
+        // Fallback to the resumes table as a secondary source
+        const { data: resumeData, error: resumeError } = await supabase
           .from('resumes')
           .select('recommendation, created_at')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1);
 
-        if (error) {
-          console.error('Error fetching portfolio recommendations:', error);
+        if (resumeError) {
+          console.error('Error fetching portfolio recommendations from resumes table:', resumeError);
           return null;
         }
 
-        if (data && data.length > 0 && data[0].recommendation) {
-          console.info('Found previous portfolio recommendations');
-          return data[0].recommendation as PortfolioInsightData;
+        if (resumeData && resumeData.length > 0 && resumeData[0].recommendation) {
+          console.info('Found previous portfolio recommendations in resumes table');
+          return resumeData[0].recommendation as PortfolioInsightData;
         }
 
+        console.info('No previous portfolio recommendations found');
         return null;
       } catch (err) {
         console.error('Error in fetchPreviousRecommendations:', err);
         return null;
       }
     },
-    enabled: !!user?.id
+    enabled: !!user?.id,
+    staleTime: 60000, // Keep fresh for 1 minute
   });
 
   // Fetch the user's resume text
@@ -197,6 +216,8 @@ export function usePortfolio() {
         title: "Success",
         description: "Portfolio ideas generated successfully",
       });
+      // Force a refetch of recommendations after generation
+      refetchRecommendations();
     }
   });
 
@@ -345,6 +366,7 @@ export function usePortfolio() {
     deleteProject,
     isLoading,
     previousRecommendations,
-    recommendationsLoading
+    recommendationsLoading,
+    refetchRecommendations
   };
 }
