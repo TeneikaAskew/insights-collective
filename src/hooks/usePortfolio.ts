@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -87,7 +86,7 @@ export function usePortfolio() {
       }
 
       try {
-        // Then check the portfolio table which is the primary source
+        // Check the portfolio table which is the primary source
         const { data: portfolioData, error: portfolioError } = await supabase
           .from('portfolio')
           .select('recommendations')
@@ -95,8 +94,15 @@ export function usePortfolio() {
           .maybeSingle();
 
         if (portfolioError) {
-          console.error('Error fetching portfolio recommendations from portfolio table:', portfolioError);
-        } else if (portfolioData?.recommendations) {
+          if (portfolioError.code !== 'PGRST116') { // Not found error
+            console.error('Error fetching portfolio recommendations from portfolio table:', portfolioError);
+          } else {
+            console.log('No portfolio recommendations found for this user');
+          }
+          return null;
+        }
+
+        if (portfolioData?.recommendations) {
           console.info('Found portfolio recommendations in portfolio table');
           
           // Store in local storage for faster retrieval next time
@@ -109,34 +115,7 @@ export function usePortfolio() {
           return portfolioData.recommendations as PortfolioInsightData;
         }
 
-        // Fallback to the resumes table as a secondary source
-        const { data: resumeData, error: resumeError } = await supabase
-          .from('resumes')
-          .select('recommendation')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (resumeError) {
-          console.error('Error fetching portfolio recommendations from resumes table:', resumeError);
-          return null;
-        }
-
-        if (resumeData?.recommendation) {
-          console.info('Found previous portfolio recommendations in resumes table');
-          
-          // Store in local storage for faster retrieval next time
-          try {
-            localStorage.setItem(getLocalStorageKey(), JSON.stringify(resumeData.recommendation));
-          } catch (storageErr) {
-            console.error('Error storing recommendations in local storage:', storageErr);
-          }
-          
-          return resumeData.recommendation as PortfolioInsightData;
-        }
-
-        console.info('No previous portfolio recommendations found');
+        console.info('No portfolio recommendations found');
         return null;
       } catch (err) {
         console.error('Error in fetchPreviousRecommendations:', err);

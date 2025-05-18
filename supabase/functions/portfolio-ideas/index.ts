@@ -212,24 +212,7 @@ serve(async (req)=>{
         console.error('Error storing portfolio data in database:', dbError);
       }
       
-      // For backward compatibility, also save to resumes table
-      try {
-        const { error: resumeError } = await supabase
-          .from('resumes')
-          .insert({
-            user_id: userId,
-            recommendation: portfolioData,
-            created_at: new Date().toISOString()
-          });
-        
-        if (resumeError) {
-          console.error('Error saving to resumes table:', resumeError);
-        } else {
-          console.log('Also saved portfolio ideas to resumes table for compatibility');
-        }
-      } catch (error) {
-        console.error('Error in legacy resumes table storage:', error);
-      }
+      // Removed code that was storing to resumes table
     }
     
     console.log("Returning successful response");
