@@ -229,64 +229,40 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
           </Tabs>
         </div>
 
+        {/* Improved stats card grid with better centering */}
         <div className="grid grid-cols-5 gap-4">
           <Card className="bg-purple-50 border-purple-100">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-purple-800">Total Bullets</p>
-                  <p className="text-2xl font-bold text-purple-900">{bulletCount}</p>
-                </div>
-                <FileText className="h-8 w-8 text-purple-500" />
-              </div>
+            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-sm font-medium text-purple-800 text-center mb-1">Total Bullets</p>
+              <p className="text-2xl font-bold text-purple-900">{bulletCount}</p>
             </CardContent>
           </Card>
 
           <Card className="bg-blue-50 border-blue-100">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-blue-800">XYZ Average</p>
-                  <p className="text-2xl font-bold text-blue-900">{averageXYZScore}%</p>
-                </div>
-                <BarChart2 className="h-8 w-8 text-blue-500" />
-              </div>
+            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-sm font-medium text-blue-800 text-center mb-1">XYZ Average</p>
+              <p className="text-2xl font-bold text-blue-900">{averageXYZScore}%</p>
             </CardContent>
           </Card>
 
           <Card className="bg-indigo-50 border-indigo-100">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-indigo-800">Balance Rating</p>
-                  <p className="text-2xl font-bold text-indigo-900">{averageBalanceRating}%</p>
-                </div>
-                <Scale className="h-8 w-8 text-indigo-500" />
-              </div>
+            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-sm font-medium text-indigo-800 text-center mb-1">Balance Rating</p>
+              <p className="text-2xl font-bold text-indigo-900">{averageBalanceRating}%</p>
             </CardContent>
           </Card>
 
           <Card className="bg-green-50 border-green-100">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-800">Strong Points</p>
-                  <p className="text-2xl font-bold text-green-900">{strongBullets}</p>
-                </div>
-                <Sparkles className="h-8 w-8 text-green-500" />
-              </div>
+            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-sm font-medium text-green-800 text-center mb-1">Strong Points</p>
+              <p className="text-2xl font-bold text-green-900">{strongBullets}</p>
             </CardContent>
           </Card>
 
           <Card className="bg-amber-50 border-amber-100">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-amber-800">Need Work</p>
-                  <p className="text-2xl font-bold text-amber-900">{improvableBullets}</p>
-                </div>
-                <Edit2 className="h-8 w-8 text-amber-500" />
-              </div>
+            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-sm font-medium text-amber-800 text-center mb-1">Need Work</p>
+              <p className="text-2xl font-bold text-amber-900">{improvableBullets}</p>
             </CardContent>
           </Card>
         </div>

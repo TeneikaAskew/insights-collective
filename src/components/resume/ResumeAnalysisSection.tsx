@@ -7,7 +7,7 @@ import type { Resume } from '../../hooks/resume/useResume'; // Adjusted import p
 import BulletPointsAnalysisCard from './BulletPointsAnalysisCard';
 import ResumeAnalysisDisplay from './ResumeAnalysisDisplay';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileCheck, ChartBar, Target, MessageCircle } from 'lucide-react';
+import { FileCheck, ChartBar, Target, MessageCircle, RefreshCw } from 'lucide-react';
 import ATSScoreCard from './ATSScoreCard';
 import ResumeChat from './ResumeChat';
 
@@ -21,6 +21,7 @@ interface ResumeAnalysisSectionProps {
   hasAnalysis?: boolean;
   showCareerChat: boolean;
   isPollingForImprovements?: boolean; // New prop for polling state
+  handleRefreshData?: () => Promise<void>; // New prop for refresh functionality
 
   // Props for upload functionality, passed to ResumeAnalysisDisplay
   resumeFile: File | null;
@@ -49,6 +50,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
   fileError,
   showCareerChat,
   isPollingForImprovements = false,
+  handleRefreshData,
 }) => {
   // State to track active tab
   const [activeTab, setActiveTab] = useState("overview");
@@ -103,11 +105,25 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
               Get personalized insights and recommendations based on your resume and career goals.
             </CardDescription>
           </div>
-          {analysis && ( // Show award badge only if analysis is available
-            <div className="flex items-center bg-[#9b87f5]/10 rounded-full px-4 py-1">
-              <span className="text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {analysis && ( // Show award badge only if analysis is available
+              <div className="flex items-center bg-[#9b87f5]/10 rounded-full px-4 py-1">
+                <span className="text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
+              </div>
+            )}
+            {handleRefreshData && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefreshData} 
+                disabled={loading || isAnalyzing || isPollingForImprovements}
+                className="whitespace-nowrap"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading || isAnalyzing ? 'animate-spin' : ''}`} />
+                Refresh Data
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="flex flex-col">

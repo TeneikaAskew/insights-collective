@@ -726,11 +726,14 @@ const Resume = () => {
       logDebug('UserAction', 'Finished refresh, set isRefreshing to false');
     }
   };
+
   if (!isAuthenticated) {
     logDebug('Render', 'User not authenticated, showing login wall');
     return <ResumeLoginWall />;
   }
+  
   const loading = resumeLoading || isAnalyzing || isRefreshing;
+  
   logDebug('Render', 'Rendering main component', {
     loading,
     resumeLoading,
@@ -742,6 +745,7 @@ const Resume = () => {
     hasResume: !!resume,
     hasLoadedAnalysis
   });
+  
   return <AppLayout fullWidth>
       <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
         {/* Analysis overlay that appears during processing */}
@@ -751,22 +755,6 @@ const Resume = () => {
           resumeId={resume?.id}
         />
         
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl font-bold">Resume Management</h1>
-          
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleRefreshData} 
-              disabled={loading || isLoadingEnhancedBullets || isPollingForImprovements || isRefreshing}
-            >
-              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-              {isRefreshing || isLoadingEnhancedBullets || isPollingForImprovements ? 'Refreshing...' : 'Refresh Data'}
-            </Button>
-          </div>
-        </div>
-
         {/* Add the new progress component */}
         <AnalysisProgress 
           isAnalyzing={isAnalyzing}
@@ -791,7 +779,7 @@ const Resume = () => {
           </div>
         }
 
-        {/* Pass showCareerChat state to ResumeAnalysisSection */}
+        {/* Pass showCareerChat state and handleRefreshData to ResumeAnalysisSection */}
         <ResumeAnalysisSection 
           loading={loading} 
           isAnalyzing={isAnalyzing} 
@@ -809,6 +797,7 @@ const Resume = () => {
           handleDownload={handleDownload} 
           fileError={storageError}
           showCareerChat={showCareerChat}
+          handleRefreshData={handleRefreshData}
         />
       </div>
     </AppLayout>;

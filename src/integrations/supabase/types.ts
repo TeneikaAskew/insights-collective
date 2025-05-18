@@ -874,6 +874,39 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio: {
+        Row: {
+          created_at: string
+          current_role: string | null
+          hobbies: string | null
+          id: string
+          interests: string | null
+          recommendations: Json | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_role?: string | null
+          hobbies?: string | null
+          id?: string
+          interests?: string | null
+          recommendations?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_role?: string | null
+          hobbies?: string | null
+          id?: string
+          interests?: string | null
+          recommendations?: Json | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       portfolio_projects: {
         Row: {
           created_at: string | null
@@ -1149,6 +1182,7 @@ export type Database = {
         Row: {
           analysis: Json | null
           analysis_complete: boolean | null
+          career_alignment_score: number | null
           career_goals: string | null
           enhanced_analysis: Json | null
           fallback_analysis: Json | null
@@ -1158,6 +1192,7 @@ export type Database = {
           resume_roast: string | null
           sentences: Json | null
           sentences_updated_at: string | null
+          target_role: string | null
           text: string | null
           updated_at: string | null
           uploaded_at: string | null
@@ -1166,6 +1201,7 @@ export type Database = {
         Insert: {
           analysis?: Json | null
           analysis_complete?: boolean | null
+          career_alignment_score?: number | null
           career_goals?: string | null
           enhanced_analysis?: Json | null
           fallback_analysis?: Json | null
@@ -1175,6 +1211,7 @@ export type Database = {
           resume_roast?: string | null
           sentences?: Json | null
           sentences_updated_at?: string | null
+          target_role?: string | null
           text?: string | null
           updated_at?: string | null
           uploaded_at?: string | null
@@ -1183,6 +1220,7 @@ export type Database = {
         Update: {
           analysis?: Json | null
           analysis_complete?: boolean | null
+          career_alignment_score?: number | null
           career_goals?: string | null
           enhanced_analysis?: Json | null
           fallback_analysis?: Json | null
@@ -1192,6 +1230,7 @@ export type Database = {
           resume_roast?: string | null
           sentences?: Json | null
           sentences_updated_at?: string | null
+          target_role?: string | null
           text?: string | null
           updated_at?: string | null
           uploaded_at?: string | null
