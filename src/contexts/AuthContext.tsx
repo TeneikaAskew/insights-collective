@@ -1,9 +1,4 @@
-<<<<<<< HEAD
-import React, { createContext, useContext } from 'react';
-=======
-
 import React, { createContext, useContext, useEffect } from 'react';
->>>>>>> f43ad96e6a152d1e4fa38753e23097c1efc10aef
 import { useAuthProvider, AuthContextType } from '@/hooks/useAuth';
 
 // Create context
@@ -13,8 +8,6 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuthProvider();
 
-<<<<<<< HEAD
-=======
   useEffect(() => {
     const storedRedirect = localStorage.getItem('redirectAfterLogin');
 
@@ -37,7 +30,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [auth.isAuthenticated, auth.loading, auth.handleRedirectAfterLogin]);
 
->>>>>>> f43ad96e6a152d1e4fa38753e23097c1efc10aef
   return (
     <AuthContext.Provider value={auth}>
       {children}
