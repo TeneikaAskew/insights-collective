@@ -42,4 +42,11 @@ verify_jwt = false
 [functions.analyze-job-match]
 verify_jwt = false
 
+[functions.analyze-job-description]
+verify_jwt = true
 
+[functions.generate-study-guide]
+verify_jwt = true
+
+[functions.portfolio-ideas]
+verify_jwt = true
