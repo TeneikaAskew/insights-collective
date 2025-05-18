@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from '@/lib/supabase';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
 
@@ -223,6 +223,3 @@ export const useAuthProvider = () => {
 };
 
 export type AuthContextType = ReturnType<typeof useAuthProvider>;
-
-// Export the useAuthProvider function as useAuth
-export const useAuth = useAuthProvider;

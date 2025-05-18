@@ -1,4 +1,3 @@
-
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
@@ -31,6 +30,12 @@ const AppSidebar = () => {
     url: "/resume",
     icon: FileUp,
     active: location.pathname === '/resume',
+    highlight: true
+  }, {
+    title: "Interview Prep",
+    url: "/interview-prep",
+    icon: Briefcase,
+    active: location.pathname.startsWith('/interview-prep'),
     highlight: true
   }, {
     title: "Career Agent",
