@@ -91,33 +91,6 @@ export type Database = {
           },
         ]
       }
-      availability_slots: {
-        Row: {
-          created_at: string
-          id: string
-          is_available: boolean
-          time_block: string
-          user_id: string
-          weekday: number
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          is_available?: boolean
-          time_block: string
-          user_id: string
-          weekday: number
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          is_available?: boolean
-          time_block?: string
-          user_id?: string
-          weekday?: number
-        }
-        Relationships: []
-      }
       career_pathway_answers: {
         Row: {
           answer: string
@@ -247,80 +220,6 @@ export type Database = {
           session_id?: string | null
           top_recommended_path?: string | null
           user_id?: string | null
-        }
-        Relationships: []
-      }
-      code_attempts: {
-        Row: {
-          ai_review: Json | null
-          challenge_id: string
-          code: string
-          created_at: string
-          duration: number | null
-          id: string
-          language: string
-          passed_tests: boolean | null
-          user_id: string
-        }
-        Insert: {
-          ai_review?: Json | null
-          challenge_id: string
-          code: string
-          created_at?: string
-          duration?: number | null
-          id?: string
-          language: string
-          passed_tests?: boolean | null
-          user_id: string
-        }
-        Update: {
-          ai_review?: Json | null
-          challenge_id?: string
-          code?: string
-          created_at?: string
-          duration?: number | null
-          id?: string
-          language?: string
-          passed_tests?: boolean | null
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "code_attempts_challenge_id_fkey"
-            columns: ["challenge_id"]
-            isOneToOne: false
-            referencedRelation: "code_challenges"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      code_challenges: {
-        Row: {
-          created_at: string
-          difficulty: string
-          id: string
-          prompt: string
-          test_cases: Json
-          title: string
-          topic_tags: string[] | null
-        }
-        Insert: {
-          created_at?: string
-          difficulty: string
-          id?: string
-          prompt: string
-          test_cases?: Json
-          title: string
-          topic_tags?: string[] | null
-        }
-        Update: {
-          created_at?: string
-          difficulty?: string
-          id?: string
-          prompt?: string
-          test_cases?: Json
-          title?: string
-          topic_tags?: string[] | null
         }
         Relationships: []
       }
@@ -763,36 +662,6 @@ export type Database = {
           },
         ]
       }
-      job_descriptions: {
-        Row: {
-          created_at: string
-          id: string
-          parsed_fields: Json
-          raw_text: string
-          source_type: string
-          source_url: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          parsed_fields?: Json
-          raw_text: string
-          source_type: string
-          source_url?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          parsed_fields?: Json
-          raw_text?: string
-          source_type?: string
-          source_url?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       lessons: {
         Row: {
           content: string
@@ -892,53 +761,6 @@ export type Database = {
             columns: ["sender_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      mock_sessions: {
-        Row: {
-          created_at: string
-          id: string
-          role1: string
-          role2: string
-          session_time: string
-          status: string
-          study_guide_id: string | null
-          type: string
-          user1_id: string
-          user2_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role1: string
-          role2: string
-          session_time: string
-          status: string
-          study_guide_id?: string | null
-          type: string
-          user1_id: string
-          user2_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role1?: string
-          role2?: string
-          session_time?: string
-          status?: string
-          study_guide_id?: string | null
-          type?: string
-          user1_id?: string
-          user2_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "mock_sessions_study_guide_id_fkey"
-            columns: ["study_guide_id"]
-            isOneToOne: false
-            referencedRelation: "study_guides"
             referencedColumns: ["id"]
           },
         ]
@@ -1051,44 +873,6 @@ export type Database = {
           visible_to_users?: boolean
         }
         Relationships: []
-      }
-      peer_reviews: {
-        Row: {
-          created_at: string
-          id: string
-          notes: string | null
-          reviewee_id: string
-          reviewer_id: string
-          rubric_scores: Json
-          session_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          notes?: string | null
-          reviewee_id: string
-          reviewer_id: string
-          rubric_scores?: Json
-          session_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          notes?: string | null
-          reviewee_id?: string
-          reviewer_id?: string
-          rubric_scores?: Json
-          session_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "peer_reviews_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "mock_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       portfolio: {
         Row: {
@@ -1453,80 +1237,6 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
-      }
-      star_responses: {
-        Row: {
-          action: string | null
-          ai_feedback: Json | null
-          id: string
-          question_id: string
-          result: string | null
-          situation: string | null
-          submitted_at: string
-          task: string | null
-          user_id: string
-        }
-        Insert: {
-          action?: string | null
-          ai_feedback?: Json | null
-          id?: string
-          question_id: string
-          result?: string | null
-          situation?: string | null
-          submitted_at?: string
-          task?: string | null
-          user_id: string
-        }
-        Update: {
-          action?: string | null
-          ai_feedback?: Json | null
-          id?: string
-          question_id?: string
-          result?: string | null
-          situation?: string | null
-          submitted_at?: string
-          task?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
-      study_guides: {
-        Row: {
-          competencies: Json
-          created_at: string
-          id: string
-          job_description_id: string
-          questions: Json
-          technical_checklist: Json
-          user_id: string
-        }
-        Insert: {
-          competencies?: Json
-          created_at?: string
-          id?: string
-          job_description_id: string
-          questions?: Json
-          technical_checklist?: Json
-          user_id: string
-        }
-        Update: {
-          competencies?: Json
-          created_at?: string
-          id?: string
-          job_description_id?: string
-          questions?: Json
-          technical_checklist?: Json
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "study_guides_job_description_id_fkey"
-            columns: ["job_description_id"]
-            isOneToOne: false
-            referencedRelation: "job_descriptions"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       survey_drafts: {
         Row: {
