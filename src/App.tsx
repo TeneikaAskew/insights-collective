@@ -1,7 +1,7 @@
-
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 // Pages
 import Index from '@/pages/Index';
@@ -74,185 +74,188 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <HelmetProvider>
-        <Router>
-          <Helmet titleTemplate="%s | Insights Collective" defaultTitle="Insights Collective" />
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            
-            <Route element={<AppLayout />}>
-              <Route path="/" element={<Index />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="user-dashboard" element={
-                <ProtectedRoute>
-                  <UserDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="profile" element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              } />
-              <Route path="resources" element={<Resources />} />
-              <Route path="courses" element={<CourseList />} />
-              <Route path="courses/:id" element={<CourseDetail />} />
-              <Route path="courses/:courseId/module/:moduleId" element={<ModuleDetail />} />
-              <Route path="course-management/:id" element={
-                <ProtectedRoute>
-                  <CourseManagement />
-                </ProtectedRoute>
-              } />
-              <Route path="course-management/:courseId/module/:moduleId/materials" element={
-                <ProtectedRoute>
-                  <CourseManageMaterials />
-                </ProtectedRoute>
-              } />
-              <Route path="events" element={<PageVisibilityGuard><Events /></PageVisibilityGuard>} />
-              <Route path="resume" element={<PageVisibilityGuard><Resume /></PageVisibilityGuard>} />
-              <Route path="messages" element={
-                <ProtectedRoute>
-                  <Messages />
-                </ProtectedRoute>
-              } />
-              <Route path="messages/:conversationId" element={
-                <ProtectedRoute>
-                  <Messages />
-                </ProtectedRoute>
-              } />
-              <Route path="calendar" element={
-                <ProtectedRoute>
-                  <Calendar />
-                </ProtectedRoute>
-              } />
-              <Route path="notifications" element={
-                <ProtectedRoute>
-                  <Notifications />
-                </ProtectedRoute>
-              } />
-              <Route path="forums" element={<ForumList />} />
-              <Route path="forums/:id" element={<ForumDetail />} />
-              <Route path="threads/:id" element={<ThreadDetail />} />
-              <Route path="data-blueprint" element={<DataBlueprintSeries />} />
-              <Route path="survey" element={<SurveyPage />} />
-              <Route path="survey-confirmation" element={<SurveyConfirmation />} />
-              <Route path="career-pathway" element={<CareerPathway />} />
-              <Route path="explore-data-careers" element={<ExploreDataCareers />} />
-              <Route path="portfolio-explorer" element={<PortfolioExplorer />} />
-              <Route path="blog" element={<BlogList />} />
-              <Route path="blog/:slug" element={<BlogPost />} />
-              <Route path="career-agent" element={<CareerAgent />} />
-              <Route path="assistants" element={<Assistants />} />
-              <Route path="assistant/:id" element={<AssistantInterface />} />
+        <AuthProvider>
+          <Router>
+            <Helmet titleTemplate="%s | Insights Collective" defaultTitle="Insights Collective" />
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               
-              {/* Interview Preparation Routes */}
-              <Route path="interview" element={<InterviewPrep />} />
-              <Route path="interview/job/:id" element={<JobDescriptionDetail />} />
-              <Route path="interview/study/:id" element={<StudyGuideDetail />} />
-              
-              {/* Admin Routes */}
-              <Route path="admin" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/activity" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminActivity />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/courses" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminCourses />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/courses/:id" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminCourseEdit />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/users" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminUsers />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/enrollments" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminEnrollments />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/events" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminEvents />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/resources" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminResources />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/certificates" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminCertificates />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/forms" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminForms />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/forms/:id" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <FormManagement />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/forms/:id/unified" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <UnifiedFormManagement />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/page-visibility" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminPageVisibility />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/blog" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminBlogPosts />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/blog/create" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <CreateBlogPost />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/blog/edit/:id" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <EditBlogPost />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/survey/create" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <SurveyFormCreate />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/survey/edit/:id" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <SurveyFormEdit />
-                </ProtectedRoute>
-              } />
-              <Route path="admin/debug" element={
-                <ProtectedRoute requireAdmin={true}>
-                  <LocalStorageDebug />
-                </ProtectedRoute>
-              } />
-              
-              {/* Not Found */}
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-          <Toaster />
-        </Router>
+              {/* Routes wrapped with AppLayout */}
+              <Route element={<AppLayout />}>
+                <Route path="/" element={<Index />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="user-dashboard" element={
+                  <ProtectedRoute>
+                    <UserDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="profile" element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                } />
+                <Route path="resources" element={<Resources />} />
+                <Route path="courses" element={<CourseList />} />
+                <Route path="courses/:id" element={<CourseDetail />} />
+                <Route path="courses/:courseId/module/:moduleId" element={<ModuleDetail />} />
+                <Route path="course-management/:id" element={
+                  <ProtectedRoute>
+                    <CourseManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="course-management/:courseId/module/:moduleId/materials" element={
+                  <ProtectedRoute>
+                    <CourseManageMaterials />
+                  </ProtectedRoute>
+                } />
+                <Route path="events" element={<PageVisibilityGuard><Events /></PageVisibilityGuard>} />
+                <Route path="resume" element={<PageVisibilityGuard><Resume /></PageVisibilityGuard>} />
+                <Route path="messages" element={
+                  <ProtectedRoute>
+                    <Messages />
+                  </ProtectedRoute>
+                } />
+                <Route path="messages/:conversationId" element={
+                  <ProtectedRoute>
+                    <Messages />
+                  </ProtectedRoute>
+                } />
+                <Route path="calendar" element={
+                  <ProtectedRoute>
+                    <Calendar />
+                  </ProtectedRoute>
+                } />
+                <Route path="notifications" element={
+                  <ProtectedRoute>
+                    <Notifications />
+                  </ProtectedRoute>
+                } />
+                <Route path="forums" element={<ForumList />} />
+                <Route path="forums/:id" element={<ForumDetail />} />
+                <Route path="threads/:id" element={<ThreadDetail />} />
+                <Route path="data-blueprint" element={<DataBlueprintSeries />} />
+                <Route path="survey" element={<SurveyPage />} />
+                <Route path="survey-confirmation" element={<SurveyConfirmation />} />
+                <Route path="career-pathway" element={<CareerPathway />} />
+                <Route path="explore-data-careers" element={<ExploreDataCareers />} />
+                <Route path="portfolio-explorer" element={<PortfolioExplorer />} />
+                <Route path="blog" element={<BlogList />} />
+                <Route path="blog/:slug" element={<BlogPost />} />
+                <Route path="career-agent" element={<CareerAgent />} />
+                <Route path="assistants" element={<Assistants />} />
+                <Route path="assistant/:id" element={<AssistantInterface />} />
+                
+                {/* Interview Preparation Routes */}
+                <Route path="interview" element={<InterviewPrep />} />
+                <Route path="interview/job/:id" element={<JobDescriptionDetail />} />
+                <Route path="interview/study/:id" element={<StudyGuideDetail />} />
+                
+                {/* Admin Routes */}
+                <Route path="admin" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminDashboard />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/activity" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminActivity />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/courses" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminCourses />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/courses/:id" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminCourseEdit />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/users" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminUsers />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/enrollments" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminEnrollments />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/events" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminEvents />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/resources" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminResources />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/certificates" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminCertificates />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/forms" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminForms />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/forms/:id" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <FormManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/forms/:id/unified" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <UnifiedFormManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/page-visibility" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminPageVisibility />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/blog" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <AdminBlogPosts />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/blog/create" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <CreateBlogPost />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/blog/edit/:id" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <EditBlogPost />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/survey/create" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <SurveyFormCreate />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/survey/edit/:id" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <SurveyFormEdit />
+                  </ProtectedRoute>
+                } />
+                <Route path="admin/debug" element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <LocalStorageDebug />
+                  </ProtectedRoute>
+                } />
+                
+                {/* Not Found */}
+                <Route path="*" element={<NotFound />} />
+              </Route>
+            </Routes>
+            <Toaster />
+          </Router>
+        </AuthProvider>
       </HelmetProvider>
     </QueryClientProvider>
   );
