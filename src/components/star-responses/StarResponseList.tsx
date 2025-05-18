@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,122 +18,122 @@ import {
 import { MoreHorizontal, Edit, Trash, Star } from 'lucide-react';
 import { StarResponse } from '@/types/interview';
 import { formatDistanceToNow } from 'date-fns';
-import { supabase } from '@/lib/supabaseClient';
 
-interface STARResponse {
-  id: string;
-  question_id: string;
-  situation: string;
-  task: string;
-  action: string;
-  result: string;
-  ai_feedback: {
-    clarity: number;
-    completeness: number;
-    relevance: number;
-    suggestions: string[];
-  } | null;
-  submitted_at: string;
-}
+export function StarResponseList() {
+  const [responses] = useState<StarResponse[]>([
+    {
+      id: '1',
+      question_id: '1',
+      user_id: '1',
+      situation: 'While working on a high-traffic e-commerce platform...',
+      task: 'I needed to optimize the checkout process...',
+      action: 'I analyzed the performance bottlenecks...',
+      result: 'The changes resulted in a 40% reduction in checkout time...',
+      ai_feedback: {
+        clarity_score: 4,
+        completeness_score: 5,
+        relevance_score: 4,
+        feedback: 'Strong response with clear impact metrics.',
+        suggestions: [
+          'Add more context about the technical challenges',
+          'Include specific optimization techniques used',
+        ],
+      },
+      submitted_at: '2024-03-20T10:00:00Z',
+    },
+  ]);
 
-export const STARResponseList: React.FC = () => {
-  const [responses, setResponses] = useState<STARResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchResponses();
-  }, []);
-
-  const fetchResponses = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('star_responses')
-        .select('*')
-        .order('submitted_at', { ascending: false });
-
-      if (error) throw error;
-
-      setResponses(data || []);
-    } catch (error) {
-      console.error('Error fetching STAR responses:', error);
-    } finally {
-      setLoading(false);
-    }
+  const handleEdit = async (id: string) => {
+    // Implement edit functionality
+    console.log('Edit response:', id);
   };
 
-  const renderFeedback = (feedback: STARResponse['ai_feedback']) => {
-    if (!feedback) return null;
+  const handleDelete = async (id: string) => {
+    // Implement delete functionality
+    console.log('Delete response:', id);
+  };
 
+  if (responses.length === 0) {
     return (
-      <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-        <h4 className="font-medium mb-2">AI Feedback</h4>
-        <div className="grid grid-cols-3 gap-4 mb-4">
-          <div>
-            <div className="text-sm text-gray-600">Clarity</div>
-            <div className="text-lg font-medium">{feedback.clarity}/10</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-600">Completeness</div>
-            <div className="text-lg font-medium">{feedback.completeness}/10</div>
-          </div>
-          <div>
-            <div className="text-sm text-gray-600">Relevance</div>
-            <div className="text-lg font-medium">{feedback.relevance}/10</div>
-          </div>
-        </div>
-        <div>
-          <div className="text-sm text-gray-600 mb-2">Suggestions for Improvement</div>
-          <ul className="list-disc list-inside space-y-1">
-            {feedback.suggestions.map((suggestion, index) => (
-              <li key={index} className="text-sm">{suggestion}</li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>No STAR Responses</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Start practicing your behavioral interview responses using the STAR format.
+          </p>
+        </CardContent>
+      </Card>
     );
-  };
-
-  if (loading) {
-    return <div>Loading responses...</div>;
   }
 
   return (
-    <div className="space-y-6">
-      {responses.map((response) => (
-        <Card key={response.id}>
-          <CardHeader>
-            <CardTitle className="text-lg">
-              Response from {new Date(response.submitted_at).toLocaleDateString()}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <h4 className="font-medium mb-2">Situation</h4>
-                <p className="text-gray-700">{response.situation}</p>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Question</TableHead>
+          <TableHead>Scores</TableHead>
+          <TableHead>Submitted</TableHead>
+          <TableHead className="w-[70px]"></TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {responses.map((response) => (
+          <TableRow key={response.id}>
+            <TableCell>
+              <div className="space-y-1">
+                <p className="font-medium">Tell me about a time you solved a complex technical problem</p>
+                <p className="text-sm text-muted-foreground line-clamp-2">
+                  {response.situation}
+                </p>
               </div>
-              <div>
-                <h4 className="font-medium mb-2">Task</h4>
-                <p className="text-gray-700">{response.task}</p>
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center">
+                  <Star className="h-4 w-4 text-yellow-400 mr-1" />
+                  <span className="text-sm font-medium">
+                    {((response.ai_feedback?.clarity_score || 0) +
+                      (response.ai_feedback?.completeness_score || 0) +
+                      (response.ai_feedback?.relevance_score || 0)) /
+                      3}
+                  </span>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {response.ai_feedback?.feedback}
+                </div>
               </div>
-              <div>
-                <h4 className="font-medium mb-2">Action</h4>
-                <p className="text-gray-700">{response.action}</p>
-              </div>
-              <div>
-                <h4 className="font-medium mb-2">Result</h4>
-                <p className="text-gray-700">{response.result}</p>
-              </div>
-              {renderFeedback(response.ai_feedback)}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-      {responses.length === 0 && (
-        <div className="text-center text-gray-500">
-          No STAR responses yet. Start practicing by adding your first response!
-        </div>
-      )}
-    </div>
+            </TableCell>
+            <TableCell>
+              {formatDistanceToNow(new Date(response.submitted_at), { addSuffix: true })}
+            </TableCell>
+            <TableCell>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <MoreHorizontal className="h-4 w-4" />
+                    <span className="sr-only">Open menu</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleEdit(response.id)}>
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit Response
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleDelete(response.id)}
+                    className="text-destructive"
+                  >
+                    <Trash className="mr-2 h-4 w-4" />
+                    Delete
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
-}; 
+} 

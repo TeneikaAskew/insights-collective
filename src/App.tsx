@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -7,17 +8,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PageVisibilityProvider } from "./contexts/PageVisibilityContext";
 import { ToastProvider } from "@/hooks/use-toast";
-import { Navbar } from '@/components/layout/Navbar';
-import { Dashboard } from '@/components/dashboard/Dashboard';
-import { CodePractice } from '@/pages/CodePractice';
-import { StudyGuideGenerator } from '@/components/study-guide/StudyGuideGenerator';
-import { MockInterviewRoom } from '@/components/mock-interview/MockInterviewRoom';
-import { RecommendationEngine } from '@/components/recommendations/RecommendationEngine';
-import { ThemeProvider } from '@/components/theme-provider';
 
 // Import page components
 import Index from "./pages/Index";
-import DashboardPage from "./pages/Dashboard";
+import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CourseList from "./pages/CourseList";
@@ -103,26 +97,108 @@ const ProtectedVisibleRoute = ({ children, requireAdmin = false }) => (
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+    <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <div className="min-h-screen bg-background">
-          <Navbar />
-          <main className="container mx-auto py-6">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/code-practice" element={<CodePractice />} />
-              <Route path="/study-guides" element={<StudyGuideGenerator />} />
-              <Route 
-                path="/mock-interviews/:sessionId" 
-                element={<MockInterviewRoom sessionId="test" participantRole="interviewee" />} 
-              />
-              <Route path="/recommendations" element={<RecommendationEngine />} />
-            </Routes>
-          </main>
-          <Toaster />
-        </div>
+        <ToastProvider>
+          <TooltipProvider>
+            <AuthProvider>
+              <PageVisibilityProvider>
+                <Toaster />
+                <Sonner />
+                <Routes>
+                  {/* Public routes - no auth required */}
+                  <Route path="/" element={<Index />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/register" element={<Register />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/career-agent" element={<CareerAgent />} />
+                  <Route path="/career-pathway" element={<CareerPathway />} />
+                  <Route path="/blog" element={<BlogList />} />
+                  <Route path="/blog/:slug" element={<BlogPost />} />
+                  <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
+                  <Route path="/courses" element={<CourseList />} />
+                  <Route path="/courses/:courseId" element={<CourseDetail />} />
+                  <Route path="/data-blueprint" element={<DataBlueprintSeries />} />
+                  <Route path="/events" element={<Events />} />
+                  <Route path="/forums" element={<ForumList />} />
+                  <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
+                  <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
+                  <Route path="/survey/:slug" element={<SurveyPage />} />
+                  
+                  {/* Protected form routes - need special handling for correct redirect flow */}
+                  <Route path="/survey/:slug/edit" element={<ProtectedRoute requireAdmin={true}><SurveyFormEdit /></ProtectedRoute>} />
+                  
+                  {/* Form routes */}
+                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms/submissions/:slug" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms/submissions/:slug/submission/:submissionId" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/form-management/*" element={<ProtectedVisibleRoute requireAdmin><FormManagement /></ProtectedVisibleRoute>} />
+                  
+                  {/* Protected routes - require authentication */}
+                  <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />
+                  <Route path="/courses/:courseId/modules/:moduleId" element={<ProtectedVisibleRoute><ModuleDetail /></ProtectedVisibleRoute>} />
+                  <Route path="/resources" element={<ProtectedVisibleRoute><Resources /></ProtectedVisibleRoute>} />
+                  <Route path="/notifications" element={<ProtectedVisibleRoute><Notifications /></ProtectedVisibleRoute>} />
+                  <Route path="/profile" element={<ProtectedVisibleRoute><Profile /></ProtectedVisibleRoute>} />
+                  <Route path="/calendar" element={<ProtectedVisibleRoute><Calendar /></ProtectedVisibleRoute>} />
+                  <Route path="/assistants" element={<ProtectedVisibleRoute><Assistants /></ProtectedVisibleRoute>} />
+                  <Route path="/assistant/:assistantId?" element={<ProtectedVisibleRoute><AssistantInterface /></ProtectedVisibleRoute>} />
+                  <Route path="/messages" element={<ProtectedVisibleRoute><Messages /></ProtectedVisibleRoute>} />
+                  <Route path="/messages/:conversationId?" element={<ProtectedVisibleRoute><Messages /></ProtectedVisibleRoute>} />
+                  <Route path="/resume" element={<ProtectedVisibleRoute><Resume /></ProtectedVisibleRoute>} />
+                  <Route path="/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
+                  <Route path="/portfolio-explorer" element={<ProtectedVisibleRoute><PortfolioExplorer /></ProtectedVisibleRoute>} />
+                  
+                  {/* Forum routes - require authentication */}
+                  <Route path="/courses/:courseId/forums" element={<ProtectedVisibleRoute><ForumList /></ProtectedVisibleRoute>} />
+                  <Route path="/courses/:courseId/forums/:forumId" element={<ProtectedVisibleRoute><ForumDetail /></ProtectedVisibleRoute>} />
+                  <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ProtectedVisibleRoute><ThreadDetail /></ProtectedVisibleRoute>} />
+                  
+                  {/* Admin routes */}
+                  <Route path="/admin" element={<ProtectedVisibleRoute requireAdmin><AdminDashboard /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/activity" element={<ProtectedVisibleRoute requireAdmin><AdminActivity /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/courses" element={<ProtectedVisibleRoute requireAdmin><CourseManagementDashboard /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/courses/:courseId/edit" element={<ProtectedVisibleRoute requireAdmin><CourseManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/courses/new" element={<ProtectedVisibleRoute requireAdmin><AdminCourseEdit /></ProtectedVisibleRoute>} />
+                  <Route path="/courses/:courseId/materials" element={<ProtectedVisibleRoute><CourseManageMaterials /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/users" element={<ProtectedVisibleRoute requireAdmin><AdminUsers /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/enrollments" element={<ProtectedVisibleRoute requireAdmin><AdminEnrollments /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/certificates" element={<ProtectedVisibleRoute requireAdmin><AdminCertificates /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/resources" element={<ProtectedVisibleRoute requireAdmin><AdminResources /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/events" element={<ProtectedVisibleRoute requireAdmin><AdminEvents /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/blog" element={<ProtectedVisibleRoute requireAdmin><AdminBlogPosts /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/blog/create" element={<ProtectedVisibleRoute requireAdmin><CreateBlogPost /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/blog/edit/:slug" element={<ProtectedVisibleRoute requireAdmin><EditBlogPost /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/page-visibility" element={<ProtectedVisibleRoute requireAdmin><AdminPageVisibility /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/forms" element={<ProtectedVisibleRoute requireAdmin><UnifiedFormManagement /></ProtectedVisibleRoute>} />
+                  <Route path="/admin/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
+
+                  {/* Legacy redirects */}
+                  <Route path="/resources/data-blueprint" element={<Navigate to="/data-blueprint" replace />} />
+                  <Route path="/resources/data-blueprint/:slug" element={<Navigate to="/blog/:slug" replace />} />
+
+                  {/* Redirect old LocalStorageDebug path to new admin debug page */}
+                  <Route path="/components/LocalStorageDebug.tsx" element={<Navigate to="/admin/debug" replace />} />
+                  <Route path="/debug" element={<Navigate to="/admin/debug" replace />} />
+
+                  {/* Redirect old survey route to new form page */}
+                  <Route path="/survey" element={<Navigate to="/survey/ai-fellowship" replace />} />
+
+                  {/* Redirect old admin survey routes to new admin forms */}
+                  <Route path="/survey/create" element={<Navigate to="/admin/forms" replace />} />
+                  {/* Instead of redirecting to /admin/forms, leave this route to be protected by the ProtectedRoute above */}
+                  {/* <Route path="/survey/:slug/edit" element={<Navigate to="/admin/forms" replace />} /> */}
+                  <Route path="/survey/:slug/submissions" element={<Navigate to="/admin/forms/submissions/:slug" replace />} />
+
+                  {/* Catch all NotFound */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </PageVisibilityProvider>
+            </AuthProvider>
+          </TooltipProvider>
+        </ToastProvider>
       </BrowserRouter>
-    </ThemeProvider>
+    </QueryClientProvider>
   );
 }
 

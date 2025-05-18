@@ -6,29 +6,40 @@ import { CodeChallenge } from '@/types/interview';
 import { cn } from '@/lib/utils';
 import { Code2, Timer } from 'lucide-react';
 
-interface Challenge {
-  id: string;
-  title: string;
-  prompt: string;
-  testCases: Array<{
-    input: string;
-    expected_output: string;
-  }>;
-  topic_tags: string[];
-  difficulty: string;
-}
+interface CodeChallengeListProps extends React.HTMLAttributes<HTMLDivElement> {}
 
-interface CodeChallengeListProps extends React.HTMLAttributes<HTMLDivElement> {
-  challenges: Challenge[];
-  onChallengeSelect: (challengeId: string) => void;
-}
+export function CodeChallengeList({ className, ...props }: CodeChallengeListProps) {
+  const [challenges] = useState<CodeChallenge[]>([
+    {
+      id: '1',
+      title: 'Binary Tree Level Order Traversal',
+      prompt: 'Given the root of a binary tree, return the level order traversal of its nodes values.',
+      test_cases: [
+        {
+          input: '[3,9,20,null,null,15,7]',
+          expected_output: '[[3],[9,20],[15,7]]',
+        },
+      ],
+      topic_tags: ['Binary Tree', 'BFS', 'Tree'],
+      difficulty: 'medium',
+      created_at: '2024-03-20T10:00:00Z',
+    },
+    {
+      id: '2',
+      title: 'Two Sum',
+      prompt: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+      test_cases: [
+        {
+          input: '[2,7,11,15], target = 9',
+          expected_output: '[0,1]',
+        },
+      ],
+      topic_tags: ['Array', 'Hash Table'],
+      difficulty: 'easy',
+      created_at: '2024-03-20T10:00:00Z',
+    },
+  ]);
 
-export function CodeChallengeList({ 
-  className, 
-  challenges,
-  onChallengeSelect,
-  ...props 
-}: CodeChallengeListProps) {
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'easy':
@@ -76,9 +87,7 @@ export function CodeChallengeList({
                   ))}
                 </div>
               </div>
-              <Button onClick={() => onChallengeSelect(challenge.id)}>
-                Start Challenge
-              </Button>
+              <Button>Start Challenge</Button>
             </div>
           </CardHeader>
           <CardContent>
