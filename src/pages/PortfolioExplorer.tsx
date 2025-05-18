@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { ProfileForm } from '@/components/portfolio/ProfileForm';
@@ -23,6 +22,8 @@ function PortfolioExplorer() {
   const [portfolioData, setPortfolioData] = useState<PortfolioInsightData | null>(null);
   const [profileCompleted, setProfileCompleted] = useState(false);
   const [savedAnswers, setSavedAnswers] = useState<QuestionnaireAnswers | null>(null);
+  // Add a flag to control tab navigation behavior
+  const [forceDiscoverTab, setForceDiscoverTab] = useState(false);
   
   const {
     projects,
@@ -49,11 +50,12 @@ function PortfolioExplorer() {
 
   // Update active tab when portfolio data becomes available
   useEffect(() => {
-    if (portfolioData && activeTab === 'discover') {
+    // Only auto-navigate to ideas tab if we're not forcing the discover tab
+    if (portfolioData && activeTab === 'discover' && !forceDiscoverTab) {
       // If data is available and we're on discover tab, move to ideas tab
       setActiveTab('ideas');
     }
-  }, [portfolioData, activeTab]);
+  }, [portfolioData, activeTab, forceDiscoverTab]);
 
   // Add function to fetch existing questionnaire data
   const fetchExistingQuestionnaire = async () => {
@@ -358,6 +360,8 @@ function PortfolioExplorer() {
                       variant="outline"
                       onClick={() => {
                         setPortfolioData(null);
+                        // Set the force discover tab flag to true to prevent auto-navigation
+                        setForceDiscoverTab(true);
                         setActiveTab('discover');
                       }}
                     >
@@ -454,7 +458,10 @@ function PortfolioExplorer() {
               <div className="mt-8 flex justify-center">
                 <Button 
                   className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
-                  onClick={() => setActiveTab('tracker')}
+                  onClick={() => {
+                    setForceDiscoverTab(false); // Reset the force flag when navigating away
+                    setActiveTab('tracker');
+                  }}
                 >
                   Go to Project Tracker
                 </Button>
