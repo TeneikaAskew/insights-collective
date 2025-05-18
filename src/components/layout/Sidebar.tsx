@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
 import {
   LayoutDashboard,
   LayoutList,
@@ -34,19 +33,18 @@ import {
   FormInput,
   Bug,
   Code2,
-  Video,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 interface NavItem {
   title: string;
   icon: React.ComponentType<any>;
   path: string;
   children?: NavItem[];
-  badge?: string;
 }
 
 interface SidebarProps {
@@ -131,6 +129,7 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false
   const navigate = useNavigate();
   const location = useLocation();
   const [isMounted, setIsMounted] = useState(false);
+  const pathname = usePathname();
 
   const isAdmin = user?.roles?.includes('admin');
 
@@ -160,11 +159,6 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false
                 <div className="flex items-center space-x-2">
                   {item.icon && <item.icon className="h-4 w-4" />}
                   <span>{item.title}</span>
-                  {item.badge && (
-                    <Badge variant="secondary" className="ml-2">
-                      {item.badge}
-                    </Badge>
-                  )}
                 </div>
               </CollapsibleTrigger>
               <CollapsibleContent>
@@ -183,11 +177,6 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false
             >
               {item.icon && <item.icon className="h-4 w-4" />}
               <span>{item.title}</span>
-              {item.badge && (
-                <Badge variant="secondary" className="ml-2">
-                  {item.badge}
-                </Badge>
-              )}
             </NavLink>
           )}
         </li>
@@ -199,45 +188,7 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false
     {
       title: 'Dashboard',
       href: '/dashboard',
-      icon: LayoutDashboard,
-    },
-    {
-      title: 'Portfolio Explorer',
-      href: '/portfolio-explorer',
-      icon: Briefcase,
-    },
-    {
-      title: 'Interview Prep',
-      href: '/interview-prep',
-      icon: Video,
-      badge: 'New',
-      children: [
-        {
-          title: 'Dashboard',
-          href: '/interview-prep',
-          icon: LayoutDashboard,
-        },
-        {
-          title: 'Code Practice',
-          href: '/interview-prep/code-practice',
-          icon: Code2,
-        },
-        {
-          title: 'Study Guides',
-          href: '/interview-prep/study-guides',
-          icon: BookOpen,
-        },
-        {
-          title: 'Mock Interviews',
-          href: '/interview-prep/mock-interviews',
-          icon: Video,
-        },
-        {
-          title: 'Recommendations',
-          href: '/interview-prep/recommendations',
-          icon: Sparkles,
-        },
-      ],
+      icon: Home,
     },
     {
       title: 'Job Descriptions',
@@ -310,16 +261,16 @@ const Sidebar: React.FC<SidebarProps> = ({ expanded, setExpanded, mobile = false
               const Icon = item.icon;
               return (
                 <li key={item.href}>
-                  <NavLink
-                    to={item.href}
+                  <Link
+                    href={item.href}
                     className={cn(
                       'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground',
-                      location.pathname === item.href ? 'bg-accent text-accent-foreground' : 'transparent'
+                      pathname === item.href ? 'bg-accent text-accent-foreground' : 'transparent'
                     )}
                   >
                     <Icon className="h-4 w-4" />
                     {item.title}
-                  </NavLink>
+                  </Link>
                 </li>
               );
             })}
