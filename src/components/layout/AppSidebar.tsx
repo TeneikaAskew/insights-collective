@@ -15,12 +15,17 @@ const AppSidebar = () => {
     isAuthenticated
   } = useAuth();
 
-  // Define public menu items
+  // Define public menu items in the requested order
   const publicMenuItems = [{
     title: "Dashboard",
     url: "/dashboard",
     icon: Home,
     active: location.pathname === '/dashboard'
+  }, {
+    title: "Resources",
+    url: "/resources",
+    icon: FileText,
+    active: location.pathname === '/resources' && !location.pathname.includes('/admin/resources')
   }, {
     title: "Resume Analyzer",
     url: "/resume",
@@ -28,25 +33,10 @@ const AppSidebar = () => {
     active: location.pathname === '/resume',
     highlight: true
   }, {
-    title: "Courses",
-    url: "/courses",
-    icon: BookOpen,
-    active: location.pathname.startsWith('/courses') && !location.pathname.includes('/forums')
-  }, {
-    title: "Resources",
-    url: "/resources",
-    icon: FileText,
-    active: location.pathname === '/resources' && !location.pathname.includes('/admin/resources')
-  }, {
-    title: "Data Blueprint",
-    url: "/data-blueprint",
-    icon: FileText,
-    active: location.pathname === '/data-blueprint'
-  }, {
-    title: "Explore Careers",
-    url: "/explore-data-careers",
-    icon: Compass,
-    active: location.pathname === '/explore-data-careers'
+    title: "Career Agent",
+    url: "/career-agent",
+    icon: Bot,
+    active: location.pathname === '/career-agent'
   }, {
     title: "Career Pathway",
     url: "/career-pathway",
@@ -59,10 +49,15 @@ const AppSidebar = () => {
     active: location.pathname === '/portfolio-explorer',
     highlight: true
   }, {
-    title: "Career Agent",
-    url: "/career-agent",
-    icon: Bot,
-    active: location.pathname === '/career-agent'
+    title: "Courses",
+    url: "/courses",
+    icon: BookOpen,
+    active: location.pathname.startsWith('/courses') && !location.pathname.includes('/forums')
+  }, {
+    title: "Data Blueprint",
+    url: "/data-blueprint",
+    icon: FileText,
+    active: location.pathname === '/data-blueprint'
   }, {
     title: "AI & Automation Fellowship",
     url: "/survey",
@@ -84,18 +79,15 @@ const AppSidebar = () => {
     icon: Bot,
     active: location.pathname === '/assistants' || location.pathname.startsWith('/assistant/')
   }, {
-    title: "Notifications",
-    url: "/notifications",
-    icon: Bell,
-    active: location.pathname === '/notifications'
-  }];
-
-  // Define authenticated menu items
-  const authenticatedMenuItems = [{
     title: "Messages",
     url: "/messages",
     icon: MessageSquare,
     active: location.pathname.startsWith('/messages')
+  }, {
+    title: "Notifications",
+    url: "/notifications",
+    icon: Bell,
+    active: location.pathname === '/notifications'
   }, {
     title: "Profile",
     url: "/profile",
@@ -170,10 +162,6 @@ const AppSidebar = () => {
   const isInstructor = user?.roles?.includes('instructor');
   const menuItems = [...publicMenuItems];
 
-  if (isAuthenticated) {
-    menuItems.push(...authenticatedMenuItems);
-  }
-
   const menuItemVariants = {
     hidden: {
       opacity: 0,
@@ -222,9 +210,6 @@ const AppSidebar = () => {
           </div>}
       
         <SidebarGroup>
-          <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-2 py-1 text-[10px] uppercase tracking-wider">
-            Main Menu
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {menuItems.map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
