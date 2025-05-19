@@ -145,104 +145,23 @@ function processGroqResponse(response, originalBullet) {
   }
 }
 // Process bullets in parallel with controlled concurrency and timeouts
-export async function processBulletsInParallel(bullets: any[], userId: string) {
-  try {
-    console.log(`Starting bullet improvement for userId: ${userId}`);
-    
-    // Limit total bullets to process
-    const bulletsToProcess = bullets.slice(0, config.MAX_TOTAL_BULLETS);
-    console.log(`Processing ${bulletsToProcess.length} out of ${bullets.length} total bullets`);
-    
-    const results: Array<{
-      id: string;
-      rewritten: string;
-      error?: boolean;
-      errorMessage?: string;
-      unprocessed?: boolean;
-    }> = [];
-    
-    // Process bullets in batches of 6
-    for (let i = 0; i < bulletsToProcess.length; i += config.BATCH_SIZE) {
-      const batchStartTime = Date.now();
-      console.log(`Processing batch starting at index ${i}`);
-      
-      // Get current batch (up to 6 bullets)
-      const batch = bulletsToProcess.slice(i, i + config.BATCH_SIZE);
-      
-      // Process batch in parallel
-      const batchPromises = batch.map(async (bullet) => {
-        try {
-          // Add timeout protection
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Bullet processing timeout')), config.CHUNK_TIMEOUT_MS);
-          });
-          
-          const bulletPromise = improveBullet(bullet);
-          
-          // Race between timeout and processing
-          const result = await Promise.race([bulletPromise, timeoutPromise])
-            .catch((error) => {
-              console.error(`Error processing bullet: ${error.message}`);
-              return {
-                id: bullet.id,
-                rewritten: bullet.original,
-                error: true,
-                errorMessage: error.message
-              };
-            });
-            
-          return {
-            id: bullet.id,
-            ...result || { rewritten: bullet.original, error: true }
-          };
-        } catch (err) {
-          console.error(`Error improving bullet ${bullet.id}:`, err);
-          return {
-            id: bullet.id,
-            rewritten: bullet.original,
-            error: true,
-            errorMessage: err.message
-          };
-        }
-      });
-      
-      // Wait for current batch to complete
-      const batchResults = await Promise.all(batchPromises);
-      results.push(...batchResults);
-      
-      // Calculate time taken for this batch
-      const batchEndTime = Date.now();
-      const batchDuration = batchEndTime - batchStartTime;
-      
-      // If we have more bullets to process, ensure we wait until a minute has passed since batch start
-      if (i + config.BATCH_SIZE < bulletsToProcess.length) {
-        const timeToWait = Math.max(0, 60000 - batchDuration); // Wait until a minute has passed
-        if (timeToWait > 0) {
-          console.log(`Batch completed in ${batchDuration}ms. Waiting ${timeToWait}ms before next batch to respect rate limit...`);
-          await new Promise(resolve => setTimeout(resolve, timeToWait));
-        } else {
-          console.log(`Batch took ${batchDuration}ms. Proceeding with next batch immediately.`);
-        }
-      }
+async function processBulletsInParallel(bullets: string[], userId: string) {
+  console.log(`Processing ${bullets.length} out of ${bullets.length} total bullets`);
+  
+  // Process bullets sequentially instead of in parallel
+  const improvedBullets = [];
+  for (let i = 0; i < bullets.length; i++) {
+    console.log(`Processing bullet ${i + 1} of ${bullets.length}`);
+    try {
+      const improvedBullet = await improveBullet(bullets[i], userId);
+      improvedBullets.push(improvedBullet);
+    } catch (error) {
+      console.error(`Error processing bullet: ${error.message}`);
+      improvedBullets.push(bullets[i]); // Keep original bullet if improvement fails
     }
-    
-    // Handle any remaining bullets
-    const remainingBullets = bullets.slice(config.MAX_TOTAL_BULLETS);
-    if (remainingBullets.length > 0) {
-      console.log(`Returning original content for ${remainingBullets.length} remaining bullets`);
-      const defaultResults = remainingBullets.map((bullet) => ({
-        id: bullet.id,
-        rewritten: bullet.original,
-        unprocessed: true
-      }));
-      results.push(...defaultResults);
-    }
-    
-    return results;
-  } catch (error) {
-    console.error('Error in processBulletsInParallel:', error);
-    throw error;
   }
+  
+  return improvedBullets;
 }
 // Export the new parallel processing function as the main interface
 export { processBulletsInParallel as processBatchQueue };

@@ -1,11 +1,10 @@
 // This function sets up Supabase client with service role key credentials from env
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
-
 // Call tracking system
 const callTracking = {
-  calls: [] as number[],
+  calls: [],
   lastMinute: Math.floor(Date.now() / 60000),
-  addCall() {
+  addCall () {
     const currentMinute = Math.floor(Date.now() / 60000);
     if (currentMinute !== this.lastMinute) {
       // New minute started, log the previous minute's calls
@@ -17,28 +16,29 @@ const callTracking = {
     console.log(`Current minute (${currentMinute}): ${this.calls.length} API calls`);
   }
 };
-
 // API Rate Limits Configuration
 const API_CONFIG = {
   ANWAN: {
     DELAY_MS: 2000,
     MAX_RETRIES: 3,
-    DAILY_LIMIT: 1000 // Adjust based on your plan
+    DAILY_LIMIT: 1000
   },
   GROQ: {
     DELAY_MS: 1000,
     MAX_RETRIES: 3,
-    DAILY_LIMIT: 1000 // Adjust based on your plan
+    DAILY_LIMIT: 1000
   },
   TOGETHER: {
-    DELAY_MS: 1500,
+    DELAY_MS: 10000, // 10 seconds between calls to stay under 6 RPM
     MAX_RETRIES: 3,
-    DAILY_LIMIT: 1000 // Adjust based on your plan
+    DAILY_LIMIT: 1000,
+    MAX_CONCURRENT: 1 // Only allow one concurrent request
   },
   TOGETHER2: {
-    DELAY_MS: 1500,
+    DELAY_MS: 10000, // 10 seconds between calls to stay under 6 RPM
     MAX_RETRIES: 3,
-    DAILY_LIMIT: 1000 // Adjust based on your plan
+    DAILY_LIMIT: 1000,
+    MAX_CONCURRENT: 1 // Only allow one concurrent request
   }
 };
 const endpointStatus = {
@@ -238,7 +238,7 @@ async function callTOGETHERAPI(system, user) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',//'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free' //mistralai/Mixtral-8x7B-Instruct-v0.1',
+      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
       messages: [
         {
           role: 'system',
@@ -279,11 +279,11 @@ async function callTOGETHERAPI2(system, user) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free',//'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',//'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free' //mistralai/Mixtral-8x7B-Instruct-v0.1',
+      model: 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free',
       messages: [
         {
           role: 'system',
-          content: system
+          content: system + 'Follow the instructions and do not speak in first person'
         },
         {
           role: 'user',
@@ -297,7 +297,7 @@ async function callTOGETHERAPI2(system, user) {
   const responseText = await resp.text();
   handleApiResponse('TOGETHER', resp, responseText);
   if (!resp.ok) {
-    throw new Error(`TOGETHER API failed: ${resp.status} ${responseText}`);
+    throw new Error(`TOGETHER API 2 failed: ${resp.status} ${responseText}`);
   }
   try {
     const json = JSON.parse(responseText);
@@ -306,13 +306,41 @@ async function callTOGETHERAPI2(system, user) {
     throw new Error(`Failed to parse TOGETHER response: ${e.message}`);
   }
 }
+// Call queue system
+const callQueue = {
+  queue: [] as Array<() => Promise<any>>,
+  processing: false,
+  async add(fn: () => Promise<any>) {
+    this.queue.push(fn);
+    if (!this.processing) {
+      await this.process();
+    }
+  },
+  async process() {
+    if (this.queue.length === 0) {
+      this.processing = false;
+      return;
+    }
+    this.processing = true;
+    const fn = this.queue.shift();
+    if (fn) {
+      try {
+        await fn();
+      } catch (error) {
+        console.error('Error processing queue item:', error);
+      }
+    }
+    // Add delay between processing queue items
+    await new Promise(resolve => setTimeout(resolve, 10000));
+    await this.process();
+  }
+};
 // Main LLM API call function with smart endpoint selection
 export async function callLLMAPI(system, user) {
   validateInput(system, user);
   callTracking.addCall();
   
   // Get available endpoints
-  // Define preferred order of endpoints
   const preferredOrder = ['TOGETHER', 'TOGETHER2', 'GROQ', 'ANWAN'];
   
   // Filter available endpoints in the preferred order
@@ -321,28 +349,33 @@ export async function callLLMAPI(system, user) {
   if (availableEndpoints.length === 0) {
     throw new Error('No API endpoints are currently available');
   }
-  // Try each available endpoint
-  for (const endpoint of availableEndpoints){
-    try {
-      switch(endpoint){
-        case 'TOGETHER':
-          return await callTOGETHERAPI(system, user);
-        case 'TOGETHER2':
-          return await callTOGETHERAPI2(system, user);
-        // case 'GROQ':
-        //   return await callGROQAPI(system, user);
-        // case 'ANWAN':
-        //   return await callANWANAPI(system, user);
+
+  // Wrap the API call in a queue
+  return new Promise((resolve, reject) => {
+    callQueue.add(async () => {
+      // Try each available endpoint
+      for (const endpoint of availableEndpoints) {
+        try {
+          let result;
+          switch(endpoint) {
+            case 'TOGETHER':
+              result = await callTOGETHERAPI(system, user);
+              break;
+            case 'TOGETHER2':
+              result = await callTOGETHERAPI2(system, user);
+              break;
+          }
+          resolve(result);
+          return;
+        } catch (error) {
+          console.error(`${endpoint} API call failed:`, error);
+          if (endpoint === availableEndpoints[availableEndpoints.length - 1]) {
+            reject(error);
+          }
+        }
       }
-    } catch (error) {
-      console.error(`${endpoint} API call failed:`, error);
-      // Continue to next endpoint if available
-      if (endpoint === availableEndpoints[availableEndpoints.length - 1]) {
-        throw error; // Throw if this was the last available endpoint
-      }
-    }
-  }
-  throw new Error('All available endpoints failed');
+    });
+  });
 }
 // Retry wrapper with exponential backoff
 export async function callLLMWithRetry(system, user, attempt = 1, maxAttempts = 3) {
