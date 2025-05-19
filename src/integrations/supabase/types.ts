@@ -1398,6 +1398,7 @@ export type Database = {
         Row: {
           analysis: Json | null
           analysis_complete: boolean | null
+          analyzed_at: string | null
           career_alignment_score: number | null
           career_goals: string | null
           enhanced_analysis: Json | null
@@ -1417,6 +1418,7 @@ export type Database = {
         Insert: {
           analysis?: Json | null
           analysis_complete?: boolean | null
+          analyzed_at?: string | null
           career_alignment_score?: number | null
           career_goals?: string | null
           enhanced_analysis?: Json | null
@@ -1436,6 +1438,7 @@ export type Database = {
         Update: {
           analysis?: Json | null
           analysis_complete?: boolean | null
+          analyzed_at?: string | null
           career_alignment_score?: number | null
           career_goals?: string | null
           enhanced_analysis?: Json | null
