@@ -10,22 +10,22 @@ import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, XCircle } from 'lucide-react';
 
-interface TimeBlock {
+interface TimeSlot {
   id: string;
+  startTime: string;
+  endTime: string;
   label: string;
-  startHour: number;
-  endHour: number;
 }
 
 interface AvailabilityManagerProps {
-  timeBlocks: TimeBlock[];
+  timeBlocks: TimeSlot[];
   onAvailabilityChange?: () => void;
 }
 
 interface AvailabilitySlot {
   id?: string;
   weekday: number;
-  time_block: string;
+  time_slot: string;
   is_available: boolean;
 }
 
@@ -66,16 +66,16 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
 
       if (error) throw error;
 
-      // Create a complete set of availability slots for all days and time blocks
+      // Create a complete set of availability slots for all days and time slots
       const completeAvailability: AvailabilitySlot[] = [];
       
       // For each day of the week
       DAYS_OF_WEEK.forEach(day => {
-        // For each time block
-        timeBlocks.forEach(block => {
+        // For each time slot
+        timeBlocks.forEach(slot => {
           // Find if there's an existing record
           const existingSlot = data?.find(
-            slot => slot.weekday === day.id && slot.time_block === block.id
+            record => record.weekday === day.id && record.time_slot === slot.id
           );
           
           if (existingSlot) {
@@ -83,14 +83,14 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
             completeAvailability.push({
               id: existingSlot.id,
               weekday: existingSlot.weekday,
-              time_block: existingSlot.time_block,
+              time_slot: existingSlot.time_slot,
               is_available: existingSlot.is_available
             });
           } else {
             // Create new entry with default value (not available)
             completeAvailability.push({
               weekday: day.id,
-              time_block: block.id,
+              time_slot: slot.id,
               is_available: false
             });
           }
@@ -110,10 +110,10 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
     }
   };
 
-  const toggleAvailability = (weekday: number, timeBlockId: string) => {
+  const toggleAvailability = (weekday: number, timeSlotId: string) => {
     setAvailability(prev => {
       return prev.map(slot => {
-        if (slot.weekday === weekday && slot.time_block === timeBlockId) {
+        if (slot.weekday === weekday && slot.time_slot === timeSlotId) {
           return { ...slot, is_available: !slot.is_available };
         }
         return slot;
@@ -132,10 +132,10 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
     });
   };
 
-  const toggleAllForTimeBlock = (timeBlockId: string, value: boolean) => {
+  const toggleAllForTimeSlot = (timeSlotId: string, value: boolean) => {
     setAvailability(prev => {
       return prev.map(slot => {
-        if (slot.time_block === timeBlockId) {
+        if (slot.time_slot === timeSlotId) {
           return { ...slot, is_available: value };
         }
         return slot;
@@ -161,7 +161,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       const slotsToInsert = availability.map(slot => ({
         user_id: user.id,
         weekday: slot.weekday,
-        time_block: slot.time_block,
+        time_slot: slot.time_slot,
         is_available: slot.is_available
       }));
       
@@ -203,7 +203,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
   return (
     <div className="space-y-6">
       <div className="text-sm text-muted-foreground mb-4">
-        Select the days and times you're available to participate in mock interviews. 
+        Select the specific hours you're available to participate in mock interviews. 
         Others will only be able to schedule sessions with you during these times.
       </div>
       
@@ -212,14 +212,15 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
           <thead>
             <tr>
               <th className="p-2 text-left">Day</th>
-              {timeBlocks.map(block => (
-                <th key={block.id} className="p-2 text-center">
-                  <div>{block.label}</div>
+              {timeBlocks.map(slot => (
+                <th key={slot.id} className="p-2 text-center">
+                  <div>{slot.label}</div>
+                  <div className="text-xs text-muted-foreground">{slot.startTime}-{slot.endTime}</div>
                   <div className="flex gap-2 justify-center mt-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => toggleAllForTimeBlock(block.id, true)}
+                      onClick={() => toggleAllForTimeSlot(slot.id, true)}
                       className="h-7 text-xs px-2"
                     >
                       All
@@ -227,7 +228,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => toggleAllForTimeBlock(block.id, false)}
+                      onClick={() => toggleAllForTimeSlot(slot.id, false)}
                       className="h-7 text-xs px-2"
                     >
                       None
@@ -242,17 +243,17 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
             {DAYS_OF_WEEK.map(day => (
               <tr key={day.id} className="border-t">
                 <td className="p-4">{day.name}</td>
-                {timeBlocks.map(block => {
-                  const slot = availability.find(
-                    s => s.weekday === day.id && s.time_block === block.id
+                {timeBlocks.map(slot => {
+                  const availableSlot = availability.find(
+                    s => s.weekday === day.id && s.time_slot === slot.id
                   );
-                  const isAvailable = slot?.is_available || false;
+                  const isAvailable = availableSlot?.is_available || false;
                   
                   return (
-                    <td key={`${day.id}-${block.id}`} className="p-2 text-center">
+                    <td key={`${day.id}-${slot.id}`} className="p-2 text-center">
                       <Switch 
                         checked={isAvailable} 
-                        onCheckedChange={() => toggleAvailability(day.id, block.id)}
+                        onCheckedChange={() => toggleAvailability(day.id, slot.id)}
                       />
                     </td>
                   );
@@ -291,10 +292,10 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       </div>
       
       <div className="text-sm text-muted-foreground mt-4">
-        <p>Time blocks are shown in your local timezone.</p>
+        <p>Time slots are shown in your local timezone.</p>
         <p className="mt-1">
           <Badge variant="outline" className="mr-2">Note</Badge>
-          Sessions are always scheduled as one-hour slots starting at the beginning of the time block.
+          Sessions are always scheduled as one-hour slots.
         </p>
       </div>
     </div>

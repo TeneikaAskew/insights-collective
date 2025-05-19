@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
-import { format, addHours } from 'date-fns';
+import { format, addHours, parseISO, set } from 'date-fns';
 import { Calendar as CalendarIcon, Clock, Users, Video, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useNavigate } from 'react-router-dom';
@@ -32,17 +32,26 @@ interface MockSession {
   video_platform: string;
 }
 
-interface TimeBlock {
+interface TimeSlot {
   id: string;
+  startTime: string;
+  endTime: string;
   label: string;
-  startHour: number;
-  endHour: number;
 }
 
-const TIME_BLOCKS: TimeBlock[] = [
-  { id: 'morning', label: 'Morning (9 AM - 12 PM)', startHour: 9, endHour: 12 },
-  { id: 'afternoon', label: 'Afternoon (1 PM - 5 PM)', startHour: 13, endHour: 17 },
-  { id: 'evening', label: 'Evening (6 PM - 9 PM)', startHour: 18, endHour: 21 },
+const TIME_SLOTS: TimeSlot[] = [
+  { id: 'slot_9_10', startTime: '9:00 AM', endTime: '10:00 AM', label: '9:00 AM' },
+  { id: 'slot_10_11', startTime: '10:00 AM', endTime: '11:00 AM', label: '10:00 AM' },
+  { id: 'slot_11_12', startTime: '11:00 AM', endTime: '12:00 PM', label: '11:00 AM' },
+  { id: 'slot_12_13', startTime: '12:00 PM', endTime: '1:00 PM', label: '12:00 PM' },
+  { id: 'slot_13_14', startTime: '1:00 PM', endTime: '2:00 PM', label: '1:00 PM' },
+  { id: 'slot_14_15', startTime: '2:00 PM', endTime: '3:00 PM', label: '2:00 PM' },
+  { id: 'slot_15_16', startTime: '3:00 PM', endTime: '4:00 PM', label: '3:00 PM' },
+  { id: 'slot_16_17', startTime: '4:00 PM', endTime: '5:00 PM', label: '4:00 PM' },
+  { id: 'slot_17_18', startTime: '5:00 PM', endTime: '6:00 PM', label: '5:00 PM' },
+  { id: 'slot_18_19', startTime: '6:00 PM', endTime: '7:00 PM', label: '6:00 PM' },
+  { id: 'slot_19_20', startTime: '7:00 PM', endTime: '8:00 PM', label: '7:00 PM' },
+  { id: 'slot_20_21', startTime: '8:00 PM', endTime: '9:00 PM', label: '8:00 PM' },
 ];
 
 export default function MockInterviews() {
@@ -53,7 +62,7 @@ export default function MockInterviews() {
   const [scheduling, setScheduling] = useState(false);
   const [sessions, setSessions] = useState<MockSession[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTimeBlock, setSelectedTimeBlock] = useState<string>('');
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   const [selectedType, setSelectedType] = useState<'behavioral' | 'technical'>('behavioral');
   const [isInterviewer, setIsInterviewer] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
@@ -69,10 +78,12 @@ export default function MockInterviews() {
   }, [user]);
 
   useEffect(() => {
-    if (selectedDate && selectedTimeBlock && user) {
+    if (selectedDate && selectedTimeSlot && user) {
       loadAvailableUsers();
+    } else {
+      setAvailableUsers([]);
     }
-  }, [selectedDate, selectedTimeBlock, selectedType, isInterviewer, user]);
+  }, [selectedDate, selectedTimeSlot, selectedType, isInterviewer, user]);
 
   const checkAvailabilityStatus = async () => {
     if (!user?.id) return;
@@ -124,25 +135,35 @@ export default function MockInterviews() {
     }
   };
 
+  const getTimeFromSlotId = (slotId: string): { hour: number, minute: number } => {
+    const slot = TIME_SLOTS.find(s => s.id === slotId);
+    if (!slot) return { hour: 9, minute: 0 }; // Default to 9:00 AM
+    
+    const timeStr = slot.startTime;
+    const isPM = timeStr.includes('PM') && !timeStr.includes('12:00');
+    const [hourStr, minuteStr] = timeStr.replace(/ AM| PM/g, '').split(':');
+    let hour = parseInt(hourStr, 10);
+    const minute = parseInt(minuteStr, 10);
+    
+    if (isPM && hour < 12) hour += 12;
+    if (!isPM && hour === 12) hour = 0;
+    
+    return { hour, minute };
+  };
+
   const loadAvailableUsers = async () => {
-    if (!selectedDate || !selectedTimeBlock || !user) return;
+    if (!selectedDate || !selectedTimeSlot || !user) return;
 
     try {
-      const timeBlock = TIME_BLOCKS.find((block) => block.id === selectedTimeBlock);
-      if (!timeBlock) return;
+      // Get the weekday (0-6, where 0 is Sunday)
+      const weekday = selectedDate.getDay();
 
-      const startTime = new Date(selectedDate);
-      startTime.setHours(timeBlock.startHour, 0, 0, 0);
-
-      const endTime = new Date(selectedDate);
-      endTime.setHours(timeBlock.endHour, 0, 0, 0);
-
-      // Get users who are available and have matching preferences
+      // Get users who are available for this specific time slot and weekday
       const { data: availableSlots, error } = await supabase
         .from('availability_slots')
         .select('user_id')
-        .eq('weekday', selectedDate.getDay())
-        .eq('time_block', selectedTimeBlock)
+        .eq('weekday', weekday)
+        .eq('time_slot', selectedTimeSlot)
         .eq('is_available', true);
 
       if (error) throw error;
@@ -174,15 +195,16 @@ export default function MockInterviews() {
   };
 
   const handleSchedule = async (partnerId: string) => {
-    if (!selectedDate || !selectedTimeBlock || !user?.id) return;
+    if (!selectedDate || !selectedTimeSlot || !user?.id) return;
 
     setScheduling(true);
     try {
-      const timeBlock = TIME_BLOCKS.find((block) => block.id === selectedTimeBlock);
-      if (!timeBlock) return;
-
+      // Get the time details from the selected slot
+      const { hour, minute } = getTimeFromSlotId(selectedTimeSlot);
+      
+      // Create session time (start time)
       const sessionTime = new Date(selectedDate);
-      sessionTime.setHours(timeBlock.startHour, 0, 0, 0);
+      sessionTime.setHours(hour, minute, 0, 0);
       
       // Calculate end time (1 hour after start time)
       const sessionEndTime = addHours(sessionTime, 1);
@@ -217,7 +239,7 @@ export default function MockInterviews() {
 
       // Reset form
       setSelectedDate(undefined);
-      setSelectedTimeBlock('');
+      setSelectedTimeSlot('');
       setSelectedType('behavioral');
       setIsInterviewer(false);
     } catch (error: any) {
@@ -313,15 +335,15 @@ export default function MockInterviews() {
                   </div>
 
                   <div>
-                    <Label>Time Block</Label>
-                    <Select value={selectedTimeBlock} onValueChange={setSelectedTimeBlock}>
+                    <Label>Time Slot</Label>
+                    <Select value={selectedTimeSlot} onValueChange={setSelectedTimeSlot}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select time block" />
+                        <SelectValue placeholder="Select a time slot" />
                       </SelectTrigger>
                       <SelectContent>
-                        {TIME_BLOCKS.map((block) => (
-                          <SelectItem key={block.id} value={block.id}>
-                            {block.label}
+                        {TIME_SLOTS.map((slot) => (
+                          <SelectItem key={slot.id} value={slot.id}>
+                            {slot.startTime} - {slot.endTime}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -386,7 +408,7 @@ export default function MockInterviews() {
                       })}
                     </div>
                   ) : (
-                    selectedDate && selectedTimeBlock && (
+                    selectedDate && selectedTimeSlot && (
                       <p className="text-sm text-muted-foreground">
                         No users available for the selected time slot.
                       </p>
@@ -402,13 +424,13 @@ export default function MockInterviews() {
               <CardHeader>
                 <CardTitle>Set Your Availability</CardTitle>
                 <CardDescription>
-                  Select the days and times you're available for mock interviews.
+                  Select the specific hours you're available for mock interviews.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <AvailabilityManager 
                   onAvailabilityChange={checkAvailabilityStatus} 
-                  timeBlocks={TIME_BLOCKS} 
+                  timeBlocks={TIME_SLOTS} 
                 />
               </CardContent>
             </Card>
