@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,9 +10,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Check, AlertCircle, Link as LinkIcon, RefreshCw } from 'lucide-react';
+import { Check, AlertCircle, Link as LinkIcon, RefreshCw, ExternalLink } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
+import { Link } from 'react-router-dom';
 
 interface StudyGuide {
   id: string;
@@ -169,6 +169,15 @@ export default function JobDescription() {
         title: 'Reset Complete',
         description: 'Your study guide has been reset',
       });
+    }
+  };
+
+  // Helper function to get the practice URL based on question type
+  const getPracticeUrl = (question: any) => {
+    if (question.type === 'behavioral') {
+      return `/interview-prep/star-practice?questionId=${question.id}`;
+    } else {
+      return `/interview-prep/code-practice?questionId=${question.id}`;
     }
   };
 
@@ -342,10 +351,20 @@ export default function JobDescription() {
                             .filter((q) => q.type === 'behavioral')
                             .map((question) => (
                               <li key={question.id} className="space-y-1">
-                                <p className="font-medium">{question.question}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Target Competency: {question.targetCompetency}
-                                </p>
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium">{question.question}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Target Competency: {question.targetCompetency}
+                                    </p>
+                                  </div>
+                                  <Link to={`/interview-prep/star-practice?questionId=${question.id}`}>
+                                    <Button variant="outline" size="sm" className="flex items-center gap-1">
+                                      <ExternalLink className="h-3 w-3" />
+                                      Practice
+                                    </Button>
+                                  </Link>
+                                </div>
                               </li>
                             ))}
                         </ul>
@@ -357,10 +376,20 @@ export default function JobDescription() {
                             .filter((q) => q.type === 'technical')
                             .map((question) => (
                               <li key={question.id} className="space-y-1">
-                                <p className="font-medium">{question.question}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  Target Competency: {question.targetCompetency}
-                                </p>
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <p className="font-medium">{question.question}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Target Competency: {question.targetCompetency}
+                                    </p>
+                                  </div>
+                                  <Link to={`/interview-prep/code-practice?questionId=${question.id}`}>
+                                    <Button variant="outline" size="sm" className="flex items-center gap-1">
+                                      <ExternalLink className="h-3 w-3" />
+                                      Practice
+                                    </Button>
+                                  </Link>
+                                </div>
                               </li>
                             ))}
                         </ul>
