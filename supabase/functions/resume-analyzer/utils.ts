@@ -232,6 +232,47 @@ async function callTOGETHERAPI(system, user) {
     throw new Error(`Failed to parse TOGETHER response: ${e.message}`);
   }
 }
+async function callTOGETHERAPI2(system, user) {
+  if (!canUseEndpoint('TOGETHER')) {
+    throw new Error('TOGETHER API is currently disabled');
+  }
+  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
+  if (!TOGETHER_API_KEY) throw new Error('TOGETHER API key not found');
+  await enforceRateLimit('TOGETHER');
+  const resp = await fetch('https://api.together.xyz/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${TOGETHER_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free',//'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',//'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free' //mistralai/Mixtral-8x7B-Instruct-v0.1',
+      messages: [
+        {
+          role: 'system',
+          content: system
+        },
+        {
+          role: 'user',
+          content: user
+        }
+      ],
+      temperature: 0.7,
+      max_tokens: 500
+    })
+  });
+  const responseText = await resp.text();
+  handleApiResponse('TOGETHER', resp, responseText);
+  if (!resp.ok) {
+    throw new Error(`TOGETHER API failed: ${resp.status} ${responseText}`);
+  }
+  try {
+    const json = JSON.parse(responseText);
+    return json.choices?.[0]?.message?.content;
+  } catch (e) {
+    throw new Error(`Failed to parse TOGETHER response: ${e.message}`);
+  }
+}
 // Main LLM API call function with smart endpoint selection
 export async function callLLMAPI(system, user) {
   validateInput(system, user);
@@ -251,10 +292,12 @@ export async function callLLMAPI(system, user) {
       switch(endpoint){
         case 'TOGETHER':
           return await callTOGETHERAPI(system, user);
-        case 'GROQ':
-          return await callGROQAPI(system, user);
-        case 'ANWAN':
-          return await callANWANAPI(system, user);
+        case 'TOGETHER2':
+          return await callTOGETHERAPI2(system, user);
+        // case 'GROQ':
+        //   return await callGROQAPI(system, user);
+        // case 'ANWAN':
+        //   return await callANWANAPI(system, user);
       }
     } catch (error) {
       console.error(`${endpoint} API call failed:`, error);

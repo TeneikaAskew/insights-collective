@@ -661,23 +661,63 @@ export function useResumeAnalysis() {
 
       console.log("[Resume Analysis] Initial analysis completed", {
         success: !!analysisData && !error,
-        hasError: !!error
+        hasError: !!error,
+        data: analysisData
       });
 
       if (error) {
+        console.error("[Resume Analysis] Edge function error:", error);
         throw new Error(`Edge function error: ${error.message}`);
       }
       
       if (!analysisData || typeof analysisData !== 'object' || Object.keys(analysisData).length === 0) {
+        console.error("[Resume Analysis] Invalid or empty analysis data:", analysisData);
         throw new Error("Invalid or empty analysis data returned");
       }
       
-      // Validate required fields
+      // Validate required fields with more detailed logging
       const requiredFields = ['resume_percent', 'letter_grade', 'themes'];
       const missingFields = requiredFields.filter(field => !(field in analysisData));
       
       if (missingFields.length > 0) {
-        throw new Error(`Analysis missing required fields: ${missingFields.join(', ')}`);
+        console.error("[Resume Analysis] Missing required fields:", {
+          missingFields,
+          availableFields: Object.keys(analysisData),
+          data: analysisData
+        });
+        
+        // Try to recover by providing default values for missing fields
+        const recoveredData = {
+          ...analysisData,
+          resume_percent: analysisData.resume_percent || 50,
+          letter_grade: analysisData.letter_grade || 'C',
+          themes: analysisData.themes || ['Analysis incomplete. Please try again.']
+        };
+        
+        console.log("[Resume Analysis] Recovered data:", recoveredData);
+        
+        // Clean and enhance the recovered data
+        const cleanedData = cleanAnalysisOutput(recoveredData);
+        cleanedData.resume_id = user.id;
+        
+        // Perform keyword analysis
+        const enhancedData = analyzeKeywordsInResume(text, cleanedData as ResumeAnalysis);
+        
+        // Update states and storage
+        setAnalysis(enhancedData as ResumeAnalysis);
+        localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedData));
+        calculateCareerAlignments(enhancedData as ResumeAnalysis);
+        hasLoadedAnalysis.current = true;
+        setIsAnalyzing(false);
+        
+        // Show a warning toast
+        toast({
+          title: "Analysis Incomplete",
+          description: "Some parts of the analysis could not be completed. Please try again later for a full analysis.",
+          variant: "default"
+        });
+        
+        return true;
       }
       
       // Clean and enhance the analysis data
@@ -692,7 +732,7 @@ export function useResumeAnalysis() {
       localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedData));
       calculateCareerAlignments(enhancedData as ResumeAnalysis);
       hasLoadedAnalysis.current = true;
-      setIsAnalyzing(false); // Set analyzing to false before starting improvements
+      setIsAnalyzing(false);
 
       // Start polling for improvements
       console.log("[Resume Analysis] Triggering improve-bullets analysis...");
@@ -717,7 +757,7 @@ export function useResumeAnalysis() {
 
       return true;
     } catch (err) {
-      console.error("Error in analyzeResume:", err);
+      console.error("[Resume Analysis] Error in analyzeResume:", err);
       setIsAnalyzing(false);
       setIsPollingForImprovements(false);
       setPollingStatus('error');
