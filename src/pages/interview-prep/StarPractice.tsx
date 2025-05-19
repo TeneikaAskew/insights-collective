@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Check, AlertCircle, ChevronLeft, ChevronRight, Flip, Star, ArrowLeft } from 'lucide-react';
+import { Check, AlertCircle, ChevronLeft, ChevronRight, RotateCw, Star, ArrowLeft } from 'lucide-react';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -442,7 +442,7 @@ export default function StarPractice() {
                           </CardDescription>
                         </div>
                         
-                        {/* Flip button */}
+                        {/* Flip button - replaced Flip icon with RotateCw */}
                         {hasSubmittedResponse && (
                           <Button 
                             variant="secondary" 
@@ -450,7 +450,7 @@ export default function StarPractice() {
                             onClick={handleFlip}
                             className="gap-1"
                           >
-                            <Flip className="h-4 w-4 mr-1" />
+                            <RotateCw className="h-4 w-4 mr-1" />
                             View Feedback
                           </Button>
                         )}
@@ -595,13 +595,14 @@ export default function StarPractice() {
                             </CardDescription>
                           </div>
                           
+                          {/* Replace Flip icon with RotateCw */}
                           <Button
                             variant="secondary"
                             size="sm"
                             onClick={handleFlip}
                             className="gap-1"
                           >
-                            <Flip className="h-4 w-4 mr-1" />
+                            <RotateCw className="h-4 w-4 mr-1" />
                             Back to Question
                           </Button>
                         </div>
