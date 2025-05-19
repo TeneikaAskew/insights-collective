@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,9 +6,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Spinner } from '@/components/ui/spinner';
 import Editor from '@monaco-editor/react';
 import { Badge } from '@/components/ui/badge';
-import { Check, Code } from 'lucide-react';
+import { Check, Code, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useNavigate } from 'react-router-dom';
 
 // Define the available job roles
 const jobRoles = [
@@ -149,6 +149,7 @@ const challengesByRole = {
 
 export default function CodePractice() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('question');
   const [code, setCode] = useState('// Write your solution here');
   const [loading, setLoading] = useState(false);
@@ -219,6 +220,12 @@ export default function CodePractice() {
     <AppLayout>
       <div className="container mx-auto py-8">
         <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep')}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back to Interview Prep
+            </Button>
+          </div>
           <h1 className="text-4xl font-bold mb-2">Code Challenge Practice</h1>
           <p className="text-muted-foreground">
             Practice technical coding challenges with real-time feedback.

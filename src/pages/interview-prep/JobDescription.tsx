@@ -10,10 +10,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Check, AlertCircle, Link as LinkIcon, RefreshCw, ExternalLink } from 'lucide-react';
+import { Check, AlertCircle, Link as LinkIcon, RefreshCw, ExternalLink, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 interface StudyGuide {
   id: string;
@@ -37,6 +37,7 @@ interface StudyGuide {
 export default function JobDescription() {
   const { toast } = useToast();
   const { user } = useUser();
+  const navigate = useNavigate();
   const [jobUrl, setJobUrl] = useState('');
   const [jobDescription, setJobDescription] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
@@ -199,6 +200,12 @@ export default function JobDescription() {
     <AppLayout>
       <div className="container mx-auto py-8">
         <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep')}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back to Interview Prep
+            </Button>
+          </div>
           <h1 className="text-4xl font-bold mb-2">Job Description Analysis</h1>
           <p className="text-muted-foreground">
             Analyze job descriptions to get personalized study guides and practice materials.

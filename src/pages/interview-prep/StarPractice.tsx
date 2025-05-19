@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -310,6 +309,12 @@ export default function StarPractice() {
     <AppLayout>
       <div className="container mx-auto py-8">
         <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep')}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back to Interview Prep
+            </Button>
+          </div>
           <h1 className="text-4xl font-bold mb-2">STAR Response Practice</h1>
           <p className="text-muted-foreground">
             Practice answering behavioral interview questions using the STAR method.

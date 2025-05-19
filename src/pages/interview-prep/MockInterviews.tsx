@@ -11,8 +11,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Clock, Users, Video } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Users, Video, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
+import { useNavigate } from 'react-router-dom';
 
 interface MockSession {
   id: string;
@@ -42,6 +43,7 @@ const TIME_BLOCKS: TimeBlock[] = [
 export default function MockInterviews() {
   const { toast } = useToast();
   const { user } = useUser();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [scheduling, setScheduling] = useState(false);
   const [sessions, setSessions] = useState<MockSession[]>([]);
@@ -206,6 +208,12 @@ export default function MockInterviews() {
     <AppLayout>
       <div className="container mx-auto py-8">
         <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep')}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back to Interview Prep
+            </Button>
+          </div>
           <h1 className="text-4xl font-bold mb-2">Mock Interviews</h1>
           <p className="text-muted-foreground">
             Schedule and participate in mock interviews with peers.

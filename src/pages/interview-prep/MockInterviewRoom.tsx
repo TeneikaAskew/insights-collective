@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { format } from 'date-fns';
-import { Video, VideoOff, Mic, MicOff, Phone, Clock } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, Clock, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 
 interface MockSession {
@@ -238,6 +238,12 @@ export default function MockInterviewRoom() {
     <AppLayout>
       <div className="container mx-auto py-8">
         <div className="mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep/mock-interviews')}>
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Back to Mock Interviews
+            </Button>
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-4xl font-bold mb-2">
