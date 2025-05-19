@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { EnrichedUser } from './useAuth';
+import { enrichProfileWithRoles } from '@/utils/profileUtils';
 
 interface UserProfile {
   id: string;
@@ -38,28 +39,34 @@ export function useUserProfile(user: User | null) {
 
     const loadProfile = async () => {
       try {
-        const { data: profile, error } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
           .single();
 
-        if (error) throw error;
+        if (profileError && profileError.code !== 'PGRST116') {
+          console.error('Error fetching profile:', profileError);
+          throw profileError;
+        }
 
+        // Enrich profile with consistent role information
+        const enrichedProfile = enrichProfileWithRoles(profile);
+        
         // Generate a display name from first_name and last_name
-        const displayName = profile.first_name && profile.last_name 
-          ? `${profile.first_name} ${profile.last_name}`.trim()
-          : profile.first_name || profile.email?.split('@')[0] || 'User';
+        const displayName = enrichedProfile?.first_name && enrichedProfile?.last_name 
+          ? `${enrichedProfile.first_name} ${enrichedProfile.last_name}`.trim()
+          : enrichedProfile?.first_name || user.email?.split('@')[0] || 'User';
 
         // Combine auth user data with profile data
         setEnrichedUser({
           ...user,
-          ...profile,
+          ...enrichedProfile,
           // Ensure avatar and name are properly set
-          avatar: profile.avatar_url,
-          avatar_url: profile.avatar_url,
+          avatar: enrichedProfile?.avatar_url,
+          avatar_url: enrichedProfile?.avatar_url,
           name: displayName,
-          roles: profile.roles || []
+          roles: enrichedProfile?.roles || ['student']
         });
       } catch (err) {
         console.error('Error loading user profile:', err);
@@ -71,7 +78,7 @@ export function useUserProfile(user: User | null) {
           avatar: undefined,
           avatar_url: undefined,
           name: user.email?.split('@')[0] || 'User',
-          roles: []
+          roles: ['student']
         });
       } finally {
         setLoading(false);
