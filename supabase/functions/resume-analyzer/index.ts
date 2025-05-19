@@ -1,3 +1,4 @@
+
 console.log('Resume Roast and Analyzer function hit');
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
@@ -6,7 +7,7 @@ import { generateThemes } from "./bulletSuggestions.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
-import { supabase, callLLMWithRetry, corsHeaders } from './utils.ts';
+import { supabase, callLLMWithRetry, corsHeaders } from '../_shared/utils.ts';
 // To:
 import { config as bulletImproverConfig } from "./bulletImprover.ts";
 const roastCache = new Map();
@@ -31,33 +32,9 @@ async function getResumeRoast(resumeText, userId) {
     };
   }
   try {
-    // const groqApiKey = Deno.env.get('GROQ');
-    // if (!groqApiKey) throw new Error('GROQ API key not found');
-    // const prompt = `I'm looking at this resume text:        
-    //     ${resumeText.substring(0, 3500)}        
-    //     Now, I need a full-on resume roast. Don't sugarcoat it — tell me what's holding this back. Why am I not getting callbacks, referrals, or interviews? Tear it apart like a hiring manager who's had one too many resumes land on their desk. Be blunt. What's outdated, what's weak, what's missing, what makes you roll your eyes, and what makes you scroll past me? Give me the real — and then tell me how to fix it so I actually start landing opportunities.
-    //     Be specific and provide actionable advice. Format your response with no markdown, just clean text. Keep it to 3-4 paragraphs maximum.`
-    //   ; 
-    // const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    //   method: 'POST',
-    //   headers: {
-    //     Authorization: `Bearer ${groqApiKey}`,
-    //     'Content-Type': 'application/json'
-    //   },
-    //   body: JSON.stringify({
-    //     model: 'compound-beta-mini', //'llama-3.1-8b-instant',//'llama3-70b-8192',
-    //     messages: [  
-    //       { role: "system", content: "You are a brutally honest resume critic. Your job is to point out the real issues in a resume without sugarcoating, then provide actionable advice." },
-    //       { role: "user", content: prompt }
-    //               ],
-    //     temperature: 0.7,
-    //     max_tokens: 750
-    //   })
-    // });
-    // if (!resp.ok) throw new Error('GROQ API error');
-    // const result = await resp.json();
-    // const roastText = result.choices[0].message.content.trim();
-    const system = "You are a brutally honest resume critic. " + "Your job is to point out the real issues in a resume without sugarcoating, " + "then provide actionable advice.";
+    const system = "You are a brutally honest resume critic. " + 
+                   "Your job is to point out the real issues in a resume without sugarcoating, " + 
+                   "then provide actionable advice.";
     const user = `
     I'm looking at this resume text:
     ${resumeText.substring(0, 3500)}
@@ -101,7 +78,8 @@ async function getResumeRoast(resumeText, userId) {
  * @param {string} userId - User identifier for DB operations.
  * @param {string[]} sentences - Array of pre-detected sentences to use as bullet points.
  * @returns {Promise<object>} Enhanced analysis results.
- */ export async function analyzeResume(resumeText, userId, sentences = []) {
+ */ 
+export async function analyzeResume(resumeText, userId, sentences = []) {
   console.log('Running Resume Analyzer');
   let text = resumeText || '';
   console.log('Provided text:', text.length, 'characters');
@@ -168,12 +146,6 @@ async function getResumeRoast(resumeText, userId) {
       try {
         const wb = analyzeWordBalance(bullet);
         const xyz = xyzCheck(bullet);
-        // const total = wb.word_balance_score + xyz.xyz_total;
-        // Use the new xyz_total directly instead of adding it to word_balance_score
-        // const total = xyz.xyz_total; // Now on a 0-100 scale
-        // const rewritten = await rewriteBullet(bullet, { xyz_scores: xyz });
-        // const tips = await generateTips(bullet, { xyz_scores: xyz, word_balance_score: wb.word_balance_score });
-        // return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total, rewritten, tips };
         // Add minimum content requirements
         const hasMinimumContent = bullet.length > 20 && bullet.split(/\s+/).length > 4;
         const contentPenalty = hasMinimumContent ? 0 : 25;
@@ -188,7 +160,6 @@ async function getResumeRoast(resumeText, userId) {
         };
       } catch (err) {
         console.error('Error on bullet:', err);
-        // return { original: bullet, word_balance: {}, xyz_scores: {}, bullet_total: 10, rewritten: bullet, tips: 'Analysis failed.' };
         return {
           original: bullet,
           word_balance: {},
@@ -200,8 +171,6 @@ async function getResumeRoast(resumeText, userId) {
     // Aggregate scores
     const totalScore = analyzed.reduce((sum, b)=>sum + b.bullet_total, 0);
     const avg = totalScore / analyzed.length;
-    // const percent = Math.max(Math.min((avg / 45) * 100, 100), 30);
-    // Recommended change
     // Sort bullets by score (highest first)
     const sortedBullets = analyzed.sort((a, b)=>b.bullet_total - a.bullet_total);
     // Step 1: Determine how many high-quality bullets exist (score > 80)
@@ -210,16 +179,12 @@ async function getResumeRoast(resumeText, userId) {
     const highQualityRatio = totalBullets > 0 ? highQualityBullets / totalBullets : 0;
     // Calculate weighted average (giving more weight to top bullets)
     const weightedScores = sortedBullets.map((bullet, index)=>{
-      // Apply descending weights: 1.5, 1.4, 1.3, etc.
-      // const weight = Math.max(1.5 - (index * 0.1), 1.0);
       // Apply stronger descending weights: 2.0, 1.8, 1.6, etc. for top bullets
       const weight = Math.max(2.0 - index * 0.2, 1.0);
       return bullet.bullet_total * weight;
     });
     const weightedTotal = weightedScores.reduce((sum, score)=>sum + score, 0);
     const weightedAverage = weightedTotal / weightedScores.length;
-    // Convert to percentage (60% baseline + up to 60% from performance)
-    // const percent = 40 + (weightedAverage / 100 * 60);
     // Step 3: Use a much lower baseline (30%) and give more weight to bullet quality
     let percent = 30 + weightedAverage / 100 * 70;
     // Step 4: Add a bonus for having a high percentage of quality bullets
@@ -228,8 +193,6 @@ async function getResumeRoast(resumeText, userId) {
     percent += qualityBonus;
     // Cap at 100%
     percent = Math.min(100, percent);
-    // // Convert to percentage (60% baseline + up to 40% from performance)
-    // const percent = 60 + (weightedAverage / 45 * 40);
     let grade = getLetterGrade(percent);
     if (grade === 'F') grade = 'D';
     // Base response
@@ -238,7 +201,6 @@ async function getResumeRoast(resumeText, userId) {
       resume_average: avg,
       resume_percent: parseFloat(percent.toFixed(1)),
       letter_grade: grade,
-      // themes,
       elevator_pitch: 'Experienced professional ...',
       explanation: `Your resume received a ${grade} grade (${percent}%).`
     };
@@ -297,6 +259,7 @@ async function getResumeRoast(resumeText, userId) {
     };
   }
 }
+
 export async function bulletImprover(userId, enhanced = null) {
   try {
     console.log(`Starting parallel bullet improvement for userId: ${userId}`);
@@ -369,6 +332,7 @@ export async function bulletImprover(userId, enhanced = null) {
     };
   }
 }
+
 serve(async (req)=>{
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
