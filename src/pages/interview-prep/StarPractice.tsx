@@ -41,6 +41,12 @@ interface Question {
   preparationTips?: string;
 }
 
+interface SavedResponse {
+  response: Partial<STARResponse>;
+  feedback: any;
+  timestamp: number;
+}
+
 export default function StarPractice() {
   const { toast } = useToast();
   const { user } = useUser();
@@ -59,10 +65,17 @@ export default function StarPractice() {
     result: '',
   });
   const [feedback, setFeedback] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<string>("question");
+  const [savedResponses, setSavedResponses] = useState<Record<string, SavedResponse>>({});
 
   useEffect(() => {
     if (user) {
       loadQuestions();
+      // Load saved responses from localStorage
+      const savedResponsesData = LocalStorageUtils.getSavedStarResponses(user.id);
+      if (savedResponsesData) {
+        setSavedResponses(savedResponsesData);
+      }
     } else {
       setLoading(false);
     }
@@ -89,8 +102,13 @@ export default function StarPractice() {
     if (index !== -1) {
       setCurrentQuestionIndex(index);
       
-      // Load draft response if available
-      if (user) {
+      // First check if we have a saved response with feedback
+      if (user && savedResponses[questionId]) {
+        setResponse(savedResponses[questionId].response);
+        setFeedback(savedResponses[questionId].feedback);
+      } 
+      // If no saved response, check for draft
+      else if (user) {
         const draft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, questionId);
         if (draft) {
           setResponse(draft);
@@ -105,6 +123,9 @@ export default function StarPractice() {
         }
         setFeedback(null); // Reset feedback when changing questions
       }
+    } else if (questions.length > 0) {
+      // If questionId not found but we have questions, navigate to the first question
+      navigate(`/interview-prep/star-practice?questionId=${questions[0].id}`, { replace: true });
     }
   };
 
@@ -153,16 +174,9 @@ export default function StarPractice() {
       if (targetQuestionId && behavioralQuestions.length > 0) {
         findAndSetTargetQuestion(targetQuestionId);
       } 
-      // Otherwise, load any existing draft for the first question
-      else if (behavioralQuestions.length > 0 && user) {
-        const firstQuestionDraft = LocalStorageUtils.getStarResponseDraftForQuestion(
-          user.id, 
-          behavioralQuestions[0].id
-        );
-        
-        if (firstQuestionDraft) {
-          setResponse(firstQuestionDraft);
-        }
+      // If no question ID specified, but we have questions, navigate to the first one
+      else if (behavioralQuestions.length > 0) {
+        navigate(`/interview-prep/star-practice?questionId=${behavioralQuestions[0].id}`, { replace: true });
       }
     } catch (error) {
       console.error('Error loading questions:', error);
@@ -205,19 +219,26 @@ export default function StarPractice() {
 
       if (evalError) throw evalError;
 
-      setFeedback(evaluatedResponse.ai_feedback);
+      const newFeedback = evaluatedResponse.ai_feedback;
+      setFeedback(newFeedback);
+      
+      // Save the response and feedback to localStorage
+      const updatedSavedResponses = {
+        ...savedResponses,
+        [currentQuestion.id]: {
+          response: { ...response },
+          feedback: newFeedback,
+          timestamp: Date.now()
+        }
+      };
+      
+      setSavedResponses(updatedSavedResponses);
+      LocalStorageUtils.saveSavedStarResponses(user.id, updatedSavedResponses);
+
       toast({
         title: 'Response Submitted',
         description: 'Your STAR response has been evaluated.',
       });
-      
-      // Scroll to the feedback section
-      setTimeout(() => {
-        document.getElementById('feedback-section')?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'start'
-        });
-      }, 100);
     } catch (error) {
       console.error('Error submitting response:', error);
       toast({
@@ -233,60 +254,16 @@ export default function StarPractice() {
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
-      setCurrentQuestionIndex(nextIndex);
-      
-      // Update URL to reflect the current question
       const nextQuestionId = questions[nextIndex].id;
       navigate(`/interview-prep/star-practice?questionId=${nextQuestionId}`, { replace: true });
-      
-      // Load draft for the next question
-      if (user) {
-        const nextQuestionId = questions[nextIndex].id;
-        const draft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, nextQuestionId);
-        
-        if (draft) {
-          setResponse(draft);
-        } else {
-          setResponse({
-            situation: '',
-            task: '',
-            action: '',
-            result: '',
-          });
-        }
-      }
-      
-      setFeedback(null);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
       const prevIndex = currentQuestionIndex - 1;
-      setCurrentQuestionIndex(prevIndex);
-      
-      // Update URL to reflect the current question
       const prevQuestionId = questions[prevIndex].id;
       navigate(`/interview-prep/star-practice?questionId=${prevQuestionId}`, { replace: true });
-      
-      // Load draft for the previous question
-      if (user) {
-        const prevQuestionId = questions[prevIndex].id;
-        const draft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, prevQuestionId);
-        
-        if (draft) {
-          setResponse(draft);
-        } else {
-          setResponse({
-            situation: '',
-            task: '',
-            action: '',
-            result: '',
-          });
-        }
-      }
-      
-      setFeedback(null);
     }
   };
 
@@ -327,6 +304,7 @@ export default function StarPractice() {
   }
 
   const currentQuestion = questions[currentQuestionIndex];
+  const hasSubmittedResponse = feedback !== null;
 
   return (
     <AppLayout>

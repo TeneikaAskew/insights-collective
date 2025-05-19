@@ -16,7 +16,14 @@ interface StarResponseDraft {
   result: string;
 }
 
+interface SavedStarResponse {
+  response: any;
+  feedback: any;
+  timestamp: number;
+}
+
 type StarResponseDrafts = Record<string, StarResponseDraft>;
+type SavedStarResponses = Record<string, SavedStarResponse>;
 
 export class LocalStorageUtils {
   /**
@@ -221,6 +228,38 @@ export class LocalStorageUtils {
         return studyGuide ? JSON.parse(studyGuide) : null;
       } catch (error) {
         console.error('Error getting study guide from localStorage:', error);
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Save submitted STAR responses with feedback to localStorage
+   */
+  static saveSavedStarResponses(userId: string, responses: SavedStarResponses): void {
+    console.log('Saving submitted STAR responses to localStorage');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(`saved_star_responses_${userId}`, JSON.stringify(responses));
+        console.log('Saved STAR responses stored to localStorage');
+      } catch (error) {
+        console.error('Error saving STAR responses to localStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Get saved STAR responses with feedback from localStorage
+   */
+  static getSavedStarResponses(userId: string): SavedStarResponses | null {
+    console.log('Getting saved STAR responses from localStorage');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const savedResponses = window.localStorage.getItem(`saved_star_responses_${userId}`);
+        return savedResponses ? JSON.parse(savedResponses) : null;
+      } catch (error) {
+        console.error('Error getting saved STAR responses from localStorage:', error);
         return null;
       }
     }
