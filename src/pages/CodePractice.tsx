@@ -376,32 +376,44 @@ export default function CodePractice() {
                           <span className="text-monaco-foreground">Correctness</span>
                           <span className="text-monaco-foreground">{review.scores.correctness}/10</span>
                         </div>
-                        <Progress value={review.scores.correctness * 10} className="bg-monaco-border h-2" 
-                                indicatorClassName="bg-blue-500" />
+                        <Progress 
+                          value={review.scores.correctness * 10} 
+                          className="bg-monaco-border h-2"
+                          indicatorClassName="bg-blue-500" 
+                        />
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-monaco-foreground">Efficiency</span>
                           <span className="text-monaco-foreground">{review.scores.efficiency}/10</span>
                         </div>
-                        <Progress value={review.scores.efficiency * 10} className="bg-monaco-border h-2"
-                                indicatorClassName="bg-blue-500" />
+                        <Progress 
+                          value={review.scores.efficiency * 10} 
+                          className="bg-monaco-border h-2"
+                          indicatorClassName="bg-blue-500" 
+                        />
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-monaco-foreground">Style</span>
                           <span className="text-monaco-foreground">{review.scores.style}/10</span>
                         </div>
-                        <Progress value={review.scores.style * 10} className="bg-monaco-border h-2"
-                                indicatorClassName="bg-blue-500" />
+                        <Progress 
+                          value={review.scores.style * 10} 
+                          className="bg-monaco-border h-2"
+                          indicatorClassName="bg-blue-500" 
+                        />
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="font-medium text-monaco-foreground">Overall</span>
                           <span className="font-medium text-monaco-foreground">{review.scores.overall}/10</span>
                         </div>
-                        <Progress value={review.scores.overall * 10} className="bg-monaco-border h-2"
-                                indicatorClassName="bg-blue-500" />
+                        <Progress 
+                          value={review.scores.overall * 10} 
+                          className="bg-monaco-border h-2"
+                          indicatorClassName="bg-blue-500" 
+                        />
                       </div>
                     </div>
                   </div>

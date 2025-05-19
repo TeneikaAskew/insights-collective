@@ -42,3 +42,12 @@ export function MonacoCodeBlock({ children, className }: ThemeMonacoProps) {
     </pre>
   );
 }
+
+// Adding these components for consistent Monaco UI styling
+export function MonacoProgress({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("bg-monaco-border h-2 rounded-full overflow-hidden", className)} {...props} />;
+}
+
+export function MonacoProgressIndicator({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+  return <div className={cn("bg-blue-500 h-full", className)} {...props} />;
+}
