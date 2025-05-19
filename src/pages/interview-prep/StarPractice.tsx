@@ -60,8 +60,7 @@ export default function StarPractice() {
   // Fix the localStorage usage with proper methods
   const [streak, setStreak] = useState(() => {
     try {
-      const savedStreak = localStorage.getItem('starPracticeStreak');
-      return savedStreak ? parseInt(savedStreak, 10) : 0;
+      return parseInt(localStorage.getItem('starPracticeStreak') || '0', 10);
     } catch (e) {
       console.error('Error accessing localStorage for streak:', e);
       return 0;
@@ -77,6 +76,7 @@ export default function StarPractice() {
     }
   });
 
+  // Set up effect to load questions when component mounts
   useEffect(() => {
     loadQuestions();
     checkAndUpdateStreak();
@@ -91,6 +91,13 @@ export default function StarPractice() {
       }
     }
   }, [questionId, questions]);
+
+  // Load saved responses for the current question whenever it changes
+  useEffect(() => {
+    if (user?.id && questions.length > 0) {
+      loadSavedResponse();
+    }
+  }, [currentQuestionIndex, questions, user]);
 
   const checkAndUpdateStreak = () => {
     const today = new Date().toLocaleDateString();
@@ -115,7 +122,7 @@ export default function StarPractice() {
       setStreak(1);
     }
     
-    // Fix localStorage usage
+    // Update localStorage
     try {
       // Update last practice date
       setLastPracticeDate(today);
@@ -164,8 +171,49 @@ export default function StarPractice() {
     }
   };
 
+  const loadSavedResponse = () => {
+    if (!user?.id || questions.length === 0) return;
+    
+    try {
+      const currentQuestion = questions[currentQuestionIndex];
+      const savedDraft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, currentQuestion.id);
+      
+      if (savedDraft) {
+        console.log("Loading saved draft for question:", currentQuestion.id);
+        setResponse(savedDraft);
+      } else {
+        // Reset to empty response if no saved draft exists
+        setResponse({
+          situation: '',
+          task: '',
+          action: '',
+          result: '',
+        });
+      }
+      
+      // Reset feedback and flip state
+      setFeedback(null);
+      setIsFlipped(false);
+      setHasSubmittedResponse(false);
+      
+    } catch (error) {
+      console.error('Error loading saved response:', error);
+    }
+  };
+
+  const saveResponseDraft = () => {
+    if (!user?.id || questions.length === 0) return;
+    
+    try {
+      const currentQuestion = questions[currentQuestionIndex];
+      LocalStorageUtils.saveStarResponseDraftForQuestion(user.id, currentQuestion.id, response as any);
+    } catch (error) {
+      console.error('Error saving response draft:', error);
+    }
+  };
+
   const handleSubmit = async () => {
-    if (!user) return;
+    if (!user || questions.length === 0) return;
 
     const currentQuestion = questions[currentQuestionIndex];
     if (!currentQuestion) return;
@@ -192,14 +240,30 @@ export default function StarPractice() {
         });
 
       if (evalError) throw evalError;
-
-      setFeedback(evaluatedResponse.ai_feedback);
-      setIsFlipped(true);
-      setHasSubmittedResponse(true);
-      toast({
-        title: 'Response Submitted',
-        description: 'Your STAR response has been evaluated.',
-      });
+      
+      if (evaluatedResponse && evaluatedResponse.ai_feedback) {
+        setFeedback(evaluatedResponse.ai_feedback);
+        
+        // Also save the feedback to localStorage
+        if (user.id) {
+          const allResponses = LocalStorageUtils.getSavedStarResponses(user.id) || {};
+          allResponses[currentQuestion.id] = {
+            response: response,
+            feedback: evaluatedResponse.ai_feedback,
+            timestamp: new Date().getTime()
+          };
+          LocalStorageUtils.saveSavedStarResponses(user.id, allResponses);
+        }
+        
+        setIsFlipped(true);
+        setHasSubmittedResponse(true);
+        toast({
+          title: 'Response Submitted',
+          description: 'Your STAR response has been evaluated.',
+        });
+      } else {
+        throw new Error("No feedback received from evaluation");
+      }
     } catch (error) {
       console.error('Error submitting response:', error);
       toast({
@@ -218,37 +282,31 @@ export default function StarPractice() {
 
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
+      // Save current response before moving
+      saveResponseDraft();
+      
       setCurrentQuestionIndex(currentQuestionIndex + 1);
-      setResponse({
-        situation: '',
-        task: '',
-        action: '',
-        result: '',
-      });
-      setFeedback(null);
-      setIsFlipped(false);
-      setHasSubmittedResponse(false);
       setCurrentStarStep('situation');
+      
+      // The loadSavedResponse will be triggered by the useEffect
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
+      // Save current response before moving
+      saveResponseDraft();
+      
       setCurrentQuestionIndex(currentQuestionIndex - 1);
-      setResponse({
-        situation: '',
-        task: '',
-        action: '',
-        result: '',
-      });
-      setFeedback(null);
-      setIsFlipped(false);
-      setHasSubmittedResponse(false);
       setCurrentStarStep('situation');
+      
+      // The loadSavedResponse will be triggered by the useEffect
     }
   };
 
   const handleBackToInterviewPrep = () => {
+    // Save current response before navigating away
+    saveResponseDraft();
     navigate('/interview-prep');
   };
 
@@ -266,6 +324,9 @@ export default function StarPractice() {
   };
 
   const moveToNextStep = () => {
+    // Save response draft when moving between steps
+    saveResponseDraft();
+    
     switch (currentStarStep) {
       case 'situation':
         setCurrentStarStep('task');
@@ -310,6 +371,25 @@ export default function StarPractice() {
 
   const currentStepFilled = () => {
     return Boolean(response[currentStarStep]?.trim());
+  };
+
+  // Save response when input changes
+  const handleResponseChange = (field: 'situation' | 'task' | 'action' | 'result', value: string) => {
+    const updatedResponse = { ...response, [field]: value };
+    setResponse(updatedResponse);
+    
+    // Debounce the save - in a real app, you might want to use a proper debounce function
+    if (user?.id && questions[currentQuestionIndex]) {
+      const timeoutId = setTimeout(() => {
+        LocalStorageUtils.saveStarResponseDraftForQuestion(
+          user.id, 
+          questions[currentQuestionIndex].id, 
+          updatedResponse as any
+        );
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
   };
 
   if (loading) {
@@ -430,7 +510,7 @@ export default function StarPractice() {
                             <Textarea
                               placeholder="Describe the situation..."
                               value={response.situation}
-                              onChange={(e) => setResponse({ ...response, situation: e.target.value })}
+                              onChange={(e) => handleResponseChange('situation', e.target.value)}
                               rows={5}
                               className="w-full"
                             />
@@ -449,7 +529,7 @@ export default function StarPractice() {
                             <Textarea
                               placeholder="What was your task or goal?"
                               value={response.task}
-                              onChange={(e) => setResponse({ ...response, task: e.target.value })}
+                              onChange={(e) => handleResponseChange('task', e.target.value)}
                               rows={5}
                               className="w-full"
                             />
@@ -468,7 +548,7 @@ export default function StarPractice() {
                             <Textarea
                               placeholder="What actions did you take?"
                               value={response.action}
-                              onChange={(e) => setResponse({ ...response, action: e.target.value })}
+                              onChange={(e) => handleResponseChange('action', e.target.value)}
                               rows={5}
                               className="w-full"
                             />
@@ -487,7 +567,7 @@ export default function StarPractice() {
                             <Textarea
                               placeholder="What were the results?"
                               value={response.result}
-                              onChange={(e) => setResponse({ ...response, result: e.target.value })}
+                              onChange={(e) => handleResponseChange('result', e.target.value)}
                               rows={5}
                               className="w-full"
                             />
