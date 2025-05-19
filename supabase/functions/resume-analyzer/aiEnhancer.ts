@@ -1,7 +1,8 @@
-console.log('Resume scoring and feedback function hit');
+
 import { corsHeaders, callLLMWithRetry } from './utils.ts';
 // Use GROQ API to enhance analysis with AI-
 export async function enhanceWithGroq(resumeText, analysis) {
+  console.log('Resume scoring and feedback function hit');
   try {
     const apiKey = Deno.env.get('GROQ');
     if (!apiKey) {

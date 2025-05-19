@@ -1,5 +1,5 @@
 console.log("Bullet Extractor Endpoint hit");
-import { callLLMWithRetry } from './utils.ts';
+import { corsHeaders, callLLMWithRetry, callTracking } from './utils.ts';
 export const config = {
   MAX_CONCURRENT_REQUESTS: 6,
   MAX_TOTAL_BULLETS: 10,
@@ -165,3 +165,15 @@ async function processBulletsInParallel(bullets: string[], userId: string) {
 }
 // Export the new parallel processing function as the main interface
 export { processBulletsInParallel as processBatchQueue };
+
+export async function bulletImprover(userId, enhanced = null) {
+  try {
+    callTracking.addCall(); // Add API call tracking
+    // ... existing code ...
+  } catch (error) {
+    console.error("Error in bulletImprover:", error);
+    return {
+      error: "An error occurred while processing the request. Please try again later."
+    };
+  }
+}

@@ -1,7 +1,7 @@
 // This function sets up Supabase client with service role key credentials from env
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 // Call tracking system
-const callTracking = {
+export const callTracking = {
   calls: [],
   lastMinute: Math.floor(Date.now() / 60000),
   addCall () {

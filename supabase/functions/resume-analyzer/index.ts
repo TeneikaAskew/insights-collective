@@ -1,4 +1,3 @@
-console.log('Resume Roast and Analyzer function hit');
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { extractBulletPoints, fallbackExtractBullets } from "./bulletExtractor.ts";
 import { analyzeWordBalance, xyzCheck } from "./bulletAnalysis.ts";
@@ -6,7 +5,7 @@ import { generateThemes } from "./bulletSuggestions.ts";
 import { detectSentences } from "./sentenceDetector.ts";
 import { getLetterGrade } from "./gradeHelper.ts";
 import { enhanceWithGroq } from "./aiEnhancer.ts";
-import { supabase, callLLMWithRetry, corsHeaders } from './utils.ts';
+import { supabase, callLLMWithRetry, corsHeaders, callTracking } from './utils.ts';
 // To:
 import { config as bulletImproverConfig } from "./bulletImprover.ts";
 const roastCache = new Map();
@@ -31,6 +30,7 @@ async function getResumeRoast(resumeText, userId) {
     };
   }
   try {
+    callTracking.addCall(); // Add API call tracking
     // const groqApiKey = Deno.env.get('GROQ');
     // if (!groqApiKey) throw new Error('GROQ API key not found');
     // const prompt = `I'm looking at this resume text:        
