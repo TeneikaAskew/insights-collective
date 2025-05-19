@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -9,6 +10,17 @@ import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Briefcase, Star, Code, Users } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
+import { LocalStorageUtils } from '@/utils/localStorageUtils';
+
+interface StudyGuide {
+  id: string;
+  created_at: string;
+  competencies: {
+    technical: string[];
+    behavioral: string[];
+  };
+  questions: any[];
+}
 
 export default function InterviewPrep() {
   const { toast } = useToast();
@@ -16,22 +28,53 @@ export default function InterviewPrep() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('job-description');
-  const [studyGuides, setStudyGuides] = useState([]);
+  const [studyGuides, setStudyGuides] = useState<StudyGuide[]>([]);
 
   useEffect(() => {
-    loadStudyGuides();
-  }, []);
+    if (user) {
+      console.log('Loading study guides for user:', user.id);
+      loadStudyGuides();
+    } else {
+      // Set loading to false if no user is authenticated
+      setLoading(false);
+    }
+  }, [user]);
 
   const loadStudyGuides = async () => {
     try {
-      const { data: guides, error } = await supabase
-        .from('study_guides')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
+      // Check if we have cached study guide in local storage
+      if (user) {
+        const cachedStudyGuide = LocalStorageUtils.getStudyGuide(user.id);
+        if (cachedStudyGuide) {
+          console.log('Found study guide in local storage');
+          setStudyGuides([cachedStudyGuide]);
+          setLoading(false);
+          return;
+        }
+      }
 
-      if (error) throw error;
-      setStudyGuides(guides || []);
+      // If no cached study guide or user not authenticated, try to load from database
+      if (user && user.id) {
+        console.log('Fetching study guides from Supabase for user:', user.id);
+        const { data: guides, error } = await supabase
+          .from('study_guides')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error loading study guides:', error);
+          throw error;
+        }
+
+        console.log('Study guides loaded from database:', guides?.length || 0);
+        setStudyGuides(guides || []);
+        
+        // Save the first study guide to local storage for future access
+        if (guides && guides.length > 0 && user) {
+          LocalStorageUtils.saveStudyGuide(user.id, guides[0]);
+        }
+      }
     } catch (error) {
       console.error('Error loading study guides:', error);
       toast({
@@ -57,6 +100,12 @@ export default function InterviewPrep() {
       </AppLayout>
     );
   }
+
+  // Check if we have study guides in either local storage or database
+  const hasStudyGuides = user && (
+    (studyGuides && studyGuides.length > 0) || 
+    (user && LocalStorageUtils.getStudyGuide(user.id))
+  );
 
   return (
     <AppLayout>
@@ -98,7 +147,7 @@ export default function InterviewPrep() {
               </CardHeader>
               <CardContent>
                 <Button onClick={() => navigate('/interview-prep/job-description')}>
-                  Analyze New Job Description
+                  {hasStudyGuides ? 'View Study Guide' : 'Analyze New Job Description'}
                 </Button>
               </CardContent>
             </Card>
@@ -113,9 +162,17 @@ export default function InterviewPrep() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button onClick={() => navigate('/interview-prep/star-practice')}>
-                  Start STAR Practice
+                <Button 
+                  onClick={() => navigate('/interview-prep/star-practice')}
+                  disabled={!hasStudyGuides}
+                >
+                  {hasStudyGuides ? 'Start STAR Practice' : 'Analyze Job Description First'}
                 </Button>
+                {!hasStudyGuides && (
+                  <p className="text-sm text-muted-foreground mt-2">
+                    You need to analyze a job description first to get practice questions.
+                  </p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
