@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/hooks/use-user';
@@ -25,6 +26,7 @@ interface AvailabilityManagerProps {
 
 interface AvailabilitySlot {
   id?: string;
+  user_id: string; // Added user_id to the interface to fix the TypeScript error
   weekday: number;
   time_slot: string;
   is_available: boolean;
