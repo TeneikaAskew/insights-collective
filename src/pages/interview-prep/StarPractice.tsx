@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Check, AlertCircle, ChevronLeft, ChevronRight, RotateCw, Star, ArrowLeft } from 'lucide-react';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import '../../../src/components/interview-prep/flashcard.css';
 
@@ -37,6 +38,8 @@ export default function StarPractice() {
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const questionId = searchParams.get('questionId');
   
   // State variables
   const [loading, setLoading] = useState(true);
@@ -77,7 +80,17 @@ export default function StarPractice() {
   useEffect(() => {
     loadQuestions();
     checkAndUpdateStreak();
-  }, []);
+  }, [user]);
+
+  // Set initial question index based on URL parameter if available
+  useEffect(() => {
+    if (questionId && questions.length > 0) {
+      const index = questions.findIndex(q => q.id === questionId);
+      if (index !== -1) {
+        setCurrentQuestionIndex(index);
+      }
+    }
+  }, [questionId, questions]);
 
   const checkAndUpdateStreak = () => {
     const today = new Date().toLocaleDateString();
@@ -114,11 +127,19 @@ export default function StarPractice() {
   };
 
   const loadQuestions = async () => {
+    if (!user?.id) {
+      console.log("User ID is undefined, cannot load questions");
+      setLoading(false);
+      return;
+    }
+
     try {
+      console.log("Loading study guides for user:", user.id);
+      
       const { data: studyGuides, error } = await supabase
         .from('study_guides')
         .select('questions')
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
