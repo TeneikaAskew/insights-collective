@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -7,6 +8,10 @@ import { useToast } from './use-toast';
 
 export interface EnrichedUser extends User {
   roles?: string[];
+  // Add these missing properties
+  avatar?: string;
+  avatar_url?: string;
+  name?: string;
 }
 
 export const useAuthProvider = () => {

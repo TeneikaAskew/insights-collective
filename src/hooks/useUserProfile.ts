@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -45,10 +46,19 @@ export function useUserProfile(user: User | null) {
 
         if (error) throw error;
 
+        // Generate a display name from first_name and last_name
+        const displayName = profile.first_name && profile.last_name 
+          ? `${profile.first_name} ${profile.last_name}`.trim()
+          : profile.first_name || profile.email?.split('@')[0] || 'User';
+
         // Combine auth user data with profile data
         setEnrichedUser({
           ...user,
           ...profile,
+          // Ensure avatar and name are properly set
+          avatar: profile.avatar_url,
+          avatar_url: profile.avatar_url,
+          name: displayName,
           roles: profile.roles || []
         });
       } catch (err) {
@@ -57,6 +67,10 @@ export function useUserProfile(user: User | null) {
         // Still set the basic user data even if profile fetch fails
         setEnrichedUser({
           ...user,
+          // Set default values for avatar and name
+          avatar: undefined,
+          avatar_url: undefined,
+          name: user.email?.split('@')[0] || 'User',
           roles: []
         });
       } finally {

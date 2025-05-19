@@ -1,6 +1,6 @@
 
 // Generate letter grade based on percentage
-export function getLetterGrade(percentage) {
+export function getLetterGrade(percentage: number): string {
   if (percentage >= 92) return "A";
   if (percentage >= 85) return "B+";
   if (percentage >= 78) return "B";
