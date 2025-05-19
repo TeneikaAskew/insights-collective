@@ -278,7 +278,7 @@ export async function callLLMAPI(system, user) {
   validateInput(system, user);
   // Get available endpoints
   // Define preferred order of endpoints
-  const preferredOrder = ['TOGETHER', 'GROQ', 'ANWAN'];
+  const preferredOrder = ['TOGETHER', 'TOGETHER2', 'GROQ', 'ANWAN'];
   
   // Filter available endpoints in the preferred order
   const availableEndpoints = preferredOrder.filter(canUseEndpoint);
