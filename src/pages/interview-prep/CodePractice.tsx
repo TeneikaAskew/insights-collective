@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Check, Code, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Define the available job roles
 const jobRoles = [
@@ -218,78 +220,103 @@ export default function CodePractice() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto py-8 monaco-theme">
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep')}>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => navigate('/interview-prep')}
+              className="border-monaco-border text-monaco-foreground hover:bg-monaco-background/50"
+            >
               <ChevronLeft className="h-4 w-4 mr-1" />
               Back to Interview Prep
             </Button>
           </div>
-          <h1 className="text-4xl font-bold mb-2">Code Challenge Practice</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-4xl font-bold mb-2 text-monaco-foreground">Code Challenge Practice</h1>
+          <p className="text-monaco-foreground/70">
             Practice technical coding challenges with real-time feedback.
           </p>
         </div>
 
         <div className="mb-6">
-          <label className="text-sm font-medium mb-2 block">Select your target role:</label>
+          <label className="text-sm font-medium mb-2 block text-monaco-foreground">Select your target role:</label>
           <Select value={selectedRole} onValueChange={handleRoleChange}>
-            <SelectTrigger className="w-full sm:w-[300px]">
+            <SelectTrigger className="w-full sm:w-[300px] bg-monaco-background border-monaco-border text-monaco-foreground">
               <SelectValue placeholder="Select a role" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-monaco-background border-monaco-border">
               {jobRoles.map((role) => (
-                <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
+                <SelectItem key={role.value} value={role.value} className="text-monaco-foreground">
+                  {role.label}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <p className="text-xs text-muted-foreground mt-2">
+          <p className="text-xs text-monaco-foreground/60 mt-2">
             Questions will be tailored to the specific skills needed for your selected role
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
-            <Card>
+            <Card className="bg-monaco-background border-monaco-border h-full">
               <CardHeader>
-                <CardTitle>{currentChallenge.title}</CardTitle>
-                <CardDescription>{currentChallenge.difficulty}</CardDescription>
+                <CardTitle className="text-monaco-foreground">{currentChallenge.title}</CardTitle>
+                <CardDescription className="text-monaco-foreground/70">{currentChallenge.difficulty}</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm mb-4">
-                  {currentChallenge.description}
-                </p>
-                
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Example:</h3>
-                    <pre className="bg-muted p-2 rounded-md text-xs">
-                      {currentChallenge.example}
-                    </pre>
+                <ScrollArea className="h-auto max-h-[500px]">
+                  <div className="space-y-4">
+                    <p className="text-sm mb-4 text-monaco-foreground">
+                      {currentChallenge.description}
+                    </p>
+                    
+                    <div>
+                      <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Example:</h3>
+                      <pre className="bg-monaco-background/50 p-2 rounded-md text-xs border border-monaco-border text-monaco-foreground overflow-x-auto">
+                        {currentChallenge.example}
+                      </pre>
+                    </div>
+                    
+                    <div>
+                      <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Constraints:</h3>
+                      <ul className="list-disc list-inside space-y-1">
+                        {currentChallenge.constraints.map((constraint, index) => (
+                          <li key={index} className="text-monaco-foreground text-sm">{constraint}</li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Constraints:</h3>
-                    <ul className="list-disc list-inside space-y-1">
-                      {currentChallenge.constraints.map((constraint, index) => (
-                        <li key={index}>{constraint}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+                </ScrollArea>
               </CardContent>
             </Card>
           </div>
           
           <div className="md:col-span-2">
-            <Card className="h-full">
+            <Card className="bg-monaco-background border-monaco-border h-full">
               <CardHeader className="pb-2">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList>
-                    <TabsTrigger value="question">Problem</TabsTrigger>
-                    <TabsTrigger value="code">Code Editor</TabsTrigger>
-                    <TabsTrigger value="feedback" disabled={!feedback}>Feedback</TabsTrigger>
+                  <TabsList className="bg-monaco-border/30">
+                    <TabsTrigger 
+                      value="question" 
+                      className="data-[state=active]:bg-monaco-selection data-[state=active]:text-monaco-foreground text-monaco-foreground/70"
+                    >
+                      Problem
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="code" 
+                      className="data-[state=active]:bg-monaco-selection data-[state=active]:text-monaco-foreground text-monaco-foreground/70"
+                    >
+                      Code Editor
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="feedback" 
+                      disabled={!feedback}
+                      className="data-[state=active]:bg-monaco-selection data-[state=active]:text-monaco-foreground text-monaco-foreground/70"
+                    >
+                      Feedback
+                    </TabsTrigger>
                   </TabsList>
                 </Tabs>
               </CardHeader>
@@ -297,29 +324,31 @@ export default function CodePractice() {
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsContent value="question">
-                    <div className="prose max-w-none">
-                      <h3>{currentChallenge.title}</h3>
-                      <p>
-                        {currentChallenge.detail}
-                      </p>
-                      <p>
-                        This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
-                      </p>
-                      <h4>Hints:</h4>
-                      <ol>
-                        {currentChallenge.hints.map((hint, index) => (
-                          <li key={index}>{hint}</li>
-                        ))}
-                      </ol>
-                      
-                      <Button onClick={() => setActiveTab('code')} className="mt-4">
-                        Start Coding
-                      </Button>
-                    </div>
+                    <ScrollArea className="h-auto max-h-[500px]">
+                      <div className="prose max-w-none text-monaco-foreground">
+                        <h3 className="text-monaco-foreground">{currentChallenge.title}</h3>
+                        <p className="text-monaco-foreground">
+                          {currentChallenge.detail}
+                        </p>
+                        <p className="text-monaco-foreground">
+                          This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
+                        </p>
+                        <h4 className="text-monaco-foreground">Hints:</h4>
+                        <ol>
+                          {currentChallenge.hints.map((hint, index) => (
+                            <li key={index} className="text-monaco-foreground">{hint}</li>
+                          ))}
+                        </ol>
+                        
+                        <Button onClick={() => setActiveTab('code')} className="mt-4 bg-blue-600 hover:bg-blue-700">
+                          Start Coding
+                        </Button>
+                      </div>
+                    </ScrollArea>
                   </TabsContent>
                   
                   <TabsContent value="code">
-                    <div className="h-[500px] border rounded-md">
+                    <div className="h-[500px] border rounded-md border-monaco-border overflow-hidden">
                       <Editor
                         height="100%"
                         language={selectedRole === 'data_analyst' || selectedRole === 'data_scientist' ? 'python' : 'javascript'}
@@ -330,11 +359,20 @@ export default function CodePractice() {
                           minimap: { enabled: false },
                           fontSize: 14,
                           scrollBeyondLastLine: false,
+                          scrollbar: {
+                            useShadows: false,
+                            verticalScrollbarSize: 10,
+                            horizontalScrollbarSize: 10,
+                          }
                         }}
                       />
                     </div>
                     <div className="mt-4 flex justify-end">
-                      <Button onClick={handleSubmit} disabled={loading}>
+                      <Button 
+                        onClick={handleSubmit} 
+                        disabled={loading}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
                         {loading ? <Spinner size="sm" className="mr-2" /> : null}
                         Submit Solution
                       </Button>
@@ -343,51 +381,57 @@ export default function CodePractice() {
                   
                   <TabsContent value="feedback">
                     {feedback && (
-                      <div className="space-y-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            {feedback.correct ? (
-                              <Badge className="bg-green-100 text-green-800 mr-2">
-                                <Check className="h-4 w-4 mr-1" />
-                                Correct
-                              </Badge>
-                            ) : (
-                              <Badge variant="destructive" className="mr-2">
-                                Incorrect
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <div className="text-xs">
-                              <span className="font-medium">Runtime:</span> {feedback.runtime}
+                      <ScrollArea className="h-auto max-h-[500px]">
+                        <div className="space-y-6">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              {feedback.correct ? (
+                                <Badge className="bg-green-600 text-white mr-2">
+                                  <Check className="h-4 w-4 mr-1" />
+                                  Correct
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive" className="mr-2">
+                                  Incorrect
+                                </Badge>
+                              )}
                             </div>
-                            <div className="text-xs">
-                              <span className="font-medium">Memory:</span> {feedback.memory}
+                            <div className="flex items-center gap-4">
+                              <div className="text-xs text-monaco-foreground">
+                                <span className="font-medium">Runtime:</span> {feedback.runtime}
+                              </div>
+                              <div className="text-xs text-monaco-foreground">
+                                <span className="font-medium">Memory:</span> {feedback.memory}
+                              </div>
                             </div>
                           </div>
+                          
+                          <div>
+                            <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Code Review</h3>
+                            <p className="text-sm text-monaco-foreground">{feedback.feedback}</p>
+                          </div>
+                          
+                          <div>
+                            <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Suggestions</h3>
+                            <ul className="list-disc list-inside space-y-1">
+                              {feedback.suggestions.map((suggestion, index) => (
+                                <li key={index} className="text-sm text-monaco-foreground">{suggestion}</li>
+                              ))}
+                            </ul>
+                          </div>
+                          
+                          <div className="flex justify-end">
+                            <Button 
+                              variant="outline" 
+                              onClick={() => setActiveTab('code')}
+                              className="border-monaco-border text-monaco-foreground hover:bg-monaco-background/50"
+                            >
+                              <Code className="h-4 w-4 mr-2" />
+                              Continue Editing
+                            </Button>
+                          </div>
                         </div>
-                        
-                        <div>
-                          <h3 className="text-sm font-medium mb-2">Code Review</h3>
-                          <p className="text-sm">{feedback.feedback}</p>
-                        </div>
-                        
-                        <div>
-                          <h3 className="text-sm font-medium mb-2">Suggestions</h3>
-                          <ul className="list-disc list-inside space-y-1">
-                            {feedback.suggestions.map((suggestion, index) => (
-                              <li key={index} className="text-sm">{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                        
-                        <div className="flex justify-end">
-                          <Button variant="outline" onClick={() => setActiveTab('code')}>
-                            <Code className="h-4 w-4 mr-2" />
-                            Continue Editing
-                          </Button>
-                        </div>
-                      </div>
+                      </ScrollArea>
                     )}
                   </TabsContent>
                 </Tabs>

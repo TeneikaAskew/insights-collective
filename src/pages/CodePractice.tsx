@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Check, AlertCircle, ChevronLeft, ChevronRight, Play, Code as CodeIcon } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface CodeChallenge {
   id: string;
@@ -175,8 +177,8 @@ export default function CodePractice() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
-        <Card>
+      <div className="container mx-auto py-8 monaco-theme">
+        <Card className="bg-monaco-background border-monaco-border">
           <CardContent className="flex items-center justify-center py-8">
             <Spinner size="lg" />
           </CardContent>
@@ -187,11 +189,11 @@ export default function CodePractice() {
 
   if (challenges.length === 0) {
     return (
-      <div className="container mx-auto py-8">
-        <Card>
+      <div className="container mx-auto py-8 monaco-theme">
+        <Card className="bg-monaco-background border-monaco-border">
           <CardHeader>
-            <CardTitle>No Challenges Available</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-monaco-foreground">No Challenges Available</CardTitle>
+            <CardDescription className="text-monaco-foreground/70">
               Please analyze a job description first to get relevant coding challenges.
             </CardDescription>
           </CardHeader>
@@ -206,42 +208,50 @@ export default function CodePractice() {
   const currentChallenge = challenges[currentChallengeIndex];
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto py-8 monaco-theme">
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Code Challenge Practice</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-4xl font-bold mb-2 text-monaco-foreground">Code Challenge Practice</h1>
+        <p className="text-monaco-foreground/70">
           Practice technical coding challenges with real-time feedback.
         </p>
       </div>
 
       <div className="space-y-8">
-        <Card>
+        <Card className="bg-monaco-background border-monaco-border">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Challenge {currentChallengeIndex + 1} of {challenges.length}</CardTitle>
-                <CardDescription>
+                <CardTitle className="text-monaco-foreground">Challenge {currentChallengeIndex + 1} of {challenges.length}</CardTitle>
+                <CardDescription className="text-monaco-foreground/70">
                   Topics: {currentChallenge.topic_tags.join(', ')}
                 </CardDescription>
               </div>
-              <Badge>{currentChallenge.difficulty}</Badge>
+              <Badge className={`
+                ${currentChallenge.difficulty === 'easy' ? 'bg-green-600' : 
+                  currentChallenge.difficulty === 'medium' ? 'bg-yellow-600' : 
+                  'bg-red-600'} text-white`
+              }>
+                {currentChallenge.difficulty}
+              </Badge>
             </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-6">
               <div>
-                <h3 className="text-lg font-semibold mb-2">{currentChallenge.title}</h3>
-                <p className="text-muted-foreground whitespace-pre-wrap">{currentChallenge.prompt}</p>
+                <h3 className="text-lg font-semibold mb-2 text-monaco-foreground">{currentChallenge.title}</h3>
+                <ScrollArea className="h-auto max-h-[200px] rounded-md border border-monaco-border p-4 bg-monaco-background/50">
+                  <p className="text-monaco-foreground/90 whitespace-pre-wrap">{currentChallenge.prompt}</p>
+                </ScrollArea>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-40 bg-monaco-background border-monaco-border text-monaco-foreground">
                     <SelectValue placeholder="Select language" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-monaco-background border-monaco-border">
                     {SUPPORTED_LANGUAGES.map((lang) => (
-                      <SelectItem key={lang.value} value={lang.value}>
+                      <SelectItem key={lang.value} value={lang.value} className="text-monaco-foreground">
                         {lang.label}
                       </SelectItem>
                     ))}
@@ -251,7 +261,7 @@ export default function CodePractice() {
                 <Button
                   onClick={handleExecute}
                   disabled={executing || !code.trim()}
-                  className="ml-auto"
+                  className="ml-auto bg-blue-600 hover:bg-blue-700"
                 >
                   {executing ? (
                     <Spinner size="sm" className="mr-2" />
@@ -262,7 +272,7 @@ export default function CodePractice() {
                 </Button>
               </div>
 
-              <div className="border rounded-md">
+              <div className="border rounded-md border-monaco-border overflow-hidden">
                 <Editor
                   height="400px"
                   language={language}
@@ -274,45 +284,54 @@ export default function CodePractice() {
                     fontSize: 14,
                     lineNumbers: 'on',
                     automaticLayout: true,
+                    scrollBeyondLastLine: false,
+                    renderLineHighlight: 'all',
+                    scrollbar: {
+                      useShadows: false,
+                      verticalScrollbarSize: 10,
+                      horizontalScrollbarSize: 10,
+                    }
                   }}
                 />
               </div>
 
               {testResults.length > 0 && (
                 <div>
-                  <h3 className="text-sm font-medium mb-2">Test Results</h3>
-                  <div className="space-y-2">
-                    {testResults.map((result, index) => (
-                      <div
-                        key={index}
-                        className={`p-4 rounded-md ${
-                          result.passed ? 'bg-green-50' : 'bg-red-50'
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          {result.passed ? (
-                            <Check className="h-5 w-5 text-green-500" />
-                          ) : (
-                            <AlertCircle className="h-5 w-5 text-red-500" />
-                          )}
-                          <div className="flex-1 text-sm">
-                            <p>
-                              <strong>Input:</strong> {result.input}
-                            </p>
-                            <p>
-                              <strong>Expected:</strong> {result.expectedOutput}
-                            </p>
-                            <p>
-                              <strong>Actual:</strong> {result.actualOutput}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Execution time: {result.executionTime}ms
-                            </p>
+                  <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Test Results</h3>
+                  <ScrollArea className="h-auto max-h-[300px]">
+                    <div className="space-y-2">
+                      {testResults.map((result, index) => (
+                        <div
+                          key={index}
+                          className={`p-4 rounded-md ${
+                            result.passed ? 'bg-green-900/20 border border-green-700/50' : 'bg-red-900/20 border border-red-700/50'
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {result.passed ? (
+                              <Check className="h-5 w-5 text-green-500 flex-shrink-0" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                            )}
+                            <div className="flex-1 text-sm">
+                              <p className="text-monaco-foreground">
+                                <strong>Input:</strong> {result.input}
+                              </p>
+                              <p className="text-monaco-foreground">
+                                <strong>Expected:</strong> {result.expectedOutput}
+                              </p>
+                              <p className="text-monaco-foreground">
+                                <strong>Actual:</strong> {result.actualOutput}
+                              </p>
+                              <p className="text-xs text-monaco-foreground/70">
+                                Execution time: {result.executionTime}ms
+                              </p>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 </div>
               )}
 
@@ -321,6 +340,7 @@ export default function CodePractice() {
                   variant="outline"
                   onClick={handlePrevious}
                   disabled={currentChallengeIndex === 0}
+                  className="border-monaco-border text-monaco-foreground hover:bg-monaco-background/50"
                 >
                   <ChevronLeft className="h-4 w-4 mr-2" />
                   Previous
@@ -329,6 +349,7 @@ export default function CodePractice() {
                   variant="outline"
                   onClick={handleNext}
                   disabled={currentChallengeIndex === challenges.length - 1}
+                  className="border-monaco-border text-monaco-foreground hover:bg-monaco-background/50"
                 >
                   Next
                   <ChevronRight className="h-4 w-4 ml-2" />
@@ -339,98 +360,104 @@ export default function CodePractice() {
         </Card>
 
         {review && (
-          <Card>
+          <Card className="bg-monaco-background border-monaco-border">
             <CardHeader>
-              <CardTitle>AI Code Review</CardTitle>
-              <CardDescription>Analysis of your solution</CardDescription>
+              <CardTitle className="text-monaco-foreground">AI Code Review</CardTitle>
+              <CardDescription className="text-monaco-foreground/70">Analysis of your solution</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Scores</h3>
-                  <div className="space-y-2">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Correctness</span>
-                        <span>{review.scores.correctness}/10</span>
+              <ScrollArea className="h-auto max-h-[500px]">
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Scores</h3>
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-monaco-foreground">Correctness</span>
+                          <span className="text-monaco-foreground">{review.scores.correctness}/10</span>
+                        </div>
+                        <Progress value={review.scores.correctness * 10} className="bg-monaco-border h-2" 
+                                indicatorClassName="bg-blue-500" />
                       </div>
-                      <Progress value={review.scores.correctness * 10} />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Efficiency</span>
-                        <span>{review.scores.efficiency}/10</span>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-monaco-foreground">Efficiency</span>
+                          <span className="text-monaco-foreground">{review.scores.efficiency}/10</span>
+                        </div>
+                        <Progress value={review.scores.efficiency * 10} className="bg-monaco-border h-2"
+                                indicatorClassName="bg-blue-500" />
                       </div>
-                      <Progress value={review.scores.efficiency * 10} />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Style</span>
-                        <span>{review.scores.style}/10</span>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-monaco-foreground">Style</span>
+                          <span className="text-monaco-foreground">{review.scores.style}/10</span>
+                        </div>
+                        <Progress value={review.scores.style * 10} className="bg-monaco-border h-2"
+                                indicatorClassName="bg-blue-500" />
                       </div>
-                      <Progress value={review.scores.style * 10} />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium">Overall</span>
-                        <span className="font-medium">{review.scores.overall}/10</span>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium text-monaco-foreground">Overall</span>
+                          <span className="font-medium text-monaco-foreground">{review.scores.overall}/10</span>
+                        </div>
+                        <Progress value={review.scores.overall * 10} className="bg-monaco-border h-2"
+                                indicatorClassName="bg-blue-500" />
                       </div>
-                      <Progress value={review.scores.overall * 10} />
                     </div>
                   </div>
-                </div>
 
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Analysis</h3>
-                  <div className="space-y-2 text-sm">
-                    <p><strong>Correctness:</strong> {review.analysis.correctness}</p>
-                    <p><strong>Time Complexity:</strong> {review.analysis.complexity.time}</p>
-                    <p><strong>Space Complexity:</strong> {review.analysis.complexity.space}</p>
-                    <p><strong>Code Style:</strong> {review.analysis.style}</p>
-                    <p><strong>Maintainability:</strong> {review.analysis.maintainability}</p>
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Analysis</h3>
+                    <div className="space-y-2 text-sm">
+                      <p className="text-monaco-foreground"><strong>Correctness:</strong> {review.analysis.correctness}</p>
+                      <p className="text-monaco-foreground"><strong>Time Complexity:</strong> {review.analysis.complexity.time}</p>
+                      <p className="text-monaco-foreground"><strong>Space Complexity:</strong> {review.analysis.complexity.space}</p>
+                      <p className="text-monaco-foreground"><strong>Code Style:</strong> {review.analysis.style}</p>
+                      <p className="text-monaco-foreground"><strong>Maintainability:</strong> {review.analysis.maintainability}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Strengths</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {review.feedback.strengths.map((strength: string, index: number) => (
+                        <li key={index} className="text-sm flex items-start">
+                          <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
+                          <span className="text-monaco-foreground">{strength}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Improvements</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {review.feedback.improvements.map((improvement: string, index: number) => (
+                        <li key={index} className="text-sm flex items-start">
+                          <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
+                          <span className="text-monaco-foreground">{improvement}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-monaco-foreground">Alternative Approaches</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {review.feedback.alternative_approaches.map((approach: string, index: number) => (
+                        <li key={index} className="text-sm flex items-start">
+                          <CodeIcon className="h-4 w-4 text-blue-500 mr-2 mt-1 flex-shrink-0" />
+                          <span className="text-monaco-foreground">{approach}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Strengths</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {review.feedback.strengths.map((strength: string, index: number) => (
-                      <li key={index} className="text-sm flex items-start">
-                        <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
-                        <span>{strength}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Improvements</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {review.feedback.improvements.map((improvement: string, index: number) => (
-                      <li key={index} className="text-sm flex items-start">
-                        <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
-                        <span>{improvement}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Alternative Approaches</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {review.feedback.alternative_approaches.map((approach: string, index: number) => (
-                      <li key={index} className="text-sm flex items-start">
-                        <CodeIcon className="h-4 w-4 text-blue-500 mr-2 mt-1 flex-shrink-0" />
-                        <span>{approach}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
+              </ScrollArea>
             </CardContent>
           </Card>
         )}
       </div>
     </div>
   );
-} 
+}

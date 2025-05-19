@@ -1,97 +1,76 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
 
 @layer base {
   :root {
-    --background: 0 0% 98%; /* Soft White */
-    --foreground: 0 0% 17%; /* Slate Gray */
+    --background: 0 0% 100%;
+    --foreground: 20 14.3% 4.1%;
 
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 17%; /* Slate Gray */
+    --card-foreground: 20 14.3% 4.1%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 17%; /* Slate Gray */
+    --popover-foreground: 20 14.3% 4.1%;
 
-    --primary: 217 88% 56%; /* Insight Blue */
-    --primary-foreground: 0 0% 100%;
+    --primary: 24 9.8% 10%;
+    --primary-foreground: 60 9.1% 97.8%;
 
-    --secondary:  251 85% 75%; /* PURPLE - Updated to match the requested color 222 54% 23%; /* Vira Deep Blue */
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 60 4.8% 95.9%;
+    --secondary-foreground: 24 9.8% 10%;
 
-    --muted: 0 0% 98%; /* Soft White */
-    --muted-foreground: 220 6% 58%; /* Dusty Gray */
+    --muted: 60 4.8% 95.9%;
+    --muted-foreground: 25 5.3% 44.7%;
 
-    --accent: 164 61% 60%; /* Aqua Teal */
-    --accent-foreground: 222 47.4% 11.2%;
+    --accent: 60 4.8% 95.9%;
+    --accent-foreground: 24 9.8% 10%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 60 9.1% 97.8%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 37 91% 56%; /* Energetic Amber */
+    --border: 20 5.9% 90%;
+    --input: 20 5.9% 90%;
+    --ring: 20 14.3% 4.1%;
 
-    --radius: 0.75rem;
-
-    --sidebar-background:  251 85% 75%; /* PURPLE - Updated to match the requested color 222 54% 23%; /* Vira Deep Blue */
-    --sidebar-foreground: 0 0% 100%;
-    --sidebar-primary: 37 91% 56%; /* Energetic Amber */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 164 61% 60%; /* Aqua Teal */
-    --sidebar-accent-foreground: 251 85% 75%; /* PURPLE - Updated to match the requested color */
-    --sidebar-border: 222 34% 33%;
-    --sidebar-ring: 37 91% 56%; /* Energetic Amber */
+    --radius: 0.5rem;
     
-    /* Brand color variables */
-    --insight-blue: 217 88% 56%; /* #1F75FE */
-    --vira-purple:  251 85% 75%; /* C7BCF5 */ 
-    --aqua-teal: 164 61% 60%; /* 5ED3B5 */
-    --energetic-amber: 37 91% 56%; /* #F9A826 */
-    --slate-gray: 0 0% 17%; /* #2C2C2C */
-    --soft-white: 0 0% 98%; /* #F9FAFB */
-    --dusty-gray: 220 6% 58%; /* #8A8F9E */
+    --sidebar-background: 20 14.3% 4.1%;
+    --sidebar-foreground: 60 9.1% 97.8%;
+    --sidebar-primary: 60 9.1% 97.8%;
+    --sidebar-primary-foreground: 20 14.3% 4.1%;
+    --sidebar-border: 12 6.5% 15.1%;
+    --sidebar-ring: 24 5.4% 63.9%;
   }
 
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+  .monaco-theme {
+    --background: 222 25% 14%;
+    --foreground: 0 0% 100%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 222 25% 14%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 222 25% 14%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 164 61% 60%; /* Aqua Teal */
+    --primary: 210 100% 52%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary:  251 85% 75%; /* PURPLE - Updated to match the requested color 222 54% 23%; /* Vira Deep Blue */
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 222 25% 20%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 220 6% 58%; /* Dusty Gray */
+    --muted: 222 25% 20%;
+    --muted-foreground: 215 7% 65%;
 
-    --accent: 164 61% 60%; /* Aqua Teal */
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 222 25% 20%;
+    --accent-foreground: 0 0% 95%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 37 91% 56%; /* Energetic Amber */
-    
-    --sidebar-background: 222 24% 15%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 37 91% 56%; /* Energetic Amber */
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 164 51% 40%; /* Darker Aqua Teal */
-    --sidebar-accent-foreground: 251 85% 75%; /* PURPLE - Updated to match the requested color */
-    --sidebar-border: 222 10% 20%;
-    --sidebar-ring: 37 91% 56%; /* Energetic Amber */
+    --border: 222 25% 25%;
+    --input: 222 25% 25%;
+    --ring: 212.7 26.8% 83.9%;
   }
 }
 
@@ -99,170 +78,42 @@
   * {
     @apply border-border;
   }
-
   body {
-    @apply bg-background text-foreground font-sans w-full;
-    font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
+    @apply bg-background text-foreground min-h-screen;
   }
-  
-  html {
-    @apply scroll-smooth w-full;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-display font-semibold;
-  }
-  
-  /* Default full width for all main container elements */
-  .container, main, section, article {
-    @apply w-full;
+  pre {
+    @apply whitespace-pre-wrap break-words;
   }
 }
 
 @layer components {
-  .course-card {
-    @apply bg-white rounded-lg shadow-md overflow-hidden transition-all hover:shadow-lg;
+  .monaco-scrollbar::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
   }
-  
-  .progress-circle {
-    @apply relative h-16 w-16 rounded-full flex items-center justify-center;
-  }
-  
-  .progress-circle::before {
-    content: '';
-    @apply absolute inset-0 rounded-full border-4 border-secondary;
-  }
-  
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
-  }
-  
-  .step-card {
-    @apply relative p-6 rounded-lg border border-border bg-card shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20;
-  }
-  
-  .section-heading {
-    @apply text-3xl md:text-4xl font-bold mb-6 text-center font-display;
-  }
-  
-  .section-subheading {
-    @apply text-lg text-muted-foreground mb-12 max-w-3xl mx-auto text-center;
-  }
-  
-  .card-hover {
-    @apply transition-all duration-300 hover:shadow-md hover:-translate-y-1;
-  }
-  
-  .glass-card {
-    @apply bg-white/80 backdrop-blur-sm border border-white/50 shadow-sm;
-  }
-  
-  /* Brand color gradient utilities */
-  .bg-gradient-insight-vira {
-    @apply bg-gradient-to-r from-insightBlue to-viraDeepBlue;
-  }
-  
-  .bg-gradient-teal-amber {
-    @apply bg-gradient-to-r from-aquaTeal to-energeticAmber;
-  }
-  
-  .bg-gradient-insight-teal {
-    @apply bg-gradient-to-r from-insightBlue to-aquaTeal;
-  }
-  
-  .text-gradient-insight-vira {
-    @apply bg-gradient-to-r from-insightBlue to-viraDeepBlue bg-clip-text text-transparent;
-  }
-  
-  /* Interactive button with gradient hover */
-  .btn-gradient {
-    @apply relative overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1;
-  }
-  
-  .btn-gradient::before {
-    content: '';
-    @apply absolute inset-0 bg-gradient-to-r from-primary/80 to-accent/80 opacity-0 transition-opacity duration-300;
-  }
-  
-  .btn-gradient:hover::before {
-    @apply opacity-100;
-  }
-  
-  /* Card styling */
-  .modern-card {
-    @apply bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100;
-  }
-  
-  /* Enhanced hover effects */
-  .hover-lift {
-    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-md;
-  }
-  
-  /* Badge styling */
-  .badge {
-    @apply text-xs font-medium px-2 py-1 rounded-full;
-  }
-  
-  /* Modern button */
-  .modern-button {
-    @apply rounded-full font-medium shadow-sm transition-all duration-300 flex items-center justify-center gap-2 hover:shadow-md hover:-translate-y-0.5;
-  }
-  
-  /* Important overrides for sidebar active items */
-  .data-\[active\=true\]\:text-sidebar-accent-foreground[data-active=true],
-  .sidebar-active-item {
-    color: rgb(155 135 245) !important;
-  }
-  
-  [data-active=true] svg {
-    color: rgb(155 135 245) !important;
-  }
-}
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
+  .monaco-scrollbar::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
-/* Animated background */
-.animated-grid {
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(to right, rgba(31, 117, 254, 0.03) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(31, 117, 254, 0.03) 1px, transparent 1px);
-  background-size: 40px 40px;
-  mask-image: radial-gradient(ellipse at center, rgba(0, 0, 0, 1) 30%, rgba(0, 0, 0, 0) 80%);
-}
-
-/* Animated gradient */
-.animated-gradient {
-  @apply bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 bg-[length:200%_200%] animate-gradient-x;
-}
-
-/* Blob animation */
-.blob {
-  @apply absolute rounded-full bg-gradient-to-r filter blur-3xl opacity-50;
-  animation: blob-animation 20s infinite alternate;
-}
-
-@keyframes blob-animation {
-  0% {
-    transform: translate(0, 0) scale(1);
+  .monaco-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(128, 128, 128, 0.5);
+    border-radius: 5px;
   }
-  33% {
-    transform: translate(5%, 5%) scale(1.1);
+
+  .monaco-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(128, 128, 128, 0.7);
   }
-  66% {
-    transform: translate(-5%, 5%) scale(0.9);
+  
+  .code-challenge-container {
+    @apply bg-monaco-background text-monaco-foreground;
   }
-  100% {
-    transform: translate(0, 0) scale(1);
+
+  .monaco-card {
+    @apply bg-monaco-background border border-monaco-border rounded-lg shadow-lg overflow-hidden;
+  }
+
+  .monaco-code {
+    @apply font-mono text-sm overflow-x-auto;
   }
 }

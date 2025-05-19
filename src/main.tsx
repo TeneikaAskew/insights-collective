@@ -34,6 +34,9 @@ if (typeof window !== 'undefined' && window.localStorage) {
   }
 }
 
+// Initialize dark theme
+document.documentElement.classList.add('monaco-theme');
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

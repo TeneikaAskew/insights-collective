@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -22,6 +21,7 @@ export default {
 			fontFamily: {
 				sans: ['Inter', 'system-ui', 'sans-serif'],
 				display: ['Plus Jakarta Sans', 'system-ui', 'sans-serif'],
+				mono: ['Consolas', 'Monaco', 'Andale Mono', 'monospace'],
 			},
 			colors: {
 				border: 'hsl(var(--border))',
@@ -36,10 +36,6 @@ export default {
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
 					foreground: 'hsl(var(--secondary-foreground))'
-                    // DEFAULT: 'hsl(164, 61%, 60%)',       // Aqua Teal (#5ED3B5)
-                    // foreground: 'hsl(0, 0%, 0%)'        // Slate Gray (#2C2C2C)
-                    //  DEFAULT: 'hsl(37, 91%, 56%)',        // Energetic Amber (#F9A826)
-                    // foreground: 'hsl(0, 0%, 100%)'       // White (#FFFFFF)
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
@@ -66,10 +62,26 @@ export default {
 					foreground: 'hsl(var(--sidebar-foreground))',
 					primary: 'hsl(var(--sidebar-primary))',
 					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'rgba(255, 255, 255, 0.1)', // Changed from blue to white with transparency
+					accent: 'rgba(255, 255, 255, 0.1)',
 					'accent-foreground': 'rgba(255, 255, 255, 0.95)',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
+				},
+				// Monaco editor theme colors
+				monaco: {
+					background: '#1A1F2C', // Dark blue-gray
+					foreground: '#FFFFFF',
+					selection: '#264F78',
+					lineHighlight: '#282e38',
+					border: '#323842',
+					activeBorder: '#4b5362',
+					comment: '#608B4E',
+					keyword: '#569CD6',
+					string: '#CE9178',
+					function: '#DCDCAA',
+					variable: '#9CDCFE',
+					number: '#B5CEA8',
+					class: '#4EC9B0',
 				},
 				// Brand colors
 				insightBlue: '#1F75FE',
@@ -189,7 +201,8 @@ export default {
 				'gradient-conic': 'conic-gradient(from 90deg at 50% 50%, var(--tw-gradient-stops))',
 				'dots-pattern': 'radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.1) 1px, transparent 0)',
 				'hero-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.1), rgba(94, 211, 181, 0.1))',
-				'blueprint-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.05), rgba(28, 45, 90, 0.05))'
+				'blueprint-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.05), rgba(28, 45, 90, 0.05))',
+				'monaco-gradient': 'linear-gradient(to bottom, #1A1F2C, #192133)',
 			},
 			backgroundSize: {
 				'dots-lg': '20px 20px'
