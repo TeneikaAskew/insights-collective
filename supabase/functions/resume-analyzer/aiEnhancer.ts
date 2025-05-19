@@ -239,6 +239,7 @@ function formatResponse(raw) {
       pitch = pitch.replace(/^\*\*\s*|\s*\*\*$/g, '');
       pitch = pitch.replace(/\n+/g, ' ');
       pitch = pitch.replace(/\s+/g, ' ').trim();
+      pitch = pitch.replace(/^Elevator Pitch:?/i, '');
       extractedContent.elevatorPitch = pitch;
       break;
     }
