@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { format } from 'date-fns';
+import { format, addHours } from 'date-fns';
 import { Calendar as CalendarIcon, Clock, Users, Video, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useNavigate } from 'react-router-dom';
@@ -22,9 +23,11 @@ interface MockSession {
   role1: 'interviewer' | 'interviewee';
   role2: 'interviewer' | 'interviewee';
   session_time: string;
+  end_time: string; // Added end time field
   type: 'behavioral' | 'technical';
   status: 'scheduled' | 'completed' | 'canceled';
   study_guide_id: string | null;
+  video_platform: string; // Added video platform field
 }
 
 interface TimeBlock {
@@ -52,33 +55,46 @@ export default function MockInterviews() {
   const [selectedType, setSelectedType] = useState<'behavioral' | 'technical'>('behavioral');
   const [isInterviewer, setIsInterviewer] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+  const [previousSessions, setPreviousSessions] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    loadSessions();
-  }, []);
+    if (user) {
+      loadSessions();
+    }
+  }, [user]);
 
   useEffect(() => {
-    if (selectedDate && selectedTimeBlock) {
+    if (selectedDate && selectedTimeBlock && user) {
       loadAvailableUsers();
     }
-  }, [selectedDate, selectedTimeBlock, selectedType, isInterviewer]);
+  }, [selectedDate, selectedTimeBlock, selectedType, isInterviewer, user]);
 
   const loadSessions = async () => {
+    if (!user?.id) return;
+    
     try {
       const { data: sessions, error } = await supabase
         .from('mock_sessions')
         .select('*')
-        .or(`user1_id.eq.${user?.id},user2_id.eq.${user?.id}`)
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
         .order('session_time', { ascending: true });
 
       if (error) throw error;
 
+      // Calculate previous sessions with each partner
+      const sessionCounts: Record<string, number> = {};
+      sessions?.forEach(session => {
+        const partnerId = session.user1_id === user.id ? session.user2_id : session.user1_id;
+        sessionCounts[partnerId] = (sessionCounts[partnerId] || 0) + 1;
+      });
+
+      setPreviousSessions(sessionCounts);
       setSessions(sessions || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error loading sessions:', error);
       toast({
         title: 'Error',
-        description: 'Failed to load mock interview sessions.',
+        description: 'Failed to load mock interview sessions: ' + error.message,
         variant: 'destructive',
       });
     } finally {
@@ -136,7 +152,7 @@ export default function MockInterviews() {
   };
 
   const handleSchedule = async (partnerId: string) => {
-    if (!selectedDate || !selectedTimeBlock || !user) return;
+    if (!selectedDate || !selectedTimeBlock || !user?.id) return;
 
     setScheduling(true);
     try {
@@ -145,17 +161,26 @@ export default function MockInterviews() {
 
       const sessionTime = new Date(selectedDate);
       sessionTime.setHours(timeBlock.startHour, 0, 0, 0);
+      
+      // Calculate end time (1 hour after start time)
+      const sessionEndTime = addHours(sessionTime, 1);
+      
+      // Determine roles based on previous sessions
+      const sessionCount = previousSessions[partnerId] || 0;
+      const shouldBeInterviewer = sessionCount % 2 === 0 ? isInterviewer : !isInterviewer;
 
       const { data: session, error } = await supabase
         .from('mock_sessions')
         .insert({
           user1_id: user.id,
           user2_id: partnerId,
-          role1: isInterviewer ? 'interviewer' : 'interviewee',
-          role2: isInterviewer ? 'interviewee' : 'interviewer',
+          role1: shouldBeInterviewer ? 'interviewer' : 'interviewee',
+          role2: shouldBeInterviewer ? 'interviewee' : 'interviewer',
           session_time: sessionTime.toISOString(),
+          end_time: sessionEndTime.toISOString(),
           type: selectedType,
           status: 'scheduled',
+          video_platform: 'Google Meet',
         })
         .select()
         .single();
@@ -173,11 +198,11 @@ export default function MockInterviews() {
       setSelectedTimeBlock('');
       setSelectedType('behavioral');
       setIsInterviewer(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error scheduling session:', error);
       toast({
         title: 'Error',
-        description: 'Failed to schedule mock interview session.',
+        description: 'Failed to schedule mock interview session: ' + error.message,
         variant: 'destructive',
       });
     } finally {
@@ -187,7 +212,7 @@ export default function MockInterviews() {
 
   const handleJoinSession = (sessionId: string) => {
     // Navigate to the mock interview room
-    window.location.href = `/mock-interview/${sessionId}`;
+    navigate(`/mock-interview/${sessionId}`);
   };
 
   if (loading) {
@@ -226,7 +251,7 @@ export default function MockInterviews() {
               <CardHeader>
                 <CardTitle>Schedule New Session</CardTitle>
                 <CardDescription>
-                  Find available peers for mock interviews.
+                  Find available peers for mock interviews. Sessions are 1 hour long via Google Meet.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -277,31 +302,43 @@ export default function MockInterviews() {
                       checked={isInterviewer}
                       onCheckedChange={setIsInterviewer}
                     />
-                    <Label htmlFor="role-switch">I want to be the interviewer</Label>
+                    <Label htmlFor="role-switch">
+                      I want to be the interviewer for this session
+                      <span className="block text-xs text-muted-foreground mt-1">
+                        (Roles alternate with each new session with the same partner)
+                      </span>
+                    </Label>
                   </div>
 
                   {availableUsers.length > 0 ? (
                     <div className="space-y-4">
                       <h3 className="text-sm font-medium">Available Users</h3>
-                      {availableUsers.map((profile) => (
-                        <div
-                          key={profile.id}
-                          className="flex items-center justify-between p-4 border rounded-md"
-                        >
-                          <div>
-                            <p className="font-medium">{profile.full_name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {profile.title || 'No title'}
-                            </p>
-                          </div>
-                          <Button
-                            onClick={() => handleSchedule(profile.id)}
-                            disabled={scheduling}
+                      {availableUsers.map((profile) => {
+                        const sessionCount = previousSessions[profile.id] || 0;
+                        const roleText = sessionCount > 0 
+                          ? `Next role: ${(sessionCount % 2 === 0) === isInterviewer ? 'Interviewer' : 'Interviewee'}`
+                          : 'No previous sessions';
+                          
+                        return (
+                          <div
+                            key={profile.id}
+                            className="flex items-center justify-between p-4 border rounded-md"
                           >
-                            {scheduling ? <Spinner size="sm" /> : 'Schedule'}
-                          </Button>
-                        </div>
-                      ))}
+                            <div>
+                              <p className="font-medium">{profile.first_name} {profile.last_name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {roleText} • {sessionCount} previous sessions
+                              </p>
+                            </div>
+                            <Button
+                              onClick={() => handleSchedule(profile.id)}
+                              disabled={scheduling}
+                            >
+                              {scheduling ? <Spinner size="sm" /> : 'Schedule'}
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     selectedDate && selectedTimeBlock && (
@@ -362,7 +399,10 @@ export default function MockInterviews() {
                         <div className="flex items-center gap-2 text-sm">
                           <Clock className="h-4 w-4" />
                           <span>
-                            {format(new Date(session.session_time), 'h:mm a')}
+                            {format(new Date(session.session_time), 'h:mm a')} - 
+                            {session.end_time ? 
+                              format(new Date(session.end_time), ' h:mm a') : 
+                              format(addHours(new Date(session.session_time), 1), ' h:mm a')}
                           </span>
                         </div>
 
@@ -371,6 +411,13 @@ export default function MockInterviews() {
                           <span>
                             You are the{' '}
                             {session.user1_id === user?.id ? session.role1 : session.role2}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 text-sm">
+                          <Video className="h-4 w-4" />
+                          <span>
+                            {session.video_platform || 'Google Meet'}
                           </span>
                         </div>
 
