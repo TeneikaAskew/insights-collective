@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -9,6 +9,143 @@ import Editor from '@monaco-editor/react';
 import { Badge } from '@/components/ui/badge';
 import { Check, Code } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+// Define the available job roles
+const jobRoles = [
+  { value: 'data_analyst', label: 'Data Analyst' },
+  { value: 'data_scientist', label: 'Data Scientist' },
+  { value: 'data_engineer', label: 'Data Engineer' },
+  { value: 'cloud_engineer', label: 'Cloud Engineer' },
+  { value: 'business_intelligence', label: 'Business Intelligence' },
+  { value: 'product_analyst', label: 'Product Analyst' },
+  { value: 'all', label: 'All Roles' }
+];
+
+// Sample challenges by role
+const challengesByRole = {
+  data_analyst: {
+    title: 'Pandas DataFrame Filter',
+    difficulty: 'Easy',
+    description: 'Implement a function that filters a pandas DataFrame based on a given condition.',
+    detail: 'Given a pandas DataFrame with sales data, write a function that returns rows where the sales amount exceeds a specified threshold.',
+    example: "Input: df = pd.DataFrame({'product': ['A', 'B', 'C', 'D'], 'sales': [100, 200, 50, 300]}), threshold = 150\nOutput: DataFrame with products B and D",
+    constraints: [
+      'DataFrame will have at least 1 row',
+      'All sales values will be positive integers',
+      'Function should return a new DataFrame, not modify the original'
+    ],
+    hints: [
+      'Use DataFrame boolean indexing',
+      'Think about how to apply a comparison operator across a column',
+      'Remember that pandas operations are vectorized'
+    ]
+  },
+  data_scientist: {
+    title: 'Two Sum',
+    difficulty: 'Easy',
+    description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+    detail: 'You may assume that each input would have exactly one solution, and you may not use the same element twice.',
+    example: 'Input: nums = [2,7,11,15], target = 9\nOutput: [0,1]\nExplanation: Because nums[0] + nums[1] == 9, we return [0, 1].',
+    constraints: [
+      '2 <= nums.length <= 10^4',
+      '-10^9 <= nums[i] <= 10^9',
+      '-10^9 <= target <= 10^9',
+      'Only one valid answer exists.'
+    ],
+    hints: [
+      'Consider using a hash map to store values you\'ve seen so far.',
+      'For each number, check if its complement (target - num) exists in the hash map.',
+      'This can be solved in a single pass through the array.'
+    ]
+  },
+  data_engineer: {
+    title: 'Log Parser',
+    difficulty: 'Medium',
+    description: 'Create a function that parses log files and extracts specific information.',
+    detail: 'Given a list of log strings, extract all IP addresses that made more than N requests.',
+    example: "Input: logs = ['192.168.1.1 - GET /home', '192.168.1.2 - POST /login', '192.168.1.1 - GET /about'], N = 1\nOutput: ['192.168.1.1']",
+    constraints: [
+      'Log entries will be in the format "<ip_address> - <request_type> <endpoint>"',
+      '1 <= logs.length <= 10^5',
+      'Valid IP addresses only'
+    ],
+    hints: [
+      'Use a dictionary to count occurrences of each IP',
+      'Regular expressions can help extract the IP addresses',
+      'Consider how to handle edge cases like empty logs'
+    ]
+  },
+  cloud_engineer: {
+    title: 'Resource Allocation',
+    difficulty: 'Medium',
+    description: 'Implement an algorithm to optimize resource allocation in a cloud environment.',
+    detail: 'Given a list of tasks with their CPU and memory requirements, allocate them to servers to minimize the number of servers used.',
+    example: "Input: tasks = [{'cpu': 2, 'mem': 4}, {'cpu': 1, 'mem': 2}, {'cpu': 3, 'mem': 1}], server_capacity = {'cpu': 4, 'mem': 8}\nOutput: 2 (servers)",
+    constraints: [
+      'Each server has the same capacity',
+      '1 <= tasks.length <= 100',
+      'All requirements are positive integers'
+    ],
+    hints: [
+      'This is a bin packing problem variation',
+      'Consider sorting tasks by resource requirements before allocation',
+      'Try different greedy approaches to see which works best'
+    ]
+  },
+  business_intelligence: {
+    title: 'KPI Calculator',
+    difficulty: 'Easy',
+    description: 'Write a function to calculate key performance indicators from a dataset.',
+    detail: 'Given monthly sales data, calculate the month-over-month growth percentages.',
+    example: "Input: sales = [120, 145, 138, 162, 157]\nOutput: [None, 20.83, -4.83, 17.39, -3.09]",
+    constraints: [
+      'Array will have at least 1 value',
+      'All sales values will be positive',
+      'Return percentages rounded to 2 decimal places'
+    ],
+    hints: [
+      'Handle the first month carefully since there is no previous month',
+      'The formula for growth is (current - previous) / previous * 100',
+      'Consider using a list comprehension for clean code'
+    ]
+  },
+  product_analyst: {
+    title: 'A/B Test Analysis',
+    difficulty: 'Medium',
+    description: 'Implement a function to analyze A/B test results and determine statistical significance.',
+    detail: 'Given conversion counts and sample sizes for control and test groups, calculate the p-value to determine if the difference is statistically significant.',
+    example: "Input: control = {'conversions': 100, 'size': 1000}, test = {'conversions': 120, 'size': 1000}\nOutput: {'p_value': 0.0436, 'significant': True}",
+    constraints: [
+      'All values will be positive integers',
+      'Sample sizes will be greater than 10',
+      'Use a significance level of 0.05'
+    ],
+    hints: [
+      'Consider using a chi-square test or z-test for proportions',
+      'The null hypothesis is that there is no difference between groups',
+      'Remember to interpret the p-value correctly'
+    ]
+  },
+  all: {
+    title: 'Two Sum',
+    difficulty: 'Easy',
+    description: 'Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.',
+    detail: 'You may assume that each input would have exactly one solution, and you may not use the same element twice.',
+    example: 'Input: nums = [2,7,11,15], target = 9\nOutput: [0,1]\nExplanation: Because nums[0] + nums[1] == 9, we return [0, 1].',
+    constraints: [
+      '2 <= nums.length <= 10^4',
+      '-10^9 <= nums[i] <= 10^9',
+      '-10^9 <= target <= 10^9',
+      'Only one valid answer exists.'
+    ],
+    hints: [
+      'Consider using a hash map to store values you\'ve seen so far.',
+      'For each number, check if its complement (target - num) exists in the hash map.',
+      'This can be solved in a single pass through the array.'
+    ]
+  }
+};
 
 export default function CodePractice() {
   const { toast } = useToast();
@@ -16,9 +153,32 @@ export default function CodePractice() {
   const [code, setCode] = useState('// Write your solution here');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [selectedRole, setSelectedRole] = useState('all');
+  const [currentChallenge, setCurrentChallenge] = useState(challengesByRole.all);
+
+  useEffect(() => {
+    // Update the current challenge when the selected role changes
+    setCurrentChallenge(challengesByRole[selectedRole]);
+    
+    // Reset the code editor with template based on the role
+    let template = '// Write your solution here';
+    if (selectedRole === 'data_analyst' || selectedRole === 'data_scientist') {
+      template = '# Write your solution here\n\nimport pandas as pd\nimport numpy as np\n\ndef solution(data):\n    # Your code here\n    pass';
+    } else if (selectedRole === 'data_engineer') {
+      template = '# Write your solution here\n\ndef parse_logs(logs, threshold):\n    # Your code here\n    pass';
+    }
+    
+    setCode(template);
+    setFeedback(null);
+    setActiveTab('question');
+  }, [selectedRole]);
 
   const handleCodeChange = (value) => {
     setCode(value);
+  };
+
+  const handleRoleChange = (value) => {
+    setSelectedRole(value);
   };
 
   const handleSubmit = async () => {
@@ -33,10 +193,11 @@ export default function CodePractice() {
           correct: true,
           runtime: '42ms',
           memory: '8.2MB',
-          feedback: 'Your solution is correct and efficient.',
+          feedback: `Your solution for the ${currentChallenge.title} challenge is correct and efficient.`,
           suggestions: [
-            'Consider handling edge cases for empty arrays',
-            'You could optimize space complexity further'
+            'Consider handling edge cases for empty inputs',
+            'You could optimize space complexity further',
+            `For ${jobRoles.find(role => role.value === selectedRole).label} roles, consider focusing on performance optimization`
           ]
         });
         setActiveTab('feedback');
@@ -64,36 +225,49 @@ export default function CodePractice() {
           </p>
         </div>
 
+        <div className="mb-6">
+          <label className="text-sm font-medium mb-2 block">Select your target role:</label>
+          <Select value={selectedRole} onValueChange={handleRoleChange}>
+            <SelectTrigger className="w-full sm:w-[300px]">
+              <SelectValue placeholder="Select a role" />
+            </SelectTrigger>
+            <SelectContent>
+              {jobRoles.map((role) => (
+                <SelectItem key={role.value} value={role.value}>{role.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-2">
+            Questions will be tailored to the specific skills needed for your selected role
+          </p>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1">
             <Card>
               <CardHeader>
-                <CardTitle>Two Sum</CardTitle>
-                <CardDescription>Easy</CardDescription>
+                <CardTitle>{currentChallenge.title}</CardTitle>
+                <CardDescription>{currentChallenge.difficulty}</CardDescription>
               </CardHeader>
               <CardContent>
                 <p className="text-sm mb-4">
-                  Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
-                  You may assume that each input would have exactly one solution, and you may not use the same element twice.
+                  {currentChallenge.description}
                 </p>
                 
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-sm font-medium mb-2">Example:</h3>
                     <pre className="bg-muted p-2 rounded-md text-xs">
-                      Input: nums = [2,7,11,15], target = 9<br/>
-                      Output: [0,1]<br/>
-                      Explanation: Because nums[0] + nums[1] == 9, we return [0, 1].
+                      {currentChallenge.example}
                     </pre>
                   </div>
                   
                   <div>
                     <h3 className="text-sm font-medium mb-2">Constraints:</h3>
                     <ul className="list-disc list-inside space-y-1">
-                      <li>2 &lt;= nums.length &lt;= 10^4</li>
-                      <li>-10^9 &lt;= nums[i] &lt;= 10^9</li>
-                      <li>-10^9 &lt;= target &lt;= 10^9</li>
-                      <li>Only one valid answer exists.</li>
+                      {currentChallenge.constraints.map((constraint, index) => (
+                        <li key={index}>{constraint}</li>
+                      ))}
                     </ul>
                   </div>
                 </div>
@@ -114,23 +288,21 @@ export default function CodePractice() {
               </CardHeader>
               
               <CardContent>
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-0">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsContent value="question">
                     <div className="prose max-w-none">
-                      <h3>Two Sum</h3>
+                      <h3>{currentChallenge.title}</h3>
                       <p>
-                        This is a classic algorithmic problem that appears frequently in technical interviews. 
-                        The problem asks you to find two numbers in an array that add up to a target value.
+                        {currentChallenge.detail}
                       </p>
                       <p>
-                        A naive approach would be to use nested loops to check every pair of numbers, 
-                        but this would have a time complexity of O(n²). Can you think of a more efficient solution?
+                        This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
                       </p>
                       <h4>Hints:</h4>
                       <ol>
-                        <li>Consider using a hash map to store values you've seen so far.</li>
-                        <li>For each number, check if its complement (target - num) exists in the hash map.</li>
-                        <li>This can be solved in a single pass through the array.</li>
+                        {currentChallenge.hints.map((hint, index) => (
+                          <li key={index}>{hint}</li>
+                        ))}
                       </ol>
                       
                       <Button onClick={() => setActiveTab('code')} className="mt-4">
@@ -143,7 +315,7 @@ export default function CodePractice() {
                     <div className="h-[500px] border rounded-md">
                       <Editor
                         height="100%"
-                        language="javascript"
+                        language={selectedRole === 'data_analyst' || selectedRole === 'data_scientist' ? 'python' : 'javascript'}
                         theme="vs-dark"
                         value={code}
                         onChange={handleCodeChange}
