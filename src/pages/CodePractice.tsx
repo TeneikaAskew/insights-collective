@@ -59,6 +59,8 @@ export default function CodePractice() {
   const [code, setCode] = useState(STARTER_CODE.python);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [review, setReview] = useState<any>(null);
+  // Default tab set to 'code' instead of 'question'
+  const [activeTab, setActiveTab] = useState('code');
 
   useEffect(() => {
     loadChallenges();
@@ -239,6 +241,18 @@ export default function CodePractice() {
                 <div>
                   <h3 className="text-lg font-semibold mb-2 text-gray-100">{currentChallenge.title}</h3>
                   <p className="text-gray-300 whitespace-pre-wrap overflow-auto max-h-[200px] custom-scrollbar">{currentChallenge.prompt}</p>
+                  
+                  <div className="mt-4 p-3 bg-[#2d2d2d] rounded-md border border-[#444444]">
+                    <h4 className="font-medium text-sm text-gray-200 mb-2">Example Test Cases:</h4>
+                    <div className="space-y-2 text-xs text-gray-300 overflow-auto max-h-[150px] custom-scrollbar">
+                      {currentChallenge.test_cases.map((test, idx) => (
+                        <div key={idx} className="p-2 bg-[#333333] rounded border border-[#555555]">
+                          <div><span className="font-medium">Input:</span> {test.input}</div>
+                          <div><span className="font-medium">Expected:</span> {test.expectedOutput}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-4 flex-wrap">

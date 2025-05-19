@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -152,12 +151,12 @@ const challengesByRole = {
 export default function CodePractice() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('question');
   const [code, setCode] = useState('// Write your solution here');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState(null);
   const [selectedRole, setSelectedRole] = useState('all');
   const [currentChallenge, setCurrentChallenge] = useState(challengesByRole.all);
+  const [activeTab, setActiveTab] = useState('code'); // Set default tab to code editor
 
   useEffect(() => {
     // Update the current challenge when the selected role changes
@@ -173,7 +172,6 @@ export default function CodePractice() {
     
     setCode(template);
     setFeedback(null);
-    setActiveTab('question');
   }, [selectedRole]);
 
   const handleCodeChange = (value) => {
@@ -187,10 +185,7 @@ export default function CodePractice() {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      // Implement code submission and evaluation logic
-      // This would typically call an API endpoint
-      
-      // Simulating API call with timeout
+      // Simulate API call with timeout
       setTimeout(() => {
         setFeedback({
           correct: true,
@@ -259,14 +254,18 @@ export default function CodePractice() {
                 <CardDescription>{currentChallenge.difficulty}</CardDescription>
               </CardHeader>
               <CardContent>
-                <p className="text-sm mb-4">
-                  {currentChallenge.description}
-                </p>
-                
                 <div className="space-y-4">
                   <div>
+                    <p className="text-sm mb-4">{currentChallenge.description}</p>
+                    <p className="text-sm mb-4">{currentChallenge.detail}</p>
+                    <p className="text-sm mb-4">
+                      This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
+                    </p>
+                  </div>
+                  
+                  <div>
                     <h3 className="text-sm font-medium mb-2">Example:</h3>
-                    <pre className="bg-muted p-2 rounded-md text-xs overflow-auto max-h-[150px]">
+                    <pre className="bg-muted p-2 rounded-md text-xs overflow-auto max-h-[150px] whitespace-pre-wrap">
                       {currentChallenge.example}
                     </pre>
                   </div>
@@ -276,6 +275,15 @@ export default function CodePractice() {
                     <ul className="list-disc list-inside space-y-1">
                       {currentChallenge.constraints.map((constraint, index) => (
                         <li key={index} className="text-sm">{constraint}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Hints:</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {currentChallenge.hints.map((hint, index) => (
+                        <li key={index} className="text-sm">{hint}</li>
                       ))}
                     </ul>
                   </div>
@@ -289,7 +297,6 @@ export default function CodePractice() {
               <CardHeader className="pb-2 border-b border-[#444444]">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsList className="bg-[#333333]">
-                    <TabsTrigger value="question" className="data-[state=active]:bg-[#0e639c] data-[state=active]:text-white">Problem</TabsTrigger>
                     <TabsTrigger value="code" className="data-[state=active]:bg-[#0e639c] data-[state=active]:text-white">Code Editor</TabsTrigger>
                     <TabsTrigger value="feedback" disabled={!feedback} className="data-[state=active]:bg-[#0e639c] data-[state=active]:text-white">Feedback</TabsTrigger>
                   </TabsList>
@@ -298,29 +305,7 @@ export default function CodePractice() {
               
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsContent value="question">
-                    <div className="prose max-w-none text-gray-200">
-                      <h3 className="text-gray-100">{currentChallenge.title}</h3>
-                      <p className="text-gray-300">
-                        {currentChallenge.detail}
-                      </p>
-                      <p className="text-gray-300">
-                        This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
-                      </p>
-                      <h4 className="text-gray-100">Hints:</h4>
-                      <ol className="text-gray-300 space-y-2">
-                        {currentChallenge.hints.map((hint, index) => (
-                          <li key={index}>{hint}</li>
-                        ))}
-                      </ol>
-                      
-                      <Button onClick={() => setActiveTab('code')} className="mt-4 bg-[#0e639c] hover:bg-[#1177bb] text-white">
-                        Start Coding
-                      </Button>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="code">
+                  <TabsContent value="code" className="mt-0">
                     <div className="h-[500px] border rounded-md border-[#444444] overflow-hidden">
                       <Editor
                         height="100%"
