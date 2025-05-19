@@ -13,6 +13,7 @@ import { Check, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface StarResponseDraft {
   situation: string;
