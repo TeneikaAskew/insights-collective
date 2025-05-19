@@ -2,51 +2,60 @@
 // Follow Deno and Edge Functions v2 URL imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { corsHeaders } from "../_shared/utils.ts";
+import { corsHeaders, handleError } from "../_shared/utils.ts";
 
 const TOGETHER_API_KEY = Deno.env.get("TOGETHER_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 async function evaluateStarResponse(responseId: string) {
-  // Create Supabase client with service role key for admin access
-  const supabase = createClient(
-    SUPABASE_URL!,
-    SUPABASE_SERVICE_ROLE_KEY!
-  );
+  console.log(`[evaluate-star-response] Starting process for response ID: ${responseId}`);
+  
+  // Log environment variables availability (not their values for security)
+  console.log(`[evaluate-star-response] Environment check: TOGETHER_API_KEY exists: ${!!TOGETHER_API_KEY}`);
+  console.log(`[evaluate-star-response] Environment check: SUPABASE_URL exists: ${!!SUPABASE_URL}`);
+  console.log(`[evaluate-star-response] Environment check: SUPABASE_SERVICE_ROLE_KEY exists: ${!!SUPABASE_SERVICE_ROLE_KEY}`);
 
-  // Fetch the STAR response and related question
-  const { data: starResponse, error: responseError } = await supabase
-    .from("star_responses")
-    .select("*, questions:question_id(*)")
-    .eq("id", responseId)
-    .single();
+  try {
+    // Create Supabase client with service role key for admin access
+    const supabase = createClient(
+      SUPABASE_URL!,
+      SUPABASE_SERVICE_ROLE_KEY!
+    );
 
-  if (responseError) {
-    throw responseError;
-  }
+    console.log(`[evaluate-star-response] Supabase client created successfully`);
 
-  if (!starResponse) {
-    throw new Error("STAR response not found");
-  }
+    // Fetch the STAR response and related question
+    console.log(`[evaluate-star-response] Fetching STAR response with ID: ${responseId}`);
+    const { data: starResponse, error: responseError } = await supabase
+      .from("star_responses")
+      .select("*, questions:question_id(*)")
+      .eq("id", responseId)
+      .single();
 
-  // Call the AI model to evaluate the STAR response
-  const response = await fetch("https://api.together.xyz/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${TOGETHER_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-      messages: [
-        {
-          role: "system",
-          content: `You are an interview coach specializing in evaluating STAR (Situation, Task, Action, Result) responses. Provide detailed, objective feedback on interview responses.`
-        },
-        {
-          role: "user",
-          content: `Please evaluate this STAR response for the following interview question:
+    if (responseError) {
+      console.error(`[evaluate-star-response] Error fetching STAR response:`, responseError);
+      throw handleError(responseError);
+    }
+
+    if (!starResponse) {
+      console.error(`[evaluate-star-response] STAR response not found with ID: ${responseId}`);
+      throw new Error("STAR response not found");
+    }
+
+    console.log(`[evaluate-star-response] STAR response fetched successfully:`, {
+      id: starResponse.id,
+      has_question_data: !!starResponse.questions,
+      situation_length: starResponse.situation?.length || 0,
+      task_length: starResponse.task?.length || 0,
+      action_length: starResponse.action?.length || 0,
+      result_length: starResponse.result?.length || 0
+    });
+
+    // Call the AI model to evaluate the STAR response
+    console.log(`[evaluate-star-response] Calling Together AI API to evaluate STAR response`);
+    
+    const promptContent = `Please evaluate this STAR response for the following interview question:
 
 Question: ${starResponse.questions ? starResponse.questions.question : "Behavioral interview question"}
 Target Competency: ${starResponse.questions ? starResponse.questions.targetCompetency : "Not specified"}
@@ -80,71 +89,125 @@ Evaluate this STAR response and provide feedback in the following JSON format:
   }
 }
 
-Return ONLY the JSON object with no additional explanation or text.`
-        }
-      ],
-      temperature: 0.3,
-      max_tokens: 2000
-    }),
-  });
+Return ONLY the JSON object with no additional explanation or text.`;
 
-  if (!response.ok) {
-    const errorData = await response.text();
-    console.error("AI API error:", errorData);
-    throw new Error(`AI API error: ${response.status}`);
-  }
+    console.log(`[evaluate-star-response] Prompt prepared with length: ${promptContent.length}`);
 
-  // Parse the AI response
-  const result = await response.json();
-  const content = result.choices[0].message.content;
+    const response = await fetch("https://api.together.xyz/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${TOGETHER_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        messages: [
+          {
+            role: "system",
+            content: `You are an interview coach specializing in evaluating STAR (Situation, Task, Action, Result) responses. Provide detailed, objective feedback on interview responses.`
+          },
+          {
+            role: "user",
+            content: promptContent
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 2000
+      }),
+    });
 
-  // Extract JSON from the response
-  let feedbackData;
-  try {
-    // Try to parse the content directly
-    feedbackData = JSON.parse(content);
-  } catch (e) {
-    console.error("Failed to parse JSON directly:", e);
-    
-    // Try to extract JSON using regex as a fallback
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        feedbackData = JSON.parse(jsonMatch[0]);
-      } catch (e2) {
-        console.error("Failed to parse extracted JSON:", e2);
-        throw new Error("Failed to parse AI response as JSON");
-      }
-    } else {
-      throw new Error("Could not extract JSON from AI response");
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error(`[evaluate-star-response] AI API error status: ${response.status}`);
+      console.error(`[evaluate-star-response] AI API error body:`, errorData);
+      throw new Error(`AI API error: ${response.status}`);
     }
+
+    console.log(`[evaluate-star-response] Together AI API response received with status: ${response.status}`);
+
+    // Parse the AI response
+    const result = await response.json();
+    console.log(`[evaluate-star-response] AI response parsed successfully, model used: ${result.model || 'unknown'}`);
+    
+    const content = result.choices[0].message.content;
+    console.log(`[evaluate-star-response] Retrieved content length: ${content?.length || 0}`);
+
+    // Extract JSON from the response
+    let feedbackData;
+    try {
+      // Try to parse the content directly
+      console.log(`[evaluate-star-response] Attempting direct JSON parsing`);
+      feedbackData = JSON.parse(content);
+      console.log(`[evaluate-star-response] JSON parsed successfully via direct method`);
+    } catch (e) {
+      console.error(`[evaluate-star-response] Failed to parse JSON directly:`, e);
+      
+      // Try to extract JSON using regex as a fallback
+      console.log(`[evaluate-star-response] Attempting fallback JSON extraction via regex`);
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          feedbackData = JSON.parse(jsonMatch[0]);
+          console.log(`[evaluate-star-response] JSON parsed successfully via regex fallback`);
+        } catch (e2) {
+          console.error(`[evaluate-star-response] Failed to parse extracted JSON:`, e2);
+          throw handleError(new Error("Failed to parse AI response as JSON"));
+        }
+      } else {
+        console.error(`[evaluate-star-response] Could not find JSON in AI response`);
+        console.error(`[evaluate-star-response] Response content snippet:`, content.substring(0, 100) + '...');
+        throw handleError(new Error("Could not extract JSON from AI response"));
+      }
+    }
+
+    console.log(`[evaluate-star-response] Feedback data structure:`, {
+      has_scores: !!feedbackData?.scores,
+      has_analysis: !!feedbackData?.analysis,
+      has_feedback: !!feedbackData?.feedback,
+      overall_score: feedbackData?.scores?.overall
+    });
+
+    // Update the STAR response with the feedback
+    console.log(`[evaluate-star-response] Updating STAR response with feedback`);
+    const { data: updatedResponse, error: updateError } = await supabase
+      .from("star_responses")
+      .update({ ai_feedback: feedbackData })
+      .eq("id", responseId)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error(`[evaluate-star-response] Error updating STAR response:`, updateError);
+      throw handleError(updateError);
+    }
+
+    console.log(`[evaluate-star-response] STAR response updated successfully with feedback`);
+    return feedbackData;
+  } catch (error) {
+    console.error(`[evaluate-star-response] Unexpected error:`, error);
+    throw handleError(error);
   }
-
-  // Update the STAR response with the feedback
-  const { data: updatedResponse, error: updateError } = await supabase
-    .from("star_responses")
-    .update({ ai_feedback: feedbackData })
-    .eq("id", responseId)
-    .select()
-    .single();
-
-  if (updateError) {
-    throw updateError;
-  }
-
-  return feedbackData;
 }
 
 serve(async (req) => {
+  console.log(`[evaluate-star-response] Received ${req.method} request`);
+  
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
+    console.log(`[evaluate-star-response] Handling OPTIONS preflight request`);
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { responseId } = await req.json();
+    const requestData = await req.json();
+    console.log(`[evaluate-star-response] Request received with data:`, {
+      has_responseId: !!requestData.responseId
+    });
+    
+    const { responseId } = requestData;
 
     if (!responseId) {
+      console.error(`[evaluate-star-response] Missing STAR response ID in request`);
       return new Response(
         JSON.stringify({ error: "STAR response ID is required" }),
         { 
@@ -154,13 +217,15 @@ serve(async (req) => {
       );
     }
 
+    console.log(`[evaluate-star-response] Processing request for STAR response ID: ${responseId}`);
     const feedbackData = await evaluateStarResponse(responseId);
+    console.log(`[evaluate-star-response] Evaluation completed successfully, returning response`);
 
     return new Response(JSON.stringify({ ai_feedback: feedbackData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   } catch (error) {
-    console.error("Error evaluating STAR response:", error);
+    console.error(`[evaluate-star-response] Error in edge function:`, error);
     
     return new Response(
       JSON.stringify({ error: error.message || "Failed to evaluate STAR response" }),
