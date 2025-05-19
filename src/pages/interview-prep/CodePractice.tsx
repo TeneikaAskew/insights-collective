@@ -89,7 +89,7 @@ export default function CodePractice() {
                   
                   <div>
                     <h3 className="text-sm font-medium mb-2">Constraints:</h3>
-                    <ul className="list-disc list-inside text-xs space-y-1">
+                    <ul className="list-disc list-inside space-y-1">
                       <li>2 &lt;= nums.length &lt;= 10^4</li>
                       <li>-10^9 &lt;= nums[i] &lt;= 10^9</li>
                       <li>-10^9 &lt;= target &lt;= 10^9</li>
