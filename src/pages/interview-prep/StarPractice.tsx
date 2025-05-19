@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Check, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 
 interface StarResponseDraft {
@@ -43,6 +44,7 @@ export default function StarPractice() {
   const { toast } = useToast();
   const { user } = useUser();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const targetQuestionId = searchParams.get('questionId');
   
   const [loading, setLoading] = useState(true);
@@ -58,18 +60,26 @@ export default function StarPractice() {
   const [feedback, setFeedback] = useState<any>(null);
 
   useEffect(() => {
-    loadQuestions().then(() => {
-      if (targetQuestionId) {
-        findAndSetTargetQuestion(targetQuestionId);
-      }
-    });
-  }, [targetQuestionId]);
+    if (user) {
+      loadQuestions();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
+  
+  useEffect(() => {
+    if (!loading && questions.length > 0 && targetQuestionId) {
+      findAndSetTargetQuestion(targetQuestionId);
+    }
+  }, [loading, questions, targetQuestionId]);
 
   // Save response draft as user types
   useEffect(() => {
     if (user && questions.length > 0) {
       const currentQuestion = questions[currentQuestionIndex];
-      LocalStorageUtils.saveStarResponseDraftForQuestion(user.id, currentQuestion.id, response as StarResponseDraft);
+      if (currentQuestion) {
+        LocalStorageUtils.saveStarResponseDraftForQuestion(user.id, currentQuestion.id, response as StarResponseDraft);
+      }
     }
   }, [response, currentQuestionIndex, questions, user]);
 
@@ -92,12 +102,15 @@ export default function StarPractice() {
             result: '',
           });
         }
+        setFeedback(null); // Reset feedback when changing questions
       }
     }
   };
 
   const loadQuestions = async () => {
     try {
+      setLoading(true);
+      
       // First check if we have a cached study guide in local storage
       let behavioralQuestions: Question[] = [];
       
@@ -108,25 +121,28 @@ export default function StarPractice() {
           behavioralQuestions = cachedStudyGuide.questions.filter(
             (q: any) => q.type === 'behavioral'
           );
+          console.log('Loaded questions from local storage cache:', behavioralQuestions.length);
         }
       }
       
       // If we don't have questions from local storage, try to fetch from database
-      if (behavioralQuestions.length === 0) {
+      if (behavioralQuestions.length === 0 && user) {
+        console.log('Fetching questions from database for user:', user.id);
         const { data: studyGuides, error } = await supabase
           .from('study_guides')
           .select('questions')
-          .eq('user_id', user?.id)
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1)
           .single();
 
-        if (error) throw error;
-
-        if (studyGuides?.questions) {
+        if (error) {
+          console.error('Error loading questions from database:', error);
+        } else if (studyGuides?.questions) {
           behavioralQuestions = studyGuides.questions.filter(
             (q: any) => q.type === 'behavioral'
           );
+          console.log('Loaded questions from database:', behavioralQuestions.length);
         }
       }
       
@@ -193,6 +209,14 @@ export default function StarPractice() {
         title: 'Response Submitted',
         description: 'Your STAR response has been evaluated.',
       });
+      
+      // Scroll to the feedback section
+      setTimeout(() => {
+        document.getElementById('feedback-section')?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        });
+      }, 100);
     } catch (error) {
       console.error('Error submitting response:', error);
       toast({
@@ -207,11 +231,16 @@ export default function StarPractice() {
 
   const handleNext = () => {
     if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      
+      // Update URL to reflect the current question
+      const nextQuestionId = questions[nextIndex].id;
+      navigate(`/interview-prep/star-practice?questionId=${nextQuestionId}`, { replace: true });
       
       // Load draft for the next question
       if (user) {
-        const nextQuestionId = questions[currentQuestionIndex + 1].id;
+        const nextQuestionId = questions[nextIndex].id;
         const draft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, nextQuestionId);
         
         if (draft) {
@@ -232,11 +261,16 @@ export default function StarPractice() {
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      const prevIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(prevIndex);
+      
+      // Update URL to reflect the current question
+      const prevQuestionId = questions[prevIndex].id;
+      navigate(`/interview-prep/star-practice?questionId=${prevQuestionId}`, { replace: true });
       
       // Load draft for the previous question
       if (user) {
-        const prevQuestionId = questions[currentQuestionIndex - 1].id;
+        const prevQuestionId = questions[prevIndex].id;
         const draft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, prevQuestionId);
         
         if (draft) {
@@ -281,7 +315,9 @@ export default function StarPractice() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => window.history.back()}>Go Back</Button>
+              <Button onClick={() => navigate('/interview-prep/job-description')}>
+                Go to Job Description Analysis
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -308,17 +344,17 @@ export default function StarPractice() {
                 <div>
                   <CardTitle>Question {currentQuestionIndex + 1} of {questions.length}</CardTitle>
                   <CardDescription>
-                    Target Competency: {currentQuestion.targetCompetency}
+                    Target Competency: {currentQuestion?.targetCompetency}
                   </CardDescription>
                 </div>
-                <Badge>{currentQuestion.type}</Badge>
+                <Badge>{currentQuestion?.type}</Badge>
               </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-lg font-semibold mb-2">{currentQuestion.question}</h3>
-                  {currentQuestion.preparationTips && (
+                  <h3 className="text-lg font-semibold mb-2">{currentQuestion?.question}</h3>
+                  {currentQuestion?.preparationTips && (
                     <p className="text-muted-foreground text-sm">{currentQuestion.preparationTips}</p>
                   )}
                 </div>
@@ -395,7 +431,7 @@ export default function StarPractice() {
           </Card>
 
           {feedback && (
-            <Card>
+            <Card id="feedback-section">
               <CardHeader>
                 <CardTitle>AI Feedback</CardTitle>
                 <CardDescription>Analysis of your STAR response</CardDescription>
