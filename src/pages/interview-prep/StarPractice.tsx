@@ -220,6 +220,7 @@ export default function StarPractice() {
 
     setSubmitting(true);
     try {
+      console.log("Submitting STAR response for question:", currentQuestion.id);
       // Save response
       const { data: savedResponse, error: saveError } = await supabase
         .from('star_responses')
@@ -232,8 +233,10 @@ export default function StarPractice() {
         .single();
 
       if (saveError) throw saveError;
+      console.log("Saved response:", savedResponse);
 
       // Get AI feedback
+      console.log("Calling evaluate-star-response function with responseId:", savedResponse.id);
       const { data: evaluatedResponse, error: evalError } = await supabase
         .functions.invoke('evaluate-star-response', {
           body: { responseId: savedResponse.id },
@@ -241,7 +244,10 @@ export default function StarPractice() {
 
       if (evalError) throw evalError;
       
+      console.log("Received function response:", evaluatedResponse);
+      
       if (evaluatedResponse && evaluatedResponse.ai_feedback) {
+        console.log("Setting feedback state with:", evaluatedResponse.ai_feedback);
         setFeedback(evaluatedResponse.ai_feedback);
         
         // Also save the feedback to localStorage
@@ -253,6 +259,7 @@ export default function StarPractice() {
             timestamp: new Date().getTime()
           };
           LocalStorageUtils.saveSavedStarResponses(user.id, allResponses);
+          console.log("Saved feedback to localStorage:", allResponses[currentQuestion.id]);
         }
         
         setIsFlipped(true);
@@ -262,6 +269,7 @@ export default function StarPractice() {
           description: 'Your STAR response has been evaluated.',
         });
       } else {
+        console.error("No feedback received in evaluation response:", evaluatedResponse);
         throw new Error("No feedback received from evaluation");
       }
     } catch (error) {
@@ -277,6 +285,8 @@ export default function StarPractice() {
   };
 
   const handleFlip = () => {
+    console.log("Flipping card. Current state:", isFlipped, "Setting to:", !isFlipped);
+    console.log("Current feedback:", feedback);
     setIsFlipped(!isFlipped);
   };
 
@@ -391,6 +401,29 @@ export default function StarPractice() {
       return () => clearTimeout(timeoutId);
     }
   };
+
+  // Debug logging in useEffect to track state changes
+  useEffect(() => {
+    console.log("Response state updated:", response);
+  }, [response]);
+
+  useEffect(() => {
+    console.log("Feedback state updated:", feedback);
+  }, [feedback]);
+
+  useEffect(() => {
+    console.log("isFlipped state updated:", isFlipped);
+  }, [isFlipped]);
+
+  useEffect(() => {
+    console.log("hasSubmittedResponse state updated:", hasSubmittedResponse);
+  }, [hasSubmittedResponse]);
+
+  useEffect(() => {
+    if (isFlipped) {
+      console.log("Card is flipped, feedback should be showing:", feedback);
+    }
+  }, [isFlipped, feedback]);
 
   if (loading) {
     return (
