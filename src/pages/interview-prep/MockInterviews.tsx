@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { format, addHours, parseISO, set } from 'date-fns';
-import { Calendar as CalendarIcon, Clock, Users, Video, ChevronLeft } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Users, Video, ChevronLeft, BookText } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useNavigate } from 'react-router-dom';
 import { AvailabilityManager } from '@/components/interview-prep/AvailabilityManager';
@@ -295,6 +294,10 @@ export default function MockInterviews() {
             <TabsTrigger value="schedule">Find Sessions</TabsTrigger>
             <TabsTrigger value="availability">Set Availability</TabsTrigger>
             <TabsTrigger value="upcoming">Upcoming Sessions</TabsTrigger>
+            <TabsTrigger value="guidelines">
+              <BookText className="h-4 w-4 mr-2" />
+              Guidelines
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="schedule">
@@ -539,6 +542,152 @@ export default function MockInterviews() {
                       </div>
                     ))
                   )}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* New Guidelines Tab */}
+          <TabsContent value="guidelines">
+            <Card>
+              <CardHeader>
+                <CardTitle>Interview Guidelines</CardTitle>
+                <CardDescription>
+                  Essential tips and strategies for both interviewers and interviewees.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6 max-w-5xl">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">For Interviewees</h3>
+                    
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Before the Interview</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Research the role and company thoroughly</li>
+                        <li>Practice answering common questions using the STAR method</li>
+                        <li>Prepare your own thoughtful questions to ask</li>
+                        <li>Test your camera, microphone, and internet connection</li>
+                        <li>Choose a quiet, well-lit environment with minimal distractions</li>
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">During the Interview</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Join 5 minutes early to settle in</li>
+                        <li>Make eye contact by looking at the camera</li>
+                        <li>Speak clearly and at a moderate pace</li>
+                        <li>Use the STAR method for behavioral questions</li>
+                        <li>Show enthusiasm for the role and company</li>
+                        <li>Be honest if you don't know something, but explain your approach</li>
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Technical Interview Tips</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Think out loud while solving problems</li>
+                        <li>Ask clarifying questions before diving into solutions</li>
+                        <li>Consider edge cases and test your solutions</li>
+                        <li>Discuss time and space complexity</li>
+                        <li>If stuck, explain your thought process and ask for hints</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md border border-blue-200 dark:border-blue-800">
+                      <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">STAR Method Reminder</h4>
+                      <ul className="text-sm space-y-1 text-blue-700 dark:text-blue-200">
+                        <li><strong>Situation:</strong> Set the context and background</li>
+                        <li><strong>Task:</strong> Explain your responsibility or challenge</li>
+                        <li><strong>Action:</strong> Describe what you did and how you did it</li>
+                        <li><strong>Result:</strong> Share the outcomes and what you learned</li>
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">For Interviewers</h3>
+                    
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Before the Interview</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Review the interviewee's background if available</li>
+                        <li>Prepare a structured set of questions</li>
+                        <li>Include a mix of behavioral and technical questions</li>
+                        <li>Plan time for the candidate to ask questions</li>
+                        <li>Test your camera, microphone, and internet connection</li>
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">During the Interview</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Start with a brief introduction and explain the process</li>
+                        <li>Ask open-ended questions that require detailed responses</li>
+                        <li>Listen actively and take notes</li>
+                        <li>Provide clear instructions for technical questions</li>
+                        <li>Allow time for the candidate to think</li>
+                        <li>Be encouraging and create a comfortable atmosphere</li>
+                      </ul>
+                    </div>
+                    
+                    <div>
+                      <h4 className="font-medium text-sm mb-2">Effective Questioning</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Ask follow-up questions to dive deeper</li>
+                        <li>Avoid leading questions that suggest answers</li>
+                        <li>Focus on behavioral questions that reveal past performance</li>
+                        <li>For technical questions, evaluate the approach not just the solution</li>
+                        <li>Ask about specific examples rather than hypotheticals</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md border border-green-200 dark:border-green-800">
+                      <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">Sample Questions</h4>
+                      <div className="text-sm space-y-2 text-green-700 dark:text-green-200">
+                        <p><strong>Behavioral:</strong> "Tell me about a time when you faced a significant challenge in a project. How did you address it?"</p>
+                        <p><strong>Technical:</strong> "How would you approach optimizing a database query that's running slowly?"</p>
+                        <p><strong>Problem-solving:</strong> "How would you design a system to handle high traffic spikes?"</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <h3 className="text-lg font-semibold mb-4 border-b pb-2">General Best Practices</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-md">
+                      <h4 className="font-medium text-sm mb-2">Communication</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Speak clearly and concisely</li>
+                        <li>Use professional language</li>
+                        <li>Practice active listening</li>
+                        <li>Be mindful of your body language</li>
+                        <li>Match the conversation's tone and pace</li>
+                      </ul>
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-md">
+                      <h4 className="font-medium text-sm mb-2">Technical Setup</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Use a wired internet connection if possible</li>
+                        <li>Have a backup device ready</li>
+                        <li>Close unnecessary applications</li>
+                        <li>Position your camera at eye level</li>
+                        <li>Ensure your background is professional</li>
+                      </ul>
+                    </div>
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-md">
+                      <h4 className="font-medium text-sm mb-2">Follow-up</h4>
+                      <ul className="list-disc pl-5 space-y-1 text-sm">
+                        <li>Thank the other person for their time</li>
+                        <li>Provide constructive feedback</li>
+                        <li>Reflect on what went well and areas for improvement</li>
+                        <li>Apply learnings to future interviews</li>
+                        <li>Consider sending a thank you note</li>
+                      </ul>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
