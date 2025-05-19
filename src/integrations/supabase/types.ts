@@ -96,7 +96,7 @@ export type Database = {
           created_at: string
           id: string
           is_available: boolean
-          time_block: string
+          time_slot: string
           user_id: string
           weekday: number
         }
@@ -104,7 +104,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_available?: boolean
-          time_block: string
+          time_slot: string
           user_id: string
           weekday: number
         }
@@ -112,7 +112,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_available?: boolean
-          time_block?: string
+          time_slot?: string
           user_id?: string
           weekday?: number
         }

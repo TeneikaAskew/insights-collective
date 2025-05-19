@@ -326,9 +326,9 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
                       <div key={`${day.id}-${timeRange.id}-${index}`} className="flex flex-wrap items-center gap-2">
                         <div className="flex-grow max-w-[180px] sm:max-w-[220px]">
                           <Select 
-                            value={timeRange.id.split('_').slice(1, 3).join('_')}
+                            value={timeRange.id}
                             onValueChange={(value) => {
-                              const selectedTimeBlock = timeBlocks.find(tb => tb.id === `slot_${value}`);
+                              const selectedTimeBlock = timeBlocks.find(tb => tb.id === value);
                               if (selectedTimeBlock) {
                                 updateTimeSlot(day.id, timeRange.id, 'startTime', selectedTimeBlock);
                               }
@@ -339,7 +339,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
                             </SelectTrigger>
                             <SelectContent>
                               {timeBlocks.map(block => (
-                                <SelectItem key={`start-${block.id}`} value={block.id.split('_').slice(1, 3).join('_')}>
+                                <SelectItem key={`start-${block.id}`} value={block.id}>
                                   {block.startTime}
                                 </SelectItem>
                               ))}
@@ -351,9 +351,9 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
                         
                         <div className="flex-grow max-w-[180px] sm:max-w-[220px]">
                           <Select 
-                            value={timeRange.id.split('_').slice(1, 3).join('_')}
+                            value={timeRange.id}
                             onValueChange={(value) => {
-                              const selectedTimeBlock = timeBlocks.find(tb => tb.id === `slot_${value}`);
+                              const selectedTimeBlock = timeBlocks.find(tb => tb.id === value);
                               if (selectedTimeBlock) {
                                 updateTimeSlot(day.id, timeRange.id, 'endTime', selectedTimeBlock);
                               }
@@ -364,7 +364,7 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
                             </SelectTrigger>
                             <SelectContent>
                               {timeBlocks.map(block => (
-                                <SelectItem key={`end-${block.id}`} value={block.id.split('_').slice(1, 3).join('_')}>
+                                <SelectItem key={`end-${block.id}`} value={block.id}>
                                   {block.endTime}
                                 </SelectItem>
                               ))}
