@@ -205,7 +205,7 @@ async function callTOGETHERAPI(system, user) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      model: 'mistralai/Mixtral-8x7B-Instruct-v0.1',
+      model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',//'deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free' //mistralai/Mixtral-8x7B-Instruct-v0.1',
       messages: [
         {
           role: 'system',
@@ -236,7 +236,12 @@ async function callTOGETHERAPI(system, user) {
 export async function callLLMAPI(system, user) {
   validateInput(system, user);
   // Get available endpoints
-  const availableEndpoints = Object.keys(API_CONFIG).filter(canUseEndpoint);
+  // Define preferred order of endpoints
+  const preferredOrder = ['TOGETHER', 'GROQ', 'ANWAN'];
+  
+  // Filter available endpoints in the preferred order
+  const availableEndpoints = preferredOrder.filter(canUseEndpoint);
+  
   if (availableEndpoints.length === 0) {
     throw new Error('No API endpoints are currently available');
   }
@@ -244,12 +249,12 @@ export async function callLLMAPI(system, user) {
   for (const endpoint of availableEndpoints){
     try {
       switch(endpoint){
-        case 'ANWAN':
-          return await callANWANAPI(system, user);
-        case 'GROQ':
-          return await callGROQAPI(system, user);
         case 'TOGETHER':
           return await callTOGETHERAPI(system, user);
+        case 'GROQ':
+          return await callGROQAPI(system, user);
+        case 'ANWAN':
+          return await callANWANAPI(system, user);
       }
     } catch (error) {
       console.error(`${endpoint} API call failed:`, error);
