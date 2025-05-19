@@ -1,11 +1,12 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
 import Navbar from './Navbar';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { UserPresenceBar } from '@/components/presence/UserPresenceBar';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLocation } from 'react-router-dom';
 
 type AppLayoutProps = {
   children: React.ReactNode;
@@ -15,9 +16,21 @@ type AppLayoutProps = {
 const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
   const { navigateWithAuth } = useAuthenticatedNavigation();
   const { isAuthenticated } = useAuth();
+  const location = useLocation();
+  
+  // Check if the current path is one of the interview prep pages
+  const isInterviewPrepPage = [
+    '/interview-prep/code-practice',
+    '/interview-prep/star-practice',
+    '/interview-prep/job-description',
+    '/interview-prep/mock-interviews'
+  ].some(path => location.pathname.includes(path));
+  
+  // Default sidebar state - closed for interview prep pages
+  const defaultOpen = !isInterviewPrepPage;
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={defaultOpen}>
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
