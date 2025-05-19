@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Check, Code, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
+import { MonacoThemeProvider, MonacoCard } from '@/components/ui/theme-monaco';
 
 // Define the available job roles
 const jobRoles = [
@@ -264,7 +266,7 @@ export default function CodePractice() {
                 <div className="space-y-4">
                   <div>
                     <h3 className="text-sm font-medium mb-2">Example:</h3>
-                    <pre className="bg-muted p-2 rounded-md text-xs">
+                    <pre className="bg-muted p-2 rounded-md text-xs overflow-auto max-h-[150px]">
                       {currentChallenge.example}
                     </pre>
                   </div>
@@ -273,7 +275,7 @@ export default function CodePractice() {
                     <h3 className="text-sm font-medium mb-2">Constraints:</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {currentChallenge.constraints.map((constraint, index) => (
-                        <li key={index}>{constraint}</li>
+                        <li key={index} className="text-sm">{constraint}</li>
                       ))}
                     </ul>
                   </div>
@@ -283,13 +285,13 @@ export default function CodePractice() {
           </div>
           
           <div className="md:col-span-2">
-            <Card className="h-full">
-              <CardHeader className="pb-2">
+            <MonacoCard className="h-full">
+              <CardHeader className="pb-2 border-b border-[#444444]">
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
-                  <TabsList>
-                    <TabsTrigger value="question">Problem</TabsTrigger>
-                    <TabsTrigger value="code">Code Editor</TabsTrigger>
-                    <TabsTrigger value="feedback" disabled={!feedback}>Feedback</TabsTrigger>
+                  <TabsList className="bg-[#333333]">
+                    <TabsTrigger value="question" className="data-[state=active]:bg-[#0e639c] data-[state=active]:text-white">Problem</TabsTrigger>
+                    <TabsTrigger value="code" className="data-[state=active]:bg-[#0e639c] data-[state=active]:text-white">Code Editor</TabsTrigger>
+                    <TabsTrigger value="feedback" disabled={!feedback} className="data-[state=active]:bg-[#0e639c] data-[state=active]:text-white">Feedback</TabsTrigger>
                   </TabsList>
                 </Tabs>
               </CardHeader>
@@ -297,29 +299,29 @@ export default function CodePractice() {
               <CardContent>
                 <Tabs value={activeTab} onValueChange={setActiveTab}>
                   <TabsContent value="question">
-                    <div className="prose max-w-none">
-                      <h3>{currentChallenge.title}</h3>
-                      <p>
+                    <div className="prose max-w-none text-gray-200">
+                      <h3 className="text-gray-100">{currentChallenge.title}</h3>
+                      <p className="text-gray-300">
                         {currentChallenge.detail}
                       </p>
-                      <p>
+                      <p className="text-gray-300">
                         This is a common problem type for {jobRoles.find(role => role.value === selectedRole).label} interviews.
                       </p>
-                      <h4>Hints:</h4>
-                      <ol>
+                      <h4 className="text-gray-100">Hints:</h4>
+                      <ol className="text-gray-300 space-y-2">
                         {currentChallenge.hints.map((hint, index) => (
                           <li key={index}>{hint}</li>
                         ))}
                       </ol>
                       
-                      <Button onClick={() => setActiveTab('code')} className="mt-4">
+                      <Button onClick={() => setActiveTab('code')} className="mt-4 bg-[#0e639c] hover:bg-[#1177bb] text-white">
                         Start Coding
                       </Button>
                     </div>
                   </TabsContent>
                   
                   <TabsContent value="code">
-                    <div className="h-[500px] border rounded-md">
+                    <div className="h-[500px] border rounded-md border-[#444444] overflow-hidden">
                       <Editor
                         height="100%"
                         language={selectedRole === 'data_analyst' || selectedRole === 'data_scientist' ? 'python' : 'javascript'}
@@ -334,7 +336,7 @@ export default function CodePractice() {
                       />
                     </div>
                     <div className="mt-4 flex justify-end">
-                      <Button onClick={handleSubmit} disabled={loading}>
+                      <Button onClick={handleSubmit} disabled={loading} className="bg-[#0e639c] hover:bg-[#1177bb] text-white">
                         {loading ? <Spinner size="sm" className="mr-2" /> : null}
                         Submit Solution
                       </Button>
@@ -343,11 +345,11 @@ export default function CodePractice() {
                   
                   <TabsContent value="feedback">
                     {feedback && (
-                      <div className="space-y-6">
+                      <div className="space-y-6 text-gray-200">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center">
                             {feedback.correct ? (
-                              <Badge className="bg-green-100 text-green-800 mr-2">
+                              <Badge className="bg-green-900/50 text-green-400 border-green-700 mr-2">
                                 <Check className="h-4 w-4 mr-1" />
                                 Correct
                               </Badge>
@@ -358,31 +360,31 @@ export default function CodePractice() {
                             )}
                           </div>
                           <div className="flex items-center gap-4">
-                            <div className="text-xs">
+                            <div className="text-xs text-gray-300">
                               <span className="font-medium">Runtime:</span> {feedback.runtime}
                             </div>
-                            <div className="text-xs">
+                            <div className="text-xs text-gray-300">
                               <span className="font-medium">Memory:</span> {feedback.memory}
                             </div>
                           </div>
                         </div>
                         
                         <div>
-                          <h3 className="text-sm font-medium mb-2">Code Review</h3>
-                          <p className="text-sm">{feedback.feedback}</p>
+                          <h3 className="text-sm font-medium mb-2 text-gray-100">Code Review</h3>
+                          <p className="text-sm text-gray-300">{feedback.feedback}</p>
                         </div>
                         
                         <div>
-                          <h3 className="text-sm font-medium mb-2">Suggestions</h3>
+                          <h3 className="text-sm font-medium mb-2 text-gray-100">Suggestions</h3>
                           <ul className="list-disc list-inside space-y-1">
                             {feedback.suggestions.map((suggestion, index) => (
-                              <li key={index} className="text-sm">{suggestion}</li>
+                              <li key={index} className="text-sm text-gray-300">{suggestion}</li>
                             ))}
                           </ul>
                         </div>
                         
                         <div className="flex justify-end">
-                          <Button variant="outline" onClick={() => setActiveTab('code')}>
+                          <Button variant="outline" onClick={() => setActiveTab('code')} className="border-[#444444] text-gray-300 hover:bg-[#333333]">
                             <Code className="h-4 w-4 mr-2" />
                             Continue Editing
                           </Button>
@@ -392,7 +394,7 @@ export default function CodePractice() {
                   </TabsContent>
                 </Tabs>
               </CardContent>
-            </Card>
+            </MonacoCard>
           </div>
         </div>
       </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Check, AlertCircle, ChevronLeft, ChevronRight, Play, Code as CodeIcon } from 'lucide-react';
 import Editor from '@monaco-editor/react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { MonacoThemeProvider, MonacoCard } from '@/components/ui/theme-monaco';
 
 interface CodeChallenge {
   id: string;
@@ -175,262 +177,286 @@ export default function CodePractice() {
 
   if (loading) {
     return (
-      <div className="container mx-auto py-8">
-        <Card>
-          <CardContent className="flex items-center justify-center py-8">
-            <Spinner size="lg" />
-          </CardContent>
-        </Card>
-      </div>
+      <MonacoThemeProvider>
+        <div className="container mx-auto py-8 px-4">
+          <MonacoCard>
+            <div className="flex items-center justify-center py-8">
+              <Spinner size="lg" className="text-gray-300" />
+            </div>
+          </MonacoCard>
+        </div>
+      </MonacoThemeProvider>
     );
   }
 
   if (challenges.length === 0) {
     return (
-      <div className="container mx-auto py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>No Challenges Available</CardTitle>
-            <CardDescription>
-              Please analyze a job description first to get relevant coding challenges.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={() => window.history.back()}>Go Back</Button>
-          </CardContent>
-        </Card>
-      </div>
+      <MonacoThemeProvider>
+        <div className="container mx-auto py-8 px-4">
+          <MonacoCard>
+            <CardHeader>
+              <CardTitle className="text-gray-100">No Challenges Available</CardTitle>
+              <CardDescription className="text-gray-400">
+                Please analyze a job description first to get relevant coding challenges.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => window.history.back()}>Go Back</Button>
+            </CardContent>
+          </MonacoCard>
+        </div>
+      </MonacoThemeProvider>
     );
   }
 
   const currentChallenge = challenges[currentChallengeIndex];
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">Code Challenge Practice</h1>
-        <p className="text-muted-foreground">
-          Practice technical coding challenges with real-time feedback.
-        </p>
-      </div>
+    <MonacoThemeProvider>
+      <div className="container mx-auto py-8 px-4">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-2 text-gray-100">Code Challenge Practice</h1>
+          <p className="text-gray-400">
+            Practice technical coding challenges with real-time feedback.
+          </p>
+        </div>
 
-      <div className="space-y-8">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Challenge {currentChallengeIndex + 1} of {challenges.length}</CardTitle>
-                <CardDescription>
-                  Topics: {currentChallenge.topic_tags.join(', ')}
-                </CardDescription>
-              </div>
-              <Badge>{currentChallenge.difficulty}</Badge>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-lg font-semibold mb-2">{currentChallenge.title}</h3>
-                <p className="text-muted-foreground whitespace-pre-wrap">{currentChallenge.prompt}</p>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Select value={language} onValueChange={setLanguage}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Select language" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_LANGUAGES.map((lang) => (
-                      <SelectItem key={lang.value} value={lang.value}>
-                        {lang.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Button
-                  onClick={handleExecute}
-                  disabled={executing || !code.trim()}
-                  className="ml-auto"
-                >
-                  {executing ? (
-                    <Spinner size="sm" className="mr-2" />
-                  ) : (
-                    <Play className="h-4 w-4 mr-2" />
-                  )}
-                  Run Tests
-                </Button>
-              </div>
-
-              <div className="border rounded-md">
-                <Editor
-                  height="400px"
-                  language={language}
-                  value={code}
-                  onChange={(value) => setCode(value || '')}
-                  theme="vs-dark"
-                  options={{
-                    minimap: { enabled: false },
-                    fontSize: 14,
-                    lineNumbers: 'on',
-                    automaticLayout: true,
-                  }}
-                />
-              </div>
-
-              {testResults.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Test Results</h3>
-                  <div className="space-y-2">
-                    {testResults.map((result, index) => (
-                      <div
-                        key={index}
-                        className={`p-4 rounded-md ${
-                          result.passed ? 'bg-green-50' : 'bg-red-50'
-                        }`}
-                      >
-                        <div className="flex items-start gap-2">
-                          {result.passed ? (
-                            <Check className="h-5 w-5 text-green-500" />
-                          ) : (
-                            <AlertCircle className="h-5 w-5 text-red-500" />
-                          )}
-                          <div className="flex-1 text-sm">
-                            <p>
-                              <strong>Input:</strong> {result.input}
-                            </p>
-                            <p>
-                              <strong>Expected:</strong> {result.expectedOutput}
-                            </p>
-                            <p>
-                              <strong>Actual:</strong> {result.actualOutput}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Execution time: {result.executionTime}ms
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex justify-between items-center pt-4">
-                <Button
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={currentChallengeIndex === 0}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-2" />
-                  Previous
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={handleNext}
-                  disabled={currentChallengeIndex === challenges.length - 1}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {review && (
-          <Card>
+        <div className="space-y-8">
+          <MonacoCard>
             <CardHeader>
-              <CardTitle>AI Code Review</CardTitle>
-              <CardDescription>Analysis of your solution</CardDescription>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <CardTitle className="text-gray-100">Challenge {currentChallengeIndex + 1} of {challenges.length}</CardTitle>
+                  <CardDescription className="text-gray-400">
+                    Topics: {currentChallenge.topic_tags.join(', ')}
+                  </CardDescription>
+                </div>
+                <Badge className="bg-[#4d4d4d] text-gray-100 hover:bg-[#5a5a5a]">{currentChallenge.difficulty}</Badge>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-sm font-medium mb-2">Scores</h3>
-                  <div className="space-y-2">
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Correctness</span>
-                        <span>{review.scores.correctness}/10</span>
-                      </div>
-                      <Progress value={review.scores.correctness * 10} />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Efficiency</span>
-                        <span>{review.scores.efficiency}/10</span>
-                      </div>
-                      <Progress value={review.scores.efficiency * 10} />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span>Style</span>
-                        <span>{review.scores.style}/10</span>
-                      </div>
-                      <Progress value={review.scores.style * 10} />
-                    </div>
-                    <div>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="font-medium">Overall</span>
-                        <span className="font-medium">{review.scores.overall}/10</span>
-                      </div>
-                      <Progress value={review.scores.overall * 10} />
+                  <h3 className="text-lg font-semibold mb-2 text-gray-100">{currentChallenge.title}</h3>
+                  <p className="text-gray-300 whitespace-pre-wrap overflow-auto max-h-[200px] custom-scrollbar">{currentChallenge.prompt}</p>
+                </div>
+
+                <div className="flex items-center gap-4 flex-wrap">
+                  <Select value={language} onValueChange={setLanguage}>
+                    <SelectTrigger className="w-40 bg-[#333333] border-[#444444] text-gray-200">
+                      <SelectValue placeholder="Select language" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#333333] border-[#444444] text-gray-200">
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <SelectItem key={lang.value} value={lang.value} className="hover:bg-[#444444]">
+                          {lang.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <Button
+                    onClick={handleExecute}
+                    disabled={executing || !code.trim()}
+                    className="ml-auto bg-[#0e639c] hover:bg-[#1177bb] text-white"
+                  >
+                    {executing ? (
+                      <Spinner size="sm" className="mr-2" />
+                    ) : (
+                      <Play className="h-4 w-4 mr-2" />
+                    )}
+                    Run Tests
+                  </Button>
+                </div>
+
+                <div className="border rounded-md border-[#444444] overflow-hidden">
+                  <Editor
+                    height="400px"
+                    language={language}
+                    value={code}
+                    onChange={(value) => setCode(value || '')}
+                    theme="vs-dark"
+                    options={{
+                      minimap: { enabled: false },
+                      fontSize: 14,
+                      lineNumbers: 'on',
+                      automaticLayout: true,
+                    }}
+                  />
+                </div>
+
+                {testResults.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-gray-200">Test Results</h3>
+                    <div className="space-y-2 max-h-[300px] overflow-auto custom-scrollbar pr-2">
+                      {testResults.map((result, index) => (
+                        <div
+                          key={index}
+                          className={`p-4 rounded-md ${
+                            result.passed ? 'bg-green-900/20' : 'bg-red-900/20'
+                          } border ${result.passed ? 'border-green-700' : 'border-red-700'}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            {result.passed ? (
+                              <Check className="h-5 w-5 text-green-500" />
+                            ) : (
+                              <AlertCircle className="h-5 w-5 text-red-500" />
+                            )}
+                            <div className="flex-1 text-sm">
+                              <p className="text-gray-300">
+                                <strong>Input:</strong> {result.input}
+                              </p>
+                              <p className="text-gray-300">
+                                <strong>Expected:</strong> {result.expectedOutput}
+                              </p>
+                              <p className="text-gray-300">
+                                <strong>Actual:</strong> {result.actualOutput}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                Execution time: {result.executionTime}ms
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Analysis</h3>
-                  <div className="space-y-2 text-sm">
-                    <p><strong>Correctness:</strong> {review.analysis.correctness}</p>
-                    <p><strong>Time Complexity:</strong> {review.analysis.complexity.time}</p>
-                    <p><strong>Space Complexity:</strong> {review.analysis.complexity.space}</p>
-                    <p><strong>Code Style:</strong> {review.analysis.style}</p>
-                    <p><strong>Maintainability:</strong> {review.analysis.maintainability}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Strengths</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {review.feedback.strengths.map((strength: string, index: number) => (
-                      <li key={index} className="text-sm flex items-start">
-                        <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
-                        <span>{strength}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Improvements</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {review.feedback.improvements.map((improvement: string, index: number) => (
-                      <li key={index} className="text-sm flex items-start">
-                        <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
-                        <span>{improvement}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Alternative Approaches</h3>
-                  <ul className="list-disc list-inside space-y-1">
-                    {review.feedback.alternative_approaches.map((approach: string, index: number) => (
-                      <li key={index} className="text-sm flex items-start">
-                        <CodeIcon className="h-4 w-4 text-blue-500 mr-2 mt-1 flex-shrink-0" />
-                        <span>{approach}</span>
-                      </li>
-                    ))}
-                  </ul>
+                <div className="flex justify-between items-center pt-4">
+                  <Button
+                    variant="outline"
+                    onClick={handlePrevious}
+                    disabled={currentChallengeIndex === 0}
+                    className="border-[#444444] text-gray-300 hover:bg-[#333333] hover:text-gray-100"
+                  >
+                    <ChevronLeft className="h-4 w-4 mr-2" />
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleNext}
+                    disabled={currentChallengeIndex === challenges.length - 1}
+                    className="border-[#444444] text-gray-300 hover:bg-[#333333] hover:text-gray-100"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4 ml-2" />
+                  </Button>
                 </div>
               </div>
             </CardContent>
-          </Card>
-        )}
+          </MonacoCard>
+
+          {review && (
+            <MonacoCard>
+              <CardHeader>
+                <CardTitle className="text-gray-100">AI Code Review</CardTitle>
+                <CardDescription className="text-gray-400">Analysis of your solution</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-gray-200">Scores</h3>
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-300">Correctness</span>
+                          <span className="text-gray-300">{review.scores.correctness}/10</span>
+                        </div>
+                        <Progress 
+                          value={review.scores.correctness * 10} 
+                          className="bg-[#333333]"
+                          indicatorClassName="bg-[#0e639c]"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-300">Efficiency</span>
+                          <span className="text-gray-300">{review.scores.efficiency}/10</span>
+                        </div>
+                        <Progress 
+                          value={review.scores.efficiency * 10} 
+                          className="bg-[#333333]"
+                          indicatorClassName="bg-[#0e639c]"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-300">Style</span>
+                          <span className="text-gray-300">{review.scores.style}/10</span>
+                        </div>
+                        <Progress 
+                          value={review.scores.style * 10} 
+                          className="bg-[#333333]"
+                          indicatorClassName="bg-[#0e639c]"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium text-gray-200">Overall</span>
+                          <span className="font-medium text-gray-200">{review.scores.overall}/10</span>
+                        </div>
+                        <Progress 
+                          value={review.scores.overall * 10} 
+                          className="bg-[#333333]"
+                          indicatorClassName="bg-[#0e639c]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-gray-200">Analysis</h3>
+                    <div className="space-y-2 text-sm text-gray-300">
+                      <p><strong>Correctness:</strong> {review.analysis.correctness}</p>
+                      <p><strong>Time Complexity:</strong> {review.analysis.complexity.time}</p>
+                      <p><strong>Space Complexity:</strong> {review.analysis.complexity.space}</p>
+                      <p><strong>Code Style:</strong> {review.analysis.style}</p>
+                      <p><strong>Maintainability:</strong> {review.analysis.maintainability}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-gray-200">Strengths</h3>
+                    <ul className="space-y-1 max-h-[200px] overflow-auto custom-scrollbar pr-2">
+                      {review.feedback.strengths.map((strength: string, index: number) => (
+                        <li key={index} className="text-sm flex items-start">
+                          <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
+                          <span className="text-gray-300">{strength}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-gray-200">Improvements</h3>
+                    <ul className="space-y-1 max-h-[200px] overflow-auto custom-scrollbar pr-2">
+                      {review.feedback.improvements.map((improvement: string, index: number) => (
+                        <li key={index} className="text-sm flex items-start">
+                          <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
+                          <span className="text-gray-300">{improvement}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <h3 className="text-sm font-medium mb-2 text-gray-200">Alternative Approaches</h3>
+                    <ul className="space-y-1 max-h-[200px] overflow-auto custom-scrollbar pr-2">
+                      {review.feedback.alternative_approaches.map((approach: string, index: number) => (
+                        <li key={index} className="text-sm flex items-start">
+                          <CodeIcon className="h-4 w-4 text-blue-500 mr-2 mt-1 flex-shrink-0" />
+                          <span className="text-gray-300">{approach}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </MonacoCard>
+          )}
+        </div>
       </div>
-    </div>
+    </MonacoThemeProvider>
   );
-} 
+}
