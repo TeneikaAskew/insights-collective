@@ -171,16 +171,13 @@ const Resume = () => {
 
   // Update the useEffect that controls overlay visibility
   useEffect(() => {
+    // Only show overlay during initial analysis, not during bullet improvements
     if (isAnalyzing) {
       setShowAnalysisOverlay(true);
-    } else if (isPollingForImprovements && pollingStatus === 'polling') {
-      // Only show overlay while actively polling for improvements
-      setShowAnalysisOverlay(true);
     } else {
-      // Hide overlay when both analysis and polling are complete
       setShowAnalysisOverlay(false);
     }
-  }, [isAnalyzing, isPollingForImprovements, pollingStatus]);
+  }, [isAnalyzing]);
 
   // Handle updates to enhanced_analysis with better state management
   const handleEnhancedAnalysisUpdate = enhancedAnalysis => {
