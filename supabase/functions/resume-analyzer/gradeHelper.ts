@@ -1,6 +1,18 @@
 
 // Generate letter grade based on percentage
+<<<<<<< HEAD
 export function getLetterGrade(percentage: number): string {
+=======
+// export function getLetterGrade(percentage: number): string {
+//   if (percentage >= 90) return "A";
+//   if (percentage >= 80) return "B";
+//   if (percentage >= 70) return "C";
+//   if (percentage >= 60) return "D";
+//   return "F";
+// }
+// // Generate letter grade based on percentage with a more nuanced scale
+export function getLetterGrade(percentage) {
+>>>>>>> parent of 11c8c0b (Deploy: Redeploy resume-analyzer function)
   if (percentage >= 92) return "A";
   if (percentage >= 85) return "B+";
   if (percentage >= 78) return "B";
@@ -8,5 +20,5 @@ export function getLetterGrade(percentage: number): string {
   if (percentage >= 65) return "C";
   if (percentage >= 58) return "D+";
   if (percentage >= 50) return "D";
-  return "F"; // Scores below 50% will show as F
+  return "F"; // Scores below 50% will actually show as F now
 }

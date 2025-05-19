@@ -1,4 +1,3 @@
-
 // console.log("Bullet Extractor Endpoint hit")
 import { actionWords } from './bulletAnalysis.ts';
 import { detectSentences } from './sentenceDetector.ts';

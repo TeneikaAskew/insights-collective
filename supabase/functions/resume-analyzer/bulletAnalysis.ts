@@ -1,198 +1,230 @@
 
-// List of common industry action words
+export const industryWords = [
+    /* Core data & analytics */
+    "data","analytics","analysis","bi","intelligence","insights","sql","nosql","python","r","scala","java","julia","sas","matlab","stata",
+    "tableau","powerbi","looker","qlik","superset","mode","redash","excel","sheets",
+    "bigquery","snowflake","redshift","athena","presto","trino","hive","hadoop","spark","pyspark","flink","beam","storm",
+    "kafka","kinesis","pubsub","rabbitmq","databricks","airflow","dbt","glue","datafactory","informatica","talend","pentaho","ssis","nifi","luigi",
+    "etl","elt","ingestion","pipeline","pipelines","orchestration","lake","lakehouse","warehouse","parquet","avro","orc","delta",
+    "ml","mlops","ai","model","models","training","inference","deployment","monitoring","drift","featurestore","feast",
+    "tensorflow","keras","pytorch","scikit","sklearn","xgboost","lightgbm","catboost","sagemaker","vertex","azureml","mlflow",
+    "classification","regression","clustering","forecasting","timeseries","optimization","statistics","statistical",
+    "dashboard","dashboards","visualization","dataviz","kpi","kpis","okr","metric","metrics",
+    "cloud","aws","azure","gcp","googlecloud","s3","gcs","adls","ec2","lambda","iam","vpc",
+    "api","rest","graphql","json","yaml","xml",
+  
+    /* Strategy & consulting jargon */
+    "strategy","strategic","roadmap","roadmaps","gtm","market","competitive","benchmark","benchmarks","swot","roi","npv","irr",
+    "tom","operating","governance","compliance","regulatory","stakeholder","alignment","transformation","maturity","assessment","capability",
+    "value","realization","businesscase","costbenefit","risk","mitigation","dependency","deliverable","deliverables","milestone","milestones",
+    "program","portfolio","pmo","pm","agile","scrum","kanban","safe","waterfall","lean","sixsigma","kaizen","reengineering",
+    "process","processes","improvement","change","adkar","prosci","communication","workshop","workshops","facilitation","training","adoption","readiness",
+    "consulting","consultant","client","clients","engagement","engagements","workstream","proposal","rfp","sow","deck","presentation","presentations",
+    "storytelling","findings","recommendations","operatingmodel","digital","transformation",
+  
+    /* Product & growth */
+    "product","productmanagement","productmanager","productowner","backlog","user","story","stories","epic","feature","features","mvp",
+    "prototype","wireframe","mockup","figma","ux","ui","design","designthinking","ideation","persona","personas","journey","segmentation",
+    "pricing","monetization","growth","acquisition","retention","churn","ltv","nps","csat","activation","engagement",
+    "launch","release","releases","beta","alpha","ga","telemetry","instrumentation","tracking","mixpanel","amplitude","segment","snowplow","heap",
+    "ga4","adobe","experimentation","abtest","multivariate","hypothesis",
+  
+    /* General tech & engineering */
+    "software","development","engineering","devops","ci","cd","jenkins","github","gitlab","bitbucket","terraform","ansible","docker","kubernetes","helm","serverless",
+    "security","encryption","gdpr","hipaa","pci","sox","access","lineage","catalog","datacatalog","collibra","alation",
+    "jira","confluence","api","microservice","microservices","serverless","event","events","logging","observability"
+  ];
+
 export const actionWords = [
-  'achieved', 'administered', 'analyzed', 'assisted', 'built', 'collaborated',
-  'conducted', 'coordinated', 'created', 'defined', 'delivered', 'demonstrated',
-  'designed', 'developed', 'directed', 'established', 'executed', 'generated',
-  'identified', 'implemented', 'improved', 'increased', 'initiated', 'led',
-  'maintained', 'managed', 'monitored', 'organized', 'oversaw', 'performed',
-  'planned', 'prepared', 'presented', 'produced', 'provided', 'reduced',
-  'responsible', 'reviewed', 'scheduled', 'strengthened', 'supervised', 'supported',
-  'tested', 'trained', 'transformed', 'utilized', 'won'
+    "accelerated", "accomplished", "achieved", "acquired", "activated", "adapted", "addressed", "administered", "advanced", "advised",
+    "advocated", "aligned", "allocated", "analyzed", "applied", "appraised", "assembled", "assessed", "assigned", "assisted",
+    "attained", "automated", "boosted", "budgeted", "built", "calculated", "centralized", "championed", "changed", "clarified",
+    "coached", "collaborated", "collected", "communicated", "compared", "compiled", "completed", "conceived", "conceptualized", "concluded",
+    "conducted", "consolidated", "constructed", "consulted", "contributed", "controlled", "converted", "coordinated", "corrected", "created",
+    "cultivated", "customized", "decreased", "defined", "delivered", "demonstrated", "designed", "developed", "devised", "diagnosed",
+    "directed", "discovered", "dispatched", "documented", "doubled", "drove", "enabled", "encouraged", "engaged", "engineered",
+    "enforced", "enhanced", "enlarged", "ensured", "established", "evaluated", "executed", "expanded", "expedited", "explained",
+    "explored", "facilitated", "forecasted", "formed", "formulated", "fostered", "founded", "generated", "governed", "guided",
+    "headed", "identified", "implemented", "improved", "increased", "influenced", "informed", "initiated", "innovated", "inspected",
+    "inspired", "installed", "instituted", "instructed", "integrated", "intensified", "introduced", "invented", "investigated", "launched",
+    "led", "leveraged", "maintained", "managed", "maximized", "merged", "minimized", "modernized", "monitored", "motivated",
+    "negotiated", "optimized", "orchestrated", "organized", "outperformed", "overhauled", "oversaw", "partnered", "performed", "piloted",
+    "pioneered", "planned", "prepared", "presented", "prioritized", "produced", "programmed", "projected", "promoted", "proposed",
+    "protected", "provided", "qualified", "quantified", "realigned", "realized", "rebuilt", "received", "reconciled", "recruited",
+    "reduced", "redesigned", "refined", "reformed", "reengineered", "reinforced", "reorganized", "replaced", "reported", "resolved",
+    "restructured", "revamped", "reviewed", "revised", "saved", "scheduled", "secured", "selected", "simplified", "solved",
+    "spearheaded", "specified", "stabilized", "standardized", "started", "streamlined", "strengthened", "structured", "supervised", "supported",
+    "surpassed", "surveyed", "synthesized", "targeted", "tested", "trained", "transformed", "translated", "updated", "upgraded",
+    "validated", "won", "yielded"
+  ];
+
+export const softSkills = [
+    "leadership", "management", "mentoring", "coaching", "teamwork", "presentation",
+    "stakeholder", "negotiation", "influence", "persuasion", "problem-solving",
+    "critical-thinking", "adaptability", "creativity", "innovation", "strategic-thinking",
+    "time-management", "organization", "prioritization", "attention-to-detail", "empathy",
+    "resilience", "conflict-resolution", "decision-making", "networking",
+    "relationship-building", "customer-service", "analytical-thinking", "business-acumen",
+    "initiative", "ownership", "accountability", "flexibility"
+  ];
+
+export const skillsKeywords = [...industryWords, ...actionWords, ...softSkills];
+
+export const weakPhrases = [
+  "responsible for", "duties include", "helped with", "assisted with", "involved in", "participated in", "worked on", "tasked with",
+  "supporting", "responsible to", "a part of", "contributed to", "played a role in", "worked alongside", "was part of",
+  "was responsible for", "was involved in", "provided support", "helped manage", "helped develop", "helped implement",
+  "helped design", "helped create", "provided assistance", "collaborated with", "cooperated with", "supported the team",
+  "team member", "worked under", "assisted in", "assisted on", "assisted the", "helped to", "helped", "contributed",
+  "coordinated with", "participated", "participated on", "participated at", "in conjunction with", "along with",
+  "under the supervision of", "under supervision", "shadowed", "observed", "attended", "saw to", "helped out",
+  "did some", "did work", "completed tasks", "carried out", "carried out tasks", "responsible", "involved", "worked", "assisted"
 ];
 
-// Common industry terms and metrics
-const industryTerms = [
-  'agile', 'automation', 'blockchain', 'budget', 'business', 'cloud', 'compliance',
-  'conversion', 'cost', 'customer', 'data', 'database', 'deadline', 'deployment',
-  'design', 'develop', 'digital', 'efficiency', 'engagement', 'engineering', 'framework',
-  'implementation', 'infrastructure', 'innovation', 'integration', 'iterative',
-  'marketing', 'metrics', 'milestone', 'mobile', 'optimization', 'performance',
-  'platform', 'process', 'product', 'productivity', 'proficiency', 'project',
-  'quality', 'regulatory', 'requirements', 'revenue', 'sales', 'scalable',
-  'security', 'service', 'software', 'solution', 'stakeholder', 'standard',
-  'strategy', 'system', 'technical', 'technology', 'testing', 'user', 'workflow'
-];
-
-// Metrics/quantifiers list
-const metricsList = [
-  'percent', '%', 'million', 'thousand', 'hundred', 'k', 'm', 'b',
-  'annually', 'monthly', 'weekly', 'daily', 'hours', 'days', 'weeks',
-  'months', 'years', 'quarter', 'fiscal', 'roi', 'kpi', 'growth',
-  'increase', 'decrease', 'reduce', 'improve', 'gain', 'save', 'cut',
-  'revenue', 'profit', 'sales', 'cost', 'budget', 'leads', 'conversion'
-];
-
-// Common words to ignore in balance calculation
-const commonWords = [
-  'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and',
-  'any', 'are', 'aren\'t', 'as', 'at', 'be', 'because', 'been', 'before', 'being',
-  'below', 'between', 'both', 'but', 'by', 'can', 'did', 'do', 'does', 'doing',
-  'during', 'each', 'few', 'for', 'from', 'further', 'had', 'has', 'have', 'having',
-  'he', 'her', 'here', 'hers', 'herself', 'him', 'himself', 'his', 'how', 'i',
-  'if', 'in', 'into', 'is', 'it', 'it\'s', 'its', 'itself', 'let\'s', 'me',
-  'more', 'most', 'my', 'myself', 'nor', 'of', 'on', 'once', 'only', 'or',
-  'other', 'ought', 'our', 'ours', 'ourselves', 'out', 'over', 'own', 'same',
-  'she', 'should', 'so', 'some', 'such', 'than', 'that', 'the', 'their', 'theirs',
-  'them', 'themselves', 'then', 'there', 'these', 'they', 'this', 'those', 'through',
-  'to', 'too', 'under', 'until', 'up', 'very', 'was', 'we', 'were', 'what',
-  'when', 'where', 'which', 'while', 'who', 'whom', 'why', 'with', 'would', 'you',
-  'your', 'yours', 'yourself', 'yourselves'
-];
-
-// Analyze word balance of a single bullet point
-export function analyzeWordBalance(text) {
-  if (!text || typeof text !== 'string') {
-    return {
-      industry_pct: 0,
-      action_pct: 0,
-      common_pct: 0,
-      metric_pct: 0,
-      word_balance_score: 0,
-    };
+// Analyze word balance
+export function analyzeWordBalance(bullet: string): {
+  industry_pct: number;
+  common_pct: number;
+  action_pct: number;
+  metric_pct: number;
+  word_balance_score: number;
+} {
+  const words = bullet.split(/\s+/);
+  
+  let industryCount = 0;
+  let commonCount = 0;
+  let actionCount = 0;
+  let metricCount = 0;
+  
+  for (const word of words) {
+    const cleanWord = word.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
+    
+    if (/\d/.test(cleanWord) || /%|\$/.test(cleanWord)) {
+      metricCount++;
+    }
+    else if (actionWords.includes(cleanWord)) {
+      actionCount++;
+    }
+    else if (industryWords.includes(cleanWord)) {
+      industryCount++;
+    }
+    else {
+      commonCount++;
+    }
   }
-
-  // Convert to lowercase and remove punctuation
-  const cleanText = text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
   
-  // Split into words and remove empty strings
-  const words = cleanText.split(' ').filter(word => word.length > 0);
+  const totalWords = words.length;
+  const industry_pct = Math.round((industryCount / totalWords) * 100);
+  const common_pct = Math.round((commonCount / totalWords) * 100);
+  const action_pct = Math.round((actionCount / totalWords) * 100);
+  const metric_pct = Math.round((metricCount / totalWords) * 100);
   
-  if (words.length === 0) {
-    return {
-      industry_pct: 0,
-      action_pct: 0,
-      common_pct: 0,
-      metric_pct: 0,
-      word_balance_score: 0,
-    };
-  }
-
-  // Count occurrences of each word type
-  const industryCount = words.filter(word => industryTerms.includes(word)).length;
-  const actionCount = words.filter(word => actionWords.includes(word)).length;
-  const commonCount = words.filter(word => commonWords.includes(word)).length;
-  const metricCount = words.filter(word => {
-    return metricsList.some(metric => word.includes(metric)) || /\d+/.test(word);
-  }).length;
+  const idealIndustry = 45;
+  const idealCommon = 25;
+  const idealAction = 15;
+  const idealMetric = 15;
   
-  // Calculate percentages
-  const industry_pct = Math.round((industryCount / words.length) * 100);
-  const action_pct = Math.round((actionCount / words.length) * 100);
-  const common_pct = Math.round((commonCount / words.length) * 100);
-  const metric_pct = Math.round((metricCount / words.length) * 100);
+  const industryDev = Math.abs(industry_pct - idealIndustry);
+  const commonDev = Math.abs(common_pct - idealCommon);
+  const actionDev = Math.abs(action_pct - idealAction);
+  const metricDev = Math.abs(metric_pct - idealMetric);
   
-  // Calculate word balance score (0-25)
-  // Ideal: ~25% industry terms, ~10% action words, ~10% metrics, <50% common words
-  const industryScore = Math.min(12, industry_pct / 3); // Max 12 points for ~36% industry terms
-  const actionScore = Math.min(5, action_pct / 3); // Max 5 points for ~15% action words
-  const metricScore = Math.min(8, metric_pct * 0.8); // Max 8 points for ~10% metrics
+  const totalDeviation = industryDev + commonDev + actionDev + metricDev;
+  const word_balance_score = Math.max(0, 25 - totalDeviation);
   
-  // Penalty for too many common words
-  const commonPenalty = Math.max(0, Math.min(10, (common_pct - 40) / 5)); // Up to -10 points
-  
-  const word_balance_score = Math.max(0, Math.round(industryScore + actionScore + metricScore - commonPenalty));
-
   return {
     industry_pct,
-    action_pct,
     common_pct,
+    action_pct,
     metric_pct,
     word_balance_score
   };
 }
-
-// XYZ Method check: You did X (action) for Y (context) resulting in Z (result)
-export function xyzCheck(text) {
-  if (!text || typeof text !== 'string') {
-    return { 
-      action: 0,
-      metrics: 0, 
-      clarity: 0,
-      industry: 0,
-      achievement: 0,
-      xyz_total: 0
-    };
-  }
-
-  // Convert to lowercase for analysis
-  const lowerText = text.toLowerCase();
+// XYZ ATS Quality Check - Enhanced version
+export function xyzCheck(bullet: string): {
+  action: number,
+  metrics: number,
+  clarity: number,
+  industry: number,
+  achievement: number,
+  xyz_total: number
+} {
+  const words = bullet.split(/\s+/);
+  const wordCount = words.length;
   
-  // Action score (X component) - does it start with a strong action verb?
-  let actionScore = 0;
-  const firstWord = lowerText.split(' ')[0].replace(/[^\w]/, '');
-  if (actionWords.includes(firstWord)) {
-    actionScore = 10; // Full credit for starting with an action word
-  } else if (actionWords.some(w => lowerText.split(' ').slice(0, 3).includes(w))) {
-    actionScore = 7; // Partial credit for action word in first few words
-  } else if (actionWords.some(w => lowerText.includes(w))) {
-    actionScore = 5; // Minimal credit for having an action word anywhere
-  }
+  // Action word at beginning check
+  const actionRegex = new RegExp(`^(${actionWords.map(w => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`,'i');
+  const startsWithAction = actionRegex.test(bullet);
+  const action = startsWithAction ? 10 : 0;
   
-  // Metrics score (Z component) - are there specific numbers or metrics?
-  let metricsScore = 0;
-  // Check for numbers
-  const hasNumbers = /\d+/.test(lowerText);
-  // Check for percentages
-  const hasPercentages = /%|\bpercent\b|\bpercentage\b/.test(lowerText);
-  // Check for other metrics terms
-  const hasMetricTerms = metricsList.some(term => lowerText.includes(term));
+  // Metrics/quantifiable results check
+  const hasMetrics = /\d+%|\d+x|\$\d+|\d+ percent|\d+k|\d+M|\d+B/i.test(bullet);
+  const hasPartialMetrics = /\d+/.test(bullet);
+  const metrics = hasMetrics ? 30 : (hasPartialMetrics ? 15 : 0);
   
-  if (hasNumbers && (hasPercentages || hasMetricTerms)) {
-    metricsScore = 30; // Full credit for specific quantifiable results with metrics
-  } else if (hasNumbers) {
-    metricsScore = 20; // Partial credit for having any numbers
-  } else if (hasMetricTerms) {
-    metricsScore = 10; // Minimal credit for mentioning metrics without specifics
-  }
+  // Clarity and conciseness check
+  // const clarity = wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5);
+  // More penalty for extremely short bullets
+  const clarity = wordCount <= 7 ? 0 : (wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5));
   
-  // Clarity score - is it concise and clear?
-  const words = lowerText.split(' ').filter(w => w.length > 0);
-  let clarityScore = 0;
-  if (words.length >= 7 && words.length <= 20) {
-    clarityScore = 15; // Good length for a bullet point
-  } else if (words.length < 7) {
-    clarityScore = Math.max(0, words.length); // Too short
-  } else {
-    clarityScore = Math.max(0, 25 - (words.length - 20) / 2); // Too long
-  }
   
-  // Industry relevance score - does it use industry terms?
-  const industryTermsCount = industryTerms.filter(term => lowerText.includes(term)).length;
-  const industryScore = Math.min(25, industryTermsCount * 5);
+  // Industry relevance check
+  const industryKeywords = industryWords.filter(keyword => 
+    bullet.toLowerCase().includes(keyword.toLowerCase())
+  );
+  const industryKeywordCount = industryKeywords.length;
+  const industry = industryKeywordCount >= 3 ? 25 : (industryKeywordCount >= 1 ? 15 : 0);
   
-  // Achievement score - does it show accomplishment or result?
-  let achievementScore = 0;
-  const resultTerms = ['resulting in', 'achieved', 'improved', 'increased', 'reduced', 
-                       'generated', 'delivered', 'produced', 'succeeded', 'won'];
+  // Achievement-focused vs duty-focused check
+  const weakRegex = new RegExp(`\\b(${weakPhrases.map(phrase => phrase.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`,'i');
+  const hasWeakPhrasing = weakRegex.test(bullet);
+  const achievementKeywords = ["achieved", "improved", "increased", "reduced", "led", "created", "developed"];
+  const hasAchievementLanguage = achievementKeywords.some(keyword => bullet.toLowerCase().includes(keyword));
+  const achievement = hasAchievementLanguage ? 20 : (hasWeakPhrasing ? 0 : 10);
   
-  if (resultTerms.some(term => lowerText.includes(term))) {
-    achievementScore = 20;
-  } else if (lowerText.includes('result')) {
-    achievementScore = 15;
-  } else if (metricsScore > 0) {
-    achievementScore = 10; // Having metrics implies some achievement
-  }
-  
-  // Calculate total XYZ score (0-100 scale)
-  const xyzTotal = actionScore + metricsScore + clarityScore + industryScore + achievementScore;
+  // Calculate total score (max 100 points)
+  const xyz_total = action + metrics + clarity + industry + achievement;
   
   return {
-    action: actionScore,
-    metrics: metricsScore,
-    clarity: clarityScore,
-    industry: industryScore,
-    achievement: achievementScore,
-    xyz_total: Math.min(100, xyzTotal)
+    action,
+    metrics,
+    clarity,
+    industry,
+    achievement,
+    xyz_total
   };
 }
+// XYZ ATS Quality Check
+// export function xyzCheck(bullet: string): {
+//   hard_soft: number;
+//   action_words: number;
+//   measurable_results: number;
+//   clarity_focus: number;
+//   xyz_total: number;
+// } {
+//   const hasSkills = skillsKeywords.some(keyword => bullet.toLowerCase().includes(keyword));
+//   const hard_soft = hasSkills ? 5 : 0;
+  
+//   const actionRegex = new RegExp(`^(${actionWords.map(w => w.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})`,'i');
+//   const startsWithAction = actionRegex.test(bullet);
+//   const weakRegex = new RegExp(`\\b(${weakPhrases.map(phrase => phrase.replace(/[-/\\^$*+?.()|[\\]{}]/g, '\\$&')).join('|')})\\b`,'i');
+//   const noWeakPhrasing = !weakRegex.test(bullet);
+//   const action_words = (startsWithAction && noWeakPhrasing) ? 5 : (startsWithAction || noWeakPhrasing ? 3 : 0);
+  
+//   const hasNumbers = /\d+%|\d+x|\$\d+|\d+ percent|\d+k|\d+M|\d+B/i.test(bullet);
+//   const measurable_results = hasNumbers ? 5 : 0;
+  
+//   const wordCount = bullet.split(/\s+/).length;
+//   const isConcise = wordCount <= 25;
+//   const clarity_focus = isConcise ? 5 : (wordCount <= 30 ? 3 : 0);
+  
+//   const xyz_total = hard_soft + action_words + measurable_results + clarity_focus;
+  
+//   return {
+//     hard_soft,
+//     action_words,
+//     measurable_results,
+//     clarity_focus,
+//     xyz_total
+//   };
+// }

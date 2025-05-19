@@ -36,8 +36,10 @@ verify_jwt = true
 [functions.auth-callback]
 verify_jwt = false
 
-[functions.resume-analyzer]
-verify_jwt = true
+// [functions.resume-analyzer]
+// verify_jwt = true
 
 [functions.analyze-job-match]
 verify_jwt = false
+
+

@@ -1,207 +1,212 @@
-
-import { supabase } from '../_shared/utils.ts';
-
-// Setting up the config for the bullet improver
+console.log("Bullet Extractor Endpoint hit");
+import { callLLMWithRetry } from './utils.ts';
 export const config = {
-  batchSize: 3, // Process bullets in batches of 3
-  maxRetries: 2, // Number of retries for failed API calls
-  useGroq: true, // Whether to use Groq API
-  useTogether: true, // Whether to use Together AI API
-  addUuidToItems: true, // Whether to add UUIDs to items for tracking
+  MAX_CONCURRENT_REQUESTS: 1,
+  MAX_TOTAL_BULLETS: 10,
+  MAX_RETRIES: 3,
+  RATE_LIMIT_DELAY_MS: 2000,
+  RATE_LIMIT_JITTER_MS: 500,
+  CHUNK_TIMEOUT_MS: 30000,
+  BACKOFF_MULTIPLIER: 1.5 // Exponential backoff multiplier
 };
-
-// Main function to process bullets in batches
-export async function processBatchQueue(bullets, userId) {
-  console.log(`Processing ${bullets.length} bullets in batches of ${config.batchSize}`);
-  
-  // Add UUIDs to bullets if needed
-  const preparedBullets = config.addUuidToItems
-    ? bullets.map(bullet => ({ ...bullet, id: crypto.randomUUID() }))
-    : bullets;
-  
-  // Split bullets into batches
-  const batches = [];
-  for (let i = 0; i < preparedBullets.length; i += config.batchSize) {
-    batches.push(preparedBullets.slice(i, i + config.batchSize));
-  }
-  
-  console.log(`Created ${batches.length} batches`);
-  
-  // Process each batch
-  const results = [];
-  for (let i = 0; i < batches.length; i++) {
-    const batch = batches[i];
-    console.log(`Processing batch ${i + 1} of ${batches.length} with ${batch.length} bullets`);
-    
+// Utility function for exponential backoff
+async function backoffDelay(attempt) {
+  const delay = Math.min(config.RATE_LIMIT_DELAY_MS * Math.pow(config.BACKOFF_MULTIPLIER, attempt), 10000 // Max 10 second delay
+  );
+  const jitter = Math.random() * config.RATE_LIMIT_JITTER_MS;
+  await new Promise((resolve)=>setTimeout(resolve, delay + jitter));
+}
+// This is the primary function that needs to be exported - it's imported in bulletSuggestions.ts
+export async function improveBullet(bulletData) {
+  let attempts = 0;
+  while(attempts < config.MAX_RETRIES){
     try {
-      const batchResults = await processBulletBatch(batch, userId);
-      results.push(...batchResults);
+      console.log(`Improving bullet (attempt ${attempts + 1}): ${bulletData.original.substring(0, 30)}...`);
+      // Add backoff delay between attempts
+      if (attempts > 0) {
+        await backoffDelay(attempts);
+      }
+      const { system, prompt } = constructGroqPrompt(bulletData);
+      const result = await callLLMWithRetry(system, prompt);
+      // Validate result before processing
+      if (!result || typeof result !== 'string') {
+        throw new Error('Empty or invalid response from LLM');
+      }
+      const processedResult = processGroqResponse(result, bulletData);
+      return processedResult;
     } catch (error) {
-      console.error(`Error processing batch ${i + 1}:`, error);
-      // Add the originals back with error status
-      results.push(...batch.map(bullet => ({
-        ...bullet,
-        rewritten: bullet.original,
-        tips: "Failed to process this bullet."
-      })));
-    }
-  }
-  
-  return results;
-}
-
-// Process a batch of bullets
-async function processBulletBatch(bullets, userId) {
-  // Use whichever API is enabled
-  if (config.useGroq) {
-    return processWithGroq(bullets, userId);
-  } else if (config.useTogether) {
-    return processWithTogether(bullets, userId);
-  } else {
-    throw new Error('No LLM API enabled');
-  }
-}
-
-// Process bullets with Groq API
-async function processWithGroq(bullets, userId) {
-  const GROQ = Deno.env.get('GROQ');
-  if (!GROQ) throw new Error('GROQ API key not found');
-  
-  const prompt = `
-  Improve the following resume bullet points to be more impactful and effective.
-  For each bullet point:
-  1. Rewrite it to emphasize quantifiable achievements using XYZ format (Action → Context → Result)
-  2. Add useful tips for further improvement
-  
-  Format your response as a valid JSON array with objects containing:
-  - id: The original bullet's ID
-  - original: The original text
-  - rewritten: Your improved version
-  - tips: 1-2 specific tips for further improvement
-  
-  Original bullets:
-  ${JSON.stringify(bullets.map(b => ({id: b.id, text: b.original})))}
-  
-  IMPORTANT: Return ONLY the JSON array without any explanations, markdown formatting, or additional text.
-  `;
-
-  let attempt = 0;
-  while (attempt < config.maxRetries) {
-    try {
-      const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${GROQ}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
-          messages: [
-            { role: "system", content: "You are an expert resume writer that improves bullet points." },
-            { role: "user", content: prompt }
-          ],
-          temperature: 0.5,
-          max_tokens: 1500
-        })
-      });
-      
-      if (!resp.ok) throw new Error(`Groq API error: ${resp.status}`);
-      
-      const result = await resp.json();
-      const content = result.choices[0].message.content;
-      
-      // Extract JSON array from response (it might be wrapped in markdown or other text)
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('Could not extract JSON from response');
-      
-      const jsonStr = jsonMatch[0];
-      const improved = JSON.parse(jsonStr);
-      
-      return bullets.map(bullet => {
-        const improved_bullet = improved.find(b => b.id === bullet.id);
+      console.error(`Error improving bullet (attempt ${attempts + 1}):`, error);
+      attempts++;
+      // On last attempt, return fallback
+      if (attempts === config.MAX_RETRIES) {
         return {
-          ...bullet,
-          rewritten: improved_bullet?.rewritten || bullet.original,
-          tips: improved_bullet?.tips || "No specific tips provided."
+          rewritten: bulletData.original,
+          tips: "Unable to improve bullet point after multiple attempts. Consider adding metrics and using stronger action verbs."
         };
-      });
-    } catch (error) {
-      console.error(`Attempt ${attempt + 1} failed:`, error);
-      attempt++;
-      if (attempt >= config.maxRetries) throw error;
-      await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+      }
     }
   }
 }
+// Helper function to construct the prompt for GROQ
+function constructGroqPrompt(bulletData) {
+  // Construct a prompt based on the bullet data;
+  const system = `You are a professional resume writer specializing in optimizing bullet points. 
+Your task is to rewrite resume bullets to be more impactful, achievement-focused, 
+and industry-appropriate. Focus on using strong action verbs, incorporating metrics, 
+and making each bullet point concise yet comprehensive.`;
+  // Prompt template for each bullet point
+  const prompt = `Rewrite this resume bullet point to make it stronger:
 
-// Process bullets with Together AI
-async function processWithTogether(bullets, userId) {
-  const TOGETHER_API_KEY = Deno.env.get('TOGETHER_API_KEY');
-  if (!TOGETHER_API_KEY) throw new Error('Together API key not found');
-  
-  const prompt = `
-  Improve the following resume bullet points to be more impactful and effective.
-  For each bullet point:
-  1. Rewrite it to emphasize quantifiable achievements using XYZ format (Action → Context → Result)
-  2. Add useful tips for further improvement
-  
-  Format your response as a valid JSON array with objects containing:
-  - id: The original bullet's ID
-  - original: The original text
-  - rewritten: Your improved version
-  - tips: 1-2 specific tips for further improvement
-  
-  Original bullets:
-  ${JSON.stringify(bullets.map(b => ({id: b.id, text: b.original})))}
-  
-  IMPORTANT: Return ONLY the JSON array without any explanations, markdown formatting, or additional text.
-  `;
+Original: ${bulletData.original}
 
-  let attempt = 0;
-  while (attempt < config.maxRetries) {
-    try {
-      const resp = await fetch('https://api.together.xyz/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${TOGETHER_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'meta-llama/Llama-3.1-8B-Instruct',
-          messages: [
-            { role: "system", content: "You are an expert resume writer that improves bullet points." },
-            { role: "user", content: prompt }
-          ],
-          temperature: 0.5,
-          max_tokens: 1500
-        })
-      });
-      
-      if (!resp.ok) throw new Error(`Together API error: ${resp.status}`);
-      
-      const result = await resp.json();
-      const content = result.choices[0].message.content;
-      
-      // Extract JSON array from response
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) throw new Error('Could not extract JSON from response');
-      
-      const jsonStr = jsonMatch[0];
-      const improved = JSON.parse(jsonStr);
-      
-      return bullets.map(bullet => {
-        const improved_bullet = improved.find(b => b.id === bullet.id);
+Current scores:
+- Action words: ${bulletData.xyz_scores?.action || 0}/10
+- Measurable results: ${bulletData.xyz_scores?.metrics || 0}/30
+- Clarity/focus: ${bulletData.xyz_scores?.clarity || 0}/10
+- Industry terms: ${bulletData.xyz_scores?.industry || 0}/25
+- Achievement focus: ${bulletData.xyz_scores?.achievement || 0}/25
+
+Word balance:
+- Industry terms: ${bulletData.word_balance?.industry_pct || 0}%
+- Common words: ${bulletData.word_balance?.common_pct || 0}%
+- Action words: ${bulletData.word_balance?.action_pct || 0}%
+- Metrics: ${bulletData.word_balance?.metric_pct || 0}%
+
+Improve this bullet by:
+1. Making it more results-oriented
+2. Using stronger action verbs
+3. Adding specific metrics if missing
+4. Making it more concise and focused
+5. Incorporating relevant industry terms
+
+Format your response in clean JSON with only two fields:
+{
+  "rewritten": "The improved bullet point goes here as a single string",
+  "tips": "A single string with comma-separated tips for improvement"
+}
+
+Do not use arrays or nested quotes in your response. Keep it simple.`;
+  // return prompt;
+  return {
+    system,
+    prompt: prompt
+  };
+}
+// Helper function to process the GROQ response
+function processGroqResponse(response, originalBullet) {
+  try {
+    // If the response is already in the expected format, return it
+    if (response.rewritten && response.tips) {
+      return response;
+    }
+    // Try to parse the response if it's a JSON string
+    if (typeof response === 'string') {
+      try {
+        const parsedResponse = JSON.parse(response);
+        if (parsedResponse.rewritten && parsedResponse.tips) {
+          return parsedResponse;
+        }
+      } catch (e) {
+      // Not valid JSON, continue with other parsing methods
+      }
+      // Try to extract from the string
+      const rewrittenMatch = response.match(/["']rewritten["']\s*:\s*["']([^"']+)["']/);
+      const tipsMatch = response.match(/["']tips["']\s*:\s*["']([^"']+)["']/);
+      if (rewrittenMatch && tipsMatch) {
         return {
-          ...bullet,
-          rewritten: improved_bullet?.rewritten || bullet.original,
-          tips: improved_bullet?.tips || "No specific tips provided."
+          rewritten: rewrittenMatch[1],
+          tips: tipsMatch[1]
         };
-      });
-    } catch (error) {
-      console.error(`Attempt ${attempt + 1} failed:`, error);
-      attempt++;
-      if (attempt >= config.maxRetries) throw error;
-      await new Promise(r => setTimeout(r, 2000)); // Wait 2s before retry
+      }
     }
+    // Fallback: extract any content between opening/closing brackets as the rewritten bullet
+    if (typeof response === 'string') {
+      const contentBetweenBrackets = response.match(/\[(.*?)\]/s);
+      if (contentBetweenBrackets && contentBetweenBrackets[1]) {
+        return {
+          rewritten: contentBetweenBrackets[1].trim(),
+          tips: "Extracted from API response."
+        };
+      }
+    }
+    // Last resort fallback
+    console.warn("Could not parse GROQ response, returning original bullet");
+    return {
+      rewritten: originalBullet.original,
+      tips: "Could not generate specific tips. Consider adding metrics and using stronger action verbs."
+    };
+  } catch (error) {
+    console.error("Error processing GROQ response:", error);
+    return {
+      rewritten: originalBullet.original,
+      tips: "Error processing the API response. Consider adding metrics and using stronger action verbs."
+    };
   }
 }
+// Process bullets in parallel with controlled concurrency and timeouts
+export async function processBulletsInParallel(bullets, userId) {
+  try {
+    console.log(`Starting bullet improvement for userId: ${userId}`);
+    // Limit total bullets to process
+    const bulletsToProcess = bullets.slice(0, config.MAX_TOTAL_BULLETS);
+    console.log(`Processing ${bulletsToProcess.length} out of ${bullets.length} total bullets`);
+    // Process one bullet at a time with proper rate limiting
+    const results = [];
+    for (const bullet of bulletsToProcess){
+      try {
+        // Add timeout protection
+        const timeoutPromise = new Promise((_, reject)=>{
+          setTimeout(()=>reject(new Error('Bullet processing timeout')), config.CHUNK_TIMEOUT_MS);
+        });
+        const bulletPromise = improveBullet(bullet);
+        // Race between timeout and processing
+        const result = await Promise.race([
+          bulletPromise,
+          timeoutPromise
+        ]).catch((error)=>{
+          console.error(`Error processing bullet: ${error.message}`);
+          return {
+            id: bullet.id,
+            rewritten: bullet.original,
+            error: true,
+            errorMessage: error.message
+          };
+        });
+        results.push({
+          id: bullet.id,
+          ...result || {
+            rewritten: bullet.original,
+            error: true
+          }
+        });
+        // Add mandatory delay between bullets to respect rate limits
+        await backoffDelay(0);
+      } catch (err) {
+        console.error(`Error improving bullet ${bullet.id}:`, err);
+        results.push({
+          id: bullet.id,
+          rewritten: bullet.original,
+          error: true,
+          errorMessage: err.message
+        });
+      }
+    }
+    // Handle any remaining bullets
+    const remainingBullets = bullets.slice(config.MAX_TOTAL_BULLETS);
+    if (remainingBullets.length > 0) {
+      console.log(`Returning original content for ${remainingBullets.length} remaining bullets`);
+      const defaultResults = remainingBullets.map((bullet)=>({
+          id: bullet.id,
+          rewritten: bullet.original,
+          unprocessed: true
+        }));
+      results.push(...defaultResults);
+    }
+    return results;
+  } catch (error) {
+    console.error('Error in processBulletsInParallel:', error);
+    throw error;
+  }
+}
+// Export the new parallel processing function as the main interface
+export { processBulletsInParallel as processBatchQueue };
