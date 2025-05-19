@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,8 +10,9 @@ import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Check, AlertCircle, ChevronLeft, ChevronRight, History as HistoryIcon } from 'lucide-react';
+import { Check, AlertCircle, ChevronLeft, ChevronRight, HistoryIcon, RefreshCw } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
+import { LocalStorageUtils } from '@/utils/localStorageUtils';
 
 interface StarResponse {
   id: string;
@@ -19,15 +21,7 @@ interface StarResponse {
   task: string;
   action: string;
   result: string;
-  ai_feedback: {
-    overall_score: number;
-    structure_score: number;
-    content_score: number;
-    clarity_score: number;
-    strengths: string[];
-    areas_for_improvement: string[];
-    suggestions: string[];
-  };
+  ai_feedback: any;
   submitted_at: string;
 }
 
@@ -35,6 +29,8 @@ interface Question {
   id: string;
   question: string;
   targetCompetency: string;
+  type: 'behavioral' | 'technical';
+  preparationTips?: string;
 }
 
 export default function StarPractice() {
@@ -52,14 +48,45 @@ export default function StarPractice() {
     action: '',
     result: '',
   });
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
   useEffect(() => {
-    loadQuestions();
-    loadResponses();
-  }, []);
+    if (user) {
+      loadQuestions();
+      
+      // Try to load responses from local storage first
+      const cachedResponses = LocalStorageUtils.getStarResponses(user.id);
+      if (cachedResponses && cachedResponses.length > 0) {
+        console.log('Loaded STAR responses from local storage:', cachedResponses.length);
+        setResponses(cachedResponses);
+      } else {
+        // If nothing in local storage, try to load from database
+        loadResponses();
+      }
+    }
+  }, [user]);
 
   const loadQuestions = async () => {
     try {
+      // Try to get study guide from local storage first
+      if (user) {
+        const cachedStudyGuide = LocalStorageUtils.getStudyGuide(user.id);
+        if (cachedStudyGuide && cachedStudyGuide.questions) {
+          const behavioralQuestions = cachedStudyGuide.questions.filter(
+            (q: any) => q.type === 'behavioral'
+          );
+          
+          if (behavioralQuestions.length > 0) {
+            console.log('Loaded questions from local storage study guide');
+            setQuestions(behavioralQuestions);
+            setSelectedQuestion(behavioralQuestions[0]);
+            setIsLoading(false);
+            return;
+          }
+        }
+      }
+
+      // Fall back to database if no local storage data
       const { data: studyGuides, error: studyGuidesError } = await supabase
         .from('study_guides')
         .select('questions')
@@ -96,7 +123,14 @@ export default function StarPractice() {
         .order('submitted_at', { ascending: false });
 
       if (error) throw error;
-      setResponses(data || []);
+      
+      if (data && data.length > 0) {
+        setResponses(data);
+        // Save to local storage for future use
+        if (user) {
+          LocalStorageUtils.saveStarResponses(user.id, data);
+        }
+      }
     } catch (error) {
       console.error('Error loading responses:', error);
       toast({
@@ -146,8 +180,17 @@ export default function StarPractice() {
 
       if (feedbackError) throw feedbackError;
 
+      // Add feedback to the response
+      const completeResponse = { ...responseData, ai_feedback: feedbackData?.ai_feedback };
+      
       // Update responses list
-      setResponses(prev => [{ ...responseData, ai_feedback: feedbackData }, ...prev]);
+      const updatedResponses = [completeResponse, ...responses];
+      setResponses(updatedResponses);
+      
+      // Save to local storage for future access
+      if (user) {
+        LocalStorageUtils.saveStarResponses(user.id, updatedResponses);
+      }
       
       // Reset form
       setFormData({
@@ -173,6 +216,46 @@ export default function StarPractice() {
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentQuestionIndex < questions.length - 1) {
+      const nextIndex = currentQuestionIndex + 1;
+      setCurrentQuestionIndex(nextIndex);
+      setSelectedQuestion(questions[nextIndex]);
+      setFormData({
+        situation: '',
+        task: '',
+        action: '',
+        result: '',
+      });
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentQuestionIndex > 0) {
+      const prevIndex = currentQuestionIndex - 1;
+      setCurrentQuestionIndex(prevIndex);
+      setSelectedQuestion(questions[prevIndex]);
+      setFormData({
+        situation: '',
+        task: '',
+        action: '',
+        result: '',
+      });
+    }
+  };
+
+  const handleClearHistory = () => {
+    if (user) {
+      // Clear responses from local storage
+      window.localStorage.removeItem(`star_responses_${user.id}`);
+      setResponses([]);
+      toast({
+        title: 'History Cleared',
+        description: 'Your response history has been cleared',
+      });
     }
   };
 
@@ -202,16 +285,15 @@ export default function StarPractice() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => window.history.back()}>Go Back</Button>
+              <Button onClick={() => window.history.push('/interview-prep/job-description')}>
+                Analyze Job Description
+              </Button>
             </CardContent>
           </Card>
         </div>
       </AppLayout>
     );
   }
-
-  const currentQuestionIndex = questions.findIndex(q => q.id === selectedQuestion?.id);
-  const currentQuestion = questions[currentQuestionIndex];
 
   return (
     <AppLayout>
@@ -224,27 +306,48 @@ export default function StarPractice() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList>
-            <TabsTrigger value="practice">Practice</TabsTrigger>
-            <TabsTrigger value="history">Response History</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="practice">Practice</TabsTrigger>
+              <TabsTrigger value="history" disabled={responses.length === 0}>
+                Response History
+              </TabsTrigger>
+            </TabsList>
+            
+            {responses.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleClearHistory}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Clear History
+              </Button>
+            )}
+          </div>
 
           <TabsContent value="practice">
             <div className="space-y-8">
               <Card>
                 <CardHeader>
-                  <CardTitle>Question</CardTitle>
+                  <CardTitle>Question {currentQuestionIndex + 1} of {questions.length}</CardTitle>
                   <CardDescription>
                     Answer the following behavioral question using the STAR method.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {currentQuestion ? (
+                  {selectedQuestion ? (
                     <div className="space-y-4">
-                      <p className="text-lg font-medium">{currentQuestion.question}</p>
+                      <p className="text-lg font-medium">{selectedQuestion.question}</p>
                       <Badge variant="outline">
-                        Competency: {currentQuestion.targetCompetency}
+                        Competency: {selectedQuestion.targetCompetency}
                       </Badge>
+                      {selectedQuestion.preparationTips && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Tip: {selectedQuestion.preparationTips}
+                        </p>
+                      )}
                     </div>
                   ) : (
                     <p className="text-muted-foreground">
@@ -254,7 +357,7 @@ export default function StarPractice() {
                 </CardContent>
               </Card>
 
-              {currentQuestion && (
+              {selectedQuestion && (
                 <Card>
                   <CardHeader>
                     <CardTitle>Your Response</CardTitle>
@@ -303,20 +406,31 @@ export default function StarPractice() {
                       />
                     </div>
 
-                    <Button
-                      onClick={handleSubmit}
-                      disabled={isSubmitting}
-                      className="w-full"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <Spinner size="sm" className="mr-2" />
-                          Submitting...
-                        </>
-                      ) : (
-                        'Submit for Feedback'
-                      )}
-                    </Button>
+                    <div className="flex justify-between items-center pt-4">
+                      <Button
+                        variant="outline"
+                        onClick={handlePrevious}
+                        disabled={currentQuestionIndex === 0}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-2" />
+                        Previous
+                      </Button>
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting || !formData.situation || !formData.task || !formData.action || !formData.result}
+                      >
+                        {isSubmitting ? <Spinner size="sm" className="mr-2" /> : null}
+                        Submit Response
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={handleNext}
+                        disabled={currentQuestionIndex === questions.length - 1}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -331,7 +445,7 @@ export default function StarPractice() {
                     <div className="flex items-start justify-between">
                       <div>
                         <CardTitle>
-                          {questions.find(q => q.id === response.question_id)?.question}
+                          {questions.find(q => q.id === response.question_id)?.question || 'Behavioral Question'}
                         </CardTitle>
                         <CardDescription>
                           Submitted on {new Date(response.submitted_at).toLocaleDateString()}
@@ -339,8 +453,8 @@ export default function StarPractice() {
                       </div>
                       {response.ai_feedback && (
                         <div className="flex items-center gap-2">
-                          <Badge variant={response.ai_feedback.overall_score >= 8 ? 'default' : 'secondary'}>
-                            Score: {response.ai_feedback.overall_score}/10
+                          <Badge variant={response.ai_feedback.scores?.overall >= 8 ? 'default' : 'secondary'}>
+                            Score: {response.ai_feedback.scores?.overall || 'N/A'}/10
                           </Badge>
                         </div>
                       )}
@@ -371,59 +485,98 @@ export default function StarPractice() {
                         <div className="space-y-4 pt-4 border-t">
                           <h3 className="font-medium">AI Feedback</h3>
                           
-                          <div className="grid grid-cols-3 gap-4">
-                            <div>
-                              <p className="text-sm font-medium">Structure</p>
-                              <Badge variant="outline">
-                                {response.ai_feedback.structure_score}/10
-                              </Badge>
+                          {response.ai_feedback.scores && (
+                            <div className="space-y-2">
+                              <h4 className="text-sm font-medium mb-2">Component Scores</h4>
+                              <div className="space-y-2">
+                                <div>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Situation</span>
+                                    <span>{response.ai_feedback.scores.situation}/10</span>
+                                  </div>
+                                  <Progress value={response.ai_feedback.scores.situation * 10} />
+                                </div>
+                                <div>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Task</span>
+                                    <span>{response.ai_feedback.scores.task}/10</span>
+                                  </div>
+                                  <Progress value={response.ai_feedback.scores.task * 10} />
+                                </div>
+                                <div>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Action</span>
+                                    <span>{response.ai_feedback.scores.action}/10</span>
+                                  </div>
+                                  <Progress value={response.ai_feedback.scores.action * 10} />
+                                </div>
+                                <div>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span>Result</span>
+                                    <span>{response.ai_feedback.scores.result}/10</span>
+                                  </div>
+                                  <Progress value={response.ai_feedback.scores.result * 10} />
+                                </div>
+                                <div>
+                                  <div className="flex justify-between text-sm mb-1">
+                                    <span className="font-medium">Overall</span>
+                                    <span className="font-medium">{response.ai_feedback.scores.overall}/10</span>
+                                  </div>
+                                  <Progress value={response.ai_feedback.scores.overall * 10} />
+                                </div>
+                              </div>
                             </div>
+                          )}
+
+                          {response.ai_feedback.analysis && (
                             <div>
-                              <p className="text-sm font-medium">Content</p>
-                              <Badge variant="outline">
-                                {response.ai_feedback.content_score}/10
-                              </Badge>
+                              <h4 className="text-sm font-medium mb-2">Analysis</h4>
+                              <div className="space-y-2 text-sm">
+                                <p><strong>Completeness:</strong> {response.ai_feedback.analysis.completeness}</p>
+                                <p><strong>Specificity:</strong> {response.ai_feedback.analysis.specificity}</p>
+                                <p><strong>Relevance:</strong> {response.ai_feedback.analysis.relevance}</p>
+                                <p><strong>Impact:</strong> {response.ai_feedback.analysis.impact}</p>
+                                <p><strong>Communication:</strong> {response.ai_feedback.analysis.communication}</p>
+                              </div>
                             </div>
-                            <div>
-                              <p className="text-sm font-medium">Clarity</p>
-                              <Badge variant="outline">
-                                {response.ai_feedback.clarity_score}/10
-                              </Badge>
-                            </div>
-                          </div>
+                          )}
 
-                          <div>
-                            <h4 className="text-sm font-medium mb-2">Strengths</h4>
-                            <ul className="list-disc list-inside space-y-1">
-                              {response.ai_feedback.strengths.map((strength, index) => (
-                                <li key={index} className="text-sm text-muted-foreground">
-                                  {strength}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                          {response.ai_feedback.feedback && (
+                            <>
+                              <div>
+                                <h4 className="text-sm font-medium mb-2">Strengths</h4>
+                                <ul className="list-disc list-inside space-y-1">
+                                  {response.ai_feedback.feedback.strengths.map((strength: string, index: number) => (
+                                    <li key={index} className="text-sm flex items-start">
+                                      <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
+                                      <span>{strength}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
 
-                          <div>
-                            <h4 className="text-sm font-medium mb-2">Areas for Improvement</h4>
-                            <ul className="list-disc list-inside space-y-1">
-                              {response.ai_feedback.areas_for_improvement.map((area, index) => (
-                                <li key={index} className="text-sm text-muted-foreground">
-                                  {area}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                              <div>
+                                <h4 className="text-sm font-medium mb-2">Areas for Improvement</h4>
+                                <ul className="list-disc list-inside space-y-1">
+                                  {response.ai_feedback.feedback.improvements.map((improvement: string, index: number) => (
+                                    <li key={index} className="text-sm flex items-start">
+                                      <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
+                                      <span>{improvement}</span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
 
-                          <div>
-                            <h4 className="text-sm font-medium mb-2">Suggestions</h4>
-                            <ul className="list-disc list-inside space-y-1">
-                              {response.ai_feedback.suggestions.map((suggestion, index) => (
-                                <li key={index} className="text-sm text-muted-foreground">
-                                  {suggestion}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
+                              <div>
+                                <h4 className="text-sm font-medium mb-2">Suggestions</h4>
+                                <ul className="list-disc list-inside space-y-1">
+                                  {response.ai_feedback.feedback.suggestions.map((suggestion: string, index: number) => (
+                                    <li key={index} className="text-sm">{suggestion}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
                     </div>

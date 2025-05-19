@@ -1,4 +1,3 @@
-
 // localStorageUtils.ts
 
 interface LocalStorageItem {
@@ -183,6 +182,87 @@ export class LocalStorageUtils {
         });
       } catch (error) {
         console.error('Error clearing job items:', error);
+      }
+    }
+  }
+
+  /**
+   * Save job study guide to localStorage
+   */
+  static saveStudyGuide(userId: string, studyGuide: any): void {
+    console.log('Saving study guide to localStorage');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(`study_guide_${userId}`, JSON.stringify(studyGuide));
+        console.log('Study guide saved to localStorage');
+      } catch (error) {
+        console.error('Error saving study guide to localStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Get job study guide from localStorage
+   */
+  static getStudyGuide(userId: string): any {
+    console.log('Getting study guide from localStorage');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const studyGuide = window.localStorage.getItem(`study_guide_${userId}`);
+        return studyGuide ? JSON.parse(studyGuide) : null;
+      } catch (error) {
+        console.error('Error getting study guide from localStorage:', error);
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Save STAR responses to localStorage
+   */
+  static saveStarResponses(userId: string, responses: any[]): void {
+    console.log('Saving STAR responses to localStorage');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(`star_responses_${userId}`, JSON.stringify(responses));
+        console.log('STAR responses saved to localStorage');
+      } catch (error) {
+        console.error('Error saving STAR responses to localStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Get STAR responses from localStorage
+   */
+  static getStarResponses(userId: string): any[] {
+    console.log('Getting STAR responses from localStorage');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const responses = window.localStorage.getItem(`star_responses_${userId}`);
+        return responses ? JSON.parse(responses) : [];
+      } catch (error) {
+        console.error('Error getting STAR responses from localStorage:', error);
+        return [];
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Add a single STAR response to localStorage
+   */
+  static addStarResponse(userId: string, response: any): void {
+    console.log('Adding STAR response to localStorage');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const responses = this.getStarResponses(userId);
+        responses.unshift(response); // Add new response at the beginning
+        this.saveStarResponses(userId, responses);
+        console.log('STAR response added to localStorage');
+      } catch (error) {
+        console.error('Error adding STAR response to localStorage:', error);
       }
     }
   }

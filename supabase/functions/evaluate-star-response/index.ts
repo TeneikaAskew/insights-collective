@@ -2,7 +2,7 @@
 // Follow Deno and Edge Functions v2 URL imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { corsHeaders, handleError } from "../_shared/utils.ts";
+import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 
 const TOGETHER_API_KEY = Deno.env.get("TOGETHER_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -132,33 +132,15 @@ Return ONLY the JSON object with no additional explanation or text.`;
     const content = result.choices[0].message.content;
     console.log(`[evaluate-star-response] Retrieved content length: ${content?.length || 0}`);
 
-    // Extract JSON from the response
-    let feedbackData;
-    try {
-      // Try to parse the content directly
-      console.log(`[evaluate-star-response] Attempting direct JSON parsing`);
-      feedbackData = JSON.parse(content);
-      console.log(`[evaluate-star-response] JSON parsed successfully via direct method`);
-    } catch (e) {
-      console.error(`[evaluate-star-response] Failed to parse JSON directly:`, e);
-      
-      // Try to extract JSON using regex as a fallback
-      console.log(`[evaluate-star-response] Attempting fallback JSON extraction via regex`);
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          feedbackData = JSON.parse(jsonMatch[0]);
-          console.log(`[evaluate-star-response] JSON parsed successfully via regex fallback`);
-        } catch (e2) {
-          console.error(`[evaluate-star-response] Failed to parse extracted JSON:`, e2);
-          throw handleError(new Error("Failed to parse AI response as JSON"));
-        }
-      } else {
-        console.error(`[evaluate-star-response] Could not find JSON in AI response`);
-        console.error(`[evaluate-star-response] Response content snippet:`, content.substring(0, 100) + '...');
-        throw handleError(new Error("Could not extract JSON from AI response"));
-      }
+    // Extract JSON from the response using our improved parser
+    const parsedResult = safeParseJSON(content);
+    
+    if (!parsedResult.success || !parsedResult.data) {
+      console.error(`[evaluate-star-response] Failed to parse AI response as JSON`);
+      throw new Error("Failed to parse AI response");
     }
+    
+    const feedbackData = parsedResult.data;
 
     console.log(`[evaluate-star-response] Feedback data structure:`, {
       has_scores: !!feedbackData?.scores,

@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +11,9 @@ import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Check, AlertCircle, Link as LinkIcon } from 'lucide-react';
+import { Check, AlertCircle, Link as LinkIcon, RefreshCw } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
+import { LocalStorageUtils } from '@/utils/localStorageUtils';
 
 interface StudyGuide {
   id: string;
@@ -41,6 +43,21 @@ export default function JobDescription() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [studyGuide, setStudyGuide] = useState<StudyGuide | null>(null);
   const [activeTab, setActiveTab] = useState('description');
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (user) {
+      // Try to load study guide from local storage
+      const cachedStudyGuide = LocalStorageUtils.getStudyGuide(user.id);
+      if (cachedStudyGuide) {
+        console.log('Loaded study guide from local storage');
+        setStudyGuide(cachedStudyGuide);
+        // Only switch to study guide tab if there's data
+        setActiveTab('study-guide');
+      }
+      setIsLoading(false);
+    }
+  }, [user]);
 
   const handleUrlExtract = async () => {
     if (!jobUrl) {
@@ -119,6 +136,11 @@ export default function JobDescription() {
 
       if (guideError) throw guideError;
 
+      // Save study guide to local storage for future access
+      if (user && guideData) {
+        LocalStorageUtils.saveStudyGuide(user.id, guideData);
+      }
+
       setStudyGuide(guideData);
       setActiveTab('study-guide');
       toast({
@@ -137,6 +159,33 @@ export default function JobDescription() {
     }
   };
 
+  const handleReset = () => {
+    if (user) {
+      // Clear the study guide from local storage
+      window.localStorage.removeItem(`study_guide_${user.id}`);
+      setStudyGuide(null);
+      setActiveTab('description');
+      toast({
+        title: 'Reset Complete',
+        description: 'Your study guide has been reset',
+      });
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <AppLayout>
+        <div className="container mx-auto py-8">
+          <Card>
+            <CardContent className="flex items-center justify-center py-8">
+              <Spinner size="lg" />
+            </CardContent>
+          </Card>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout>
       <div className="container mx-auto py-8">
@@ -148,12 +197,26 @@ export default function JobDescription() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
-          <TabsList>
-            <TabsTrigger value="description">Job Description</TabsTrigger>
-            <TabsTrigger value="study-guide" disabled={!studyGuide}>
-              Study Guide
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="description">Job Description</TabsTrigger>
+              <TabsTrigger value="study-guide" disabled={!studyGuide}>
+                Study Guide
+              </TabsTrigger>
+            </TabsList>
+            
+            {studyGuide && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleReset}
+                className="flex items-center gap-1"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Reset
+              </Button>
+            )}
+          </div>
 
           <TabsContent value="description">
             <Card>

@@ -2,7 +2,7 @@
 // Follow Deno and Edge Functions v2 URL imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { corsHeaders, handleError } from "../_shared/utils.ts";
+import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 
 const TOGETHER_API_KEY = Deno.env.get("TOGETHER_API_KEY");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -126,34 +126,17 @@ Keep your output format strictly as valid JSON without any additional explanatio
     
     const content = result.choices[0].message.content;
     console.log(`[generate-study-guide] Retrieved content length: ${content?.length || 0}`);
+    console.log(`[generate-study-guide] Content preview: ${content?.substring(0, 100)}...`);
 
-    // Extract JSON from the response
-    let studyGuideData;
-    try {
-      // Try to parse the content directly
-      console.log(`[generate-study-guide] Attempting direct JSON parsing`);
-      studyGuideData = JSON.parse(content);
-      console.log(`[generate-study-guide] JSON parsed successfully via direct method`);
-    } catch (e) {
-      console.error(`[generate-study-guide] Failed to parse JSON directly:`, e);
-      
-      // Try to extract JSON using regex as a fallback
-      console.log(`[generate-study-guide] Attempting fallback JSON extraction via regex`);
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          studyGuideData = JSON.parse(jsonMatch[0]);
-          console.log(`[generate-study-guide] JSON parsed successfully via regex fallback`);
-        } catch (e2) {
-          console.error(`[generate-study-guide] Failed to parse extracted JSON:`, e2);
-          throw handleError(new Error("Failed to parse AI response as JSON"));
-        }
-      } else {
-        console.error(`[generate-study-guide] Could not find JSON in AI response`);
-        console.error(`[generate-study-guide] Response content snippet:`, content.substring(0, 100) + '...');
-        throw handleError(new Error("Could not extract JSON from AI response"));
-      }
+    // Extract JSON from the response using our improved parser
+    const parsedResult = safeParseJSON(content);
+    
+    if (!parsedResult.success || !parsedResult.data) {
+      console.error(`[generate-study-guide] Failed to parse AI response as JSON`);
+      throw new Error("Failed to parse AI response");
     }
+    
+    const studyGuideData = parsedResult.data;
 
     console.log(`[generate-study-guide] Study guide data structure:`, {
       has_competencies: !!studyGuideData?.competencies,
