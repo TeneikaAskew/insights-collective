@@ -13,7 +13,28 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
-import { Calendar as CalendarIcon, Clock, Users, Video, BookText, ExternalLink } from 'lucide-react';
+import { 
+  Calendar as CalendarIcon, 
+  Clock, 
+  Users, 
+  Video, 
+  BookText, 
+  ExternalLink, 
+  Search, 
+  AlertCircle,
+  AlertTriangle,
+  UserX
+} from 'lucide-react';
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
+} from "@/components/ui/dialog";
+import { Textarea } from '@/components/ui/textarea';
 
 interface MockSession {
   id: string;
@@ -52,6 +73,10 @@ export default function MockInterviews() {
   const [isInterviewer, setIsInterviewer] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState('schedule');
+  const [reportDialogOpen, setReportDialogOpen] = useState(false);
+  const [reportSessionId, setReportSessionId] = useState<string>('');
+  const [reportReason, setReportReason] = useState('');
+  const [submittingReport, setSubmittingReport] = useState(false);
 
   useEffect(() => {
     loadSessions();
@@ -189,6 +214,82 @@ export default function MockInterviews() {
     // Navigate to the mock interview room
     window.location.href = `/mock-interview/${sessionId}`;
   };
+  
+  const handleOpenReportDialog = (sessionId: string) => {
+    setReportSessionId(sessionId);
+    setReportReason('');
+    setReportDialogOpen(true);
+  };
+
+  const handleSubmitReport = async () => {
+    if (!reportSessionId || !reportReason.trim() || !user) return;
+    
+    setSubmittingReport(true);
+    try {
+      const reportedSession = sessions.find(session => session.id === reportSessionId);
+      if (!reportedSession) return;
+      
+      // Get the ID of the partner who didn't show up
+      const partnerId = reportedSession.user1_id === user.id 
+        ? reportedSession.user2_id 
+        : reportedSession.user1_id;
+      
+      // Create a report in the database
+      const { error } = await supabase
+        .from('no_show_reports')
+        .insert({
+          session_id: reportSessionId,
+          reporter_id: user.id,
+          reported_user_id: partnerId,
+          reason: reportReason,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      // Get admin users to notify
+      const { data: adminUsers, error: adminError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('is_admin', true);
+        
+      if (adminError) throw adminError;
+      
+      // If there are admins, create notifications for them
+      if (adminUsers && adminUsers.length > 0) {
+        const notifications = adminUsers.map(admin => ({
+          user_id: admin.id,
+          title: 'No-Show Report',
+          content: `A no-show has been reported for a mock interview session. Please review.`,
+          type: 'no_show_report',
+          reference_id: reportSessionId,
+          is_read: false
+        }));
+        
+        const { error: notifyError } = await supabase
+          .from('notifications')
+          .insert(notifications);
+          
+        if (notifyError) throw notifyError;
+      }
+
+      toast({
+        title: 'Report Submitted',
+        description: 'Your no-show report has been submitted and admins have been notified.',
+      });
+      
+      setReportDialogOpen(false);
+    } catch (error) {
+      console.error('Error submitting no-show report:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to submit no-show report.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -214,17 +315,19 @@ export default function MockInterviews() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid grid-cols-3 mb-8 bg-slate-100 p-1">
+        <TabsList className="grid grid-cols-4 mb-8 bg-slate-100 p-1">
           <TabsTrigger 
             value="schedule" 
             className="data-[state=active]:bg-[#1F75FE] data-[state=active]:text-white"
           >
+            <Search className="h-4 w-4 mr-2" />
             Schedule
           </TabsTrigger>
           <TabsTrigger 
             value="upcoming"
             className="data-[state=active]:bg-[#1F75FE] data-[state=active]:text-white"
           >
+            <Calendar className="h-4 w-4 mr-2" />
             Upcoming Sessions
           </TabsTrigger>
           <TabsTrigger 
@@ -239,7 +342,10 @@ export default function MockInterviews() {
         <TabsContent value="schedule">
           <Card className="border-[#5ED3B5]/20 shadow-md">
             <CardHeader className="bg-gradient-to-r from-[#5ED3B5]/10 to-transparent">
-              <CardTitle>Schedule New Session</CardTitle>
+              <CardTitle className="flex items-center">
+                <Search className="h-5 w-5 mr-2 text-[#5ED3B5]" />
+                Schedule New Session
+              </CardTitle>
               <CardDescription>
                 Find available peers for mock interviews.
               </CardDescription>
@@ -339,7 +445,10 @@ export default function MockInterviews() {
         <TabsContent value="upcoming">
           <Card className="border-[#1F75FE]/20 shadow-md">
             <CardHeader className="bg-gradient-to-r from-[#1F75FE]/10 to-transparent">
-              <CardTitle>Upcoming Sessions</CardTitle>
+              <CardTitle className="flex items-center">
+                <Calendar className="h-5 w-5 mr-2 text-[#1F75FE]" />
+                Upcoming Sessions
+              </CardTitle>
               <CardDescription>
                 Your scheduled mock interview sessions.
               </CardDescription>
@@ -413,27 +522,95 @@ export default function MockInterviews() {
                         </span>
                       </div>
 
-                      {session.status === 'scheduled' && (
-                        <Button
-                          className="w-full mt-2 bg-gradient-to-r from-[#1F75FE] to-[#5ED3B5] hover:opacity-90"
-                          onClick={() => handleJoinSession(session.id)}
-                        >
-                          <Video className="h-4 w-4 mr-2" />
-                          Join Session
-                        </Button>
-                      )}
+                      <div className="flex flex-col sm:flex-row gap-2 mt-3">
+                        {session.status === 'scheduled' && (
+                          <>
+                            <Button
+                              className="w-full bg-gradient-to-r from-[#1F75FE] to-[#5ED3B5] hover:opacity-90"
+                              onClick={() => handleJoinSession(session.id)}
+                            >
+                              <Video className="h-4 w-4 mr-2" />
+                              Join Session
+                            </Button>
+                            
+                            <Button
+                              variant="outline"
+                              className="w-full border-[#C7BCF5] text-[#C7BCF5] hover:bg-[#C7BCF5]/10"
+                              onClick={() => handleOpenReportDialog(session.id)}
+                            >
+                              <UserX className="h-4 w-4 mr-2" />
+                              Report No-Show
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </div>
                   ))
                 )}
               </div>
             </CardContent>
           </Card>
+          
+          {/* No-Show Report Dialog */}
+          <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle className="flex items-center text-[#C7BCF5]">
+                  <AlertTriangle className="h-5 w-5 mr-2 text-[#F9A826]" />
+                  Report No-Show
+                </DialogTitle>
+                <DialogDescription>
+                  Use this form to report a participant who did not attend the scheduled mock interview.
+                </DialogDescription>
+              </DialogHeader>
+              
+              <div className="bg-[#F9A826]/10 p-3 rounded-md border border-[#F9A826]/30 mb-4">
+                <p className="text-sm flex items-start">
+                  <AlertCircle className="h-4 w-4 mr-2 text-[#F9A826] mt-0.5 flex-shrink-0" />
+                  Participants who miss sessions without notice may receive a warning. After two no-shows, they may be removed from the platform.
+                </p>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reason">Reason for report</Label>
+                  <Textarea 
+                    id="reason" 
+                    placeholder="Please describe what happened..."
+                    value={reportReason}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setReportDialogOpen(false)}
+                  disabled={submittingReport}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleSubmitReport} 
+                  disabled={!reportReason.trim() || submittingReport}
+                  className="bg-[#F9A826] hover:bg-[#F9A826]/90"
+                >
+                  {submittingReport ? <Spinner size="sm" /> : 'Submit Report'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         <TabsContent value="guidelines">
           <Card className="border-[#1F75FE]/20 shadow-md">
             <CardHeader className="bg-gradient-to-r from-[#1F75FE]/10 to-transparent">
-              <CardTitle>Interview Guidelines</CardTitle>
+              <CardTitle className="flex items-center text-2xl font-bold">
+                <BookText className="h-6 w-6 mr-2 text-[#1F75FE]" />
+                Interview Guidelines
+              </CardTitle>
               <CardDescription>
                 Essential guidance for conducting effective mock interviews
               </CardDescription>
@@ -520,6 +697,32 @@ export default function MockInterviews() {
                     <li>Was their demeanor positive or negative?</li>
                     <li>Were they exhaustive or too general?</li>
                   </ul>
+                </div>
+              </div>
+
+              {/* No-Shows Section */}
+              <div className="space-y-4">
+                <h3 className="text-xl font-semibold border-b border-[#C7BCF5]/30 pb-2 text-[#C7BCF5] flex items-center">
+                  <AlertTriangle className="h-5 w-5 mr-2 text-[#F9A826]" />
+                  No-Shows or Last Minute Cancellations
+                </h3>
+                <div className="bg-[#F9A826]/10 p-5 rounded-md border border-[#F9A826]/20">
+                  <p className="mb-3">If you sign-up for a session and do not show up - your interview partner can report you to the No-Show form and you will receive a warning. After receiving a second warning, you may be removed from the mock interview platform.</p>
+                  
+                  <div className="bg-white p-3 rounded shadow-sm">
+                    <h4 className="font-medium text-[#F9A826] mb-2 flex items-center">
+                      <AlertCircle className="h-4 w-4 mr-2" />
+                      How to Report a No-Show
+                    </h4>
+                    <p className="text-sm mb-2">If your interview partner doesn't attend a scheduled session:</p>
+                    <ol className="list-decimal pl-5 space-y-1 text-sm">
+                      <li>Go to the "Upcoming Sessions" tab</li>
+                      <li>Find the relevant session card</li>
+                      <li>Click the "Report No-Show" button</li>
+                      <li>Provide details about the incident</li>
+                      <li>Submit the report (admins will be automatically notified)</li>
+                    </ol>
+                  </div>
                 </div>
               </div>
               
