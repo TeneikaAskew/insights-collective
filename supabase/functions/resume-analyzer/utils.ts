@@ -1,5 +1,23 @@
 // This function sets up Supabase client with service role key credentials from env
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+// Call tracking system
+const callTracking = {
+  calls: [] as number[],
+  lastMinute: Math.floor(Date.now() / 60000),
+  addCall() {
+    const currentMinute = Math.floor(Date.now() / 60000);
+    if (currentMinute !== this.lastMinute) {
+      // New minute started, log the previous minute's calls
+      console.log(`Minute ${this.lastMinute}: ${this.calls.length} API calls`);
+      this.calls = [];
+      this.lastMinute = currentMinute;
+    }
+    this.calls.push(Date.now());
+    console.log(`Current minute (${currentMinute}): ${this.calls.length} API calls`);
+  }
+};
+
 // API Rate Limits Configuration
 const API_CONFIG = {
   ANWAN: {
@@ -291,6 +309,8 @@ async function callTOGETHERAPI2(system, user) {
 // Main LLM API call function with smart endpoint selection
 export async function callLLMAPI(system, user) {
   validateInput(system, user);
+  callTracking.addCall();
+  
   // Get available endpoints
   // Define preferred order of endpoints
   const preferredOrder = ['TOGETHER', 'TOGETHER2', 'GROQ', 'ANWAN'];
