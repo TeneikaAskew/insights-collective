@@ -13,6 +13,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Check, AlertCircle, ChevronLeft, ChevronRight, HistoryIcon, RefreshCw } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
+import { useNavigate } from 'react-router-dom';
 
 interface StarResponse {
   id: string;
@@ -36,6 +37,7 @@ interface Question {
 export default function StarPractice() {
   const { toast } = useToast();
   const { user } = useUser();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('practice');
   const [questions, setQuestions] = useState<Question[]>([]);
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(null);
@@ -285,7 +287,7 @@ export default function StarPractice() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button onClick={() => window.history.push('/interview-prep/job-description')}>
+              <Button onClick={() => navigate('/interview-prep/job-description')}>
                 Analyze Job Description
               </Button>
             </CardContent>
