@@ -30,7 +30,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
   const defaultOpen = !isInterviewPrepPage;
 
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
+    <SidebarProvider defaultOpen={defaultOpen} key={`sidebar-${isInterviewPrepPage}`}>
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
