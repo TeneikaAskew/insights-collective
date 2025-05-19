@@ -16,6 +16,11 @@ const API_CONFIG = {
     DELAY_MS: 1500,
     MAX_RETRIES: 3,
     DAILY_LIMIT: 1000 // Adjust based on your plan
+  },
+  TOGETHER2: {
+    DELAY_MS: 1500,
+    MAX_RETRIES: 3,
+    DAILY_LIMIT: 1000 // Adjust based on your plan
   }
 };
 const endpointStatus = {
@@ -23,19 +28,29 @@ const endpointStatus = {
     lastCallTime: 0,
     dailyCallCount: 0,
     failureCount: 0,
-    isDisabled: false
+    isDisabled: false,
+    resetTime: undefined
   },
   GROQ: {
     lastCallTime: 0,
     dailyCallCount: 0,
     failureCount: 0,
-    isDisabled: false
+    isDisabled: false,
+    resetTime: undefined
   },
   TOGETHER: {
     lastCallTime: 0,
     dailyCallCount: 0,
     failureCount: 0,
-    isDisabled: false
+    isDisabled: false,
+    resetTime: undefined
+  },
+  TOGETHER2: {
+    lastCallTime: 0,
+    dailyCallCount: 0,
+    failureCount: 0,
+    isDisabled: false,
+    resetTime: undefined
   }
 };
 // Reset daily counters at midnight UTC
