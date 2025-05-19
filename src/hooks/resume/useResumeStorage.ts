@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -204,7 +205,12 @@ export function useResumeStorage() {
       // Upload the file
       const { data, error } = await supabase.storage
         .from('resumes')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, { 
+          upsert: true,
+          // Fix for Firefox auto-downloading: set content-type correctly and disposition to inline
+          contentType: file.type,
+          cacheControl: '3600'
+        });
       
       if (error) {
         console.error("Upload error details:", error);
@@ -265,13 +271,17 @@ export function useResumeStorage() {
         return null;
       }
       
-      // Try to get a signed URL even if the check failed
-      // This will work if the bucket actually exists despite the check failing
+      // Try to get a signed URL with proper content-disposition header to fix Firefox downloading
       try {
         const { data: fileData, error: fileError } = await supabase
           .storage
           .from('resumes')
-          .createSignedUrl(fullPath, 3600); // 1 hour expiry
+          .createSignedUrl(fullPath, 3600, { 
+            // Add content-disposition parameter to prevent auto-downloading in Firefox
+            transform: { 
+              contentDisposition: 'inline' 
+            }
+          });
           
         if (fileError) {
           console.error("Error creating signed URL:", fileError);
