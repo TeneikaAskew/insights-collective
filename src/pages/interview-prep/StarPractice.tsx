@@ -172,7 +172,12 @@ export default function StarPractice() {
         .select()
         .single();
 
-      if (responseError) throw responseError;
+      if (responseError) {
+        console.error('Error saving response:', responseError);
+        throw responseError;
+      }
+
+      console.log('Response saved successfully:', responseData);
 
       // Get AI feedback
       const { data: feedbackData, error: feedbackError } = await supabase
@@ -180,7 +185,12 @@ export default function StarPractice() {
           body: { responseId: responseData.id }
         });
 
-      if (feedbackError) throw feedbackError;
+      if (feedbackError) {
+        console.error('Error evaluating response:', feedbackError);
+        throw feedbackError;
+      }
+
+      console.log('Feedback received:', feedbackData);
 
       // Add feedback to the response
       const completeResponse = { ...responseData, ai_feedback: feedbackData?.ai_feedback };

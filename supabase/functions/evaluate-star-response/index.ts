@@ -25,11 +25,11 @@ async function evaluateStarResponse(responseId: string) {
 
     console.log(`[evaluate-star-response] Supabase client created successfully`);
 
-    // Fetch the STAR response and related question
+    // Fetch the STAR response first
     console.log(`[evaluate-star-response] Fetching STAR response with ID: ${responseId}`);
     const { data: starResponse, error: responseError } = await supabase
       .from("star_responses")
-      .select("*, questions:question_id(*)")
+      .select("*")
       .eq("id", responseId)
       .single();
 
@@ -45,20 +45,58 @@ async function evaluateStarResponse(responseId: string) {
 
     console.log(`[evaluate-star-response] STAR response fetched successfully:`, {
       id: starResponse.id,
-      has_question_data: !!starResponse.questions,
+      question_id: starResponse.question_id,
       situation_length: starResponse.situation?.length || 0,
       task_length: starResponse.task?.length || 0,
       action_length: starResponse.action?.length || 0,
       result_length: starResponse.result?.length || 0
     });
 
+    // Separately fetch the question based on question_id
+    let questionData = null;
+    let targetCompetency = "Behavioral competency";
+    let questionText = "Behavioral interview question";
+
+    // Get the related question if question_id is available
+    if (starResponse.question_id) {
+      console.log(`[evaluate-star-response] Fetching related question with ID: ${starResponse.question_id}`);
+      
+      // Try to get the question from study guide questions
+      const { data: studyGuides, error: studyGuidesError } = await supabase
+        .from("study_guides")
+        .select("questions")
+        .eq("user_id", starResponse.user_id);
+        
+      if (studyGuidesError) {
+        console.warn(`[evaluate-star-response] Error fetching study guides: ${studyGuidesError.message}`);
+      } else if (studyGuides && studyGuides.length > 0) {
+        // Look through all questions in all study guides for this user
+        for (const guide of studyGuides) {
+          if (guide.questions && Array.isArray(guide.questions)) {
+            const matchingQuestion = guide.questions.find(q => q.id === starResponse.question_id);
+            if (matchingQuestion) {
+              console.log(`[evaluate-star-response] Found matching question in study guide`);
+              questionData = matchingQuestion;
+              questionText = matchingQuestion.question || questionText;
+              targetCompetency = matchingQuestion.targetCompetency || targetCompetency;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!questionData) {
+        console.warn(`[evaluate-star-response] Could not find question in study guides, using defaults`);
+      }
+    }
+
     // Call the AI model to evaluate the STAR response
     console.log(`[evaluate-star-response] Calling Together AI API to evaluate STAR response`);
     
     const promptContent = `Please evaluate this STAR response for the following interview question:
 
-Question: ${starResponse.questions ? starResponse.questions.question : "Behavioral interview question"}
-Target Competency: ${starResponse.questions ? starResponse.questions.targetCompetency : "Not specified"}
+Question: ${questionText}
+Target Competency: ${targetCompetency}
 
 STAR Response:
 Situation: ${starResponse.situation}
