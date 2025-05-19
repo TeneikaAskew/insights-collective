@@ -63,9 +63,14 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
   const renderFilePreviewLocal = () => {
     if (resume?.file_url && resume?.file_name?.toLowerCase().endsWith('.pdf') && !resumeFile) {
+      // Fix for Firefox - add proper parameters to the PDF URL
+      const pdfUrl = resume.file_url.includes('?') 
+        ? `${resume.file_url}&response-content-disposition=inline` 
+        : `${resume.file_url}?response-content-disposition=inline`;
+      
       return (
         <iframe
-          src={resume.file_url + "#toolbar=0&navpanes=0&view=FitH"}
+          src={pdfUrl + "#toolbar=0&navpanes=0&view=FitH"}
           title="Resume Preview"
           className="w-full aspect-[8.5/11] border rounded-md"
           style={{ height: '250px', maxHeight: '60vh' }}

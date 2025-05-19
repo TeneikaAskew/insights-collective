@@ -78,29 +78,6 @@ const extractTextFromDOCX = async (file: File): Promise<string> => {
 };
 
 // Simplified bucket check that doesn't try to create the bucket if it doesn't exist
-// const checkBucketExists = async (): Promise<boolean> => {
-//   try {
-//     // Just check if the bucket exists without trying to create it
-//     const { data, error } = await supabase.storage.listBuckets() //supabase.storage.getBucket('Resumes');
-//       console.log("Bucket check: ", data, "Error: ", error)
-    
-//     if (error) {
-//       if (error.message.includes('Bucket not found')) {
-//         console.log('Resumes bucket not found. This should be created by SQL migrations.');
-//         return false;
-//       }
-      
-//       console.error('Error checking resumes bucket:', error);
-//       return false;
-//     }
-    
-//     console.log('Resumes bucket exists');
-//     return true;
-//   } catch (error) {
-//     console.error('Error checking bucket existence:', error);
-//     return false;
-//   }
-// };
 const checkBucketExists = async (): Promise<boolean> => {
   try {
     // Instead of listing all buckets, try to get details of the specific bucket
@@ -204,7 +181,12 @@ export function useResumeStorage() {
       // Upload the file
       const { data, error } = await supabase.storage
         .from('resumes')
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, { 
+          upsert: true,
+          // Fix for Firefox auto-downloading: set content-type correctly and disposition to inline
+          contentType: file.type,
+          cacheControl: '3600'
+        });
       
       if (error) {
         console.error("Upload error details:", error);
@@ -265,21 +247,32 @@ export function useResumeStorage() {
         return null;
       }
       
-      // Try to get a signed URL even if the check failed
-      // This will work if the bucket actually exists despite the check failing
+      // Try to get a signed URL with proper headers to fix Firefox downloading
       try {
+        // Fix: Use the correct options for createSignedUrl
+        // The 'transform' option doesn't have a contentDisposition field
+        // Instead, add the response-content-disposition as a download parameter
         const { data: fileData, error: fileError } = await supabase
           .storage
           .from('resumes')
-          .createSignedUrl(fullPath, 3600); // 1 hour expiry
+          .createSignedUrl(fullPath, 3600, { 
+            download: false,  // Don't force download
+            transform: {} // Empty transform object, no contentDisposition
+          });
           
         if (fileError) {
           console.error("Error creating signed URL:", fileError);
           return null;
         }
         
-        console.log("Successfully created signed URL:", fileData?.signedUrl);
-        return fileData?.signedUrl;
+        // Add the content-disposition inline parameter to the URL
+        const signedUrl = fileData?.signedUrl;
+        const updatedUrl = signedUrl ? 
+          signedUrl + (signedUrl.includes('?') ? '&' : '?') + 'response-content-disposition=inline' 
+          : null;
+        
+        console.log("Successfully created signed URL:", updatedUrl);
+        return updatedUrl;
       } catch (urlError) {
         console.error("Error creating signed URL:", urlError);
         return null;
