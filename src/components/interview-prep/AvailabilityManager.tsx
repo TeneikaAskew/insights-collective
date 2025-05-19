@@ -8,7 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { CheckCircle2, XCircle } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface TimeSlot {
   id: string;
@@ -42,14 +45,18 @@ const DAYS_OF_WEEK = [
 export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: AvailabilityManagerProps) {
   const { user } = useUser();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
+  const [userTimezone, setUserTimezone] = useState<string>('');
 
   useEffect(() => {
     if (user) {
       loadAvailability();
     }
+    // Get user's timezone
+    setUserTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, [user]);
 
   const loadAvailability = async () => {
@@ -202,26 +209,70 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
 
   return (
     <div className="space-y-6">
-      <div className="text-sm text-muted-foreground mb-4">
-        Select the specific hours you're available to participate in mock interviews. 
-        Others will only be able to schedule sessions with you during these times.
+      <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-6">
+        <div className="text-sm text-muted-foreground">
+          <p>Select the specific hours you're available to participate in mock interviews.</p>
+          <p>Others will only be able to schedule sessions with you during these times.</p>
+          <p className="mt-2">
+            <Badge variant="outline" className="mr-2">Time Zone</Badge>
+            {userTimezone}
+          </p>
+        </div>
+        
+        <Button onClick={saveAvailability} disabled={saving} className="whitespace-nowrap">
+          {saving ? <Spinner size="sm" className="mr-2" /> : null}
+          Save Availability
+        </Button>
       </div>
       
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="p-2 text-left">Day</th>
+      <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-[auto_1fr]'} gap-6`}>
+        {/* Days column */}
+        <div className="min-w-[150px]">
+          <div className="mb-4 font-medium">Days</div>
+          <div className="space-y-4">
+            {DAYS_OF_WEEK.map(day => (
+              <div key={day.id} className="flex items-center justify-between">
+                <span>{day.name}</span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleAllForDay(day.id, true)}
+                    className="h-7 w-7 p-0"
+                    title="Select all times for this day"
+                  >
+                    <CheckCircle2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toggleAllForDay(day.id, false)}
+                    className="h-7 w-7 p-0"
+                    title="Deselect all times for this day"
+                  >
+                    <XCircle className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        
+        {/* Time slots grid */}
+        <ScrollArea className="border rounded-md p-4">
+          <div className="min-w-max">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-2 mb-4">
               {timeBlocks.map(slot => (
-                <th key={slot.id} className="p-2 text-center">
-                  <div>{slot.label}</div>
-                  <div className="text-xs text-muted-foreground">{slot.startTime}-{slot.endTime}</div>
-                  <div className="flex gap-2 justify-center mt-2">
+                <div key={slot.id} className="flex flex-col items-center text-center">
+                  <div className="text-sm font-medium">{slot.label}</div>
+                  <div className="text-xs text-muted-foreground mb-2">{slot.startTime}-{slot.endTime}</div>
+                  <div className="flex gap-1">
                     <Button
                       variant="outline"
                       size="sm"
                       onClick={() => toggleAllForTimeSlot(slot.id, true)}
-                      className="h-7 text-xs px-2"
+                      className="h-6 text-xs px-1"
+                      title="Select this time for all days"
                     >
                       All
                     </Button>
@@ -229,66 +280,51 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
                       variant="outline"
                       size="sm"
                       onClick={() => toggleAllForTimeSlot(slot.id, false)}
-                      className="h-7 text-xs px-2"
+                      className="h-6 text-xs px-1"
+                      title="Deselect this time for all days"
                     >
                       None
                     </Button>
                   </div>
-                </th>
+                </div>
               ))}
-              <th className="p-2 w-[100px] text-center">All/None</th>
-            </tr>
-          </thead>
-          <tbody>
-            {DAYS_OF_WEEK.map(day => (
-              <tr key={day.id} className="border-t">
-                <td className="p-4">{day.name}</td>
-                {timeBlocks.map(slot => {
-                  const availableSlot = availability.find(
-                    s => s.weekday === day.id && s.time_slot === slot.id
-                  );
-                  const isAvailable = availableSlot?.is_available || false;
-                  
-                  return (
-                    <td key={`${day.id}-${slot.id}`} className="p-2 text-center">
-                      <Switch 
-                        checked={isAvailable} 
-                        onCheckedChange={() => toggleAvailability(day.id, slot.id)}
-                      />
-                    </td>
-                  );
-                })}
-                <td className="p-2">
-                  <div className="flex gap-2 justify-center">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleAllForDay(day.id, true)}
-                      className="h-7 w-7 p-0"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => toggleAllForDay(day.id, false)}
-                      className="h-7 w-7 p-0"
-                    >
-                      <XCircle className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      
-      <div className="flex justify-end mt-6">
-        <Button onClick={saveAvailability} disabled={saving}>
-          {saving ? <Spinner size="sm" className="mr-2" /> : null}
-          Save Availability
-        </Button>
+            </div>
+            
+            <div className="space-y-4">
+              {DAYS_OF_WEEK.map(day => (
+                <div key={day.id} className="grid grid-cols-[repeat(auto-fit,minmax(100px,1fr))] gap-2 items-center">
+                  {timeBlocks.map(slot => {
+                    const availableSlot = availability.find(
+                      s => s.weekday === day.id && s.time_slot === slot.id
+                    );
+                    const isAvailable = availableSlot?.is_available || false;
+                    
+                    return (
+                      <div 
+                        key={`${day.id}-${slot.id}`} 
+                        className="flex justify-center py-1"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <Checkbox 
+                            id={`slot-${day.id}-${slot.id}`}
+                            checked={isAvailable} 
+                            onCheckedChange={() => toggleAvailability(day.id, slot.id)}
+                          />
+                          <label
+                            htmlFor={`slot-${day.id}-${slot.id}`}
+                            className="text-sm cursor-pointer"
+                          >
+                            Available
+                          </label>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </ScrollArea>
       </div>
       
       <div className="text-sm text-muted-foreground mt-4">

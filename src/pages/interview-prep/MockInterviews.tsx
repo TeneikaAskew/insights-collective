@@ -40,6 +40,7 @@ interface TimeSlot {
 }
 
 const TIME_SLOTS: TimeSlot[] = [
+  { id: 'slot_8_9', startTime: '8:00 AM', endTime: '9:00 AM', label: '8:00 AM' },
   { id: 'slot_9_10', startTime: '9:00 AM', endTime: '10:00 AM', label: '9:00 AM' },
   { id: 'slot_10_11', startTime: '10:00 AM', endTime: '11:00 AM', label: '10:00 AM' },
   { id: 'slot_11_12', startTime: '11:00 AM', endTime: '12:00 PM', label: '11:00 AM' },
@@ -137,7 +138,7 @@ export default function MockInterviews() {
 
   const getTimeFromSlotId = (slotId: string): { hour: number, minute: number } => {
     const slot = TIME_SLOTS.find(s => s.id === slotId);
-    if (!slot) return { hour: 9, minute: 0 }; // Default to 9:00 AM
+    if (!slot) return { hour: 8, minute: 0 }; // Default to 8:00 AM
     
     const timeStr = slot.startTime;
     const isPM = timeStr.includes('PM') && !timeStr.includes('12:00');
@@ -322,99 +323,120 @@ export default function MockInterviews() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr] gap-6">
                   <div>
                     <Label>Select Date</Label>
                     <Calendar
                       mode="single"
                       selected={selectedDate}
                       onSelect={setSelectedDate}
-                      className="rounded-md border"
+                      className="rounded-md border p-3 pointer-events-auto"
                       disabled={(date) => date < new Date()}
                     />
-                  </div>
-
-                  <div>
-                    <Label>Time Slot</Label>
-                    <Select value={selectedTimeSlot} onValueChange={setSelectedTimeSlot}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a time slot" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TIME_SLOTS.map((slot) => (
-                          <SelectItem key={slot.id} value={slot.id}>
-                            {slot.startTime} - {slot.endTime}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label>Interview Type</Label>
-                    <Select value={selectedType} onValueChange={(value: 'behavioral' | 'technical') => setSelectedType(value)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select interview type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="behavioral">Behavioral</SelectItem>
-                        <SelectItem value="technical">Technical</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="role-switch"
-                      checked={isInterviewer}
-                      onCheckedChange={setIsInterviewer}
-                    />
-                    <Label htmlFor="role-switch">
-                      I want to be the interviewer for this session
-                      <span className="block text-xs text-muted-foreground mt-1">
-                        (Roles alternate with each new session with the same partner)
-                      </span>
-                    </Label>
-                  </div>
-
-                  {availableUsers.length > 0 ? (
-                    <div className="space-y-4">
-                      <h3 className="text-sm font-medium">Available Users</h3>
-                      {availableUsers.map((profile) => {
-                        const sessionCount = previousSessions[profile.id] || 0;
-                        const roleText = sessionCount > 0 
-                          ? `Next role: ${(sessionCount % 2 === 0) === isInterviewer ? 'Interviewer' : 'Interviewee'}`
-                          : 'No previous sessions';
-                          
-                        return (
-                          <div
-                            key={profile.id}
-                            className="flex items-center justify-between p-4 border rounded-md"
-                          >
-                            <div>
-                              <p className="font-medium">{profile.first_name} {profile.last_name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {roleText} • {sessionCount} previous sessions
-                              </p>
-                            </div>
-                            <Button
-                              onClick={() => handleSchedule(profile.id)}
-                              disabled={scheduling}
-                            >
-                              {scheduling ? <Spinner size="sm" /> : 'Schedule'}
-                            </Button>
-                          </div>
-                        );
-                      })}
+                    <div className="text-sm text-muted-foreground mt-2">
+                      Your local timezone: {Intl.DateTimeFormat().resolvedOptions().timeZone}
                     </div>
-                  ) : (
-                    selectedDate && selectedTimeSlot && (
+                  </div>
+
+                  <div>
+                    {selectedDate ? (
+                      <>
+                        <Label className="block mb-2">Available Time Slots</Label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-[350px] overflow-y-auto p-1">
+                          {TIME_SLOTS.map((slot) => (
+                            <div key={slot.id} className="flex items-center space-x-2">
+                              <input 
+                                type="radio" 
+                                id={`time-${slot.id}`}
+                                name="timeSlot"
+                                value={slot.id}
+                                checked={selectedTimeSlot === slot.id}
+                                onChange={() => setSelectedTimeSlot(slot.id)}
+                                className="w-4 h-4"
+                              />
+                              <label htmlFor={`time-${slot.id}`} className="text-sm cursor-pointer">
+                                {slot.startTime} - {slot.endTime}
+                              </label>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <div className="space-y-4 mt-6">
+                          <div>
+                            <Label>Interview Type</Label>
+                            <Select value={selectedType} onValueChange={(value: 'behavioral' | 'technical') => setSelectedType(value)}>
+                              <SelectTrigger className="mt-1">
+                                <SelectValue placeholder="Select interview type" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="behavioral">Behavioral</SelectItem>
+                                <SelectItem value="technical">Technical</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="role-switch"
+                              checked={isInterviewer}
+                              onCheckedChange={setIsInterviewer}
+                            />
+                            <Label htmlFor="role-switch">
+                              I want to be the interviewer for this session
+                              <span className="block text-xs text-muted-foreground mt-1">
+                                (Roles alternate with each new session with the same partner)
+                              </span>
+                            </Label>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center h-full">
+                        <p className="text-muted-foreground">Please select a date first</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {selectedDate && selectedTimeSlot && (
+                  <div className="mt-6">
+                    <h3 className="text-sm font-medium mb-3">Available Users</h3>
+                    {availableUsers.length > 0 ? (
+                      <div className="space-y-4">
+                        {availableUsers.map((profile) => {
+                          const sessionCount = previousSessions[profile.id] || 0;
+                          const roleText = sessionCount > 0 
+                            ? `Next role: ${(sessionCount % 2 === 0) === isInterviewer ? 'Interviewer' : 'Interviewee'}`
+                            : 'No previous sessions';
+                            
+                          return (
+                            <div
+                              key={profile.id}
+                              className="flex items-center justify-between p-4 border rounded-md"
+                            >
+                              <div>
+                                <p className="font-medium">{profile.first_name} {profile.last_name}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {roleText} • {sessionCount} previous sessions
+                                </p>
+                              </div>
+                              <Button
+                                onClick={() => handleSchedule(profile.id)}
+                                disabled={scheduling}
+                              >
+                                {scheduling ? <Spinner size="sm" /> : 'Schedule'}
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
                       <p className="text-sm text-muted-foreground">
                         No users available for the selected time slot.
                       </p>
-                    )
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
