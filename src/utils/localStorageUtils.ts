@@ -9,6 +9,15 @@ interface LocalStorageMap {
   [key: string]: string | null;
 }
 
+interface StarResponseDraft {
+  situation: string;
+  task: string;
+  action: string;
+  result: string;
+}
+
+type StarResponseDrafts = Record<string, StarResponseDraft>;
+
 export class LocalStorageUtils {
   /**
    * Get all items from localStorage as an object
@@ -263,6 +272,84 @@ export class LocalStorageUtils {
         console.log('STAR response added to localStorage');
       } catch (error) {
         console.error('Error adding STAR response to localStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Save draft STAR responses for each question
+   */
+  static saveStarResponseDrafts(userId: string, drafts: StarResponseDrafts): void {
+    console.log('Saving STAR response drafts to localStorage:', Object.keys(drafts).length);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(`star_drafts_${userId}`, JSON.stringify(drafts));
+      } catch (error) {
+        console.error('Error saving STAR drafts to localStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Get draft STAR responses for each question
+   */
+  static getStarResponseDrafts(userId: string): StarResponseDrafts {
+    console.log('Getting STAR response drafts from localStorage');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const drafts = window.localStorage.getItem(`star_drafts_${userId}`);
+        return drafts ? JSON.parse(drafts) : {};
+      } catch (error) {
+        console.error('Error getting STAR drafts from localStorage:', error);
+        return {};
+      }
+    }
+    return {};
+  }
+
+  /**
+   * Save draft STAR response for a specific question
+   */
+  static saveStarResponseDraftForQuestion(userId: string, questionId: string, draft: StarResponseDraft): void {
+    console.log(`Saving STAR response draft for question ${questionId}`);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const allDrafts = this.getStarResponseDrafts(userId);
+        allDrafts[questionId] = draft;
+        this.saveStarResponseDrafts(userId, allDrafts);
+      } catch (error) {
+        console.error('Error saving STAR draft for question to localStorage:', error);
+      }
+    }
+  }
+
+  /**
+   * Get draft STAR response for a specific question
+   */
+  static getStarResponseDraftForQuestion(userId: string, questionId: string): StarResponseDraft | null {
+    console.log(`Getting STAR response draft for question ${questionId}`);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        const allDrafts = this.getStarResponseDrafts(userId);
+        return allDrafts[questionId] || null;
+      } catch (error) {
+        console.error('Error getting STAR draft for question from localStorage:', error);
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Clear all draft STAR responses
+   */
+  static clearStarResponseDrafts(userId: string): void {
+    console.log('Clearing all STAR response drafts');
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.removeItem(`star_drafts_${userId}`);
+      } catch (error) {
+        console.error('Error clearing STAR drafts from localStorage:', error);
       }
     }
   }

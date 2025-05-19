@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -52,6 +51,7 @@ export default function StarPractice() {
   });
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
+  // Load questions and responses on initial mount
   useEffect(() => {
     if (user) {
       loadQuestions();
@@ -67,6 +67,26 @@ export default function StarPractice() {
       }
     }
   }, [user]);
+
+  // Load draft response whenever the selected question changes
+  useEffect(() => {
+    if (user && selectedQuestion) {
+      const savedDraft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, selectedQuestion.id);
+      if (savedDraft) {
+        console.log('Loading saved draft for question:', selectedQuestion.id);
+        setFormData(savedDraft);
+      }
+    }
+  }, [selectedQuestion, user]);
+
+  // Save draft as user types
+  useEffect(() => {
+    if (user && selectedQuestion && 
+        (formData.situation || formData.task || formData.action || formData.result)) {
+      console.log('Saving draft for question:', selectedQuestion.id);
+      LocalStorageUtils.saveStarResponseDraftForQuestion(user.id, selectedQuestion.id, formData);
+    }
+  }, [formData, selectedQuestion, user]);
 
   const loadQuestions = async () => {
     try {
@@ -202,6 +222,11 @@ export default function StarPractice() {
       // Save to local storage for future access
       if (user) {
         LocalStorageUtils.saveStarResponses(user.id, updatedResponses);
+        
+        // Clear the draft for this question since it's been submitted
+        const allDrafts = LocalStorageUtils.getStarResponseDrafts(user.id);
+        delete allDrafts[selectedQuestion.id];
+        LocalStorageUtils.saveStarResponseDrafts(user.id, allDrafts);
       }
       
       // Reset form
@@ -236,6 +261,8 @@ export default function StarPractice() {
       const nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(nextIndex);
       setSelectedQuestion(questions[nextIndex]);
+      
+      // Clear form data - it will be populated by the useEffect if a draft exists
       setFormData({
         situation: '',
         task: '',
@@ -250,6 +277,8 @@ export default function StarPractice() {
       const prevIndex = currentQuestionIndex - 1;
       setCurrentQuestionIndex(prevIndex);
       setSelectedQuestion(questions[prevIndex]);
+      
+      // Clear form data - it will be populated by the useEffect if a draft exists
       setFormData({
         situation: '',
         task: '',
@@ -267,6 +296,22 @@ export default function StarPractice() {
       toast({
         title: 'History Cleared',
         description: 'Your response history has been cleared',
+      });
+    }
+  };
+
+  const handleClearAllDrafts = () => {
+    if (user) {
+      LocalStorageUtils.clearStarResponseDrafts(user.id);
+      setFormData({
+        situation: '',
+        task: '',
+        action: '',
+        result: '',
+      });
+      toast({
+        title: 'Drafts Cleared',
+        description: 'All your draft responses have been cleared',
       });
     }
   };
@@ -326,17 +371,32 @@ export default function StarPractice() {
               </TabsTrigger>
             </TabsList>
             
-            {responses.length > 0 && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleClearHistory}
-                className="flex items-center gap-1"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Clear History
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {user && LocalStorageUtils.getStarResponseDrafts(user.id) && 
+               Object.keys(LocalStorageUtils.getStarResponseDrafts(user.id)).length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleClearAllDrafts}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Clear All Drafts
+                </Button>
+              )}
+              
+              {responses.length > 0 && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleClearHistory}
+                  className="flex items-center gap-1"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Clear History
+                </Button>
+              )}
+            </div>
           </div>
 
           <TabsContent value="practice">
