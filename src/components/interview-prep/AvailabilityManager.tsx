@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useUser } from '@/hooks/use-user';
@@ -7,10 +6,10 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Badge } from '@/components/ui/badge';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Check, Plus, Trash2 } from 'lucide-react';
+import { Check, Plus, Trash2, ChevronDown } from 'lucide-react';
 
 interface TimeSlot {
   id: string;
@@ -31,6 +30,12 @@ interface AvailabilitySlot {
   is_available: boolean;
 }
 
+interface TimeRange {
+  startTime: string;
+  endTime: string;
+  id: string;
+}
+
 const DAYS_OF_WEEK = [
   { id: 0, name: 'Sunday' },
   { id: 1, name: 'Monday' },
@@ -44,12 +49,13 @@ const DAYS_OF_WEEK = [
 export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: AvailabilityManagerProps) {
   const { user } = useUser();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [userTimezone, setUserTimezone] = useState<string>('');
   const [activeDays, setActiveDays] = useState<number[]>([]);
+  
+  // State to track selected time slots for each day
+  const [selectedTimesByDay, setSelectedTimesByDay] = useState<Record<number, TimeRange[]>>({});
 
   useEffect(() => {
     if (user) {
@@ -73,43 +79,39 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
 
       if (error) throw error;
 
-      // Create a complete set of availability slots for all days and time slots
-      const completeAvailability: AvailabilitySlot[] = [];
+      // Initialize the selected times data structure
+      const timesByDay: Record<number, TimeRange[]> = {};
+      const activeDaysList: number[] = [];
       
-      // For each day of the week
-      DAYS_OF_WEEK.forEach(day => {
-        // For each time slot
-        timeBlocks.forEach(slot => {
-          // Find if there's an existing record
-          const existingSlot = data?.find(
-            record => record.weekday === day.id && record.time_slot === slot.id
-          );
+      // Group the data by weekday
+      if (data && data.length > 0) {
+        data.forEach(slot => {
+          // Find the corresponding time block
+          const timeBlock = timeBlocks.find(tb => tb.id === slot.time_slot);
           
-          if (existingSlot) {
-            // Use existing data
-            completeAvailability.push({
-              id: existingSlot.id,
-              weekday: existingSlot.weekday,
-              time_slot: existingSlot.time_slot,
-              is_available: existingSlot.is_available
-            });
-
-            // Track active days
-            if (existingSlot.is_available && !activeDays.includes(day.id)) {
-              setActiveDays(prev => [...prev, day.id]);
+          if (timeBlock && slot.is_available) {
+            // If this day isn't in activeDaysList yet, add it
+            if (!activeDaysList.includes(slot.weekday)) {
+              activeDaysList.push(slot.weekday);
             }
-          } else {
-            // Create new entry with default value (not available)
-            completeAvailability.push({
-              weekday: day.id,
-              time_slot: slot.id,
-              is_available: false
+            
+            // Initialize the day's array if it doesn't exist
+            if (!timesByDay[slot.weekday]) {
+              timesByDay[slot.weekday] = [];
+            }
+            
+            // Add this time slot
+            timesByDay[slot.weekday].push({
+              id: timeBlock.id,
+              startTime: timeBlock.startTime,
+              endTime: timeBlock.endTime
             });
           }
         });
-      });
+      }
       
-      setAvailability(completeAvailability);
+      setSelectedTimesByDay(timesByDay);
+      setActiveDays(activeDaysList);
     } catch (error: any) {
       console.error('Error loading availability:', error);
       toast({
@@ -122,34 +124,78 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
     }
   };
 
-  const toggleAvailability = (weekday: number, timeSlotId: string) => {
-    setAvailability(prev => {
-      return prev.map(slot => {
-        if (slot.weekday === weekday && slot.time_slot === timeSlotId) {
-          return { ...slot, is_available: !slot.is_available };
-        }
-        return slot;
-      });
-    });
-  };
-
   const toggleDay = (dayId: number) => {
     if (activeDays.includes(dayId)) {
-      // Remove this day from active days
+      // Remove this day
       setActiveDays(activeDays.filter(id => id !== dayId));
       
-      // Set all slots for this day as unavailable
-      setAvailability(prev => {
-        return prev.map(slot => {
-          if (slot.weekday === dayId) {
-            return { ...slot, is_available: false };
-          }
-          return slot;
-        });
-      });
+      // Clear all time slots for this day
+      const updatedTimes = { ...selectedTimesByDay };
+      delete updatedTimes[dayId];
+      setSelectedTimesByDay(updatedTimes);
     } else {
-      // Add this day to active days
+      // Add this day
       setActiveDays([...activeDays, dayId]);
+    }
+  };
+
+  const addTimeSlot = (dayId: number) => {
+    // Find the first available time slot that's not already selected
+    const existingSlots = selectedTimesByDay[dayId] || [];
+    const existingSlotIds = existingSlots.map(slot => slot.id);
+    
+    const availableTimeBlock = timeBlocks.find(tb => !existingSlotIds.includes(tb.id));
+    
+    if (availableTimeBlock) {
+      setSelectedTimesByDay({
+        ...selectedTimesByDay,
+        [dayId]: [
+          ...(selectedTimesByDay[dayId] || []),
+          {
+            id: availableTimeBlock.id,
+            startTime: availableTimeBlock.startTime,
+            endTime: availableTimeBlock.endTime
+          }
+        ]
+      });
+    }
+  };
+
+  const removeTimeSlot = (dayId: number, timeSlotId: string) => {
+    const updatedSlots = selectedTimesByDay[dayId].filter(slot => slot.id !== timeSlotId);
+    
+    if (updatedSlots.length === 0) {
+      // If removing the last time slot, also remove the day
+      const updatedTimes = { ...selectedTimesByDay };
+      delete updatedTimes[dayId];
+      setSelectedTimesByDay(updatedTimes);
+      setActiveDays(activeDays.filter(id => id !== dayId));
+    } else {
+      // Otherwise just update the time slots for this day
+      setSelectedTimesByDay({
+        ...selectedTimesByDay,
+        [dayId]: updatedSlots
+      });
+    }
+  };
+
+  const updateTimeSlot = (dayId: number, oldSlotId: string, field: 'startTime' | 'endTime', newTimeBlock: TimeSlot) => {
+    const daySlots = [...(selectedTimesByDay[dayId] || [])];
+    const slotIndex = daySlots.findIndex(slot => slot.id === oldSlotId);
+    
+    if (slotIndex !== -1) {
+      daySlots[slotIndex] = {
+        ...daySlots[slotIndex],
+        id: newTimeBlock.id,
+        [field]: field === 'startTime' ? newTimeBlock.startTime : newTimeBlock.endTime,
+        [field === 'startTime' ? 'endTime' : 'startTime']: 
+          field === 'startTime' ? daySlots[slotIndex].endTime : daySlots[slotIndex].startTime
+      };
+      
+      setSelectedTimesByDay({
+        ...selectedTimesByDay,
+        [dayId]: daySlots
+      });
     }
   };
 
@@ -159,7 +205,25 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
     try {
       setSaving(true);
       
-      // First, delete all existing availability slots
+      // Prepare the data for saving
+      const availabilitySlots: Omit<AvailabilitySlot, 'id'>[] = [];
+      
+      // For each active day
+      Object.entries(selectedTimesByDay).forEach(([dayIdStr, timeSlots]) => {
+        const dayId = parseInt(dayIdStr, 10);
+        
+        // For each time slot on this day
+        timeSlots.forEach(timeSlot => {
+          availabilitySlots.push({
+            user_id: user.id,
+            weekday: dayId,
+            time_slot: timeSlot.id,
+            is_available: true
+          });
+        });
+      });
+      
+      // First, delete all existing slots
       const { error: deleteError } = await supabase
         .from('availability_slots')
         .delete()
@@ -167,20 +231,11 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
         
       if (deleteError) throw deleteError;
       
-      // Then, insert all slots with their current status
-      const slotsToInsert = availability
-        .filter(slot => slot.is_available) // Only insert available slots
-        .map(slot => ({
-          user_id: user.id,
-          weekday: slot.weekday,
-          time_slot: slot.time_slot,
-          is_available: true
-      }));
-      
-      if (slotsToInsert.length > 0) {
+      // Then insert the new slots
+      if (availabilitySlots.length > 0) {
         const { error: insertError } = await supabase
           .from('availability_slots')
-          .insert(slotsToInsert);
+          .insert(availabilitySlots);
           
         if (insertError) throw insertError;
       }
@@ -214,17 +269,8 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
     );
   }
 
-  // Group available time slots by day for easier rendering
-  const timeSlotsByDay: Record<number, string[]> = {};
-  DAYS_OF_WEEK.forEach(day => {
-    timeSlotsByDay[day.id] = availability
-      .filter(slot => slot.weekday === day.id && slot.is_available)
-      .map(slot => slot.time_slot);
-  });
-
   return (
     <div className="space-y-6">
-      <div className="text-xl font-semibold mb-4">Set your availability</div>
       <div className="text-sm text-muted-foreground mb-6">
         <p>Let peers know when you're typically available for mock interviews.</p>
         <p className="mt-2">
@@ -236,13 +282,13 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
       <div className="space-y-8">
         <div>
           <h3 className="text-lg font-medium mb-4">Available days</h3>
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-2 sm:gap-3">
             {DAYS_OF_WEEK.map(day => (
               <div 
                 key={day.id} 
                 onClick={() => toggleDay(day.id)}
                 className={`
-                  relative flex flex-col items-center justify-center p-3 border rounded-md cursor-pointer
+                  relative flex flex-col items-center justify-center p-2 sm:p-3 border rounded-md cursor-pointer
                   ${activeDays.includes(day.id) 
                     ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' 
                     : 'border-gray-200 hover:border-gray-300 dark:border-gray-700 dark:hover:border-gray-600'}
@@ -250,10 +296,10 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
               >
                 {activeDays.includes(day.id) && (
                   <div className="absolute top-1 right-1">
-                    <Check className="h-4 w-4 text-blue-500" />
+                    <Check className="h-3 w-3 sm:h-4 sm:w-4 text-blue-500" />
                   </div>
                 )}
-                <span className="text-sm font-medium">{day.name.substring(0, 3)}</span>
+                <span className="text-xs sm:text-sm font-medium">{day.name.substring(0, 3)}</span>
               </div>
             ))}
           </div>
@@ -262,44 +308,93 @@ export function AvailabilityManager({ timeBlocks, onAvailabilityChange }: Availa
         <div>
           <h3 className="text-lg font-medium mb-4">Available hours</h3>
           
-          {/* For each active day, show time slot selection */}
-          <div className="space-y-6">
-            {DAYS_OF_WEEK.filter(day => activeDays.includes(day.id)).map(day => (
-              <div key={day.id} className="border rounded-md p-4">
-                <h4 className="text-md font-medium mb-3">{day.name}</h4>
-                
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-                  {timeBlocks.map(slot => {
-                    const isChecked = availability.find(
-                      s => s.weekday === day.id && s.time_slot === slot.id
-                    )?.is_available || false;
-                    
-                    return (
-                      <div key={slot.id} className="flex items-center space-x-2">
-                        <Checkbox 
-                          id={`slot-${day.id}-${slot.id}`}
-                          checked={isChecked}
-                          onCheckedChange={() => toggleAvailability(day.id, slot.id)}
-                        />
-                        <label
-                          htmlFor={`slot-${day.id}-${slot.id}`}
-                          className="text-sm cursor-pointer whitespace-nowrap"
+          {activeDays.length === 0 ? (
+            <div className="text-center py-6 text-muted-foreground border border-dashed rounded-md">
+              <p>Select at least one day to set available hours</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {DAYS_OF_WEEK.filter(day => activeDays.includes(day.id)).map(day => (
+                <div key={day.id} className="border rounded-md p-4">
+                  <h4 className="text-md font-medium mb-3">{day.name}</h4>
+                  
+                  <div className="space-y-3">
+                    {/* Time slots for this day */}
+                    {(selectedTimesByDay[day.id] || []).map((timeRange, index) => (
+                      <div key={`${day.id}-${timeRange.id}-${index}`} className="flex flex-wrap items-center gap-2">
+                        <div className="flex-grow max-w-[180px] sm:max-w-[220px]">
+                          <Select 
+                            value={timeRange.id.split('_').slice(1, 3).join('_')}
+                            onValueChange={(value) => {
+                              const selectedTimeBlock = timeBlocks.find(tb => tb.id === `slot_${value}`);
+                              if (selectedTimeBlock) {
+                                updateTimeSlot(day.id, timeRange.id, 'startTime', selectedTimeBlock);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Start time">{timeRange.startTime}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {timeBlocks.map(block => (
+                                <SelectItem key={`start-${block.id}`} value={block.id.split('_').slice(1, 3).join('_')}>
+                                  {block.startTime}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <span className="text-sm">to</span>
+                        
+                        <div className="flex-grow max-w-[180px] sm:max-w-[220px]">
+                          <Select 
+                            value={timeRange.id.split('_').slice(1, 3).join('_')}
+                            onValueChange={(value) => {
+                              const selectedTimeBlock = timeBlocks.find(tb => tb.id === `slot_${value}`);
+                              if (selectedTimeBlock) {
+                                updateTimeSlot(day.id, timeRange.id, 'endTime', selectedTimeBlock);
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="End time">{timeRange.endTime}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {timeBlocks.map(block => (
+                                <SelectItem key={`end-${block.id}`} value={block.id.split('_').slice(1, 3).join('_')}>
+                                  {block.endTime}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => removeTimeSlot(day.id, timeRange.id)}
+                          className="h-9 w-9"
                         >
-                          {slot.startTime} - {slot.endTime}
-                        </label>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
-                    );
-                  })}
+                    ))}
+                    
+                    {/* Add time slot button */}
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => addTimeSlot(day.id)}
+                      className="mt-2"
+                    >
+                      <Plus className="h-4 w-4 mr-1" /> Add time
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            ))}
-            
-            {activeDays.length === 0 && (
-              <div className="text-center py-6 text-muted-foreground">
-                <p>Select at least one day to set available hours</p>
-              </div>
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       
