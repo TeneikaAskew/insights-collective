@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -11,7 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Check, AlertCircle, ChevronLeft, ChevronRight, RotateCw, Star, ArrowLeft } from 'lucide-react';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import '../../../src/components/interview-prep/flashcard.css';
 
@@ -38,7 +37,6 @@ export default function StarPractice() {
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   
   // State variables
   const [loading, setLoading] = useState(true);
@@ -55,12 +53,25 @@ export default function StarPractice() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [currentStarStep, setCurrentStarStep] = useState<'situation' | 'task' | 'action' | 'result'>('situation');
   const [hasSubmittedResponse, setHasSubmittedResponse] = useState(false);
+  
+  // Fix the localStorage usage with proper methods
   const [streak, setStreak] = useState(() => {
-    const saved = LocalStorageUtils.getItem('starPracticeStreak');
-    return saved ? parseInt(saved, 10) : 0;
+    try {
+      const savedStreak = localStorage.getItem('starPracticeStreak');
+      return savedStreak ? parseInt(savedStreak, 10) : 0;
+    } catch (e) {
+      console.error('Error accessing localStorage for streak:', e);
+      return 0;
+    }
   });
+  
   const [lastPracticeDate, setLastPracticeDate] = useState(() => {
-    return LocalStorageUtils.getItem('starPracticeLastDate') || '';
+    try {
+      return localStorage.getItem('starPracticeLastDate') || '';
+    } catch (e) {
+      console.error('Error accessing localStorage for last practice date:', e);
+      return '';
+    }
   });
 
   useEffect(() => {
@@ -91,10 +102,15 @@ export default function StarPractice() {
       setStreak(1);
     }
     
-    // Update last practice date
-    setLastPracticeDate(today);
-    LocalStorageUtils.setItem('starPracticeLastDate', today);
-    LocalStorageUtils.setItem('starPracticeStreak', streak.toString());
+    // Fix localStorage usage
+    try {
+      // Update last practice date
+      setLastPracticeDate(today);
+      localStorage.setItem('starPracticeLastDate', today);
+      localStorage.setItem('starPracticeStreak', streak.toString());
+    } catch (e) {
+      console.error('Error saving to localStorage:', e);
+    }
   };
 
   const loadQuestions = async () => {
@@ -355,7 +371,7 @@ export default function StarPractice() {
                         </CardDescription>
                       </div>
                       
-                      {/* Flip button - replaced Flip icon with RotateCw */}
+                      {/* Flip button */}
                       {hasSubmittedResponse && (
                         <Button 
                           variant="secondary" 
@@ -565,7 +581,6 @@ export default function StarPractice() {
                           <CardDescription>Analysis of your STAR response</CardDescription>
                         </div>
                         
-                        {/* Replace Flip icon with RotateCw */}
                         <Button
                           variant="secondary"
                           size="sm"
