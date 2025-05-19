@@ -34,7 +34,6 @@ if (typeof window !== 'undefined' && window.localStorage) {
   }
 }
 
-// Initialize the QueryClient for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
