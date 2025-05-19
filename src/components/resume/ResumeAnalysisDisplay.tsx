@@ -63,10 +63,10 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
   const renderFilePreviewLocal = () => {
     if (resume?.file_url && resume?.file_name?.toLowerCase().endsWith('.pdf') && !resumeFile) {
-      // Fix for Firefox - add proper parameters to the PDF URL
-      const pdfUrl = resume.file_url.includes('?') 
-        ? `${resume.file_url}&response-content-disposition=inline` 
-        : `${resume.file_url}?response-content-disposition=inline`;
+      // Always make sure the URL includes response-content-disposition=inline to prevent download
+      const pdfUrl = resume.file_url.includes('response-content-disposition=inline') 
+        ? resume.file_url 
+        : resume.file_url + (resume.file_url.includes('?') ? '&' : '?') + 'response-content-disposition=inline';
       
       return (
         <iframe
@@ -78,9 +78,11 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
       );
     }
     if (pdfPreviewUrl && resumeFile?.type === 'application/pdf') {
+      // For local file preview, make sure we use the blob URL with proper parameters
+      const enhancedPdfUrl = pdfPreviewUrl + "#toolbar=0&navpanes=0&view=FitH";
       return (
         <iframe
-          src={pdfPreviewUrl + "#toolbar=0&navpanes=0&view=FitH"}
+          src={enhancedPdfUrl}
           title="Local Resume Preview"
           className="w-full aspect-[8.5/11] border rounded-md"
           style={{ height: '250px', maxHeight: '60vh' }}

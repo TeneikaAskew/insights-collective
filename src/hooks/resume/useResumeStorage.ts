@@ -183,7 +183,7 @@ export function useResumeStorage() {
         .from('resumes')
         .upload(fileName, file, { 
           upsert: true,
-          // Fix for Firefox auto-downloading: set content-type correctly and disposition to inline
+          // Fix for Firefox auto-downloading: set content-type correctly and cacheControl
           contentType: file.type,
           cacheControl: '3600'
         });
@@ -249,15 +249,13 @@ export function useResumeStorage() {
       
       // Try to get a signed URL with proper headers to fix Firefox downloading
       try {
-        // Fix: Use the correct options for createSignedUrl
-        // The 'transform' option doesn't have a contentDisposition field
-        // Instead, add the response-content-disposition as a download parameter
+        // Use the correct options for createSignedUrl
         const { data: fileData, error: fileError } = await supabase
           .storage
           .from('resumes')
           .createSignedUrl(fullPath, 3600, { 
             download: false,  // Don't force download
-            transform: {} // Empty transform object, no contentDisposition
+            transform: {} // Empty transform object
           });
           
         if (fileError) {

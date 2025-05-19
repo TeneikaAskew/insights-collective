@@ -1,4 +1,3 @@
-
 import { Profile } from "@/types/supabase";
 
 /**
@@ -7,6 +6,9 @@ import { Profile } from "@/types/supabase";
 export const enrichProfileWithRoles = (profile: any): Profile => {
   if (!profile) return null as any;
   
+  // Handle roles from the database
+  // If roles array exists in the DB, use it directly
+  // Otherwise, fallback to role string and convert to array
   const roles = profile.roles || 
     (profile.role ? [profile.role, 'student'] : ['student']);
   
