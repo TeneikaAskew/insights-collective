@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -158,6 +157,17 @@ export default function CodePractice() {
   const [feedback, setFeedback] = useState(null);
   const [selectedRole, setSelectedRole] = useState('all');
   const [currentChallenge, setCurrentChallenge] = useState(challengesByRole.all);
+
+  // Add class to body when component mounts
+  useEffect(() => {
+    // Add monaco theme class when the component mounts
+    document.documentElement.classList.add('monaco-theme');
+    
+    // Remove monaco theme class when the component unmounts
+    return () => {
+      document.documentElement.classList.remove('monaco-theme');
+    };
+  }, []);
 
   useEffect(() => {
     // Update the current challenge when the selected role changes

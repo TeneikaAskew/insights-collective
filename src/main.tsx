@@ -34,9 +34,7 @@ if (typeof window !== 'undefined' && window.localStorage) {
   }
 }
 
-// Initialize dark theme
-document.documentElement.classList.add('monaco-theme');
-
+// Initialize the QueryClient for React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

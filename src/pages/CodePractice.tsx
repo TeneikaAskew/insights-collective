@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +58,17 @@ export default function CodePractice() {
   const [code, setCode] = useState(STARTER_CODE.python);
   const [testResults, setTestResults] = useState<TestResult[]>([]);
   const [review, setReview] = useState<any>(null);
+
+  // Add class to the document body when component mounts
+  useEffect(() => {
+    // Add monaco theme class when the component mounts
+    document.documentElement.classList.add('monaco-theme');
+    
+    // Remove monaco theme class when the component unmounts
+    return () => {
+      document.documentElement.classList.remove('monaco-theme');
+    };
+  }, []);
 
   useEffect(() => {
     loadChallenges();
