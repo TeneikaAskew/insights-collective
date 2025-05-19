@@ -10,11 +10,13 @@ import { Badge } from '@/components/ui/badge';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { format, addHours } from 'date-fns';
 import { Calendar as CalendarIcon, Clock, Users, Video, ChevronLeft } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useNavigate } from 'react-router-dom';
+import { AvailabilityManager } from '@/components/interview-prep/AvailabilityManager';
 
 interface MockSession {
   id: string;
@@ -23,11 +25,11 @@ interface MockSession {
   role1: 'interviewer' | 'interviewee';
   role2: 'interviewer' | 'interviewee';
   session_time: string;
-  end_time: string; // Added end time field
+  end_time: string;
   type: 'behavioral' | 'technical';
   status: 'scheduled' | 'completed' | 'canceled';
   study_guide_id: string | null;
-  video_platform: string; // Added video platform field
+  video_platform: string;
 }
 
 interface TimeBlock {
@@ -56,10 +58,13 @@ export default function MockInterviews() {
   const [isInterviewer, setIsInterviewer] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
   const [previousSessions, setPreviousSessions] = useState<Record<string, number>>({});
+  const [activeTab, setActiveTab] = useState<string>('schedule');
+  const [hasSetAvailability, setHasSetAvailability] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadSessions();
+      checkAvailabilityStatus();
     }
   }, [user]);
 
@@ -68,6 +73,23 @@ export default function MockInterviews() {
       loadAvailableUsers();
     }
   }, [selectedDate, selectedTimeBlock, selectedType, isInterviewer, user]);
+
+  const checkAvailabilityStatus = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const { data: availabilitySlots, error } = await supabase
+        .from('availability_slots')
+        .select('*')
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      setHasSetAvailability(availabilitySlots && availabilitySlots.length > 0);
+    } catch (error: any) {
+      console.error('Error checking availability status:', error);
+    }
+  };
 
   const loadSessions = async () => {
     if (!user?.id) return;
@@ -245,11 +267,34 @@ export default function MockInterviews() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="schedule">Find Sessions</TabsTrigger>
+            <TabsTrigger value="availability">Set Availability</TabsTrigger>
+            <TabsTrigger value="upcoming">Upcoming Sessions</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="schedule">
+            {!hasSetAvailability && (
+              <Card className="mb-6 border-amber-200 bg-amber-50 dark:bg-amber-950 dark:border-amber-800">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                    <p>Please set your availability first to help others find matching times.</p>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setActiveTab('availability')}
+                    >
+                      Set Availability
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             <Card>
               <CardHeader>
-                <CardTitle>Schedule New Session</CardTitle>
+                <CardTitle>Find Available Partners</CardTitle>
                 <CardDescription>
                   Find available peers for mock interviews. Sessions are 1 hour long via Google Meet.
                 </CardDescription>
@@ -350,9 +395,26 @@ export default function MockInterviews() {
                 </div>
               </CardContent>
             </Card>
-          </div>
+          </TabsContent>
+          
+          <TabsContent value="availability">
+            <Card>
+              <CardHeader>
+                <CardTitle>Set Your Availability</CardTitle>
+                <CardDescription>
+                  Select the days and times you're available for mock interviews.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <AvailabilityManager 
+                  onAvailabilityChange={checkAvailabilityStatus} 
+                  timeBlocks={TIME_BLOCKS} 
+                />
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-          <div>
+          <TabsContent value="upcoming">
             <Card>
               <CardHeader>
                 <CardTitle>Upcoming Sessions</CardTitle>
@@ -436,8 +498,8 @@ export default function MockInterviews() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
