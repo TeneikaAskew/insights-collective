@@ -12,7 +12,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { format, addHours, parseISO, set } from 'date-fns';
-import { Calendar as CalendarIcon, Clock, Users, Video, ChevronLeft, BookText } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Users, Video, ChevronLeft, BookText, ExternalLink } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 import { useNavigate } from 'react-router-dom';
 import { AvailabilityManager } from '@/components/interview-prep/AvailabilityManager';
@@ -553,140 +553,210 @@ export default function MockInterviews() {
               <CardHeader>
                 <CardTitle>Interview Guidelines</CardTitle>
                 <CardDescription>
-                  Essential tips and strategies for both interviewers and interviewees.
+                  Essential guidance for conducting effective mock interviews and study sessions
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6 max-w-5xl">
+              <CardContent className="space-y-8 max-w-5xl">
+                {/* Introduction Section */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold border-b pb-2">Purpose & Benefits</h3>
+                  <p>One of the best ways to prepare for a job interview is to participate in mock interviews. This platform provides a streamlined place for fellows to schedule mock interviews and study sessions with their peers, facilitating coordination across time zones and availability.</p>
+                  
+                  <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md border border-blue-200 dark:border-blue-800">
+                    <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">Why Mock Interviews Matter</h4>
+                    <ul className="space-y-2 text-blue-700 dark:text-blue-200">
+                      <li>Increase confidence and boost overall morale</li>
+                      <li>Reduce stress and anxiety before real job interviews</li>
+                      <li>Gain useful feedback in a low-stress environment</li>
+                      <li>Better prepare for sessions with DS4A Mentors or CSC</li>
+                      <li>Coordinate study sessions with other fellows in the program</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                {/* How to Conduct Section */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold border-b pb-2">How to Conduct a Mock Interview</h3>
+                  <p>A mock interview is time for you and an interview partner to practice answering questions as if you were in a real live interview.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Structure</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>30-45 minutes each to answer questions</li>
+                        <li>5 minutes for meaningful feedback</li>
+                        <li>Total session should not exceed 90 minutes</li>
+                        <li>Mock, receive feedback, reflect, switch roles & repeat</li>
+                      </ul>
+                    </div>
+                    
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Question Selection</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>Leverage DS4A resources or outside resources for practice questions</li>
+                        <li>Inform your partner which questions you want to review</li>
+                        <li>Share why you want to practice specific questions</li>
+                        <li>Try to solve your partner's questions in advance for better feedback</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Performing & Feedback Section */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold border-b pb-2">For Interviewees</h3>
-                    
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Before the Interview</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Research the role and company thoroughly</li>
-                        <li>Practice answering common questions using the STAR method</li>
-                        <li>Prepare your own thoughtful questions to ask</li>
-                        <li>Test your camera, microphone, and internet connection</li>
-                        <li>Choose a quiet, well-lit environment with minimal distractions</li>
-                      </ul>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">During the Interview</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Join 5 minutes early to settle in</li>
-                        <li>Make eye contact by looking at the camera</li>
-                        <li>Speak clearly and at a moderate pace</li>
-                        <li>Use the STAR method for behavioral questions</li>
-                        <li>Show enthusiasm for the role and company</li>
-                        <li>Be honest if you don't know something, but explain your approach</li>
-                      </ul>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Technical Interview Tips</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Think out loud while solving problems</li>
-                        <li>Ask clarifying questions before diving into solutions</li>
-                        <li>Consider edge cases and test your solutions</li>
-                        <li>Discuss time and space complexity</li>
-                        <li>If stuck, explain your thought process and ask for hints</li>
-                      </ul>
-                    </div>
-                    
-                    <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md border border-blue-200 dark:border-blue-800">
-                      <h4 className="font-medium text-blue-800 dark:text-blue-300 mb-2">STAR Method Reminder</h4>
-                      <ul className="text-sm space-y-1 text-blue-700 dark:text-blue-200">
-                        <li><strong>Situation:</strong> Set the context and background</li>
-                        <li><strong>Task:</strong> Explain your responsibility or challenge</li>
-                        <li><strong>Action:</strong> Describe what you did and how you did it</li>
-                        <li><strong>Result:</strong> Share the outcomes and what you learned</li>
+                    <h3 className="text-xl font-semibold border-b pb-2">Performing a Mock</h3>
+                    <div className="space-y-3">
+                      <p>During the mock interview:</p>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>Be prepared to answer your provided question and any follow-ups</li>
+                        <li>Interviewers should gauge detail and clarity</li>
+                        <li>Ask follow-up questions such as:</li>
+                        <ul className="list-disc pl-5 ml-4 space-y-1">
+                          <li>"Why did you choose this approach?"</li>
+                          <li>"What would you do differently?"</li>
+                          <li>"Are there any alternative ways to solve this problem?"</li>
+                        </ul>
+                        <li>Always ask at least one follow-up question to simulate real-world situations</li>
                       </ul>
                     </div>
                   </div>
                   
                   <div className="space-y-4">
-                    <h3 className="text-lg font-semibold border-b pb-2">For Interviewers</h3>
-                    
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Before the Interview</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Review the interviewee's background if available</li>
-                        <li>Prepare a structured set of questions</li>
-                        <li>Include a mix of behavioral and technical questions</li>
-                        <li>Plan time for the candidate to ask questions</li>
-                        <li>Test your camera, microphone, and internet connection</li>
+                    <h3 className="text-xl font-semibold border-b pb-2">Giving Feedback</h3>
+                    <p>Avoid vague feedback like "You did well" or "I liked your answer." Be constructive, useful, and actionable by highlighting strengths and areas for improvement.</p>
+                    <h4 className="font-medium mt-4">Questions to consider:</h4>
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li>Were responses concise and well-structured?</li>
+                      <li>Did they fully answer the question?</li>
+                      <li>How convincing was their answer?</li>
+                      <li>Did they justify every decision?</li>
+                      <li>Were solutions too vague?</li>
+                      <li>What would they change if asked again?</li>
+                      <li>How was their body language, speaking pace, and mannerisms?</li>
+                      <li>Did they maintain eye contact with the camera?</li>
+                      <li>Was their demeanor positive or negative?</li>
+                      <li>Were they exhaustive or too general?</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                {/* Resources Section */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold border-b pb-2">Interview Resources</h3>
+                  <p className="font-medium">Review the resources in the Professional Development section of the training website for technical and behavioral interviews.</p>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="font-medium">General Resources</h4>
+                      <ul className="space-y-2">
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://www.linkedin.com/pulse/top-12-questions-interviewee-ask-get-hired-by-linkedin-news/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            Top 12 Questions for an Interviewee to Ask
+                          </a>
+                        </li>
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://www.linkedin.com/pulse/10-most-common-interview-questions-how-answer-/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            10 Most Common Interview Questions and How to Answer
+                          </a>
+                        </li>
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://static1.squarespace.com/static/58b82141197aea3090513b2b/t/613b748fc3a1ce125eca5e52/1631286416347/Leadership+Principle+interview+questions+by+principle.pdf" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            Amazon Leadership Principles Interview Questions
+                          </a>
+                        </li>
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://www.theguardian.com/careers/careers-blog/common-interview-questions" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            Common Interview Questions
+                          </a>
+                        </li>
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://bit.ly/jobinterviewsguide" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            General Interview Guide with Behavioral and Technical Resources
+                          </a>
+                        </li>
                       </ul>
                     </div>
                     
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">During the Interview</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Start with a brief introduction and explain the process</li>
-                        <li>Ask open-ended questions that require detailed responses</li>
-                        <li>Listen actively and take notes</li>
-                        <li>Provide clear instructions for technical questions</li>
-                        <li>Allow time for the candidate to think</li>
-                        <li>Be encouraging and create a comfortable atmosphere</li>
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Technical Resources</h4>
+                      <p className="text-sm text-muted-foreground mb-2">SQL Resources:</p>
+                      <ul className="space-y-2">
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://www.stratascratch.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            StrataScratch
+                          </a>
+                        </li>
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://leetcode.com/problemset/database/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            Leetcode (Database Problems)
+                          </a>
+                        </li>
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://www.interviewquery.com/p/data-science-sql-interview-questions" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            Strategies for Successful Tech Interviews
+                          </a>
+                        </li>
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://sql.datainterview.com/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            Data Interview SQL Pad
+                          </a>
+                        </li>
                       </ul>
-                    </div>
-                    
-                    <div>
-                      <h4 className="font-medium text-sm mb-2">Effective Questioning</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Ask follow-up questions to dive deeper</li>
-                        <li>Avoid leading questions that suggest answers</li>
-                        <li>Focus on behavioral questions that reveal past performance</li>
-                        <li>For technical questions, evaluate the approach not just the solution</li>
-                        <li>Ask about specific examples rather than hypotheticals</li>
-                      </ul>
-                    </div>
-                    
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md border border-green-200 dark:border-green-800">
-                      <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">Sample Questions</h4>
-                      <div className="text-sm space-y-2 text-green-700 dark:text-green-200">
-                        <p><strong>Behavioral:</strong> "Tell me about a time when you faced a significant challenge in a project. How did you address it?"</p>
-                        <p><strong>Technical:</strong> "How would you approach optimizing a database query that's running slowly?"</p>
-                        <p><strong>Problem-solving:</strong> "How would you design a system to handle high traffic spikes?"</p>
-                      </div>
                     </div>
                   </div>
                 </div>
                 
-                <div className="pt-4">
-                  <h3 className="text-lg font-semibold mb-4 border-b pb-2">General Best Practices</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-md">
-                      <h4 className="font-medium text-sm mb-2">Communication</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Speak clearly and concisely</li>
-                        <li>Use professional language</li>
-                        <li>Practice active listening</li>
-                        <li>Be mindful of your body language</li>
-                        <li>Match the conversation's tone and pace</li>
+                {/* Preparing Section */}
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold border-b pb-2">Additional Preparation Tips</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Practice Material</h4>
+                      <ul className="list-disc pl-5 space-y-1">
+                        <li>Review Modules, Extended Cases, and Lectures</li>
+                        <li>Try solving problems within a 30-minute timeframe</li>
+                        <li>For Technical Mocks, solve coding problems or answer technical questions live</li>
+                        <li>Use platforms like Google Colab for collaborative coding</li>
                       </ul>
                     </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-md">
-                      <h4 className="font-medium text-sm mb-2">Technical Setup</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Use a wired internet connection if possible</li>
-                        <li>Have a backup device ready</li>
-                        <li>Close unnecessary applications</li>
-                        <li>Position your camera at eye level</li>
-                        <li>Ensure your background is professional</li>
+                    
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Reverse Interviewing</h4>
+                      <ul className="space-y-2">
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://github.com/viraptor/reverse-interview" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            Questions to Ask Interviewers
+                          </a>
+                        </li>
+                        <li className="flex items-start">
+                          <ExternalLink className="h-4 w-4 mr-2 mt-1 flex-shrink-0" />
+                          <a href="https://blog.pragmaticengineer.com/reverse-interviewing/" target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">
+                            Questions for Your Future Manager
+                          </a>
+                        </li>
                       </ul>
                     </div>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-md">
-                      <h4 className="font-medium text-sm mb-2">Follow-up</h4>
-                      <ul className="list-disc pl-5 space-y-1 text-sm">
-                        <li>Thank the other person for their time</li>
-                        <li>Provide constructive feedback</li>
-                        <li>Reflect on what went well and areas for improvement</li>
-                        <li>Apply learnings to future interviews</li>
-                        <li>Consider sending a thank you note</li>
-                      </ul>
-                    </div>
+                  </div>
+                  
+                  <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md border border-green-200 dark:border-green-800 mt-6">
+                    <h4 className="font-medium text-green-800 dark:text-green-300 mb-2">Final Reminders</h4>
+                    <ul className="space-y-2 text-green-700 dark:text-green-200">
+                      <li><strong>Consistency:</strong> Regular practice makes interviews feel more natural</li>
+                      <li><strong>Feedback:</strong> Actively seek and incorporate feedback to improve</li>
+                      <li><strong>Reflection:</strong> After each mock, reflect on what worked and what didn't</li>
+                      <li><strong>Balance:</strong> Practice both technical skills and behavioral responses</li>
+                    </ul>
                   </div>
                 </div>
               </CardContent>
