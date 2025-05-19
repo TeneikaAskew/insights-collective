@@ -241,6 +241,8 @@ export class LocalStorageUtils {
     console.log('Saving submitted STAR responses to localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
+        console.log(`Responses to save for user ${userId}:`, Object.keys(responses).length);
+        console.log('First few responses:', Object.entries(responses).slice(0, 2));
         window.localStorage.setItem(`saved_star_responses_${userId}`, JSON.stringify(responses));
         console.log('Saved STAR responses stored to localStorage');
       } catch (error) {
@@ -256,8 +258,15 @@ export class LocalStorageUtils {
     console.log('Getting saved STAR responses from localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        const savedResponses = window.localStorage.getItem(`saved_star_responses_${userId}`);
-        return savedResponses ? JSON.parse(savedResponses) : null;
+        const savedResponsesKey = `saved_star_responses_${userId}`;
+        const savedResponses = window.localStorage.getItem(savedResponsesKey);
+        console.log(`Key: ${savedResponsesKey}, Found data:`, savedResponses ? 'Yes' : 'No');
+        if (savedResponses) {
+          const parsed = JSON.parse(savedResponses);
+          console.log(`Parsed ${Object.keys(parsed).length} saved responses`);
+          return parsed;
+        }
+        return null;
       } catch (error) {
         console.error('Error getting saved STAR responses from localStorage:', error);
         return null;
@@ -336,7 +345,9 @@ export class LocalStorageUtils {
     console.log('Getting STAR response drafts from localStorage');
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
-        const drafts = window.localStorage.getItem(`star_drafts_${userId}`);
+        const draftsKey = `star_drafts_${userId}`;
+        const drafts = window.localStorage.getItem(draftsKey);
+        console.log(`Found drafts for key ${draftsKey}:`, drafts ? 'Yes' : 'No');
         return drafts ? JSON.parse(drafts) : {};
       } catch (error) {
         console.error('Error getting STAR drafts from localStorage:', error);
@@ -370,6 +381,8 @@ export class LocalStorageUtils {
     if (typeof window !== 'undefined' && window.localStorage) {
       try {
         const allDrafts = this.getStarResponseDrafts(userId);
+        console.log(`Looking for question ${questionId} in drafts:`, 
+                   `Found: ${questionId in allDrafts ? 'Yes' : 'No'}`);
         return allDrafts[questionId] || null;
       } catch (error) {
         console.error('Error getting STAR draft for question from localStorage:', error);

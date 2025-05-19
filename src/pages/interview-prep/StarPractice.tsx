@@ -60,7 +60,10 @@ export default function StarPractice() {
   // Fix the localStorage usage with proper methods
   const [streak, setStreak] = useState(() => {
     try {
-      return parseInt(localStorage.getItem('starPracticeStreak') || '0', 10);
+      console.log("Initializing streak from localStorage");
+      const streakValue = localStorage.getItem('starPracticeStreak');
+      console.log("Found streak value:", streakValue);
+      return parseInt(streakValue || '0', 10);
     } catch (e) {
       console.error('Error accessing localStorage for streak:', e);
       return 0;
@@ -69,7 +72,10 @@ export default function StarPractice() {
   
   const [lastPracticeDate, setLastPracticeDate] = useState(() => {
     try {
-      return localStorage.getItem('starPracticeLastDate') || '';
+      console.log("Initializing lastPracticeDate from localStorage");
+      const dateValue = localStorage.getItem('starPracticeLastDate');
+      console.log("Found lastPracticeDate value:", dateValue);
+      return dateValue || '';
     } catch (e) {
       console.error('Error accessing localStorage for last practice date:', e);
       return '';
@@ -78,6 +84,7 @@ export default function StarPractice() {
 
   // Set up effect to load questions when component mounts
   useEffect(() => {
+    console.log("Component mounted, loading questions for user:", user?.id);
     loadQuestions();
     checkAndUpdateStreak();
   }, [user]);
@@ -85,9 +92,13 @@ export default function StarPractice() {
   // Set initial question index based on URL parameter if available
   useEffect(() => {
     if (questionId && questions.length > 0) {
+      console.log("URL contains questionId:", questionId, "looking for matching question");
       const index = questions.findIndex(q => q.id === questionId);
       if (index !== -1) {
+        console.log(`Found matching question at index ${index}, setting currentQuestionIndex`);
         setCurrentQuestionIndex(index);
+      } else {
+        console.log("No matching question found for questionId:", questionId);
       }
     }
   }, [questionId, questions]);
@@ -95,12 +106,14 @@ export default function StarPractice() {
   // Load saved responses for the current question whenever it changes
   useEffect(() => {
     if (user?.id && questions.length > 0) {
+      console.log("Current question changed or questions loaded, loading saved response");
       loadSavedResponse();
     }
   }, [currentQuestionIndex, questions, user]);
 
   const checkAndUpdateStreak = () => {
     const today = new Date().toLocaleDateString();
+    console.log("Checking streak. Last practice date:", lastPracticeDate, "Today:", today);
     
     if (lastPracticeDate && lastPracticeDate !== today) {
       const lastDate = new Date(lastPracticeDate);
@@ -109,22 +122,27 @@ export default function StarPractice() {
       // Check if the last practice was yesterday
       const timeDiff = currentDate.getTime() - lastDate.getTime();
       const daysDiff = timeDiff / (1000 * 3600 * 24);
+      console.log("Days difference:", daysDiff);
       
       if (daysDiff > 1.5) {
         // Reset streak if more than 1.5 days have passed (to account for time zones)
+        console.log("More than 1.5 days passed, resetting streak to 1");
         setStreak(1);
       } else if (daysDiff >= 0.5) {
         // Increment streak if it's a new day
+        console.log("New day detected, incrementing streak");
         setStreak(prev => prev + 1);
       }
     } else if (!lastPracticeDate) {
       // First time practicing
+      console.log("First time practicing, setting streak to 1");
       setStreak(1);
     }
     
     // Update localStorage
     try {
       // Update last practice date
+      console.log("Updating localStorage with new streak:", streak, "and date:", today);
       setLastPracticeDate(today);
       localStorage.setItem('starPracticeLastDate', today);
       localStorage.setItem('starPracticeStreak', streak.toString());
@@ -153,10 +171,13 @@ export default function StarPractice() {
 
       if (error) throw error;
 
+      console.log("Study guides loaded:", studyGuides);
+
       if (studyGuides?.questions) {
         const behavioralQuestions = studyGuides.questions.filter(
           (q: any) => q.type === 'behavioral'
         );
+        console.log("Filtered behavioral questions:", behavioralQuestions);
         setQuestions(behavioralQuestions);
       }
     } catch (error) {
@@ -171,30 +192,100 @@ export default function StarPractice() {
     }
   };
 
-  const loadSavedResponse = () => {
+  const loadSavedResponse = async () => {
     if (!user?.id || questions.length === 0) return;
     
     try {
       const currentQuestion = questions[currentQuestionIndex];
+      console.log("Loading saved response for question:", currentQuestion.id);
+      
+      // First check localStorage for a draft
+      console.log("Checking localStorage for draft response");
       const savedDraft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, currentQuestion.id);
       
       if (savedDraft) {
-        console.log("Loading saved draft for question:", currentQuestion.id);
+        console.log("Found draft in localStorage:", savedDraft);
         setResponse(savedDraft);
+        setHasSubmittedResponse(false);
+        setFeedback(null);
+        setIsFlipped(false);
       } else {
-        // Reset to empty response if no saved draft exists
-        setResponse({
-          situation: '',
-          task: '',
-          action: '',
-          result: '',
-        });
+        console.log("No draft found in localStorage, checking for previously submitted responses");
+        
+        // Next, check localStorage for saved responses with feedback
+        const savedResponses = LocalStorageUtils.getSavedStarResponses(user.id);
+        console.log("Saved responses from localStorage:", savedResponses);
+        
+        if (savedResponses && savedResponses[currentQuestion.id]) {
+          const savedData = savedResponses[currentQuestion.id];
+          console.log("Found saved response with feedback in localStorage:", savedData);
+          setResponse(savedData.response);
+          setFeedback(savedData.feedback);
+          setHasSubmittedResponse(true);
+          setIsFlipped(false);
+          return;
+        }
+        
+        // As a last resort, check the database for any submitted response
+        console.log("No response found in localStorage, checking database");
+        const { data: dbResponses, error } = await supabase
+          .from('star_responses')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('question_id', currentQuestion.id)
+          .order('submitted_at', { ascending: false })
+          .limit(1);
+        
+        if (error) {
+          console.error("Error fetching responses from database:", error);
+        } else if (dbResponses && dbResponses.length > 0) {
+          console.log("Found response in database:", dbResponses[0]);
+          setResponse({
+            situation: dbResponses[0].situation,
+            task: dbResponses[0].task,
+            action: dbResponses[0].action,
+            result: dbResponses[0].result,
+          });
+          
+          if (dbResponses[0].ai_feedback) {
+            console.log("Response has feedback:", dbResponses[0].ai_feedback);
+            setFeedback(dbResponses[0].ai_feedback);
+            setHasSubmittedResponse(true);
+            
+            // Also save to localStorage for future use
+            const allResponses = LocalStorageUtils.getSavedStarResponses(user.id) || {};
+            allResponses[currentQuestion.id] = {
+              response: {
+                situation: dbResponses[0].situation,
+                task: dbResponses[0].task,
+                action: dbResponses[0].action,
+                result: dbResponses[0].result,
+              },
+              feedback: dbResponses[0].ai_feedback,
+              timestamp: new Date().getTime()
+            };
+            LocalStorageUtils.saveSavedStarResponses(user.id, allResponses);
+            console.log("Saved database response to localStorage for future use");
+          } else {
+            console.log("Database response has no feedback");
+            setHasSubmittedResponse(false);
+            setFeedback(null);
+          }
+        } else {
+          // Reset to empty response if no saved data found anywhere
+          console.log("No saved response found anywhere, resetting to empty");
+          setResponse({
+            situation: '',
+            task: '',
+            action: '',
+            result: '',
+          });
+          setFeedback(null);
+          setHasSubmittedResponse(false);
+        }
       }
       
-      // Reset feedback and flip state
-      setFeedback(null);
       setIsFlipped(false);
-      setHasSubmittedResponse(false);
       
     } catch (error) {
       console.error('Error loading saved response:', error);
@@ -206,7 +297,9 @@ export default function StarPractice() {
     
     try {
       const currentQuestion = questions[currentQuestionIndex];
+      console.log("Saving draft for question:", currentQuestion.id, response);
       LocalStorageUtils.saveStarResponseDraftForQuestion(user.id, currentQuestion.id, response as any);
+      console.log("Draft saved successfully");
     } catch (error) {
       console.error('Error saving response draft:', error);
     }
@@ -385,12 +478,14 @@ export default function StarPractice() {
 
   // Save response when input changes
   const handleResponseChange = (field: 'situation' | 'task' | 'action' | 'result', value: string) => {
+    console.log(`Updating ${field} field with new value:`, value);
     const updatedResponse = { ...response, [field]: value };
     setResponse(updatedResponse);
     
     // Debounce the save - in a real app, you might want to use a proper debounce function
     if (user?.id && questions[currentQuestionIndex]) {
       const timeoutId = setTimeout(() => {
+        console.log("Auto-saving draft after debounce");
         LocalStorageUtils.saveStarResponseDraftForQuestion(
           user.id, 
           questions[currentQuestionIndex].id, 
