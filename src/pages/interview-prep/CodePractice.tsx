@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -113,102 +114,104 @@ export default function CodePractice() {
               </CardHeader>
               
               <CardContent>
-                <TabsContent value="question" className="mt-0">
-                  <div className="prose max-w-none">
-                    <h3>Two Sum</h3>
-                    <p>
-                      This is a classic algorithmic problem that appears frequently in technical interviews. 
-                      The problem asks you to find two numbers in an array that add up to a target value.
-                    </p>
-                    <p>
-                      A naive approach would be to use nested loops to check every pair of numbers, 
-                      but this would have a time complexity of O(n²). Can you think of a more efficient solution?
-                    </p>
-                    <h4>Hints:</h4>
-                    <ol>
-                      <li>Consider using a hash map to store values you've seen so far.</li>
-                      <li>For each number, check if its complement (target - num) exists in the hash map.</li>
-                      <li>This can be solved in a single pass through the array.</li>
-                    </ol>
-                    
-                    <Button onClick={() => setActiveTab('code')} className="mt-4">
-                      Start Coding
-                    </Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="code" className="mt-0">
-                  <div className="h-[500px] border rounded-md">
-                    <Editor
-                      height="100%"
-                      language="javascript"
-                      theme="vs-dark"
-                      value={code}
-                      onChange={handleCodeChange}
-                      options={{
-                        minimap: { enabled: false },
-                        fontSize: 14,
-                        scrollBeyondLastLine: false,
-                      }}
-                    />
-                  </div>
-                  <div className="mt-4 flex justify-end">
-                    <Button onClick={handleSubmit} disabled={loading}>
-                      {loading ? <Spinner size="sm" className="mr-2" /> : null}
-                      Submit Solution
-                    </Button>
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="feedback" className="mt-0">
-                  {feedback && (
-                    <div className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          {feedback.correct ? (
-                            <Badge className="bg-green-100 text-green-800 mr-2">
-                              <Check className="h-4 w-4 mr-1" />
-                              Correct
-                            </Badge>
-                          ) : (
-                            <Badge variant="destructive" className="mr-2">
-                              Incorrect
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-xs">
-                            <span className="font-medium">Runtime:</span> {feedback.runtime}
-                          </div>
-                          <div className="text-xs">
-                            <span className="font-medium">Memory:</span> {feedback.memory}
-                          </div>
-                        </div>
-                      </div>
+                <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-0">
+                  <TabsContent value="question">
+                    <div className="prose max-w-none">
+                      <h3>Two Sum</h3>
+                      <p>
+                        This is a classic algorithmic problem that appears frequently in technical interviews. 
+                        The problem asks you to find two numbers in an array that add up to a target value.
+                      </p>
+                      <p>
+                        A naive approach would be to use nested loops to check every pair of numbers, 
+                        but this would have a time complexity of O(n²). Can you think of a more efficient solution?
+                      </p>
+                      <h4>Hints:</h4>
+                      <ol>
+                        <li>Consider using a hash map to store values you've seen so far.</li>
+                        <li>For each number, check if its complement (target - num) exists in the hash map.</li>
+                        <li>This can be solved in a single pass through the array.</li>
+                      </ol>
                       
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">Code Review</h3>
-                        <p className="text-sm">{feedback.feedback}</p>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-sm font-medium mb-2">Suggestions</h3>
-                        <ul className="list-disc list-inside space-y-1">
-                          {feedback.suggestions.map((suggestion, index) => (
-                            <li key={index} className="text-sm">{suggestion}</li>
-                          ))}
-                        </ul>
-                      </div>
-                      
-                      <div className="flex justify-end">
-                        <Button variant="outline" onClick={() => setActiveTab('code')}>
-                          <Code className="h-4 w-4 mr-2" />
-                          Continue Editing
-                        </Button>
-                      </div>
+                      <Button onClick={() => setActiveTab('code')} className="mt-4">
+                        Start Coding
+                      </Button>
                     </div>
-                  )}
-                </TabsContent>
+                  </TabsContent>
+                  
+                  <TabsContent value="code">
+                    <div className="h-[500px] border rounded-md">
+                      <Editor
+                        height="100%"
+                        language="javascript"
+                        theme="vs-dark"
+                        value={code}
+                        onChange={handleCodeChange}
+                        options={{
+                          minimap: { enabled: false },
+                          fontSize: 14,
+                          scrollBeyondLastLine: false,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-4 flex justify-end">
+                      <Button onClick={handleSubmit} disabled={loading}>
+                        {loading ? <Spinner size="sm" className="mr-2" /> : null}
+                        Submit Solution
+                      </Button>
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="feedback">
+                    {feedback && (
+                      <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center">
+                            {feedback.correct ? (
+                              <Badge className="bg-green-100 text-green-800 mr-2">
+                                <Check className="h-4 w-4 mr-1" />
+                                Correct
+                              </Badge>
+                            ) : (
+                              <Badge variant="destructive" className="mr-2">
+                                Incorrect
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-xs">
+                              <span className="font-medium">Runtime:</span> {feedback.runtime}
+                            </div>
+                            <div className="text-xs">
+                              <span className="font-medium">Memory:</span> {feedback.memory}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <h3 className="text-sm font-medium mb-2">Code Review</h3>
+                          <p className="text-sm">{feedback.feedback}</p>
+                        </div>
+                        
+                        <div>
+                          <h3 className="text-sm font-medium mb-2">Suggestions</h3>
+                          <ul className="list-disc list-inside space-y-1">
+                            {feedback.suggestions.map((suggestion, index) => (
+                              <li key={index} className="text-sm">{suggestion}</li>
+                            ))}
+                          </ul>
+                        </div>
+                        
+                        <div className="flex justify-end">
+                          <Button variant="outline" onClick={() => setActiveTab('code')}>
+                            <Code className="h-4 w-4 mr-2" />
+                            Continue Editing
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               </CardContent>
             </Card>
           </div>
