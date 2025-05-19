@@ -9,7 +9,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Check, AlertCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, AlertCircle, ChevronLeft, ChevronRight, History as HistoryIcon } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 
 interface StarResponse {
@@ -434,7 +434,7 @@ export default function StarPractice() {
               {responses.length === 0 && (
                 <Card>
                   <CardContent className="py-8 text-center">
-                    <History className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                    <HistoryIcon className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                     <p className="text-muted-foreground">
                       No responses yet. Start practicing to see your history here.
                     </p>
