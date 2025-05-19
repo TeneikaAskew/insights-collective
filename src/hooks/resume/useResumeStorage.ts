@@ -254,8 +254,7 @@ export function useResumeStorage() {
           .storage
           .from('resumes')
           .createSignedUrl(fullPath, 3600, { 
-            download: false,  // Don't force download
-            transform: {} // Empty transform object
+            download: false  // Don't force download
           });
           
         if (fileError) {

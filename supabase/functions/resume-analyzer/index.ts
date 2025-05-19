@@ -105,81 +105,66 @@ async function getResumeRoast(resumeText, userId) {
   console.log('Running Resume Analyzer');
   let text = resumeText || '';
   console.log('Provided text:', text.length, 'characters');
+  
   // Initialize bulletPoints from passed-in sentences
   let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
   if (bulletPoints.length) {
     console.log(`Using ${bulletPoints.length} pre-detected sentences for analysis`);
   }
-  try {
-    // If no bullets and userId is present, try retrieving from database
-    if (bulletPoints.length === 0 && userId) {
-      console.log('No bullets passed in; checking database for userId=', userId);
-      const { data: existing, error: fetchError } = await supabase.from('resumes').select('text, sentences').eq('user_id', userId).order('uploaded_at', {
-        ascending: false
-      }).limit(1).maybeSingle();
-      if (fetchError) console.error('DB fetch error:', fetchError);
-      if (existing) {
-        if (!text && existing.text) {
-          text = existing.text;
-          console.log('Retrieved text from database:', text.length, 'chars');
-        }
-        if (Array.isArray(existing.sentences) && existing.sentences.length > 0) {
-          bulletPoints = existing.sentences;
-          console.log(`Retrieved ${bulletPoints.length} bullets from database`);
-        }
-      }
+
+  // If no bullets provided, try to extract them
+  if (bulletPoints.length === 0) {
+    try {
+      // Extract bullet points with a timeout
+      const extractionPromise = extractBulletPoints(text);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Bullet extraction timed out')), 30000)
+      );
+      
+      bulletPoints = await Promise.race([extractionPromise, timeoutPromise]);
+      console.log(`Extracted ${bulletPoints.length} bullet points`);
+    } catch (err) {
+      console.error('Error extracting bullet points:', err);
+      bulletPoints = [];
     }
-    // If still no bullets, extract from text
-    if (!text) throw new Error('No resume text provided or found');
-    if (bulletPoints.length === 0) {
-      console.log('Extracting bullets from text');
-      bulletPoints = await extractBulletPoints(text);
-      console.log('Extracted', bulletPoints.length, 'bullets from text');
-      if (bulletPoints.length === 0) {
-        bulletPoints = fallbackExtractBullets(text);
-        console.log('Fallback extracted', bulletPoints.length, 'bullets');
-      }
-      // Persist new bullets to DB
-      if (bulletPoints.length > 0 && userId) {
-        await supabase.from('resumes').update({
-          sentences: bulletPoints,
-          sentences_updated_at: new Date().toISOString()
-        }).eq('user_id', userId);
-        console.log('Saved bullets to database');
-      }
-    }
-    // If still no bullets, return default C-response
-    if (bulletPoints.length === 0) {
-      return {
-        bullets: [],
-        resume_average: 0,
-        resume_percent: 0,
-        letter_grade: 'Err',
-        themes: [
-          'Format your resume with clear bullet points'
-        ],
-        elevator_pitch: 'We couldn\'t detect formatted bullet points.',
-        explanation: 'Please organize your experience in clear bullet points.'
-      };
-    }
-    // Core bullet-by-bullet analysis
-    console.log('Analyzing', bulletPoints.length, 'bullet points');
-    const analyzed = await Promise.all(bulletPoints.map(async (bullet)=>{
+  }
+
+  // If still no bullets, return default C-response
+  if (bulletPoints.length === 0) {
+    return {
+      bullets: [],
+      resume_average: 0,
+      resume_percent: 0,
+      letter_grade: 'Err',
+      themes: [
+        'Format your resume with clear bullet points'
+      ],
+      elevator_pitch: 'We couldn\'t detect formatted bullet points.',
+      explanation: 'Please organize your experience in clear bullet points.'
+    };
+  }
+
+  // Core bullet-by-bullet analysis with batching
+  console.log('Analyzing', bulletPoints.length, 'bullet points');
+  
+  // Process bullets in batches of 5 to avoid overwhelming the system
+  const BATCH_SIZE = 5;
+  const analyzed = [];
+  
+  for (let i = 0; i < bulletPoints.length; i += BATCH_SIZE) {
+    const batch = bulletPoints.slice(i, i + BATCH_SIZE);
+    const batchPromises = batch.map(async (bullet) => {
       try {
         const wb = analyzeWordBalance(bullet);
         const xyz = xyzCheck(bullet);
-        // const total = wb.word_balance_score + xyz.xyz_total;
-        // Use the new xyz_total directly instead of adding it to word_balance_score
-        // const total = xyz.xyz_total; // Now on a 0-100 scale
-        // const rewritten = await rewriteBullet(bullet, { xyz_scores: xyz });
-        // const tips = await generateTips(bullet, { xyz_scores: xyz, word_balance_score: wb.word_balance_score });
-        // return { original: bullet, word_balance: wb, xyz_scores: xyz, bullet_total: total, rewritten, tips };
+        
         // Add minimum content requirements
         const hasMinimumContent = bullet.length > 20 && bullet.split(/\s+/).length > 4;
         const contentPenalty = hasMinimumContent ? 0 : 25;
-        // Use the new xyz_total directly instead of adding it to word_balance_score
+        
         // Apply minimum content penalty
         const total = Math.max(0, xyz.xyz_total - contentPenalty);
+        
         return {
           original: bullet,
           word_balance: wb,
@@ -188,7 +173,6 @@ async function getResumeRoast(resumeText, userId) {
         };
       } catch (err) {
         console.error('Error on bullet:', err);
-        // return { original: bullet, word_balance: {}, xyz_scores: {}, bullet_total: 10, rewritten: bullet, tips: 'Analysis failed.' };
         return {
           original: bullet,
           word_balance: {},
@@ -196,267 +180,326 @@ async function getResumeRoast(resumeText, userId) {
           bullet_total: 10
         };
       }
-    }));
-    // Aggregate scores
-    const totalScore = analyzed.reduce((sum, b)=>sum + b.bullet_total, 0);
-    const avg = totalScore / analyzed.length;
-    // const percent = Math.max(Math.min((avg / 45) * 100, 100), 30);
-    // Recommended change
-    // Sort bullets by score (highest first)
-    const sortedBullets = analyzed.sort((a, b)=>b.bullet_total - a.bullet_total);
-    // Step 1: Determine how many high-quality bullets exist (score > 80)
-    const highQualityBullets = sortedBullets.filter((b)=>b.bullet_total > 80).length;
-    const totalBullets = sortedBullets.length;
-    const highQualityRatio = totalBullets > 0 ? highQualityBullets / totalBullets : 0;
-    // Calculate weighted average (giving more weight to top bullets)
-    const weightedScores = sortedBullets.map((bullet, index)=>{
-      // Apply descending weights: 1.5, 1.4, 1.3, etc.
-      // const weight = Math.max(1.5 - (index * 0.1), 1.0);
-      // Apply stronger descending weights: 2.0, 1.8, 1.6, etc. for top bullets
-      const weight = Math.max(2.0 - index * 0.2, 1.0);
-      return bullet.bullet_total * weight;
     });
-    const weightedTotal = weightedScores.reduce((sum, score)=>sum + score, 0);
-    const weightedAverage = weightedTotal / weightedScores.length;
-    // Convert to percentage (60% baseline + up to 60% from performance)
-    // const percent = 40 + (weightedAverage / 100 * 60);
-    // Step 3: Use a much lower baseline (30%) and give more weight to bullet quality
-    let percent = 30 + weightedAverage / 100 * 70;
-    // Step 4: Add a bonus for having a high percentage of quality bullets
-    // This rewards resumes with consistently good content
-    const qualityBonus = highQualityRatio * 15; // Up to 15% bonus for all high-quality bullets
-    percent += qualityBonus;
-    // Cap at 100%
-    percent = Math.min(100, percent);
-    // // Convert to percentage (60% baseline + up to 40% from performance)
-    // const percent = 60 + (weightedAverage / 45 * 40);
-    let grade = getLetterGrade(percent);
-    if (grade === 'F') grade = 'D';
-    // Base response
-    const basic = {
-      bullets: analyzed,
-      resume_average: avg,
-      resume_percent: parseFloat(percent.toFixed(1)),
-      letter_grade: grade,
-      // themes,
-      elevator_pitch: 'Experienced professional ...',
-      explanation: `Your resume received a ${grade} grade (${percent}%).`
-    };
-    // enhance via GROQ
-    let enhanced;
+
+    // Process batch with timeout
     try {
-      enhanced = await enhanceWithGroq(text, basic);
+      const batchResults = await Promise.race([
+        Promise.all(batchPromises),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Batch analysis timed out')), 30000)
+        )
+      ]);
+      analyzed.push(...batchResults);
     } catch (err) {
-      console.error('GROQ enhancement error:', err);
-      const themes = generateThemes(analyzed);
-      enhanced = {
-        bullets: analyzed,
-        resume_average: avg,
-        resume_percent: parseFloat(percent.toFixed(1)),
-        letter_grade: grade,
-        themes,
-        elevator_pitch: 'Experienced professional ...',
-        explanation: `Your resume received a ${grade} grade (${percent}%).`
-      };
-      // Save the fallback analysis to the database for future use
-      if (userId) {
-        try {
-          await supabase.from('resumes').update({
-            fallback_analysis: enhanced,
-            fallback_updated_at: new Date().toISOString()
-          }).eq('user_id', userId);
-          console.log('Successfully saved fallback analysis to database');
-        } catch (dbError) {
-          console.error('Error saving fallback analysis:', dbError);
-        }
-      }
+      console.error('Error processing batch:', err);
+      // Add default analysis for failed batch
+      batch.forEach(bullet => {
+        analyzed.push({
+          original: bullet,
+          word_balance: {},
+          xyz_scores: {},
+          bullet_total: 10
+        });
+      });
     }
-    // Persist analysis and trigger roast
-    if (userId) {
-      await supabase.from('resumes').update({
-        analysis: enhanced,
-        analysis_complete: true,
-        updated_at: new Date().toISOString()
-      }).eq('user_id', userId);
-      console.log('Saved analysis to database');
-    }
-    console.log('Successfully updated analysis_complete to TRUE for user:', userId);
-    return enhanced;
-  } catch (err) {
-    console.error('Analysis error:', err);
-    return {
-      bullets: [],
-      resume_average: 25,
-      resume_percent: 50,
-      letter_grade: 'C',
-      themes: [
-        'Error during analysis'
-      ],
-      elevator_pitch: 'Error occurred',
-      explanation: `Error: ${err.message}`
-    };
   }
+
+  // Sort bullets by score (highest first)
+  const sortedBullets = analyzed.sort((a, b) => b.bullet_total - a.bullet_total);
+  
+  // Determine high-quality bullets
+  const highQualityBullets = sortedBullets.filter(b => b.bullet_total > 80).length;
+  const totalBullets = sortedBullets.length;
+  const highQualityRatio = totalBullets > 0 ? highQualityBullets / totalBullets : 0;
+
+  // Calculate weighted average
+  const weightedScores = sortedBullets.map((bullet, index) => {
+    const weight = Math.max(2.0 - index * 0.2, 1.0);
+    return bullet.bullet_total * weight;
+  });
+  
+  const weightedTotal = weightedScores.reduce((sum, score) => sum + score, 0);
+  const weightedAverage = weightedTotal / weightedScores.length;
+
+  // Calculate final score
+  let percent = 30 + weightedAverage / 100 * 70;
+  const qualityBonus = highQualityRatio * 15;
+  percent = Math.min(100, percent + qualityBonus);
+
+  // Determine letter grade
+  let letterGrade = 'C';
+  if (percent >= 90) letterGrade = 'A+';
+  else if (percent >= 85) letterGrade = 'A';
+  else if (percent >= 80) letterGrade = 'A-';
+  else if (percent >= 75) letterGrade = 'B+';
+  else if (percent >= 70) letterGrade = 'B';
+  else if (percent >= 65) letterGrade = 'B-';
+  else if (percent >= 60) letterGrade = 'C+';
+  else if (percent >= 55) letterGrade = 'C';
+  else if (percent >= 50) letterGrade = 'C-';
+  else if (percent >= 45) letterGrade = 'D+';
+  else if (percent >= 40) letterGrade = 'D';
+  else letterGrade = 'F';
+
+  // Generate themes based on bullet analysis
+  const themes = generateThemes(sortedBullets);
+
+  // Get elevator pitch and explanation from AI
+  const aiAnalysis = await enhanceWithGroq(resumeText, {
+    bullets: sortedBullets,
+    letter_grade: letterGrade,
+    percent: percent,
+    themes: themes
+  });
+
+  // Store results in database if userId provided
+  if (userId) {
+    await supabase.from('resumes').update({
+      analyzed_at: new Date().toISOString(),
+      analysis_complete: true,
+      resume_average: weightedAverage,
+      resume_percent: percent,
+      letter_grade: letterGrade,
+      themes: themes,
+      elevator_pitch: aiAnalysis.elevatorPitch,
+      explanation: aiAnalysis.explanation
+    }).eq('user_id', userId);
+  }
+
+  return {
+    bullets: sortedBullets,
+    resume_average: weightedAverage,
+    resume_percent: percent,
+    letter_grade: letterGrade,
+    themes: themes,
+    elevator_pitch: aiAnalysis.elevatorPitch,
+    explanation: aiAnalysis.explanation
+  };
 }
 export async function bulletImprover(userId, enhanced = null) {
-  try {
-    console.log(`Starting parallel bullet improvement for userId: ${userId}`);
-    const { processBatchQueue } = await import('./bulletImprover.ts');
-    let bullets;
-    // First try to use the provided enhanced analysis if available
-    if (enhanced?.bullets && enhanced.bullets.length > 0) {
-      console.log('Using provided enhanced analysis');
-      bullets = enhanced.bullets;
-    } else {
-      // Fall back to fetching from database
-      console.log('No enhanced analysis provided, fetching from database');
-      const { data: currentData, error: fetchError } = await supabase.from('resumes').select('analysis, text').eq('user_id', userId).order('uploaded_at', {
-        ascending: false
-      }).limit(1).maybeSingle();
-      if (fetchError) {
-        console.error('Error fetching current analysis:', fetchError);
-        return {
-          success: false,
-          error: 'Failed to fetch analysis'
-        };
-      }
-      if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
-        console.error('No bullets found in analysis');
-        return {
-          success: false,
-          error: 'No bullets found'
-        };
-      }
-      bullets = currentData.analysis.bullets;
+  console.log('Running bullet improver only');
+  
+  // First check if we have a valid analysis
+  let bullets;
+  let analysis;
+  
+  // First try to use the provided enhanced analysis if available
+  if (enhanced?.bullets && enhanced.bullets.length > 0) {
+    console.log('Using provided enhanced analysis');
+    bullets = enhanced.bullets;
+    analysis = enhanced;
+  } else {
+    // Fall back to fetching from database
+    console.log('No enhanced analysis provided, fetching from database');
+    const { data: currentData, error: fetchError } = await supabase
+      .from('resumes')
+      .select('analysis, text, analyzed_at, analysis_complete, improvements_complete')
+      .eq('user_id', userId)
+      .order('uploaded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Error fetching current analysis:', fetchError);
+      return {
+        success: false,
+        error: 'Failed to fetch analysis'
+      };
     }
-    console.log(`Found ${bullets.length} bullets to improve`);
-    // Sort bullets by score so we process the highest scoring ones first
-    const sortedBullets = [
-      ...bullets
-    ].sort((a, b)=>b.bullet_total - a.bullet_total);
-    // Process bullets in parallel
+
+    // Check if analysis is complete
+    if (!currentData?.analysis_complete) {
+      console.error('Analysis not complete');
+      return {
+        success: false,
+        error: 'Analysis not complete - please wait for analysis to finish'
+      };
+    }
+
+    // Check if improvements are already complete
+    if (currentData?.improvements_complete) {
+      console.log('Improvements already complete');
+      return {
+        success: true,
+        analysis: currentData.analysis
+      };
+    }
+
+    // Check if we have a valid analysis with bullets
+    if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
+      console.error('No bullets found in analysis');
+      return {
+        success: false,
+        error: 'No bullets found - please ensure analysis is complete first'
+      };
+    }
+
+    // Check if analysis was completed recently (within last 5 minutes)
+    const analysisTime = currentData.analyzed_at;
+    if (!analysisTime) {
+      console.error('No analysis timestamp found');
+      return {
+        success: false,
+        error: 'Analysis timestamp not found - please ensure analysis is complete first'
+      };
+    }
+
+    const analysisAge = Date.now() - new Date(analysisTime).getTime();
+    if (analysisAge > 5 * 60 * 1000) { // 5 minutes
+      console.log('Analysis is older than 5 minutes, checking if it needs to be refreshed');
+      // Trigger a new analysis if the current one is too old
+      try {
+        const analysisResult = await analyzeResume(currentData.text, userId);
+        if (!analysisResult) {
+          return {
+            success: false,
+            error: 'Analysis needs to be refreshed - please try again in a moment'
+          };
+        }
+        bullets = analysisResult.bullets;
+        analysis = analysisResult;
+      } catch (error) {
+        console.error('Error refreshing analysis:', error);
+        return {
+          success: false,
+          error: 'Failed to refresh analysis - please try again'
+        };
+      }
+    } else {
+      bullets = currentData.analysis.bullets;
+      analysis = currentData.analysis;
+    }
+  }
+
+  // Verify we have valid bullets to process
+  if (!bullets || !Array.isArray(bullets) || bullets.length === 0) {
+    console.error('Invalid bullets data');
+    return {
+      success: false,
+      error: 'Invalid bullets data'
+    };
+  }
+
+  console.log(`Found ${bullets.length} bullets to improve`);
+  
+  // Sort bullets by score so we process the highest scoring ones first
+  const sortedBullets = [...bullets].sort((a, b) => b.bullet_total - a.bullet_total);
+  
+  // Process bullets in parallel with proper error handling
+  try {
     const enhancedBullets = await processBatchQueue(sortedBullets, userId);
+    
     // Map the enhanced bullets back to their original positions
-    const finalBullets = bullets.map((originalBullet)=>{
-      const enhanced = enhancedBullets.find((eb)=>eb.id === originalBullet.id);
+    const finalBullets = bullets.map(originalBullet => {
+      const enhanced = enhancedBullets.find(eb => eb.id === originalBullet.id);
       return enhanced || {
         ...originalBullet,
         rewritten: originalBullet.original,
-        tips: "This bullet wasn't processed."
+        tips: "Could not generate improvements for this bullet point."
       };
     });
-    const processedCount = finalBullets.filter((b)=>b.rewritten !== b.original).length;
-    console.log(`Successfully processed ${processedCount} out of ${bullets.length} bullets`);
-    // Store the enhanced bullets in a separate column
-    const result = await supabase.from('resumes').update({
-      enhanced_analysis: finalBullets,
-      improvements_complete: true,
+
+    // Update the analysis with enhanced bullets
+    const updatedAnalysis = {
+      ...analysis,
+      bullets: finalBullets,
       updated_at: new Date().toISOString()
-    }).eq('user_id', userId);
-    if (result.error) {
-      throw result.error;
+    };
+
+    // Save the enhanced analysis back to the database
+    const { error: updateError } = await supabase
+      .from('resumes')
+      .update({ 
+        analysis: updatedAnalysis,
+        improvements_complete: true
+      })
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('Error saving enhanced analysis:', updateError);
+      return {
+        success: false,
+        error: 'Failed to save enhanced analysis'
+      };
     }
-    console.log('Successfully saved improved bullets to database');
+
     return {
       success: true,
-      count: finalBullets.length,
-      processed: processedCount
+      analysis: updatedAnalysis
     };
   } catch (error) {
-    console.error('Bullet improver error:', error);
+    console.error('Error processing bullets:', error);
     return {
       success: false,
-      error: error.message
+      error: 'Failed to process bullets'
     };
   }
 }
-serve(async (req)=>{
-  // Handle CORS preflight
+serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
+    return new Response('ok', { headers: corsHeaders });
+  }
+
+  try {
+    const { action, userId, text, sentences } = await req.json();
+    console.log(`Action: ${action} User: ${userId} Text length: ${text?.length || 0}`);
+
+    // Validate required fields
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    let result;
+    
+    // Handle different actions
+    switch (action) {
+      case 'analyze':
+        // Run analysis first
+        result = await analyzeResume(text, userId, sentences);
+        
+        // Only run bullet improvement if analysis was successful
+        if (result.success && result.analysis?.bullets?.length > 0) {
+          console.log('Analysis complete, starting bullet improvement');
+          const improvedResult = await bulletImprover(userId, result.analysis);
+          if (improvedResult.success) {
+            result.analysis = improvedResult.analysis;
+          }
+        }
+        break;
+
+      case 'improve-bullets':
+        // Only run bullet improvement if we have an existing analysis
+        result = await bulletImprover(userId);
+        break;
+
+      case 'detect-sentences':
+        result = await detectSentences(text, userId);
+        break;
+
+      case 'roast':
+        result = await getResumeRoast(text, userId);
+        break;
+
+      default:
+        throw new Error(`Unknown action: ${action}`);
+    }
+
+    return new Response(JSON.stringify(result), {
       headers: corsHeaders
     });
-  }
-  const url = new URL(req.url);
-  const path = url.pathname.split('/').pop();
-  console.log('URL:', url, 'Path:', path);
-  try {
-    // Parse the request body once
-    const { action, resumeText, text, userId } = await req.json();
-    console.log('Action:', action, 'User:', userId, 'Text length:', (resumeText || text)?.length || 0);
-    // Special endpoint for improving bullets - handle this first before any other processing
-    if (action === 'improve-bullets' && userId) {
-      console.log('Running bullet improver only');
-      const result = await bulletImprover(userId);
-      return new Response(JSON.stringify(result), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      });
-    }
-    // For all other actions, proceed with standard analysis flow
-    const resolvedText = resumeText || text;
-    console.log('User:', userId, 'Text length:', resolvedText?.length || 0);
-    // Consolidated sentence detection + analysis (main flow)
-    if (!action && (path === 'detect-sentences' || path === 'analyze' || path === 'resume-analyzer' || !path)) {
-      console.log('Running sentence detection + analysis');
-      // Optionally trigger the roast in the background 
-      if (resolvedText) {
-        getResumeRoast(resolvedText, userId);
+  } catch (error) {
+    console.error('Error:', error);
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: error.message
+      }),
+      {
+        status: 500,
+        headers: corsHeaders
       }
-      // Only run sentence detection if we have text
-      let sentences = [];
-      if (resolvedText) {
-        sentences = await detectSentences(resolvedText, userId);
-        console.log('Direct detectSentences():', sentences.length);
-      } else if (userId) {
-        // If no text but we have userId, try to load sentences from database
-        console.log('No text provided, attempting to load sentences from database');
-        try {
-          const { data: existingData } = await supabase.from('resumes').select('sentences').eq('user_id', userId).order('uploaded_at', {
-            ascending: false
-          }).limit(1).maybeSingle();
-          if (existingData?.sentences && Array.isArray(existingData.sentences)) {
-            sentences = existingData.sentences;
-            console.log(`Loaded ${sentences.length} sentences from database`);
-          }
-        } catch (error) {
-          console.error('Error loading sentences from database:', error);
-        }
-      }
-      // Run resume analysis 
-      const analysisResult = await analyzeResume(resolvedText, userId, sentences);
-      // Prepare the response
-      const response = new Response(JSON.stringify(analysisResult), {
-        headers: {
-          'Content-Type': 'application/json',
-          ...corsHeaders
-        }
-      });
-      return response;
-    }
-    // Fallback: unrecognized path or action
-    console.log('No handler for path:', path, 'or action:', action);
-    return new Response(JSON.stringify({
-      error: 'Not found'
-    }), {
-      status: 404,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    });
-  } catch (err) {
-    console.error('Error:', err);
-    return new Response(JSON.stringify({
-      error: err.message || 'Internal error'
-    }), {
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        ...corsHeaders
-      }
-    });
+    );
   }
 });

@@ -653,6 +653,7 @@ export function useResumeAnalysis() {
       
       const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
+          action: 'analyze',
           resumeText: text,
           userId: user.id,
           careerGoals: careerGoals || undefined
