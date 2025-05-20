@@ -364,13 +364,13 @@ export function useResumeAnalysis() {
         // Load career goals from local storage
         const careerGoals = localStorage.getItem(`career_goals_${userId}`);
         
-        // const { data, error } = await supabase.functions.invoke('resume-analyzer', {
-        //   body: { 
-        //     action: 'improve-bullets',
-        //     userId: userId,
-        //     careerGoals: careerGoals || undefined
-        //   }
-        // });
+        const { data, error } = await supabase.functions.invoke('resume-analyzer', {
+          body: { 
+            action: 'improve-bullets',
+            userId: userId,
+            careerGoals: careerGoals || undefined
+          }
+        });
 
         if (error) {
           console.error("Error polling for improved bullets:", error);
@@ -739,13 +739,13 @@ export function useResumeAnalysis() {
       // Start polling for improvements
       console.log("[Resume Analysis] Triggering improve-bullets analysis...");
       try {
-        // await supabase.functions.invoke('resume-analyzer', {
-        //   body: { 
-        //     action: 'improve-bullets',
-        //     userId: user.id,
-        //     careerGoals: careerGoals || undefined
-        //   }
-        // });
+        await supabase.functions.invoke('resume-analyzer', {
+          body: { 
+            action: 'improve-bullets',
+            userId: user.id,
+            careerGoals: careerGoals || undefined
+          }
+        });
         console.log("[Resume Analysis] Improve-bullets request sent successfully");
         // Start polling after successful request
         setIsPollingForImprovements(true);

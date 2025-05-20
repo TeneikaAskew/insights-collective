@@ -660,21 +660,21 @@ const Resume = () => {
           logDebug('UserAction', 'No enhanced analysis found during refresh');
           // If no enhanced analysis found, try to get it
           try {
-            // const { data: enhancedData, error: enhancedError } = await supabase.functions.invoke('resume-analyzer', {
-            //   body: { 
-            //     action: 'improve-bullets',
-            //     userId: user?.id,
-            //     careerGoals: localStorage.getItem(`career_goals_${user?.id}`) || undefined
-            //   }
-            // });
+            const { data: enhancedData, error: enhancedError } = await supabase.functions.invoke('resume-analyzer', {
+              body: { 
+                action: 'improve-bullets',
+                userId: user?.id,
+                careerGoals: localStorage.getItem(`career_goals_${user?.id}`) || undefined
+              }
+            });
 
-            // if (enhancedError) {
-            //   throw enhancedError;
-            // }
+            if (enhancedError) {
+              throw enhancedError;
+            }
 
-            // if (enhancedData?.improved_bullets && enhancedData.improved_bullets.length > 0) {
-            //   handleEnhancedAnalysisUpdate(enhancedData.improved_bullets);
-            // }
+            if (enhancedData?.improved_bullets && enhancedData.improved_bullets.length > 0) {
+              handleEnhancedAnalysisUpdate(enhancedData.improved_bullets);
+            }
           } catch (enhancedErr) {
             console.error("Error checking for enhancements:", enhancedErr);
           }
