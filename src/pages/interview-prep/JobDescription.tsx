@@ -187,9 +187,9 @@ export default function JobDescription() {
     return (
       <AppLayout>
         <div className="container mx-auto py-8">
-          <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 shadow-md border-purple-100">
+          <Card className="shadow-md border-purple-200/50">
             <CardContent className="flex items-center justify-center py-8">
-              <Spinner size="lg" className="text-purple-600" />
+              <Spinner size="lg" className="text-primary" />
             </CardContent>
           </Card>
         </div>
@@ -200,38 +200,38 @@ export default function JobDescription() {
   return (
     <AppLayout>
       <div className="container mx-auto py-8 relative">
-        <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-br from-purple-100/30 via-indigo-100/20 to-blue-100/30 rounded-xl -z-10"></div>
+        <div className="absolute top-0 left-0 right-0 h-48 bg-gradient-to-br from-primary/5 via-secondary/5 to-accent/5 rounded-xl -z-10"></div>
         
         <div className="mb-8 relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-2xl -z-10"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-2xl -z-10"></div>
           <div className="flex items-center gap-2 mb-4">
             <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep')} 
-              className="border-indigo-200 bg-white/90 hover:bg-indigo-50 shadow-sm text-indigo-700">
-              <ChevronLeft className="h-4 w-4 mr-1 text-indigo-600" />
+              className="border-primary/20 bg-white/90 hover:bg-primary/5 shadow-sm text-primary/90">
+              <ChevronLeft className="h-4 w-4 mr-1 text-primary" />
               Back to Interview Prep
             </Button>
           </div>
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
             Job Description Analysis
           </h1>
-          <p className="text-muted-foreground font-medium text-indigo-600/80">
+          <p className="text-muted-foreground font-medium">
             Analyze job descriptions to get personalized study guides and practice materials
           </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-8">
           <div className="flex items-center justify-between">
-            <TabsList className="bg-white/70 backdrop-blur-sm shadow-md border border-purple-100">
+            <TabsList className="bg-white/70 backdrop-blur-sm shadow-md border border-border/30">
               <TabsTrigger 
                 value="description" 
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-500 data-[state=active]:text-white"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary data-[state=active]:text-primary-foreground"
               >
                 Job Description
               </TabsTrigger>
               <TabsTrigger 
                 value="study-guide" 
                 disabled={!studyGuide}
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-500 data-[state=active]:to-purple-500 data-[state=active]:text-white"
+                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-primary data-[state=active]:to-primary data-[state=active]:text-primary-foreground"
               >
                 Study Guide
               </TabsTrigger>
@@ -242,7 +242,7 @@ export default function JobDescription() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleReset}
-                className="flex items-center gap-1 border-indigo-200 bg-white shadow-sm hover:bg-red-50 hover:text-red-600"
+                className="flex items-center gap-1 border-border/30 bg-white shadow-sm hover:bg-destructive/10 hover:text-destructive"
               >
                 <RefreshCw className="h-4 w-4" />
                 Reset
@@ -251,10 +251,10 @@ export default function JobDescription() {
           </div>
 
           <TabsContent value="description">
-            <Card className="border-indigo-100 shadow-lg overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100">
-                <CardTitle className="text-indigo-800">Job Description</CardTitle>
-                <CardDescription className="text-indigo-600">
+            <Card className="border-border/30 shadow-md overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-card/80 to-card border-b border-border/20">
+                <CardTitle className="text-foreground">Job Description</CardTitle>
+                <CardDescription>
                   Enter a job posting URL or paste the job description directly.
                 </CardDescription>
               </CardHeader>
@@ -266,17 +266,17 @@ export default function JobDescription() {
                         placeholder="https://example.com/jobs/123"
                         value={jobUrl}
                         onChange={(e) => setJobUrl(e.target.value)}
-                        className="flex-1 border-indigo-200 focus-visible:ring-indigo-300"
+                        className="flex-1 border-border/30 focus-visible:ring-primary/30"
                       />
                       <Button
                         onClick={handleUrlExtract}
                         disabled={isExtracting || !jobUrl}
                         variant="secondary"
-                        className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:from-indigo-600 hover:to-purple-600"
+                        className="text-secondary-foreground hover:opacity-90"
                       >
                         {isExtracting ? (
                           <>
-                            <Spinner size="sm" className="mr-2 text-white" />
+                            <Spinner size="sm" className="mr-2" />
                             Extracting...
                           </>
                         ) : (
@@ -297,7 +297,7 @@ export default function JobDescription() {
                       placeholder="Or paste the job description here..."
                       value={jobDescription}
                       onChange={(e) => setJobDescription(e.target.value)}
-                      className="min-h-[300px] border-indigo-200 focus-visible:ring-indigo-300 bg-white/90"
+                      className="min-h-[300px] border-border/30 focus-visible:ring-primary/30 bg-white/90"
                     />
                     <p className="text-sm text-muted-foreground">
                       The more detailed the job description, the better the analysis will be
@@ -307,11 +307,11 @@ export default function JobDescription() {
                   <Button
                     onClick={handleAnalyze}
                     disabled={isAnalyzing || !jobDescription.trim()}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 shadow-md hover:shadow-lg transition-all"
+                    className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-all"
                   >
                     {isAnalyzing ? (
                       <>
-                        <Spinner size="sm" className="mr-2 text-white" />
+                        <Spinner size="sm" className="mr-2" />
                         Analyzing...
                       </>
                     ) : (
@@ -326,36 +326,36 @@ export default function JobDescription() {
           <TabsContent value="study-guide">
             {studyGuide && (
               <div className="space-y-8">
-                <Card className="border-purple-100 shadow-lg overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
-                    <CardTitle className="text-purple-800">Required Competencies</CardTitle>
-                    <CardDescription className="text-purple-600">
+                <Card className="border-border/30 shadow-md overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-card/80 to-card/90 border-b border-border/20">
+                    <CardTitle className="text-foreground">Required Competencies</CardTitle>
+                    <CardDescription>
                       Key technical and behavioral competencies identified from the job description.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="bg-white pt-6">
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-lg font-semibold mb-2 text-indigo-700 flex items-center">
-                          <span className="w-2 h-6 bg-gradient-to-b from-indigo-400 to-indigo-600 rounded-full mr-2"></span>
+                        <h3 className="text-lg font-semibold mb-2 text-foreground flex items-center">
+                          <span className="w-2 h-6 bg-gradient-to-b from-primary/60 to-primary rounded-full mr-2"></span>
                           Technical Competencies
                         </h3>
                         <div className="flex flex-wrap gap-2">
                           {studyGuide.competencies.technical.map((comp, index) => (
-                            <Badge key={index} variant="secondary" className="bg-indigo-100 text-indigo-700 border border-indigo-200 hover:bg-indigo-200 transition-colors">
+                            <Badge key={index} variant="secondary" className="bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors">
                               {comp}
                             </Badge>
                           ))}
                         </div>
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold mb-2 text-purple-700 flex items-center">
-                          <span className="w-2 h-6 bg-gradient-to-b from-purple-400 to-purple-600 rounded-full mr-2"></span>
+                        <h3 className="text-lg font-semibold mb-2 text-foreground flex items-center">
+                          <span className="w-2 h-6 bg-gradient-to-b from-secondary/60 to-secondary rounded-full mr-2"></span>
                           Behavioral Competencies
                         </h3>
                         <div className="flex flex-wrap gap-2">
                           {studyGuide.competencies.behavioral.map((comp, index) => (
-                            <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-700 border border-purple-200 hover:bg-purple-200 transition-colors">
+                            <Badge key={index} variant="secondary" className="bg-secondary/10 text-secondary border border-secondary/20 hover:bg-secondary/20 transition-colors">
                               {comp}
                             </Badge>
                           ))}
@@ -365,34 +365,34 @@ export default function JobDescription() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-purple-100 shadow-lg overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
-                    <CardTitle className="text-purple-800">Practice Questions</CardTitle>
-                    <CardDescription className="text-purple-600">
+                <Card className="border-border/30 shadow-md overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-card/80 to-card/90 border-b border-border/20">
+                    <CardTitle className="text-foreground">Practice Questions</CardTitle>
+                    <CardDescription>
                       Curated questions to help you prepare for the interview.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6 bg-white">
                     <div className="space-y-6">
                       <div>
-                        <h3 className="text-lg font-semibold mb-4 text-purple-700 flex items-center">
-                          <span className="w-2 h-6 bg-gradient-to-b from-purple-400 to-purple-600 rounded-full mr-2"></span>
+                        <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center">
+                          <span className="w-2 h-6 bg-gradient-to-b from-secondary/60 to-secondary rounded-full mr-2"></span>
                           Behavioral Questions
                         </h3>
                         <ul className="space-y-4">
                           {studyGuide.questions
                             .filter((q) => q.type === 'behavioral')
                             .map((question) => (
-                              <li key={question.id} className="p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-100 hover:shadow-md transition-all">
+                              <li key={question.id} className="p-4 bg-gradient-to-r from-secondary/5 to-white rounded-lg border border-border/30 hover:shadow-md transition-all">
                                 <div className="flex justify-between items-start">
                                   <div>
-                                    <p className="font-medium text-purple-800">{question.question}</p>
-                                    <p className="text-sm text-purple-600 mt-1">
+                                    <p className="font-medium text-foreground">{question.question}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">
                                       Target Competency: <span className="font-medium">{question.targetCompetency}</span>
                                     </p>
                                   </div>
                                   <Link to={`/interview-prep/star-practice?questionId=${question.id}`}>
-                                    <Button variant="outline" size="sm" className="flex items-center gap-1 bg-white border-purple-200 text-purple-700 hover:bg-purple-50">
+                                    <Button variant="outline" size="sm" className="flex items-center gap-1 bg-white border-secondary/20 text-secondary hover:bg-secondary/10">
                                       <ExternalLink className="h-3 w-3" />
                                       Practice
                                     </Button>
@@ -403,24 +403,24 @@ export default function JobDescription() {
                         </ul>
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold mb-4 text-indigo-700 flex items-center">
-                          <span className="w-2 h-6 bg-gradient-to-b from-indigo-400 to-indigo-600 rounded-full mr-2"></span>
+                        <h3 className="text-lg font-semibold mb-4 text-foreground flex items-center">
+                          <span className="w-2 h-6 bg-gradient-to-b from-primary/60 to-primary rounded-full mr-2"></span>
                           Technical Questions
                         </h3>
                         <ul className="space-y-4">
                           {studyGuide.questions
                             .filter((q) => q.type === 'technical')
                             .map((question) => (
-                              <li key={question.id} className="p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border border-indigo-100 hover:shadow-md transition-all">
+                              <li key={question.id} className="p-4 bg-gradient-to-r from-primary/5 to-white rounded-lg border border-border/30 hover:shadow-md transition-all">
                                 <div className="flex justify-between items-start">
                                   <div>
-                                    <p className="font-medium text-indigo-800">{question.question}</p>
-                                    <p className="text-sm text-indigo-600 mt-1">
+                                    <p className="font-medium text-foreground">{question.question}</p>
+                                    <p className="text-sm text-muted-foreground mt-1">
                                       Target Competency: <span className="font-medium">{question.targetCompetency}</span>
                                     </p>
                                   </div>
                                   <Link to={`/interview-prep/code-practice?questionId=${question.id}`}>
-                                    <Button variant="outline" size="sm" className="flex items-center gap-1 bg-white border-indigo-200 text-indigo-700 hover:bg-indigo-50">
+                                    <Button variant="outline" size="sm" className="flex items-center gap-1 bg-white border-primary/20 text-primary hover:bg-primary/10">
                                       <ExternalLink className="h-3 w-3" />
                                       Practice
                                     </Button>
@@ -434,40 +434,40 @@ export default function JobDescription() {
                   </CardContent>
                 </Card>
 
-                <Card className="border-teal-100 shadow-lg overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-teal-50 to-green-50 border-b border-teal-100">
-                    <CardTitle className="text-teal-800">Technical Skills Checklist</CardTitle>
-                    <CardDescription className="text-teal-600">
+                <Card className="border-border/30 shadow-md overflow-hidden">
+                  <CardHeader className="bg-gradient-to-r from-card/80 to-card/90 border-b border-border/20">
+                    <CardTitle className="text-foreground">Technical Skills Checklist</CardTitle>
+                    <CardDescription>
                       Track your preparation progress for required technical skills.
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-6 bg-white">
                     <ul className="space-y-4">
                       {studyGuide.technical_checklist.map((item, index) => (
-                        <li key={index} className="p-4 bg-gradient-to-r from-teal-50/50 to-emerald-50/50 rounded-lg border border-teal-100 hover:shadow-md transition-all">
+                        <li key={index} className="p-4 bg-gradient-to-r from-accent/5 to-white/80 rounded-lg border border-border/30 hover:shadow-md transition-all">
                           <div className="flex items-center justify-between mb-2">
                             <div>
-                              <p className="font-medium text-teal-800">{item.skill}</p>
+                              <p className="font-medium text-foreground">{item.skill}</p>
                               <Badge 
                                 variant="outline" 
                                 className={`mt-1 ${
                                   item.importance === 'high' 
-                                    ? 'bg-red-100 text-red-800 border-red-200' 
+                                    ? 'bg-destructive/10 text-destructive/90 border-destructive/20' 
                                     : item.importance === 'medium'
-                                    ? 'bg-amber-100 text-amber-800 border-amber-200'
-                                    : 'bg-blue-100 text-blue-800 border-blue-200'
+                                    ? 'bg-amber-100/50 text-amber-800 border-amber-200'
+                                    : 'bg-primary/10 text-primary/90 border-primary/20'
                                 }`}
                               >
                                 {item.importance} priority
                               </Badge>
                             </div>
                             {item.resources && item.resources.length > 0 && (
-                              <Button variant="ghost" size="sm" className="text-teal-700 hover:text-teal-900 hover:bg-teal-50">
+                              <Button variant="ghost" size="sm" className="text-accent hover:text-accent/90 hover:bg-accent/10">
                                 View Resources
                               </Button>
                             )}
                           </div>
-                          <Progress value={0} className="h-2 bg-teal-100" indicatorClassName="bg-gradient-to-r from-teal-500 to-emerald-500" />
+                          <Progress value={0} className="h-2 bg-accent/10" indicatorClassName="bg-accent" />
                         </li>
                       ))}
                     </ul>

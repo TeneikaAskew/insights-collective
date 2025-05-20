@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -67,14 +66,14 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Brand colors
-				insightBlue: '#1F75FE',
-				viraDeepBlue: '#1C2D5A',
-				aquaTeal: '#5ED3B5',
-				energeticAmber: '#F9A826',
-				slateGray: '#2C2C2C',
-				softWhite: '#F9FAFB',
-				dustyGray: '#8A8F9E',
+				// Brand colors - updated for better harmony
+				insightBlue: '#1F75FE', // Kept as is - primary brand color
+				viraDeepBlue: '#1C2D5A', // Kept as is - secondary brand color
+				aquaTeal: '#5ED3B5', // Kept as is - accent color
+				energeticAmber: '#F9A826', // Kept as is - accent highlight
+				slateGray: '#2C2C2C', // Kept as is - main text color
+				softWhite: '#F9FAFB', // Kept as is - background color
+				dustyGray: '#8A8F9E', // Kept as is - muted text color
 				
 				orange: {
 					50: '#fff7ed',
@@ -110,20 +109,20 @@ export default {
                   softWhite: 'hsl(0, 0%, 98%)',             // #F9FAFB
                   dustyGray: 'hsl(220, 6%, 58%)',           // #8A8F9E
                 },
-				// Resume chart colors
+				// Resume chart colors - updated for better harmony
 				'resume-chart': {
-					'hard-soft': '#1E40AF',    // Blue for Hard & Soft Skills
-					'action': '#D97706',       // Amber for Action Words
-					'measurable': '#0D9488',   // Teal for Measurable Results
-					'common': '#6B7280',       // Gray for Common Words
+					'hard-soft': '#3B82F6',    // Updated blue for Hard & Soft Skills
+					'action': '#F59E0B',       // Updated amber for Action Words
+					'measurable': '#10B981',   // Updated teal for Measurable Results
+					'common': '#6B7280',       // Kept gray for Common Words
 				},
-				// Interview prep colors
+				// Interview prep colors - updated for better harmony
 				'interview': {
-					'star': '#8B5CF6',         // Purple for STAR method
-					'behavioral': '#3B82F6',   // Blue for Behavioral questions
-					'technical': '#10B981',    // Emerald for Technical questions
-					'feedback': '#F59E0B',     // Amber for Feedback
-					'mock': '#EC4899',         // Pink for Mock interviews
+					'star': '#8B5CF6',         // Kept purple for STAR method
+					'behavioral': '#4F46E5',   // Updated blue for Behavioral questions
+					'technical': '#059669',    // Updated emerald for Technical questions
+					'feedback': '#D97706',     // Updated amber for Feedback
+					'mock': '#DB2777',         // Updated pink for Mock interviews
 				}
 			},
 			borderRadius: {

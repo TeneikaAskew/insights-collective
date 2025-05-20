@@ -15,14 +15,14 @@ const SurveyProgress: React.FC<SurveyProgressProps> = ({ currentStep, totalSteps
     <div className="mb-6">
       <Progress 
         value={progress} 
-        className="h-2 mb-4 bg-purple-100" 
-        indicatorClassName="bg-gradient-to-r from-purple-500 to-indigo-500"
+        className="h-2 mb-4 bg-secondary/10" 
+        indicatorClassName="bg-secondary/80"
       />
       <div className="flex justify-between text-xs text-muted-foreground">
         {sections.map((section, index) => (
           <div 
             key={index}
-            className={`text-center ${currentStep === index ? 'text-primary font-medium' : ''} ${index === 0 ? 'text-left' : ''} ${index === sections.length - 1 ? 'text-right' : ''}`}
+            className={`text-center ${currentStep === index ? 'text-secondary font-medium' : ''} ${index === 0 ? 'text-left' : ''} ${index === sections.length - 1 ? 'text-right' : ''}`}
             style={{ width: `${100/sections.length}%` }}
           >
             <div className="hidden sm:block">{section}</div>
