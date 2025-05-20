@@ -1,3 +1,4 @@
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
@@ -242,6 +243,53 @@
     scrollbar-width: thin;
     scrollbar-color: #555555 #2d2d2d;
   }
+  
+  /* Interview prep specific styles */
+  .star-step-badge {
+    @apply bg-gradient-to-r px-3 py-1 rounded-full text-xs font-medium shadow-sm;
+  }
+  
+  .star-step-situation {
+    @apply from-indigo-500 to-purple-500 text-white;
+  }
+  
+  .star-step-task {
+    @apply from-purple-500 to-violet-500 text-white;
+  }
+  
+  .star-step-action {
+    @apply from-blue-500 to-indigo-500 text-white;
+  }
+  
+  .star-step-result {
+    @apply from-emerald-500 to-teal-500 text-white;
+  }
+  
+  .interview-card {
+    @apply bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden;
+  }
+  
+  .interview-card-header {
+    @apply bg-gradient-to-r p-4 border-b;
+  }
+  
+  .behavioral-card .interview-card-header {
+    @apply from-purple-50 to-indigo-50 border-purple-100;
+  }
+  
+  .technical-card .interview-card-header {
+    @apply from-blue-50 to-cyan-50 border-blue-100;
+  }
+  
+  .feedback-card .interview-card-header {
+    @apply from-amber-50 to-yellow-50 border-amber-100;
+  }
+  
+  .shimmer {
+    background: linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 20%, rgba(255, 255, 255, 0.5) 60%, rgba(255, 255, 255, 0) 100%);
+    background-size: 1000px 100%;
+    animation: shimmer 2s infinite linear;
+  }
 }
 
 @keyframes fadeIn {
@@ -290,4 +338,55 @@
   100% {
     transform: translate(0, 0) scale(1);
   }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+/* STAR Practice styles */
+.star-card {
+  @apply bg-white rounded-lg shadow-md border border-purple-100 overflow-hidden transition-all duration-300;
+}
+
+.star-card-situation {
+  @apply border-l-4 border-indigo-400 bg-indigo-50/50;
+}
+
+.star-card-task {
+  @apply border-l-4 border-purple-400 bg-purple-50/50;
+}
+
+.star-card-action {
+  @apply border-l-4 border-blue-400 bg-blue-50/50;
+}
+
+.star-card-result {
+  @apply border-l-4 border-emerald-400 bg-emerald-50/50;
+}
+
+/* Mock interview styles */
+.mock-video-container {
+  @apply aspect-video bg-black rounded-lg overflow-hidden relative shadow-xl;
+}
+
+.mock-control-panel {
+  @apply absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 p-2 rounded-full backdrop-blur-sm;
+}
+
+.mock-question {
+  @apply p-3 bg-white/70 rounded-md border-l-4 shadow-sm hover:bg-white/90 transition-colors;
+}
+
+.behavioral-question {
+  @apply border-amber-400 text-amber-800;
+}
+
+.technical-question {
+  @apply border-blue-400 text-blue-800;
 }

@@ -31,9 +31,14 @@ export const XYZQualityScore: React.FC<{
     (xyzScores?.achievement || 0);
 
   return (
-    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100">
-      <h5 className="font-medium text-sm mb-2 text-indigo-700">XYZ Quality ({totalScore}/100)</h5>
-      <div className="space-y-2">
+    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100 shadow-md hover:shadow-lg transition-all duration-300">
+      <h5 className="font-medium text-sm mb-3 text-indigo-700 flex items-center">
+        <span className="inline-block w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center mr-2 text-xs font-bold">
+          XYZ
+        </span>
+        Quality Score ({totalScore}/100)
+      </h5>
+      <div className="space-y-3">
         <ScoreWithIcon score={xyzScores?.action || 0} maxScore={10} label="Action Words" />
         <ScoreWithIcon score={xyzScores?.metrics || 0} maxScore={30} label="Metrics/Results" />
         <ScoreWithIcon score={xyzScores?.clarity || 0} maxScore={15} label="Clarity/Conciseness" />

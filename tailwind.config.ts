@@ -36,10 +36,6 @@ export default {
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
 					foreground: 'hsl(var(--secondary-foreground))'
-                    // DEFAULT: 'hsl(164, 61%, 60%)',       // Aqua Teal (#5ED3B5)
-                    // foreground: 'hsl(0, 0%, 0%)'        // Slate Gray (#2C2C2C)
-                    //  DEFAULT: 'hsl(37, 91%, 56%)',        // Energetic Amber (#F9A826)
-                    // foreground: 'hsl(0, 0%, 100%)'       // White (#FFFFFF)
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
@@ -66,7 +62,7 @@ export default {
 					foreground: 'hsl(var(--sidebar-foreground))',
 					primary: 'hsl(var(--sidebar-primary))',
 					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'rgba(255, 255, 255, 0.1)', // Changed from blue to white with transparency
+					accent: 'rgba(255, 255, 255, 0.1)',
 					'accent-foreground': 'rgba(255, 255, 255, 0.95)',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
@@ -181,6 +177,10 @@ export default {
 				'fade-in': {
 					from: { opacity: '0' },
 					to: { opacity: '1' }
+				},
+				'shimmer': {
+					'0%': { backgroundPosition: '-1000px 0' },
+					'100%': { backgroundPosition: '1000px 0' }
 				}
 			},
 			animation: {
@@ -190,7 +190,8 @@ export default {
 				'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
 				'gradient-x': 'gradient-x 15s ease infinite',
 				'slide-up': 'slide-up 0.5s ease-out forwards',
-				'fade-in': 'fade-in 0.5s ease-out forwards'
+				'fade-in': 'fade-in 0.5s ease-out forwards',
+				'shimmer': 'shimmer 2s infinite linear'
 			},
 			backgroundImage: {
 				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -201,7 +202,9 @@ export default {
 				'star-gradient': 'linear-gradient(120deg, #8B5CF6 0%, #6366F1 100%)',
 				'behavioral-gradient': 'linear-gradient(120deg, #3B82F6 0%, #60A5FA 100%)',
 				'technical-gradient': 'linear-gradient(120deg, #10B981 0%, #34D399 100%)',
-				'mock-gradient': 'linear-gradient(120deg, #EC4899 0%, #F472B6 100%)'
+				'mock-gradient': 'linear-gradient(120deg, #EC4899 0%, #F472B6 100%)',
+				'shimmer-gradient': 'linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 20%, rgba(255, 255, 255, 0.5) 60%, rgba(255, 255, 255, 0) 100%)',
+				'card-gradient': 'linear-gradient(to right bottom, var(--tw-gradient-stops))'
 			},
 			backgroundSize: {
 				'dots-lg': '20px 20px'
