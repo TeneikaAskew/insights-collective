@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -197,37 +196,43 @@ export default function StarPractice() {
     
     try {
       const currentQuestion = questions[currentQuestionIndex];
-      console.log("Loading saved response for question:", currentQuestion.id);
-      
+      console.log("[StarPractice] Loading saved response for question:", currentQuestion.id);
+      // Log all localStorage items for debugging
+      if (window && window.localStorage) {
+        console.log("[StarPractice] All localStorage items:");
+        for (let i = 0; i < window.localStorage.length; i++) {
+          const key = window.localStorage.key(i);
+          if (key) {
+            console.log(`${key}:`, window.localStorage.getItem(key));
+          }
+        }
+      }
       // First check localStorage for a draft
-      console.log("Checking localStorage for draft response");
+      console.log("[StarPractice] Checking localStorage for draft response");
       const savedDraft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, currentQuestion.id);
-      
+      console.log("[StarPractice] Draft found:", savedDraft);
       if (savedDraft) {
-        console.log("Found draft in localStorage:", savedDraft);
         setResponse(savedDraft);
         setHasSubmittedResponse(false);
         setFeedback(null);
         setIsFlipped(false);
+        return;
       } else {
-        console.log("No draft found in localStorage, checking for previously submitted responses");
-        
+        console.log("[StarPractice] No draft found in localStorage, checking for previously submitted responses");
         // Next, check localStorage for saved responses with feedback
         const savedResponses = LocalStorageUtils.getSavedStarResponses(user.id);
-        console.log("Saved responses from localStorage:", savedResponses);
-        
+        console.log("[StarPractice] Saved responses from localStorage:", savedResponses);
         if (savedResponses && savedResponses[currentQuestion.id]) {
           const savedData = savedResponses[currentQuestion.id];
-          console.log("Found saved response with feedback in localStorage:", savedData);
+          console.log("[StarPractice] Found saved response with feedback in localStorage:", savedData);
           setResponse(savedData.response);
           setFeedback(savedData.feedback);
           setHasSubmittedResponse(true);
           setIsFlipped(false);
           return;
         }
-        
         // As a last resort, check the database for any submitted response
-        console.log("No response found in localStorage, checking database");
+        console.log("[StarPractice] No response found in localStorage, checking database");
         const { data: dbResponses, error } = await supabase
           .from('star_responses')
           .select('*')
@@ -235,23 +240,20 @@ export default function StarPractice() {
           .eq('question_id', currentQuestion.id)
           .order('submitted_at', { ascending: false })
           .limit(1);
-        
         if (error) {
-          console.error("Error fetching responses from database:", error);
+          console.error("[StarPractice] Error fetching responses from database:", error);
         } else if (dbResponses && dbResponses.length > 0) {
-          console.log("Found response in database:", dbResponses[0]);
+          console.log("[StarPractice] Found response in database:", dbResponses[0]);
           setResponse({
             situation: dbResponses[0].situation,
             task: dbResponses[0].task,
             action: dbResponses[0].action,
             result: dbResponses[0].result,
           });
-          
           if (dbResponses[0].ai_feedback) {
-            console.log("Response has feedback:", dbResponses[0].ai_feedback);
+            console.log("[StarPractice] Response has feedback:", dbResponses[0].ai_feedback);
             setFeedback(dbResponses[0].ai_feedback);
             setHasSubmittedResponse(true);
-            
             // Also save to localStorage for future use
             const allResponses = LocalStorageUtils.getSavedStarResponses(user.id) || {};
             allResponses[currentQuestion.id] = {
@@ -265,15 +267,15 @@ export default function StarPractice() {
               timestamp: new Date().getTime()
             };
             LocalStorageUtils.saveSavedStarResponses(user.id, allResponses);
-            console.log("Saved database response to localStorage for future use");
+            console.log("[StarPractice] Saved database response to localStorage for future use");
           } else {
-            console.log("Database response has no feedback");
+            console.log("[StarPractice] Database response has no feedback");
             setHasSubmittedResponse(false);
             setFeedback(null);
           }
         } else {
           // Reset to empty response if no saved data found anywhere
-          console.log("No saved response found anywhere, resetting to empty");
+          console.log("[StarPractice] No saved response found anywhere, resetting to empty");
           setResponse({
             situation: '',
             task: '',
@@ -284,11 +286,9 @@ export default function StarPractice() {
           setHasSubmittedResponse(false);
         }
       }
-      
       setIsFlipped(false);
-      
     } catch (error) {
-      console.error('Error loading saved response:', error);
+      console.error('[StarPractice] Error loading saved response:', error);
     }
   };
 
@@ -585,335 +585,308 @@ export default function StarPractice() {
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="perspective-1000" style={{ minHeight: '500px' }}>
-            <div className={`relative w-full h-full ${isFlipped ? 'card-flip-enter-active' : 'card-flip-exit-active'}`}>
-              {/* Front side of the card (Question) */}
-              <div className={`absolute w-full h-full backface-hidden ${isFlipped ? 'hidden' : ''}`}>
-                <Card className="h-full">
-                  <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <CardTitle>Question: {currentQuestion.question}</CardTitle>
-                        <CardDescription>
-                          Target Competency: {currentQuestion.targetCompetency}
-                        </CardDescription>
-                      </div>
-                      
-                      {/* Flip button */}
-                      {hasSubmittedResponse && (
-                        <Button 
-                          variant="secondary" 
-                          size="sm"
-                          onClick={handleFlip}
-                          className="gap-1"
-                        >
-                          <RotateCw className="h-4 w-4 mr-1" />
-                          View Feedback
-                        </Button>
-                      )}
-                    </div>
-                    {!isFlipped && !hasSubmittedResponse && (
-                      <div>
-                        <div className="flex justify-between text-sm mt-2 mb-1">
-                          <span>STAR Progress</span>
-                          <span>{currentStarStep.charAt(0).toUpperCase() + currentStarStep.slice(1)}</span>
-                        </div>
-                        <Progress value={progressPercentage} />
-                      </div>
-                    )}
-                  </CardHeader>
-                  <CardContent>
-                    {!hasSubmittedResponse ? (
-                      <div className="space-y-4">
-                        {currentStarStep === 'situation' && (
-                          <div className="space-y-2">
-                            <label className="text-lg font-medium flex items-center">
-                              Situation
-                              <span className="text-sm font-normal text-muted-foreground ml-2">
-                                (Where and when did this happen?)
-                              </span>
-                            </label>
-                            <p className="text-sm text-muted-foreground mb-1">{getStepTip('situation')}</p>
-                            <Textarea
-                              placeholder="Describe the situation..."
-                              value={response.situation}
-                              onChange={(e) => handleResponseChange('situation', e.target.value)}
-                              rows={5}
-                              className="w-full"
-                            />
-                          </div>
-                        )}
-
-                        {currentStarStep === 'task' && (
-                          <div className="space-y-2">
-                            <label className="text-lg font-medium flex items-center">
-                              Task
-                              <span className="text-sm font-normal text-muted-foreground ml-2">
-                                (What was your responsibility?)
-                              </span>
-                            </label>
-                            <p className="text-sm text-muted-foreground mb-1">{getStepTip('task')}</p>
-                            <Textarea
-                              placeholder="What was your task or goal?"
-                              value={response.task}
-                              onChange={(e) => handleResponseChange('task', e.target.value)}
-                              rows={5}
-                              className="w-full"
-                            />
-                          </div>
-                        )}
-
-                        {currentStarStep === 'action' && (
-                          <div className="space-y-2">
-                            <label className="text-lg font-medium flex items-center">
-                              Action
-                              <span className="text-sm font-normal text-muted-foreground ml-2">
-                                (What did you do?)
-                              </span>
-                            </label>
-                            <p className="text-sm text-muted-foreground mb-1">{getStepTip('action')}</p>
-                            <Textarea
-                              placeholder="What actions did you take?"
-                              value={response.action}
-                              onChange={(e) => handleResponseChange('action', e.target.value)}
-                              rows={5}
-                              className="w-full"
-                            />
-                          </div>
-                        )}
-
-                        {currentStarStep === 'result' && (
-                          <div className="space-y-2">
-                            <label className="text-lg font-medium flex items-center">
-                              Result
-                              <span className="text-sm font-normal text-muted-foreground ml-2">
-                                (What was the outcome?)
-                              </span>
-                            </label>
-                            <p className="text-sm text-muted-foreground mb-1">{getStepTip('result')}</p>
-                            <Textarea
-                              placeholder="What were the results?"
-                              value={response.result}
-                              onChange={(e) => handleResponseChange('result', e.target.value)}
-                              rows={5}
-                              className="w-full"
-                            />
-                          </div>
-                        )}
-
-                        <div className="flex justify-between pt-4">
-                          <Button
-                            variant="outline"
-                            onClick={moveToPreviousStep}
-                            disabled={currentStarStep === 'situation'}
-                          >
-                            <ChevronLeft className="h-4 w-4 mr-2" />
-                            Previous
-                          </Button>
-                          
-                          {currentStarStep === 'result' ? (
-                            <Button
-                              onClick={handleSubmit}
-                              disabled={submitting || !allStepsFilled()}
-                            >
-                              {submitting ? <Spinner size="sm" className="mr-2" /> : null}
-                              Submit Response
-                            </Button>
-                          ) : (
-                            <Button
-                              onClick={moveToNextStep}
-                              disabled={!currentStepFilled()}
-                            >
-                              Next
-                              <ChevronRight className="h-4 w-4 ml-2" />
-                            </Button>
-                          )}
-                        </div>
-                        
-                        <div className="flex justify-between items-center pt-4">
-                          <Button
-                            variant="ghost"
-                            onClick={handlePrevious}
-                            disabled={currentQuestionIndex === 0}
-                            size="sm"
-                          >
-                            <ChevronLeft className="h-4 w-4 mr-1" />
-                            Previous Question
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            onClick={handleNext}
-                            disabled={currentQuestionIndex === questions.length - 1}
-                            size="sm"
-                          >
-                            Next Question
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="space-y-3">
-                          <div>
-                            <h3 className="font-medium">Situation</h3>
-                            <p className="text-sm">{response.situation}</p>
-                          </div>
-                          <div>
-                            <h3 className="font-medium">Task</h3>
-                            <p className="text-sm">{response.task}</p>
-                          </div>
-                          <div>
-                            <h3 className="font-medium">Action</h3>
-                            <p className="text-sm">{response.action}</p>
-                          </div>
-                          <div>
-                            <h3 className="font-medium">Result</h3>
-                            <p className="text-sm">{response.result}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex justify-between items-center pt-4">
-                          <Button
-                            variant="ghost"
-                            onClick={handlePrevious}
-                            disabled={currentQuestionIndex === 0}
-                            size="sm"
-                          >
-                            <ChevronLeft className="h-4 w-4 mr-1" />
-                            Previous Question
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            onClick={handleNext}
-                            disabled={currentQuestionIndex === questions.length - 1}
-                            size="sm"
-                          >
-                            Next Question
-                            <ChevronRight className="h-4 w-4 ml-1" />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Back side of the card (Feedback) */}
-              <div className={`absolute w-full h-full backface-hidden transform rotate-y-180 ${!isFlipped ? 'hidden' : ''}`}>
-                {feedback && (
-                  <Card className="h-full overflow-auto">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>AI Feedback</CardTitle>
-                          <CardDescription>Analysis of your STAR response</CardDescription>
-                        </div>
-                        
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={handleFlip}
-                          className="gap-1"
-                        >
-                          <RotateCw className="h-4 w-4 mr-1" />
-                          Back to Question
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-6">
-                        <div>
-                          <h3 className="text-sm font-medium mb-2">Component Scores</h3>
-                          <div className="space-y-2">
-                            <div>
-                              <div className="flex justify-between text-sm mb-1">
-                                <span>Situation</span>
-                                <span>{feedback.scores.situation}/10</span>
-                              </div>
-                              <Progress value={feedback.scores.situation * 10} />
-                            </div>
-                            <div>
-                              <div className="flex justify-between text-sm mb-1">
-                                <span>Task</span>
-                                <span>{feedback.scores.task}/10</span>
-                              </div>
-                              <Progress value={feedback.scores.task * 10} />
-                            </div>
-                            <div>
-                              <div className="flex justify-between text-sm mb-1">
-                                <span>Action</span>
-                                <span>{feedback.scores.action}/10</span>
-                              </div>
-                              <Progress value={feedback.scores.action * 10} />
-                            </div>
-                            <div>
-                              <div className="flex justify-between text-sm mb-1">
-                                <span>Result</span>
-                                <span>{feedback.scores.result}/10</span>
-                              </div>
-                              <Progress value={feedback.scores.result * 10} />
-                            </div>
-                            <div>
-                              <div className="flex justify-between text-sm mb-1">
-                                <span className="font-medium">Overall</span>
-                                <span className="font-medium">{feedback.scores.overall}/10</span>
-                              </div>
-                              <Progress value={feedback.scores.overall * 10} />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h3 className="text-sm font-medium mb-2">Analysis</h3>
-                          <div className="space-y-2 text-sm">
-                            <p><strong>Completeness:</strong> {feedback.analysis.completeness}</p>
-                            <p><strong>Specificity:</strong> {feedback.analysis.specificity}</p>
-                            <p><strong>Relevance:</strong> {feedback.analysis.relevance}</p>
-                            <p><strong>Impact:</strong> {feedback.analysis.impact}</p>
-                            <p><strong>Communication:</strong> {feedback.analysis.communication}</p>
-                          </div>
-                        </div>
-
-                        <div>
-                          <h3 className="text-sm font-medium mb-2">Strengths</h3>
-                          <ul className="list-disc list-inside space-y-1">
-                            {feedback.feedback.strengths.map((strength: string, index: number) => (
-                              <li key={index} className="text-sm flex items-start">
-                                <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
-                                <span>{strength}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h3 className="text-sm font-medium mb-2">Areas for Improvement</h3>
-                          <ul className="list-disc list-inside space-y-1">
-                            {feedback.feedback.improvements.map((improvement: string, index: number) => (
-                              <li key={index} className="text-sm flex items-start">
-                                <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
-                                <span>{improvement}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-
-                        <div>
-                          <h3 className="text-sm font-medium mb-2">Suggestions</h3>
-                          <ul className="list-disc list-inside space-y-1">
-                            {feedback.feedback.suggestions.map((suggestion: string, index: number) => (
-                              <li key={index} className="text-sm">{suggestion}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+        <div className="space-y-8" style={{ minHeight: '500px' }}>
+          {/* Main card (Question/Response) */}
+          <Card className="h-full">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Question: {currentQuestion.question}</CardTitle>
+                  <CardDescription>
+                    Target Competency: {currentQuestion.targetCompetency}
+                  </CardDescription>
+                </div>
+                {/* Update Response button if already answered */}
+                {hasSubmittedResponse && (
+                  <Button 
+                    variant="secondary" 
+                    size="sm"
+                    onClick={() => {
+                      setHasSubmittedResponse(false);
+                      setFeedback(null);
+                      setCurrentStarStep('situation');
+                    }}
+                    className="gap-1"
+                  >
+                    <RotateCw className="h-4 w-4 mr-1" />
+                    Update Response
+                  </Button>
                 )}
               </div>
-            </div>
-          </div>
+              {!hasSubmittedResponse && (
+                <div>
+                  <div className="flex justify-between text-sm mt-2 mb-1">
+                    <span>STAR Progress</span>
+                    <span>{currentStarStep.charAt(0).toUpperCase() + currentStarStep.slice(1)}</span>
+                  </div>
+                  <Progress value={progressPercentage} />
+                </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {!hasSubmittedResponse ? (
+                <div className="space-y-4">
+                  {currentStarStep === 'situation' && (
+                    <div className="space-y-2">
+                      <label className="text-lg font-medium flex items-center">
+                        Situation
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                          (Where and when did this happen?)
+                        </span>
+                      </label>
+                      <p className="text-sm text-muted-foreground mb-1">{getStepTip('situation')}</p>
+                      <Textarea
+                        placeholder="Describe the situation..."
+                        value={response.situation}
+                        onChange={(e) => handleResponseChange('situation', e.target.value)}
+                        rows={5}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                  {currentStarStep === 'task' && (
+                    <div className="space-y-2">
+                      <label className="text-lg font-medium flex items-center">
+                        Task
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                          (What was your responsibility?)
+                        </span>
+                      </label>
+                      <p className="text-sm text-muted-foreground mb-1">{getStepTip('task')}</p>
+                      <Textarea
+                        placeholder="What was your task or goal?"
+                        value={response.task}
+                        onChange={(e) => handleResponseChange('task', e.target.value)}
+                        rows={5}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                  {currentStarStep === 'action' && (
+                    <div className="space-y-2">
+                      <label className="text-lg font-medium flex items-center">
+                        Action
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                          (What did you do?)
+                        </span>
+                      </label>
+                      <p className="text-sm text-muted-foreground mb-1">{getStepTip('action')}</p>
+                      <Textarea
+                        placeholder="What actions did you take?"
+                        value={response.action}
+                        onChange={(e) => handleResponseChange('action', e.target.value)}
+                        rows={5}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                  {currentStarStep === 'result' && (
+                    <div className="space-y-2">
+                      <label className="text-lg font-medium flex items-center">
+                        Result
+                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                          (What was the outcome?)
+                        </span>
+                      </label>
+                      <p className="text-sm text-muted-foreground mb-1">{getStepTip('result')}</p>
+                      <Textarea
+                        placeholder="What were the results?"
+                        value={response.result}
+                        onChange={(e) => handleResponseChange('result', e.target.value)}
+                        rows={5}
+                        className="w-full"
+                      />
+                    </div>
+                  )}
+                  <div className="flex justify-between pt-4">
+                    <Button
+                      variant="outline"
+                      onClick={moveToPreviousStep}
+                      disabled={currentStarStep === 'situation'}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-2" />
+                      Previous
+                    </Button>
+                    {currentStarStep === 'result' ? (
+                      <Button
+                        onClick={handleSubmit}
+                        disabled={submitting || !allStepsFilled()}
+                      >
+                        {submitting ? <Spinner size="sm" className="mr-2" /> : null}
+                        Submit Response
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={moveToNextStep}
+                        disabled={!currentStepFilled()}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-2" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex justify-between items-center pt-4">
+                    <Button
+                      variant="ghost"
+                      onClick={handlePrevious}
+                      disabled={currentQuestionIndex === 0}
+                      size="sm"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous Question
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={handleNext}
+                      disabled={currentQuestionIndex === questions.length - 1}
+                      size="sm"
+                    >
+                      Next Question
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <div>
+                      <h3 className="font-medium">Situation</h3>
+                      <p className="text-sm">{response.situation}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Task</h3>
+                      <p className="text-sm">{response.task}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Action</h3>
+                      <p className="text-sm">{response.action}</p>
+                    </div>
+                    <div>
+                      <h3 className="font-medium">Result</h3>
+                      <p className="text-sm">{response.result}</p>
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center pt-4">
+                    <Button
+                      variant="ghost"
+                      onClick={handlePrevious}
+                      disabled={currentQuestionIndex === 0}
+                      size="sm"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous Question
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={handleNext}
+                      disabled={currentQuestionIndex === questions.length - 1}
+                      size="sm"
+                    >
+                      Next Question
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          {/* Feedback card */}
+          {feedback && hasSubmittedResponse && (
+            <Card className="h-full overflow-auto">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle>AI Feedback</CardTitle>
+                    <CardDescription>Analysis of your STAR response</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Component Scores</h3>
+                    <div className="space-y-2">
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Situation</span>
+                          <span>{feedback.scores.situation}/10</span>
+                        </div>
+                        <Progress value={feedback.scores.situation * 10} />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Task</span>
+                          <span>{feedback.scores.task}/10</span>
+                        </div>
+                        <Progress value={feedback.scores.task * 10} />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Action</span>
+                          <span>{feedback.scores.action}/10</span>
+                        </div>
+                        <Progress value={feedback.scores.action * 10} />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span>Result</span>
+                          <span>{feedback.scores.result}/10</span>
+                        </div>
+                        <Progress value={feedback.scores.result * 10} />
+                      </div>
+                      <div>
+                        <div className="flex justify-between text-sm mb-1">
+                          <span className="font-medium">Overall</span>
+                          <span className="font-medium">{feedback.scores.overall}/10</span>
+                        </div>
+                        <Progress value={feedback.scores.overall * 10} />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Analysis</h3>
+                    <div className="space-y-2 text-sm">
+                      <p><strong>Completeness:</strong> {feedback.analysis.completeness}</p>
+                      <p><strong>Specificity:</strong> {feedback.analysis.specificity}</p>
+                      <p><strong>Relevance:</strong> {feedback.analysis.relevance}</p>
+                      <p><strong>Impact:</strong> {feedback.analysis.impact}</p>
+                      <p><strong>Communication:</strong> {feedback.analysis.communication}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Strengths</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {feedback.feedback.strengths.map((strength: string, index: number) => (
+                        <li key={index} className="text-sm flex items-start">
+                          <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
+                          <span>{strength}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Areas for Improvement</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {feedback.feedback.improvements.map((improvement: string, index: number) => (
+                        <li key={index} className="text-sm flex items-start">
+                          <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
+                          <span>{improvement}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Suggestions</h3>
+                    <ul className="list-disc list-inside space-y-1">
+                      {feedback.feedback.suggestions.map((suggestion: string, index: number) => (
+                        <li key={index} className="text-sm">{suggestion}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </AppLayout>
