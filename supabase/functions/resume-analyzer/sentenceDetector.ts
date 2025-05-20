@@ -130,7 +130,7 @@ export async function detectSentences(text, userId) {
     }
     
     const endTime = Date.now();
-    console.log(`detectSentences: Function completed in ${(endTime - startTime)/1000}s`);
+    console.log(`[detectSentences]: Function completed in ${(endTime - startTime)/1000}s`);
     return sentences;
     
   } catch (error) {
