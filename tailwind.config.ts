@@ -120,6 +120,14 @@ export default {
 					'action': '#D97706',       // Amber for Action Words
 					'measurable': '#0D9488',   // Teal for Measurable Results
 					'common': '#6B7280',       // Gray for Common Words
+				},
+				// Interview prep colors
+				'interview': {
+					'star': '#8B5CF6',         // Purple for STAR method
+					'behavioral': '#3B82F6',   // Blue for Behavioral questions
+					'technical': '#10B981',    // Emerald for Technical questions
+					'feedback': '#F59E0B',     // Amber for Feedback
+					'mock': '#EC4899',         // Pink for Mock interviews
 				}
 			},
 			borderRadius: {
@@ -189,7 +197,11 @@ export default {
 				'gradient-conic': 'conic-gradient(from 90deg at 50% 50%, var(--tw-gradient-stops))',
 				'dots-pattern': 'radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.1) 1px, transparent 0)',
 				'hero-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.1), rgba(94, 211, 181, 0.1))',
-				'blueprint-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.05), rgba(28, 45, 90, 0.05))'
+				'blueprint-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.05), rgba(28, 45, 90, 0.05))',
+				'star-gradient': 'linear-gradient(120deg, #8B5CF6 0%, #6366F1 100%)',
+				'behavioral-gradient': 'linear-gradient(120deg, #3B82F6 0%, #60A5FA 100%)',
+				'technical-gradient': 'linear-gradient(120deg, #10B981 0%, #34D399 100%)',
+				'mock-gradient': 'linear-gradient(120deg, #EC4899 0%, #F472B6 100%)'
 			},
 			backgroundSize: {
 				'dots-lg': '20px 20px'
