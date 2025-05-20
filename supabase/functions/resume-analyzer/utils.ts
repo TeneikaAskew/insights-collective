@@ -330,7 +330,7 @@ const callQueue = {
         console.error('Error processing queue item:', error);
       }
     }
-    // Add delay between processing queue items
+    // Add delay between processing queue items to avoid rate limiting
     await new Promise(resolve => setTimeout(resolve, 10000));
     await this.process();
   }

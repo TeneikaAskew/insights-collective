@@ -1,4 +1,3 @@
-
 import { corsHeaders, callLLMWithRetry } from './utils.ts';
 // Use GROQ API to enhance analysis with AI-
 export async function enhanceWithGroq(resumeText, analysis) {
@@ -6,8 +5,7 @@ export async function enhanceWithGroq(resumeText, analysis) {
   try {
     const apiKey = Deno.env.get('GROQ');
     if (!apiKey) {
-      console.log("GROQ API key not found. Returning basic analysis.");
-      return analysis;
+      throw new Error("GROQ API key not found");
     }
     // Limit the text to send to GROQ to reduce token usage
     const maxResumeLength = 3000; // Limit resume text to ~3500 chars
@@ -193,7 +191,6 @@ export async function enhanceWithGroq(resumeText, analysis) {
 //       extractedContent.explanation = paragraphs[paragraphs.length - 1];
 //     }
 //   }
-//   /* ---------------------------------------------------- */
 //   return extractedContent;
 // }
 
@@ -211,11 +208,27 @@ function formatResponse(raw) {
     themes: [],
     explanation: ""
   };
+
+  // console.log("Raw AI Response: ", raw)
   // Normalize text
   let text = raw.replace(/\\n/g, '\n').replace(/\r\n/g, '\n').trim();
   text = text.replace(/Here are the three key outputs:?/i, '');
   text = text.replace(/Here are three key outputs:?/i, '');
   text = text.replace(/based on the provided resume text and basic analysis:/i, '');
+
+  const aiPhrases = [
+    /Here is a professional elevator pitch based on the resume text[:\s]*/gi,
+    /Here is a professional elevator pitch[:\s]*/gi,
+    /Based on the resume text are[:\s]*/gi,
+    /Based on the resume text[:\s]*/gi,
+    /For the resume are[:\s]*/gi,
+    /For the resume[:\s]*/gi
+  ];
+  function stripPhrases(str: string) {
+    let out = str;
+    for (const re of aiPhrases) out = out.replace(re, '');
+    return out;
+  }
   
   // Elevator pitch patterns (unchanged)
   const elevatorPatterns = [
@@ -241,11 +254,18 @@ function formatResponse(raw) {
       pitch = pitch.replace(/\n+/g, ' ');
       pitch = pitch.replace(/\s+/g, ' ').trim();
       pitch = pitch.replace(/^Elevator Pitch:?/i, '');
+      pitch = stripPhrases(pitch);  
       extractedContent.elevatorPitch = pitch;
+      
       break;
     }
   }
   
+  // Add this helper function before the themePatterns array
+  function capitalizeFirstWord(text) {
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
   // Improvement themes patterns - FIXED VERSION
   const themePatterns = [
     /\*\*Three Specific Improvement Themes:\*\*\s*([\s\S]*?)(?=\n\s*\*\*Resume Grade|\n\s*$)/i,
@@ -261,13 +281,16 @@ function formatResponse(raw) {
     /three\s+specific\s+improvement\s+themes?\b\s*[:\-]?\s*([\s\S]*?)(?=\n\s*(?:the resume|resume grade|a brief explanation|explanation|\d+\.\s|\*\*|$))/i,
     /three\s+specific\s+improvement\s+themes?\s*(?:are|include)?\s*:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /[Tt]hree specific improvement themes are:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
-    /[Tt]hree specific improvement themes?\s*(?:are)?:?\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i
+    /[Tt]hree specific improvement themes?\s*(?:are)?:?\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
+    /To improve the resume, three key themes can be addressed:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i
   ];
   
   for (const pattern of themePatterns){
     const match = text.match(pattern);
     if (match) {
-      const themesText = match[1].trim();
+      // let themesText = match[1].trim();
+      let themesText = match.slice(1).find(g => g && g.trim())?.trim() || '';
+      themesText = stripPhrases(themesText); 
       let themes = [];
       
       // NEW APPROACH: Look for specific patterns in the GROQ response format
@@ -275,24 +298,25 @@ function formatResponse(raw) {
         // Split by newlines for bullet-style themes
         const lines = themesText.split("\n").map(line => line.trim()).filter(Boolean);
         
+        
         // Process each line to clean up bullet points and numbering
         themes = lines.map(line => {
           // Remove bullet points and numbers, but preserve the theme content
-          return line.replace(/^[\d]+\.\s*|^[-•*]\s*/, '')
-                   .trim();
+          return capitalizeFirstWord(line.replace(/^[\d]+\.\s*|^[-•*]\s*/, '')
+                   .trim());
         }).filter(theme => theme.length > 10);
       } 
       
       // If no lines were found, try detecting sentence-based themes
       if (themes.length === 0) {
         // Look for patterns like "1. Theme one. 2. Theme two." in a single paragraph
-        const sentenceSplit = themesText.split(/\.\s+/).map(s => s.trim()).filter(Boolean);
+        const sentenceSplit = themesText.split(/\.\s+/).map(s => capitalizeFirstWord(s.trim())).filter(Boolean);
         themes = sentenceSplit.filter(s => s.length > 10);
       }
       
       // If still no themes, just take the whole text as one theme
       if (themes.length === 0 && themesText.length > 10) {
-        themes = [themesText.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim()];
+        themes = [capitalizeFirstWord(themesText.replace(/\n+/g, ' ').replace(/\s+/g, ' ').trim())];
       }
       
       extractedContent.themes = themes;
@@ -362,6 +386,7 @@ function formatResponse(raw) {
       explanation = explanation.replace(/^\*\*\s*|\s*\*\*$/g, '');
       explanation = explanation.replace(/\n+/g, ' ');
       explanation = explanation.replace(/\s+/g, ' ').trim();
+      explanation = stripPhrases(explanation); 
       extractedContent.explanation = explanation;
       break;
     }
@@ -451,189 +476,18 @@ try {
     console.log("Overall Explanation: ", enhancedAnalysis.explanation )
   }
   
-//   console.log("Enhanced Analysis: ", enhancedAnalysis);
-//   return enhancedAnalysis;
-// } catch (error) {
-//   console.error('Error processing AI response:', error);
-//   clearTimeout(timeoutId);
-//   // Return the original analysis if there was an error
-//   return analysis;
-// }}}
-//       function formatResponse(raw) {
-//         if (!raw) return '';
-//         let text = raw;
-//         console.log("Before formatting: ", raw);
-        
-//         // 1) Fix unbalanced bold markers: **…* or *…** → **…**
-//         text = text.replace(/\*\*(.+?)\*/g, '**$1**');
-//         text = text.replace(/\*(.+?)\*\*/g, '**$1**');
-        
-//         // 2) Convert leading "* " or "+ " into "- " bullets
-//         text = text.replace(/^[\s]*[\*\+]\s+/gm, '- ');
-        
-//         // 3) Convert numbered lists into bullet points
-//         text = text.replace(/^[\s]*\d+\.\s+/gm, '- ');
-        
-//         // 4) Ensure bold-only lines become headers
-//         text = text.replace(/^\s*\*\*(.+?)\*\*\s*$/gm, '\n## $1\n');
-        
-//         // 5) Remove noisy markdown-like labels (flexible pattern)
-//         text = text.replace(/([A-Za-z\s]+)(?::|-)?\s*\*+(?:\s*-?\s*\*+)*/g, '$1:');
-        
-//         // 6) Remove known noise patterns - CONSOLIDATED with section patterns
-//         const noisyPatterns = [
-//           // Original noise patterns
-//           /Resume Grade Explanation:\*?.*/gi,
-//           /Brief Explanation of the Resume Grade:\*?.*/gi,
-//           /Three Specific Improvement Themes:\*?.*/gi,
-//           /Quantifiable Results:\*?.*/gi,
-//           /IStronger Action Verbs:k:.*/gi,
-//           /Specific Improvement Themes:\*?.*/gi,
-//           /Concise Language:\*?.*/gi,
-//           /Professional Elevator Pitch:\*?.*/gi,
-//           /Resume Grade and Explanation:\*?.*/gi,
-          
-//           // Added consolidated section patterns
-//           /\*?Professional Elevator Pitch[^:]*:\*?/gi,
-//           /\*?Resume Grade[^:]*:\*?/gi,
-//           /\*?Three Specific Improvement Themes[^:]*:?\*?/gi,
-//           /\*?Detailed Explanation:\*?/gi,
-//           /\*?Key Improvement Themes:\*?/gi,
-          
-//           // General section pattern with max sentences
-//           /\*?([A-Za-z\s]+)\s*\(max\s*\d+\s*sentences?\):\*?/gi
-//         ];
-        
-//         for (const pattern of noisyPatterns) {
-//           text = text.replace(pattern, '');
-//         }
-        
-//         // 7) Remove markdown-like noise lines
-//         text = text.replace(/^##\s*\*/gm, '');
-//         text = text.replace(/-\s*\*+[A-Za-z\s]+:\*+/g, '-');
-//         text = text.replace(/\*+[A-Za-z\s]+:\*+/g, '');
-        
-//         // 8) Remove floating bold/italic markers (e.g., **, ***, etc.)
-//         text = text.replace(/(?<=\s|^)\*{2,}(?=\s|$)/g, '');
-//         text = text.replace(/(?<=\s|^)_+(?=\s|$)/g, '');
-        
-//         // 9) Clean up bullet points with special formatting
-//         text = text.replace(/^-\s*\*?([A-Za-z\s]+\*?:)\s*(.*?)$/gm, '- $2');
-        
-//         // 10) Clean up asterisks around text
-//         text = text.replace(/\*([^*]+)\*/g, '$1');
-        
-//         // 11) Collapse 3+ blank lines → 2
-//         text = text.replace(/\n{3,}/g, '\n\n');
-        
-//         // 12) Trim trailing spaces and outer whitespace
-//         return text.split('\n').map((line) => line.trimEnd()).join('\n').trim();
-    //   }
-    // // Call the GROQ API with timeout
-    // const controller = new AbortController();
-    // const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
-    // try {
-    //   // const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    //   //   method: 'POST',
-    //   //   headers: {
-    //   //     'Authorization': `Bearer ${apiKey}`,
-    //   //     'Content-Type': 'application/json'
-    //   //   },
-    //   //   body: JSON.stringify({
-    //   //     model: 'llama3-8b-8192',
-    //   //     messages: [
-    //   //       {
-    //   //         role: 'system',
-    //   //         content: `You are an expert resume analyst. Based on the provided resume text and basic analysis, 
-    //   //         provide three key outputs:
-    //   //         1. A professional elevator pitch (max 2 sentences) based on the resume text
-    //   //         2. Three specific improvement themes (one sentence each) based on the resume text
-    //   //         3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
-              
-    //   //         Be specific, professional, and concise. Focus on actionable advice.`
-    //   //       },
-    //   //       {
-    //   //         role: 'user',
-    //   //         content: `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
-    //   //       }
-    //   //     ],
-    //   //     max_tokens: 500,
-    //   //     temperature: 0.4
-    //   //   }),
-    //   //   signal: controller.signal
-    //   // });
-    //   // clearTimeout(timeoutId);
-    //   // if (!response.ok) {
-    //   //   throw new Error(`GROQ API returned ${response.status}`);
-    //   // }
-    //   // const data = await response.json(); 
-
-    //  const requestBody = {
-    //     model: 'llama3-8b-8192',
-    //     messages: [
-    //       {
-    //         role: 'system',
-    //         content: `You are an expert resume analyst. Based on the provided resume text and basic analysis, 
-    //         provide three key outputs:
-    //         1. A professional elevator pitch (max 2 sentences) based on the resume text
-    //         2. Three specific improvement themes (one sentence each) based on the resume text
-    //         3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
-            
-    //         Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.`
-    //       },
-    //       {
-    //         role: 'user',
-    //         content: `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
-    //       }
-    //     ],
-    //     max_tokens: 500,
-    //     temperature: 0.4
-    //   };
-      
-    //   // Add the signal to the retry function
-    //   const data = await callLLMWithRetry(apiKey, requestBody, 3, controller.signal);
-    //   clearTimeout(timeoutId);
-      
-    //   const aiResponse = data.choices[0].message.content;
-    //   console.log("AI Response: ", aiResponse);
-    //   // Parse AI response - simple approach, in production would use more robust parsing
-    //   const sections = formatResponse(aiResponse).split(/\d+\.\s+/);
-    //   console.log("Sections after formatting: ", sections);
-    //   if (sections.length >= 4) {
-    //     // Extract elevator pitch from section 1 (after the split)
-    //     const elevatorPitch = sections[1].trim();
-    //     console.log("Elevator Pitch: ", elevatorPitch);
-    //     // Extract themes - assuming they're in section 2, split by newlines or bullet points
-    //     const themeText = sections[2].trim();
-    //     const themeMatches = themeText.match(/[^.!?]+[.!?]+/g) || [];
-    //     const themes = themeMatches.map((t)=>t.trim()).filter((t)=>t.length > 10);
-    //     console.log("Themes: ", themes);
-    //     // Extract explanation from section 3
-    //     const explanation = sections[3].trim();
-    //     console.log("Explanation: ", explanation);
-    //     // Update the analysis with AI-generated content
-    //     const enhancedAnalysis = {
-    //       ...analysis
-    //     }; // Create a copy to avoid mutation
-    //     if (elevatorPitch) enhancedAnalysis.elevator_pitch = elevatorPitch;
-    //     if (themes.length > 0) enhancedAnalysis.themes = themes.slice(0, 3);
-    //     if (explanation) enhancedAnalysis.explanation = explanation;
-
-
-
- 
-      console.log("Enhanced Analysis: ", enhancedAnalysis);
-      return enhancedAnalysis;
-    } catch (fetchError) {
-      console.error("GROQ API fetch error:", fetchError);
-      // If there's a timeout or other fetch error, continue with the basic analysis
-      clearTimeout(timeoutId);
-      return analysis;
-    }
+  console.log("Enhanced Analysis: ", enhancedAnalysis);
+  return enhancedAnalysis;
+} catch (fetchError) {
+  console.error("GROQ API fetch error:", fetchError);
+  // If there's a timeout or other fetch error, continue with the basic analysis
+  clearTimeout(timeoutId);
+  throw fetchError; // Throw the error instead of returning fallback
+}
     
-  } catch (error) {
-    console.error("Error enhancing analysis with GROQ:", error);
-    // Return original analysis on any error
-    return analysis;
-  }
+} catch (error) {
+  console.error("Error enhancing analysis with GROQ:", error);
+  // Return original analysis on any error
+  throw error; // Throw the error instead of returning fallback
+}
 } // End of enhanceWithGroq function

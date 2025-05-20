@@ -164,7 +164,7 @@ async function processBulletsInParallel(bullets: string[], userId: string) {
   return improvedBullets;
 }
 // Export the new parallel processing function as the main interface
-export { processBulletsInParallel as processBatchQueue };
+export { processBulletsInParallel };
 
 export async function bulletImprover(userId, enhanced = null) {
   try {

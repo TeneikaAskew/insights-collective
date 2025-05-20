@@ -2,7 +2,6 @@
 // console.log("Bullet Suggestions Endpoint hit")
 import { actionWords } from './bulletAnalysis.ts';
 import { improveBullet } from './bulletImprover.ts';
-
 import { skillsKeywords } from './bulletAnalysis.ts';
 
 // Rewrite bullet function using GROQ
@@ -22,7 +21,7 @@ export async function rewriteBullet(bullet: string, analysis: any): Promise<stri
         metric_pct: 0
       }
     });
-    
+    console.log("Bullet Rewrite Result:", result.rewritten);
     return result.rewritten;
   } catch (error) {
     console.error("Error using GROQ bullet improvement, falling back to basic rewrite:", error);
@@ -47,7 +46,7 @@ export async function generateTips(bullet: string, analysis: any): Promise<strin
         metric_pct: 0
       }
     });
-    
+    console.log("Generate Tips Result:", result.tips);
     return result.tips;
   } catch (error) {
     console.error("Error using GROQ tips generation, falling back to basic tips:", error);
