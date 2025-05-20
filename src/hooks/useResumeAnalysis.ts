@@ -650,6 +650,7 @@ export function useResumeAnalysis() {
       const careerGoals = localStorage.getItem(`career_goals_${user.id}`);
       
       console.log("[Resume Analysis] Starting initial resume analysis...");
+      console.log("Resume Text: ", text);
       
       const { data: analysisData, error } = await supabase.functions.invoke('resume-analyzer', {
         body: { 
