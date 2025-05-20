@@ -265,24 +265,55 @@
     @apply from-emerald-500 to-teal-500 text-white;
   }
   
+  /* Interview cards with vibrant gradients */
   .interview-card {
-    @apply bg-white rounded-lg shadow-md border border-gray-100 hover:shadow-lg transition-all duration-300 overflow-hidden;
+    @apply rounded-lg shadow-md border hover:shadow-lg transition-all duration-300 overflow-hidden;
   }
   
+  /* Card header with colorful gradients */
   .interview-card-header {
-    @apply bg-gradient-to-r p-4 border-b;
+    @apply p-4 border-b;
   }
   
   .behavioral-card .interview-card-header {
-    @apply from-purple-50 to-indigo-50 border-purple-100;
+    @apply bg-gradient-to-r from-purple-100 to-indigo-100 border-purple-200;
   }
   
   .technical-card .interview-card-header {
-    @apply from-blue-50 to-cyan-50 border-blue-100;
+    @apply bg-gradient-to-r from-blue-100 to-cyan-100 border-blue-200;
   }
   
   .feedback-card .interview-card-header {
-    @apply from-amber-50 to-yellow-50 border-amber-100;
+    @apply bg-gradient-to-r from-amber-100 to-yellow-100 border-amber-200;
+  }
+  
+  /* Job description analysis styles */
+  .job-description-card {
+    @apply bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 shadow-md hover:shadow-lg transition-all;
+  }
+  
+  /* Mock interview styles with gradients */
+  .mock-interview-card {
+    @apply bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-100 shadow-md hover:shadow-lg transition-all;
+  }
+  
+  /* Star practice styles with enhanced gradients */
+  .star-practice-card {
+    @apply bg-gradient-to-br from-purple-50 to-violet-50 border border-purple-100 shadow-md hover:shadow-lg transition-all;
+  }
+  
+  /* Colorful form input and button styles */
+  .colorful-input {
+    @apply border-indigo-200 focus:border-indigo-400 focus:ring-indigo-300 bg-white/90 transition-all;
+  }
+  
+  .colorful-button {
+    @apply bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-700 hover:to-purple-700 transition-all;
+  }
+  
+  /* Animated gradient backgrounds */
+  .animated-gradient-background {
+    @apply bg-gradient-to-br from-indigo-100/30 via-purple-100/20 to-blue-100/30 animate-gradient-x;
   }
   
   .shimmer {
@@ -372,7 +403,7 @@
 
 /* Mock interview styles */
 .mock-video-container {
-  @apply aspect-video bg-black rounded-lg overflow-hidden relative shadow-xl;
+  @apply aspect-video bg-gradient-to-br from-gray-900 to-slate-900 rounded-lg overflow-hidden relative shadow-xl;
 }
 
 .mock-control-panel {
@@ -389,4 +420,9 @@
 
 .technical-question {
   @apply border-blue-400 text-blue-800;
+}
+
+/* Progress bar with gradient */
+.progress-bar-gradient .bg-primary {
+  @apply bg-gradient-to-r from-indigo-500 to-purple-500;
 }

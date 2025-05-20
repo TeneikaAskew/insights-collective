@@ -13,7 +13,11 @@ const SurveyProgress: React.FC<SurveyProgressProps> = ({ currentStep, totalSteps
 
   return (
     <div className="mb-6">
-      <Progress value={progress} className="h-2 mb-4" />
+      <Progress 
+        value={progress} 
+        className="h-2 mb-4 bg-purple-100" 
+        indicatorClassName="bg-gradient-to-r from-purple-500 to-indigo-500"
+      />
       <div className="flex justify-between text-xs text-muted-foreground">
         {sections.map((section, index) => (
           <div 

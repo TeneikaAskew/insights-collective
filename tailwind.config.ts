@@ -204,7 +204,12 @@ export default {
 				'technical-gradient': 'linear-gradient(120deg, #10B981 0%, #34D399 100%)',
 				'mock-gradient': 'linear-gradient(120deg, #EC4899 0%, #F472B6 100%)',
 				'shimmer-gradient': 'linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 20%, rgba(255, 255, 255, 0.5) 60%, rgba(255, 255, 255, 0) 100%)',
-				'card-gradient': 'linear-gradient(to right bottom, var(--tw-gradient-stops))'
+				'card-gradient': 'linear-gradient(to right bottom, var(--tw-gradient-stops))',
+				'interview-card-gradient': 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+				'job-description-gradient': 'linear-gradient(135deg, #e9d5ff 0%, #a5b4fc 100%)',
+				'mock-interview-gradient': 'linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%)',
+				'star-practice-gradient': 'linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%)',
+				'code-practice-gradient': 'linear-gradient(135deg, #bbf7d0 0%, #86efac 100%)'
 			},
 			backgroundSize: {
 				'dots-lg': '20px 20px'

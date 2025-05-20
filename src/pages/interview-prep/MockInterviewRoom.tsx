@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -244,7 +245,7 @@ export default function MockInterviewRoom() {
   return (
     <AppLayout>
       <div className="container mx-auto py-8 relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-purple-100/10 to-blue-100/20 rounded-xl -z-10"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/30 via-purple-100/20 to-blue-100/30 rounded-xl -z-10"></div>
         
         <div className="mb-8 relative">
           <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-2xl -z-10"></div>
@@ -283,6 +284,7 @@ export default function MockInterviewRoom() {
           <div className="lg:col-span-2 space-y-8">
             <div className="grid grid-cols-2 gap-4">
               <div className="aspect-video bg-black rounded-lg overflow-hidden relative shadow-xl border-4 border-indigo-200 transform transition-all hover:scale-[1.01]">
+                <div className="absolute inset-0 bg-gradient-to-tl from-indigo-900/30 via-transparent to-purple-900/20"></div>
                 <video
                   ref={localVideoRef}
                   autoPlay
@@ -326,6 +328,7 @@ export default function MockInterviewRoom() {
                 </div>
               </div>
               <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-xl border-4 border-purple-200 transform transition-all hover:scale-[1.01]">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-transparent to-indigo-900/20"></div>
                 <video
                   ref={remoteVideoRef}
                   autoPlay
