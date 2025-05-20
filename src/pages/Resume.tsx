@@ -517,25 +517,35 @@ const Resume = () => {
       if (ok) {
         logDebug('UserAction', 'Upload successful');
 
-        // Store the current resume ID after upload
+        // Wait for the resume to be loaded
+        await refreshResume();
+        
+        // Now we should have the resume data
         if (resume && resume.id) {
           currentResumeIdRef.current = resume.id;
           logDebug('UserAction', `Setting currentResumeIdRef to ${resume.id} after upload`);
+          
+          try {
+            logDebug('UserAction', 'Starting analysis after upload');
+            await analyzeResume(extractedText);
+            logDebug('UserAction', 'Analysis completed after upload');
+            setHasLoadedAnalysis(true);
+            setIsLoadingEnhancedBullets(true);
+            logDebug('UserAction', 'Set isLoadingEnhancedBullets to true after upload');
+          } catch (error) {
+            logDebug('UserAction', 'Analysis error after upload:', error);
+            toast({
+              title: 'Analysis Error',
+              description: 'Resume was uploaded but analysis failed. You can try again later.',
+              variant: 'destructive'
+            });
+            setShowAnalysisOverlay(false);
+          }
         } else {
-          logDebug('UserAction', 'Resume has no ID after upload!', resume);
-        }
-        try {
-          logDebug('UserAction', 'Starting analysis after upload');
-          await analyzeResume(extractedText);
-          logDebug('UserAction', 'Analysis completed after upload');
-          setHasLoadedAnalysis(true);
-          setIsLoadingEnhancedBullets(true); // Start waiting for enhanced bullets
-          logDebug('UserAction', 'Set isLoadingEnhancedBullets to true after upload');
-        } catch (error) {
-          logDebug('UserAction', 'Analysis error after upload:', error);
+          logDebug('UserAction', 'No resume ID available after upload and refresh');
           toast({
-            title: 'Analysis Error',
-            description: 'Resume was uploaded but analysis failed. You can try again later.',
+            title: 'Upload Error',
+            description: 'Resume was uploaded but could not be loaded. Please try again.',
             variant: 'destructive'
           });
           setShowAnalysisOverlay(false);
