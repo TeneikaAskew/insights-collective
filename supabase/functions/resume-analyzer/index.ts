@@ -469,10 +469,10 @@ serve(async (req) => {
         }
         break;
 
-      case 'improve-bullets':
-        // Only run bullet improvement if we have an existing analysis
-        result = await bulletImprover(userId);
-        break;
+    //   case 'improve-bullets':
+    //     // Only run bullet improvement if we have an existing analysis
+    //     result = await bulletImprover(userId);
+    //     break;
 
       case 'detect-sentences':
         result = await detectSentences(text, userId);

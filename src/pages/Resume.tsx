@@ -517,35 +517,25 @@ const Resume = () => {
       if (ok) {
         logDebug('UserAction', 'Upload successful');
 
-        // Wait for the resume to be loaded
-        await refreshResume();
-        
-        // Now we should have the resume data
+        // Store the current resume ID after upload
         if (resume && resume.id) {
           currentResumeIdRef.current = resume.id;
           logDebug('UserAction', `Setting currentResumeIdRef to ${resume.id} after upload`);
-          
-          try {
-            logDebug('UserAction', 'Starting analysis after upload');
-            await analyzeResume(extractedText);
-            logDebug('UserAction', 'Analysis completed after upload');
-            setHasLoadedAnalysis(true);
-            setIsLoadingEnhancedBullets(true);
-            logDebug('UserAction', 'Set isLoadingEnhancedBullets to true after upload');
-          } catch (error) {
-            logDebug('UserAction', 'Analysis error after upload:', error);
-            toast({
-              title: 'Analysis Error',
-              description: 'Resume was uploaded but analysis failed. You can try again later.',
-              variant: 'destructive'
-            });
-            setShowAnalysisOverlay(false);
-          }
         } else {
-          logDebug('UserAction', 'No resume ID available after upload and refresh');
+          logDebug('UserAction', 'Resume has no ID after upload!', resume);
+        }
+        try {
+          logDebug('UserAction', 'Starting analysis after upload');
+          await analyzeResume(extractedText);
+          logDebug('UserAction', 'Analysis completed after upload');
+          setHasLoadedAnalysis(true);
+          setIsLoadingEnhancedBullets(true); // Start waiting for enhanced bullets
+          logDebug('UserAction', 'Set isLoadingEnhancedBullets to true after upload');
+        } catch (error) {
+          logDebug('UserAction', 'Analysis error after upload:', error);
           toast({
-            title: 'Upload Error',
-            description: 'Resume was uploaded but could not be loaded. Please try again.',
+            title: 'Analysis Error',
+            description: 'Resume was uploaded but analysis failed. You can try again later.',
             variant: 'destructive'
           });
           setShowAnalysisOverlay(false);
@@ -670,21 +660,21 @@ const Resume = () => {
           logDebug('UserAction', 'No enhanced analysis found during refresh');
           // If no enhanced analysis found, try to get it
           try {
-            const { data: enhancedData, error: enhancedError } = await supabase.functions.invoke('resume-analyzer', {
-              body: { 
-                action: 'improve-bullets',
-                userId: user?.id,
-                careerGoals: localStorage.getItem(`career_goals_${user?.id}`) || undefined
-              }
-            });
+            // const { data: enhancedData, error: enhancedError } = await supabase.functions.invoke('resume-analyzer', {
+            //   body: { 
+            //     action: 'improve-bullets',
+            //     userId: user?.id,
+            //     careerGoals: localStorage.getItem(`career_goals_${user?.id}`) || undefined
+            //   }
+            // });
 
-            if (enhancedError) {
-              throw enhancedError;
-            }
+            // if (enhancedError) {
+            //   throw enhancedError;
+            // }
 
-            if (enhancedData?.improved_bullets && enhancedData.improved_bullets.length > 0) {
-              handleEnhancedAnalysisUpdate(enhancedData.improved_bullets);
-            }
+            // if (enhancedData?.improved_bullets && enhancedData.improved_bullets.length > 0) {
+            //   handleEnhancedAnalysisUpdate(enhancedData.improved_bullets);
+            // }
           } catch (enhancedErr) {
             console.error("Error checking for enhancements:", enhancedErr);
           }
