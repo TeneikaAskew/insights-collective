@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
@@ -136,7 +137,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
     const improvedBullet = {
       ...selectedBullet,
       rewritten: editedText,
-      bullet_total: Math.min(45, (selectedBullet?.bullet_total || 0) + 5),
+      bullet_total: Math.min(100, (selectedBullet?.bullet_total || 0) + 5),
       xyz_scores: {
         action: Math.min(10, (selectedBullet?.xyz_scores?.action || 0) + 1),
         metrics: Math.min(30, (selectedBullet?.xyz_scores?.metrics || 0) + 3),

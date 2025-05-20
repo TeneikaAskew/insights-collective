@@ -19,8 +19,6 @@ export const getBadgeColor = (score: number, max: number) => {
   return "bg-red-100 text-red-800 border-red-200";
 };
 
-// WordBalanceScore component removed as requested
-
 // XYZ Quality Score component implementation
 export const XYZQualityScore: React.FC<{
   xyzScores: { action: number; metrics: number; clarity: number; industry: number; achievement: number };
