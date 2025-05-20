@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { Badge } from '@/components/ui/badge';
@@ -6,7 +7,7 @@ import { Edit2, Check, X } from 'lucide-react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import BulletPointChart from './BulletPointChart';
 import { HighlightedBulletText } from './text/BulletTextParser';
-import { WordBalanceScore, XYZQualityScore, getBadgeColor } from './score/BulletScoreDisplay';
+import { XYZQualityScore, getBadgeColor } from './score/BulletScoreDisplay';
 import { Textarea } from '@/components/ui/textarea';
 
 interface BulletPointItemProps {
@@ -76,8 +77,8 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           <div className="flex-1 text-left mr-4 line-clamp-1">
             {original ? original.substring(0, 80) + '...' : `Bullet point ${index + 1}`}
           </div>
-          <Badge className={getBadgeColor(bullet_total,90)}>
-            Score: {bullet_total}/90
+          <Badge className={getBadgeColor(bullet_total, 100)}>
+            Score: {bullet_total}/100
           </Badge>
         </div>
       </AccordionTrigger>
@@ -143,10 +144,9 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <WordBalanceScore 
-              wordBalance={displayBullet.word_balance}
-              wordBalanceScore={displayBullet.word_balance_score}
-            />
+            <div>
+              {/* Word Balance Score component has been removed as requested */}
+            </div>
             
             <XYZQualityScore xyzScores={displayBullet.xyz_scores} />
           </div>
