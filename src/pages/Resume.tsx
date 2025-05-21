@@ -172,12 +172,12 @@ const Resume = () => {
   // Update the useEffect that controls overlay visibility
   useEffect(() => {
     // Only show overlay during initial analysis, not during bullet improvements
-    if (isAnalyzing) {
+    if (isAnalyzing && !hasLoadedAnalysis) {
       setShowAnalysisOverlay(true);
     } else {
       setShowAnalysisOverlay(false);
     }
-  }, [isAnalyzing]);
+  }, [isAnalyzing, hasLoadedAnalysis]);
 
   // Handle updates to enhanced_analysis with better state management
   const handleEnhancedAnalysisUpdate = enhancedAnalysis => {
@@ -529,6 +529,7 @@ const Resume = () => {
           await analyzeResume(extractedText);
           logDebug('UserAction', 'Analysis completed after upload');
           setHasLoadedAnalysis(true);
+          setShowAnalysisOverlay(false); // Hide overlay after analysis is complete
           setIsLoadingEnhancedBullets(true); // Start waiting for enhanced bullets
           logDebug('UserAction', 'Set isLoadingEnhancedBullets to true after upload');
         } catch (error) {

@@ -19,37 +19,7 @@ export const getBadgeColor = (score: number, max: number) => {
   return "bg-red-100 text-red-800 border-red-200";
 };
 
-// Implement WordBalanceScore component that was previously removed
-export const WordBalanceScore: React.FC<{
-  wordBalance: { industry_pct: number; common_pct: number; action_pct: number; metric_pct: number };
-  wordBalanceScore: number;
-}> = ({ wordBalance, wordBalanceScore }) => {
-  return (
-    <div>
-      <h5 className="font-medium text-sm mb-2">Word Balance ({wordBalanceScore}/25)</h5>
-      <div className="space-y-2">
-        <div className="flex justify-between">
-          <span>Industry:</span>
-          <span className="font-medium">{wordBalance?.industry_pct || 0}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Common:</span>
-          <span className="font-medium">{wordBalance?.common_pct || 0}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Action:</span>
-          <span className="font-medium">{wordBalance?.action_pct || 0}%</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Metric:</span>
-          <span className="font-medium">{wordBalance?.metric_pct || 0}%</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Implement XYZQualityScore component that was previously removed
+// XYZ Quality Score component implementation
 export const XYZQualityScore: React.FC<{
   xyzScores: { action: number; metrics: number; clarity: number; industry: number; achievement: number };
 }> = ({ xyzScores }) => {
@@ -61,9 +31,14 @@ export const XYZQualityScore: React.FC<{
     (xyzScores?.achievement || 0);
 
   return (
-    <div>
-      <h5 className="font-medium text-sm mb-2">XYZ Quality ({totalScore}/100)</h5>
-      <div className="space-y-2">
+    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100 shadow-md hover:shadow-lg transition-all duration-300">
+      <h5 className="font-medium text-sm mb-3 text-indigo-700 flex items-center">
+        <span className="inline-block w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center mr-2 text-xs font-bold">
+          XYZ
+        </span>
+        Quality Score ({totalScore}/100)
+      </h5>
+      <div className="space-y-3">
         <ScoreWithIcon score={xyzScores?.action || 0} maxScore={10} label="Action Words" />
         <ScoreWithIcon score={xyzScores?.metrics || 0} maxScore={30} label="Metrics/Results" />
         <ScoreWithIcon score={xyzScores?.clarity || 0} maxScore={15} label="Clarity/Conciseness" />

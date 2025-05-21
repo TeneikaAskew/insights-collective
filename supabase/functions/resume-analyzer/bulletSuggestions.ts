@@ -7,6 +7,7 @@ import { skillsKeywords } from './bulletAnalysis.ts';
 // Rewrite bullet function using GROQ
 export async function rewriteBullet(bullet: string, analysis: any): Promise<string> {
   console.log("Bullet Rewrite Endpoint hit")
+  const startTime = Date.now();
   try {
     // Use the GROQ-based bullet improver
     console.log("Beginning rewrite of bullet points")
@@ -22,6 +23,8 @@ export async function rewriteBullet(bullet: string, analysis: any): Promise<stri
       }
     });
     console.log("Bullet Rewrite Result:", result.rewritten);
+    const endTime = Date.now();
+    console.log(`[rewriteBullet]: Function completed in ${(endTime - startTime)/1000}s`);
     return result.rewritten;
   } catch (error) {
     console.error("Error using GROQ bullet improvement, falling back to basic rewrite:", error);
@@ -33,6 +36,7 @@ export async function rewriteBullet(bullet: string, analysis: any): Promise<stri
 // Generate tips for improvement using GROQ
 export async function generateTips(bullet: string, analysis: any): Promise<string> {
   console.log("Generate Tips Endpoint hit")
+  const startTime = Date.now();
   try {
     // Use the GROQ-based bullet improver
     const result = await improveBullet({
@@ -47,6 +51,8 @@ export async function generateTips(bullet: string, analysis: any): Promise<strin
       }
     });
     console.log("Generate Tips Result:", result.tips);
+    const endTime = Date.now();
+    console.log(`[generateTips]: Function completed in ${(endTime - startTime)/1000}s`);
     return result.tips;
   } catch (error) {
     console.error("Error using GROQ tips generation, falling back to basic tips:", error);
