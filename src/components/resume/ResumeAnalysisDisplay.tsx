@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
@@ -44,6 +45,16 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   pdfPreviewUrl,
   fileError,
 }) => {
+  // Destructure values from analysis with fallbacks
+  const {
+    resume_percent = 0,
+    letter_grade = 'C',
+    themes = [],
+    elevator_pitch = '',
+    explanation = '',
+    bullets = [],
+  } = analysis || {};
+
   // Ensure bullets is always an array
   const bulletPoints = Array.isArray(bullets) ? bullets : [];
 
