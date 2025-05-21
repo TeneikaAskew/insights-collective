@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { useToast } from '@/hooks/use-toast';
@@ -46,6 +46,14 @@ const AdminPageVisibility = () => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  // Log user role information on component load
+  useEffect(() => {
+    console.log('Current user in AdminPageVisibility:', user);
+    console.log('User roles:', user?.roles);
+    console.log('User metadata:', user?.user_metadata);
+  }, [user]);
 
   const filteredPages = pageVisibility.filter(page => 
     page.page_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -75,13 +83,17 @@ const AdminPageVisibility = () => {
 
   const handleSyncPages = async () => {
     try {
+      setSyncStatus('idle');
+      console.log("Starting page sync...");
       await syncAvailablePages();
       
+      setSyncStatus('success');
       toast({
         title: "Pages synced",
         description: "All available pages have been synced with the visibility settings.",
       });
     } catch (error) {
+      setSyncStatus('error');
       toast({
         title: "Sync failed",
         description: "There was an error syncing the page visibility.",
@@ -123,7 +135,7 @@ const AdminPageVisibility = () => {
                 <Button 
                   onClick={handleSyncPages} 
                   disabled={isSyncing}
-                  className="whitespace-nowrap"
+                  className={`whitespace-nowrap ${syncStatus === 'success' ? 'bg-green-600 hover:bg-green-700' : syncStatus === 'error' ? 'bg-red-600 hover:bg-red-700' : ''}`}
                 >
                   <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
                   {isSyncing ? 'Syncing...' : 'Sync Pages'}

@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -63,10 +64,13 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   const [isSubscribed, setIsSubscribed] = useState(false);
   const location = useLocation();
 
-  // Get user role from auth context
-  const userRole = user?.roles && user.roles.length > 0
-    ? user.roles[0]
+  // Get user role from auth context and profile
+  const userRole = user?.roles && user.roles.length > 0 
+    ? user.roles[0] 
     : user?.user_metadata?.role || null;
+
+  console.log('User role from auth context:', userRole);
+  console.log('User data:', user);
 
   // Handle visibility change
   useEffect(() => {
@@ -88,6 +92,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           .select('*');
         
         if (error) throw error;
+        console.log('Fetched page visibility data:', data);
         setPageVisibility(data || []);
       } catch (error) {
         console.error('Error fetching page visibility:', error);
@@ -234,8 +239,14 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   const isPageVisible = (path: string): boolean => {
     if (!user) return true; // Default to visible if no user (for public pages)
     
+    console.log('Checking visibility for path:', path);
+    console.log('Current user role:', userRole);
+    
     // Admins can see everything
-    if (userRole === 'admin') return true;
+    if (userRole === 'admin') {
+      console.log('User is admin, allowing access');
+      return true;
+    }
     
     // Check if the path matches any of the configured pages
     const pageConfig = pageVisibility.find(p => {
@@ -248,13 +259,18 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       return p.page_path === path;
     });
     
+    console.log('Found page config:', pageConfig);
+    
     // If no configuration found, default to visible
     if (!pageConfig) return true;
     
     // Check visibility based on user role
-    return userRole === 'instructor' 
+    const isVisible = userRole === 'instructor' 
       ? pageConfig.visible_to_instructors 
       : pageConfig.visible_to_users;
+      
+    console.log('Page visibility decision:', isVisible);
+    return isVisible;
   };
 
   // Update page visibility
@@ -270,12 +286,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     setPageVisibility(prev => 
       prev.map(page => page.id === id ? { ...page, ...updates } : page)
     );
+    
+    console.log(`Updated visibility for page ${id}:`, updates);
   };
 
   // Improved sync available pages function to detect and add new routes
   const syncAvailablePages = async (): Promise<void> => {
     try {
       setIsSyncing(true);
+      console.log('Starting page sync operation');
       
       // Get routes from the application using React Router routes
       const appRoutes = [
@@ -307,6 +326,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         { path: '/explore-data-careers', name: 'Explore Data Careers' },
       ];
       
+      console.log('App routes to sync:', appRoutes.length);
+      
       // Get existing pages from database
       const { data: existingPages, error } = await supabase
         .from('page_visibility')
@@ -314,9 +335,13 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       
       if (error) throw error;
       
+      console.log('Existing pages in database:', existingPages?.length || 0);
+      
       // Find new routes that don't exist in the database
       const existingPaths = new Set(existingPages?.map(p => p.page_path) || []);
       const newRoutes = appRoutes.filter(route => !existingPaths.has(route.path));
+      
+      console.log('New routes to add:', newRoutes.length);
       
       // Add new routes to database
       if (newRoutes.length > 0) {
@@ -332,6 +357,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           .insert(newPages);
           
         if (insertError) throw insertError;
+        
+        console.log('Successfully added new pages:', newPages.length);
       }
       
       // Refetch all pages
@@ -341,6 +368,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         
       if (refetchError) throw refetchError;
       
+      console.log('Updated pages list:', updatedPages?.length || 0);
       setPageVisibility(updatedPages || []);
       
       return;
