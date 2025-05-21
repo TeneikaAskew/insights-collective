@@ -1221,7 +1221,6 @@ export type Database = {
           notification_settings: Json | null
           preferences: Json | null
           role: string | null
-          roles: string[] | null
           updated_at: string | null
         }
         Insert: {
@@ -1234,7 +1233,6 @@ export type Database = {
           notification_settings?: Json | null
           preferences?: Json | null
           role?: string | null
-          roles?: string[] | null
           updated_at?: string | null
         }
         Update: {
@@ -1247,7 +1245,6 @@ export type Database = {
           notification_settings?: Json | null
           preferences?: Json | null
           role?: string | null
-          roles?: string[] | null
           updated_at?: string | null
         }
         Relationships: []

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -12,12 +13,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
+import { Helmet } from 'react-helmet-async';
 import CareerActionPlan from '@/components/assistants/CareerActionPlan';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CareerHeader from '@/components/career/CareerHeader';
-import { Helmet } from 'react-helmet-async';
 
 // Define the ActionPlan interface
 interface ActionPlanTimeframe {
@@ -200,6 +201,10 @@ const CareerPathway: React.FC = () => {
   // If there's an error or no report data found
   if (isError || data?.report && data.report.skillsAndCourses && data.report.skillsAndCourses.length === 0) {
     return <AppLayout>
+        <Helmet>
+          <title>Career Pathway | Insights Collective</title>
+          <meta name="description" content="Get personalized career path recommendations based on your skills and interests" />
+        </Helmet>
         
         <motion.div initial={{
         opacity: 0
@@ -231,6 +236,10 @@ const CareerPathway: React.FC = () => {
       </AppLayout>;
   }
   return <AppLayout>
+      <Helmet>
+        <title>Your Career Pathway | Insights Collective</title>
+        <meta name="description" content="Your personalized career path recommendations based on your skills and interests" />
+      </Helmet>
       
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
         {/* Hero Section */}

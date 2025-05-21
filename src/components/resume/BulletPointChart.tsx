@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BulletAnalysis } from '@/components/assistants/types';
 import { BulletDonutChart, DistributionBar } from './chart/ChartComponents';

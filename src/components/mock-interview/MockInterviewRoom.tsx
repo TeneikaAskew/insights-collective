@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -259,9 +258,9 @@ export default function MockInterviewRoom() {
   if (loading) {
     return (
       <div className="container mx-auto py-8">
-        <Card className="bg-gradient-to-r from-purple-100/80 to-indigo-100/80 border-purple-200 shadow-lg">
-          <CardContent className="flex items-center justify-center py-12">
-            <Spinner size="lg" className="text-purple-600" />
+        <Card>
+          <CardContent className="flex items-center justify-center py-8">
+            <Spinner size="lg" />
           </CardContent>
         </Card>
       </div>
@@ -271,15 +270,15 @@ export default function MockInterviewRoom() {
   if (!session) {
     return (
       <div className="container mx-auto py-8">
-        <Card className="bg-gradient-to-r from-red-100 to-orange-100 border-red-200 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-200">
-            <CardTitle className="text-red-800">Session Not Found</CardTitle>
-            <CardDescription className="text-red-600">
+        <Card>
+          <CardHeader>
+            <CardTitle>Session Not Found</CardTitle>
+            <CardDescription>
               The interview session you're looking for doesn't exist.
             </CardDescription>
           </CardHeader>
-          <CardContent className="py-6">
-            <Button onClick={() => window.history.back()} variant="outline" className="border-red-200 hover:bg-red-100 text-red-700 hover:text-red-900 shadow-sm">Go Back</Button>
+          <CardContent>
+            <Button onClick={() => window.history.back()}>Go Back</Button>
           </CardContent>
         </Card>
       </div>
@@ -289,38 +288,33 @@ export default function MockInterviewRoom() {
   const isInterviewer = session.user1_id === user?.id ? session.role1 === 'interviewer' : session.role2 === 'interviewer';
 
   return (
-    <div className="container mx-auto py-8 relative">
-      <div className="absolute inset-0 animated-grid opacity-20 -z-10"></div>
+    <div className="container mx-auto py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          <Card className="bg-gradient-to-tr from-purple-50 via-indigo-50 to-blue-50 border-purple-200 overflow-hidden shadow-lg">
-            <CardHeader className="bg-gradient-to-r from-purple-100/50 to-indigo-100/50 border-b border-purple-200/50">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle className="text-indigo-900 font-display">Mock Interview Session</CardTitle>
-                  <CardDescription className="text-indigo-700">
+                  <CardTitle>Mock Interview Session</CardTitle>
+                  <CardDescription>
                     {format(new Date(session.session_time), 'MMMM d, yyyy h:mm a')}
                   </CardDescription>
                 </div>
-                <Badge className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white font-medium py-1 px-3 shadow-sm border-none">
-                  {session.type}
-                </Badge>
+                <Badge>{session.type}</Badge>
               </div>
             </CardHeader>
-            <CardContent className="pt-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <CardContent>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="relative">
                   <video
                     ref={localVideoRef}
                     autoPlay
                     muted
                     playsInline
-                    className="w-full rounded-lg bg-black border-2 border-purple-300 shadow-lg transform transition-transform hover:scale-[1.02]"
+                    className="w-full rounded-lg bg-black"
                   />
                   <div className="absolute bottom-4 left-4">
-                    <Badge variant="secondary" className="bg-purple-100 text-purple-800 border border-purple-200 shadow-sm">
-                      You ({isInterviewer ? 'Interviewer' : 'Interviewee'})
-                    </Badge>
+                    <Badge variant="secondary">You ({isInterviewer ? 'Interviewer' : 'Interviewee'})</Badge>
                   </div>
                 </div>
                 <div className="relative">
@@ -328,24 +322,21 @@ export default function MockInterviewRoom() {
                     ref={remoteVideoRef}
                     autoPlay
                     playsInline
-                    className="w-full rounded-lg bg-black border-2 border-indigo-300 shadow-lg transform transition-transform hover:scale-[1.02]"
+                    className="w-full rounded-lg bg-black"
                   />
                   <div className="absolute bottom-4 left-4">
-                    <Badge variant="secondary" className="bg-indigo-100 text-indigo-800 border border-indigo-200 shadow-sm">
+                    <Badge variant="secondary">
                       Peer ({isInterviewer ? 'Interviewee' : 'Interviewer'})
                     </Badge>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center justify-center gap-4 mt-8">
+              <div className="flex items-center justify-center gap-4 mt-4">
                 <Button
                   variant={audioEnabled ? 'default' : 'destructive'}
                   size="icon"
                   onClick={toggleAudio}
-                  className={audioEnabled ? 
-                    "bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-md" : 
-                    "shadow-md"}
                 >
                   {audioEnabled ? (
                     <Mic className="h-4 w-4" />
@@ -357,9 +348,6 @@ export default function MockInterviewRoom() {
                   variant={videoEnabled ? 'default' : 'destructive'}
                   size="icon"
                   onClick={toggleVideo}
-                  className={videoEnabled ? 
-                    "bg-gradient-to-r from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 shadow-md" : 
-                    "shadow-md"}
                 >
                   {videoEnabled ? (
                     <Camera className="h-4 w-4" />
@@ -371,7 +359,6 @@ export default function MockInterviewRoom() {
                   variant="destructive"
                   size="icon"
                   onClick={handleEndCall}
-                  className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 shadow-md"
                 >
                   <Phone className="h-4 w-4" />
                 </Button>
@@ -380,17 +367,17 @@ export default function MockInterviewRoom() {
           </Card>
 
           {isInterviewer && session.type === 'behavioral' && (
-            <Card className="bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200 shadow-lg overflow-hidden transform transition-all hover:shadow-xl">
-              <CardHeader className="bg-gradient-to-r from-amber-100/50 to-yellow-100/50 border-b border-amber-200/50">
-                <CardTitle className="text-amber-900 font-display">Suggested Questions</CardTitle>
-                <CardDescription className="text-amber-700">
+            <Card>
+              <CardHeader>
+                <CardTitle>Suggested Questions</CardTitle>
+                <CardDescription>
                   Questions based on the interviewee's study guide.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="pt-4">
+              <CardContent>
                 <ul className="space-y-2">
                   {session.study_guide?.questions?.map((question: any) => (
-                    <li key={question.id} className="text-sm bg-amber-100/50 p-3 rounded-md border-l-4 border-amber-400 text-amber-800 shadow-sm hover:bg-amber-100 transition-colors">
+                    <li key={question.id} className="text-sm">
                       {question.question}
                     </li>
                   ))}
@@ -401,19 +388,16 @@ export default function MockInterviewRoom() {
         </div>
 
         <div>
-          <Card className="h-full bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200 shadow-lg overflow-hidden">
-            <CardHeader className="bg-gradient-to-r from-blue-100/50 to-cyan-100/50 border-b border-blue-200/50">
-              <CardTitle className="text-blue-900 font-display flex items-center">
-                <MessageSquare className="h-5 w-5 mr-2 text-blue-600" />
-                Chat
-              </CardTitle>
-              <CardDescription className="text-blue-700">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle>Chat</CardTitle>
+              <CardDescription>
                 Send messages to your peer during the interview.
               </CardDescription>
             </CardHeader>
-            <CardContent className="pt-4">
+            <CardContent>
               <div className="flex flex-col h-[600px]">
-                <ScrollArea className="flex-1 mb-4 pr-4">
+                <ScrollArea className="flex-1 mb-4">
                   <div className="space-y-4">
                     {messages.map((message) => (
                       <div
@@ -423,14 +407,14 @@ export default function MockInterviewRoom() {
                         }`}
                       >
                         <div
-                          className={`rounded-lg px-4 py-2 max-w-[80%] shadow-md ${
+                          className={`rounded-lg px-4 py-2 max-w-[80%] ${
                             message.sender_id === user?.id
-                              ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
-                              : 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800'
-                          } transform transition-all hover:scale-[1.01]`}
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-muted'
+                          }`}
                         >
                           <p className="text-sm">{message.content}</p>
-                          <p className={`text-xs ${message.sender_id === user?.id ? 'text-blue-100' : 'text-gray-500'}`}>
+                          <p className="text-xs opacity-70">
                             {format(new Date(message.timestamp), 'h:mm a')}
                           </p>
                         </div>
@@ -444,7 +428,7 @@ export default function MockInterviewRoom() {
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder="Type a message..."
-                    className="flex-1 border-blue-200 focus:border-blue-300 bg-white/90 shadow-sm focus:ring-blue-200"
+                    className="flex-1"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' && !e.shiftKey) {
                         e.preventDefault();
@@ -456,7 +440,6 @@ export default function MockInterviewRoom() {
                     size="icon"
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim()}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white shadow-md"
                   >
                     <MessageSquare className="h-4 w-4" />
                   </Button>
@@ -468,4 +451,4 @@ export default function MockInterviewRoom() {
       </div>
     </div>
   );
-}
+} 

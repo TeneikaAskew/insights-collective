@@ -10,7 +10,7 @@ import { RoleCard } from '@/components/careers/RoleCard';
 import { dataCareerRoles } from '@/data/dataCareerRoles';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-
+import { Helmet } from 'react-helmet-async';
 const ExploreDataCareers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
@@ -129,6 +129,11 @@ const ExploreDataCareers = () => {
     }
   };
   return <AppLayout>
+      <Helmet>
+        <title>Explore Careers | Insights Collective</title>
+        <meta name="description" content="Discover the wide range of career paths available in the data industry" />
+      </Helmet>
+      
       <div className="container mx-auto py-8 px-4 space-y-8">
         <motion.div initial={{
         opacity: 0,
