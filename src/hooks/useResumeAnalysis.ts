@@ -660,7 +660,6 @@ export function useResumeAnalysis() {
           careerGoals: careerGoals || undefined
         }
       });
-      console.log("Analysis Data: ", analysisData);
 
       console.log("[Resume Analysis] Initial analysis completed", {
         success: !!analysisData && !error,
@@ -690,28 +689,28 @@ export function useResumeAnalysis() {
         });
         
         // Try to recover by providing default values for missing fields
-        // const recoveredData = {
-        //   ...analysisData,
-        //   resume_percent: analysisData.resume_percent || 50,
-        //   letter_grade: analysisData.letter_grade || 'C',
-        //   themes: analysisData.themes || ['Analysis incomplete. Please try again.']
-        // };
+        const recoveredData = {
+          ...analysisData,
+          resume_percent: analysisData.resume_percent || 50,
+          letter_grade: analysisData.letter_grade || 'C',
+          themes: analysisData.themes || ['Analysis incomplete. Please try again.']
+        };
         
-        // console.log("[Resume Analysis] Recovered data:", recoveredData);
+        console.log("[Resume Analysis] Recovered data:", recoveredData);
         
-        // // Clean and enhance the recovered data
-        // const cleanedData = cleanAnalysisOutput(recoveredData);
-        // cleanedData.resume_id = user.id;
+        // Clean and enhance the recovered data
+        const cleanedData = cleanAnalysisOutput(recoveredData);
+        cleanedData.resume_id = user.id;
         
-        // // // Perform keyword analysis
-        // const enhancedData = analyzeKeywordsInResume(text, cleanedData as ResumeAnalysis);
+        // Perform keyword analysis
+        const enhancedData = analyzeKeywordsInResume(text, cleanedData as ResumeAnalysis);
         
-        // // Update states and storage
-        // setAnalysis(enhancedData as ResumeAnalysis);
-        // localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedData));
-        // calculateCareerAlignments(enhancedData as ResumeAnalysis);
-        // hasLoadedAnalysis.current = true;
-        // setIsAnalyzing(false);
+        // Update states and storage
+        setAnalysis(enhancedData as ResumeAnalysis);
+        localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedData));
+        calculateCareerAlignments(enhancedData as ResumeAnalysis);
+        hasLoadedAnalysis.current = true;
+        setIsAnalyzing(false);
         
         // Show a warning toast
         toast({
@@ -737,46 +736,21 @@ export function useResumeAnalysis() {
       hasLoadedAnalysis.current = true;
       setIsAnalyzing(false);
 
-      // Wait for analysis to be stored in database before triggering improvements
+      // Start polling for improvements
+      console.log("[Resume Analysis] Triggering improve-bullets analysis...");
       try {
-        // Verify analysis is complete and data exists in database
-        const { data: analysisData, error: analysisError } = await supabase
-          .from('resumes')
-          .select('analysis_complete, analysis')
-          .eq('user_id', user.id)
-          .order('uploaded_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (analysisError) {
-          console.error("[Resume Analysis] Error checking analysis status:", analysisError);
-          return true;
-        }
-
-        if (!analysisData?.analysis_complete === true || !analysisData?.analysis) {
-          console.log("[Resume Analysis] Analysis not yet complete or missing data");
-          return true;
-        }
-
-        // Now trigger bullet improvements
-        console.log("[Resume Analysis] Analysis complete, triggering improve-bullets...");
-        try {
-          await supabase.functions.invoke('resume-analyzer', {
-            body: { 
-              action: 'improve-bullets',
-              userId: user.id
-            }
-          });
-          console.log("[Resume Analysis] Improve-bullets request sent successfully");
-          // Start polling after successful request
-          setIsPollingForImprovements(true);
-          setPollingStatus('polling');
-          pollForImprovedBullets(user.id);
-        } catch (err) {
-          console.error("[Resume Analysis] Error triggering improve-bullets:", err);
-          setIsPollingForImprovements(false);
-          setPollingStatus('error');
-        }
+        await supabase.functions.invoke('resume-analyzer', {
+          body: { 
+            action: 'improve-bullets',
+            userId: user.id,
+            careerGoals: careerGoals || undefined
+          }
+        });
+        console.log("[Resume Analysis] Improve-bullets request sent successfully");
+        // Start polling after successful request
+        setIsPollingForImprovements(true);
+        setPollingStatus('polling');
+        pollForImprovedBullets(user.id);
       } catch (err) {
         console.error("[Resume Analysis] Error triggering improve-bullets:", err);
         setIsPollingForImprovements(false);

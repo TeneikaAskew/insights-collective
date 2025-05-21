@@ -244,10 +244,7 @@ function formatResponse(raw) {
     /Here are the three key outputs:\s*\\n+([\s\S]{40,500}?)(?=\\n+Here are|\\n+(?:Three|three) specific improvement themes|\\n+The resume|\\n+\*\*|\\n+$)/i,
     /^As\s+a\s+[^\n]{10,250}?(?=\n{2,}|\nHere are|\nThree|\nThe resume|\nResume Grade|$)/im,
     /Here are the three key outputs:\s*\n+([^\n]{40,500}.*?)(?=\n{2,}|Here are|Three specific improvement themes|The resume|Resume Grade|$)/i,
-    /([A-Z][\s\S]{30,800}?)(?=\n{2,}|\n+(Here are|Three|The resume|Resume Grade|A brief explanation|Explanation|Improvement Themes|$))/i,
-    /A\s+professional\s+elevator\s+pitch\s+based\s+on\s+the\s+resume\s+text\s+could\s+be:?\s*(.+?)(?=\n{2,}|\n+Three\s+specific\s+improvement\s+themes|\n+The\s+resume|$)/is,
-    /A\s+professional\s+elevator\s+pitch[^:]{0,80}:?\s*(.+?)(?=\n{2,}|\n+Three\s+specific\s+improvement\s+themes|\n+The\s+resume|$)/is,
-
+    /([A-Z][\s\S]{30,800}?)(?=\n{2,}|\n+(Here are|Three|The resume|Resume Grade|A brief explanation|Explanation|Improvement Themes|$))/i
   ];
   
   for (const pattern of elevatorPatterns){
@@ -286,12 +283,7 @@ function formatResponse(raw) {
     /three\s+specific\s+improvement\s+themes?\s*(?:are|include)?\s*:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /[Tt]hree specific improvement themes are:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /[Tt]hree specific improvement themes?\s*(?:are)?:?\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
-    /To improve the resume, three key themes can be addressed:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
-    /Three\s+specific\s+improvement\s+themes\s+are:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
-    /Three\s+specific\s+improvement\s+themes\s+are\s*:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,  
-    /Three\s+specific\s+improvement\s+themes\s+based\s+on\s+the\s+resume\s+text\s+are:?\s*([\s\S]*?)(?=\n{2,}|\n+The\s+resume\s+grade|\n+\*\*|$)/i,
-
-    
+    /To improve the resume, three key themes can be addressed:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i
   ];
   
   for (const pattern of themePatterns){
@@ -385,9 +377,7 @@ function formatResponse(raw) {
     /Resume Grade Explanation:?\s*([\s\S]*?)(?=\n\s*\*\*|\n\s*\d+\.|\n\s*$)/,
     /3\.\s*Explanation:?\s*([\s\S]*?)(?=\n\s*\d+\.|\n\s*$)/,
     /(The resume grade of [A-F][+-]?\s+[^.]+\.[\s\S]*?(?=\n\s*))/,
-    /([Tt]he\s+[A-F][+-]?\s+grade\s+[^.]+?\.)/,
-    /The\s+resume\s+grade\s+is\s+[A-F][+-]?[^.]*?\.[\s\S]*?(?=\n{2,}|\n\s*$)/i,
-
+    /([Tt]he\s+[A-F][+-]?\s+grade\s+[^.]+?\.)/
   ];
   
   for (const pattern of explanationPatterns){
@@ -414,7 +404,7 @@ function formatResponse(raw) {
   }
   
   // Debug what we extracted
-  // console.log("Extracted content:", JSON.stringify(extractedContent, null, 2));
+  console.log("Extracted content:", JSON.stringify(extractedContent, null, 2));
   
   return extractedContent;
 }

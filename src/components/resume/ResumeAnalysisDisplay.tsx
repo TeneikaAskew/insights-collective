@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
@@ -53,15 +54,12 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     bullets = [],
   } = analysis || {};
 
-  // Ensure bullets is always an array
-  const bulletPoints = Array.isArray(bullets) ? bullets : [];
-
   const needsImprovementAlert = analysis && (resume_percent < 60 || letter_grade === 'D' || letter_grade === 'F');
   const excellentResumeAlert = analysis && resume_percent >= 85;
 
-  const topBullets = bulletPoints.slice(0, 5);
-  const highestScoringBullet = topBullets.length > 0 ? [...topBullets].sort((a, b) => (b?.bullet_total || 0) - (a?.bullet_total || 0))[0] : null;
-  const lowestScoringBullet = topBullets.length > 0 ? [...topBullets].sort((a, b) => (a?.bullet_total || 0) - (b?.bullet_total || 0))[0] : null;
+  const topBullets = analysis ? bullets?.slice(0, 5) || [] : [];
+  const highestScoringBullet = analysis ? [...topBullets].sort((a, b) => (b?.bullet_total || 0) - (a?.bullet_total || 0))[0] : null;
+  const lowestScoringBullet = analysis ? [...topBullets].sort((a, b) => (a?.bullet_total || 0) - (b?.bullet_total || 0))[0] : null;
 
   const renderFilePreviewLocal = () => {
     if (resume?.file_url && resume?.file_name?.toLowerCase().endsWith('.pdf') && !resumeFile) {
@@ -280,9 +278,9 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                     </div>
                     <div className="border-l-4 border-purple-400 pl-3 py-1">
                       <p className="text-xs text-muted-foreground mb-1">STORYTELLING QUALITY</p>
-                      <p className="text-sm">{bulletPoints && bulletPoints.length > 0 ? bulletPoints.length : 0} bullet points analyzed</p>
-                      <p className="text-xs text-muted-foreground">Average quality score: {bulletPoints && bulletPoints.length > 0 ?
-                        Math.round(bulletPoints.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / bulletPoints.length)
+                      <p className="text-sm">{bullets ? bullets.length : 0} bullet points analyzed</p>
+                      <p className="text-xs text-muted-foreground">Average quality score: {bullets ?
+                        Math.round(bullets.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / (bullets.length || 1))
                         : 0}/45</p>
                     </div>
                   </div>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -133,11 +134,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
                 <ChartBar className="h-4 w-4" />
                 <span>Overview</span>
               </TabsTrigger>
-              <TabsTrigger 
-                value="storytelling" 
-                className="flex items-center gap-2" 
-                disabled={!analysis || !Array.isArray(analysis.bullets) || analysis.bullets.length === 0}
-              >
+              <TabsTrigger value="storytelling" className="flex items-center gap-2" disabled={!analysis?.bullets?.length}>
                 <Target className="h-4 w-4" />
                 <span>Storytelling</span>
               </TabsTrigger>
