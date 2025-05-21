@@ -35,6 +35,7 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
+          {/* Only show UserPresenceBar for authenticated users */}
           {isAuthenticated && <UserPresenceBar />}
           <main data-component-name="main" className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
             {children}

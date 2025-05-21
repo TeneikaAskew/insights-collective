@@ -119,7 +119,6 @@ function App() {
                   <Route path="/register" element={<Register />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/career-agent" element={<CareerAgent />} />
-                  <Route path="/career-pathway" element={<CareerPathway />} />
                   <Route path="/blog" element={<BlogList />} />
                   <Route path="/blog/:slug" element={<BlogPost />} />
                   <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
@@ -131,6 +130,8 @@ function App() {
                   <Route path="/survey-confirmation" element={<SurveyConfirmation />} />
                   <Route path="/survey-confirmation/:slug" element={<SurveyConfirmation />} />
                   <Route path="/survey/:slug" element={<SurveyPage />} />
+                  {/* Add Resources as a public route */}
+                  <Route path="/resources" element={<Resources />} />
                   
                   {/* Interview Prep routes - require authentication */}
                   <Route path="/interview-prep" element={<ProtectedVisibleRoute><InterviewPrep /></ProtectedVisibleRoute>} />
@@ -152,7 +153,6 @@ function App() {
                   {/* Protected routes - require authentication */}
                   <Route path="/dashboard" element={<ProtectedVisibleRoute><Dashboard /></ProtectedVisibleRoute>} />
                   <Route path="/courses/:courseId/modules/:moduleId" element={<ProtectedVisibleRoute><ModuleDetail /></ProtectedVisibleRoute>} />
-                  <Route path="/resources" element={<ProtectedVisibleRoute><Resources /></ProtectedVisibleRoute>} />
                   <Route path="/notifications" element={<ProtectedVisibleRoute><Notifications /></ProtectedVisibleRoute>} />
                   <Route path="/profile" element={<ProtectedVisibleRoute><Profile /></ProtectedVisibleRoute>} />
                   <Route path="/calendar" element={<ProtectedVisibleRoute><Calendar /></ProtectedVisibleRoute>} />
@@ -163,6 +163,8 @@ function App() {
                   <Route path="/resume" element={<ProtectedVisibleRoute><Resume /></ProtectedVisibleRoute>} />
                   <Route path="/debug" element={<ProtectedVisibleRoute requireAdmin><LocalStorageDebugPage /></ProtectedVisibleRoute>} />
                   <Route path="/portfolio-explorer" element={<ProtectedVisibleRoute><PortfolioExplorer /></ProtectedVisibleRoute>} />
+                  {/* Keep career-pathway as protected route */}
+                  <Route path="/career-pathway" element={<ProtectedVisibleRoute><CareerPathway /></ProtectedVisibleRoute>} />
                   
                   {/* Forum routes - require authentication */}
                   <Route path="/courses/:courseId/forums" element={<ProtectedVisibleRoute><ForumList /></ProtectedVisibleRoute>} />
