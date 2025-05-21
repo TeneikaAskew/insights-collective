@@ -36,7 +36,10 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
           {isAuthenticated && <UserPresenceBar />}
-          <main className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
+          <main 
+            className={`flex-1 w-full overflow-auto relative ${fullWidth ? 'p-0' : 'p-4'}`} 
+            data-component-name="main"
+          >
             {children}
           </main>
           <footer className="p-4 w-full border-t text-center text-sm text-gray-500">
