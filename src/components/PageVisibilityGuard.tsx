@@ -2,11 +2,11 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
-import { Clock, Lock, Shield, UserCheck, Users } from 'lucide-react';
+import { Lock } from 'lucide-react';
 
 export default function PageVisibilityGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const { isPageVisible, isLoading, userRole } = usePageVisibility();
+  const { isPageVisible, isLoading } = usePageVisibility();
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
@@ -15,53 +15,10 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
     }
   }, [location.pathname, isPageVisible, isLoading]);
 
-  // Don't show role badge on authentication pages or for pages that are not visible
-  const showRoleBadge = userRole && isVisible && 
-    !['/login', '/register', '/auth'].includes(location.pathname);
-
-  // Determine badge styling based on user role
-  const getBadgeStyles = () => {
-    switch(userRole) {
-      case 'admin':
-        return {
-          icon: <Shield className="h-3 w-3 mr-1" />,
-          bgColor: 'bg-red-500/70',
-          text: 'Admin'
-        };
-      case 'instructor':
-        return {
-          icon: <UserCheck className="h-3 w-3 mr-1" />,
-          bgColor: 'bg-blue-500/70',
-          text: 'Instructor'
-        };
-      default:
-        return {
-          icon: <Users className="h-3 w-3 mr-1" />,
-          bgColor: 'bg-green-500/70',
-          text: 'User'
-        };
-    }
-  };
-
-  const badgeStyles = getBadgeStyles();
-
   if (isLoading) return <>{children}</>;
+  
   if (isVisible) {
-    return (
-      <div className="relative min-h-screen">
-        {children}
-        
-        {/* Role badge overlay */}
-        {showRoleBadge && (
-          <div className="fixed bottom-4 right-4 z-[100]">
-            <div className={`rounded-full py-1 px-3 text-white text-xs font-medium flex items-center shadow-md ${badgeStyles.bgColor}`}>
-              {badgeStyles.icon}
-              <span>{badgeStyles.text} View</span>
-            </div>
-          </div>
-        )}
-      </div>
-    );
+    return <>{children}</>;
   }
 
   return (

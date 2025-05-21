@@ -234,16 +234,10 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   const isPageVisible = (path: string): boolean => {
     if (!user) return true; // Default to visible if no user (for public pages)
     
-    const isAdmin = user.user_metadata?.role === 'admin' || 
-                   (Array.isArray(user.user_metadata?.roles) && 
-                    user.user_metadata?.roles.includes('admin'));
+    // Admins can see everything
+    if (userRole === 'admin') return true;
     
-    if (isAdmin) return true; // Admins can see everything
-    
-    const isInstructor = user.user_metadata?.role === 'instructor' || 
-                        (Array.isArray(user.user_metadata?.roles) && 
-                         user.user_metadata?.roles.includes('instructor'));
-    
+    // Check if the path matches any of the configured pages
     const pageConfig = pageVisibility.find(p => {
       // For dynamic routes with parameters, we need to match the pattern
       if (p.page_path.includes(':')) {
@@ -254,9 +248,13 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       return p.page_path === path;
     });
     
-    if (!pageConfig) return true; // Default to visible if no config found
+    // If no configuration found, default to visible
+    if (!pageConfig) return true;
     
-    return isInstructor ? pageConfig.visible_to_instructors : pageConfig.visible_to_users;
+    // Check visibility based on user role
+    return userRole === 'instructor' 
+      ? pageConfig.visible_to_instructors 
+      : pageConfig.visible_to_users;
   };
 
   // Update page visibility
@@ -279,9 +277,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     try {
       setIsSyncing(true);
       
-      // Get all routes from the application
-      // For this to work properly, we'll simulate scanning app routes
-      // In a real app, this would analyze the router configuration
+      // Get routes from the application using React Router routes
       const appRoutes = [
         { path: '/', name: 'Home' },
         { path: '/login', name: 'Login' },
