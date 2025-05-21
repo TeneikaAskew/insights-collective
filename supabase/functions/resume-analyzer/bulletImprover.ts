@@ -1,8 +1,7 @@
-console.log("Bullet Extractor Endpoint hit");
 import { corsHeaders, callLLMWithRetry, callTracking } from './utils.ts';
 export const config = {
   MAX_CONCURRENT_REQUESTS: 6,
-  MAX_TOTAL_BULLETS: 10,
+  MAX_TOTAL_BULLETS: 2,
   MAX_RETRIES: 3,
   RATE_LIMIT_DELAY_MS: 2000,
   RATE_LIMIT_JITTER_MS: 500,
@@ -41,6 +40,7 @@ export async function improveBullet(bulletData) {
       // On last attempt, return fallback
       if (attempts === config.MAX_RETRIES) {
         return {
+          original: bulletData.original,
           rewritten: bulletData.original,
           tips: "Unable to improve bullet point after multiple attempts. Consider adding metrics and using stronger action verbs."
         };
@@ -94,27 +94,36 @@ Do not use arrays or nested quotes in your response. Keep it simple.`;
   };
 }
 // Helper function to process the GROQ response
-function processGroqResponse(response, originalBullet) {
+function processGroqResponse(response, bulletData) {
   try {
     // If the response is already in the expected format, return it
     if (response.rewritten && response.tips) {
-      return response;
+      return {
+        original: bulletData.original,
+        rewritten: response.rewritten,
+        tips: response.tips
+      };
     }
     // Try to parse the response if it's a JSON string
     if (typeof response === 'string') {
       try {
         const parsedResponse = JSON.parse(response);
         if (parsedResponse.rewritten && parsedResponse.tips) {
-          return parsedResponse;
+          return {
+            original: bulletData.original,
+            rewritten: parsedResponse.rewritten,
+            tips: parsedResponse.tips
+          };
         }
       } catch (e) {
-      // Not valid JSON, continue with other parsing methods
+        // Not valid JSON, continue with other parsing methods
       }
       // Try to extract from the string
       const rewrittenMatch = response.match(/["']rewritten["']\s*:\s*["']([^"']+)["']/);
       const tipsMatch = response.match(/["']tips["']\s*:\s*["']([^"']+)["']/);
       if (rewrittenMatch && tipsMatch) {
         return {
+          original: bulletData.original,
           rewritten: rewrittenMatch[1],
           tips: tipsMatch[1]
         };
@@ -125,6 +134,7 @@ function processGroqResponse(response, originalBullet) {
       const contentBetweenBrackets = response.match(/\[(.*?)\]/s);
       if (contentBetweenBrackets && contentBetweenBrackets[1]) {
         return {
+          original: bulletData.original,
           rewritten: contentBetweenBrackets[1].trim(),
           tips: "Extracted from API response."
         };
@@ -133,34 +143,45 @@ function processGroqResponse(response, originalBullet) {
     // Last resort fallback
     console.warn("Could not parse GROQ response, returning original bullet");
     return {
-      rewritten: originalBullet.original,
+      original: bulletData.original,
+      rewritten: bulletData.original,
       tips: "Could not generate specific tips. Consider adding metrics and using stronger action verbs."
     };
   } catch (error) {
     console.error("Error processing GROQ response:", error);
     return {
-      rewritten: originalBullet.original,
+      original: bulletData.original,
+      rewritten: bulletData.original,
       tips: "Error processing the API response. Consider adding metrics and using stronger action verbs."
     };
   }
 }
 // Process bullets in parallel with controlled concurrency and timeouts
-async function processBulletsInParallel(bullets: string[], userId: string) {
-  console.log(`Processing ${bullets.length} out of ${bullets.length} total bullets`);
-  
-  // Process bullets sequentially instead of in parallel
-  const improvedBullets = [];
+async function processBulletsInParallel(bullets: any[], userId: string) {
+  const limit = config.MAX_TOTAL_BULLETS || 10;
+  console.log(`Processing up to ${limit} of ${bullets.length} total bullets`);
+  const improvedBullets: any[] = [];
   for (let i = 0; i < bullets.length; i++) {
-    console.log(`Processing bullet ${i + 1} of ${bullets.length}`);
-    try {
-      const improvedBullet = await improveBullet(bullets[i], userId);
-      improvedBullets.push(improvedBullet);
-    } catch (error) {
-      console.error(`Error processing bullet: ${error.message}`);
-      improvedBullets.push(bullets[i]); // Keep original bullet if improvement fails
+    if (i < limit) {
+      try {
+        const improvedBullet = await improveBullet(bullets[i]);
+        improvedBullets.push(improvedBullet);
+      } catch (error) {
+        console.error(`Error processing bullet: ${error.message}`);
+        improvedBullets.push({
+          original: bullets[i].original,
+          rewritten: bullets[i].original,
+          tips: "An error occurred while improving this bullet."
+        });
+      }
+    } else {
+      improvedBullets.push({
+        original: bullets[i].original,
+        rewritten: bullets[i].original,
+        tips: "You've reached your daily processing limit."
+      });
     }
   }
-  
   return improvedBullets;
 }
 // Export the new parallel processing function as the main interface

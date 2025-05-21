@@ -758,11 +758,11 @@ serve(async (req) => {
     }
 
     switch (action) {
-      // case 'improve-bullets': {
-      //   if (!userId) throw new Error('userId is required for improve-bullets');
-      //   payload = await bulletImprover(userId);
-      //   break;
-      // }
+      case 'improve-bullets': {
+        if (!userId) throw new Error('userId is required for improve-bullets');
+        payload = await bulletImprover(userId);
+        break;
+      }
       
       case 'get-roast': {
         if (!resolvedText) throw new Error('resumeText is required for get-roast');
@@ -825,6 +825,27 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
   
   // Initialize bulletPoints from passed-in sentences
   let bulletPoints = Array.isArray(sentences) && sentences.length > 0 ? sentences : [];
+
+  // If no bullets provided, try to load from database first (if userId is available)
+  if (bulletPoints.length === 0 && userId) {
+    console.log('No sentences provided, attempting to load from database');
+    try {
+      const { data: existingData } = await supabase
+        .from('resumes')
+        .select('sentences')
+        .eq('user_id', userId)
+        .order('uploaded_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+        
+      if (existingData?.sentences && Array.isArray(existingData.sentences)) {
+        bulletPoints = existingData.sentences;
+        console.log(`Loaded ${bulletPoints.length} bullet points from database`);
+      }
+    } catch (error) {
+      console.error('Error loading sentences from database:', error);
+    }
+  }
   
   // If no bullets provided, try to extract them
   if (bulletPoints.length === 0) {
@@ -863,7 +884,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
   
   // Get AI analysis asynchronously while saving to DB
   const aiAnalysisPromise = enhanceWithGroq(resumeText, {
-    bullets: results.sortedBullets,
+    bullets: results.bullets,
     letter_grade: results.letter_grade,
     resume_percent: results.resume_percent,
   });
@@ -872,11 +893,10 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
   let dbSavePromise;
   if (userId) {
     const analysisData = {
-      bullets: results.sortedBullets,
+      bullets: results.bullets,
       resume_average: results.weightedAverage,
       resume_percent: results.resume_percent,  // Use the snake_case property
       letter_grade: results.letter_grade
-      // We'll add the AI analysis fields after they're completed
     };
     
     dbSavePromise = saveAnalysisToDatabase(userId, analysisData);
@@ -897,7 +917,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
   if (dbSavePromise && userId) {
     // Update DB with AI analysis results
     const finalAnalysisData = {
-      bullets: results.sortedBullets,
+      bullets: results.bullets,
       resume_average: results.weightedAverage,
       resume_percent: results.resume_percent,  // Use the snake_case property
       letter_grade: results.letter_grade,
@@ -1114,12 +1134,7 @@ export async function bulletImprover(userId, enhanced = null) {
     const enhancedBullets = await processBulletsInParallel(bullets, userId);
     
     // Update analysis with enhanced bullets
-    const updatedAnalysis = {
-      ...analysis,
-      bullets: mapEnhancementsToBullets(bullets, enhancedBullets),
-      updated_at: new Date().toISOString()
-    };
-    
+    const updatedAnalysis = mapEnhancementsToBullets(bullets, enhancedBullets)
     // Save to database
     await saveEnhancedAnalysis(userId, updatedAnalysis);
     console.log('Enhanced analysis saved to database');
@@ -1176,24 +1191,24 @@ async function getAnalysisData(userId, enhanced = null) {
     };
   }
   
-  // Check if analysis is complete
-  if (!currentData?.analysis_complete) {
-    console.error('Analysis not complete');
-    return {
-      success: false,
-      error: 'Analysis not complete - please wait for analysis to finish'
-    };
-  }
+  // // Check if analysis is complete
+  // if (!currentData?.analysis_complete) {
+  //   console.error('Analysis not complete');
+  //   return {
+  //     success: false,
+  //     error: 'Analysis not complete - please wait for analysis to finish'
+  //   };
+  // }
   
-  // Check if improvements are already complete
-  if (currentData?.improvements_complete) {
-    console.log('Improvements already complete');
-    return {
-      success: true,
-      analysis: currentData.analysis
-    };
-  }
-  
+  // // Check if improvements are already complete
+  // if (currentData?.improvements_complete) {
+  //   console.log('Improvements already complete');
+  //   return {
+  //     success: true,
+  //     analysis: currentData.analysis
+  //   };
+  // }
+  console.log("Current Bullet Data", currentData?.analysis?.bullets);
   // Check if we have valid bullets
   if (!currentData?.analysis?.bullets || !currentData.analysis.bullets.length) {
     console.error('No bullets found in analysis');
@@ -1202,6 +1217,15 @@ async function getAnalysisData(userId, enhanced = null) {
       error: 'No bullets found - please ensure analysis is complete first'
     };
   }
+
+  // // Check if we have valid bullets
+  // if (!currentData?.enhanced_analysis?.bullets || !currentData.enhanced_analysis.bullets.length) {
+  //   console.error('No bullets found in enhanced analysis');
+  //   return {
+  //     success: true,
+  //     error: 'No improved bullets found - please ensure analysis is complete first'
+  //   };
+  // }
   
   return {
     success: true,
@@ -1227,7 +1251,7 @@ async function saveEnhancedAnalysis(userId, updatedAnalysis) {
   const { error: updateError } = await supabase
     .from('resumes')
     .update({ 
-      analysis: updatedAnalysis,
+      enhanced_analysis: updatedAnalysis,
       improvements_complete: true
     })
     .eq('user_id', userId);

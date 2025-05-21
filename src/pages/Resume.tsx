@@ -621,19 +621,19 @@ const Resume = () => {
         }
       }
       
-      // Clear specific job-related keys
-      const jobKeys = [
-        'job_description_url',
-        'job_description_text',
-        'job_analyzer_active_tab',
-        'job_analysis_result',
-        'job_analyzer_use_filtering'
-      ];
+      // // Clear specific job-related keys
+      // const jobKeys = [
+      //   'job_description_url',
+      //   'job_description_text',
+      //   'job_analyzer_active_tab',
+      //   'job_analysis_result',
+      //   'job_analyzer_use_filtering'
+      // ];
       
-      jobKeys.forEach(key => {
-        localStorage.removeItem(key);
-        logDebug('UserAction', `Removed job-related key: ${key}`);
-      });
+      // jobKeys.forEach(key => {
+      //   localStorage.removeItem(key);
+      //   logDebug('UserAction', `Removed job-related key: ${key}`);
+      // });
     }
 
     try {
@@ -664,8 +664,7 @@ const Resume = () => {
             const { data: enhancedData, error: enhancedError } = await supabase.functions.invoke('resume-analyzer', {
               body: { 
                 action: 'improve-bullets',
-                userId: user?.id,
-                careerGoals: localStorage.getItem(`career_goals_${user?.id}`) || undefined
+                userId: user?.id
               }
             });
 

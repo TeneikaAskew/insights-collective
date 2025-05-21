@@ -337,8 +337,8 @@ export function useResumeAnalysis() {
     if (!userId) return;
 
     const config: PollingConfig = {
-      initialInterval: 3000, // Start with 3 seconds
-      maxInterval: 15000,    // Max 15 seconds between attempts
+      initialInterval: 10000, // Start with 10 seconds
+      maxInterval: 25000,    // Max 25 seconds between attempts
       maxAttempts: 20,       // More attempts but with backoff
       backoffFactor: 1.5     // Increase interval by 50% each attempt
     };
@@ -361,14 +361,12 @@ export function useResumeAnalysis() {
       }
 
       try {
-        // Load career goals from local storage
-        const careerGoals = localStorage.getItem(`career_goals_${userId}`);
+        console.log("Missing bullet points, Bullet Improver Function Invoked")
         
         const { data, error } = await supabase.functions.invoke('resume-analyzer', {
           body: { 
             action: 'improve-bullets',
-            userId: userId,
-            careerGoals: careerGoals || undefined
+            userId: userId
           }
         });
 
