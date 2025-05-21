@@ -95,17 +95,17 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     if (docxFile) {
       const fileName = resumeFile ? resumeFile.name : resume?.file_name;
       return (
-        <div className="w-full aspect-[8.5/6] border rounded-md flex flex-col items-center justify-center bg-accent/10" style={{ height: '250px', maxHeight: '60vh' }}>
-          <File className="h-12 w-12 text-muted-foreground mb-2" />
-          <p className="text-muted-foreground">Word Document Preview</p>
-          {fileName && <p className="text-sm text-muted-foreground mt-1">{fileName}</p>}
-          <p className="text-xs text-muted-foreground mt-1">(Live preview not available for DOCX files)</p>
+        <div className="w-full aspect-[8.5/6] border rounded-md flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50" style={{ height: '250px', maxHeight: '60vh' }}>
+          <File className="h-12 w-12 text-blue-500 mb-2" />
+          <p className="text-blue-700 font-medium">Word Document Preview</p>
+          {fileName && <p className="text-sm text-blue-600 mt-1">{fileName}</p>}
+          <p className="text-xs text-blue-500 mt-1">(Live preview not available for DOCX files)</p>
         </div>
       );
     }
     return (
-      <div className="bg-accent/10 aspect-[8.5/6] flex items-center justify-center rounded-md" style={{ height: '250px', maxHeight: '60vh' }}>
-        <p className="text-muted-foreground">No preview available</p>
+      <div className="bg-gradient-to-br from-gray-50 to-indigo-50 aspect-[8.5/6] flex items-center justify-center rounded-md" style={{ height: '250px', maxHeight: '60vh' }}>
+        <p className="text-indigo-500 font-medium">No preview available</p>
       </div>
     );
   };
@@ -114,26 +114,26 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   const renderUploadCard = () => {
     
     return (
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle>Your Resume</CardTitle>
-          <CardDescription>
+      <Card className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-blue-100/50 to-indigo-100/50">
+          <CardTitle className="text-blue-900">Your Resume</CardTitle>
+          <CardDescription className="text-blue-700">
             {resume && !resumeFile ? "Manage your uploaded resume or upload a new version." : "Upload your resume in PDF or DOCX format to get started."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {fileError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Upload Error</AlertTitle>
-              <AlertDescription>{fileError}</AlertDescription>
+            <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertTitle className="text-red-800">Upload Error</AlertTitle>
+              <AlertDescription className="text-red-700">{fileError}</AlertDescription>
             </Alert>
           )}
 
           {(!resume && !resumeFile) ? (
-            <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-8 text-center">
-              <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">Drag and drop your resume here, or click to browse</p>
+            <div className="border-2 border-dashed border-blue-300 rounded-md p-8 text-center bg-white/50">
+              <FileUp className="h-10 w-10 text-blue-500 mx-auto mb-4" />
+              <p className="text-blue-700 mb-4">Drag and drop your resume here, or click to browse</p>
               <input
                 type="file"
                 accept=".pdf,.docx"
@@ -142,19 +142,19 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 onChange={handleFileChange}
                 disabled={uploading || isAnalyzing}
               />
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800">
                 <label htmlFor="resume-upload-display">Browse Files</label>
               </Button>
             </div>
           ) : (
-            <div className="border rounded-md p-4">
+            <div className="border rounded-md p-4 bg-white/70 border-blue-200">
               <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-                <File className="h-6 w-6 text-primary shrink-0" />
+                <File className="h-6 w-6 text-blue-500 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm sm:text-base truncate">
+                  <p className="font-medium text-sm sm:text-base truncate text-blue-800">
                     {resumeFile ? resumeFile.name : (resume?.file_name || resume?.file_path?.split('/').pop())}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate">
+                  <p className="text-xs text-blue-600 truncate">
                     {resumeFile
                       ? `${(resumeFile.size / 1024 / 1024).toFixed(2)} MB`
                       : resume?.uploaded_at ? `Uploaded on ${new Date(resume.uploaded_at).toLocaleDateString()}` : 'Previously uploaded'}
@@ -162,7 +162,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 </div>
                 <div className="flex gap-1 sm:gap-2 ml-auto">
                   {resume?.file_url && !resumeFile && (
-                    <Button variant="outline" size="icon" onClick={handleDownload} title="Download Resume" className="h-8 w-8">
+                    <Button variant="outline" size="icon" onClick={handleDownload} title="Download Resume" className="h-8 w-8 border-blue-200 text-blue-700 hover:bg-blue-100">
                       <DownloadCloud className="h-3 w-3 sm:h-4 sm:w-4" />
                     </Button>
                   )}
@@ -178,7 +178,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                     disabled={uploading || isAnalyzing}
                   />
                   {(resume || resumeFile) && (
-                    <Button variant="outline" size="icon" asChild title="Replace Resume" className="h-8 w-8">
+                    <Button variant="outline" size="icon" asChild title="Replace Resume" className="h-8 w-8 border-blue-200 text-blue-700 hover:bg-blue-100">
                       <label htmlFor="resume-replace-display">
                         <FileUp className="h-3 w-3 sm:h-4 sm:w-4" />
                       </label>
@@ -194,7 +194,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             <Button
               onClick={handleUpload}
               disabled={!resumeFile || uploading || isAnalyzing}
-              className="w-full"
+              className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white"
             >
               {uploading ? 'Uploading...' : isAnalyzing ? 'Analyzing...' : 'Upload & Analyze Resume'}
             </Button>
@@ -235,9 +235,9 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
             
             {/* Preview Section - Show if resume exists */}
             {(resume || resumeFile) && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Resume Preview</CardTitle>
+              <Card className="bg-gradient-to-br from-indigo-50 to-purple-50 border-indigo-100">
+                <CardHeader className="bg-gradient-to-r from-indigo-100/50 to-purple-100/50">
+                  <CardTitle className="text-indigo-900">Resume Preview</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {renderFilePreviewLocal()}
@@ -247,14 +247,14 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
             {/* Key Insights Section - Show if analysis exists */}
             {analysis && (
-              <Card className="mt-6">
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2">
+              <Card className="mt-6 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-100 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-purple-100/50 to-pink-100/50 pb-2">
+                  <CardTitle className="flex items-center gap-2 text-purple-900">
                     <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
                     <span>Key Insights</span>
                   </CardTitle>
                   {isPollingForImprovements && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 text-xs text-purple-600">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       <span>Generating improved bullet points...</span>
                     </div>
@@ -263,27 +263,27 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 <CardContent>
                   <div className="space-y-4">
                     {highestScoringBullet && (
-                      <div className="border-l-4 border-green-400 pl-3 py-1">
-                        <p className="text-xs text-muted-foreground mb-1">STRONGEST POINT</p>
-                        <p className="text-sm">{highestScoringBullet.original}</p>
+                      <div className="border-l-4 border-green-400 pl-3 py-1 bg-green-50/50 rounded-r-md">
+                        <p className="text-xs text-green-700 font-semibold mb-1">STRONGEST POINT</p>
+                        <p className="text-sm text-green-800">{highestScoringBullet.original}</p>
                       </div>
                     )}
                     {lowestScoringBullet && (
-                      <div className="border-l-4 border-amber-400 pl-3 py-1">
-                        <p className="text-xs text-muted-foreground mb-1">NEEDS IMPROVEMENT</p>
-                        <p className="text-sm">{lowestScoringBullet.original}</p>
+                      <div className="border-l-4 border-amber-400 pl-3 py-1 bg-amber-50/50 rounded-r-md">
+                        <p className="text-xs text-amber-700 font-semibold mb-1">NEEDS IMPROVEMENT</p>
+                        <p className="text-sm text-amber-800">{lowestScoringBullet.original}</p>
                       </div>
                     )}
-                    <div className="border-l-4 border-blue-400 pl-3 py-1">
-                      <p className="text-xs text-muted-foreground mb-1">INDUSTRY ALIGNMENT</p>
-                      <p className="text-sm">{(resume_percent > 75) ? 'Strong' : (resume_percent > 60) ? 'Fair' : 'Weak'} industry alignment</p>
+                    <div className="border-l-4 border-blue-400 pl-3 py-1 bg-blue-50/50 rounded-r-md">
+                      <p className="text-xs text-blue-700 font-semibold mb-1">INDUSTRY ALIGNMENT</p>
+                      <p className="text-sm text-blue-800">{(resume_percent > 75) ? 'Strong' : (resume_percent > 60) ? 'Fair' : 'Weak'} industry alignment</p>
                     </div>
-                    <div className="border-l-4 border-purple-400 pl-3 py-1">
-                      <p className="text-xs text-muted-foreground mb-1">STORYTELLING QUALITY</p>
-                      <p className="text-sm">{bulletPoints && bulletPoints.length > 0 ? bulletPoints.length : 0} bullet points analyzed</p>
-                      <p className="text-xs text-muted-foreground">Average quality score: {bulletPoints && bulletPoints.length > 0 ?
-                        Math.round(bulletPoints.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / bulletPoints.length)
-                        : 0}/45</p>
+                    <div className="border-l-4 border-purple-400 pl-3 py-1 bg-purple-50/50 rounded-r-md">
+                      <p className="text-xs text-purple-700 font-semibold mb-1">STORYTELLING QUALITY</p>
+                      <p className="text-sm text-purple-800">{bullets ? bullets.length : 0} bullet points analyzed</p>
+                      <p className="text-xs text-purple-600">Average quality score: {bullets ?
+                        Math.round(bullets.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / (bullets.length || 1))
+                        : 0}/100</p>
                     </div>
                   </div>
                 </CardContent>
@@ -304,13 +304,13 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 hasAnalysis={hasAnalysis}
               />
             ) : (
-              <Card className="h-full flex items-center justify-center min-h-[200px]">
+              <Card className="h-full flex items-center justify-center min-h-[200px] bg-gradient-to-br from-gray-50 to-slate-50 border-gray-100">
                 <CardContent className="text-center p-6">
-                  <File className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">
+                  <File className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                  <p className="text-slate-600">
                     {resumeFile ? "Upload your selected resume to see the analysis." : "No analysis available yet. Upload a resume to get started."}
                   </p>
-                  {!resumeFile && !resume && (<Button variant="link" className="mt-2" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
+                  {!resumeFile && !resume && (<Button variant="link" className="mt-2 text-blue-600" onClick={() => document.getElementById('resume-upload-display')?.click()}>Upload Resume</Button>)}
                 </CardContent>
               </Card>
             )}

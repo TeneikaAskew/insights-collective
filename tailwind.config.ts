@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -36,10 +35,6 @@ export default {
 				secondary: {
 					DEFAULT: 'hsl(var(--secondary))',
 					foreground: 'hsl(var(--secondary-foreground))'
-                    // DEFAULT: 'hsl(164, 61%, 60%)',       // Aqua Teal (#5ED3B5)
-                    // foreground: 'hsl(0, 0%, 0%)'        // Slate Gray (#2C2C2C)
-                    //  DEFAULT: 'hsl(37, 91%, 56%)',        // Energetic Amber (#F9A826)
-                    // foreground: 'hsl(0, 0%, 100%)'       // White (#FFFFFF)
 				},
 				destructive: {
 					DEFAULT: 'hsl(var(--destructive))',
@@ -66,19 +61,19 @@ export default {
 					foreground: 'hsl(var(--sidebar-foreground))',
 					primary: 'hsl(var(--sidebar-primary))',
 					'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-					accent: 'rgba(255, 255, 255, 0.1)', // Changed from blue to white with transparency
+					accent: 'rgba(255, 255, 255, 0.1)',
 					'accent-foreground': 'rgba(255, 255, 255, 0.95)',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Brand colors
-				insightBlue: '#1F75FE',
-				viraDeepBlue: '#1C2D5A',
-				aquaTeal: '#5ED3B5',
-				energeticAmber: '#F9A826',
-				slateGray: '#2C2C2C',
-				softWhite: '#F9FAFB',
-				dustyGray: '#8A8F9E',
+				// Brand colors - updated for better harmony
+				insightBlue: '#1F75FE', // Kept as is - primary brand color
+				viraDeepBlue: '#1C2D5A', // Kept as is - secondary brand color
+				aquaTeal: '#5ED3B5', // Kept as is - accent color
+				energeticAmber: '#F9A826', // Kept as is - accent highlight
+				slateGray: '#2C2C2C', // Kept as is - main text color
+				softWhite: '#F9FAFB', // Kept as is - background color
+				dustyGray: '#8A8F9E', // Kept as is - muted text color
 				
 				orange: {
 					50: '#fff7ed',
@@ -114,12 +109,20 @@ export default {
                   softWhite: 'hsl(0, 0%, 98%)',             // #F9FAFB
                   dustyGray: 'hsl(220, 6%, 58%)',           // #8A8F9E
                 },
-				// Resume chart colors
+				// Resume chart colors - updated for better harmony
 				'resume-chart': {
-					'hard-soft': '#1E40AF',    // Blue for Hard & Soft Skills
-					'action': '#D97706',       // Amber for Action Words
-					'measurable': '#0D9488',   // Teal for Measurable Results
-					'common': '#6B7280',       // Gray for Common Words
+					'hard-soft': '#3B82F6',    // Updated blue for Hard & Soft Skills
+					'action': '#F59E0B',       // Updated amber for Action Words
+					'measurable': '#10B981',   // Updated teal for Measurable Results
+					'common': '#6B7280',       // Kept gray for Common Words
+				},
+				// Interview prep colors - updated for better harmony
+				'interview': {
+					'star': '#8B5CF6',         // Kept purple for STAR method
+					'behavioral': '#4F46E5',   // Updated blue for Behavioral questions
+					'technical': '#059669',    // Updated emerald for Technical questions
+					'feedback': '#D97706',     // Updated amber for Feedback
+					'mock': '#DB2777',         // Updated pink for Mock interviews
 				}
 			},
 			borderRadius: {
@@ -173,6 +176,10 @@ export default {
 				'fade-in': {
 					from: { opacity: '0' },
 					to: { opacity: '1' }
+				},
+				'shimmer': {
+					'0%': { backgroundPosition: '-1000px 0' },
+					'100%': { backgroundPosition: '1000px 0' }
 				}
 			},
 			animation: {
@@ -182,14 +189,26 @@ export default {
 				'pulse-slow': 'pulse-slow 3s ease-in-out infinite',
 				'gradient-x': 'gradient-x 15s ease infinite',
 				'slide-up': 'slide-up 0.5s ease-out forwards',
-				'fade-in': 'fade-in 0.5s ease-out forwards'
+				'fade-in': 'fade-in 0.5s ease-out forwards',
+				'shimmer': 'shimmer 2s infinite linear'
 			},
 			backgroundImage: {
 				'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
 				'gradient-conic': 'conic-gradient(from 90deg at 50% 50%, var(--tw-gradient-stops))',
 				'dots-pattern': 'radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.1) 1px, transparent 0)',
 				'hero-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.1), rgba(94, 211, 181, 0.1))',
-				'blueprint-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.05), rgba(28, 45, 90, 0.05))'
+				'blueprint-gradient': 'linear-gradient(to right, rgba(31, 117, 254, 0.05), rgba(28, 45, 90, 0.05))',
+				'star-gradient': 'linear-gradient(120deg, #8B5CF6 0%, #6366F1 100%)',
+				'behavioral-gradient': 'linear-gradient(120deg, #3B82F6 0%, #60A5FA 100%)',
+				'technical-gradient': 'linear-gradient(120deg, #10B981 0%, #34D399 100%)',
+				'mock-gradient': 'linear-gradient(120deg, #EC4899 0%, #F472B6 100%)',
+				'shimmer-gradient': 'linear-gradient(to right, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.2) 20%, rgba(255, 255, 255, 0.5) 60%, rgba(255, 255, 255, 0) 100%)',
+				'card-gradient': 'linear-gradient(to right bottom, var(--tw-gradient-stops))',
+				'interview-card-gradient': 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+				'job-description-gradient': 'linear-gradient(135deg, #e9d5ff 0%, #a5b4fc 100%)',
+				'mock-interview-gradient': 'linear-gradient(135deg, #bfdbfe 0%, #93c5fd 100%)',
+				'star-practice-gradient': 'linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%)',
+				'code-practice-gradient': 'linear-gradient(135deg, #bbf7d0 0%, #86efac 100%)'
 			},
 			backgroundSize: {
 				'dots-lg': '20px 20px'

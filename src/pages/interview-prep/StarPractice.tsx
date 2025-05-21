@@ -524,9 +524,9 @@ export default function StarPractice() {
     return (
       <AppLayout>
         <div className="container mx-auto py-8">
-          <Card>
-            <CardContent className="flex items-center justify-center py-8">
-              <Spinner size="lg" />
+          <Card className="border-slate-200 shadow-md">
+            <CardContent className="flex items-center justify-center py-12">
+              <Spinner size="lg" className="text-primary" />
             </CardContent>
           </Card>
         </div>
@@ -538,15 +538,22 @@ export default function StarPractice() {
     return (
       <AppLayout>
         <div className="container mx-auto py-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>No Questions Available</CardTitle>
-              <CardDescription>
+          <Card className="border-amber-200 shadow-md bg-amber-50/30">
+            <CardHeader className="border-b border-amber-100">
+              <CardTitle className="text-amber-900">No Questions Available</CardTitle>
+              <CardDescription className="text-amber-700">
                 Please analyze a job description first to get personalized STAR questions.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button onClick={handleBackToInterviewPrep}>Go Back</Button>
+            <CardContent className="pt-4">
+              <Button 
+                onClick={handleBackToInterviewPrep} 
+                variant="outline"
+                className="mt-2 border-amber-200 text-amber-700 hover:bg-amber-50"
+              >
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Go Back
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -560,15 +567,23 @@ export default function StarPractice() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto py-8">
+      <div className="container mx-auto py-8 relative">
+        <div className="absolute inset-0 bg-slate-50/50 rounded-xl -z-10"></div>
+        
         <div className="flex items-center mb-6">
-          <Button variant="ghost" onClick={handleBackToInterviewPrep} className="mr-2">
+          <Button 
+            variant="outline" 
+            onClick={handleBackToInterviewPrep} 
+            className="mr-4 border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+          >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">STAR Response Practice</h1>
-            <p className="text-muted-foreground">
+            <h1 className="text-3xl font-bold text-slate-800">
+              STAR Response Practice
+            </h1>
+            <p className="text-slate-600">
               Practice answering behavioral interview questions using the STAR method.
             </p>
           </div>
@@ -576,23 +591,30 @@ export default function StarPractice() {
 
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center">
-            <Badge variant="outline" className="mr-2">Question {currentQuestionIndex + 1} of {questions.length}</Badge>
-            <Badge>{currentQuestion.type}</Badge>
+            <Badge 
+              variant="outline" 
+              className="mr-2 bg-white border-slate-200 text-slate-700 px-3 py-1"
+            >
+              Question {currentQuestionIndex + 1} of {questions.length}
+            </Badge>
+            <Badge className="bg-primary/90 text-white border-none">
+              {currentQuestion.type}
+            </Badge>
           </div>
-          <div className="flex items-center">
-            <Star className="h-4 w-4 text-yellow-400 mr-1" />
-            <span className="font-medium">Streak: {streak} day{streak !== 1 ? 's' : ''}</span>
+          <div className="flex items-center bg-amber-50 px-4 py-2 rounded-full border border-amber-100">
+            <Star className="h-4 w-4 text-amber-500 mr-2" />
+            <span className="font-medium text-amber-700">Streak: {streak} day{streak !== 1 ? 's' : ''}</span>
           </div>
         </div>
 
-        <div className="space-y-8" style={{ minHeight: '500px' }}>
+        <div className="space-y-8">
           {/* Main card (Question/Response) */}
-          <Card className="h-full">
-            <CardHeader>
+          <Card className="bg-white shadow-md border-slate-100 overflow-hidden">
+            <CardHeader className="bg-slate-50 border-b border-slate-100">
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Question: {currentQuestion.question}</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-slate-800">Question: {currentQuestion.question}</CardTitle>
+                  <CardDescription className="text-slate-600">
                     Target Competency: {currentQuestion.targetCompetency}
                   </CardDescription>
                 </div>
@@ -606,7 +628,7 @@ export default function StarPractice() {
                       setFeedback(null);
                       setCurrentStarStep('situation');
                     }}
-                    className="gap-1"
+                    className="gap-1 bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
                   >
                     <RotateCw className="h-4 w-4 mr-1" />
                     Update Response
@@ -616,85 +638,93 @@ export default function StarPractice() {
               {!hasSubmittedResponse && (
                 <div>
                   <div className="flex justify-between text-sm mt-2 mb-1">
-                    <span>STAR Progress</span>
-                    <span>{currentStarStep.charAt(0).toUpperCase() + currentStarStep.slice(1)}</span>
+                    <span className="text-slate-700 font-medium">STAR Progress</span>
+                    <span className="text-primary font-medium">{currentStarStep.charAt(0).toUpperCase() + currentStarStep.slice(1)}</span>
                   </div>
-                  <Progress value={progressPercentage} />
+                  <Progress value={progressPercentage} className="h-2" />
                 </div>
               )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               {!hasSubmittedResponse ? (
                 <div className="space-y-4">
                   {currentStarStep === 'situation' && (
                     <div className="space-y-2">
-                      <label className="text-lg font-medium flex items-center">
+                      <label className="text-lg font-medium flex items-center text-slate-800">
                         Situation
-                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                        <span className="text-sm font-normal text-slate-600 ml-2 bg-slate-50 px-2 py-0.5 rounded-full">
                           (Where and when did this happen?)
                         </span>
                       </label>
-                      <p className="text-sm text-muted-foreground mb-1">{getStepTip('situation')}</p>
+                      <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-md border-l-4 border-primary/40">
+                        {getStepTip('situation')}
+                      </p>
                       <Textarea
                         placeholder="Describe the situation..."
                         value={response.situation}
                         onChange={(e) => handleResponseChange('situation', e.target.value)}
                         rows={5}
-                        className="w-full"
+                        className="w-full border-slate-200 focus:border-primary/40 shadow-sm focus:ring-primary/20"
                       />
                     </div>
                   )}
                   {currentStarStep === 'task' && (
                     <div className="space-y-2">
-                      <label className="text-lg font-medium flex items-center">
+                      <label className="text-lg font-medium flex items-center text-slate-800">
                         Task
-                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                        <span className="text-sm font-normal text-slate-600 ml-2 bg-slate-50 px-2 py-0.5 rounded-full">
                           (What was your responsibility?)
                         </span>
                       </label>
-                      <p className="text-sm text-muted-foreground mb-1">{getStepTip('task')}</p>
+                      <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-md border-l-4 border-secondary/40">
+                        {getStepTip('task')}
+                      </p>
                       <Textarea
                         placeholder="What was your task or goal?"
                         value={response.task}
                         onChange={(e) => handleResponseChange('task', e.target.value)}
                         rows={5}
-                        className="w-full"
+                        className="w-full border-slate-200 focus:border-secondary/40 shadow-sm focus:ring-secondary/20"
                       />
                     </div>
                   )}
                   {currentStarStep === 'action' && (
                     <div className="space-y-2">
-                      <label className="text-lg font-medium flex items-center">
+                      <label className="text-lg font-medium flex items-center text-slate-800">
                         Action
-                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                        <span className="text-sm font-normal text-slate-600 ml-2 bg-slate-50 px-2 py-0.5 rounded-full">
                           (What did you do?)
                         </span>
                       </label>
-                      <p className="text-sm text-muted-foreground mb-1">{getStepTip('action')}</p>
+                      <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-md border-l-4 border-blue-300">
+                        {getStepTip('action')}
+                      </p>
                       <Textarea
                         placeholder="What actions did you take?"
                         value={response.action}
                         onChange={(e) => handleResponseChange('action', e.target.value)}
                         rows={5}
-                        className="w-full"
+                        className="w-full border-slate-200 focus:border-blue-300 shadow-sm focus:ring-blue-100"
                       />
                     </div>
                   )}
                   {currentStarStep === 'result' && (
                     <div className="space-y-2">
-                      <label className="text-lg font-medium flex items-center">
+                      <label className="text-lg font-medium flex items-center text-slate-800">
                         Result
-                        <span className="text-sm font-normal text-muted-foreground ml-2">
+                        <span className="text-sm font-normal text-slate-600 ml-2 bg-slate-50 px-2 py-0.5 rounded-full">
                           (What was the outcome?)
                         </span>
                       </label>
-                      <p className="text-sm text-muted-foreground mb-1">{getStepTip('result')}</p>
+                      <p className="text-sm text-slate-700 bg-slate-50 p-3 rounded-md border-l-4 border-emerald-300">
+                        {getStepTip('result')}
+                      </p>
                       <Textarea
                         placeholder="What were the results?"
                         value={response.result}
                         onChange={(e) => handleResponseChange('result', e.target.value)}
                         rows={5}
-                        className="w-full"
+                        className="w-full border-slate-200 focus:border-emerald-300 shadow-sm focus:ring-emerald-100"
                       />
                     </div>
                   )}
@@ -703,6 +733,7 @@ export default function StarPractice() {
                       variant="outline"
                       onClick={moveToPreviousStep}
                       disabled={currentStarStep === 'situation'}
+                      className="border-slate-200 text-slate-700 hover:bg-slate-50"
                     >
                       <ChevronLeft className="h-4 w-4 mr-2" />
                       Previous
@@ -711,6 +742,7 @@ export default function StarPractice() {
                       <Button
                         onClick={handleSubmit}
                         disabled={submitting || !allStepsFilled()}
+                        className="bg-primary hover:bg-primary/90 text-white shadow-sm"
                       >
                         {submitting ? <Spinner size="sm" className="mr-2" /> : null}
                         Submit Response
@@ -719,6 +751,7 @@ export default function StarPractice() {
                       <Button
                         onClick={moveToNextStep}
                         disabled={!currentStepFilled()}
+                        className="bg-primary hover:bg-primary/90 text-white shadow-sm"
                       >
                         Next
                         <ChevronRight className="h-4 w-4 ml-2" />
@@ -731,6 +764,7 @@ export default function StarPractice() {
                       onClick={handlePrevious}
                       disabled={currentQuestionIndex === 0}
                       size="sm"
+                      className="text-slate-600 hover:text-slate-700 hover:bg-slate-50"
                     >
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Previous Question
@@ -740,6 +774,7 @@ export default function StarPractice() {
                       onClick={handleNext}
                       disabled={currentQuestionIndex === questions.length - 1}
                       size="sm"
+                      className="text-slate-600 hover:text-slate-700 hover:bg-slate-50"
                     >
                       Next Question
                       <ChevronRight className="h-4 w-4 ml-1" />
@@ -747,23 +782,23 @@ export default function StarPractice() {
                   </div>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="space-y-3">
-                    <div>
-                      <h3 className="font-medium">Situation</h3>
-                      <p className="text-sm">{response.situation}</p>
+                <div className="space-y-6">
+                  <div className="space-y-5 bg-slate-50 p-4 rounded-lg border border-slate-100">
+                    <div className="bg-white p-4 rounded-md border border-slate-100 shadow-sm">
+                      <h3 className="font-medium text-slate-800">Situation</h3>
+                      <p className="text-sm text-slate-700 mt-2">{response.situation}</p>
                     </div>
-                    <div>
-                      <h3 className="font-medium">Task</h3>
-                      <p className="text-sm">{response.task}</p>
+                    <div className="bg-white p-4 rounded-md border border-slate-100 shadow-sm">
+                      <h3 className="font-medium text-slate-800">Task</h3>
+                      <p className="text-sm text-slate-700 mt-2">{response.task}</p>
                     </div>
-                    <div>
-                      <h3 className="font-medium">Action</h3>
-                      <p className="text-sm">{response.action}</p>
+                    <div className="bg-white p-4 rounded-md border border-slate-100 shadow-sm">
+                      <h3 className="font-medium text-slate-800">Action</h3>
+                      <p className="text-sm text-slate-700 mt-2">{response.action}</p>
                     </div>
-                    <div>
-                      <h3 className="font-medium">Result</h3>
-                      <p className="text-sm">{response.result}</p>
+                    <div className="bg-white p-4 rounded-md border border-slate-100 shadow-sm">
+                      <h3 className="font-medium text-slate-800">Result</h3>
+                      <p className="text-sm text-slate-700 mt-2">{response.result}</p>
                     </div>
                   </div>
                   <div className="flex justify-between items-center pt-4">
@@ -772,6 +807,7 @@ export default function StarPractice() {
                       onClick={handlePrevious}
                       disabled={currentQuestionIndex === 0}
                       size="sm"
+                      className="text-slate-600 hover:text-slate-700 hover:bg-slate-50"
                     >
                       <ChevronLeft className="h-4 w-4 mr-1" />
                       Previous Question
@@ -781,6 +817,7 @@ export default function StarPractice() {
                       onClick={handleNext}
                       disabled={currentQuestionIndex === questions.length - 1}
                       size="sm"
+                      className="text-slate-600 hover:text-slate-700 hover:bg-slate-50"
                     >
                       Next Question
                       <ChevronRight className="h-4 w-4 ml-1" />
@@ -790,96 +827,140 @@ export default function StarPractice() {
               )}
             </CardContent>
           </Card>
+          
           {/* Feedback card */}
           {feedback && hasSubmittedResponse && (
-            <Card className="h-full overflow-auto">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>AI Feedback</CardTitle>
-                    <CardDescription>Analysis of your STAR response</CardDescription>
-                  </div>
+            <Card className="bg-white border-blue-100 shadow-md overflow-hidden">
+              <CardHeader className="bg-blue-50/50 border-b border-blue-100/50">
+                <div className="flex items-center">
+                  <Star className="h-5 w-5 text-blue-500 mr-2" />
+                  <CardTitle className="text-slate-800 font-display">AI Feedback</CardTitle>
                 </div>
+                <CardDescription className="text-slate-600">
+                  Analysis of your STAR response
+                </CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Component Scores</h3>
-                    <div className="space-y-2">
+                  <div className="bg-white rounded-lg p-4 border border-slate-100 shadow-sm">
+                    <h3 className="text-sm font-medium mb-3 text-slate-800">Component Scores</h3>
+                    <div className="space-y-3">
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span>Situation</span>
-                          <span>{feedback.scores.situation}/10</span>
+                          <span className="text-slate-700">Situation</span>
+                          <span className="font-medium text-slate-800">{feedback.scores.situation}/10</span>
                         </div>
-                        <Progress value={feedback.scores.situation * 10} />
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary/80 rounded-full"
+                            style={{ width: `${feedback.scores.situation * 10}%` }}
+                          ></div>
+                        </div>
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span>Task</span>
-                          <span>{feedback.scores.task}/10</span>
+                          <span className="text-slate-700">Task</span>
+                          <span className="font-medium text-slate-800">{feedback.scores.task}/10</span>
                         </div>
-                        <Progress value={feedback.scores.task * 10} />
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-secondary/80 rounded-full"
+                            style={{ width: `${feedback.scores.task * 10}%` }}
+                          ></div>
+                        </div>
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span>Action</span>
-                          <span>{feedback.scores.action}/10</span>
+                          <span className="text-slate-700">Action</span>
+                          <span className="font-medium text-slate-800">{feedback.scores.action}/10</span>
                         </div>
-                        <Progress value={feedback.scores.action * 10} />
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-blue-400 rounded-full"
+                            style={{ width: `${feedback.scores.action * 10}%` }}
+                          ></div>
+                        </div>
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span>Result</span>
-                          <span>{feedback.scores.result}/10</span>
+                          <span className="text-slate-700">Result</span>
+                          <span className="font-medium text-slate-800">{feedback.scores.result}/10</span>
                         </div>
-                        <Progress value={feedback.scores.result * 10} />
+                        <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-emerald-400 rounded-full"
+                            style={{ width: `${feedback.scores.result * 10}%` }}
+                          ></div>
+                        </div>
                       </div>
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="font-medium">Overall</span>
-                          <span className="font-medium">{feedback.scores.overall}/10</span>
+                          <span className="font-medium text-slate-800">Overall</span>
+                          <span className="font-medium text-slate-800">{feedback.scores.overall}/10</span>
                         </div>
-                        <Progress value={feedback.scores.overall * 10} />
+                        <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-gradient-to-r from-primary to-secondary rounded-full"
+                            style={{ width: `${feedback.scores.overall * 10}%` }}
+                          ></div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Analysis</h3>
+                  <div className="bg-white rounded-lg p-4 border border-slate-100 shadow-sm">
+                    <h3 className="text-sm font-medium mb-3 text-slate-800">Analysis</h3>
                     <div className="space-y-2 text-sm">
-                      <p><strong>Completeness:</strong> {feedback.analysis.completeness}</p>
-                      <p><strong>Specificity:</strong> {feedback.analysis.specificity}</p>
-                      <p><strong>Relevance:</strong> {feedback.analysis.relevance}</p>
-                      <p><strong>Impact:</strong> {feedback.analysis.impact}</p>
-                      <p><strong>Communication:</strong> {feedback.analysis.communication}</p>
+                      <p className="p-2 bg-slate-50 rounded text-slate-700">
+                        <strong>Completeness:</strong> {feedback.analysis.completeness}
+                      </p>
+                      <p className="p-2 bg-slate-50 rounded text-slate-700">
+                        <strong>Specificity:</strong> {feedback.analysis.specificity}
+                      </p>
+                      <p className="p-2 bg-slate-50 rounded text-slate-700">
+                        <strong>Relevance:</strong> {feedback.analysis.relevance}
+                      </p>
+                      <p className="p-2 bg-slate-50 rounded text-slate-700">
+                        <strong>Impact:</strong> {feedback.analysis.impact}
+                      </p>
+                      <p className="p-2 bg-slate-50 rounded text-slate-700">
+                        <strong>Communication:</strong> {feedback.analysis.communication}
+                      </p>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Strengths</h3>
-                    <ul className="list-disc list-inside space-y-1">
-                      {feedback.feedback.strengths.map((strength: string, index: number) => (
-                        <li key={index} className="text-sm flex items-start">
-                          <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
-                          <span>{strength}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-green-50/30 p-4 rounded-lg border border-green-100 shadow-sm">
+                      <h3 className="text-sm font-medium mb-3 text-green-800">Strengths</h3>
+                      <ul className="space-y-2">
+                        {feedback.feedback.strengths.map((strength: string, index: number) => (
+                          <li key={index} className="text-sm flex items-start">
+                            <Check className="h-4 w-4 text-green-500 mr-2 mt-1 flex-shrink-0" />
+                            <span className="text-slate-700">{strength}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="bg-amber-50/30 p-4 rounded-lg border border-amber-100 shadow-sm">
+                      <h3 className="text-sm font-medium mb-3 text-amber-800">Areas for Improvement</h3>
+                      <ul className="space-y-2">
+                        {feedback.feedback.improvements.map((improvement: string, index: number) => (
+                          <li key={index} className="text-sm flex items-start">
+                            <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
+                            <span className="text-slate-700">{improvement}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Areas for Improvement</h3>
-                    <ul className="list-disc list-inside space-y-1">
-                      {feedback.feedback.improvements.map((improvement: string, index: number) => (
-                        <li key={index} className="text-sm flex items-start">
-                          <AlertCircle className="h-4 w-4 text-amber-500 mr-2 mt-1 flex-shrink-0" />
-                          <span>{improvement}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Suggestions</h3>
-                    <ul className="list-disc list-inside space-y-1">
+                  <div className="bg-blue-50/30 p-4 rounded-lg border border-blue-100 shadow-sm">
+                    <h3 className="text-sm font-medium mb-3 text-blue-800">Suggestions</h3>
+                    <ul className="space-y-2">
                       {feedback.feedback.suggestions.map((suggestion: string, index: number) => (
-                        <li key={index} className="text-sm">{suggestion}</li>
+                        <li key={index} className="text-sm flex items-start">
+                          <div className="h-5 w-5 bg-blue-100 rounded-full flex items-center justify-center mr-2 mt-1 flex-shrink-0">
+                            <span className="text-blue-700 text-xs font-bold">{index + 1}</span>
+                          </div>
+                          <span className="text-slate-700">{suggestion}</span>
+                        </li>
                       ))}
                     </ul>
                   </div>

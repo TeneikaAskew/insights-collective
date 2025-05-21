@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Slider } from '@/components/ui/slider';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { format } from 'date-fns';
-import { Video, VideoOff, Mic, MicOff, Phone, Clock, ChevronLeft } from 'lucide-react';
+import { Video, VideoOff, Mic, MicOff, Phone, Clock, ChevronLeft, Award, BookOpen, Sparkles } from 'lucide-react';
 import AppLayout from '@/components/layout/AppLayout';
 
 interface MockSession {
@@ -206,9 +207,9 @@ export default function MockInterviewRoom() {
     return (
       <AppLayout>
         <div className="container mx-auto py-8">
-          <Card>
-            <CardContent className="flex items-center justify-center py-8">
-              <Spinner size="lg" />
+          <Card className="bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200 shadow-lg">
+            <CardContent className="flex items-center justify-center py-12">
+              <Spinner size="lg" className="text-indigo-600" />
             </CardContent>
           </Card>
         </div>
@@ -220,9 +221,16 @@ export default function MockInterviewRoom() {
     return (
       <AppLayout>
         <div className="container mx-auto py-8">
-          <Card>
+          <Card className="bg-gradient-to-r from-red-100 to-orange-100 border-red-200 shadow-lg">
             <CardContent className="py-8 text-center">
-              <p className="text-muted-foreground">Session not found</p>
+              <p className="text-red-600 font-medium">Session not found</p>
+              <Button 
+                onClick={() => navigate('/interview-prep/mock-interviews')}
+                variant="outline" 
+                className="mt-4 border-red-200 hover:bg-red-100 text-red-600"
+              >
+                Return to Mock Interviews
+              </Button>
             </CardContent>
           </Card>
         </div>
@@ -236,31 +244,36 @@ export default function MockInterviewRoom() {
 
   return (
     <AppLayout>
-      <div className="container mx-auto py-8">
-        <div className="mb-8">
+      <div className="container mx-auto py-8 relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/30 via-purple-100/20 to-blue-100/30 rounded-xl -z-10"></div>
+        
+        <div className="mb-8 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 rounded-2xl -z-10"></div>
           <div className="flex items-center gap-2 mb-4">
-            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep/mock-interviews')}>
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Back to Mock Interviews
+            <Button variant="outline" size="sm" onClick={() => navigate('/interview-prep/mock-interviews')} 
+              className="border-indigo-200 bg-white/90 hover:bg-indigo-50 shadow-sm text-indigo-700">
+              <ChevronLeft className="h-4 w-4 mr-1 text-indigo-600" />
+              <span>Back to Mock Interviews</span>
             </Button>
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold mb-2">
+              <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-indigo-700 to-purple-700 bg-clip-text text-transparent">
                 {session.type === 'behavioral' ? 'Behavioral' : 'Technical'} Interview
               </h1>
-              <p className="text-muted-foreground">
+              <p className="text-indigo-600">
                 {format(new Date(session.session_time), 'PPP p')}
               </p>
             </div>
             <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
+              <div className="flex items-center gap-2 bg-white/90 p-2 rounded-full px-4 shadow-sm">
+                <Clock className="h-4 w-4 text-indigo-500" />
+                <span className="text-sm text-indigo-700 font-medium">
                   {remainingTime ? `Starts in ${Math.floor(remainingTime / 60)}:${remainingTime % 60}` : 'In Progress'}
                 </span>
               </div>
-              <Badge variant="outline">
+              <Badge variant="outline" 
+                className="bg-gradient-to-r from-indigo-100 to-purple-100 border-indigo-200 text-indigo-800 px-3 py-1 shadow-sm">
                 {isInterviewer ? 'Interviewer' : 'Interviewee'}
               </Badge>
             </div>
@@ -270,7 +283,8 @@ export default function MockInterviewRoom() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-8">
             <div className="grid grid-cols-2 gap-4">
-              <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
+              <div className="aspect-video bg-black rounded-lg overflow-hidden relative shadow-xl border-4 border-indigo-200 transform transition-all hover:scale-[1.01]">
+                <div className="absolute inset-0 bg-gradient-to-tl from-indigo-900/30 via-transparent to-purple-900/20"></div>
                 <video
                   ref={localVideoRef}
                   autoPlay
@@ -278,39 +292,43 @@ export default function MockInterviewRoom() {
                   muted
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/40 p-2 rounded-full backdrop-blur-sm">
                   <Button
                     variant="secondary"
                     size="icon"
                     onClick={toggleVideo}
+                    className="bg-white/20 hover:bg-white/30 border-none"
                   >
                     {isVideoEnabled ? (
-                      <Video className="h-4 w-4" />
+                      <Video className="h-4 w-4 text-white" />
                     ) : (
-                      <VideoOff className="h-4 w-4" />
+                      <VideoOff className="h-4 w-4 text-white" />
                     )}
                   </Button>
                   <Button
                     variant="secondary"
                     size="icon"
                     onClick={toggleAudio}
+                    className="bg-white/20 hover:bg-white/30 border-none"
                   >
                     {isAudioEnabled ? (
-                      <Mic className="h-4 w-4" />
+                      <Mic className="h-4 w-4 text-white" />
                     ) : (
-                      <MicOff className="h-4 w-4" />
+                      <MicOff className="h-4 w-4 text-white" />
                     )}
                   </Button>
                   <Button
                     variant="destructive"
                     size="icon"
                     onClick={endSession}
+                    className="bg-red-500/90 hover:bg-red-600/90 border-none"
                   >
                     <Phone className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-              <div className="aspect-video bg-black rounded-lg overflow-hidden">
+              <div className="aspect-video bg-black rounded-lg overflow-hidden shadow-xl border-4 border-purple-200 transform transition-all hover:scale-[1.01]">
+                <div className="absolute inset-0 bg-gradient-to-br from-purple-900/30 via-transparent to-indigo-900/20"></div>
                 <video
                   ref={remoteVideoRef}
                   autoPlay
@@ -321,10 +339,13 @@ export default function MockInterviewRoom() {
             </div>
 
             {isInterviewer && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Interview Questions</CardTitle>
-                  <CardDescription>
+              <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-100 overflow-hidden shadow-lg">
+                <CardHeader className="bg-gradient-to-r from-amber-100/50 to-orange-100/50 border-b border-amber-100/50">
+                  <div className="flex items-center">
+                    <BookOpen className="h-5 w-5 text-amber-600 mr-2" />
+                    <CardTitle className="text-amber-900 font-display">Interview Questions</CardTitle>
+                  </div>
+                  <CardDescription className="text-amber-700">
                     Suggested questions based on the selected interview type.
                   </CardDescription>
                 </CardHeader>
@@ -332,15 +353,15 @@ export default function MockInterviewRoom() {
                   <ul className="space-y-4">
                     {session.type === 'behavioral' ? (
                       <>
-                        <li>Tell me about a challenging project you worked on.</li>
-                        <li>How do you handle conflicts in a team?</li>
-                        <li>Describe a situation where you had to learn something quickly.</li>
+                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-amber-400 text-amber-800 shadow-sm hover:bg-white/90 transition-colors">Tell me about a challenging project you worked on.</li>
+                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-amber-400 text-amber-800 shadow-sm hover:bg-white/90 transition-colors">How do you handle conflicts in a team?</li>
+                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-amber-400 text-amber-800 shadow-sm hover:bg-white/90 transition-colors">Describe a situation where you had to learn something quickly.</li>
                       </>
                     ) : (
                       <>
-                        <li>Explain the concept of object-oriented programming.</li>
-                        <li>What are the differences between arrays and linked lists?</li>
-                        <li>How would you optimize a slow database query?</li>
+                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-orange-400 text-orange-800 shadow-sm hover:bg-white/90 transition-colors">Explain the concept of object-oriented programming.</li>
+                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-orange-400 text-orange-800 shadow-sm hover:bg-white/90 transition-colors">What are the differences between arrays and linked lists?</li>
+                        <li className="p-3 bg-white/70 rounded-md border-l-4 border-orange-400 text-orange-800 shadow-sm hover:bg-white/90 transition-colors">How would you optimize a slow database query?</li>
                       </>
                     )}
                   </ul>
@@ -350,19 +371,22 @@ export default function MockInterviewRoom() {
           </div>
 
           {isInterviewer && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Evaluation Form</CardTitle>
-                <CardDescription>
+            <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-100 overflow-hidden shadow-lg">
+              <CardHeader className="bg-gradient-to-r from-emerald-100/50 to-teal-100/50 border-b border-emerald-100/50">
+                <div className="flex items-center">
+                  <Award className="h-5 w-5 text-emerald-600 mr-2" />
+                  <CardTitle className="text-emerald-900 font-display">Evaluation Form</CardTitle>
+                </div>
+                <CardDescription className="text-emerald-700">
                   Rate the candidate's performance and provide feedback.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6 pt-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Communication</label>
-                      <span className="text-sm text-muted-foreground">
+                      <label className="text-sm font-medium text-emerald-900">Communication</label>
+                      <span className="text-sm text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full shadow-sm">
                         {reviewScores.communication}/10
                       </span>
                     </div>
@@ -371,6 +395,7 @@ export default function MockInterviewRoom() {
                       min={1}
                       max={10}
                       step={1}
+                      className="text-emerald-500"
                       onValueChange={([value]) =>
                         setReviewScores(prev => ({ ...prev, communication: value }))
                       }
@@ -379,8 +404,8 @@ export default function MockInterviewRoom() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Technical Knowledge</label>
-                      <span className="text-sm text-muted-foreground">
+                      <label className="text-sm font-medium text-emerald-900">Technical Knowledge</label>
+                      <span className="text-sm text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full shadow-sm">
                         {reviewScores.technical_knowledge}/10
                       </span>
                     </div>
@@ -389,6 +414,7 @@ export default function MockInterviewRoom() {
                       min={1}
                       max={10}
                       step={1}
+                      className="text-emerald-500"
                       onValueChange={([value]) =>
                         setReviewScores(prev => ({ ...prev, technical_knowledge: value }))
                       }
@@ -397,8 +423,8 @@ export default function MockInterviewRoom() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Problem Solving</label>
-                      <span className="text-sm text-muted-foreground">
+                      <label className="text-sm font-medium text-emerald-900">Problem Solving</label>
+                      <span className="text-sm text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full shadow-sm">
                         {reviewScores.problem_solving}/10
                       </span>
                     </div>
@@ -407,6 +433,7 @@ export default function MockInterviewRoom() {
                       min={1}
                       max={10}
                       step={1}
+                      className="text-emerald-500"
                       onValueChange={([value]) =>
                         setReviewScores(prev => ({ ...prev, problem_solving: value }))
                       }
@@ -415,8 +442,8 @@ export default function MockInterviewRoom() {
 
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <label className="text-sm font-medium">Overall Impression</label>
-                      <span className="text-sm text-muted-foreground">
+                      <label className="text-sm font-medium text-emerald-900">Overall Impression</label>
+                      <span className="text-sm text-emerald-600 font-medium bg-emerald-100 px-2 py-0.5 rounded-full shadow-sm">
                         {reviewScores.overall_impression}/10
                       </span>
                     </div>
@@ -425,6 +452,7 @@ export default function MockInterviewRoom() {
                       min={1}
                       max={10}
                       step={1}
+                      className="text-emerald-500"
                       onValueChange={([value]) =>
                         setReviewScores(prev => ({ ...prev, overall_impression: value }))
                       }
@@ -433,12 +461,12 @@ export default function MockInterviewRoom() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Feedback Notes</label>
+                  <label className="text-sm font-medium text-emerald-900">Feedback Notes</label>
                   <Textarea
                     placeholder="Provide detailed feedback about the candidate's performance..."
                     value={reviewNotes}
                     onChange={(e) => setReviewNotes(e.target.value)}
-                    className="min-h-[200px]"
+                    className="min-h-[200px] border-emerald-200 focus:border-emerald-300 bg-white/80 shadow-sm focus:ring-emerald-200"
                   />
                 </div>
               </CardContent>
