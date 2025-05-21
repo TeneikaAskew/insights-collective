@@ -95,16 +95,16 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
     if (docxFile) {
       const fileName = resumeFile ? resumeFile.name : resume?.file_name;
       return (
-        <div className="w-full aspect-[8.5/6] border rounded-md flex flex-col items-center justify-center bg-accent/10" style={{ height: '250px', maxHeight: '60vh' }}>
-          <File className="h-12 w-12 text-muted-foreground mb-2" />
-          <p className="text-muted-foreground font-medium">Word Document Preview</p>
-          {fileName && <p className="text-sm text-muted-foreground mt-1">{fileName}</p>}
+        <div className="w-full aspect-[8.5/6] border rounded-md flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50" style={{ height: '250px', maxHeight: '60vh' }}>
+          <File className="h-12 w-12 text-blue-500 mb-2" />
+          <p className="text-blue-700 font-medium">Word Document Preview</p>
+          {fileName && <p className="text-sm text-blue-600 mt-1">{fileName}</p>}
           <p className="text-xs text-blue-500 mt-1">(Live preview not available for DOCX files)</p>
         </div>
       );
     }
     return (
-      <div className="bg-muted-foreground aspect-[8.5/6] flex items-center justify-center rounded-md" style={{ height: '250px', maxHeight: '60vh' }}>
+      <div className="bg-gradient-to-br from-gray-50 to-indigo-50 aspect-[8.5/6] flex items-center justify-center rounded-md" style={{ height: '250px', maxHeight: '60vh' }}>
         <p className="text-indigo-500 font-medium">No preview available</p>
       </div>
     );
@@ -114,26 +114,26 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   const renderUploadCard = () => {
     
     return (
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle >Your Resume</CardTitle>
-          <CardDescription>
+      <Card className="mb-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-100 overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-blue-100/50 to-indigo-100/50">
+          <CardTitle className="text-blue-900">Your Resume</CardTitle>
+          <CardDescription className="text-blue-700">
             {resume && !resumeFile ? "Manage your uploaded resume or upload a new version." : "Upload your resume in PDF or DOCX format to get started."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {fileError && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle >Upload Error</AlertTitle>
-              <AlertDescription >{fileError}</AlertDescription>
+            <Alert variant="destructive" className="bg-red-50 text-red-800 border-red-200">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertTitle className="text-red-800">Upload Error</AlertTitle>
+              <AlertDescription className="text-red-700">{fileError}</AlertDescription>
             </Alert>
           )}
 
           {(!resume && !resumeFile) ? (
-            <div className="border-2 border-dashed border-muted-foreground/20 rounded-md p-8 text-center">
-              <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground mb-4">Drag and drop your resume here, or click to browse</p>
+            <div className="border-2 border-dashed border-blue-300 rounded-md p-8 text-center bg-white/50">
+              <FileUp className="h-10 w-10 text-blue-500 mx-auto mb-4" />
+              <p className="text-blue-700 mb-4">Drag and drop your resume here, or click to browse</p>
               <input
                 type="file"
                 accept=".pdf,.docx"
@@ -142,7 +142,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                 onChange={handleFileChange}
                 disabled={uploading || isAnalyzing}
               />
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" className="border-blue-300 text-blue-700 hover:bg-blue-100 hover:text-blue-800">
                 <label htmlFor="resume-upload-display">Browse Files</label>
               </Button>
             </div>
