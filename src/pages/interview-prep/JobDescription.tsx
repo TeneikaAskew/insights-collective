@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -444,7 +443,7 @@ export default function JobDescription() {
                   <CardContent className="pt-6 bg-white">
                     <ul className="space-y-4">
                       {studyGuide.technical_checklist.map((item, index) => (
-                        <li key={index} className="p-4 bg-gradient-to-r from-accent/5 to-white/80 rounded-lg border border-border/30 hover:shadow-md transition-all">
+                        <li key={index} className="p-4 bg-gradient-to-r from-gray-100/50 to-white/80 rounded-lg border border-border/30 hover:shadow-md transition-all">
                           <div className="flex items-center justify-between mb-2">
                             <div>
                               <p className="font-medium text-foreground">{item.skill}</p>
@@ -455,19 +454,19 @@ export default function JobDescription() {
                                     ? 'bg-destructive/10 text-destructive/90 border-destructive/20' 
                                     : item.importance === 'medium'
                                     ? 'bg-amber-100/50 text-amber-800 border-amber-200'
-                                    : 'bg-primary/10 text-primary/90 border-primary/20'
+                                    : 'bg-gray-100 text-gray-700 border-gray-200'
                                 }`}
                               >
                                 {item.importance} priority
                               </Badge>
                             </div>
                             {item.resources && item.resources.length > 0 && (
-                              <Button variant="ghost" size="sm" className="text-accent hover:text-accent/90 hover:bg-accent/10">
+                              <Button variant="ghost" size="sm" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50">
                                 View Resources
                               </Button>
                             )}
                           </div>
-                          <Progress value={0} className="h-2 bg-accent/10" indicatorClassName="bg-accent" />
+                          <Progress value={0} className="h-2 bg-gray-200" indicatorClassName="bg-gray-500" />
                         </li>
                       ))}
                     </ul>

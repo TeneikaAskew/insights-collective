@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useForums } from '@/hooks/useForums';
 import { MessageSquare, Users, Clock } from 'lucide-react';
@@ -10,8 +10,9 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 
 const ForumList: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  // Always call the hook, regardless of courseId value
-  const { forums, isLoadingForums } = useForums(courseId);
+  // Add null check for courseId to prevent passing undefined to the hook
+  const safeId = courseId || '';
+  const { forums, isLoadingForums } = useForums(safeId);
 
   if (isLoadingForums) {
     return (
@@ -51,7 +52,10 @@ const ForumList: React.FC = () => {
       
       <div className="space-y-4">
         {forums.map((forum) => (
-          <Link key={forum.id} to={`/courses/${courseId}/forums/${forum.id}`}>
+          <Link 
+            key={forum.id} 
+            to={`/courses/${safeId}/forums/${forum.id}`}
+          >
             <Card className="hover:bg-muted/50 transition-colors">
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between">
@@ -61,7 +65,7 @@ const ForumList: React.FC = () => {
                   </div>
                   <div className="flex space-x-2">
                     <Button variant="outline" size="sm">
-                      <Link to={`/courses/${courseId}/forums/${forum.id}`} className="flex items-center gap-1">
+                      <Link to={`/courses/${safeId}/forums/${forum.id}`} className="flex items-center gap-1">
                         <MessageSquare className="h-4 w-4" />
                         <span>View</span>
                       </Link>

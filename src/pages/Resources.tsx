@@ -1,11 +1,11 @@
-
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { useResources, Resource, parseArrayField, normalizeString } from '@/hooks/useResources';
-import { useAllTweetsData } from '@/hooks/useAllTweetsData'; // Import the new hook
+import { useAllTweetsData } from '@/hooks/useAllTweetsData'; 
 import { FeedbackSection } from '@/components/common/FeedbackSection';
+import LoginWall from '@/components/common/LoginWall';
 
 import { ResourceFilters } from '@/components/resources/ResourceFilters';
 import { ResourceDirectoryTab } from '@/components/resources/ResourceDirectoryTab';
@@ -127,9 +127,9 @@ const Resources = () => {
   const { data: allRawTweetsData, isLoading: isLoadingTopTweets } = useAllTweetsData();
 
   const processedResources = useMemo(() => {
-    console.log('[ResourcesPage] Raw resources from useResources hook:', resources.length);
+    console.log('[ProcessResources] Input resources count:', resources.length);
     const pr = processResources(resources);
-    console.log('[ResourcesPage] Processed general resources (with sourceType):', pr.length);
+    console.log('[ProcessResources] Processed general resources (with sourceType):', pr.length);
     return pr;
   }, [resources]);
 
@@ -197,8 +197,9 @@ const Resources = () => {
     return lr;
   }, [filteredMainResources]);
 
+  // Since this is now a public page, we'll show limited content even for non-authenticated users
+  // Full content is still only available after login
   const visibleDirectoryResources = isAuthenticated ? directoryResources : directoryResources.slice(0, VISIBLE_RESOURCES_IN_DIRECTORY);
-  console.log('[ResourcesPage] Visible Directory Resources (for main tab display):', visibleDirectoryResources.length);
   const visibleTweets = isAuthenticated ? tweetResources : tweetResources.slice(0, VISIBLE_TWEETS);
   const visibleLinkedIn = isAuthenticated ? linkedinResources : linkedinResources.slice(0, VISIBLE_LINKEDIN);
 
