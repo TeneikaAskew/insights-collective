@@ -247,14 +247,14 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
             {/* Key Insights Section - Show if analysis exists */}
             {analysis && (
-              <Card className="mt-6">
-                <CardHeader className="pb-2">
+              <Card className="mt-6 bg-gradient-to-br from-purple-50 to-pink-50 border-purple-100 overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-purple-100/50 to-pink-100/50 pb-2">
                   <CardTitle className="flex items-center gap-2 text-purple-900">
                     <TrendingUp className="h-4 w-4 text-[#9b87f5]" />
                     <span>Key Insights</span>
                   </CardTitle>
                   {isPollingForImprovements && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-xs text-purple-600">
                       <Loader2 className="h-3 w-3 animate-spin" />
                       <span>Generating improved bullet points...</span>
                     </div>
