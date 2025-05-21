@@ -22,7 +22,7 @@ interface ResumeAnalysisDisplayProps {
   handleDownload: () => void;
   uploading: boolean;
   isAnalyzing: boolean;
-  isPollingForImprovements?: boolean; // New prop for polling state
+  isPollingForImprovements?: boolean; // Prop for polling state
   pdfPreviewUrl: string | null;
   fileError: string | null;
 }
@@ -44,15 +44,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   pdfPreviewUrl,
   fileError,
 }) => {
-  const {
-    resume_percent = 0,
-    letter_grade = 'C',
-    themes = [],
-    elevator_pitch = '',
-    explanation = '',
-    bullets = [],
-  } = analysis || {};
-
   // Ensure bullets is always an array
   const bulletPoints = Array.isArray(bullets) ? bullets : [];
 
@@ -112,7 +103,6 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
 
   // Render the upload card - always visible
   const renderUploadCard = () => {
-    
     return (
       <Card className="mb-6">
         <CardHeader>

@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -178,7 +179,7 @@ export function useResumeStorage() {
       
       console.log("Uploading file to path:", fileName);
       
-      // Upload the file
+      // Upload the file with only supported options
       const { data, error } = await supabase.storage
         .from('resumes')
         .upload(fileName, file, { 

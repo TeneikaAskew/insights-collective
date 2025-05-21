@@ -25,14 +25,14 @@ export function useStorageUpload() {
       const fileName = `${uuidv4()}.${fileExt}`;
       const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
       
-      // Upload the file
+      // Upload the file with corrected options
       const { data, error } = await supabase.storage
         .from(bucket)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
           contentType: file.type,
-          contentDisposition: `inline; filename="${file.name}"`
+          // Remove contentDisposition property as it's not supported in the FileOptions type
         });
       
       if (error) throw error;
