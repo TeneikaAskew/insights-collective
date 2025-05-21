@@ -105,7 +105,6 @@ async function getResumeRoast(resumeText, userId) {
 /////////////
 export async function analyzeResume(resumeText, userId, sentences = []) {
   console.log('Running Resume Analyzer');
-  const startTime = Date.now();
   // let text = resumeText || '';
   console.log('Provided text:', resumeText.length, 'characters');
   
@@ -310,8 +309,6 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
       console.log(`Analysis successfully saved: user ${userId} and grade = ${verifyData.analysis.letter_grade}`);
     }
   }
-  const endTime = Date.now();
-  console.log(`[analyzeResume]: Function completed in ${(endTime - startTime)/1000}s`);
 
   return {
     bullets: sortedBullets,
@@ -325,7 +322,7 @@ export async function analyzeResume(resumeText, userId, sentences = []) {
 }
 export async function bulletImprover(userId, enhanced = null) {
   console.log('Running bullet improver only');
-  const startTime = Date.now();
+  
   // First check if we have a valid analysis
   let bullets;
   let analysis;
@@ -469,8 +466,7 @@ export async function bulletImprover(userId, enhanced = null) {
         error: 'Failed to save enhanced analysis'
       };
     }
-    const endTime = Date.now();
-    console.log(`[bulletImprover]: Function completed in ${(endTime - startTime)/1000}s`);
+
     return {
       success: true,
       analysis: updatedAnalysis
