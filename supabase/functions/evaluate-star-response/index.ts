@@ -5,6 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { corsHeaders, handleError, safeParseJSON } from "../_shared/utils.ts";
 
 const TOGETHER_API_KEY = Deno.env.get("TOGETHER_API_KEY");
+const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
@@ -131,14 +132,14 @@ Return ONLY the JSON object with no additional explanation or text.`;
 
     console.log(`[evaluate-star-response] Prompt prepared with length: ${promptContent.length}`);
 
-    const response = await fetch("https://api.together.xyz/v1/chat/completions", {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {//"https://api.groq.com/v1/chat/completions", { //"https://api.together.xyz/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${TOGETHER_API_KEY}`,
+        Authorization: `Bearer ${GROQ}`,//${GROQ}`,//${TOGETHER_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        model: "llama3-8b-8192",//"meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",//"llama3-8b-8192", //"meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
         messages: [
           {
             role: "system",
@@ -166,7 +167,7 @@ Return ONLY the JSON object with no additional explanation or text.`;
     // Parse the AI response
     const result = await response.json();
     console.log(`[evaluate-star-response] AI response parsed successfully, model used: ${result.model || 'unknown'}`);
-    
+    console.log(`[evaluate-star-response] AI response:`, result);
     const content = result.choices[0].message.content;
     console.log(`[evaluate-star-response] Retrieved content length: ${content?.length || 0}`);
 
@@ -211,6 +212,7 @@ Return ONLY the JSON object with no additional explanation or text.`;
 
 serve(async (req) => {
   console.log(`[evaluate-star-response] Received ${req.method} request`);
+  const startTime = new Date().getTime();
   
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
@@ -240,12 +242,17 @@ serve(async (req) => {
     console.log(`[evaluate-star-response] Processing request for STAR response ID: ${responseId}`);
     const feedbackData = await evaluateStarResponse(responseId);
     console.log(`[evaluate-star-response] Evaluation completed successfully, returning response`);
+    console.log("Ending time: ", new Date().toISOString());
+    console.log("Time taken: ", new Date().getTime() - startTime);
 
     return new Response(JSON.stringify({ ai_feedback: feedbackData }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
+    
   } catch (error) {
     console.error(`[evaluate-star-response] Error in edge function:`, error);
+
+    
     
     return new Response(
       JSON.stringify({ error: error.message || "Failed to evaluate STAR response" }),
@@ -255,4 +262,5 @@ serve(async (req) => {
       }
     );
   }
+  
 });
