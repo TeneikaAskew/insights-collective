@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
@@ -21,6 +20,8 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
     return <>{children}</>;
   }
 
+  // Return the children as-is to keep navigation and layout intact
+  // Only overlay the main content area with the "Coming Soon" message
   return (
     <div className="relative min-h-screen">
       {/* Render the original content with blur and pointer-events disabled */}
