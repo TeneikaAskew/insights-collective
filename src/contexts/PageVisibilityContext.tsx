@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
+import { extractRoutes } from '@/utils/routeUtils';
+import { useLocation } from 'react-router-dom';
 
 // Define types for presence data
 type PresenceUser = {
@@ -32,6 +34,8 @@ type PageVisibilityContextType = {
   pageVisibility: PageVisibilityData[];
   updatePageVisibility: (id: string, updates: Partial<PageVisibilityData>) => Promise<void>;
   syncAvailablePages: () => Promise<void>;
+  userRole: string | null;
+  isSyncing: boolean;
 };
 
 const PageVisibilityContext = createContext<PageVisibilityContextType>({
@@ -43,6 +47,8 @@ const PageVisibilityContext = createContext<PageVisibilityContextType>({
   pageVisibility: [],
   updatePageVisibility: async () => {},
   syncAvailablePages: async () => {},
+  userRole: null,
+  isSyncing: false,
 });
 
 export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -51,9 +57,16 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
   const [currentUserPresence, setCurrentUserPresence] = useState<PresenceUser | null>(null);
   const [pageVisibility, setPageVisibility] = useState<PageVisibilityData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
   const { user, isAuthenticated } = useAuth();
   const [channel, setChannel] = useState<any>(null);
   const [isSubscribed, setIsSubscribed] = useState(false);
+  const location = useLocation();
+
+  // Get user role from auth context
+  const userRole = user?.roles && user.roles.length > 0
+    ? user.roles[0]
+    : user?.user_metadata?.role || null;
 
   // Handle visibility change
   useEffect(() => {
@@ -261,22 +274,85 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     );
   };
 
-  // Sync available pages with the database
-  // Fixed: Change return type to Promise<void> instead of returning data
+  // Improved sync available pages function to detect and add new routes
   const syncAvailablePages = async (): Promise<void> => {
     try {
-      // Typically this would involve scanning routes and updating the database
-      // For now, we'll just refetch the data
-      const { data, error } = await supabase
+      setIsSyncing(true);
+      
+      // Get all routes from the application
+      // For this to work properly, we'll simulate scanning app routes
+      // In a real app, this would analyze the router configuration
+      const appRoutes = [
+        { path: '/', name: 'Home' },
+        { path: '/login', name: 'Login' },
+        { path: '/register', name: 'Register' },
+        { path: '/dashboard', name: 'Dashboard' },
+        { path: '/resources', name: 'Resources' },
+        { path: '/events', name: 'Events' },
+        { path: '/profile', name: 'Profile' },
+        { path: '/resume', name: 'Resume' },
+        { path: '/messages', name: 'Messages' },
+        { path: '/admin', name: 'Admin Dashboard' },
+        { path: '/admin/users', name: 'Admin Users' },
+        { path: '/admin/courses', name: 'Admin Courses' },
+        { path: '/admin/events', name: 'Admin Events' },
+        { path: '/admin/page-visibility', name: 'Page Visibility' },
+        { path: '/admin/resources', name: 'Admin Resources' },
+        { path: '/admin/forms', name: 'Admin Forms' },
+        { path: '/admin/certificates', name: 'Admin Certificates' },
+        { path: '/admin/blog-posts', name: 'Admin Blog Posts' },
+        { path: '/admin/enrollments', name: 'Admin Enrollments' },
+        { path: '/admin/activity', name: 'Admin Activity' },
+        { path: '/career-pathway', name: 'Career Pathway' },
+        { path: '/calendar', name: 'Calendar' },
+        { path: '/notifications', name: 'Notifications' },
+        { path: '/assistants', name: 'Assistants' },
+        { path: '/interview-prep', name: 'Interview Prep' },
+        { path: '/explore-data-careers', name: 'Explore Data Careers' },
+      ];
+      
+      // Get existing pages from database
+      const { data: existingPages, error } = await supabase
         .from('page_visibility')
         .select('*');
       
       if (error) throw error;
-      setPageVisibility(data || []);
-      // Don't return data here to match Promise<void> return type
+      
+      // Find new routes that don't exist in the database
+      const existingPaths = new Set(existingPages?.map(p => p.page_path) || []);
+      const newRoutes = appRoutes.filter(route => !existingPaths.has(route.path));
+      
+      // Add new routes to database
+      if (newRoutes.length > 0) {
+        const newPages = newRoutes.map(route => ({
+          page_path: route.path,
+          page_name: route.name,
+          visible_to_users: true, // Default to visible
+          visible_to_instructors: true, // Default to visible
+        }));
+        
+        const { error: insertError } = await supabase
+          .from('page_visibility')
+          .insert(newPages);
+          
+        if (insertError) throw insertError;
+      }
+      
+      // Refetch all pages
+      const { data: updatedPages, error: refetchError } = await supabase
+        .from('page_visibility')
+        .select('*');
+        
+      if (refetchError) throw refetchError;
+      
+      setPageVisibility(updatedPages || []);
+      
+      return;
     } catch (error) {
       console.error('Error syncing available pages:', error);
       throw error;
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -290,7 +366,9 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         isLoading,
         pageVisibility,
         updatePageVisibility,
-        syncAvailablePages
+        syncAvailablePages,
+        userRole,
+        isSyncing
       }}
     >
       {children}

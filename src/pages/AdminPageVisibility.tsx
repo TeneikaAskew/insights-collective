@@ -38,13 +38,14 @@ import {
 } from '@/components/ui/tooltip';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AdminPageVisibility = () => {
-  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages } = usePageVisibility();
+  const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages, isSyncing } = usePageVisibility();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
-  const [syncing, setSyncing] = useState(false);
 
   const filteredPages = pageVisibility.filter(page => 
     page.page_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -74,7 +75,6 @@ const AdminPageVisibility = () => {
 
   const handleSyncPages = async () => {
     try {
-      setSyncing(true);
       await syncAvailablePages();
       
       toast({
@@ -88,8 +88,6 @@ const AdminPageVisibility = () => {
         variant: "destructive",
       });
       console.error("Failed to sync pages:", error);
-    } finally {
-      setSyncing(false);
     }
   };
 
@@ -124,11 +122,11 @@ const AdminPageVisibility = () => {
                 </div>
                 <Button 
                   onClick={handleSyncPages} 
-                  disabled={syncing}
+                  disabled={isSyncing}
                   className="whitespace-nowrap"
                 >
-                  <RefreshCw className={`h-4 w-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
-                  {syncing ? 'Syncing...' : 'Sync Pages'}
+                  <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                  {isSyncing ? 'Syncing...' : 'Sync Pages'}
                 </Button>
               </div>
             </div>
@@ -161,7 +159,7 @@ const AdminPageVisibility = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {isLoading ? (
+                  {isLoading || isSyncing ? (
                     // Skeleton loader when data is loading
                     Array.from({ length: 6 }).map((_, index) => (
                       <TableRow key={`skeleton-${index}`}>
