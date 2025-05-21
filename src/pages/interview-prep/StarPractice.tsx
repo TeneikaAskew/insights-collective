@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -197,18 +198,22 @@ export default function StarPractice() {
     try {
       const currentQuestion = questions[currentQuestionIndex];
       console.log("[StarPractice] Loading saved response for question:", currentQuestion.id);
-      // Log all localStorage items for debugging
-      if (window && window.localStorage) {
-        console.log("[StarPractice] All localStorage items:");
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const key = window.localStorage.key(i);
-          if (key) {
-            console.log(`${key}:`, window.localStorage.getItem(key));
-          }
-        }
+      
+      // First check localStorage for saved responses with feedback
+      const savedResponses = LocalStorageUtils.getSavedStarResponses(user.id);
+      console.log("[StarPractice] Saved responses from localStorage:", savedResponses);
+      if (savedResponses && savedResponses[currentQuestion.id]) {
+        const savedData = savedResponses[currentQuestion.id];
+        console.log("[StarPractice] Found saved response with feedback in localStorage:", savedData);
+        setResponse(savedData.response);
+        setFeedback(savedData.feedback);
+        setHasSubmittedResponse(true);
+        setIsFlipped(false);
+        return;
       }
-      // First check localStorage for a draft
-      console.log("[StarPractice] Checking localStorage for draft response");
+      
+      // If no saved response with feedback found, check for draft
+      console.log("[StarPractice] No saved response with feedback found, checking for draft");
       const savedDraft = LocalStorageUtils.getStarResponseDraftForQuestion(user.id, currentQuestion.id);
       console.log("[StarPractice] Draft found:", savedDraft);
       if (savedDraft) {
@@ -217,75 +222,66 @@ export default function StarPractice() {
         setFeedback(null);
         setIsFlipped(false);
         return;
-      } else {
-        console.log("[StarPractice] No draft found in localStorage, checking for previously submitted responses");
-        // Next, check localStorage for saved responses with feedback
-        const savedResponses = LocalStorageUtils.getSavedStarResponses(user.id);
-        console.log("[StarPractice] Saved responses from localStorage:", savedResponses);
-        if (savedResponses && savedResponses[currentQuestion.id]) {
-          const savedData = savedResponses[currentQuestion.id];
-          console.log("[StarPractice] Found saved response with feedback in localStorage:", savedData);
-          setResponse(savedData.response);
-          setFeedback(savedData.feedback);
-          setHasSubmittedResponse(true);
-          setIsFlipped(false);
-          return;
-        }
-        // As a last resort, check the database for any submitted response
-        console.log("[StarPractice] No response found in localStorage, checking database");
-        const { data: dbResponses, error } = await supabase
-          .from('star_responses')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('question_id', currentQuestion.id)
-          .order('submitted_at', { ascending: false })
-          .limit(1);
-        if (error) {
-          console.error("[StarPractice] Error fetching responses from database:", error);
-        } else if (dbResponses && dbResponses.length > 0) {
-          console.log("[StarPractice] Found response in database:", dbResponses[0]);
-          setResponse({
-            situation: dbResponses[0].situation,
-            task: dbResponses[0].task,
-            action: dbResponses[0].action,
-            result: dbResponses[0].result,
-          });
-          if (dbResponses[0].ai_feedback) {
-            console.log("[StarPractice] Response has feedback:", dbResponses[0].ai_feedback);
-            setFeedback(dbResponses[0].ai_feedback);
-            setHasSubmittedResponse(true);
-            // Also save to localStorage for future use
-            const allResponses = LocalStorageUtils.getSavedStarResponses(user.id) || {};
-            allResponses[currentQuestion.id] = {
-              response: {
-                situation: dbResponses[0].situation,
-                task: dbResponses[0].task,
-                action: dbResponses[0].action,
-                result: dbResponses[0].result,
-              },
-              feedback: dbResponses[0].ai_feedback,
-              timestamp: new Date().getTime()
-            };
-            LocalStorageUtils.saveSavedStarResponses(user.id, allResponses);
-            console.log("[StarPractice] Saved database response to localStorage for future use");
-          } else {
-            console.log("[StarPractice] Database response has no feedback");
-            setHasSubmittedResponse(false);
-            setFeedback(null);
-          }
-        } else {
-          // Reset to empty response if no saved data found anywhere
-          console.log("[StarPractice] No saved response found anywhere, resetting to empty");
-          setResponse({
-            situation: '',
-            task: '',
-            action: '',
-            result: '',
-          });
-          setFeedback(null);
-          setHasSubmittedResponse(false);
-        }
       }
+      
+      // As a last resort, check the database for any submitted response
+      console.log("[StarPractice] No response found in localStorage, checking database");
+      const { data: dbResponses, error } = await supabase
+        .from('star_responses')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('question_id', currentQuestion.id)
+        .order('submitted_at', { ascending: false })
+        .limit(1);
+        
+      if (error) {
+        console.error("[StarPractice] Error fetching responses from database:", error);
+      } else if (dbResponses && dbResponses.length > 0) {
+        console.log("[StarPractice] Found response in database:", dbResponses[0]);
+        setResponse({
+          situation: dbResponses[0].situation,
+          task: dbResponses[0].task,
+          action: dbResponses[0].action,
+          result: dbResponses[0].result,
+        });
+        
+        if (dbResponses[0].ai_feedback) {
+          console.log("[StarPractice] Response has feedback:", dbResponses[0].ai_feedback);
+          setFeedback(dbResponses[0].ai_feedback);
+          setHasSubmittedResponse(true);
+          
+          // Also save to localStorage for future use
+          const allResponses = LocalStorageUtils.getSavedStarResponses(user.id) || {};
+          allResponses[currentQuestion.id] = {
+            response: {
+              situation: dbResponses[0].situation,
+              task: dbResponses[0].task,
+              action: dbResponses[0].action,
+              result: dbResponses[0].result,
+            },
+            feedback: dbResponses[0].ai_feedback,
+            timestamp: new Date().getTime()
+          };
+          LocalStorageUtils.saveSavedStarResponses(user.id, allResponses);
+          console.log("[StarPractice] Saved database response to localStorage for future use");
+        } else {
+          console.log("[StarPractice] Database response has no feedback");
+          setHasSubmittedResponse(false);
+          setFeedback(null);
+        }
+      } else {
+        // Reset to empty response if no saved data found anywhere
+        console.log("[StarPractice] No saved response found anywhere, resetting to empty");
+        setResponse({
+          situation: '',
+          task: '',
+          action: '',
+          result: '',
+        });
+        setFeedback(null);
+        setHasSubmittedResponse(false);
+      }
+      
       setIsFlipped(false);
     } catch (error) {
       console.error('[StarPractice] Error loading saved response:', error);
