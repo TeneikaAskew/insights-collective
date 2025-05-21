@@ -17,29 +17,45 @@ const ForumDetailPage: React.FC = () => {
   const { data: forum, isLoading: isLoadingForum } = useQuery({
     queryKey: ['forum', forumId],
     queryFn: async () => {
+      // Add null check for forumId
+      if (!forumId) return null;
+      
       const { data, error } = await supabase
         .from('forums')
         .select('*')
         .eq('id', forumId)
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching forum:", error);
+        return null;
+      }
       return data as Forum;
-    }
+    },
+    // Don't attempt to fetch if forumId is missing
+    enabled: !!forumId
   });
   
   const { data: course, isLoading: isLoadingCourse } = useQuery({
     queryKey: ['course', courseId],
     queryFn: async () => {
+      // Add null check for courseId
+      if (!courseId) return null;
+      
       const { data, error } = await supabase
         .from('courses')
         .select('*')
         .eq('id', courseId)
         .single();
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching course:", error);
+        return null;
+      }
       return data;
-    }
+    },
+    // Don't attempt to fetch if courseId is missing
+    enabled: !!courseId
   });
   
   return (
