@@ -12,12 +12,21 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
   const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    if (!isLoading) {
-      // The key issue: we need to force-check visibility on each render
-      const visibility = isPageVisible(location.pathname);
-      console.log(`PageVisibilityGuard: Path ${location.pathname} is visible: ${visibility}`);
-      setIsVisible(visibility);
-    }
+    // Check page visibility on every location change or when the context data loads
+    const checkVisibility = () => {
+      if (!isLoading) {
+        const visibility = isPageVisible(location.pathname);
+        console.log(`PageVisibilityGuard: Path ${location.pathname} is visible: ${visibility}`);
+        setIsVisible(visibility);
+      }
+    };
+    
+    checkVisibility();
+
+    // Re-run whenever path or context changes
+    return () => {
+      console.log('PageVisibilityGuard: cleanup for path change');
+    };
   }, [location.pathname, isPageVisible, isLoading]);
 
   // Navigate back to resources page

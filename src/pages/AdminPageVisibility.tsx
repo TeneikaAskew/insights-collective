@@ -29,7 +29,8 @@ import {
   UserCheck,
   Users,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Database
 } from 'lucide-react';
 import {
   Tooltip,
@@ -50,6 +51,7 @@ const AdminPageVisibility = () => {
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [hasSynced, setHasSynced] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Log user role information on component load
   useEffect(() => {
@@ -72,6 +74,7 @@ const AdminPageVisibility = () => {
 
   const handleVisibilityChange = async (id: string, field: 'visible_to_users' | 'visible_to_instructors', value: boolean) => {
     try {
+      setErrorMessage(null);
       setUpdating(prev => ({ ...prev, [id + field]: true }));
       await updatePageVisibility(id, { [field]: value });
       
@@ -80,6 +83,8 @@ const AdminPageVisibility = () => {
         description: "The page visibility settings have been updated successfully.",
       });
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setErrorMessage(`Failed to update visibility: ${errorMsg}`);
       toast({
         title: "Update failed",
         description: "There was an error updating the page visibility.",
@@ -93,6 +98,7 @@ const AdminPageVisibility = () => {
 
   const handleSyncPages = async () => {
     try {
+      setErrorMessage(null);
       setSyncStatus('idle');
       console.log("Starting page sync...");
       await syncAvailablePages();
@@ -104,6 +110,8 @@ const AdminPageVisibility = () => {
         description: `All available pages have been synced with the visibility settings.`,
       });
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      setErrorMessage(`Failed to sync pages: ${errorMsg}`);
       setSyncStatus('error');
       toast({
         title: "Sync failed",
@@ -116,10 +124,12 @@ const AdminPageVisibility = () => {
 
   const manualCheckDatabase = async () => {
     try {
+      setErrorMessage(null);
       console.log("Manually checking database content");
       const { data, error } = await supabase.from('page_visibility').select('*');
       
       if (error) {
+        setErrorMessage(`Database query error: ${error.message}`);
         console.error("Database query error:", error);
         toast({
           title: "Database query error",
@@ -135,6 +145,8 @@ const AdminPageVisibility = () => {
         description: `Found ${data?.length || 0} page visibility records.`,
       });
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      setErrorMessage(`Error checking database: ${errorMsg}`);
       console.error("Error checking database:", err);
     }
   };
@@ -180,15 +192,25 @@ const AdminPageVisibility = () => {
                   onClick={manualCheckDatabase} 
                   variant="outline" 
                   size="sm"
-                  className="hidden md:flex"
+                  className="flex"
                 >
-                  <AlertCircle className="h-4 w-4 mr-2" />
-                  Debug
+                  <Database className="h-4 w-4 mr-2" />
+                  Check DB
                 </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
+            {errorMessage && (
+              <div className="mb-4 p-4 bg-red-50 text-red-800 rounded-md border border-red-200">
+                <div className="flex items-center">
+                  <AlertCircle className="h-5 w-5 mr-2 text-red-600" />
+                  <p className="font-medium">Error</p>
+                </div>
+                <p className="mt-1 text-sm">{errorMessage}</p>
+              </div>
+            )}
+            
             {pageVisibility.length === 0 && !isLoading && !isSyncing ? (
               <div className="p-8 text-center">
                 <div className="mb-4">

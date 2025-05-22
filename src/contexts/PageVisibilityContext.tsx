@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -90,7 +91,11 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           .from('page_visibility')
           .select('*');
         
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching page visibility:', error);
+          throw error;
+        }
+        
         console.log('Fetched page visibility data:', data);
         setPageVisibility(data || []);
       } catch (error) {
@@ -271,32 +276,43 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     console.log('Found page config:', pageConfig);
     
     // If no configuration found, default to visible
-    if (!pageConfig) return true;
+    if (!pageConfig) {
+      console.log('No page config found for path, defaulting to visible:', path);
+      return true;
+    }
     
     // Check visibility based on user role
     const isVisible = userRole === 'instructor' 
       ? pageConfig.visible_to_instructors 
       : pageConfig.visible_to_users;
       
-    console.log('Page visibility decision:', isVisible);
+    console.log('Page visibility decision for path:', path, 'is:', isVisible);
     return isVisible;
   };
 
   // Update page visibility
   const updatePageVisibility = async (id: string, updates: Partial<PageVisibilityData>) => {
-    const { error } = await supabase
-      .from('page_visibility')
-      .update(updates)
-      .eq('id', id);
-    
-    if (error) throw error;
-    
-    // Update local state
-    setPageVisibility(prev => 
-      prev.map(page => page.id === id ? { ...page, ...updates } : page)
-    );
-    
-    console.log(`Updated visibility for page ${id}:`, updates);
+    try {
+      const { error } = await supabase
+        .from('page_visibility')
+        .update(updates)
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error updating visibility:', error);
+        throw error;
+      }
+      
+      // Update local state
+      setPageVisibility(prev => 
+        prev.map(page => page.id === id ? { ...page, ...updates } : page)
+      );
+      
+      console.log(`Updated visibility for page ${id}:`, updates);
+    } catch (error) {
+      console.error('Error updating visibility:', error);
+      throw error;
+    }
   };
 
   // Completely revamped sync available pages function to comprehensively detect all routes
@@ -306,7 +322,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('Starting page sync operation');
       
       // Extract a comprehensive list of all routes from the app
-      // This is a hardcoded list that matches all the routes in App.tsx
+      // This includes all routes defined in App.tsx
       const appRoutes = [
         { path: '/', name: 'Home' },
         { path: '/login', name: 'Login' },
@@ -351,6 +367,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         { path: '/admin/courses', name: 'Admin Courses' },
         { path: '/admin/events', name: 'Admin Events' },
         { path: '/admin/blog-posts', name: 'Admin Blog Posts' },
+        { path: '/admin/blog', name: 'Admin Blog' },
         { path: '/admin/resources', name: 'Admin Resources' },
         { path: '/admin/forms', name: 'Admin Forms' },
         { path: '/admin/activity', name: 'Admin Activity' },
@@ -358,6 +375,8 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         { path: '/admin/enrollments', name: 'Admin Enrollments' },
         { path: '/admin/course/:courseId/edit', name: 'Admin Course Edit' },
         { path: '/admin/page-visibility', name: 'Page Visibility' },
+        // Additional routes from the uploaded images
+        { path: '/admin/blog', name: 'Admin Blog' }
       ];
       
       console.log('App routes to sync:', appRoutes.length);
@@ -401,7 +420,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         console.log('Successfully added new pages:', newPages.length);
       }
       
-      // Refetch all pages
+      // Refetch all pages to ensure we have the latest data
       const { data: updatedPages, error: refetchError } = await supabase
         .from('page_visibility')
         .select('*');
