@@ -1,4 +1,19 @@
+// import stemmer from "https://esm.sh/porter-stemmer-js@1.0.0";
+import { PorterStemmer } from "https://esm.sh/porter-stemmer-js@1.0.0/es2022/porter-stemmer-js.mjs";
+const stemmer = new PorterStemmer();
+// console.log(stemmer.stem("running"));  // prints "run"
 
+// // 1 ▸ Porter stemmer (small, no Node built-ins)
+// import {stemmer} from "https://esm.sh/porter-stemmer-js@1.0.0";
+// import { stemmer } from "https://deno.land/x/porter_stemmer@v1.1.0/mod.ts";
+// import { stemmer } from "https://deno.land/x/porter_stemmer@v1.1.0/porter-stemmer.ts";
+// import { stemmer as stem} from "https://deno.land/x/porter_stemmer@v1.1.0/porterStemmer.ts";
+// import stemmer from "npm:stemmer";
+
+
+
+// 2 ▸ English stop-word list
+import { en as STOPWORDS } from "https://esm.sh/stopword@1.0.7";
 export const industryWords = [
     /* Core data & analytics */
     "data","analytics","analysis","bi","intelligence","insights","sql","nosql","python","r","scala","java","julia","sas","matlab","stata",
@@ -80,6 +95,10 @@ export const weakPhrases = [
   "under the supervision of", "under supervision", "shadowed", "observed", "attended", "saw to", "helped out",
   "did some", "did work", "completed tasks", "carried out", "carried out tasks", "responsible", "involved", "worked", "assisted"
 ];
+const ACTION   = new Set(actionWords.map(w => stemmer.stem(w)));
+const INDUSTRY = new Set(industryWords.map(w => stemmer.stem(w)));
+const STOP = new Set(STOPWORDS.map(w => stemmer.stem(w)));
+
 
 // Analyze word balance
 export function analyzeWordBalance(bullet: string): {
@@ -89,7 +108,11 @@ export function analyzeWordBalance(bullet: string): {
   metric_pct: number;
   word_balance_score: number;
 } {
-  const words = bullet.split(/\s+/);
+  // const words = bullet.replace(/-/g, " ").split(/\s+/);
+  const words = bullet.replace(/(?!\d)['’\-](?!\d)/g, " ")
+                      .split(/[^A-Za-z0-9%$]+/)
+                      .filter(w => w && !STOP.has(stemmer.stem(w.toLowerCase())));
+                      // .replace(STOPWORDS, "").replace(/-/g, " ").split(/\s+/)
   
   let industryCount = 0;
   let commonCount = 0;
@@ -97,20 +120,33 @@ export function analyzeWordBalance(bullet: string): {
   let metricCount = 0;
   
   for (const word of words) {
+
     const cleanWord = word.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
     
-    if (/\d/.test(cleanWord) || /%|\$/.test(cleanWord)) {
-      metricCount++;
-    }
-    else if (actionWords.includes(cleanWord)) {
-      actionCount++;
-    }
-    else if (industryWords.includes(cleanWord)) {
-      industryCount++;
-    }
-    else {
-      commonCount++;
-    }
+    // if (/\d/.test(cleanWord) || /%|\$/.test(cleanWord)) {
+    //   metricCount++;
+    // }
+    // // else if (actionWords.includes(cleanWord)) {
+    // else if (stemmer(actionWords.includes(cleanWord))){
+    //   actionCount++;
+    // }
+    // // else if (industryWords.includes(cleanWord)) {
+    // else if (stemmer(industryWords.includes(cleanWord))){
+    //   industryCount++;
+    // }
+    // else {
+    //   commonCount++;
+    // }}
+  /* metrics first – faster short-circuit                                  */
+  if (/\d/.test(cleanWord) || /[%$]/.test(cleanWord)) {
+    metricCount++;
+    continue;
+  }
+  const root = stemmer.stem(cleanWord);
+  if (ACTION.has(root)|| ACTION.has(cleanWord)) actionCount++;
+  else if (INDUSTRY.has(root)|| INDUSTRY.has(cleanWord)) industryCount++;
+  else commonCount++;
+
   }
   
   const totalWords = words.length;
@@ -119,11 +155,19 @@ export function analyzeWordBalance(bullet: string): {
   const action_pct = Math.round((actionCount / totalWords) * 100);
   const metric_pct = Math.round((metricCount / totalWords) * 100);
   
-  const idealIndustry = 45;
-  const idealCommon = 25;
+  const idealIndustry = 15;
+  const idealCommon = 55;
   const idealAction = 15;
   const idealMetric = 15;
-  
+
+
+//   | Bucket                | New **ideal %** | Rationale                                                                                        |
+// | --------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
+// | **Industry / domain** | **15 %**        | 3–5 domain words in a 30-word bullet feels natural and keyword-rich.                             |
+// | **Common**            | **55 %**        | After stop-word removal, half the sentence will always be connective tissue + descriptive nouns. |
+// | **Action**            | **15 %**        | One strong verb every \~12 words (2–3 verbs) keeps energy high.                                  |
+// | **Metric**            | **15 %**        | Two numeric wins per bullet is enough to showcase impact.                                        |
+
   const industryDev = Math.abs(industry_pct - idealIndustry);
   const commonDev = Math.abs(common_pct - idealCommon);
   const actionDev = Math.abs(action_pct - idealAction);

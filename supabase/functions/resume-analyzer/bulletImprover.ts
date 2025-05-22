@@ -1,4 +1,5 @@
 import { corsHeaders, callLLMWithRetry, callTracking } from './utils.ts';
+import { analyzeWordBalance, xyzCheck } from './bulletAnalysis.ts';
 export const config = {
   MAX_CONCURRENT_REQUESTS: 6,
   MAX_TOTAL_BULLETS: 2,
@@ -16,38 +17,7 @@ async function backoffDelay(attempt) {
   const jitter = Math.random() * config.RATE_LIMIT_JITTER_MS;
   await new Promise((resolve)=>setTimeout(resolve, delay + jitter));
 }
-// This is the primary function that needs to be exported - it's imported in bulletSuggestions.ts
-export async function improveBullet(bulletData) {
-  let attempts = 0;
-  while(attempts < config.MAX_RETRIES){
-    try {
-      console.log(`Improving bullet (attempt ${attempts + 1}): ${bulletData.original.substring(0, 30)}...`);
-      // Add backoff delay between attempts
-      if (attempts > 0) {
-        await backoffDelay(attempts);
-      }
-      const { system, prompt } = constructGroqPrompt(bulletData);
-      const result = await callLLMWithRetry(system, prompt);
-      // Validate result before processing
-      if (!result || typeof result !== 'string') {
-        throw new Error('Empty or invalid response from LLM');
-      }
-      const processedResult = processGroqResponse(result, bulletData);
-      return processedResult;
-    } catch (error) {
-      console.error(`Error improving bullet (attempt ${attempts + 1}):`, error);
-      attempts++;
-      // On last attempt, return fallback
-      if (attempts === config.MAX_RETRIES) {
-        return {
-          original: bulletData.original,
-          rewritten: bulletData.original,
-          tips: "Unable to improve bullet point after multiple attempts. Consider adding metrics and using stronger action verbs."
-        };
-      }
-    }
-  }
-}
+
 // Helper function to construct the prompt for GROQ
 function constructGroqPrompt(bulletData) {
   // Construct a prompt based on the bullet data;
@@ -158,6 +128,7 @@ function processGroqResponse(response, bulletData) {
 }
 // Process bullets in parallel with controlled concurrency and timeouts
 async function processBulletsInParallel(bullets: any[], userId: string) {
+  callTracking.addCall(); // Add API call tracking
   const limit = config.MAX_TOTAL_BULLETS || 10;
   console.log(`Processing up to ${limit} of ${bullets.length} total bullets`);
   const improvedBullets: any[] = [];
@@ -165,7 +136,22 @@ async function processBulletsInParallel(bullets: any[], userId: string) {
     if (i < limit) {
       try {
         const improvedBullet = await improveBullet(bullets[i]);
-        improvedBullets.push(improvedBullet);
+        // improvedBullets.push(improvedBullet);
+        if (improvedBullet.rewritten) {
+          const wb = analyzeWordBalance(improvedBullet.rewritten);
+          const xyz = xyzCheck(improvedBullet.rewritten);
+          const hasMinimumContent = improvedBullet.rewritten.length > 20 && improvedBullet.rewritten.split(/\s+/).length > 4;
+          const contentPenalty = hasMinimumContent ? 0 : 25;
+          const bullet_total = Math.max(0, xyz.xyz_total - contentPenalty);
+          improvedBullets.push({
+            ...improvedBullet,
+            xyz_scores: xyz,
+            bullet_total: bullet_total,
+            word_balance: wb
+          });
+        } else {
+          improvedBullets.push(improvedBullet);
+        }
       } catch (error) {
         console.error(`Error processing bullet: ${error.message}`);
         improvedBullets.push({
@@ -184,17 +170,39 @@ async function processBulletsInParallel(bullets: any[], userId: string) {
   }
   return improvedBullets;
 }
-// Export the new parallel processing function as the main interface
-export { processBulletsInParallel };
 
-export async function bulletImprover(userId, enhanced = null) {
-  try {
-    callTracking.addCall(); // Add API call tracking
-    // ... existing code ...
-  } catch (error) {
-    console.error("Error in bulletImprover:", error);
-    return {
-      error: "An error occurred while processing the request. Please try again later."
-    };
+// This is the primary function that needs to be exported - it's imported in bulletSuggestions.ts
+export async function improveBullet(bulletData) {
+  callTracking.addCall(); // Add API call tracking
+  let attempts = 0;
+  while(attempts < config.MAX_RETRIES){
+    try {
+      console.log(`Improving bullet (attempt ${attempts + 1}): ${bulletData.original.substring(0, 30)}...`);
+      // Add backoff delay between attempts
+      if (attempts > 0) {
+        await backoffDelay(attempts);
+      }
+      const { system, prompt } = constructGroqPrompt(bulletData);
+      const result = await callLLMWithRetry(system, prompt);
+      // Validate result before processing
+      if (!result || typeof result !== 'string') {
+        throw new Error('Empty or invalid response from LLM');
+      }
+      const processedResult = processGroqResponse(result, bulletData);
+      return processedResult;
+    } catch (error) {
+      console.error(`Error improving bullet (attempt ${attempts + 1}):`, error);
+      attempts++;
+      // On last attempt, return fallback
+      if (attempts === config.MAX_RETRIES) {
+        return {
+          original: bulletData.original,
+          rewritten: bulletData.original,
+          tips: "Unable to improve bullet point after multiple attempts. Consider adding metrics and using stronger action verbs."
+        };
+      }
+    }
   }
 }
+// Export the new parallel processing function as the main interface
+export { processBulletsInParallel };
