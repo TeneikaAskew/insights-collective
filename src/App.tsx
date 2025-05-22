@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -20,7 +19,7 @@ import Resources from '@/pages/Resources';
 import PageVisibilityGuard from '@/components/PageVisibilityGuard';
 import Resume from '@/pages/Resume';
 import InterviewPrep from '@/pages/InterviewPrep';
-import MockInterviews from '@/pages/MockInterviews';
+import MockInterviews from '@/pages/interview-prep/MockInterviews';
 import CodePractice from '@/pages/CodePractice';
 import Events from '@/pages/Events';
 import BlogList from '@/pages/BlogList';
@@ -176,7 +175,7 @@ function App() {
                 }
               />
               <Route
-                path="/interview-prep/mock-interview-room/:roomId"
+                path="/interview-prep/mock-interview-room/:sessionId"
                 element={
                   <ProtectedRoute>
                     <MockInterviewRoom />
@@ -188,6 +187,14 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <MockInterviews />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mock-interview/:sessionId"
+                element={
+                  <ProtectedRoute>
+                    <MockInterviewRoom />
                   </ProtectedRoute>
                 }
               />
