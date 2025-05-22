@@ -143,6 +143,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
             .single();
             
           // Use profile data if available, otherwise fall back to user metadata
+          // Fix: Access first_name and last_name from user_metadata instead
           const userProfile = {
             id: user.id,
             first_name: profileData?.first_name || user?.user_metadata?.first_name || 'Anonymous',
@@ -275,11 +276,12 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       if (isSubscribed && channel) {
         try {
           // Get fresh profile data directly from state
+          // Fix: Access properties from user_metadata instead
           const userProfile = {
             id: user.id,
-            first_name: user?.user_metadata?.first_name || user?.first_name || 'Anonymous',
-            last_name: user?.user_metadata?.last_name || user?.last_name || 'User',
-            avatar_url: user?.user_metadata?.avatar_url || user?.avatar_url,
+            first_name: user?.user_metadata?.first_name || 'Anonymous',
+            last_name: user?.user_metadata?.last_name || 'User',
+            avatar_url: user?.user_metadata?.avatar_url,
             online_at: new Date().toISOString(),
           };
           
@@ -439,7 +441,6 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         { path: '/interview-prep/star-practice', name: 'STAR Practice' },
         { path: '/interview-prep/code-practice', name: 'Code Practice (Interview)' },
         { path: '/interview-prep/mock-interviews', name: 'Mock Interviews' },
-        { path: '/interview-prep/mock-interview-room/:sessionId', name: 'Mock Interview Room' },
         { path: '/mock-interviews', name: 'Mock Interviews' },
         { path: '/mock-interview/:sessionId', name: 'Mock Interview Session' },
         { path: '/code-practice', name: 'Code Practice' },

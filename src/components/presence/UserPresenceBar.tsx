@@ -67,9 +67,10 @@ export const UserPresenceBar = () => {
   const totalOnline = onlineUsers.length || 1; // At least show 1 for current user
 
   // Get current user's display info, prioritizing profile data
-  const currentUserFirstName = profileData?.first_name || currentUserPresence?.first_name || user?.user_metadata?.first_name || user?.first_name;
-  const currentUserLastName = profileData?.last_name || currentUserPresence?.last_name || user?.user_metadata?.last_name || user?.last_name;
-  const currentUserAvatar = profileData?.avatar_url || currentUserPresence?.avatar_url || user?.user_metadata?.avatar_url || user?.avatar_url;
+  // Using user_metadata which exists on EnrichedUser instead of direct first_name/last_name
+  const currentUserFirstName = profileData?.first_name || currentUserPresence?.first_name || user?.user_metadata?.first_name || '';
+  const currentUserLastName = profileData?.last_name || currentUserPresence?.last_name || user?.user_metadata?.last_name || '';
+  const currentUserAvatar = profileData?.avatar_url || currentUserPresence?.avatar_url || user?.user_metadata?.avatar_url || '';
 
   return (
     <div className="px-3 py-2 border-b bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
