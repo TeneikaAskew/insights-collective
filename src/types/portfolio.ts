@@ -1,3 +1,4 @@
+
 export interface PortfolioProject {
   id: string;
   user_id: string;
@@ -70,6 +71,7 @@ export interface PortfolioPage {
   custom_url?: string;
   created_at?: string;
   updated_at?: string;
+  projects?: PortfolioPageProject[]; // Add the projects property to match what's expected in PortfolioEditor
 }
 
 export interface PortfolioPageProject {
