@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -10,19 +11,11 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
 import Profile from '@/pages/Profile';
-import Courses from '@/pages/Courses';
-import CourseDetail from '@/pages/CourseDetail';
-import CoursePlayer from '@/pages/CoursePlayer';
-import Messages from '@/pages/Messages';
-import Conversation from '@/pages/Conversation';
 import NotFound from '@/pages/NotFound';
 import ProtectedRoute from '@/components/ProtectedRoute';
-import ResumeAnalyzer from '@/pages/ResumeAnalyzer';
-import JobMatchAnalyzer from '@/pages/JobMatchAnalyzer';
 import CareerPathway from '@/pages/CareerPathway';
-import StudyGuide from '@/pages/StudyGuide';
-import StarMethod from '@/pages/StarMethod';
 import { portfolioRoutes } from './routes/PortfolioRoutes';
+import CourseList from '@/pages/CourseList';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -70,55 +63,7 @@ function App() {
                 path="/courses"
                 element={
                   <ProtectedRoute>
-                    <Courses />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/courses/:courseId"
-                element={
-                  <ProtectedRoute>
-                    <CourseDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/courses/:courseId/learn"
-                element={
-                  <ProtectedRoute>
-                    <CoursePlayer />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/messages"
-                element={
-                  <ProtectedRoute>
-                    <Messages />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/messages/:conversationId"
-                element={
-                  <ProtectedRoute>
-                    <Conversation />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/resume-analyzer"
-                element={
-                  <ProtectedRoute>
-                    <ResumeAnalyzer />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/job-match"
-                element={
-                  <ProtectedRoute>
-                    <JobMatchAnalyzer />
+                    <CourseList />
                   </ProtectedRoute>
                 }
               />
@@ -127,22 +72,6 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <CareerPathway />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/study-guide"
-                element={
-                  <ProtectedRoute>
-                    <StudyGuide />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/star-method"
-                element={
-                  <ProtectedRoute>
-                    <StarMethod />
                   </ProtectedRoute>
                 }
               />
