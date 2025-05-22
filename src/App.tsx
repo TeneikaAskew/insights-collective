@@ -34,6 +34,10 @@ import CareerAgent from '@/pages/CareerAgent';
 import Calendar from '@/pages/Calendar';
 import CourseDetail from '@/pages/CourseDetail';
 import ModuleDetail from '@/pages/ModuleDetail';
+import JobDescription from '@/pages/interview-prep/JobDescription';
+import StarPractice from '@/pages/interview-prep/StarPractice';
+import CodePracticeInterview from '@/pages/interview-prep/CodePractice';
+import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -136,6 +140,46 @@ function App() {
                 element={
                   <ProtectedRoute>
                     <InterviewPrep />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/interview-prep/job-description"
+                element={
+                  <ProtectedRoute>
+                    <JobDescription />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/interview-prep/star-practice"
+                element={
+                  <ProtectedRoute>
+                    <StarPractice />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/interview-prep/code-practice"
+                element={
+                  <ProtectedRoute>
+                    <CodePracticeInterview />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/interview-prep/mock-interviews"
+                element={
+                  <ProtectedRoute>
+                    <MockInterviews />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/interview-prep/mock-interview-room/:roomId"
+                element={
+                  <ProtectedRoute>
+                    <MockInterviewRoom />
                   </ProtectedRoute>
                 }
               />
