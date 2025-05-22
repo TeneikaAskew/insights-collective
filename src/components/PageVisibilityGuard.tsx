@@ -4,30 +4,34 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { usePageVisibility } from '@/contexts/PageVisibilityContext';
 import { Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function PageVisibilityGuard({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { isPageVisible, isLoading } = usePageVisibility();
+  const { user } = useAuth();
   const [isVisible, setIsVisible] = useState(true);
+  const [checkComplete, setCheckComplete] = useState(false);
 
   useEffect(() => {
     // Check page visibility on every location change or when the context data loads
-    const checkVisibility = () => {
+    const checkVisibility = async () => {
       if (!isLoading) {
-        const visibility = isPageVisible(location.pathname);
-        console.log(`PageVisibilityGuard: Path ${location.pathname} is visible: ${visibility}`);
+        const pathToCheck = location.pathname;
+        console.log(`[PageVisibilityGuard] Checking visibility for path: ${pathToCheck}`);
+        console.log(`[PageVisibilityGuard] User:`, user);
+        
+        const visibility = isPageVisible(pathToCheck);
+        console.log(`[PageVisibilityGuard] Path ${pathToCheck} is visible: ${visibility}`);
+        
         setIsVisible(visibility);
+        setCheckComplete(true);
       }
     };
     
     checkVisibility();
-
-    // Re-run whenever path or context changes
-    return () => {
-      console.log('PageVisibilityGuard: cleanup for path change');
-    };
-  }, [location.pathname, isPageVisible, isLoading]);
+  }, [location.pathname, isPageVisible, isLoading, user]);
 
   // Navigate back to resources page
   const handleBackToResources = () => {
@@ -35,24 +39,24 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
   };
 
   // During loading state, don't render content yet to prevent flashing
-  if (isLoading) {
-    console.log('PageVisibilityGuard: Still loading visibility data');
+  if (isLoading || !checkComplete) {
+    console.log('[PageVisibilityGuard] Still loading visibility data or checking visibility...');
     return <div className="animate-pulse h-screen w-full bg-gray-100 dark:bg-gray-900"></div>;
   }
   
   // If visible, show the content normally
   if (isVisible) {
-    console.log('PageVisibilityGuard: Page is visible, showing content');
+    console.log('[PageVisibilityGuard] Page is visible, showing content');
     return <>{children}</>;
   }
 
-  console.log('PageVisibilityGuard: Page not visible, showing overlay');
+  console.log('[PageVisibilityGuard] Page not visible, showing overlay');
 
   // Apply overlay directly - don't rely on DOM element queries which can be unreliable
   return (
     <div className="relative min-h-screen">
       {/* Render the original page in the background but with no interactivity */}
-      <div className="pointer-events-none opacity-20">
+      <div className="pointer-events-none opacity-20 blur-sm">
         {children}
       </div>
       
