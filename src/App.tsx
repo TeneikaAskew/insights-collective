@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -37,6 +38,21 @@ import JobDescription from '@/pages/interview-prep/JobDescription';
 import StarPractice from '@/pages/interview-prep/StarPractice';
 import CodePracticeInterview from '@/pages/interview-prep/CodePractice';
 import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
+
+// Admin components
+import AdminDashboard from '@/pages/AdminDashboard';
+import AdminUsers from '@/pages/AdminUsers';
+import AdminCourses from '@/pages/AdminCourses';
+import AdminEvents from '@/pages/AdminEvents';
+import AdminBlogPosts from '@/pages/AdminBlogPosts';
+import AdminResources from '@/pages/AdminResources';
+import AdminForms from '@/pages/AdminForms';
+import AdminActivity from '@/pages/AdminActivity';
+import AdminCertificates from '@/pages/AdminCertificates';
+import AdminEnrollments from '@/pages/AdminEnrollments';
+import AdminCourseEdit from '@/pages/AdminCourseEdit';
+import AdminPageVisibility from '@/pages/AdminPageVisibility';
+import AdminGuard from '@/components/admin/AdminGuard';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -282,6 +298,104 @@ function App() {
                   <ProtectedRoute>
                     <CareerAgent />
                   </ProtectedRoute>
+                }
+              />
+              
+              {/* Admin routes */}
+              <Route
+                path="/admin"
+                element={
+                  <AdminGuard>
+                    <AdminDashboard />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/users"
+                element={
+                  <AdminGuard>
+                    <AdminUsers />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/courses"
+                element={
+                  <AdminGuard>
+                    <AdminCourses />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/events"
+                element={
+                  <AdminGuard>
+                    <AdminEvents />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/blog-posts"
+                element={
+                  <AdminGuard>
+                    <AdminBlogPosts />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/resources"
+                element={
+                  <AdminGuard>
+                    <AdminResources />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/forms"
+                element={
+                  <AdminGuard>
+                    <AdminForms />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/activity"
+                element={
+                  <AdminGuard>
+                    <AdminActivity />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/certificates"
+                element={
+                  <AdminGuard>
+                    <AdminCertificates />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/enrollments"
+                element={
+                  <AdminGuard>
+                    <AdminEnrollments />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/course/:courseId/edit"
+                element={
+                  <AdminGuard>
+                    <AdminCourseEdit />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="/admin/page-visibility"
+                element={
+                  <AdminGuard>
+                    <AdminPageVisibility />
+                  </AdminGuard>
                 }
               />
               
