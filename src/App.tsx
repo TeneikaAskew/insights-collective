@@ -16,6 +16,8 @@ import ProtectedRoute from '@/components/ProtectedRoute';
 import CareerPathway from '@/pages/CareerPathway';
 import { portfolioRoutes } from './routes/PortfolioRoutes';
 import CourseList from '@/pages/CourseList';
+import Resources from '@/pages/Resources';
+import PageVisibilityGuard from '@/components/PageVisibilityGuard';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -73,6 +75,16 @@ function App() {
                   <ProtectedRoute>
                     <CareerPathway />
                   </ProtectedRoute>
+                }
+              />
+              
+              {/* Add Resources route */}
+              <Route
+                path="/resources"
+                element={
+                  <PageVisibilityGuard>
+                    <Resources />
+                  </PageVisibilityGuard>
                 }
               />
               
