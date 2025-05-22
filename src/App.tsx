@@ -18,6 +18,22 @@ import { portfolioRoutes } from './routes/PortfolioRoutes';
 import CourseList from '@/pages/CourseList';
 import Resources from '@/pages/Resources';
 import PageVisibilityGuard from '@/components/PageVisibilityGuard';
+import Resume from '@/pages/Resume';
+import InterviewPrep from '@/pages/InterviewPrep';
+import MockInterviews from '@/pages/MockInterviews';
+import CodePractice from '@/pages/CodePractice';
+import Events from '@/pages/Events';
+import BlogList from '@/pages/BlogList';
+import BlogPost from '@/pages/BlogPost';
+import Messages from '@/pages/Messages';
+import ForumList from '@/pages/ForumList';
+import ForumDetail from '@/pages/ForumDetail';
+import Assistants from '@/pages/Assistants';
+import AssistantInterface from '@/pages/AssistantInterface';
+import CareerAgent from '@/pages/CareerAgent';
+import Calendar from '@/pages/Calendar';
+import CourseDetail from '@/pages/CourseDetail';
+import ModuleDetail from '@/pages/ModuleDetail';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -70,6 +86,22 @@ function App() {
                 }
               />
               <Route
+                path="/course/:courseId"
+                element={
+                  <ProtectedRoute>
+                    <CourseDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/module/:moduleId"
+                element={
+                  <ProtectedRoute>
+                    <ModuleDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
                 path="/career-pathway"
                 element={
                   <ProtectedRoute>
@@ -78,13 +110,127 @@ function App() {
                 }
               />
               
-              {/* Add Resources route */}
+              {/* Resources route */}
               <Route
                 path="/resources"
                 element={
                   <PageVisibilityGuard>
                     <Resources />
                   </PageVisibilityGuard>
+                }
+              />
+              
+              {/* Resume route */}
+              <Route
+                path="/resume"
+                element={
+                  <ProtectedRoute>
+                    <Resume />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Interview preparation routes */}
+              <Route
+                path="/interview-prep"
+                element={
+                  <ProtectedRoute>
+                    <InterviewPrep />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mock-interviews"
+                element={
+                  <ProtectedRoute>
+                    <MockInterviews />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/code-practice"
+                element={
+                  <ProtectedRoute>
+                    <CodePractice />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Events route */}
+              <Route
+                path="/events"
+                element={
+                  <ProtectedRoute>
+                    <Events />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Blog routes */}
+              <Route path="/blog" element={<BlogList />} />
+              <Route path="/blog/:postId" element={<BlogPost />} />
+              
+              {/* Messaging routes */}
+              <Route
+                path="/messages"
+                element={
+                  <ProtectedRoute>
+                    <Messages />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Forum routes */}
+              <Route
+                path="/forums"
+                element={
+                  <ProtectedRoute>
+                    <ForumList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/forums/:forumId"
+                element={
+                  <ProtectedRoute>
+                    <ForumDetail />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Calendar route */}
+              <Route
+                path="/calendar"
+                element={
+                  <ProtectedRoute>
+                    <Calendar />
+                  </ProtectedRoute>
+                }
+              />
+              
+              {/* Assistant routes */}
+              <Route
+                path="/assistants"
+                element={
+                  <ProtectedRoute>
+                    <Assistants />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/assistant/:assistantId"
+                element={
+                  <ProtectedRoute>
+                    <AssistantInterface />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/career-agent"
+                element={
+                  <ProtectedRoute>
+                    <CareerAgent />
+                  </ProtectedRoute>
                 }
               />
               
