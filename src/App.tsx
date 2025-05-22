@@ -78,54 +78,74 @@ function App() {
           <AuthProvider>
             <PageVisibilityProvider>
               <Routes>
+                {/* Public routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                
+                {/* Protected routes */}
                 <Route
                   path="/dashboard"
                   element={
                     <ProtectedRoute>
-                      <Dashboard />
+                      <PageVisibilityGuard>
+                        <Dashboard />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
+                
                 <Route
                   path="/profile"
                   element={
                     <ProtectedRoute>
-                      <Profile />
+                      <PageVisibilityGuard>
+                        <Profile />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
+                
                 <Route
                   path="/courses"
                   element={
                     <ProtectedRoute>
-                      <CourseList />
+                      <PageVisibilityGuard>
+                        <CourseList />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
+                
                 <Route
                   path="/course/:courseId"
                   element={
                     <ProtectedRoute>
-                      <CourseDetail />
+                      <PageVisibilityGuard>
+                        <CourseDetail />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
+                
                 <Route
                   path="/module/:moduleId"
                   element={
                     <ProtectedRoute>
-                      <ModuleDetail />
+                      <PageVisibilityGuard>
+                        <ModuleDetail />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
+                
                 <Route
                   path="/career-pathway"
                   element={
                     <ProtectedRoute>
-                      <CareerPathway />
+                      <PageVisibilityGuard>
+                        <CareerPathway />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -134,9 +154,11 @@ function App() {
                 <Route
                   path="/resources"
                   element={
-                    <PageVisibilityGuard>
-                      <Resources />
-                    </PageVisibilityGuard>
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <Resources />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
                   }
                 />
                 
@@ -145,17 +167,21 @@ function App() {
                   path="/resume"
                   element={
                     <ProtectedRoute>
-                      <Resume />
+                      <PageVisibilityGuard>
+                        <Resume />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
                 
-                {/* Interview preparation routes */}
+                {/* Interview preparation routes - all properly guarded */}
                 <Route
                   path="/interview-prep"
                   element={
                     <ProtectedRoute>
-                      <InterviewPrep />
+                      <PageVisibilityGuard>
+                        <InterviewPrep />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -163,7 +189,9 @@ function App() {
                   path="/interview-prep/job-description"
                   element={
                     <ProtectedRoute>
-                      <JobDescription />
+                      <PageVisibilityGuard>
+                        <JobDescription />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -171,7 +199,9 @@ function App() {
                   path="/interview-prep/star-practice"
                   element={
                     <ProtectedRoute>
-                      <StarPractice />
+                      <PageVisibilityGuard>
+                        <StarPractice />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -179,7 +209,9 @@ function App() {
                   path="/interview-prep/code-practice"
                   element={
                     <ProtectedRoute>
-                      <CodePracticeInterview />
+                      <PageVisibilityGuard>
+                        <CodePracticeInterview />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -187,7 +219,9 @@ function App() {
                   path="/interview-prep/mock-interviews"
                   element={
                     <ProtectedRoute>
-                      <MockInterviews />
+                      <PageVisibilityGuard>
+                        <MockInterviews />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -195,7 +229,9 @@ function App() {
                   path="/interview-prep/mock-interview-room/:sessionId"
                   element={
                     <ProtectedRoute>
-                      <MockInterviewRoom />
+                      <PageVisibilityGuard>
+                        <MockInterviewRoom />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -203,7 +239,9 @@ function App() {
                   path="/mock-interviews"
                   element={
                     <ProtectedRoute>
-                      <MockInterviews />
+                      <PageVisibilityGuard>
+                        <MockInterviews />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -211,7 +249,9 @@ function App() {
                   path="/mock-interview/:sessionId"
                   element={
                     <ProtectedRoute>
-                      <MockInterviewRoom />
+                      <PageVisibilityGuard>
+                        <MockInterviewRoom />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -219,7 +259,9 @@ function App() {
                   path="/code-practice"
                   element={
                     <ProtectedRoute>
-                      <CodePractice />
+                      <PageVisibilityGuard>
+                        <CodePractice />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -229,21 +271,39 @@ function App() {
                   path="/events"
                   element={
                     <ProtectedRoute>
-                      <Events />
+                      <PageVisibilityGuard>
+                        <Events />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
                 
                 {/* Blog routes */}
-                <Route path="/blog" element={<BlogList />} />
-                <Route path="/blog/:postId" element={<BlogPost />} />
+                <Route 
+                  path="/blog" 
+                  element={
+                    <PageVisibilityGuard>
+                      <BlogList />
+                    </PageVisibilityGuard>
+                  } 
+                />
+                <Route 
+                  path="/blog/:postId" 
+                  element={
+                    <PageVisibilityGuard>
+                      <BlogPost />
+                    </PageVisibilityGuard>
+                  } 
+                />
                 
                 {/* Messaging routes */}
                 <Route
                   path="/messages"
                   element={
                     <ProtectedRoute>
-                      <Messages />
+                      <PageVisibilityGuard>
+                        <Messages />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -253,7 +313,9 @@ function App() {
                   path="/forums"
                   element={
                     <ProtectedRoute>
-                      <ForumList />
+                      <PageVisibilityGuard>
+                        <ForumList />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -261,7 +323,9 @@ function App() {
                   path="/forums/:forumId"
                   element={
                     <ProtectedRoute>
-                      <ForumDetail />
+                      <PageVisibilityGuard>
+                        <ForumDetail />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -271,7 +335,9 @@ function App() {
                   path="/calendar"
                   element={
                     <ProtectedRoute>
-                      <Calendar />
+                      <PageVisibilityGuard>
+                        <Calendar />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -281,7 +347,9 @@ function App() {
                   path="/assistants"
                   element={
                     <ProtectedRoute>
-                      <Assistants />
+                      <PageVisibilityGuard>
+                        <Assistants />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -289,7 +357,9 @@ function App() {
                   path="/assistant/:assistantId"
                   element={
                     <ProtectedRoute>
-                      <AssistantInterface />
+                      <PageVisibilityGuard>
+                        <AssistantInterface />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
@@ -297,12 +367,14 @@ function App() {
                   path="/career-agent"
                   element={
                     <ProtectedRoute>
-                      <CareerAgent />
+                      <PageVisibilityGuard>
+                        <CareerAgent />
+                      </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
                 />
                 
-                {/* Admin routes */}
+                {/* Admin routes - no need for PageVisibilityGuard because AdminGuard handles access */}
                 <Route
                   path="/admin"
                   element={

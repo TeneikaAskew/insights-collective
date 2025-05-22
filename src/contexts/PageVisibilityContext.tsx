@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -235,7 +234,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     return () => clearInterval(heartbeatInterval);
   }, [isAuthenticated, user, channel, isSubscribed]);
 
-  // Check if a page is visible based on user role
+  // Improved isPageVisible function with better dynamic route matching
   const isPageVisible = (path: string): boolean => {
     if (!user) return true; // Default to visible if no user (for public pages)
     
@@ -247,16 +246,26 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       console.log('User is admin, allowing access');
       return true;
     }
+
+    // Fix for paths with trailing slashes
+    const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
     
     // Check if the path matches any of the configured pages
     const pageConfig = pageVisibility.find(p => {
       // For dynamic routes with parameters, we need to match the pattern
       if (p.page_path.includes(':')) {
-        const pathPattern = p.page_path.replace(/:\w+/g, '[^/]+');
-        const regex = new RegExp(`^${pathPattern}$`);
-        return regex.test(path);
+        // Convert route pattern to regex
+        const regexPattern = p.page_path
+          .replace(/\//g, '\\/') // Escape slashes
+          .replace(/:\w+/g, '[^/]+'); // Replace :param with regex pattern
+        
+        const regex = new RegExp(`^${regexPattern}$`);
+        return regex.test(normalizedPath);
       }
-      return p.page_path === path;
+      
+      // For exact routes
+      const configPath = p.page_path.endsWith('/') ? p.page_path.slice(0, -1) : p.page_path;
+      return configPath === normalizedPath;
     });
     
     console.log('Found page config:', pageConfig);
@@ -290,14 +299,15 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     console.log(`Updated visibility for page ${id}:`, updates);
   };
 
-  // Improved sync available pages function to detect and add new routes
+  // Completely revamped sync available pages function to comprehensively detect all routes
   const syncAvailablePages = async (): Promise<void> => {
     try {
       setIsSyncing(true);
       console.log('Starting page sync operation');
       
-      // Extract routes from App.tsx using the React Router route configuration
-      let appRoutes = [
+      // Extract a comprehensive list of all routes from the app
+      // This is a hardcoded list that matches all the routes in App.tsx
+      const appRoutes = [
         { path: '/', name: 'Home' },
         { path: '/login', name: 'Login' },
         { path: '/register', name: 'Register' },
@@ -329,19 +339,25 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         { path: '/blog/:postId', name: 'Blog Post' },
         { path: '/forums', name: 'Forums' },
         { path: '/forums/:forumId', name: 'Forum Detail' },
+        { path: '/portfolio', name: 'Portfolio' },
+        { path: '/portfolio/:section', name: 'Portfolio Section' },
+        { path: '/portfolio/edit', name: 'Edit Portfolio' },
+        { path: '/portfolio/projects', name: 'Portfolio Projects' },
+        { path: '/portfolio/overview', name: 'Portfolio Overview' },
+        { path: '/portfolio/settings', name: 'Portfolio Settings' },
         { path: '/explore-data-careers', name: 'Explore Data Careers' },
         { path: '/admin', name: 'Admin Dashboard' },
         { path: '/admin/users', name: 'Admin Users' },
         { path: '/admin/courses', name: 'Admin Courses' },
         { path: '/admin/events', name: 'Admin Events' },
-        { path: '/admin/page-visibility', name: 'Page Visibility' },
+        { path: '/admin/blog-posts', name: 'Admin Blog Posts' },
         { path: '/admin/resources', name: 'Admin Resources' },
         { path: '/admin/forms', name: 'Admin Forms' },
         { path: '/admin/activity', name: 'Admin Activity' },
         { path: '/admin/certificates', name: 'Admin Certificates' },
-        { path: '/admin/blog-posts', name: 'Admin Blog Posts' },
         { path: '/admin/enrollments', name: 'Admin Enrollments' },
         { path: '/admin/course/:courseId/edit', name: 'Admin Course Edit' },
+        { path: '/admin/page-visibility', name: 'Page Visibility' },
       ];
       
       console.log('App routes to sync:', appRoutes.length);
@@ -351,7 +367,10 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         .from('page_visibility')
         .select('*');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching existing pages:', error);
+        throw error;
+      }
       
       console.log('Existing pages in database:', existingPages?.length || 0);
       
@@ -359,7 +378,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       const existingPaths = new Set(existingPages?.map(p => p.page_path) || []);
       const newRoutes = appRoutes.filter(route => !existingPaths.has(route.path));
       
-      console.log('New routes to add:', newRoutes.length);
+      console.log('New routes to add:', newRoutes.length, newRoutes);
       
       // Add new routes to database
       if (newRoutes.length > 0) {
@@ -374,7 +393,10 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           .from('page_visibility')
           .insert(newPages);
           
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Error inserting new pages:', insertError);
+          throw insertError;
+        }
         
         console.log('Successfully added new pages:', newPages.length);
       }
@@ -384,12 +406,14 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         .from('page_visibility')
         .select('*');
         
-      if (refetchError) throw refetchError;
+      if (refetchError) {
+        console.error('Error refetching pages:', refetchError);
+        throw refetchError;
+      }
       
       console.log('Updated pages list:', updatedPages?.length || 0);
       setPageVisibility(updatedPages || []);
       
-      return;
     } catch (error) {
       console.error('Error syncing available pages:', error);
       throw error;

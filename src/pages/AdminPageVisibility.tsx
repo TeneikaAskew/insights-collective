@@ -63,7 +63,7 @@ const AdminPageVisibility = () => {
       console.log('No page visibility data found, triggering initial sync');
       handleSyncPages();
     }
-  }, [user, pageVisibility, isLoading, isSyncing]);
+  }, [user, pageVisibility, isLoading, isSyncing, hasSynced]);
 
   const filteredPages = pageVisibility.filter(page => 
     page.page_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -101,7 +101,7 @@ const AdminPageVisibility = () => {
       setSyncStatus('success');
       toast({
         title: "Pages synced",
-        description: "All available pages have been synced with the visibility settings.",
+        description: `All available pages have been synced with the visibility settings.`,
       });
     } catch (error) {
       setSyncStatus('error');
@@ -121,10 +121,19 @@ const AdminPageVisibility = () => {
       
       if (error) {
         console.error("Database query error:", error);
+        toast({
+          title: "Database query error",
+          description: error.message,
+          variant: "destructive",
+        });
         return;
       }
       
       console.log("Database page_visibility records:", data);
+      toast({
+        title: "Database checked",
+        description: `Found ${data?.length || 0} page visibility records.`,
+      });
     } catch (err) {
       console.error("Error checking database:", err);
     }
