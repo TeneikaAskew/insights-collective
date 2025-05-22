@@ -1,24 +1,32 @@
+
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
 import { ProfileForm } from '@/components/portfolio/ProfileForm';
 import { ProjectIdeaList } from '@/components/portfolio/ProjectIdeaList';
 import { SkillGapChart } from '@/components/portfolio/SkillGapChart';
 import { KanbanBoard } from '@/components/portfolio/KanbanBoard';
 import { AddProjectDialog } from '@/components/portfolio/AddProjectDialog';
+import { PortfolioPagesTab } from '@/components/portfolio/PortfolioPagesTab';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useAuth } from '@/contexts/AuthContext';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { Spinner } from '@/components/ui/spinner';
 import { Button } from '@/components/ui/button';
 import { QuestionnaireAnswers, PortfolioInsightData, ProjectIdea, ProjectStatus, PortfolioProject } from '@/types/portfolio';
 import { Check, RefreshCw, WandSparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 function PortfolioExplorer() {
+  const [searchParams] = useSearchParams();
   const { user, isAuthenticated } = useAuth();
-  const [activeTab, setActiveTab] = useState('discover');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Initialize active tab from URL param if available
+    const tabParam = searchParams.get('tab');
+    return tabParam === 'discover' || tabParam === 'ideas' || 
+           tabParam === 'tracker' || tabParam === 'pages' 
+           ? tabParam : 'discover';
+  });
   const [portfolioData, setPortfolioData] = useState<PortfolioInsightData | null>(null);
   const [profileCompleted, setProfileCompleted] = useState(false);
   const [savedAnswers, setSavedAnswers] = useState<QuestionnaireAnswers | null>(null);
@@ -38,6 +46,15 @@ function PortfolioExplorer() {
     recommendationsLoading,
     refetchRecommendations
   } = usePortfolio();
+
+  // Handle URL parameter changes
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'discover' || tabParam === 'ideas' || 
+        tabParam === 'tracker' || tabParam === 'pages') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // Set portfolio data from previous recommendations if available
   useEffect(() => {
@@ -203,6 +220,15 @@ function PortfolioExplorer() {
     await deleteProject.mutateAsync(projectId);
   };
 
+  const handleTabChange = (tab: string) => {
+    // Update URL with tab parameter
+    const newSearchParams = new URLSearchParams(searchParams);
+    newSearchParams.set('tab', tab);
+    window.history.replaceState(null, '', `?${newSearchParams.toString()}`);
+    
+    setActiveTab(tab);
+  };
+
   if (!isAuthenticated) {
     return (
       <AppLayout>
@@ -237,8 +263,8 @@ function PortfolioExplorer() {
           </CardHeader>
         </Card>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-3 gap-4 mb-8 w-full max-w-2xl mx-auto">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+          <TabsList className="grid grid-cols-4 gap-4 mb-8 w-full max-w-3xl mx-auto">
             <TabsTrigger value="discover" className="relative">
               <div className="flex items-center gap-2">
                 <div className={`${profileCompleted ? 'bg-green-500' : 'bg-[#9b87f5]'} rounded-full w-6 h-6 text-white flex items-center justify-center text-xs`}>
@@ -263,6 +289,14 @@ function PortfolioExplorer() {
                 <span>Project Tracker</span>
               </div>
             </TabsTrigger>
+            <TabsTrigger value="pages">
+              <div className="flex items-center gap-2">
+                <div className="bg-[#9b87f5] rounded-full w-6 h-6 text-white flex items-center justify-center text-xs">
+                  4
+                </div>
+                <span>Portfolio Pages</span>
+              </div>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="discover" className="space-y-8">
@@ -279,7 +313,7 @@ function PortfolioExplorer() {
                   <CardHeader>
                     <CardTitle className="text-lg">How It Works</CardTitle>
                     <CardDescription>
-                      Your personalized portfolio journey in 3 steps
+                      Your personalized portfolio journey in 4 steps
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
@@ -318,6 +352,18 @@ function PortfolioExplorer() {
                         </p>
                       </div>
                     </div>
+                    
+                    <div className="flex gap-3">
+                      <div className="bg-[#9b87f5]/10 text-[#9b87f5] rounded-full w-6 h-6 flex items-center justify-center text-xs flex-shrink-0 mt-0.5">
+                        4
+                      </div>
+                      <div>
+                        <h3 className="font-medium text-sm">Portfolio Showcase</h3>
+                        <p className="text-sm text-gray-500">
+                          Create a professional portfolio page to showcase your completed projects.
+                        </p>
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
                 
@@ -338,6 +384,10 @@ function PortfolioExplorer() {
                       <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
                       <p className="text-sm">Visual project tracker to manage your portfolio</p>
                     </div>
+                    <div className="flex items-start gap-2">
+                      <WandSparkles className="h-4 w-4 text-[#9b87f5] mt-0.5" />
+                      <p className="text-sm">Shareable portfolio pages to showcase your work</p>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -347,7 +397,7 @@ function PortfolioExplorer() {
           <TabsContent value="ideas">
             {generatePortfolioIdeas.isPending ? (
               <div className="flex flex-col items-center justify-center h-64">
-                <Spinner size="lg" />
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
                 <p className="mt-4 text-gray-500">Analyzing your profile and generating project ideas...</p>
               </div>
             ) : portfolioData ? (
@@ -384,7 +434,7 @@ function PortfolioExplorer() {
             ) : recommendationsLoading ? (
               // Show loading indicator while fetching previous recommendations
               <div className="flex flex-col items-center justify-center h-64">
-                <Spinner size="lg" />
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
                 <p className="mt-4 text-gray-500">Loading your previous portfolio recommendations...</p>
               </div>
             ) : previousRecommendations ? (
@@ -419,7 +469,7 @@ function PortfolioExplorer() {
                     >
                       {generatePortfolioIdeas.isPending ? (
                         <>
-                          <Spinner size="sm" className="mr-2" />
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                           Generating Ideas...
                         </>
                       ) : (
@@ -477,7 +527,7 @@ function PortfolioExplorer() {
 
             {projectsLoading ? (
               <div className="flex flex-col items-center justify-center h-64">
-                <Spinner size="lg" />
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9b87f5]"></div>
                 <p className="mt-4 text-gray-500">Loading your projects...</p>
               </div>
             ) : projects && projects.length > 0 ? (
@@ -503,6 +553,10 @@ function PortfolioExplorer() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+          
+          <TabsContent value="pages">
+            <PortfolioPagesTab />
           </TabsContent>
         </Tabs>
       </div>

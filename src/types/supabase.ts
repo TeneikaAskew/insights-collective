@@ -1,4 +1,3 @@
-
 export interface Profile {
   id: string;
   first_name: string | null;
@@ -65,6 +64,43 @@ export interface UserWithProfile {
     role?: string;
     roles?: string[];
   };
+}
+
+// Add portfolio pages interfaces
+export interface PortfolioPage {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  theme: string;
+  is_public: boolean;
+  custom_url: string | null;
+  created_at: string;
+  updated_at: string;
+  projects?: PortfolioPageProject[];
+}
+
+export interface PortfolioPageProject {
+  id: string;
+  portfolio_page_id: string;
+  project_id: string;
+  display_order: number;
+  custom_description: string | null;
+  project?: PortfolioProject;
+}
+
+export interface PortfolioProject {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  required_skills: string[] | null;
+  effort_level: string | null;
+  impact: string | null;
+  roadmap: any | null;
+  created_at: string;
+  updated_at: string;
+  status: string | null;
 }
 
 export type Database = {
@@ -141,6 +177,28 @@ export type Database = {
           created_at?: string;
           updated_at?: string;
           status?: string;
+        };
+      };
+      portfolio_pages: {
+        Row: {
+          id: string;
+          user_id: string;
+          title: string;
+          description: string | null;
+          theme: string;
+          is_public: boolean;
+          custom_url: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+      };
+      portfolio_page_projects: {
+        Row: {
+          id: string;
+          portfolio_page_id: string;
+          project_id: string;
+          display_order: number;
+          custom_description: string | null;
         };
       };
       page_visibility: {

@@ -1,28 +1,27 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { PortfolioProject } from '@/types/portfolio';
-import { Badge } from '@/components/ui/badge';
-import { Trash2, Edit, ChevronDown, ChevronUp } from 'lucide-react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { PortfolioProject } from '@/types/portfolio';
+import { Edit, GripVertical, Trash } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { AddToPortfolio } from './AddToPortfolio';
 
 interface ProjectCardProps {
   project: PortfolioProject;
-  onDelete: (id: string) => void;
+  onDelete: (projectId: string) => void;
   onUpdate: (project: PortfolioProject) => void;
 }
 
 export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editedProject, setEditedProject] = useState(project);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [formData, setFormData] = useState({ ...project });
 
   const {
     attributes,
@@ -31,229 +30,200 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({
-    id: project.id,
-  });
-  
+  } = useSortable({ id: project.id });
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  };
-  
-  const handleEditSubmit = () => {
-    onUpdate(editedProject);
-    setIsEditing(false);
-  };
-  
-  const handleDeleteConfirm = () => {
-    onDelete(project.id);
-    setShowDeleteConfirm(false);
+    zIndex: isDragging ? 999 : 'auto',
   };
 
-  // Determine card status colors
-  let statusColor = '';
-  switch (project.status) {
-    case 'Idea':
-      statusColor = 'bg-gray-100 text-gray-800';
-      break;
-    case 'Planned':
-      statusColor = 'bg-blue-100 text-blue-800';
-      break;
-    case 'In Progress':
-      statusColor = 'bg-amber-100 text-amber-800';
-      break;
-    case 'Completed':
-      statusColor = 'bg-green-100 text-green-800';
-      break;
-  }
+  const handleFormChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSkillsChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const skills = e.target.value
+      .split(',')
+      .map((skill) => skill.trim())
+      .filter((skill) => skill !== '');
+    setFormData({ ...formData, required_skills: skills });
+  };
+
+  const handleUpdateProject = () => {
+    onUpdate(formData);
+    setIsDialogOpen(false);
+  };
+
+  const handleDeleteProject = () => {
+    onDelete(project.id);
+    setIsDeleteDialogOpen(false);
+  };
+
+  const truncate = (str: string, length: number) => {
+    if (!str) return '';
+    return str.length > length ? str.substring(0, length) + '...' : str;
+  };
 
   return (
-    <>
-      <div
-        ref={setNodeRef}
-        style={style}
-        {...attributes}
-        {...listeners}
-        className={`touch-none ${isDragging ? 'z-10' : ''}`}
-      >
-        <Card className="shadow-sm hover:shadow transition-shadow cursor-grab">
-          <CardHeader className="p-3 pb-0">
-            <CardTitle className="text-base flex justify-between items-start">
-              <span className="truncate">{project.title}</span>
-              <Badge className={`ml-2 ${statusColor}`}>{project.status}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-3 text-sm">
-            <p className="text-gray-500 text-xs mb-2 line-clamp-2">
-              {project.description || 'No description provided'}
-            </p>
-            
-            {(project.required_skills?.length > 0 || project.effort_level || project.impact) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full h-6 p-0 text-xs text-gray-500 flex items-center justify-center"
-                onClick={() => setIsExpanded(!isExpanded)}
-              >
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="h-3 w-3 mr-1" /> Show less
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3 mr-1" /> Show details
-                  </>
-                )}
-              </Button>
+    <Card
+      ref={setNodeRef}
+      style={style}
+      className="bg-white shadow-sm"
+    >
+      <CardContent className="p-3">
+        <div className="flex gap-2">
+          <div
+            {...attributes}
+            {...listeners}
+            className="cursor-grab"
+          >
+            <GripVertical className="h-5 w-5 text-gray-400" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="font-medium truncate">{project.title}</h3>
+            {project.description && (
+              <p className="text-sm text-gray-500 mt-1">
+                {truncate(project.description, 100)}
+              </p>
             )}
-
-            {isExpanded && (
-              <div className="pt-2 space-y-2 text-xs">
-                {project.required_skills?.length > 0 && (
-                  <div>
-                    <p className="font-medium mb-1">Required Skills</p>
-                    <div className="flex flex-wrap gap-1">
-                      {project.required_skills.map((skill, i) => (
-                        <Badge key={i} variant="outline" className="text-xs">
-                          {skill}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {project.effort_level && (
-                  <div>
-                    <p className="font-medium mb-1">Effort Level</p>
-                    <p className="text-gray-600">{project.effort_level}</p>
-                  </div>
-                )}
-                
-                {project.impact && (
-                  <div>
-                    <p className="font-medium mb-1">Impact</p>
-                    <p className="text-gray-600">{project.impact}</p>
-                  </div>
-                )}
-                
-                {project.roadmap?.milestones?.length > 0 && (
-                  <div>
-                    <p className="font-medium mb-1">Milestones</p>
-                    <ul className="list-disc list-inside">
-                      {project.roadmap.milestones.map((milestone, i) => (
-                        <li key={i} className="text-gray-600">{milestone}</li>
-                      ))}
-                    </ul>
-                  </div>
+            {project.required_skills && project.required_skills.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {project.required_skills.slice(0, 3).map((skill, index) => (
+                  <span
+                    key={index}
+                    className="bg-gray-100 text-xs px-1.5 py-0.5 rounded text-gray-700"
+                  >
+                    {skill}
+                  </span>
+                ))}
+                {project.required_skills.length > 3 && (
+                  <span className="text-xs text-gray-500">
+                    +{project.required_skills.length - 3} more
+                  </span>
                 )}
               </div>
             )}
-          </CardContent>
-          <CardFooter className="p-3 pt-0 flex justify-between">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2"
-              onClick={() => setIsEditing(true)}
-            >
-              <Edit className="h-3.5 w-3.5 mr-1" /> Edit
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
-            </Button>
-          </CardFooter>
-        </Card>
-      </div>
+          </div>
+        </div>
+      </CardContent>
+      <CardFooter className="p-3 pt-0 flex justify-between border-t mt-3">
+        <div className="flex gap-1">
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setIsDialogOpen(true)}
+          >
+            <Edit className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-500 hover:text-red-700 hover:bg-red-50"
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            <Trash className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+        
+        {project.status === 'Completed' && (
+          <AddToPortfolio project={project} />
+        )}
+      </CardFooter>
 
-      {/* Edit Project Dialog */}
-      <Dialog open={isEditing} onOpenChange={setIsEditing}>
-        <DialogContent>
+      {/* Edit Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
-              Update the details of your portfolio project.
+              Update your project details
             </DialogDescription>
           </DialogHeader>
-          
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="title">Project Title</Label>
+              <Label htmlFor="title">Title</Label>
               <Input
                 id="title"
-                value={editedProject.title}
-                onChange={(e) => setEditedProject({ ...editedProject, title: e.target.value })}
+                name="title"
+                value={formData.title}
+                onChange={handleFormChange}
               />
             </div>
-            
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
                 id="description"
-                value={editedProject.description || ''}
-                onChange={(e) => setEditedProject({ ...editedProject, description: e.target.value })}
-                rows={3}
+                name="description"
+                value={formData.description || ''}
+                onChange={handleFormChange}
+                rows={4}
               />
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="effort">Effort Level</Label>
+              <Label htmlFor="skills">Skills (comma separated)</Label>
               <Input
-                id="effort"
-                value={editedProject.effort_level || ''}
-                onChange={(e) => setEditedProject({ ...editedProject, effort_level: e.target.value })}
-                placeholder="e.g., Low, Medium, High"
+                id="skills"
+                value={formData.required_skills?.join(', ') || ''}
+                onChange={handleSkillsChange}
+                placeholder="React, TypeScript, Firebase"
               />
             </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="impact">Impact Statement</Label>
-              <Textarea
-                id="impact"
-                value={editedProject.impact || ''}
-                onChange={(e) => setEditedProject({ ...editedProject, impact: e.target.value })}
-                rows={2}
-                placeholder="Why is this project valuable to showcase?"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="effort_level">Effort Level</Label>
+                <Input
+                  id="effort_level"
+                  name="effort_level"
+                  value={formData.effort_level || ''}
+                  onChange={handleFormChange}
+                  placeholder="Medium"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="impact">Impact</Label>
+                <Input
+                  id="impact"
+                  name="impact"
+                  value={formData.impact || ''}
+                  onChange={handleFormChange}
+                  placeholder="High business value"
+                />
+              </div>
             </div>
           </div>
-          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditing(false)}>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleEditSubmit}>
-              Save Changes
-            </Button>
+            <Button onClick={handleUpdateProject}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogTitle>Confirm Delete</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete the project "{project.title}"? This action cannot be undone.
+              Are you sure you want to delete this project? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Delete Project
+            <Button variant="destructive" onClick={handleDeleteProject}>
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </Card>
   );
 }

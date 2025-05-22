@@ -1123,6 +1123,81 @@ export type Database = {
         }
         Relationships: []
       }
+      portfolio_page_projects: {
+        Row: {
+          custom_description: string | null
+          display_order: number | null
+          id: string
+          portfolio_page_id: string | null
+          project_id: string | null
+        }
+        Insert: {
+          custom_description?: string | null
+          display_order?: number | null
+          id?: string
+          portfolio_page_id?: string | null
+          project_id?: string | null
+        }
+        Update: {
+          custom_description?: string | null
+          display_order?: number | null
+          id?: string
+          portfolio_page_id?: string | null
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_page_projects_portfolio_page_id_fkey"
+            columns: ["portfolio_page_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_pages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_page_projects_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "portfolio_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portfolio_pages: {
+        Row: {
+          created_at: string | null
+          custom_url: string | null
+          description: string | null
+          id: string
+          is_public: boolean | null
+          theme: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          custom_url?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          theme?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          custom_url?: string | null
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          theme?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       portfolio_projects: {
         Row: {
           created_at: string | null
