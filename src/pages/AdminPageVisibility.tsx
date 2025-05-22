@@ -28,7 +28,8 @@ import {
   CheckCircle, 
   UserCheck,
   Users,
-  RefreshCw
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import {
   Tooltip,
@@ -39,6 +40,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 const AdminPageVisibility = () => {
   const { pageVisibility, isLoading, updatePageVisibility, syncAvailablePages, isSyncing } = usePageVisibility();
@@ -47,13 +49,21 @@ const AdminPageVisibility = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [updating, setUpdating] = useState<Record<string, boolean>>({});
   const [syncStatus, setSyncStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [hasSynced, setHasSynced] = useState(false);
 
   // Log user role information on component load
   useEffect(() => {
     console.log('Current user in AdminPageVisibility:', user);
     console.log('User roles:', user?.roles);
     console.log('User metadata:', user?.user_metadata);
-  }, [user]);
+    console.log('Current page visibility data:', pageVisibility);
+    
+    // If no data is loaded initially, trigger a sync
+    if (pageVisibility.length === 0 && !isLoading && !isSyncing && !hasSynced) {
+      console.log('No page visibility data found, triggering initial sync');
+      handleSyncPages();
+    }
+  }, [user, pageVisibility, isLoading, isSyncing]);
 
   const filteredPages = pageVisibility.filter(page => 
     page.page_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -86,6 +96,7 @@ const AdminPageVisibility = () => {
       setSyncStatus('idle');
       console.log("Starting page sync...");
       await syncAvailablePages();
+      setHasSynced(true);
       
       setSyncStatus('success');
       toast({
@@ -100,6 +111,22 @@ const AdminPageVisibility = () => {
         variant: "destructive",
       });
       console.error("Failed to sync pages:", error);
+    }
+  };
+
+  const manualCheckDatabase = async () => {
+    try {
+      console.log("Manually checking database content");
+      const { data, error } = await supabase.from('page_visibility').select('*');
+      
+      if (error) {
+        console.error("Database query error:", error);
+        return;
+      }
+      
+      console.log("Database page_visibility records:", data);
+    } catch (err) {
+      console.error("Error checking database:", err);
     }
   };
 
@@ -140,123 +167,148 @@ const AdminPageVisibility = () => {
                   <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
                   {isSyncing ? 'Syncing...' : 'Sync Pages'}
                 </Button>
+                <Button 
+                  onClick={manualCheckDatabase} 
+                  variant="outline" 
+                  size="sm"
+                  className="hidden md:flex"
+                >
+                  <AlertCircle className="h-4 w-4 mr-2" />
+                  Debug
+                </Button>
               </div>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[300px]">Page</TableHead>
-                    <TableHead className="w-[150px]">Path</TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center">
-                        <Users className="h-4 w-4 mr-2" />
-                        <span>All Users</span>
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center">
-                        <UserCheck className="h-4 w-4 mr-2" />
-                        <span>Instructors</span>
-                      </div>
-                    </TableHead>
-                    <TableHead className="text-center">
-                      <div className="flex items-center justify-center">
-                        <Shield className="h-4 w-4 mr-2" />
-                        <span>Admins</span>
-                      </div>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading || isSyncing ? (
-                    // Skeleton loader when data is loading
-                    Array.from({ length: 6 }).map((_, index) => (
-                      <TableRow key={`skeleton-${index}`}>
-                        <TableCell>
-                          <Skeleton className="h-4 w-[250px]" />
-                        </TableCell>
-                        <TableCell>
-                          <Skeleton className="h-4 w-[100px]" />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Skeleton className="h-6 w-10 mx-auto" />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Skeleton className="h-6 w-10 mx-auto" />
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <Skeleton className="h-6 w-10 mx-auto" />
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  ) : filteredPages.length === 0 ? (
+            {pageVisibility.length === 0 && !isLoading && !isSyncing ? (
+              <div className="p-8 text-center">
+                <div className="mb-4">
+                  <AlertCircle className="h-12 w-12 mx-auto text-amber-500" />
+                </div>
+                <h3 className="text-xl font-medium mb-2">No pages found</h3>
+                <p className="text-muted-foreground mb-4">
+                  There are no pages configured in the visibility system. Click "Sync Pages" to detect all available pages in the application.
+                </p>
+                <Button onClick={handleSyncPages}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Sync Pages
+                </Button>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                        No pages match your search.
-                      </TableCell>
+                      <TableHead className="w-[300px]">Page</TableHead>
+                      <TableHead className="w-[150px]">Path</TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex items-center justify-center">
+                          <Users className="h-4 w-4 mr-2" />
+                          <span>All Users</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex items-center justify-center">
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          <span>Instructors</span>
+                        </div>
+                      </TableHead>
+                      <TableHead className="text-center">
+                        <div className="flex items-center justify-center">
+                          <Shield className="h-4 w-4 mr-2" />
+                          <span>Admins</span>
+                        </div>
+                      </TableHead>
                     </TableRow>
-                  ) : (
-                    filteredPages.map((page) => (
-                      <TableRow key={page.id}>
-                        <TableCell className="font-medium">
-                          {page.page_name}
-                          {page.page_path.includes(':') && (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span>
-                                    <Info className="h-4 w-4 inline ml-2 text-muted-foreground" />
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>Dynamic route with parameters</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          )}
-                        </TableCell>
-                        <TableCell className="font-mono text-xs">
-                          {page.page_path}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center">
-                            <Switch
-                              checked={page.visible_to_users}
-                              disabled={updating[page.id + 'visible_to_users']}
-                              onCheckedChange={(checked) => 
-                                handleVisibilityChange(page.id, 'visible_to_users', checked)
-                              }
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center">
-                            <Switch
-                              checked={page.visible_to_instructors}
-                              disabled={updating[page.id + 'visible_to_instructors']}
-                              onCheckedChange={(checked) => 
-                                handleVisibilityChange(page.id, 'visible_to_instructors', checked)
-                              }
-                            />
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <div className="flex justify-center">
-                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                              Always
-                            </Badge>
-                          </div>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading || isSyncing ? (
+                      // Skeleton loader when data is loading
+                      Array.from({ length: 6 }).map((_, index) => (
+                        <TableRow key={`skeleton-${index}`}>
+                          <TableCell>
+                            <Skeleton className="h-4 w-[250px]" />
+                          </TableCell>
+                          <TableCell>
+                            <Skeleton className="h-4 w-[100px]" />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Skeleton className="h-6 w-10 mx-auto" />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Skeleton className="h-6 w-10 mx-auto" />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Skeleton className="h-6 w-10 mx-auto" />
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : filteredPages.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                          No pages match your search.
                         </TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
+                    ) : (
+                      filteredPages.map((page) => (
+                        <TableRow key={page.id}>
+                          <TableCell className="font-medium">
+                            {page.page_name}
+                            {page.page_path.includes(':') && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span>
+                                      <Info className="h-4 w-4 inline ml-2 text-muted-foreground" />
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p>Dynamic route with parameters</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </TableCell>
+                          <TableCell className="font-mono text-xs">
+                            {page.page_path}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center">
+                              <Switch
+                                checked={page.visible_to_users}
+                                disabled={updating[page.id + 'visible_to_users']}
+                                onCheckedChange={(checked) => 
+                                  handleVisibilityChange(page.id, 'visible_to_users', checked)
+                                }
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center">
+                              <Switch
+                                checked={page.visible_to_instructors}
+                                disabled={updating[page.id + 'visible_to_instructors']}
+                                onCheckedChange={(checked) => 
+                                  handleVisibilityChange(page.id, 'visible_to_instructors', checked)
+                                }
+                              />
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <div className="flex justify-center">
+                              <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
+                                <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                Always
+                              </Badge>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
             <div className="mt-4 text-sm text-muted-foreground">
               <p>
                 <strong>Notes:</strong> Pages not visible to a user role will show a "Coming Soon" overlay. 

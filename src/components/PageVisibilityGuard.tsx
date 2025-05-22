@@ -13,7 +13,9 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
 
   useEffect(() => {
     if (!isLoading) {
-      setIsVisible(isPageVisible(location.pathname));
+      const visibility = isPageVisible(location.pathname);
+      console.log(`PageVisibilityGuard: Path ${location.pathname} is visible: ${visibility}`);
+      setIsVisible(visibility);
     }
   }, [location.pathname, isPageVisible, isLoading]);
 
@@ -22,13 +24,17 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
     navigate('/resources');
   };
 
-  if (isLoading) return <>{children}</>;
+  if (isLoading) {
+    console.log('PageVisibilityGuard: Still loading visibility data');
+    return <>{children}</>;
+  }
   
   if (isVisible) {
+    console.log('PageVisibilityGuard: Page is visible, showing content');
     return <>{children}</>;
   }
 
-  // Find the main element by data-component-name
+  // Apply overlay to main content
   const applyOverlayToMainContent = () => {
     const mainContent = document.querySelector('[data-component-name="main"]');
     
@@ -100,5 +106,6 @@ export default function PageVisibilityGuard({ children }: { children: React.Reac
     );
   };
 
+  console.log('PageVisibilityGuard: Page not visible, showing overlay');
   return applyOverlayToMainContent();
 }

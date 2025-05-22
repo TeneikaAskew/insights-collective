@@ -76,335 +76,335 @@ function App() {
       <HelmetProvider>
         <Router>
           <AuthProvider>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route
-                path="/dashboard"
-                element={
-                  <ProtectedRoute>
-                    <Dashboard />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/courses"
-                element={
-                  <ProtectedRoute>
-                    <CourseList />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/course/:courseId"
-                element={
-                  <ProtectedRoute>
-                    <CourseDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/module/:moduleId"
-                element={
-                  <ProtectedRoute>
-                    <ModuleDetail />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/career-pathway"
-                element={
-                  <ProtectedRoute>
-                    <CareerPathway />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Resources route */}
-              <Route
-                path="/resources"
-                element={
-                  <PageVisibilityGuard>
-                    <Resources />
-                  </PageVisibilityGuard>
-                }
-              />
-              
-              {/* Resume route */}
-              <Route
-                path="/resume"
-                element={
-                  <ProtectedRoute>
-                    <Resume />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Interview preparation routes */}
-              <Route
-                path="/interview-prep"
-                element={
-                  <ProtectedRoute>
-                    <InterviewPrep />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/interview-prep/job-description"
-                element={
-                  <ProtectedRoute>
-                    <JobDescription />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/interview-prep/star-practice"
-                element={
-                  <ProtectedRoute>
-                    <StarPractice />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/interview-prep/code-practice"
-                element={
-                  <ProtectedRoute>
-                    <CodePracticeInterview />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/interview-prep/mock-interviews"
-                element={
-                  <ProtectedRoute>
-                    <MockInterviews />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/interview-prep/mock-interview-room/:sessionId"
-                element={
-                  <ProtectedRoute>
-                    <MockInterviewRoom />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/mock-interviews"
-                element={
-                  <ProtectedRoute>
-                    <MockInterviews />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/mock-interview/:sessionId"
-                element={
-                  <ProtectedRoute>
-                    <MockInterviewRoom />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/code-practice"
-                element={
-                  <ProtectedRoute>
-                    <CodePractice />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Events route */}
-              <Route
-                path="/events"
-                element={
-                  <ProtectedRoute>
-                    <Events />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Blog routes */}
-              <Route path="/blog" element={<BlogList />} />
-              <Route path="/blog/:postId" element={<BlogPost />} />
-              
-              {/* Messaging routes */}
-              <Route
-                path="/messages"
-                element={
-                  <ProtectedRoute>
-                    <Messages />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Forum routes */}
-              <Route
-                path="/forums"
-                element={
-                  <ProtectedRoute>
-                    <ForumList />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/forums/:forumId"
-                element={
-                  <ProtectedRoute>
-                    <ForumDetail />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Calendar route */}
-              <Route
-                path="/calendar"
-                element={
-                  <ProtectedRoute>
-                    <Calendar />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Assistant routes */}
-              <Route
-                path="/assistants"
-                element={
-                  <ProtectedRoute>
-                    <Assistants />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/assistant/:assistantId"
-                element={
-                  <ProtectedRoute>
-                    <AssistantInterface />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/career-agent"
-                element={
-                  <ProtectedRoute>
-                    <CareerAgent />
-                  </ProtectedRoute>
-                }
-              />
-              
-              {/* Admin routes */}
-              <Route
-                path="/admin"
-                element={
-                  <AdminGuard>
-                    <AdminDashboard />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/users"
-                element={
-                  <AdminGuard>
-                    <AdminUsers />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/courses"
-                element={
-                  <AdminGuard>
-                    <AdminCourses />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/events"
-                element={
-                  <AdminGuard>
-                    <AdminEvents />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/blog-posts"
-                element={
-                  <AdminGuard>
-                    <AdminBlogPosts />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/resources"
-                element={
-                  <AdminGuard>
-                    <AdminResources />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/forms"
-                element={
-                  <AdminGuard>
-                    <AdminForms />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/activity"
-                element={
-                  <AdminGuard>
-                    <AdminActivity />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/certificates"
-                element={
-                  <AdminGuard>
-                    <AdminCertificates />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/enrollments"
-                element={
-                  <AdminGuard>
-                    <AdminEnrollments />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/course/:courseId/edit"
-                element={
-                  <AdminGuard>
-                    <AdminCourseEdit />
-                  </AdminGuard>
-                }
-              />
-              <Route
-                path="/admin/page-visibility"
-                element={
-                  <AdminGuard>
-                    <AdminPageVisibility />
-                  </AdminGuard>
-                }
-              />
-              
-              {/* Portfolio routes */}
-              {portfolioRoutes}
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
             <PageVisibilityProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/courses"
+                  element={
+                    <ProtectedRoute>
+                      <CourseList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/course/:courseId"
+                  element={
+                    <ProtectedRoute>
+                      <CourseDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/module/:moduleId"
+                  element={
+                    <ProtectedRoute>
+                      <ModuleDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/career-pathway"
+                  element={
+                    <ProtectedRoute>
+                      <CareerPathway />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Resources route */}
+                <Route
+                  path="/resources"
+                  element={
+                    <PageVisibilityGuard>
+                      <Resources />
+                    </PageVisibilityGuard>
+                  }
+                />
+                
+                {/* Resume route */}
+                <Route
+                  path="/resume"
+                  element={
+                    <ProtectedRoute>
+                      <Resume />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Interview preparation routes */}
+                <Route
+                  path="/interview-prep"
+                  element={
+                    <ProtectedRoute>
+                      <InterviewPrep />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/interview-prep/job-description"
+                  element={
+                    <ProtectedRoute>
+                      <JobDescription />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/interview-prep/star-practice"
+                  element={
+                    <ProtectedRoute>
+                      <StarPractice />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/interview-prep/code-practice"
+                  element={
+                    <ProtectedRoute>
+                      <CodePracticeInterview />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/interview-prep/mock-interviews"
+                  element={
+                    <ProtectedRoute>
+                      <MockInterviews />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/interview-prep/mock-interview-room/:sessionId"
+                  element={
+                    <ProtectedRoute>
+                      <MockInterviewRoom />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/mock-interviews"
+                  element={
+                    <ProtectedRoute>
+                      <MockInterviews />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/mock-interview/:sessionId"
+                  element={
+                    <ProtectedRoute>
+                      <MockInterviewRoom />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/code-practice"
+                  element={
+                    <ProtectedRoute>
+                      <CodePractice />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Events route */}
+                <Route
+                  path="/events"
+                  element={
+                    <ProtectedRoute>
+                      <Events />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Blog routes */}
+                <Route path="/blog" element={<BlogList />} />
+                <Route path="/blog/:postId" element={<BlogPost />} />
+                
+                {/* Messaging routes */}
+                <Route
+                  path="/messages"
+                  element={
+                    <ProtectedRoute>
+                      <Messages />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Forum routes */}
+                <Route
+                  path="/forums"
+                  element={
+                    <ProtectedRoute>
+                      <ForumList />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/forums/:forumId"
+                  element={
+                    <ProtectedRoute>
+                      <ForumDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Calendar route */}
+                <Route
+                  path="/calendar"
+                  element={
+                    <ProtectedRoute>
+                      <Calendar />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Assistant routes */}
+                <Route
+                  path="/assistants"
+                  element={
+                    <ProtectedRoute>
+                      <Assistants />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/assistant/:assistantId"
+                  element={
+                    <ProtectedRoute>
+                      <AssistantInterface />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/career-agent"
+                  element={
+                    <ProtectedRoute>
+                      <CareerAgent />
+                    </ProtectedRoute>
+                  }
+                />
+                
+                {/* Admin routes */}
+                <Route
+                  path="/admin"
+                  element={
+                    <AdminGuard>
+                      <AdminDashboard />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/users"
+                  element={
+                    <AdminGuard>
+                      <AdminUsers />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/courses"
+                  element={
+                    <AdminGuard>
+                      <AdminCourses />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/events"
+                  element={
+                    <AdminGuard>
+                      <AdminEvents />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/blog-posts"
+                  element={
+                    <AdminGuard>
+                      <AdminBlogPosts />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/resources"
+                  element={
+                    <AdminGuard>
+                      <AdminResources />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/forms"
+                  element={
+                    <AdminGuard>
+                      <AdminForms />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/activity"
+                  element={
+                    <AdminGuard>
+                      <AdminActivity />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/certificates"
+                  element={
+                    <AdminGuard>
+                      <AdminCertificates />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/enrollments"
+                  element={
+                    <AdminGuard>
+                      <AdminEnrollments />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/course/:courseId/edit"
+                  element={
+                    <AdminGuard>
+                      <AdminCourseEdit />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/page-visibility"
+                  element={
+                    <AdminGuard>
+                      <AdminPageVisibility />
+                    </AdminGuard>
+                  }
+                />
+                
+                {/* Portfolio routes */}
+                {portfolioRoutes}
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
               <Toaster />
             </PageVisibilityProvider>
           </AuthProvider>

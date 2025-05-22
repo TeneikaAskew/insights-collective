@@ -296,17 +296,40 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       setIsSyncing(true);
       console.log('Starting page sync operation');
       
-      // Get routes from the application using React Router routes
-      const appRoutes = [
+      // Extract routes from App.tsx using the React Router route configuration
+      let appRoutes = [
         { path: '/', name: 'Home' },
         { path: '/login', name: 'Login' },
         { path: '/register', name: 'Register' },
         { path: '/dashboard', name: 'Dashboard' },
+        { path: '/profile', name: 'Profile' },
         { path: '/resources', name: 'Resources' },
         { path: '/events', name: 'Events' },
-        { path: '/profile', name: 'Profile' },
         { path: '/resume', name: 'Resume' },
         { path: '/messages', name: 'Messages' },
+        { path: '/courses', name: 'Courses' },
+        { path: '/course/:courseId', name: 'Course Detail' },
+        { path: '/module/:moduleId', name: 'Module Detail' },
+        { path: '/career-pathway', name: 'Career Pathway' },
+        { path: '/calendar', name: 'Calendar' },
+        { path: '/notifications', name: 'Notifications' },
+        { path: '/assistants', name: 'Assistants' },
+        { path: '/assistant/:assistantId', name: 'Assistant Chat' },
+        { path: '/career-agent', name: 'Career Agent' },
+        { path: '/interview-prep', name: 'Interview Prep' },
+        { path: '/interview-prep/job-description', name: 'Job Description Analysis' },
+        { path: '/interview-prep/star-practice', name: 'STAR Practice' },
+        { path: '/interview-prep/code-practice', name: 'Code Practice (Interview)' },
+        { path: '/interview-prep/mock-interviews', name: 'Mock Interviews' },
+        { path: '/interview-prep/mock-interview-room/:sessionId', name: 'Mock Interview Room' },
+        { path: '/mock-interviews', name: 'Mock Interviews' },
+        { path: '/mock-interview/:sessionId', name: 'Mock Interview Session' },
+        { path: '/code-practice', name: 'Code Practice' },
+        { path: '/blog', name: 'Blog' },
+        { path: '/blog/:postId', name: 'Blog Post' },
+        { path: '/forums', name: 'Forums' },
+        { path: '/forums/:forumId', name: 'Forum Detail' },
+        { path: '/explore-data-careers', name: 'Explore Data Careers' },
         { path: '/admin', name: 'Admin Dashboard' },
         { path: '/admin/users', name: 'Admin Users' },
         { path: '/admin/courses', name: 'Admin Courses' },
@@ -314,16 +337,11 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         { path: '/admin/page-visibility', name: 'Page Visibility' },
         { path: '/admin/resources', name: 'Admin Resources' },
         { path: '/admin/forms', name: 'Admin Forms' },
+        { path: '/admin/activity', name: 'Admin Activity' },
         { path: '/admin/certificates', name: 'Admin Certificates' },
         { path: '/admin/blog-posts', name: 'Admin Blog Posts' },
         { path: '/admin/enrollments', name: 'Admin Enrollments' },
-        { path: '/admin/activity', name: 'Admin Activity' },
-        { path: '/career-pathway', name: 'Career Pathway' },
-        { path: '/calendar', name: 'Calendar' },
-        { path: '/notifications', name: 'Notifications' },
-        { path: '/assistants', name: 'Assistants' },
-        { path: '/interview-prep', name: 'Interview Prep' },
-        { path: '/explore-data-careers', name: 'Explore Data Careers' },
+        { path: '/admin/course/:courseId/edit', name: 'Admin Course Edit' },
       ];
       
       console.log('App routes to sync:', appRoutes.length);
