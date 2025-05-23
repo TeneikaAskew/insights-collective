@@ -1,10 +1,11 @@
 
 import React from 'react';
 import { Route } from 'react-router-dom';
-import { PortfolioEditor } from '@/components/portfolio/PortfolioEditor';
-import { PublicPortfolioView } from '@/components/portfolio/PublicPortfolioView';
+import { EnhancedPortfolioEditor } from '@/components/portfolio/EnhancedPortfolioEditor';
+import { EnhancedPublicPortfolioView } from '@/components/portfolio/EnhancedPublicPortfolioView';
 import PortfolioExplorer from '@/pages/PortfolioExplorer';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import PageVisibilityGuard from '@/components/PageVisibilityGuard';
 
 export const portfolioRoutes = (
   <>
@@ -12,7 +13,9 @@ export const portfolioRoutes = (
       path="/portfolio-explorer" 
       element={
         <ProtectedRoute>
-          <PortfolioExplorer />
+          <PageVisibilityGuard>
+            <PortfolioExplorer />
+          </PageVisibilityGuard>
         </ProtectedRoute>
       } 
     />
@@ -20,10 +23,12 @@ export const portfolioRoutes = (
       path="/portfolio-editor/:pageId" 
       element={
         <ProtectedRoute>
-          <PortfolioEditor />
+          <PageVisibilityGuard>
+            <EnhancedPortfolioEditor />
+          </PageVisibilityGuard>
         </ProtectedRoute>
       } 
     />
-    <Route path="/portfolio/:customUrl" element={<PublicPortfolioView />} />
+    <Route path="/portfolio/:customUrl" element={<EnhancedPublicPortfolioView />} />
   </>
 );

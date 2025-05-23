@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -84,6 +83,7 @@ function App() {
                 <Route path="/register" element={<Register />} />
                 
                 {/* Protected routes */}
+                
                 <Route
                   path="/dashboard"
                   element={
