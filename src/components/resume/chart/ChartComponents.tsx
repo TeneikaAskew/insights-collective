@@ -1,180 +1,135 @@
 
 import React from 'react';
-import {
-  PieChart,
-  Pie,
-  ResponsiveContainer,
-  Cell,
-  Label,
-  Tooltip
-} from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
+import { CheckCircle, AlertTriangle } from 'lucide-react';
+import { BULLET_CATEGORIES } from './BulletChartData';
 
-interface DistributionBarProps {
-  item: {
-    name: string;
-    value: number;
-    maxValue?: number;
-    color: string;
-    percent: number;
-  };
+// Helper function to determine if target is met
+export const isTargetMet = (score: number) => {
+  return score >= 100 - 14 && score <= 100 + 14;
+};
+
+// Chart data item structure 
+export interface ChartDataItem {
+  name: string;
+  value: number;
+  fill: string;
+  target: number;
+  percent: number;
+  category: string;
 }
 
-// Score component with icon indicator
-export const ScoreWithIcon: React.FC<{ score: number; maxScore?: number; size?: 'sm' | 'md' | 'lg' }> = ({
-  score,
-  maxScore = 100,
-  size = 'md'
-}) => {
-  const scorePercent = Math.min(100, Math.round((score / maxScore) * 100));
-  
-  // Determine color based on score percentage
-  let color = 'text-green-600';
-  let bgColor = 'bg-green-100';
-  
-  if (scorePercent < 40) {
-    color = 'text-red-600';
-    bgColor = 'bg-red-100';
-  } else if (scorePercent < 70) {
-    color = 'text-amber-600';
-    bgColor = 'bg-amber-100';
+// Get color class based on category
+export const getCategoryColorClass = (category: string): string => {
+  switch (category) {
+    case 'action':
+      return 'bg-[#1F75FE]'; // insight-blue
+    case 'metrics':
+      return 'bg-[#5ED3B5]'; // aqua-teal
+    case 'clarity':
+      return 'bg-[#C7BCF5]'; // vira-purple
+    case 'industry':
+      return 'bg-[#F9A826]'; // energetic-amber
+    case 'achievement':
+      return 'bg-[#8A8F9E]'; // dusty-gray
+    default:
+      return 'bg-[#2C2C2C]'; // slate-gray
   }
-  
-  // Size classes
-  const sizeClasses = {
-    sm: 'text-lg px-1.5',
-    md: 'text-xl px-2',
-    lg: 'text-2xl px-3'
-  };
-  
-  return (
-    <span className={`${color} font-bold ${sizeClasses[size]} ${bgColor} rounded-md py-0.5 inline-flex items-center`}>
-      {score}{maxScore ? `/${maxScore}` : ''}
-    </span>
-  );
 };
 
-export const BulletDonutChart: React.FC<{ data: any[]; totalScore: number }> = ({ data, totalScore }) => {
-  // Round the score to the nearest whole number
-  const roundedScore = Math.round(totalScore);
-  
-  // Determine rating text and color
-  let ratingText = 'Poor';
-  let ratingColor = '#EF4444'; // red
-  
-  if (roundedScore >= 90) {
-    ratingText = 'Excellent';
-    ratingColor = '#22C55E'; // green
-  } else if (roundedScore >= 75) {
-    ratingText = 'Very Good';
-    ratingColor = '#65A30D'; // lime
-  } else if (roundedScore >= 60) {
-    ratingText = 'Good';
-    ratingColor = '#F59E0B'; // amber
-  } else if (roundedScore >= 40) {
-    ratingText = 'Fair';
-    ratingColor = '#F97316'; // orange
+// Get text color class based on category
+export const getCategoryTextColorClass = (category: string): string => {
+  switch (category) {
+    case 'action':
+      return 'text-[#1F75FE]'; // insight-blue
+    case 'metrics':
+      return 'text-[#5ED3B5]'; // aqua-teal
+    case 'clarity':
+      return 'text-[#C7BCF5]'; // vira-purple
+    case 'industry':
+      return 'text-[#F9A826]'; // energetic-amber
+    case 'achievement':
+      return 'text-[#8A8F9E]'; // dusty-gray
+    default:
+      return 'text-[#2C2C2C]'; // slate-gray
   }
+};
 
-  return (
-    <div className="h-[250px] flex justify-center">
-      <ResponsiveContainer width="100%" height="100%">
+// Donut chart component
+export const BulletDonutChart: React.FC<{
+  data: ChartDataItem[];
+  totalScore: number;
+}> = ({
+  data,
+  totalScore
+}) => {
+  return <div className="relative">
+      <ResponsiveContainer width="100%" height={220}>
         <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={80}
-            paddingAngle={2}
-            dataKey="value"
-            cornerRadius={6}
-          >
-            {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
-            ))}
-            <Label
-              position="center"
-              content={({ viewBox }) => {
-                if (!viewBox || typeof viewBox === 'string') return null;
-                const { cx, cy } = viewBox as { cx?: number; cy?: number };
-                if (cx === undefined || cy === undefined) return null;
-                return (
-                  <>
-                    <text x={cx} y={cy - 5} textAnchor="middle" dominantBaseline="central" className="text-xl font-bold fill-current">
-                      {roundedScore}
-                    </text>
-                    <text x={cx} y={cy + 20} textAnchor="middle" dominantBaseline="central" className="text-sm fill-current" style={{ fill: ratingColor }}>
-                      {ratingText}
-                    </text>
-                  </>
-                );
-              }}
-            />
+          <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value" startAngle={90} endAngle={-270}>
+            {data.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
           </Pie>
-          <Tooltip
-            formatter={(value: number, name: string) => [`${value}%`, name]}
-            contentStyle={{ borderRadius: '6px', border: '1px solid #e2e8f0' }}
-          />
         </PieChart>
       </ResponsiveContainer>
-    </div>
-  );
+      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
+        <div className="text-3xl font-bold">{totalScore}</div>
+        <div className="text-sm text-gray-500">Story Score</div>
+      </div>
+    </div>;
 };
 
-export const DistributionBar: React.FC<DistributionBarProps> = ({ item }) => {
-  return (
-    <div className="space-y-1">
-      <div className="flex justify-between items-center text-sm">
-        <span className="font-medium">{item.name}</span>
-        <span className="font-semibold">
-          {item.maxValue !== undefined ? `${item.value}/${item.maxValue}` : `${item.percent}%`}
-        </span>
+// Distribution bar component
+export const DistributionBar: React.FC<{
+  item: ChartDataItem;
+}> = ({
+  item
+}) => {
+  // Calculate scaled score percentage = (actual / target) * 100
+  const scaledScore = item.target > 0 ? Math.round(item.percent / item.target * 100) : 0;
+
+  // Determine color of score: green if scaledScore >= 100%, else red
+  const scoreColorClass = scaledScore >= 100 ? "text-green-600 font-semibold" : "text-red-600 font-semibold";
+
+  // Bar width based on scaled score capped at 100%
+  const barWidthPercent = Math.min(scaledScore, 100);
+  return <div className="relative">
+      <div className="flex justify-between text-sm mb-1">
+        <div className="flex items-center">
+          <div className={`w-4 h-4 mr-2 rounded-full ${getCategoryColorClass(item.category)}`}></div>
+          <span>{item.name}</span>
+        </div>
+        <div className="flex items-center space-x-10">
+          <span className={scoreColorClass}>
+            {scaledScore}%
+          </span>
+        </div>
       </div>
-      <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full"
-          style={{
-            width: `${item.percent}%`,
-            backgroundColor: item.color,
-          }}
-        />
+      <div className="h-2 w-full bg-gray-200 rounded relative overflow-visible">
+        <div className={`h-full rounded ${getCategoryColorClass(item.category)}`} style={{
+        width: `${barWidthPercent}%`
+      }}></div>
+        {/* Line indicator for Goal at 100% */}
+        <div className="absolute top-0 left-[60%] h-full w-[2px] bg-gray-900 opacity-40" style={{
+        transform: 'translateX(-1px)'
+      }} aria-label="Goal marker" title="Goal"></div>
       </div>
-    </div>
-  );
+    </div>;
 };
 
-export const ScoreSummaryBox: React.FC<{
-  title: string;
+// Score display with icon component
+export const ScoreWithIcon: React.FC<{
   score: number;
-  maxScore?: number;
-  description: string;
-  className?: string;
-}> = ({ title, score, maxScore = 100, description, className = '' }) => {
-  const percentage = Math.round((score / maxScore) * 100);
-  
-  let bgColor = 'bg-green-50';
-  let textColor = 'text-green-700';
-  let borderColor = 'border-green-200';
-  
-  if (percentage < 40) {
-    bgColor = 'bg-red-50';
-    textColor = 'text-red-700';
-    borderColor = 'border-red-200';
-  } else if (percentage < 70) {
-    bgColor = 'bg-amber-50';
-    textColor = 'text-amber-700';
-    borderColor = 'border-amber-200';
-  }
-  
-  return (
-    <div className={`p-4 rounded-lg border ${borderColor} ${bgColor} ${className}`}>
-      <div className="flex justify-between items-center mb-2">
-        <h4 className={`font-medium ${textColor}`}>{title}</h4>
-        <span className={`font-bold text-lg ${textColor}`}>
-          {score}{maxScore ? `/${maxScore}` : ''}
-        </span>
-      </div>
-      <p className={`text-sm ${textColor} opacity-90`}>{description}</p>
-    </div>
-  );
+  maxScore: number;
+  label: string;
+}> = ({
+  score,
+  maxScore,
+  label
+}) => {
+  const isPassing = score >= maxScore * 0.6; // 60% threshold
+
+  return <div className="flex items-center">
+      {isPassing ? <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
+      <span>{label}: {score}/{maxScore}</span>
+    </div>;
 };
