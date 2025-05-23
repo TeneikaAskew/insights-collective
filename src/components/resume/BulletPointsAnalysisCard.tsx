@@ -236,24 +236,24 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
             </CardContent>
           </Card>
 
-          <Card className="bg-blue-50 border-blue-100">
+          <Card className="bg-green-50 border-green-200">
             <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-sm font-medium text-blue-800 text-center mb-1">XYZ Average</p>
-              <p className="text-2xl font-bold text-blue-900">{averageXYZScore}%</p>
+              <p className="text-sm font-medium text-green-800 text-center mb-1">XYZ Average</p>
+              <p className="text-2xl font-bold text-green-900">{averageXYZScore}%</p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-blue-50 border-blue-200">
+            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
+              <p className="text-sm font-medium text-blue-800 text-center mb-1">Balance Rating</p>
+              <p className="text-2xl font-bold text-blue-900">{averageBalanceRating}%</p>
             </CardContent>
           </Card>
 
           <Card className="bg-indigo-50 border-indigo-100">
             <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-sm font-medium text-indigo-800 text-center mb-1">Balance Rating</p>
-              <p className="text-2xl font-bold text-indigo-900">{averageBalanceRating}%</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-green-50 border-green-100">
-            <CardContent className="p-4 flex flex-col items-center justify-center h-full">
-              <p className="text-sm font-medium text-green-800 text-center mb-1">Strong Points</p>
-              <p className="text-2xl font-bold text-green-900">{strongBullets}</p>
+              <p className="text-sm font-medium text-indigo-800 text-center mb-1">Strong Points</p>
+              <p className="text-2xl font-bold text-indigo-900">{strongBullets}</p>
             </CardContent>
           </Card>
 
@@ -364,7 +364,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                           </div>
                           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div 
-                              className="h-full bg-[#9b87f5] rounded-full"
+                              className="h-full bg-blue-400 rounded-full"
                               style={{ width: `${value}%` }}
                             />
                           </div>
@@ -384,7 +384,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                           </div>
                           <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                             <div 
-                              className="h-full bg-[#9b87f5] rounded-full"
+                              className="h-full bg-green-700 rounded-full"
                               style={{ width: `${(value/XYZ_MAX_SCORES[key as keyof typeof XYZ_MAX_SCORES]) * 100}%` }}
                             />
                           </div>
