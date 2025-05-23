@@ -72,8 +72,7 @@ export const useResume = () => {
     setIsPollingForImprovements,
     pollingStatus,
     setPollingStatus,
-    pollingAttempt,
-    hasLoadedAnalysis
+    pollingAttempt
   } = useResumeAnalysis();
 
   // Load resume data when user changes

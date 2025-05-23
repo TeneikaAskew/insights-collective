@@ -167,8 +167,9 @@ export function PortfolioPagesTab() {
             </div>
           ) : (
             <PortfolioPagesList 
-              portfolioPages={portfolioPages} 
-              onCreateNew={() => setCreateDialogOpen(true)} 
+              pages={portfolioPages}
+              isLoading={pagesLoading}
+              onCreatePage={() => setCreateDialogOpen(true)} 
             />
           )}
         </CardContent>
