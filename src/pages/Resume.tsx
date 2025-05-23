@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
+import BulletPointChart from '@/components/resume/BulletPointChart';
 
 const AnalysisProgress: React.FC<{
   isAnalyzing: boolean;
@@ -195,25 +196,30 @@ const Resume = () => {
 
         // Update the analysis with enhanced bullets
         const updatedBullets = analysis.bullets.map(bullet => {
-          // Find matching enhanced bullet
           const enhanced = enhancedAnalysis.find(item => item.original === bullet.original);
           if (enhanced) {
-            logDebug('EnhancedUpdate', `Found match for bullet: ${bullet.original.substring(0, 30)}...`);
             return {
               ...bullet,
               rewritten: enhanced.rewritten || bullet.original,
-              tips: enhanced.tips || []
+              tips: enhanced.tips || [],
+              improved_xyz_scores: enhanced.xyz_scores,
+              improved_word_balance: enhanced.word_balance,
+              improved_bullet_total: enhanced.bullet_total,
+              // add any other improved fields you want to preserve
             };
           }
-          logDebug('EnhancedUpdate', `No enhanced match found for bullet: ${bullet.original.substring(0, 30)}...`);
           return bullet;
         });
 
         logDebug('EnhancedUpdate', 'Updated bullets', updatedBullets);
-        setAnalysis({
+        const updatedAnalysis = {
           ...analysis,
           bullets: updatedBullets
-        });
+        };
+        setAnalysis(updatedAnalysis);
+        if (user?.id) {
+          localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(updatedAnalysis));
+        }
 
         // Mark as loaded and update states
         hasLoadedEnhancedRef.current = true;

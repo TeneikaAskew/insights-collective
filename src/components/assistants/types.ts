@@ -1,4 +1,3 @@
-
 import { ReactNode } from "react";
 import { LucideIcon } from "lucide-react";
 
@@ -59,6 +58,22 @@ export interface BulletAnalysis {
     industry: number;
     achievement: number;
   };
+  // Add improved fields for enhanced analysis
+  improved_xyz_scores?: {
+    action: number;
+    metrics: number;
+    clarity: number;
+    industry: number;
+    achievement: number;
+  };
+  improved_word_balance?: {
+    word_balance_score: any;
+    industry_pct: number;
+    common_pct: number;
+    action_pct: number;
+    metric_pct: number;
+  };
+  improved_bullet_total?: number;
 }
 
 export interface CareerReportData {

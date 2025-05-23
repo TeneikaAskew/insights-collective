@@ -403,12 +403,14 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                   </p>
                 </div>
 
-                {displayBullet?.rewritten && displayBullet.rewritten !== displayBullet.original && (
+                {(displayBullet?.rewritten && displayBullet.rewritten !== displayBullet.original) && (
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Impact Analysis</h3>
                     <BulletPointChart bullet={{
                       ...displayBullet,
-                      original: displayBullet.rewritten
+                      xyz_scores: displayBullet.improved_xyz_scores || displayBullet.xyz_scores,
+                      bullet_total: displayBullet.improved_bullet_total || displayBullet.bullet_total,
+                      word_balance: displayBullet.improved_word_balance || displayBullet.word_balance
                     }} />
                   </div>
                 )}
