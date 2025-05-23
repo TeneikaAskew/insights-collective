@@ -84,6 +84,65 @@ export const softSkills = [
   ];
 
 export const skillsKeywords = [...industryWords, ...actionWords, ...softSkills];
+export const achievementKeywords = [
+  // General Success & Milestones
+  "achieved", "attained", "accomplished", "completed", "fulfilled", "realized", "delivered",
+  "reached", "surpassed", "exceeded", "culminated", "finalized", "closed", "obtained", "secured",
+  "won", "earned", "garnered", "captured", "gained", "succeeded", "triumphed",
+
+  // Recognition, Awards, Status
+  "awarded", "recognized", "honored", "commended", "certified", "nominated", "accredited", "featured",
+  "distinguished", "ranked", "placed", "licensed", "endorsed", "spotlighted", "celebrated", "hailed",
+  "titled", "topped", "selected", "received accolades", "winner", "top performer", "recipient", "recipient of",
+
+  // Improvement, Enhancement, Growth
+  "improved", "enhanced", "strengthened", "elevated", "boosted", "increased", "raised", "grew",
+  "expanded", "maximized", "amplified", "advanced", "multiplied", "escalated", "intensified",
+  "escalated", "revitalized", "optimized", "upgraded", "enriched", "perfected", "heightened",
+
+  // Financial Impact & Business Value
+  "profited", "yielded", "generated revenue", "increased revenue", "grew profit", "cut costs",
+  "saved", "reduced expense", "delivered savings", "improved ROI", "captured value",
+  "capitalized", "monetized", "sustained profit", "drove growth", "drove results", "contributed to growth",
+
+  // Surpassing Benchmarks/Records
+  "broke record", "set record", "record-breaking", "topped charts", "topped rankings", "outperformed", "outpaced",
+  "led industry", "first to", "fastest", "highest", "best in class", "benchmark-setting", "industry-leading",
+  "market leader", "standard setter", "trailblazer", "pioneer",
+
+  // Reduction, Efficiency Gains
+  "reduced", "lowered", "decreased", "curtailed", "minimized", "eliminated", "streamlined", "compressed",
+  "saved time", "shortened", "improved efficiency", "enhanced productivity", "contained", "diminished",
+  "tightened", "trimmed", "conserved", "preserved",
+
+  // Quality, Compliance, Excellence
+  "perfect record", "flawless", "zero errors", "error-free", "exceeded standards", "outstanding", "exceptional",
+  "passed inspection", "certified", "met compliance", "exemplary", "merit", "highly rated", "award-winning",
+  "commendation", "lauded", "recognized for excellence",
+
+  // Customer/User Impact
+  "satisfied", "retained", "delighted", "increased satisfaction", "improved retention", "reduced churn",
+  "grew loyalty", "captured positive feedback", "received testimonials", "gained 5-star reviews",
+  "improved NPS", "customer champion", "user favorite", "brand advocate",
+
+  // Innovation, Patents, Breakthroughs
+  "patented", "granted patent", "innovation award", "innovator of the year", "filed patent",
+  "breakthrough", "invented", "discovered", "pioneered", "transformed", "revolutionized", "first to market",
+
+  // Growth, Expansion, Reach
+  "expanded reach", "entered new market", "opened new location", "grew user base", "acquired clients",
+  "secured contract", "signed partnership", "increased market share", "attracted new customers", "won account",
+
+  // Positive Impact & Community
+  "made impact", "gave back", "volunteered", "donated", "community leader", "positive difference",
+  "recognized contribution", "philanthropic achievement",
+
+  // Miscellaneous
+  "closed sale", "landed deal", "contract won", "repeat business", "renewal secured", "new business acquired",
+  "long-term contract", "key win", "milestone", "notable", "standout", "star performer", "lead story",
+  "success story", "breakthrough result", "impressive outcome"
+];
+
 
 export const weakPhrases = [
   "responsible for", "duties include", "helped with", "assisted with", "involved in", "participated in", "worked on", "tasked with",
@@ -246,21 +305,51 @@ export function xyzCheck(bullet: string): {
   // Clarity and conciseness check
   // const clarity = wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5);
   // More penalty for extremely short bullets
-  const clarity = wordCount <= 7 ? 0 : (wordCount <= 20 ? 15 : (wordCount <= 30 ? 10 : 5));
-  
+  const clarity = wordCount <= 10 ? 0 : (wordCount <= 20 ? 10 : (wordCount <= 35 ? 15 : 5)); //changed from 30-36 to remediate penalty from llm
+//   | Range           | Quality       | Recommendation                                        |
+// | --------------- | ------------- | ----------------------------------------------------- |
+// | **<10 words**   | Weak          | Too vague, expand for context                         |
+// | **10–14 words** | Fair          | Acceptable for simple actions, but expand if possible |
+// | **15–25 words** | Excellent     | Sweet spot—concise and detailed                       |
+// | **26–30 words** | Good          | Still strong, tighten if possible                     |
+// | **31–40 words** | Marginal      | Trim; split into two bullets if needed                |
+// | **>40 words**   | Weak/Red Flag | Rework, split into multiple bullets                   |
+
   
   // Industry relevance check
-  const industryKeywords = industryWords.filter(keyword => 
-    bullet.toLowerCase().includes(keyword.toLowerCase())
+  const bulletWords = bullet
+    .replace(/(?!\d)['’\-](?!\d)/g, ' ')
+    .split(/[^A-Za-z0-9%$]+/)
+    .filter(w => w)
+    .map(w => stemmer.stem(w.toLowerCase()));
+  const industryKeywords = industryWords.filter(keyword =>
+    bulletWords.includes(stemmer.stem(keyword.toLowerCase()))
   );
   const industryKeywordCount = industryKeywords.length;
   const industry = industryKeywordCount >= 3 ? 25 : (industryKeywordCount >= 1 ? 15 : 0);
   
-  // Achievement-focused vs duty-focused check
-  const weakRegex = new RegExp(`\\b(${weakPhrases.map(phrase => phrase.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')).join('|')})\\b`,'i');
-  const hasWeakPhrasing = weakRegex.test(bullet);
-  const achievementKeywords = ["achieved", "improved", "increased", "reduced", "led", "created", "developed"];
-  const hasAchievementLanguage = achievementKeywords.some(keyword => bullet.toLowerCase().includes(keyword));
+  // Achievement-focused vs duty-focused check (with stemming)
+  // Stemmed achievement check
+  const stemmedAchievementKeywords = achievementKeywords.map(k => stemmer.stem(k.toLowerCase()));
+  const hasAchievementLanguage = bulletWords.some(word => stemmedAchievementKeywords.includes(word));
+
+  // Stemmed weak phrase check (n-gram match)
+  const stemmedBullet = bullet
+    .replace(/(?!\d)['’\-](?!\d)/g, ' ')
+    .toLowerCase();
+  const bulletTokens = stemmedBullet.split(/[^a-z0-9%$]+/).filter(Boolean);
+  let hasWeakPhrasing = false;
+  for (const phrase of weakPhrases) {
+    const phraseTokens = phrase.toLowerCase().split(/\s+/).map(w => stemmer.stem(w));
+    for (let i = 0; i <= bulletTokens.length - phraseTokens.length; i++) {
+      const ngram = bulletTokens.slice(i, i + phraseTokens.length).map(w => stemmer.stem(w));
+      if (ngram.join(' ') === phraseTokens.join(' ')) {
+        hasWeakPhrasing = true;
+        break;
+      }
+    }
+    if (hasWeakPhrasing) break;
+  }
   const achievement = hasAchievementLanguage ? 20 : (hasWeakPhrasing ? 0 : 10);
   
   // Calculate total score (max 100 points)
