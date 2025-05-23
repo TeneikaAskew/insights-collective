@@ -277,7 +277,7 @@ export function useResumeAnalysis() {
   const [improvedBullets, setImprovedBullets] = useState<any[] | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
-  const hasLoadedAnalysis = useRef(false);
+  const [hasLoadedAnalysis, setHasLoadedAnalysis] = useState(false);
   const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [pollingStatus, setPollingStatus] = useState<'idle' | 'polling' | 'completed' | 'error'>('idle');
   const [pollingAttempt, setPollingAttempt] = useState(0);
@@ -287,41 +287,51 @@ export function useResumeAnalysis() {
   useEffect(() => {
     if (!user) {
       setAnalysis(null);
-      hasLoadedAnalysis.current = false;
+      setHasLoadedAnalysis(false);
     }
   }, [user]);
 
+  // Load analysis from localStorage or DB if not present
   useEffect(() => {
-    if (user && !hasLoadedAnalysis.current) {
-      hasLoadedAnalysis.current = true;
-
+    const tryLoadAnalysis = async () => {
+      if (!user || hasLoadedAnalysis || analysis) return;
+      // Try localStorage first
       const savedAnalysis = localStorage.getItem(`resume_analysis_${user.id}`);
-      console.log("Loading analysis from localStorage:", savedAnalysis ? "Found" : "Not found");
-
       if (savedAnalysis) {
         try {
           const parsedAnalysis = JSON.parse(savedAnalysis);
           setAnalysis(parsedAnalysis);
           calculateCareerAlignments(parsedAnalysis);
+          setHasLoadedAnalysis(true);
+          return;
         } catch (error) {
           console.error('Error parsing saved analysis:', error);
         }
       }
-      
-      // Also try to load the resume text for keyword analysis
-      const resumeText = localStorage.getItem(`resume_text_${user.id}`);
-      if (resumeText && savedAnalysis) {
-        try {
-          const parsedAnalysis = JSON.parse(savedAnalysis);
-          
-          // Perform keyword analysis on the resume text
-          analyzeKeywordsInResume(resumeText, parsedAnalysis);
-        } catch (error) {
-          console.error('Error analyzing keywords in resume:', error);
+      // If not in localStorage, try DB (resume table)
+      try {
+        const { data, error } = await supabase
+          .from('resumes')
+          .select('analysis')
+          .eq('user_id', user.id)
+          .order('uploaded_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) {
+          console.error('Error fetching analysis from DB:', error);
+        } else if (data && data.analysis) {
+          setAnalysis(data.analysis);
+          calculateCareerAlignments(data.analysis);
+          localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(data.analysis));
+          localStorage.setItem(`analysis_complete_time_${user.id}`, Date.now().toString());
+          setHasLoadedAnalysis(true);
         }
+      } catch (err) {
+        console.error('Error loading analysis from DB:', err);
       }
-    }
-  }, [user]);
+    };
+    tryLoadAnalysis();
+  }, [user, analysis, hasLoadedAnalysis]);
 
   // Clean up the interval when component unmounts
   useEffect(() => {
@@ -335,6 +345,21 @@ export function useResumeAnalysis() {
   // Replace the existing pollForImprovedBullets function with this improved version
   const pollForImprovedBullets = async (userId: string) => {
     if (!userId) return;
+
+    // Check if bullets already exist
+    if (improvedBullets && improvedBullets.length > 0) {
+      setIsPollingForImprovements(false);
+      setPollingStatus('completed');
+      return;
+    }
+
+    // Check if analysis_complete is older than 5 minutes
+    const analysisCompleteTime = Number(localStorage.getItem(`analysis_complete_time_${userId}`));
+    if (Date.now() - analysisCompleteTime > 5 * 60 * 1000) {
+      setIsPollingForImprovements(false);
+      setPollingStatus('idle');
+      return;
+    }
 
     const config: PollingConfig = {
       initialInterval: 10000, // Start with 10 seconds
@@ -395,6 +420,10 @@ export function useResumeAnalysis() {
             title: "Resume Analysis Completed",
             description: "We've enhanced your bullet points with suggestions for improvement!",
           });
+
+          // When analysis is marked complete
+          localStorage.setItem(`enhanced_bullets_analysis_complete_time_${userId}`, Date.now().toString());
+
           return;
         }
 
@@ -628,7 +657,7 @@ export function useResumeAnalysis() {
     
     // Reset all states at the start
     setAnalysis(null);
-    hasLoadedAnalysis.current = false;
+    setHasLoadedAnalysis(false);
     setIsAnalyzing(true);
     setIsPollingForImprovements(false);
     setPollingStatus('idle');
@@ -732,7 +761,7 @@ export function useResumeAnalysis() {
       setAnalysis(enhancedData as ResumeAnalysis);
       localStorage.setItem(`resume_analysis_${user.id}`, JSON.stringify(enhancedData));
       calculateCareerAlignments(enhancedData as ResumeAnalysis);
-      hasLoadedAnalysis.current = true;
+      setHasLoadedAnalysis(true);
       setIsAnalyzing(false);
 
       // Wait for analysis to be stored in database before triggering improvements

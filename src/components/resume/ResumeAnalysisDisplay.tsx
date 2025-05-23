@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { ResumeAnalysis } from '@/components/assistants/types';
 import type { Resume } from '../../hooks/resume/useResume';
 import OverallScoreCard from './OverallScoreCard';
@@ -64,6 +63,8 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
   const topBullets = bulletPoints.slice(0, 5);
   const highestScoringBullet = topBullets.length > 0 ? [...topBullets].sort((a, b) => (b?.bullet_total || 0) - (a?.bullet_total || 0))[0] : null;
   const lowestScoringBullet = topBullets.length > 0 ? [...topBullets].sort((a, b) => (a?.bullet_total || 0) - (b?.bullet_total || 0))[0] : null;
+
+  const [hasLoadedAnalysis, setHasLoadedAnalysis] = useState(false);
 
   const renderFilePreviewLocal = () => {
     if (resume?.file_url && resume?.file_name?.toLowerCase().endsWith('.pdf') && !resumeFile) {

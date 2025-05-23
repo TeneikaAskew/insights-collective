@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useResumeStorage, deleteResumeFile } from './useResumeStorage';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
+import { useResumeAnalysis } from '@/hooks/useResumeAnalysis';
 // Create cache outside of hook
 const signedUrlCache = new Map<string, string>();
 
@@ -60,6 +61,20 @@ export const useResume = () => {
   // Import the storage functions directly rather than using the hook again
   // This fixes the React error #321 (hooks can't be used conditionally)
   const { uploadResumeFile, getResumeFileUrl, extractTextFromFile } = useResumeStorage();
+
+  const {
+    analysis,
+    isAnalyzing,
+    analyzeResume,
+    careerAlignments,
+    setAnalysis,
+    isPollingForImprovements,
+    setIsPollingForImprovements,
+    pollingStatus,
+    setPollingStatus,
+    pollingAttempt,
+    hasLoadedAnalysis
+  } = useResumeAnalysis();
 
   // Load resume data when user changes
   useEffect(() => {
