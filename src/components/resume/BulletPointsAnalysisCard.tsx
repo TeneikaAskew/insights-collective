@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Accordion } from '@/components/ui/accordion';
@@ -313,24 +312,43 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
               <TabsContent value="analysis" className="space-y-4">
                 {/* Explanatory boxes for Word Balance and XYZ Quality */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="text-lg font-medium text-blue-800 mb-2">Word Balance Score: {displayBullet?.word_balance_score || 0}%</h4>
-                    <p className="text-sm text-blue-700">
-                      Word Balance measures how well your bullet point distributes different types of words. 
-                      A good balance includes industry-specific terms (35-45%), action words (10-15%), 
-                      metrics (10-15%), and common words (25-35%). This creates compelling, professional content 
-                      that resonates with both ATS systems and hiring managers.
-                    </p>
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                    <Scale className="h-8 w-8 text-blue-400 mt-1 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-lg font-medium text-blue-800 mb-2 flex items-center gap-2">
+                        Word Balance Score:
+                        <span className="text-blue-900 font-bold">{selectedBullet?.word_balance?.word_balance_score ||  displayBullet?.word_balance?.word_balance_score || 0}%</span>
+                      </h4>
+                      <ul className="text-sm text-blue-700 space-y-1 list-disc list-inside pl-2">
+                        <li>Industry-specific terms: <span className="font-semibold">35-45%</span></li>
+                        <li>Action words: <span className="font-semibold">10-15%</span></li>
+                        <li>Metrics: <span className="font-semibold">10-15%</span></li>
+                        <li>Common words: <span className="font-semibold">25-35%</span></li>
+                      </ul>
+                      <p className="text-xs text-blue-600 mt-2">
+                        A good balance creates compelling, professional content that resonates with both ATS systems and hiring managers.
+                      </p>
+                    </div>
                   </div>
                   
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <h4 className="text-lg font-medium text-green-800 mb-2">XYZ Quality Score: {calculateXYZScore(displayBullet)}/100</h4>
-                    <p className="text-sm text-green-700">
-                      XYZ Quality evaluates five key storytelling elements: Action Words (10 pts), 
-                      Metrics/Results (30 pts), Clarity/Conciseness (15 pts), Industry Keywords (25 pts), 
-                      and Achievement Focus (20 pts). This framework ensures your bullet points tell 
-                      compelling stories that demonstrate impact and expertise.
-                    </p>
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+                    <BarChart2 className="h-8 w-8 text-green-400 mt-1 flex-shrink-0" />
+                    <div>
+                      <h4 className="text-lg font-medium text-green-800 mb-2 flex items-center gap-2">
+                        XYZ Quality Score:
+                        <span className="text-green-900 font-bold">{calculateXYZScore(displayBullet)}%</span>
+                      </h4>
+                      <ul className="text-sm text-green-700 space-y-1 list-disc list-inside pl-2">
+                        <li>Action Words <span className="font-semibold">(10 pts)</span></li>
+                        <li>Metrics/Results <span className="font-semibold">(30 pts)</span></li>
+                        <li>Clarity/Conciseness <span className="font-semibold">(15 pts)</span></li>
+                        <li>Industry Keywords <span className="font-semibold">(25 pts)</span></li>
+                        <li>Achievement Focus <span className="font-semibold">(20 pts)</span></li>
+                      </ul>
+                      <p className="text-xs text-green-600 mt-2">
+                        This framework ensures your bullet points tell compelling stories that demonstrate impact and expertise.
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -358,7 +376,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
                   <div>
                     <h3 className="text-lg font-medium mb-4">XYZ Quality</h3>
                     <div className="space-y-3">
-                      {Object.entries(displayBullet?.xyz_scores || {}).map(([key, value]) => (
+                      {Object.entries(displayBullet?.xyz_scores || {}).filter(([key]) => key !== 'xyz_total').map(([key, value]) => (
                         <div key={key} className="space-y-1">
                           <div className="flex justify-between text-sm">
                             <span className="capitalize">{XYZ_LABELS[key as keyof typeof XYZ_LABELS]}</span>
