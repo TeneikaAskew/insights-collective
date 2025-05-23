@@ -309,11 +309,34 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
               </TabsContent>
 
               <TabsContent value="analysis" className="space-y-4">
+                {/* Explanatory boxes for Word Balance and XYZ Quality */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="text-lg font-medium text-blue-800 mb-2">Word Balance Score: {displayBullet?.word_balance_score || 0}%</h4>
+                    <p className="text-sm text-blue-700">
+                      Word Balance measures how well your bullet point distributes different types of words. 
+                      A good balance includes industry-specific terms (35-45%), action words (10-15%), 
+                      metrics (10-15%), and common words (25-35%). This creates compelling, professional content 
+                      that resonates with both ATS systems and hiring managers.
+                    </p>
+                  </div>
+                  
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="text-lg font-medium text-green-800 mb-2">XYZ Quality Score: {calculateXYZScore(displayBullet)}/100</h4>
+                    <p className="text-sm text-green-700">
+                      XYZ Quality evaluates five key storytelling elements: Action Words (10 pts), 
+                      Metrics/Results (30 pts), Clarity/Conciseness (15 pts), Industry Keywords (25 pts), 
+                      and Achievement Focus (20 pts). This framework ensures your bullet points tell 
+                      compelling stories that demonstrate impact and expertise.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <h3 className="text-lg font-medium mb-4">Word Balance</h3>
                     <div className="space-y-3">
-                      {Object.entries(displayBullet?.word_balance || {}).map(([key, value]) => (
+                      {Object.entries(displayBullet?.word_balance || {}).filter(([key]) => key !== 'word_balance_score').map(([key, value]) => (
                         <div key={key} className="space-y-1">
                           <div className="flex justify-between text-sm">
                             <span className="capitalize">{key.replace('_pct', '')}</span>
