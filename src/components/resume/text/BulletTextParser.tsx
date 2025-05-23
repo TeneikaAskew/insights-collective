@@ -71,7 +71,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
       components.push({
         text: text.substring(0, word.length),
         type: 'action',
-        category: BULLET_CATEGORIES.action.label // Fixed: using lowercase property
+        category: BULLET_CATEGORIES.xyz_scores.action.label
       });
       remainingText = text.substring(word.length);
       break;
@@ -97,7 +97,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
+            category: BULLET_CATEGORIES.word_balance.label
           });
           currentSegment = '';
         }
@@ -105,7 +105,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'action',
-          category: BULLET_CATEGORIES.action.label // Fixed: using lowercase property
+          category: BULLET_CATEGORIES.xyz_scores.action.label
         });
       }
       // Check if word is a metric
@@ -115,7 +115,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
+            category: BULLET_CATEGORIES.word_balance.label
           });
           currentSegment = '';
         }
@@ -123,7 +123,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'measurable',
-          category: BULLET_CATEGORIES.metrics.label // Fixed: using lowercase property
+          category: BULLET_CATEGORIES.xyz_scores.metrics.label
         });
       }
       // Check if word is an industry term
@@ -133,7 +133,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
+            category: BULLET_CATEGORIES.word_balance.label
           });
           currentSegment = '';
         }
@@ -141,7 +141,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'industry',
-          category: BULLET_CATEGORIES.industry.label // Fixed: using lowercase property
+          category: BULLET_CATEGORIES.xyz_scores.industry.label
         });
       }
       // Check if word is an achievement word
@@ -151,7 +151,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
+            category: BULLET_CATEGORIES.word_balance.label
           });
           currentSegment = '';
         }
@@ -159,7 +159,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'skill',
-          category: BULLET_CATEGORIES.achievement.label // Fixed: using lowercase property
+          category: BULLET_CATEGORIES.xyz_scores.achievement.label
         });
       }
       // Check if word is a clarity term
@@ -169,7 +169,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
           components.push({
             text: currentSegment,
             type: 'normal',
-            category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
+            category: BULLET_CATEGORIES.word_balance.label
           });
           currentSegment = '';
         }
@@ -177,7 +177,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: word,
           type: 'skill',
-          category: BULLET_CATEGORIES.clarity.label // Fixed: using lowercase property
+          category: BULLET_CATEGORIES.xyz_scores.clarity.label
         });
       }
       else {
@@ -196,7 +196,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
         components.push({
           text: currentSegment,
           type: 'normal',
-          category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
+          category: BULLET_CATEGORIES.word_balance.label
         });
       }
     }
@@ -213,7 +213,7 @@ export const parseTextComponents = (text: string): TextComponent[] => {
       finalComponents.push({
         text: ' ',
         type: 'normal',
-        category: BULLET_CATEGORIES.common.label // Fixed: using lowercase property
+        category: BULLET_CATEGORIES.word_balance.label
       });
     }
   });
@@ -232,15 +232,15 @@ export const HighlightedBulletText: React.FC<{ text: string }> = ({ text }) => {
           <span 
             key={idx} 
             className={`transition-colors duration-200 ${
-              part.category === BULLET_CATEGORIES.industry.label // Fixed: using lowercase property
+              part.category === BULLET_CATEGORIES.xyz_scores.industry.label
                 ? 'text-[#1E40AF] font-bold' : 
-              part.category === BULLET_CATEGORIES.action.label // Fixed: using lowercase property 
+              part.category === BULLET_CATEGORIES.xyz_scores.action.label
                 ? 'text-[#D97706] font-bold' : 
-              part.category === BULLET_CATEGORIES.metrics.label // Fixed: using lowercase property
+              part.category === BULLET_CATEGORIES.xyz_scores.metrics.label
                 ? 'text-[#0D9488] font-bold' : 
-              part.category === BULLET_CATEGORIES.clarity.label // Fixed: using lowercase property
+              part.category === BULLET_CATEGORIES.xyz_scores.clarity.label
                 ? 'text-[#2563EB] font-bold' :
-              part.category === BULLET_CATEGORIES.achievement.label // Fixed: using lowercase property
+              part.category === BULLET_CATEGORIES.xyz_scores.achievement.label
                 ? 'text-[#059669] font-bold' :
               'text-gray-600'
             }`}
