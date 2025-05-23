@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './AuthContext';
@@ -91,7 +90,11 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           .from('page_visibility')
           .select('*');
         
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching page visibility:', error);
+          throw error;
+        }
+        
         console.log('Fetched page visibility data:', data);
         setPageVisibility(data || []);
       } catch (error) {
@@ -104,35 +107,63 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
     fetchPageVisibility();
   }, []);
 
-  // Set up real-time presence
+  // Set up real-time presence with improved error handling and reconnection logic
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
-
-    const presenceChannel = supabase.channel('online-users');
+    if (!isAuthenticated || !user) {
+      console.log('No authenticated user, skipping presence setup');
+      return;
+    }
+    
+    console.log('Setting up presence channel for user:', user.id);
+    
+    // Create a new presence channel
+    const presenceChannel = supabase.channel('online-users', {
+      config: {
+        presence: {
+          key: user.id,
+        },
+      },
+    });
+    
     setChannel(presenceChannel);
 
-    // Subscribe to the channel first
-    presenceChannel.subscribe((status) => {
-      console.info('Subscription status:', status);
+    // Subscribe to the channel with improved error handling
+    presenceChannel.subscribe(async (status) => {
+      console.log('Presence channel subscription status:', status);
+      
       if (status === 'SUBSCRIBED') {
         setIsSubscribed(true);
-
-        // Only track presence after successfully subscribed
-        const userProfile = {
-          id: user.id,
-          first_name: user?.user_metadata?.first_name || null,
-          last_name: user?.user_metadata?.last_name || null,
-          avatar_url: user?.user_metadata?.avatar_url || null,
-          online_at: new Date().toISOString(),
-        };
         
-        presenceChannel.track(userProfile)
-          .then(() => console.info('Presence tracking started'))
-          .catch(err => console.error('Error tracking presence:', err));
+        try {
+          // Get user profile data for richer presence information
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('first_name, last_name, avatar_url')
+            .eq('id', user.id)
+            .single();
+            
+          // Use profile data if available, otherwise fall back to user metadata
+          // Fix: Access first_name and last_name from user_metadata instead
+          const userProfile = {
+            id: user.id,
+            first_name: profileData?.first_name || user?.user_metadata?.first_name || 'Anonymous',
+            last_name: profileData?.last_name || user?.user_metadata?.last_name || 'User',
+            avatar_url: profileData?.avatar_url || user?.user_metadata?.avatar_url || null,
+            online_at: new Date().toISOString(),
+          };
+          
+          console.log('Starting presence tracking with profile:', userProfile);
+          
+          await presenceChannel.track(userProfile);
+          console.log('Presence tracking started successfully');
+        } catch (err) {
+          console.error('Error in presence tracking:', err);
+        }
       }
     });
 
     return () => {
+      console.log('Cleaning up presence channel');
       if (presenceChannel) {
         presenceChannel.unsubscribe();
         setChannel(null);
@@ -143,187 +174,303 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
 
   // Set up presence event handlers after subscription
   useEffect(() => {
-    if (!channel || !isSubscribed) return;
+    if (!channel || !isSubscribed) {
+      console.log('Channel not ready or not subscribed, skipping event handlers');
+      return;
+    }
+    
+    console.log('Setting up presence event handlers');
 
     const handleSync = () => {
-      const newState = channel.presenceState();
-      const uniqueUsers = new Map<string, PresenceUser>();
-      
-      Object.keys(newState).forEach(key => {
-        newState[key].forEach((presence: PresenceUser) => {
-          // Only keep the most recent presence for each user
-          if (!uniqueUsers.has(presence.id) || 
-              new Date(presence.online_at) > new Date(uniqueUsers.get(presence.id)!.online_at)) {
-            uniqueUsers.set(presence.id, presence);
-          }
-          if (presence.id === user?.id) {
-            setCurrentUserPresence(presence);
-          }
+      try {
+        const newState = channel.presenceState();
+        console.log('Presence sync state:', newState);
+        
+        const uniqueUsers = new Map<string, PresenceUser>();
+        
+        // Process all presence state entries
+        Object.keys(newState).forEach(key => {
+          newState[key].forEach((presence: PresenceUser) => {
+            // Only keep the most recent presence for each user
+            if (!uniqueUsers.has(presence.id) || 
+                new Date(presence.online_at) > new Date(uniqueUsers.get(presence.id)!.online_at)) {
+              uniqueUsers.set(presence.id, presence);
+            }
+            
+            // Set current user's presence
+            if (presence.id === user?.id) {
+              setCurrentUserPresence(presence);
+            }
+          });
         });
-      });
-      
-      const allUsers: PresenceUser[] = Array.from(uniqueUsers.values());
-      setOnlineUsers(allUsers);
-      console.info('Online users count:', allUsers.length);
+        
+        const allUsers: PresenceUser[] = Array.from(uniqueUsers.values());
+        console.log('Updated online users list:', allUsers);
+        setOnlineUsers(allUsers);
+      } catch (error) {
+        console.error('Error handling presence sync:', error);
+      }
     };
 
     const handleJoin = ({ key, newPresences }: { key: string; newPresences: PresenceUser[] }) => {
-      console.info('User joined:', newPresences);
+      console.log('User joined:', newPresences);
+      
       setOnlineUsers(prev => {
-        const uniqueUsers = new Map();
-        
-        // Add existing users to map
-        prev.forEach(user => uniqueUsers.set(user.id, user));
-        
-        // Update or add new presences
-        newPresences.forEach(presence => {
-          if (!uniqueUsers.has(presence.id) || 
-              new Date(presence.online_at) > new Date(uniqueUsers.get(presence.id)!.online_at)) {
-            uniqueUsers.set(presence.id, presence);
-          }
-        });
-        
-        return Array.from(uniqueUsers.values());
+        try {
+          const uniqueUsers = new Map<string, PresenceUser>();
+          
+          // Add existing users to map
+          prev.forEach(user => uniqueUsers.set(user.id, user));
+          
+          // Update or add new presences
+          newPresences.forEach(presence => {
+            if (!uniqueUsers.has(presence.id) || 
+                new Date(presence.online_at) > new Date(uniqueUsers.get(presence.id)!.online_at)) {
+              uniqueUsers.set(presence.id, presence);
+            }
+          });
+          
+          return Array.from(uniqueUsers.values());
+        } catch (error) {
+          console.error('Error handling join event:', error);
+          return prev;
+        }
       });
     };
 
     const handleLeave = ({ key, leftPresences }: { key: string; leftPresences: PresenceUser[] }) => {
-      console.info('User left:', leftPresences);
+      console.log('User left:', leftPresences);
+      
       setOnlineUsers(prev => {
-        const uniqueUsers = new Map(prev.map(user => [user.id, user]));
-        
-        // Remove users who left
-        leftPresences.forEach(presence => {
-          uniqueUsers.delete(presence.id);
-        });
-        
-        return Array.from(uniqueUsers.values());
+        try {
+          const uniqueUsers = new Map(prev.map(user => [user.id, user]));
+          
+          // Remove users who left
+          leftPresences.forEach(presence => {
+            uniqueUsers.delete(presence.id);
+          });
+          
+          return Array.from(uniqueUsers.values());
+        } catch (error) {
+          console.error('Error handling leave event:', error);
+          return prev;
+        }
       });
     };
 
-    // Use the on method to set up event handlers instead of off
+    // Register event handlers
     channel.on('presence', { event: 'sync' }, handleSync);
     channel.on('presence', { event: 'join' }, handleJoin);
     channel.on('presence', { event: 'leave' }, handleLeave);
 
     return () => {
-      // Fixed: Don't use channel.off which doesn't exist, use unsubscribe instead
-      // The cleanup is already handled in the previous useEffect
-      // We don't need to manually remove listeners as unsubscribe does this
+      // No need to explicitly remove handlers as unsubscribe in the previous useEffect handles it
     };
   }, [channel, isSubscribed, user]);
 
-  // Regular heartbeat to keep presence active
+  // Regular heartbeat to keep presence active and update the list
   useEffect(() => {
     if (!isAuthenticated || !user || !channel || !isSubscribed) return;
 
     const heartbeatInterval = setInterval(() => {
       if (isSubscribed && channel) {
-        const userProfile = {
-          id: user.id,
-          first_name: user?.user_metadata?.first_name || null,
-          last_name: user?.user_metadata?.last_name || null,
-          avatar_url: user?.user_metadata?.avatar_url || null,
-          online_at: new Date().toISOString(),
-        };
-        
-        channel.track(userProfile)
-          .catch(err => console.error('Error refreshing presence:', err));
+        try {
+          // Get fresh profile data directly from state
+          // Fix: Access properties from user_metadata instead
+          const userProfile = {
+            id: user.id,
+            first_name: user?.user_metadata?.first_name || 'Anonymous',
+            last_name: user?.user_metadata?.last_name || 'User',
+            avatar_url: user?.user_metadata?.avatar_url,
+            online_at: new Date().toISOString(),
+          };
+          
+          channel.track(userProfile)
+            .then(() => console.log('Presence heartbeat sent'))
+            .catch(err => console.error('Error refreshing presence:', err));
+            
+          // Force a sync to update the online users list
+          const state = channel.presenceState();
+          
+          // Request a new sync from the server
+          channel.send({
+            type: 'broadcast',
+            event: 'sync_request',
+            payload: {},
+          });
+        } catch (err) {
+          console.error('Error in presence heartbeat:', err);
+        }
       }
-    }, 30000); // Update every 30 seconds
+    }, 15000); // Update every 15 seconds
 
     return () => clearInterval(heartbeatInterval);
   }, [isAuthenticated, user, channel, isSubscribed]);
 
-  // Check if a page is visible based on user role
+  // Fixed isPageVisible function with better dynamic route matching and debugging
   const isPageVisible = (path: string): boolean => {
     if (!user) return true; // Default to visible if no user (for public pages)
     
-    console.log('Checking visibility for path:', path);
-    console.log('Current user role:', userRole);
+    console.log('[isPageVisible] Checking visibility for path:', path);
+    console.log('[isPageVisible] Current user role:', userRole);
     
     // Admins can see everything
     if (userRole === 'admin') {
-      console.log('User is admin, allowing access');
+      console.log('[isPageVisible] User is admin, allowing access');
       return true;
     }
+
+    // Fix for paths with trailing slashes
+    const normalizedPath = path.endsWith('/') ? path.slice(0, -1) : path;
     
     // Check if the path matches any of the configured pages
     const pageConfig = pageVisibility.find(p => {
       // For dynamic routes with parameters, we need to match the pattern
       if (p.page_path.includes(':')) {
-        const pathPattern = p.page_path.replace(/:\w+/g, '[^/]+');
-        const regex = new RegExp(`^${pathPattern}$`);
-        return regex.test(path);
+        // Convert route pattern to regex
+        const regexPattern = p.page_path
+          .replace(/\//g, '\\/') // Escape slashes
+          .replace(/:\w+/g, '[^/]+'); // Replace :param with regex pattern
+        
+        const regex = new RegExp(`^${regexPattern}$`);
+        const isMatch = regex.test(normalizedPath);
+        
+        if (isMatch) {
+          console.log(`[isPageVisible] Dynamic route pattern match: ${p.page_path} matches ${normalizedPath}`);
+        }
+        
+        return isMatch;
       }
-      return p.page_path === path;
+      
+      // For exact routes
+      const configPath = p.page_path.endsWith('/') ? p.page_path.slice(0, -1) : p.page_path;
+      const isMatch = configPath === normalizedPath;
+      
+      if (isMatch) {
+        console.log(`[isPageVisible] Exact path match: ${configPath} === ${normalizedPath}`);
+      }
+      
+      return isMatch;
     });
     
-    console.log('Found page config:', pageConfig);
+    console.log('[isPageVisible] Found page config:', pageConfig);
     
     // If no configuration found, default to visible
-    if (!pageConfig) return true;
+    if (!pageConfig) {
+      console.log('[isPageVisible] No page config found for path, defaulting to visible:', path);
+      return true;
+    }
     
     // Check visibility based on user role
     const isVisible = userRole === 'instructor' 
       ? pageConfig.visible_to_instructors 
       : pageConfig.visible_to_users;
       
-    console.log('Page visibility decision:', isVisible);
+    console.log(`[isPageVisible] Page visibility decision for path: ${path} | Role: ${userRole || 'user'} | Visible: ${isVisible}`);
     return isVisible;
   };
 
   // Update page visibility
   const updatePageVisibility = async (id: string, updates: Partial<PageVisibilityData>) => {
-    const { error } = await supabase
-      .from('page_visibility')
-      .update(updates)
-      .eq('id', id);
-    
-    if (error) throw error;
-    
-    // Update local state
-    setPageVisibility(prev => 
-      prev.map(page => page.id === id ? { ...page, ...updates } : page)
-    );
-    
-    console.log(`Updated visibility for page ${id}:`, updates);
+    try {
+      console.log(`Updating visibility for page ${id}:`, updates);
+      
+      const { error } = await supabase
+        .from('page_visibility')
+        .update(updates)
+        .eq('id', id);
+      
+      if (error) {
+        console.error('Error updating visibility:', error);
+        throw error;
+      }
+      
+      // Update local state immediately
+      setPageVisibility(prev => 
+        prev.map(page => page.id === id ? { ...page, ...updates } : page)
+      );
+      
+      // Refetch to ensure we have the latest data
+      const { data, error: refetchError } = await supabase
+        .from('page_visibility')
+        .select('*');
+        
+      if (refetchError) {
+        console.error('Error refetching page visibility after update:', refetchError);
+      } else {
+        console.log('Refetched page visibility data after update:', data);
+        setPageVisibility(data || []);
+      }
+      
+      console.log(`Successfully updated visibility for page ${id}`);
+    } catch (error) {
+      console.error('Error updating visibility:', error);
+      throw error;
+    }
   };
 
-  // Improved sync available pages function to detect and add new routes
+  // Syncing available pages function to comprehensively detect all routes
   const syncAvailablePages = async (): Promise<void> => {
     try {
       setIsSyncing(true);
       console.log('Starting page sync operation');
       
-      // Get routes from the application using React Router routes
+      // Extract a comprehensive list of all routes from the app
+      // This includes all routes defined in App.tsx
       const appRoutes = [
         { path: '/', name: 'Home' },
         { path: '/login', name: 'Login' },
         { path: '/register', name: 'Register' },
         { path: '/dashboard', name: 'Dashboard' },
+        { path: '/profile', name: 'Profile' },
         { path: '/resources', name: 'Resources' },
         { path: '/events', name: 'Events' },
-        { path: '/profile', name: 'Profile' },
         { path: '/resume', name: 'Resume' },
         { path: '/messages', name: 'Messages' },
-        { path: '/admin', name: 'Admin Dashboard' },
-        { path: '/admin/users', name: 'Admin Users' },
-        { path: '/admin/courses', name: 'Admin Courses' },
-        { path: '/admin/events', name: 'Admin Events' },
-        { path: '/admin/page-visibility', name: 'Page Visibility' },
-        { path: '/admin/resources', name: 'Admin Resources' },
-        { path: '/admin/forms', name: 'Admin Forms' },
-        { path: '/admin/certificates', name: 'Admin Certificates' },
-        { path: '/admin/blog-posts', name: 'Admin Blog Posts' },
-        { path: '/admin/enrollments', name: 'Admin Enrollments' },
-        { path: '/admin/activity', name: 'Admin Activity' },
+        { path: '/courses', name: 'Courses' },
+        { path: '/course/:courseId', name: 'Course Detail' },
+        { path: '/module/:moduleId', name: 'Module Detail' },
         { path: '/career-pathway', name: 'Career Pathway' },
         { path: '/calendar', name: 'Calendar' },
         { path: '/notifications', name: 'Notifications' },
         { path: '/assistants', name: 'Assistants' },
+        { path: '/assistant/:assistantId', name: 'Assistant Chat' },
+        { path: '/career-agent', name: 'Career Agent' },
         { path: '/interview-prep', name: 'Interview Prep' },
+        { path: '/interview-prep/job-description', name: 'Job Description Analysis' },
+        { path: '/interview-prep/star-practice', name: 'STAR Practice' },
+        { path: '/interview-prep/code-practice', name: 'Code Practice (Interview)' },
+        { path: '/interview-prep/mock-interviews', name: 'Mock Interviews' },
+        { path: '/mock-interviews', name: 'Mock Interviews' },
+        { path: '/mock-interview/:sessionId', name: 'Mock Interview Session' },
+        { path: '/code-practice', name: 'Code Practice' },
+        { path: '/blog', name: 'Blog' },
+        { path: '/blog/:postId', name: 'Blog Post' },
+        { path: '/forums', name: 'Forums' },
+        { path: '/forums/:forumId', name: 'Forum Detail' },
+        { path: '/portfolio', name: 'Portfolio' },
+        { path: '/portfolio/:section', name: 'Portfolio Section' },
+        { path: '/portfolio/edit', name: 'Edit Portfolio' },
+        { path: '/portfolio/projects', name: 'Portfolio Projects' },
+        { path: '/portfolio/overview', name: 'Portfolio Overview' },
+        { path: '/portfolio/settings', name: 'Portfolio Settings' },
         { path: '/explore-data-careers', name: 'Explore Data Careers' },
+        { path: '/admin', name: 'Admin Dashboard' },
+        { path: '/admin/users', name: 'Admin Users' },
+        { path: '/admin/courses', name: 'Admin Courses' },
+        { path: '/admin/events', name: 'Admin Events' },
+        { path: '/admin/blog-posts', name: 'Admin Blog Posts' },
+        { path: '/admin/blog', name: 'Admin Blog' },
+        { path: '/admin/resources', name: 'Admin Resources' },
+        { path: '/admin/forms', name: 'Admin Forms' },
+        { path: '/admin/activity', name: 'Admin Activity' },
+        { path: '/admin/certificates', name: 'Admin Certificates' },
+        { path: '/admin/enrollments', name: 'Admin Enrollments' },
+        { path: '/admin/course/:courseId/edit', name: 'Admin Course Edit' },
+        { path: '/admin/page-visibility', name: 'Page Visibility' },
+        // Additional routes to ensure complete coverage
+        { path: '/threads/:threadId', name: 'Thread Detail' },
+        { path: '/notifications', name: 'Notifications' }
       ];
       
       console.log('App routes to sync:', appRoutes.length);
@@ -333,7 +480,10 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
         .from('page_visibility')
         .select('*');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching existing pages:', error);
+        throw error;
+      }
       
       console.log('Existing pages in database:', existingPages?.length || 0);
       
@@ -341,7 +491,7 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
       const existingPaths = new Set(existingPages?.map(p => p.page_path) || []);
       const newRoutes = appRoutes.filter(route => !existingPaths.has(route.path));
       
-      console.log('New routes to add:', newRoutes.length);
+      console.log('New routes to add:', newRoutes.length, newRoutes);
       
       // Add new routes to database
       if (newRoutes.length > 0) {
@@ -356,22 +506,27 @@ export const PageVisibilityProvider: React.FC<{ children: React.ReactNode }> = (
           .from('page_visibility')
           .insert(newPages);
           
-        if (insertError) throw insertError;
+        if (insertError) {
+          console.error('Error inserting new pages:', insertError);
+          throw insertError;
+        }
         
         console.log('Successfully added new pages:', newPages.length);
       }
       
-      // Refetch all pages
+      // Refetch all pages to ensure we have the latest data
       const { data: updatedPages, error: refetchError } = await supabase
         .from('page_visibility')
         .select('*');
         
-      if (refetchError) throw refetchError;
+      if (refetchError) {
+        console.error('Error refetching pages:', refetchError);
+        throw refetchError;
+      }
       
       console.log('Updated pages list:', updatedPages?.length || 0);
       setPageVisibility(updatedPages || []);
       
-      return;
     } catch (error) {
       console.error('Error syncing available pages:', error);
       throw error;

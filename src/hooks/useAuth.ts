@@ -1,26 +1,39 @@
 
-import { useState, useEffect, createContext, useContext, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, NavigateFunction, Location } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
 
 export interface EnrichedUser extends User {
   roles?: string[];
-  // Add these missing properties
   avatar?: string;
   avatar_url?: string;
   name?: string;
 }
+
+// Helper to safely get navigation objects outside Router context
+const useSafeNavigation = () => {
+  let navigate: NavigateFunction | undefined;
+  let location: Location | undefined;
+  
+  try {
+    navigate = useNavigate();
+    location = useLocation();
+  } catch (error) {
+    console.warn('Navigation hooks used outside Router context');
+  }
+  
+  return { navigate, location };
+};
 
 export const useAuthProvider = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const navigate = useNavigate();
-  const location = useLocation();
+  const { navigate, location } = useSafeNavigation();
   const { toast } = useToast();
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
@@ -45,6 +58,11 @@ export const useAuthProvider = () => {
   }, []);
 
   const handleRedirectAfterLogin = useCallback(() => {
+    if (!navigate) {
+      console.warn('Cannot redirect: navigation not available');
+      return;
+    }
+    
     let redirectTo = redirectPath;
 
     if (!redirectTo) {
@@ -166,6 +184,11 @@ export const useAuthProvider = () => {
   }, [toast]);
 
   const register = useCallback(async (name: string, email: string, password: string) => {
+    if (!navigate) {
+      console.error('Navigation not available, cannot complete registration flow');
+      return;
+    }
+    
     try {
       setLoading(true);
 
@@ -197,6 +220,11 @@ export const useAuthProvider = () => {
   }, [navigate, toast]);
 
   const logout = useCallback(async () => {
+    if (!navigate) {
+      console.error('Navigation not available, cannot complete logout flow');
+      return;
+    }
+    
     try {
       await supabase.auth.signOut();
       setSession(null);
@@ -210,6 +238,52 @@ export const useAuthProvider = () => {
       });
     }
   }, [navigate, toast]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      if (!isMounted) return;
+
+      console.log('[useAuth] Auth state changed, new session:', !!newSession);
+      setSession(newSession);
+    });
+
+    const init = async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('[useAuth] Error getting session:', error);
+          setSession(null);
+        } else if (data.session) {
+          console.log('[useAuth] Session found during initialization');
+          setSession(data.session);
+        } else {
+          console.log('[useAuth] No session found during initialization');
+          setSession(null);
+        }
+      } catch (err) {
+        console.error('[useAuth] Unexpected error during getSession:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    init();
+
+    return () => {
+      isMounted = false;
+      data.subscription?.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    // On profile loaded & authenticated, perform redirect if redirect path set
+    if (isAuthenticated && !loading && !profileLoading && redirectPath && navigate) {
+      console.log('[useAuth] Ready to redirect - isAuthenticated:', isAuthenticated, 'loading:', loading, 'profileLoading:', profileLoading);
+      handleRedirectAfterLogin();
+    }
+  }, [isAuthenticated, loading, profileLoading, redirectPath, handleRedirectAfterLogin, navigate]);
 
   return {
     session,

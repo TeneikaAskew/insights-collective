@@ -255,8 +255,8 @@ export default function MockInterviews() {
   };
 
   const handleJoinSession = (sessionId: string) => {
-    // Navigate to the mock interview room
-    navigate(`/mock-interview/${sessionId}`);
+    // Navigate to the mock interview room with correct route
+    navigate(`/interview-prep/mock-interview-room/${sessionId}`);
   };
 
   if (loading) {
@@ -289,8 +289,8 @@ export default function MockInterviews() {
           </p>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6 w-full grid grid-cols-4 md:w-auto">
             <TabsTrigger value="schedule">Find Sessions</TabsTrigger>
             <TabsTrigger value="availability">Set Availability</TabsTrigger>
             <TabsTrigger value="upcoming">Upcoming Sessions</TabsTrigger>

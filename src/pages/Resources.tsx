@@ -1,3 +1,4 @@
+
 import { useState, useMemo } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -282,4 +283,5 @@ const Resources = () => {
     </AppLayout>
   );
 };
+
 export default Resources;

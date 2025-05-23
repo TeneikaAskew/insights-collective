@@ -59,3 +59,28 @@ export interface ProjectIdea {
   impact: string;
   roadmap: string[];
 }
+
+// New types for Portfolio Pages feature
+export interface PortfolioPage {
+  id: string;
+  user_id: string;
+  title: string;
+  description?: string;
+  theme: string;
+  is_public: boolean;
+  custom_url?: string;
+  created_at?: string;
+  updated_at?: string;
+  projects?: PortfolioPageProject[]; // Add the projects property to match what's expected in PortfolioEditor
+}
+
+export interface PortfolioPageProject {
+  id: string;
+  portfolio_page_id: string;
+  project_id: string;
+  display_order: number;
+  custom_description?: string;
+  project?: PortfolioProject;
+}
+
+export type PortfolioTheme = 'default' | 'minimal' | 'professional' | 'creative';
