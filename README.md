@@ -221,6 +221,63 @@ functions/ - Deno functions for AI logic, message generation, resume parsing
 migrations/ - SQL files to initialize and update DB
 
 
+---
+
+## Pages and Paths
+
+This section lists all the application pages, their paths, and a brief description for each.
+
+**Public Routes:**
+*   `/`: Index page - The main landing page of the application.
+*   `/login`: Login page - Allows users to log into their accounts.
+*   `/register`: Register page - Allows new users to create an account.
+*   `/blog`: Blog list page - Displays a list of all blog posts.
+*   `/blog/:postId`: Individual blog post page - Displays a single blog post. The `:postId` is dynamic.
+*   `/portfolio/:customUrl`: Public portfolio view page - Displays a user's public portfolio. The `:customUrl` is dynamic.
+
+**Protected Routes (require authentication):**
+*   `/dashboard`: User dashboard - The main dashboard for logged-in users.
+*   `/profile`: User profile page - Allows users to view and edit their profile.
+*   `/courses`: Course list page - Displays a list of available courses.
+*   `/course/:courseId`: Course detail page - Displays details for a specific course. The `:courseId` is dynamic.
+*   `/module/:moduleId`: Module detail page - Displays details for a specific course module. The `:moduleId` is dynamic.
+*   `/career-pathway`: Career pathway page - Helps users explore and plan their career paths.
+*   `/resources`: Resources page - Provides access to various learning and career resources.
+*   `/resume`: Resume page - Tools and features for resume building and analysis.
+*   `/interview-prep`: Interview preparation landing page - Central hub for interview preparation tools.
+*   `/interview-prep/job-description`: Job description analysis page - Tool to analyze job descriptions for interview prep.
+*   `/interview-prep/star-practice`: STAR method practice page - Helps users practice the STAR method for interviews.
+*   `/interview-prep/code-practice`: Coding practice page for interview prep - Platform for practicing coding interview questions.
+*   `/interview-prep/mock-interviews`: Mock interviews listing page - Lists available mock interview sessions.
+*   `/interview-prep/mock-interview-room/:sessionId`: Mock interview room page - Virtual room for conducting mock interviews. The `:sessionId` is dynamic.
+*   `/code-practice`: General code practice page - A general platform for practicing coding.
+*   `/events`: Events page - Lists upcoming events and workshops.
+*   `/messages`: User messages page - Interface for user-to-user messaging.
+*   `/forums`: Forum list page - Displays a list of discussion forums.
+*   `/forums/:forumId`: Forum detail page - Displays a specific forum thread or discussion. The `:forumId` is dynamic.
+*   `/calendar`: Calendar page - Displays an event calendar.
+*   `/assistants`: Assistants list page - Lists available AI assistants.
+*   `/assistant/:assistantId`: Specific assistant interface page - Interface for interacting with a particular AI assistant. The `:assistantId` is dynamic.
+*   `/career-agent`: Career agent page - AI-powered agent for career advice and planning.
+*   `/portfolio-explorer`: Portfolio explorer page - Allows users to explore and discover portfolios.
+*   `/portfolio-editor/:pageId`: Portfolio editor page - Allows users to create and edit their portfolio pages. The `:pageId` is dynamic.
+
+**Admin Routes (require admin privileges):**
+*   `/admin`: Admin dashboard - Main dashboard for administrators.
+*   `/admin/users`: Admin user management page - Manage user accounts.
+*   `/admin/courses`: Admin course management page - Manage courses and their content.
+*   `/admin/events`: Admin event management page - Manage events and registrations.
+*   `/admin/blog-posts`: Admin blog post management page - Manage blog posts.
+*   `/admin/resources`: Admin resource management page - Manage shared resources.
+*   `/admin/forms`: Admin forms management page - Manage forms and surveys.
+*   `/admin/activity`: Admin activity log page - View site activity logs.
+*   `/admin/certificates`: Admin certificates management page - Manage user certificates.
+*   `/admin/enrollments`: Admin enrollments management page - Manage course enrollments.
+*   `/admin/course/:courseId/edit`: Admin course editing page - Edit details of a specific course. The `:courseId` is dynamic.
+*   `/admin/page-visibility`: Admin page visibility settings page - Control visibility of different pages/features.
+
+**Other Routes:**
+*   `*`: Not Found page - Displayed when a requested path does not match any defined route.
 
 ---
 
