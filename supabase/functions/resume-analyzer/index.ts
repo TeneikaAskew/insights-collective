@@ -943,12 +943,15 @@ async function analyzeBulletsInParallel(bulletPoints) {
   // Process in batches with controlled concurrency
   for (let i = 0; i < bulletPoints.length; i += BATCH_SIZE * MAX_CONCURRENT_BATCHES) {
     const batchPromises = [];
+    // const batchPromises: Promise<any>[] = [];
     
     // Create multiple batch promises
     for (let j = 0; j < MAX_CONCURRENT_BATCHES; j++) {
       const startIndex = i + (j * BATCH_SIZE);
       if (startIndex < bulletPoints.length) {
         const batch = bulletPoints.slice(startIndex, startIndex + BATCH_SIZE);
+        console.log(`[ANALYZE]Processing batch ${startIndex} to ${startIndex + BATCH_SIZE}`);
+        console.log(`[ANALYZE]Batch: ${batch}`);
         batchPromises.push(processBulletBatch(batch));
       }
     }
@@ -1004,7 +1007,7 @@ async function analyzeOneBullet(bullet) {
       word_balance: wb,
       xyz_scores: xyz,
       bullet_total: total,
-      id: bullets[i].id
+      id: bullet.id
       // id: generateBulletId(bullet) // Add unique ID for tracking
     };
   } catch (err) {
@@ -1014,7 +1017,7 @@ async function analyzeOneBullet(bullet) {
       word_balance: {},
       xyz_scores: {},
       bullet_total: 10,
-      id: bullets[i].id
+      id: bullet.id
       // id: generateBulletId(bullet)
     };
   }

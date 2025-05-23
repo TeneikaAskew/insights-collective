@@ -247,6 +247,7 @@ function formatResponse(raw) {
     /([A-Z][\s\S]{30,800}?)(?=\n{2,}|\n+(Here are|Three|The resume|Resume Grade|A brief explanation|Explanation|Improvement Themes|$))/i,
     /A\s+professional\s+elevator\s+pitch\s+based\s+on\s+the\s+resume\s+text\s+could\s+be:?\s*(.+?)(?=\n{2,}|\n+Three\s+specific\s+improvement\s+themes|\n+The\s+resume|$)/is,
     /A\s+professional\s+elevator\s+pitch[^:]{0,80}:?\s*(.+?)(?=\n{2,}|\n+Three\s+specific\s+improvement\s+themes|\n+The\s+resume|$)/is,
+    /To improve the resume, three key themes emerge:([\s\S]*?)(?=\n\s*The resume grade|$)/i, // <-- added as a pattern
 
   ];
   
