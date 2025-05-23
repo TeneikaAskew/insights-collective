@@ -45,6 +45,7 @@ export interface BulletAnalysis {
   rewritten?: string;
   tips?: string | string[];
   word_balance?: {
+    word_balance_score: any;
     industry_pct: number;
     common_pct: number;
     action_pct: number;

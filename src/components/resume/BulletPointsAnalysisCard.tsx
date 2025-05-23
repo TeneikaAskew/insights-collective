@@ -112,10 +112,7 @@ const BulletPointsAnalysisCard: React.FC<BulletPointsAnalysisCardProps> = ({
   
   const getBalanceRating = (bullet: BulletAnalysis) => {
     if (!bullet?.word_balance) return 0;
-    const balance = bullet.word_balance;
-    const total = (balance.industry_pct || 0) + (balance.action_pct || 0) + 
-                 (balance.metric_pct || 0) + (balance.common_pct || 0);
-    return Math.round(total / 4); // Average of all percentages
+    return Math.round(bullet.word_balance.word_balance_score); // Average of all percentages
   };
   
   const averageBalanceRating = Math.round(
