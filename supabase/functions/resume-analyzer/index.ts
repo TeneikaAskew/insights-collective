@@ -1004,6 +1004,7 @@ async function analyzeOneBullet(bullet) {
       word_balance: wb,
       xyz_scores: xyz,
       bullet_total: total,
+      id: bullets[i].id,
       // id: generateBulletId(bullet) // Add unique ID for tracking
     };
   } catch (err) {
@@ -1013,14 +1014,10 @@ async function analyzeOneBullet(bullet) {
       word_balance: {},
       xyz_scores: {},
       bullet_total: 10,
+      id: bullets[i].id,
       // id: generateBulletId(bullet)
     };
   }
-}
-
-// Generate a unique ID for a bullet based on its content
-function generateBulletId(bullet) {
-  return `bullet-${Math.random().toString(36).substring(2, 9)}`;
 }
 
 // Calculate scores and grades based on analyzed bullets
@@ -1241,7 +1238,8 @@ function mapEnhancementsToBullets(originalBullets, enhancedBullets) {
     return enhanced || {
       ...originalBullet,
       rewritten: originalBullet.original,
-      tips: "Could not generate improvements for this bullet point."
+      tips: "Could not generate improvements for this bullet point.",
+      id: originalBullet.id
     };
   });
 }

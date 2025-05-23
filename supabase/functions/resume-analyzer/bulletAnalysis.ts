@@ -161,6 +161,43 @@ export function analyzeWordBalance(bullet: string): {
   const idealMetric = 15;
 
 
+  // const IDEAL = { industry: 15, action: 15, metric: 15, common: 55 };
+
+  // const getBalanceScore = (balance) => {
+  //   if (!balance) return 0;
+  //   // deviation per bucket, capped so "way off" doesn't sink the score too fast
+  //   let score = 100;
+  //   for (const k in IDEAL) {
+  //     const dev = Math.abs((balance[k + "_pct"] || 0) - IDEAL[k]);
+  //     score -= dev; // or Math.min(dev, maxDevPerBucket)
+  //   }
+  //   return Math.max(0, score);
+  // };
+
+  const getBucketScore = (actual, ideal) => {
+    const dev = Math.abs(actual - ideal);
+    if (dev <= 5) return 25;
+    if (dev <= 10) return 20;
+    if (dev <= 20) return 10;
+    return 0;
+  };
+  
+  // const word_balance_score = (balance) => {
+  //   if (!balance) return 0;
+  //   return (
+  //     getBucketScore(balance.industry_pct, 15) +
+  //     getBucketScore(balance.action_pct, 15) +
+  //     getBucketScore(balance.metric_pct, 15) +
+  //     getBucketScore(balance.common_pct, 55)
+  //   );
+  // };
+  
+  // Aggregate "balance" score (0–100)
+const word_balance_score = 
+  getBucketScore(industry_pct, idealIndustry) +
+  getBucketScore(action_pct,   idealAction)   +
+  getBucketScore(metric_pct,   idealMetric)   +
+  getBucketScore(common_pct,   idealCommon);
 //   | Bucket                | New **ideal %** | Rationale                                                                                        |
 // | --------------------- | --------------- | ------------------------------------------------------------------------------------------------ |
 // | **Industry / domain** | **15 %**        | 3–5 domain words in a 30-word bullet feels natural and keyword-rich.                             |
@@ -168,13 +205,13 @@ export function analyzeWordBalance(bullet: string): {
 // | **Action**            | **15 %**        | One strong verb every \~12 words (2–3 verbs) keeps energy high.                                  |
 // | **Metric**            | **15 %**        | Two numeric wins per bullet is enough to showcase impact.                                        |
 
-  const industryDev = Math.abs(industry_pct - idealIndustry);
-  const commonDev = Math.abs(common_pct - idealCommon);
-  const actionDev = Math.abs(action_pct - idealAction);
-  const metricDev = Math.abs(metric_pct - idealMetric);
+  // const industryDev = Math.abs(industry_pct - idealIndustry);
+  // const commonDev = Math.abs(common_pct - idealCommon);
+  // const actionDev = Math.abs(action_pct - idealAction);
+  // const metricDev = Math.abs(metric_pct - idealMetric);
   
-  const totalDeviation = industryDev + commonDev + actionDev + metricDev;
-  const word_balance_score = Math.max(0, 25 - totalDeviation);
+  // const totalDeviation = industryDev + commonDev + actionDev + metricDev;
+  // const word_balance_score = Math.max(0, 25 - totalDeviation);
   
   return {
     industry_pct,

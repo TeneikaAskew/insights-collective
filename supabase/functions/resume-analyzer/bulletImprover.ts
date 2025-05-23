@@ -145,6 +145,7 @@ async function processBulletsInParallel(bullets: any[], userId: string) {
           const bullet_total = Math.max(0, xyz.xyz_total - contentPenalty);
           improvedBullets.push({
             ...improvedBullet,
+            id: bullets[i].id,
             xyz_scores: xyz,
             bullet_total: bullet_total,
             word_balance: wb
