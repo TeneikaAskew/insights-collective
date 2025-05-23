@@ -18,6 +18,11 @@ async function backoffDelay(attempt) {
   const jitter = Math.random() * config.RATE_LIMIT_JITTER_MS;
   await new Promise((resolve)=>setTimeout(resolve, delay + jitter));
 }
+// Helper to capitalize the first word of a string
+function capitalizeFirstWord(text) {
+  if (!text || typeof text !== 'string') return text;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
 // This is the primary function that needs to be exported - it's imported in bulletSuggestions.ts
 export async function improveBullet(bulletData) {
   let attempts = 0;
@@ -210,6 +215,10 @@ async function processBulletsInParallel(bullets: any[], userId: string) {
                 const contentPenalty = hasMinimumContent ? 0 : 25;
                 const bullet_total = Math.max(0, xyz.xyz_total - contentPenalty);
                 console.log(`[PBIP]XYZ/WB Score for bullet ${bullet.id}:\n${bullet_total}\n${xyz.xyz_total}\n${wb.word_balance_score}`);
+                // Capitalize the first word of tips if present
+                if (improvedBullet.tips && typeof improvedBullet.tips === 'string') {
+                  improvedBullet.tips = capitalizeFirstWord(improvedBullet.tips);
+                }
                 improvedBullets.push({
                   id: bullet.id,
                   ...improvedBullet,
@@ -258,6 +267,10 @@ async function processBulletsInParallel(bullets: any[], userId: string) {
           const hasMinimumContent = result.improvedBullet.rewritten.length > 20 && result.improvedBullet.rewritten.split(/\s+/).length > 4;
           const contentPenalty = hasMinimumContent ? 0 : 25;
           const bullet_total = Math.max(0, xyz.xyz_total - contentPenalty);
+          // Capitalize the first word of tips if present
+          if (result.improvedBullet.tips && typeof result.improvedBullet.tips === 'string') {
+            result.improvedBullet.tips = capitalizeFirstWord(result.improvedBullet.tips);
+          }
           improvedBullets.push({
             id: result.bullet.id,
             ...result.improvedBullet,

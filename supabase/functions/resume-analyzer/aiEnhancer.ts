@@ -420,6 +420,25 @@ function formatResponse(raw) {
   return extractedContent;
 }
 
+function jsonFormatResponse(raw) {
+  if (!raw) return { elevatorPitch: "", themes: [], explanation: "" };
+  let json;
+  try {
+    // Remove code block markers if present
+    const cleaned = raw.replace(/```(json)?/g, '').trim();
+    json = JSON.parse(cleaned);
+    // Optionally: validate keys here
+    return {
+      elevatorPitch: json.elevatorPitch || "",
+      themes: Array.isArray(json.themes) ? json.themes : [],
+      explanation: json.explanation || ""
+    };
+  } catch (e) {
+    // Fallback: your old parsing logic or return empty/defaults
+    return { elevatorPitch: "", themes: [], explanation: "" };
+  }
+}
+
 // Call the GROQ API with timeout
 const controller = new AbortController();
 const timeoutId = setTimeout(()=>controller.abort(), 8000); // 8 second timeout
@@ -454,17 +473,37 @@ try {
             2. Three specific improvement themes (one sentence each) based on the resume text
             3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
             Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.`
+  // const system =`You are an expert resume analyst. Based on the provided resume text and basic analysis, 
+  //           provide three key outputs:
+  //           1. A professional elevator pitch (max 2 sentences) based on the resume text
+  //           2. Three specific improvement themes (one sentence each) based on the resume text
+  //           3. A brief explanation of the resume grade (max 2 sentences) based on the resume text
+  //           Be specific, professional, and concise. Focus on actionable advice. Format your response with no markdown, just clean text.
+  //           Return your response as a single valid JSON object, with no extra text, markdown, or explanations. 
+  //           The JSON should have the following structure:
+  //           {
+  //           "elevatorPitch": "string",
+  //           "themes": ["string", "string", "string"],
+  //           "explanation": "string"
+  //           }
+  //           Do not include any markdown, code blocks, or commentary. Only output the JSON object.
+  //           `
+  // JSON response format
+
+
+ // const data = await callLLMWithRetry(system, user);
  const user = `Resume text (truncated): ${truncatedResume}\n\nBasic Analysis: ${JSON.stringify(condensedAnalysis)}`
-  // const data = await callLLMWithRetry(system, user);
+ 
   
   const aiResponse = await callLLMWithRetry(system, user);
   clearTimeout(timeoutId);
   
   // const aiResponse = data.choices[0].message.content;
   console.log("AI Response: ", aiResponse);
-  
+
   // Use our new format function which returns an object with extracted content
   const extractedContent = formatResponse(aiResponse);
+  // const extractedContent = jsonFormatResponse(aiResponse);
   console.log("Extracted Content: ", extractedContent)
   
   // Update the analysis with AI-generated content
