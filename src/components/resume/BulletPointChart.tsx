@@ -17,17 +17,11 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
   // Get formatted chart data
   const {
     dataWithPercent,
-    bullet_total,
-    word_balance_score
+    bullet_total
   } = prepareBulletChartData(bullet);
 
-  // Filter out the last bar for each section (word_balance_score and xyz_total)
-  const filteredData = dataWithPercent.filter(item => 
-    item.name !== "Word Balance Score" && item.name !== "Story Score"
-  );
-
   // Extra safety check for dataWithPercent 
-  if (!filteredData || !Array.isArray(filteredData)) {
+  if (!dataWithPercent || !Array.isArray(dataWithPercent)) {
     return (
       <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
         <p>No chart data available.</p>
@@ -37,30 +31,10 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
 
   return (
     <div className="mt-4 border rounded-lg p-6 bg-white shadow-sm">
-      {/* Explanation boxes for the scores */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100">
-          <h4 className="font-semibold text-blue-700 mb-2">Word Balance Score: {word_balance_score}/100</h4>
-          <p className="text-sm text-gray-700">
-            This score measures how well your bullet point balances different types of words. 
-            A higher word balance indicates effective use of action verbs, metrics, industry terms,
-            and other key components that make your bullet points stand out.
-          </p>
-        </div>
-        <div className="bg-gradient-to-br from-purple-50 to-indigo-50 p-4 rounded-lg border border-purple-100">
-          <h4 className="font-semibold text-indigo-700 mb-2">Story Score: {bullet_total}/100</h4>
-          <p className="text-sm text-gray-700">
-            The Story Score evaluates how compelling and complete your bullet point is as a professional achievement.
-            It measures the presence of the XYZ elements: action verbs, metrics/results, clarity, industry keywords,
-            and achievement focus.
-          </p>
-        </div>
-      </div>
-      
       <div className="flex flex-col md:flex-row gap-8">
         <div className="flex-1">
           <h3 className="text-md font-semibold text-center mb-4">Do you have a good plot?</h3>
-          <BulletDonutChart data={filteredData} totalScore={bullet_total} />
+          <BulletDonutChart data={dataWithPercent} totalScore={bullet_total} />
         </div>
         
         <div className="flex-1">
@@ -72,7 +46,7 @@ const BulletPointChart: React.FC<BulletPointChartProps> = ({
           </div>
           
           <div className="space-y-4">
-            {filteredData.map((item, index) => (
+            {dataWithPercent.map((item, index) => (
               <DistributionBar key={`distribution-${item.name}-${index}`} item={item} />
             ))}
           </div>

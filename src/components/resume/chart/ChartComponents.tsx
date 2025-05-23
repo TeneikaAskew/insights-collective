@@ -66,18 +66,7 @@ export const BulletDonutChart: React.FC<{
   return <div className="relative">
       <ResponsiveContainer width="100%" height={220}>
         <PieChart>
-          <Pie 
-            data={data} 
-            dataKey="value" 
-            nameKey="name"
-            cx="50%" 
-            cy="50%" 
-            innerRadius={60} 
-            outerRadius={90} 
-            paddingAngle={2} 
-            startAngle={90} 
-            endAngle={-270}
-          >
+          <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={2} dataKey="value" startAngle={90} endAngle={-270}>
             {data.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.fill} />)}
           </Pie>
         </PieChart>

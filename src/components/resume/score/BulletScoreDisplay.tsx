@@ -39,30 +39,12 @@ export const XYZQualityScore: React.FC<{
         Quality Score ({totalScore}/100)
       </h5>
       <div className="space-y-3">
-        <ScoreWithItem score={xyzScores?.action || 0} maxScore={10} label="Action Words" />
-        <ScoreWithItem score={xyzScores?.metrics || 0} maxScore={30} label="Metrics/Results" />
-        <ScoreWithItem score={xyzScores?.clarity || 0} maxScore={15} label="Clarity/Conciseness" />
-        <ScoreWithItem score={xyzScores?.industry || 0} maxScore={25} label="Industry Keywords" />
-        <ScoreWithItem score={xyzScores?.achievement || 0} maxScore={20} label="Achievement Focus" />
+        <ScoreWithIcon score={xyzScores?.action || 0} maxScore={10} label="Action Words" />
+        <ScoreWithIcon score={xyzScores?.metrics || 0} maxScore={30} label="Metrics/Results" />
+        <ScoreWithIcon score={xyzScores?.clarity || 0} maxScore={15} label="Clarity/Conciseness" />
+        <ScoreWithIcon score={xyzScores?.industry || 0} maxScore={25} label="Industry Keywords" />
+        <ScoreWithIcon score={xyzScores?.achievement || 0} maxScore={20} label="Achievement Focus" />
       </div>
     </div>
   );
-};
-
-// Creating a compatible ScoreWithItem component that accepts label prop
-const ScoreWithItem: React.FC<{
-  score: number;
-  maxScore: number;
-  label: string;
-}> = ({
-  score,
-  maxScore,
-  label
-}) => {
-  const isPassing = score >= maxScore * 0.6; // 60% threshold
-
-  return <div className="flex items-center">
-      {isPassing ? <CheckCircle className="h-4 w-4 text-green-500 mr-2" /> : <AlertTriangle className="h-4 w-4 text-red-500 mr-2" />}
-      <span>{label}: {score}/{maxScore}</span>
-    </div>;
 };
