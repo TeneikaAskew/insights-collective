@@ -285,7 +285,7 @@ const ResumeAnalysisDisplay: React.FC<ResumeAnalysisDisplayProps> = ({
                       <p className="text-sm">{bulletPoints && bulletPoints.length > 0 ? bulletPoints.length : 0} bullet points analyzed</p>
                       <p className="text-xs text-muted-foreground">Average quality score: {bulletPoints && bulletPoints.length > 0 ?
                         Math.round(bulletPoints.reduce((sum, bullet) => sum + (bullet?.bullet_total || 0), 0) / bulletPoints.length)
-                        : 0}/45</p>
+                        : 0}/100</p>
                     </div>
                   </div>
                 </CardContent>

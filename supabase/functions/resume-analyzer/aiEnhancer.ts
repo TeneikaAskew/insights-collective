@@ -216,6 +216,7 @@ function formatResponse(raw) {
   text = text.replace(/Here are the three key outputs:?/i, '');
   text = text.replace(/Here are three key outputs:?/i, '');
   text = text.replace(/based on the provided resume text and basic analysis:/i, '');
+  text = text.replace(/Can be addressed:?/i, '');
 
   const aiPhrases = [
     /Here is a professional elevator pitch based on the resume text[:\s]*/gi,
@@ -287,6 +288,7 @@ function formatResponse(raw) {
     /three\s+specific\s+improvement\s+themes?\s*(?:are|include)?\s*:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /[Tt]hree specific improvement themes are:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /[Tt]hree specific improvement themes?\s*(?:are)?:?\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
+    /To improve the resume, three key themes\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /To improve the resume, three key themes can be addressed:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /Three\s+specific\s+improvement\s+themes\s+are:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,
     /Three\s+specific\s+improvement\s+themes\s+are\s*:\s*([\s\S]*?)(?=\n\s*(?:The resume|Resume Grade|$))/i,  
