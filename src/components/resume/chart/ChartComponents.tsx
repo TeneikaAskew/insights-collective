@@ -95,8 +95,9 @@ export const BulletDonutChart: React.FC<{ data: any[]; totalScore: number }> = (
             <Label
               position="center"
               content={({ viewBox }) => {
-                if (!viewBox) return null;
-                const { cx, cy } = viewBox;
+                if (!viewBox || typeof viewBox === 'string') return null;
+                const { cx, cy } = viewBox as { cx?: number; cy?: number };
+                if (cx === undefined || cy === undefined) return null;
                 return (
                   <>
                     <text x={cx} y={cy - 5} textAnchor="middle" dominantBaseline="central" className="text-xl font-bold fill-current">

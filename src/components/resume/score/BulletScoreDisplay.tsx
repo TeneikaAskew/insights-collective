@@ -39,11 +39,26 @@ export const XYZQualityScore: React.FC<{
         Quality Score ({totalScore}/100)
       </h5>
       <div className="space-y-3">
-        <ScoreWithIcon score={xyzScores?.action || 0} maxScore={10} label="Action Words" />
-        <ScoreWithIcon score={xyzScores?.metrics || 0} maxScore={30} label="Metrics/Results" />
-        <ScoreWithIcon score={xyzScores?.clarity || 0} maxScore={15} label="Clarity/Conciseness" />
-        <ScoreWithIcon score={xyzScores?.industry || 0} maxScore={25} label="Industry Keywords" />
-        <ScoreWithIcon score={xyzScores?.achievement || 0} maxScore={20} label="Achievement Focus" />
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Action Words</span>
+          <ScoreWithIcon score={xyzScores?.action || 0} maxScore={10} />
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Metrics/Results</span>
+          <ScoreWithIcon score={xyzScores?.metrics || 0} maxScore={30} />
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Clarity/Conciseness</span>
+          <ScoreWithIcon score={xyzScores?.clarity || 0} maxScore={15} />
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Industry Keywords</span>
+          <ScoreWithIcon score={xyzScores?.industry || 0} maxScore={25} />
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-sm font-medium">Achievement Focus</span>
+          <ScoreWithIcon score={xyzScores?.achievement || 0} maxScore={20} />
+        </div>
       </div>
     </div>
   );
