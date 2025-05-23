@@ -25,7 +25,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
   
   const {
     original = "",
-    word_balance = { industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
+    word_balance = { word_balance_score: 0, industry_pct: 0, common_pct: 0, action_pct: 0, metric_pct: 0 },
     word_balance_score = 0,
     xyz_scores = { action: 0, metrics: 0, clarity: 0, industry: 0, achievement: 0 },
     bullet_total = 0,
@@ -52,6 +52,7 @@ const BulletPointItem: React.FC<BulletPointItemProps> = ({
       },
       word_balance_score: Math.min(25, word_balance_score + 2),
       word_balance: {
+        word_balance_score: Math.min(25, word_balance_score + 2),
         industry_pct: Math.min(45, word_balance.industry_pct + 2),
         common_pct: Math.max(25, word_balance.common_pct - 2),
         action_pct: Math.min(15, word_balance.action_pct + 2),
