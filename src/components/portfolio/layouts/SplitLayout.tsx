@@ -40,6 +40,25 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
     }
   };
 
+  const formatDateRange = (startDate?: string, endDate?: string) => {
+    if (!startDate) return '';
+    
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      try {
+        const [year, month] = dateStr.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${monthNames[parseInt(month) - 1]} ${year}`;
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const start = formatDate(startDate);
+    const end = endDate ? formatDate(endDate) : 'Present';
+    return `${start} - ${end}`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="max-w-7xl mx-auto p-6">
@@ -96,13 +115,56 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
 
             {/* Skills */}
             {profileData.skills && profileData.skills.length > 0 && (
-              <div>
+              <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-4">Skills & Technologies</h3>
                 <div className="flex flex-wrap gap-2">
                   {profileData.skills.map((skill, index) => (
                     <Badge key={index} variant="secondary" className="px-3 py-1">
                       {skill}
                     </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Experience */}
+            {profileData.experience && profileData.experience.length > 0 && (
+              <div className="mb-8">
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <Briefcase className="h-5 w-5" />
+                  Experience
+                </h3>
+                <div className="space-y-4">
+                  {profileData.experience.map((exp) => (
+                    <div key={exp.id} className="border-l-4 border-blue-500 pl-4">
+                      <h4 className="font-semibold text-gray-800">{exp.role}</h4>
+                      <p className="text-blue-600 font-medium">{exp.company}</p>
+                      <p className="text-sm text-gray-500">
+                        {formatDateRange(exp.startDate, exp.endDate)}
+                      </p>
+                      {exp.description && (
+                        <p className="text-sm text-gray-600 mt-1">{exp.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Education */}
+            {profileData.education && profileData.education.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                  <GraduationCap className="h-5 w-5" />
+                  Education
+                </h3>
+                <div className="space-y-4">
+                  {profileData.education.map((edu) => (
+                    <div key={edu.id} className="border-l-4 border-purple-500 pl-4">
+                      <h4 className="font-semibold text-gray-800">{edu.degree}</h4>
+                      <p className="text-purple-600 font-medium">{edu.institution}</p>
+                      <p className="text-sm text-gray-500">{edu.graduationYear}</p>
+                    </div>
                   ))}
                 </div>
               </div>

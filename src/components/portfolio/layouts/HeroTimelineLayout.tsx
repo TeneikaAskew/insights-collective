@@ -9,7 +9,9 @@ import {
   MapPin, 
   Github, 
   Linkedin, 
-  Calendar
+  Calendar,
+  Briefcase,
+  GraduationCap
 } from 'lucide-react';
 import { PortfolioPage, ProfileData } from '@/types/portfolio';
 import { EnhancedProjectCard } from '../EnhancedProjectCard';
@@ -37,6 +39,25 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
       const body = encodeURIComponent(`Hi, I saw your portfolio and I'm interested in discussing opportunities with you.`);
       window.open(`mailto:${profileData.email}?subject=${subject}&body=${body}`);
     }
+  };
+
+  const formatDateRange = (startDate?: string, endDate?: string) => {
+    if (!startDate) return '';
+    
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      try {
+        const [year, month] = dateStr.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${monthNames[parseInt(month) - 1]} ${year}`;
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const start = formatDate(startDate);
+    const end = endDate ? formatDate(endDate) : 'Present';
+    return `${start} - ${end}`;
   };
 
   return (
@@ -104,6 +125,75 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
                 <Badge key={index} variant="secondary" className="px-4 py-2 text-sm">
                   {skill}
                 </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Experience Timeline */}
+        {profileData.experience && profileData.experience.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+              <Briefcase className="h-6 w-6" />
+              Experience Timeline
+            </h2>
+            <div className="space-y-8">
+              {profileData.experience.map((exp, index) => (
+                <div key={exp.id} className="flex items-start gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                    {index < profileData.experience!.length - 1 && (
+                      <div className="w-0.5 h-16 bg-gray-300 mt-2"></div>
+                    )}
+                  </div>
+                  <div className="flex-1 bg-white rounded-lg shadow-md p-6">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800">{exp.role}</h3>
+                        <p className="text-lg text-blue-600 font-medium">{exp.company}</p>
+                      </div>
+                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                        {formatDateRange(exp.startDate, exp.endDate)}
+                      </span>
+                    </div>
+                    {exp.description && (
+                      <p className="text-gray-600 leading-relaxed">{exp.description}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Education Timeline */}
+        {profileData.education && profileData.education.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+              <GraduationCap className="h-6 w-6" />
+              Education
+            </h2>
+            <div className="space-y-8">
+              {profileData.education.map((edu, index) => (
+                <div key={edu.id} className="flex items-start gap-4">
+                  <div className="flex flex-col items-center">
+                    <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+                    {index < profileData.education!.length - 1 && (
+                      <div className="w-0.5 h-16 bg-gray-300 mt-2"></div>
+                    )}
+                  </div>
+                  <div className="flex-1 bg-white rounded-lg shadow-md p-6">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-800">{edu.degree}</h3>
+                        <p className="text-lg text-purple-600 font-medium">{edu.institution}</p>
+                      </div>
+                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                        {edu.graduationYear}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

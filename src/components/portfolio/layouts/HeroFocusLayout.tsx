@@ -8,7 +8,9 @@ import {
   MapPin, 
   Github, 
   Linkedin,
-  Star
+  Star,
+  Briefcase,
+  GraduationCap
 } from 'lucide-react';
 import { PortfolioPage, ProfileData } from '@/types/portfolio';
 import { EnhancedProjectCard } from '../EnhancedProjectCard';
@@ -37,6 +39,25 @@ export function HeroFocusLayout({ portfolioPage }: HeroFocusLayoutProps) {
       const body = encodeURIComponent(`Hi, I saw your portfolio and I'm interested in discussing opportunities with you.`);
       window.open(`mailto:${profileData.email}?subject=${subject}&body=${body}`);
     }
+  };
+
+  const formatDateRange = (startDate?: string, endDate?: string) => {
+    if (!startDate) return '';
+    
+    const formatDate = (dateStr: string) => {
+      if (!dateStr) return '';
+      try {
+        const [year, month] = dateStr.split('-');
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${monthNames[parseInt(month) - 1]} ${year}`;
+      } catch {
+        return dateStr;
+      }
+    };
+
+    const start = formatDate(startDate);
+    const end = endDate ? formatDate(endDate) : 'Present';
+    return `${start} - ${end}`;
   };
 
   return (
@@ -132,6 +153,62 @@ export function HeroFocusLayout({ portfolioPage }: HeroFocusLayoutProps) {
             </div>
           </div>
         )}
+
+        {/* Experience and Education Grid */}
+        <div className="grid md:grid-cols-2 gap-8 mb-12">
+          {/* Experience */}
+          {profileData.experience && profileData.experience.length > 0 && (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <Briefcase className="h-6 w-6" />
+                Experience
+              </h2>
+              <div className="space-y-6">
+                {profileData.experience.map((exp) => (
+                  <div key={exp.id} className="border-b border-gray-200 last:border-b-0 pb-6 last:pb-0">
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">{exp.role}</h3>
+                        <p className="text-blue-600 font-medium">{exp.company}</p>
+                      </div>
+                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                        {formatDateRange(exp.startDate, exp.endDate)}
+                      </span>
+                    </div>
+                    {exp.description && (
+                      <p className="text-gray-600 text-sm leading-relaxed">{exp.description}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Education */}
+          {profileData.education && profileData.education.length > 0 && (
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
+                <GraduationCap className="h-6 w-6" />
+                Education
+              </h2>
+              <div className="space-y-6">
+                {profileData.education.map((edu) => (
+                  <div key={edu.id} className="border-b border-gray-200 last:border-b-0 pb-6 last:pb-0">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-800">{edu.degree}</h3>
+                        <p className="text-purple-600 font-medium">{edu.institution}</p>
+                      </div>
+                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                        {edu.graduationYear}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Other Projects */}
         {portfolioPage.projects && portfolioPage.projects.length > 1 && (
