@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -242,13 +241,14 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
                 <Separator />
                 
                 <CardFooter className="p-3 sm:p-4">
-                  <div className="flex flex-col gap-2 w-full">
-                    <div className="flex flex-wrap gap-2">
+                  {/* Fixed button layout for desktop - using flex grid instead of wrapping */}
+                  <div className="w-full">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                       <Button 
                         size="sm" 
                         variant="secondary" 
                         onClick={() => viewPage(page)}
-                        className="text-xs flex-1 sm:flex-initial"
+                        className="text-xs"
                       >
                         <Settings className="h-3 w-3 mr-1" />
                         Edit
@@ -257,33 +257,32 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
                         size="sm" 
                         variant="outline"
                         onClick={() => handleShare(page)}
-                        className="text-xs flex-1 sm:flex-initial"
+                        className="text-xs"
                       >
                         <Share2 className="h-3 w-3 mr-1" />
                         Share
                       </Button>
-                    </div>
-                    
-                    <div className="flex flex-wrap gap-2">
                       <Button 
                         size="sm" 
                         variant="outline"
                         onClick={() => handleExport(page.id)}
-                        className="text-xs flex-1 sm:flex-initial"
+                        className="text-xs"
                       >
                         <FileDown className="h-3 w-3 mr-1" />
                         Export
                       </Button>
-                      {page.is_public && page.custom_url && (
+                      {page.is_public && page.custom_url ? (
                         <Button 
                           size="sm" 
                           variant="outline"
                           onClick={() => previewPage(page)}
-                          className="text-xs flex-1 sm:flex-initial"
+                          className="text-xs"
                         >
                           <Eye className="h-3 w-3 mr-1" />
                           Preview
                         </Button>
+                      ) : (
+                        <div className="hidden sm:block"></div>
                       )}
                     </div>
                   </div>
