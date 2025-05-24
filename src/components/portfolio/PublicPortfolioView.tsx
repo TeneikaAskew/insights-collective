@@ -6,7 +6,8 @@ import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { Spinner } from '@/components/ui/spinner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, Github, ExternalLink } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export function PublicPortfolioView() {
@@ -18,6 +19,9 @@ export function PublicPortfolioView() {
     queryFn: () => getPublicPortfolioPage(customUrl || ''),
     enabled: !!customUrl,
   });
+  
+  console.log('Public portfolio data:', portfolioData);
+  console.log('Projects in public view:', portfolioData?.projects);
   
   if (isLoading) {
     return (
@@ -90,7 +94,7 @@ export function PublicPortfolioView() {
           )}
         </header>
         
-        {!portfolioData.projects || portfolioData.projects.length === 0 ? (
+        {!portfolioData.projects || !Array.isArray(portfolioData.projects) || portfolioData.projects.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-xl text-gray-500">
               This portfolio has no projects yet.
@@ -104,10 +108,53 @@ export function PublicPortfolioView() {
               
               return (
                 <div key={projectItem.id} className="border-b pb-14 last:border-0">
-                  <h2 className="text-2xl md:text-3xl font-bold mb-4">{project.title}</h2>
-                  <p className="text-lg mb-6 leading-relaxed">
-                    {projectItem.custom_description || project.description}
-                  </p>
+                  <div className="grid md:grid-cols-2 gap-8 mb-6">
+                    {/* Project Image */}
+                    <div className="order-2 md:order-1">
+                      <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold bg-blue-500">
+                            {project.title.charAt(0)}
+                          </div>
+                          <p className="text-sm text-gray-500">Project Preview</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Project Info */}
+                    <div className="order-1 md:order-2">
+                      <h2 className="text-2xl md:text-3xl font-bold mb-4">{project.title}</h2>
+                      <p className="text-lg mb-6 leading-relaxed">
+                        {projectItem.custom_description || project.description}
+                      </p>
+                      
+                      {/* Action Links */}
+                      <div className="flex gap-3 mb-6">
+                        {project.github_url && (
+                          <a
+                            href={project.github_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                          >
+                            <Github className="h-4 w-4" />
+                            Code
+                          </a>
+                        )}
+                        {project.live_url && (
+                          <a
+                            href={project.live_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                          >
+                            <ExternalLink className="h-4 w-4" />
+                            Live Demo
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {project.required_skills && project.required_skills.length > 0 && (
@@ -115,12 +162,13 @@ export function PublicPortfolioView() {
                         <h3 className="text-sm font-semibold uppercase tracking-wider opacity-70">Skills</h3>
                         <div className="flex flex-wrap gap-2">
                           {project.required_skills.map((skill, i) => (
-                            <span 
+                            <Badge
                               key={i} 
-                              className="bg-opacity-10 bg-gray-500 text-sm px-3 py-1 rounded-full"
+                              variant="secondary"
+                              className="text-sm px-3 py-1"
                             >
                               {skill}
-                            </span>
+                            </Badge>
                           ))}
                         </div>
                       </div>
