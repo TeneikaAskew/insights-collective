@@ -2,6 +2,7 @@
 import React from 'react';
 import { Route } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { EnhancedPortfolioEditor } from '@/components/portfolio/EnhancedPortfolioEditor';
 import { EnhancedPublicPortfolioView } from '@/components/portfolio/EnhancedPublicPortfolioView';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
@@ -39,25 +40,15 @@ function PortfolioEditorWrapper() {
 function PublicPortfolioViewWrapper() {
   const { customUrl } = useParams<{ customUrl: string }>();
   const { getPublicPortfolioPage } = usePortfolioPages();
-  const [portfolioPage, setPortfolioPage] = React.useState(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  
+  const { data: portfolioPage, isLoading, error } = useQuery({
+    queryKey: ['public-portfolio', customUrl],
+    queryFn: () => getPublicPortfolioPage(customUrl || ''),
+    enabled: !!customUrl,
+  });
 
-  React.useEffect(() => {
-    const fetchPortfolio = async () => {
-      if (!customUrl) return;
-      
-      try {
-        const page = await getPublicPortfolioPage(customUrl);
-        setPortfolioPage(page);
-      } catch (error) {
-        console.error('Error fetching portfolio:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchPortfolio();
-  }, [customUrl, getPublicPortfolioPage]);
+  console.log('Public portfolio data in wrapper:', portfolioPage);
+  console.log('Projects in public wrapper:', portfolioPage?.projects);
 
   if (isLoading) {
     return (
@@ -67,7 +58,7 @@ function PublicPortfolioViewWrapper() {
     );
   }
 
-  if (!portfolioPage) {
+  if (error || !portfolioPage) {
     return (
       <div className="text-center py-12">
         <p className="text-muted-foreground">Portfolio not found</p>

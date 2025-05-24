@@ -100,6 +100,8 @@ export function usePortfolioPages() {
 
   // Get public portfolio page
   const getPublicPortfolioPage = async (customUrl: string) => {
+    console.log('Fetching public portfolio for customUrl:', customUrl);
+    
     const { data, error } = await supabase
       .from('portfolio_pages')
       .select(`
@@ -113,7 +115,13 @@ export function usePortfolioPages() {
       .eq('is_public', true)
       .single();
 
-    if (error) throw error;
+    console.log('Raw public portfolio data:', data);
+    console.log('Raw portfolio_page_projects:', data?.portfolio_page_projects);
+
+    if (error) {
+      console.error('Error fetching public portfolio:', error);
+      throw error;
+    }
     
     // Transform the data to match PortfolioPage interface
     const transformedData = {
@@ -123,6 +131,10 @@ export function usePortfolioPages() {
         project: item.portfolio_projects
       }))
     } as PortfolioPage;
+    
+    console.log('Transformed public portfolio data:', transformedData);
+    console.log('Transformed projects array:', transformedData.projects);
+    console.log('Number of projects:', transformedData.projects?.length || 0);
     
     return transformedData;
   };
