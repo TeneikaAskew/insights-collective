@@ -48,6 +48,19 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     if (!user?.id) return [];
     
     try {
+      // First check the portfolio table for recommendations
+      const { data: portfolioData, error: portfolioError } = await supabase
+        .from('portfolio')
+        .select('recommendations')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (portfolioData?.recommendations && portfolioData.recommendations.skills) {
+        console.log('Found skills in portfolio recommendations:', portfolioData.recommendations.skills);
+        return portfolioData.recommendations.skills;
+      }
+
+      // Fallback to career_pathway_results table
       const { data, error } = await supabase
         .from('career_pathway_results')
         .select('report')
@@ -64,54 +77,26 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       const report = data.report as any;
       console.log('Full career pathway report:', report);
       
-      // Look for skills in the specific structure that matches the skill gap analysis
-      let discoveredSkills: string[] = [];
-      
-      // First, try to get skills from the main skills array (user's current skills)
+      // Look for skills in the main skills array first (this is where Portfolio Explorer gets them)
       if (report.skills && Array.isArray(report.skills)) {
-        discoveredSkills = report.skills.filter((skill: any): skill is string => 
+        console.log('Found skills in report.skills:', report.skills);
+        return report.skills.filter((skill: any): skill is string => 
           typeof skill === 'string' && skill.trim().length > 0
         );
-        console.log('Found skills in report.skills:', discoveredSkills);
       }
       
       // If no skills found, check if there's a skillGaps object with user skills
-      if (discoveredSkills.length === 0 && report.skillGaps) {
-        // Check if skillGaps has userSkills or currentSkills
+      if (report.skillGaps) {
         if (report.skillGaps.userSkills && Array.isArray(report.skillGaps.userSkills)) {
-          discoveredSkills = report.skillGaps.userSkills.filter((skill: any): skill is string => 
+          console.log('Found skills in skillGaps.userSkills:', report.skillGaps.userSkills);
+          return report.skillGaps.userSkills.filter((skill: any): skill is string => 
             typeof skill === 'string' && skill.trim().length > 0
           );
-          console.log('Found skills in skillGaps.userSkills:', discoveredSkills);
-        } else if (report.skillGaps.currentSkills && Array.isArray(report.skillGaps.currentSkills)) {
-          discoveredSkills = report.skillGaps.currentSkills.filter((skill: any): skill is string => 
-            typeof skill === 'string' && skill.trim().length > 0
-          );
-          console.log('Found skills in skillGaps.currentSkills:', discoveredSkills);
         }
       }
       
-      // If still no skills, try to get from strengths as fallback
-      if (discoveredSkills.length === 0 && report.strengths && Array.isArray(report.strengths)) {
-        discoveredSkills = report.strengths.filter((strength: any): strength is string => 
-          typeof strength === 'string' && strength.trim().length > 0
-        );
-        console.log('Found skills in strengths as fallback:', discoveredSkills);
-      }
-      
-      // If still no skills, try to extract from target roles core skills
-      if (discoveredSkills.length === 0 && report.targetRoles && Array.isArray(report.targetRoles)) {
-        const allSkills = report.targetRoles.flatMap((role: any) => 
-          role.coreSkills && Array.isArray(role.coreSkills) ? role.coreSkills : []
-        );
-        discoveredSkills = [...new Set(allSkills)].filter((skill: any): skill is string => 
-          typeof skill === 'string' && skill.trim().length > 0
-        );
-        console.log('Found skills from target roles:', discoveredSkills);
-      }
-
-      console.log('Final discovered skills from career pathway:', discoveredSkills);
-      return discoveredSkills;
+      console.log('No skills found in any expected location');
+      return [];
     } catch (error) {
       console.error('Error fetching discovered skills:', error);
       return [];
