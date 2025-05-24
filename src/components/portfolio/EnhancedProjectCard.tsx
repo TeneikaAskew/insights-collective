@@ -32,27 +32,45 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
     switch (theme) {
       case 'minimal':
         return {
-          cardClass: 'border-gray-200 hover:border-gray-300',
+          cardClass: 'border-gray-200 hover:border-gray-300 bg-white',
           textClass: 'text-gray-800',
-          accentColor: '#6b7280'
+          accentColor: '#6b7280',
+          bgColor: '#ffffff'
         };
       case 'professional':
         return {
-          cardClass: 'border-gray-300 hover:border-blue-300 shadow-sm',
+          cardClass: 'border-gray-300 hover:border-blue-300 shadow-sm bg-white',
           textClass: 'text-gray-900',
-          accentColor: '#6366f1'
+          accentColor: '#3b82f6',
+          bgColor: '#ffffff'
         };
       case 'creative':
         return {
           cardClass: 'border-purple-200 hover:border-purple-300 bg-gradient-to-br from-white to-purple-50',
           textClass: 'text-purple-900',
-          accentColor: '#a855f7'
+          accentColor: '#a855f7',
+          bgColor: '#fef7ff'
+        };
+      case 'modern':
+        return {
+          cardClass: 'border-green-200 hover:border-green-300 bg-white',
+          textClass: 'text-green-900',
+          accentColor: '#10b981',
+          bgColor: '#ffffff'
+        };
+      case 'elegant':
+        return {
+          cardClass: 'border-red-200 hover:border-red-300 bg-white',
+          textClass: 'text-red-900',
+          accentColor: '#dc2626',
+          bgColor: '#ffffff'
         };
       default:
         return {
-          cardClass: 'border-gray-200 hover:border-[#9b87f5]',
+          cardClass: 'border-gray-200 hover:border-blue-300 bg-white',
           textClass: 'text-gray-800',
-          accentColor: '#9b87f5'
+          accentColor: '#3b82f6',
+          bgColor: '#ffffff'
         };
     }
   };
@@ -82,13 +100,11 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
             alt={`${project.title} screenshot ${currentImageIndex + 1}`}
             className="w-full h-full object-cover"
             onError={(e) => {
-              // Fallback to placeholder if image fails to load
               e.currentTarget.style.display = 'none';
               e.currentTarget.nextElementSibling?.classList.remove('hidden');
             }}
           />
           
-          {/* Fallback placeholder (hidden by default) */}
           <div className="hidden w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
             <div className="text-center">
               <div 
@@ -101,7 +117,6 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
             </div>
           </div>
 
-          {/* Image navigation for multiple images */}
           {projectImages.length > 1 && (
             <>
               <Button
@@ -121,7 +136,6 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
                 <ChevronRight className="h-4 w-4" />
               </Button>
               
-              {/* Image indicators */}
               <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
                 {projectImages.map((_, index) => (
                   <div
@@ -138,7 +152,6 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
       );
     }
 
-    // Fallback to placeholder when no images
     return (
       <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
         <div className="text-center">
@@ -157,12 +170,10 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
   return (
     <Card className={`${themeStyles.cardClass} transition-all hover:shadow-lg overflow-hidden`}>
       <CardContent className="p-0">
-        {/* Project Image */}
         <div className="p-4 pb-0">
           {renderProjectImage()}
         </div>
 
-        {/* Project Content */}
         <div className="p-4">
           <div className="flex items-start justify-between mb-3">
             <h3 className={`text-xl font-bold ${themeStyles.textClass}`}>
@@ -176,6 +187,7 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
                   className="h-8 w-8 p-0"
                   onClick={() => handleLinkClick(project.live_url)}
                   title="View live demo"
+                  style={{ borderColor: themeStyles.accentColor, color: themeStyles.accentColor }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
@@ -187,6 +199,7 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
                   className="h-8 w-8 p-0"
                   onClick={() => handleLinkClick(project.github_url)}
                   title="View source code"
+                  style={{ borderColor: themeStyles.accentColor, color: themeStyles.accentColor }}
                 >
                   <Github className="h-4 w-4" />
                 </Button>
@@ -194,7 +207,6 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
             </div>
           </div>
 
-          {/* Description */}
           <div className="mb-4">
             <p className={`text-sm leading-relaxed ${themeStyles.textClass}`}>
               {displayDescription}
@@ -212,7 +224,6 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
             )}
           </div>
 
-          {/* Skills/Tech Stack */}
           {project.required_skills && project.required_skills.length > 0 && (
             <div className="mb-4">
               <h4 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-70">
@@ -237,7 +248,6 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
             </div>
           )}
 
-          {/* Project Details */}
           <div className="grid grid-cols-2 gap-4 text-xs">
             {project.effort_level && (
               <div>
@@ -253,7 +263,6 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
             )}
           </div>
 
-          {/* Key Achievements */}
           {project.roadmap && project.roadmap.milestones && project.roadmap.milestones.length > 0 && (
             <div className="mt-4">
               <h4 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-70">

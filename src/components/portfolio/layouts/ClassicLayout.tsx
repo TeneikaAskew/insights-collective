@@ -3,224 +3,302 @@ import React from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Github, Linkedin, Mail, MapPin } from 'lucide-react';
+import { ArrowLeft, Github, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 interface ClassicLayoutProps {
   portfolioPage: PortfolioPage;
 }
 
 export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
-  const profileData = portfolioPage.profile_data;
-
-  const formatDateRange = (startDate?: string, endDate?: string) => {
-    if (!startDate) return '';
-    
-    const formatDate = (dateStr: string) => {
-      if (!dateStr) return '';
-      try {
-        // Handle YYYY-MM format
-        const [year, month] = dateStr.split('-');
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        return `${monthNames[parseInt(month) - 1]} ${year}`;
-      } catch {
-        return dateStr;
-      }
-    };
-
-    const start = formatDate(startDate);
-    const end = endDate ? formatDate(endDate) : 'Present';
-    return `${start} - ${end}`;
-  };
-
-  // Helper function to get location display
-  const getLocationDisplay = () => {
-    const location = profileData?.location_details;
-    if (!location) {
-      // Fallback to old location field for backward compatibility
-      return profileData?.location || '';
+  // Apply theme styles based on the portfolio theme
+  const getThemeStyles = () => {
+    switch (portfolioPage.theme) {
+      case 'minimal':
+        return {
+          backgroundColor: "#ffffff",
+          fontFamily: "'Inter', sans-serif",
+          color: "#333333",
+          accentColor: "#6b7280",
+          cardBg: "#f9fafb",
+          borderColor: "#e5e7eb"
+        };
+      case 'professional':
+        return {
+          backgroundColor: "#f8f9fa",
+          fontFamily: "'Georgia', serif",
+          color: "#2c3e50",
+          accentColor: "#3b82f6",
+          cardBg: "#ffffff",
+          borderColor: "#d1d5db"
+        };
+      case 'creative':
+        return {
+          backgroundColor: "#fff8f3",
+          fontFamily: "'Poppins', sans-serif",
+          color: "#333333",
+          accentColor: "#a855f7",
+          cardBg: "#fef7ff",
+          borderColor: "#e879f9"
+        };
+      case 'modern':
+        return {
+          backgroundColor: "#f0fdf4",
+          fontFamily: "'Inter', sans-serif",
+          color: "#065f46",
+          accentColor: "#10b981",
+          cardBg: "#ffffff",
+          borderColor: "#6ee7b7"
+        };
+      case 'elegant':
+        return {
+          backgroundColor: "#fef2f2",
+          fontFamily: "'Playfair Display', serif",
+          color: "#7f1d1d",
+          accentColor: "#dc2626",
+          cardBg: "#ffffff",
+          borderColor: "#fca5a5"
+        };
+      default:
+        return {
+          backgroundColor: "#ffffff",
+          fontFamily: "'system-ui', sans-serif",
+          color: "#111827",
+          accentColor: "#3b82f6",
+          cardBg: "#f9fafb",
+          borderColor: "#e5e7eb"
+        };
     }
-    
-    const parts = [];
-    if (location.city) parts.push(location.city);
-    if (location.state) parts.push(location.state);
-    if (location.country) parts.push(location.country);
-    
-    return parts.length > 0 ? `You can find me in ${parts.join(', ')}` : '';
   };
+
+  const themeStyles = getThemeStyles();
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Hero Section */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white py-20">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="flex items-center gap-6 mb-6">
-            {profileData?.avatar_url && (
-              <img
-                src={profileData.avatar_url}
-                alt="Profile"
-                className="w-20 h-20 rounded-full border-4 border-white shadow-lg"
-              />
-            )}
-            <div>
-              <h1 className="text-4xl font-bold mb-2">{portfolioPage.title}</h1>
-              <p className="text-xl opacity-90">{portfolioPage.description}</p>
-            </div>
-          </div>
-
-          {profileData?.professional_summary && (
-            <p className="text-lg mb-6 max-w-3xl">{profileData.professional_summary}</p>
+    <div 
+      style={{ 
+        backgroundColor: themeStyles.backgroundColor,
+        fontFamily: themeStyles.fontFamily,
+        color: themeStyles.color,
+        minHeight: '100vh'
+      }}
+      className="pb-12"
+    >
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <header className="mb-12 text-center">
+          <h1 className="text-4xl font-bold mb-3" style={{ color: themeStyles.color }}>
+            {portfolioPage.title}
+          </h1>
+          {portfolioPage.description && (
+            <p className="text-lg opacity-75 max-w-2xl mx-auto">
+              {portfolioPage.description}
+            </p>
           )}
-
-          <div className="flex flex-wrap gap-4 mb-6">
-            {getLocationDisplay() && (
-              <div className="flex items-center gap-2">
-                <MapPin className="h-5 w-5" />
-                <span>{getLocationDisplay()}</span>
+        </header>
+        
+        {/* Profile section */}
+        {portfolioPage.profile_data && (
+          <div className="mb-12 text-center">
+            {portfolioPage.profile_data.professional_summary && (
+              <p className="text-lg mb-6 max-w-3xl mx-auto">
+                {portfolioPage.profile_data.professional_summary}
+              </p>
+            )}
+            
+            {portfolioPage.profile_data.skills && portfolioPage.profile_data.skills.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-semibold mb-4">Skills</h3>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {portfolioPage.profile_data.skills.map((skill, index) => (
+                    <Badge 
+                      key={index} 
+                      variant="secondary" 
+                      className="text-sm"
+                      style={{ 
+                        backgroundColor: `${themeStyles.accentColor}20`,
+                        color: themeStyles.accentColor,
+                        borderColor: themeStyles.accentColor
+                      }}
+                    >
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             )}
-            {profileData?.github_url && (
-              <a
-                href={profileData.github_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 hover:text-gray-200 transition-colors"
-              >
-                <Github className="h-5 w-5" />
-                <span>GitHub</span>
-              </a>
-            )}
-            {profileData?.linkedin_url && (
-              <a
-                href={profileData.linkedin_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 hover:text-gray-200 transition-colors"
-              >
-                <Linkedin className="h-5 w-5" />
-                <span>LinkedIn</span>
-              </a>
-            )}
           </div>
-
-          {profileData?.email && (
-            <Button variant="secondary" className="bg-white text-purple-600 hover:bg-gray-100">
-              <Mail className="h-4 w-4 mr-2" />
-              Hire Me
-            </Button>
-          )}
-        </div>
-      </div>
-
-      <div className="max-w-4xl mx-auto px-6 py-12">
-        {/* Skills Section */}
-        {profileData?.skills && profileData.skills.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Skills & Technologies</h2>
-            <div className="flex flex-wrap gap-3">
-              {profileData.skills.map((skill, index) => (
-                <Badge key={index} variant="secondary" className="text-sm py-2 px-4 bg-purple-100 text-purple-800">
-                  {skill}
-                </Badge>
-              ))}
-            </div>
-          </section>
         )}
-
-        {/* Experience Section */}
-        {profileData?.experience && profileData.experience.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Experience</h2>
-            <div className="space-y-6">
-              {profileData.experience.map((exp) => (
-                <div key={exp.id} className="bg-white rounded-lg shadow-md p-6">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800">{exp.role}</h3>
-                      <p className="text-lg text-purple-600 font-medium">{exp.company}</p>
-                    </div>
-                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                      {formatDateRange(exp.startDate, exp.endDate)}
-                    </span>
-                  </div>
-                  {exp.description && (
-                    <p className="text-gray-600 leading-relaxed">{exp.description}</p>
-                  )}
-                </div>
-              ))}
+        
+        {/* Projects section */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-8" style={{ color: themeStyles.color }}>
+            Projects
+          </h2>
+          
+          {(!portfolioPage.projects || !Array.isArray(portfolioPage.projects) || portfolioPage.projects.length === 0) ? (
+            <div className="text-center py-16">
+              <p className="text-xl text-gray-500">
+                This portfolio has no projects yet.
+              </p>
             </div>
-          </section>
-        )}
-
-        {/* Education Section */}
-        {profileData?.education && profileData.education.length > 0 && (
-          <section className="mb-12">
-            <h2 className="text-3xl font-bold text-gray-800 mb-6">Education</h2>
-            <div className="space-y-6">
-              {profileData.education.map((edu) => (
-                <div key={edu.id} className="bg-white rounded-lg shadow-md p-6">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-800">{edu.degree}</h3>
-                      <p className="text-lg text-purple-600 font-medium">{edu.institution}</p>
-                    </div>
-                    <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
-                      {edu.graduationYear}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Projects Section */}
-        <section>
-          <h2 className="text-3xl font-bold text-gray-800 mb-6">Projects</h2>
-          {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
-            <div className="grid gap-6">
+          ) : (
+            <div className="space-y-16">
               {portfolioPage.projects.map((projectItem) => {
                 const project = projectItem.project;
                 if (!project) return null;
-
+                
                 return (
-                  <div key={projectItem.id} className="bg-white rounded-lg shadow-md p-6">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-3">{project.title}</h3>
-                    <p className="text-gray-600 mb-4">
-                      {projectItem.custom_description || project.description}
-                    </p>
-                    
-                    {project.required_skills && project.required_skills.length > 0 && (
-                      <div className="mb-4">
-                        <h4 className="text-sm font-medium text-gray-700 mb-2">Technologies Used:</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {project.required_skills.map((skill, index) => (
-                            <Badge key={index} variant="outline" className="text-xs">
-                              {skill}
-                            </Badge>
-                          ))}
+                  <div 
+                    key={projectItem.id} 
+                    className="border-b pb-14 last:border-0"
+                    style={{ borderColor: themeStyles.borderColor }}
+                  >
+                    <div className="grid md:grid-cols-2 gap-8 mb-6">
+                      {/* Project Image */}
+                      <div className="order-2 md:order-1">
+                        {project.project_images && project.project_images.length > 0 ? (
+                          <div className="aspect-video rounded-lg overflow-hidden">
+                            <img
+                              src={project.project_images[0]}
+                              alt={`${project.title} screenshot`}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                              }}
+                            />
+                            <div className="hidden aspect-video rounded-lg flex items-center justify-center"
+                                 style={{ backgroundColor: themeStyles.cardBg }}>
+                              <div className="text-center">
+                                <div 
+                                  className="w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold"
+                                  style={{ backgroundColor: themeStyles.accentColor }}
+                                >
+                                  {project.title.charAt(0)}
+                                </div>
+                                <p className="text-sm text-gray-500">Project Preview</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div 
+                            className="aspect-video rounded-lg flex items-center justify-center"
+                            style={{ backgroundColor: themeStyles.cardBg }}
+                          >
+                            <div className="text-center">
+                              <div 
+                                className="w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold"
+                                style={{ backgroundColor: themeStyles.accentColor }}
+                              >
+                                {project.title.charAt(0)}
+                              </div>
+                              <p className="text-sm text-gray-500">Project Preview</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Project Info */}
+                      <div className="order-1 md:order-2">
+                        <h2 className="text-2xl md:text-3xl font-bold mb-4" style={{ color: themeStyles.color }}>
+                          {project.title}
+                        </h2>
+                        <p className="text-lg mb-6 leading-relaxed">
+                          {projectItem.custom_description || project.description}
+                        </p>
+                        
+                        {/* Action Links */}
+                        <div className="flex gap-3 mb-6">
+                          {project.github_url && (
+                            <a
+                              href={project.github_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
+                              style={{ backgroundColor: themeStyles.accentColor }}
+                            >
+                              <Github className="h-4 w-4" />
+                              Code
+                            </a>
+                          )}
+                          {project.live_url && (
+                            <a
+                              href={project.live_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
+                              style={{ backgroundColor: themeStyles.accentColor }}
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                              Live Demo
+                            </a>
+                          )}
                         </div>
                       </div>
-                    )}
-
-                    <div className="flex justify-between text-sm text-gray-500">
-                      {project.effort_level && (
-                        <span>Effort: {project.effort_level}</span>
-                      )}
-                      {project.impact && (
-                        <span>Impact: {project.impact}</span>
-                      )}
                     </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {project.required_skills && project.required_skills.length > 0 && (
+                        <div className="space-y-2">
+                          <h3 className="text-sm font-semibold uppercase tracking-wider opacity-70">Skills</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {project.required_skills.map((skill, i) => (
+                              <Badge
+                                key={i} 
+                                variant="secondary"
+                                className="text-sm px-3 py-1"
+                                style={{ 
+                                  backgroundColor: `${themeStyles.accentColor}20`,
+                                  color: themeStyles.accentColor,
+                                  borderColor: themeStyles.accentColor
+                                }}
+                              >
+                                {skill}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="space-y-2">
+                        <h3 className="text-sm font-semibold uppercase tracking-wider opacity-70">Project Details</h3>
+                        <div className="space-y-2">
+                          {project.effort_level && (
+                            <div>
+                              <span className="font-medium">Effort:</span> {project.effort_level}
+                            </div>
+                          )}
+                          {project.impact && (
+                            <div>
+                              <span className="font-medium">Impact:</span> {project.impact}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {project.roadmap && project.roadmap.milestones && project.roadmap.milestones.length > 0 && (
+                      <div className="mt-8">
+                        <h3 className="text-sm font-semibold uppercase tracking-wider opacity-70 mb-3">Key Achievements</h3>
+                        <ul className="space-y-2 list-disc list-inside">
+                          {project.roadmap.milestones.map((milestone, idx) => (
+                            <li key={idx} style={{ color: themeStyles.color }}>{milestone}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          ) : (
-            <div className="text-center py-12 text-gray-500">
-              <p>No projects to showcase yet.</p>
-            </div>
           )}
-        </section>
+        </div>
       </div>
+      
+      <footer className="mt-20 pt-8 border-t text-center text-sm opacity-60" style={{ borderColor: themeStyles.borderColor }}>
+        <div className="container mx-auto px-4">
+          <p>Portfolio created with AI Portfolio Explorer</p>
+        </div>
+      </footer>
     </div>
   );
 }
