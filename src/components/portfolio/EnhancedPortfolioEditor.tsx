@@ -45,7 +45,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   });
 
   // Function to fetch skills from career pathway results
-  const fetchDiscoveredSkills = async () => {
+  const fetchDiscoveredSkills = async (): Promise<string[]> => {
     if (!user?.id) return [];
     
     try {
@@ -64,21 +64,34 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
 
       const report = data.report as any;
       
-      // Extract skills from the report structure
+      // Extract skills from the report structure - focus on the skills array
       let discoveredSkills: string[] = [];
       
+      // First try to get skills directly from the report
       if (report.skills && Array.isArray(report.skills)) {
-        discoveredSkills = report.skills;
-      } else if (report.strengths && Array.isArray(report.strengths)) {
-        discoveredSkills = report.strengths;
-      } else if (report.targetRoles && Array.isArray(report.targetRoles)) {
-        // Extract skills from target roles
-        const allSkills = report.targetRoles.flatMap((role: any) => 
-          role.coreSkills || []
+        discoveredSkills = report.skills.filter((skill: any): skill is string => 
+          typeof skill === 'string' && skill.trim().length > 0
         );
-        discoveredSkills = [...new Set(allSkills)]; // Remove duplicates
+      }
+      
+      // If no skills found, try to get from strengths
+      if (discoveredSkills.length === 0 && report.strengths && Array.isArray(report.strengths)) {
+        discoveredSkills = report.strengths.filter((strength: any): strength is string => 
+          typeof strength === 'string' && strength.trim().length > 0
+        );
+      }
+      
+      // If still no skills, try to extract from target roles
+      if (discoveredSkills.length === 0 && report.targetRoles && Array.isArray(report.targetRoles)) {
+        const allSkills = report.targetRoles.flatMap((role: any) => 
+          role.coreSkills && Array.isArray(role.coreSkills) ? role.coreSkills : []
+        );
+        discoveredSkills = [...new Set(allSkills)].filter((skill: any): skill is string => 
+          typeof skill === 'string' && skill.trim().length > 0
+        );
       }
 
+      console.log('Discovered skills from career pathway:', discoveredSkills);
       return discoveredSkills;
     } catch (error) {
       console.error('Error fetching discovered skills:', error);
@@ -92,6 +105,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       if (!profileData.skills || profileData.skills.length === 0) {
         const discoveredSkills = await fetchDiscoveredSkills();
         if (discoveredSkills.length > 0) {
+          console.log('Setting discovered skills:', discoveredSkills);
           setProfileData(prev => ({
             ...prev,
             skills: discoveredSkills
