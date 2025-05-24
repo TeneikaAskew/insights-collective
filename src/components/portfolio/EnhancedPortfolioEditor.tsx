@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -6,19 +7,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Eye, Save, Share2, Download, ExternalLink } from 'lucide-react';
+import { Eye, Save, Share2, Download, ExternalLink, ArrowLeft } from 'lucide-react';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { PortfolioPage, ProfileData, PortfolioTheme } from '@/types/portfolio';
 import { toast } from '@/hooks/use-toast';
 import { ProfileSection } from './ProfileSection';
 import { EnhancedProjectCard } from './EnhancedProjectCard';
 import { LayoutPreview } from './LayoutPreview';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface EnhancedPortfolioEditorProps {
   portfolioPage: PortfolioPage;
 }
 
 export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEditorProps) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { updatePortfolioPage, exportPortfolioAsCSV, getShareableLink } = usePortfolioPages();
   
   const [title, setTitle] = useState(portfolioPage.title);
@@ -37,6 +43,65 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     experience: [],
     education: []
   });
+
+  // Function to fetch skills from career pathway results
+  const fetchDiscoveredSkills = async () => {
+    if (!user?.id) return [];
+    
+    try {
+      const { data, error } = await supabase
+        .from('career_pathway_results')
+        .select('report')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error || !data?.report) {
+        console.log('No career pathway results found');
+        return [];
+      }
+
+      const report = data.report as any;
+      
+      // Extract skills from the report structure
+      let discoveredSkills: string[] = [];
+      
+      if (report.skills && Array.isArray(report.skills)) {
+        discoveredSkills = report.skills;
+      } else if (report.strengths && Array.isArray(report.strengths)) {
+        discoveredSkills = report.strengths;
+      } else if (report.targetRoles && Array.isArray(report.targetRoles)) {
+        // Extract skills from target roles
+        const allSkills = report.targetRoles.flatMap((role: any) => 
+          role.coreSkills || []
+        );
+        discoveredSkills = [...new Set(allSkills)]; // Remove duplicates
+      }
+
+      return discoveredSkills;
+    } catch (error) {
+      console.error('Error fetching discovered skills:', error);
+      return [];
+    }
+  };
+
+  // Prefill skills on component mount if no skills are currently set
+  useEffect(() => {
+    const prefillSkills = async () => {
+      if (!profileData.skills || profileData.skills.length === 0) {
+        const discoveredSkills = await fetchDiscoveredSkills();
+        if (discoveredSkills.length > 0) {
+          setProfileData(prev => ({
+            ...prev,
+            skills: discoveredSkills
+          }));
+        }
+      }
+    };
+
+    prefillSkills();
+  }, [user?.id, profileData.skills]);
 
   // Auto-save profile data when it changes
   useEffect(() => {
@@ -101,6 +166,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     window.open(previewUrl, '_blank');
   };
 
+  const handleBack = () => {
+    navigate('/portfolio-explorer');
+  };
+
   const themes: { value: PortfolioTheme; label: string; color: string }[] = [
     { value: 'default', label: 'Default', color: 'bg-blue-500' },
     { value: 'minimal', label: 'Minimal', color: 'bg-gray-500' },
@@ -114,9 +183,14 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Portfolio Editor</h1>
-          <p className="text-muted-foreground">Customize your portfolio content</p>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" onClick={handleBack} className="p-2">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold">Portfolio Editor</h1>
+            <p className="text-muted-foreground">Customize your portfolio content</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handlePreview}>
