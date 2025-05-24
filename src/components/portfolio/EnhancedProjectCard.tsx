@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -53,83 +52,69 @@ export function EnhancedProjectCard({
     // Use passed theme colors if available, otherwise fall back to theme-based colors
     if (themeColors) {
       return {
-        cardClass: 'border-gray-200 hover:border-gray-300 bg-white shadow-md hover:shadow-lg',
+        cardClass: 'border-gray-200 hover:border-gray-300 bg-white',
         textClass: 'text-gray-800',
         accentColor: themeColors.accent,
         primaryColor: themeColors.primary,
         secondaryColor: themeColors.secondary,
-        bgColor: '#ffffff',
-        gradientFrom: `${themeColors.primary}15`,
-        gradientTo: `${themeColors.secondary}10`
+        bgColor: '#ffffff'
       };
     }
 
     switch (theme) {
       case 'minimal':
         return {
-          cardClass: 'border-gray-200 hover:border-gray-300 bg-white shadow-md hover:shadow-lg',
+          cardClass: 'border-gray-200 hover:border-gray-300 bg-white',
           textClass: 'text-gray-800',
           accentColor: '#6b7280',
           primaryColor: '#6b7280',
           secondaryColor: '#9ca3af',
-          bgColor: '#ffffff',
-          gradientFrom: '#f3f4f615',
-          gradientTo: '#e5e7eb10'
+          bgColor: '#ffffff'
         };
       case 'professional':
         return {
-          cardClass: 'border-blue-200 hover:border-blue-300 shadow-md hover:shadow-lg bg-white',
+          cardClass: 'border-gray-300 hover:border-blue-300 shadow-sm bg-white',
           textClass: 'text-gray-900',
           accentColor: '#3b82f6',
           primaryColor: '#3b82f6',
           secondaryColor: '#1e40af',
-          bgColor: '#ffffff',
-          gradientFrom: '#dbeafe15',
-          gradientTo: '#bfdbfe10'
+          bgColor: '#ffffff'
         };
       case 'creative':
         return {
-          cardClass: 'border-purple-200 hover:border-purple-300 shadow-md hover:shadow-lg',
+          cardClass: 'border-purple-200 hover:border-purple-300 bg-gradient-to-br from-white to-purple-50',
           textClass: 'text-purple-900',
           accentColor: '#a855f7',
           primaryColor: '#a855f7',
           secondaryColor: '#7c3aed',
-          bgColor: '#fef7ff',
-          gradientFrom: '#f3e8ff15',
-          gradientTo: '#e9d5ff10'
+          bgColor: '#fef7ff'
         };
       case 'modern':
         return {
-          cardClass: 'border-green-200 hover:border-green-300 shadow-md hover:shadow-lg bg-white',
+          cardClass: 'border-green-200 hover:border-green-300 bg-white',
           textClass: 'text-green-900',
           accentColor: '#10b981',
           primaryColor: '#10b981',
           secondaryColor: '#059669',
-          bgColor: '#ffffff',
-          gradientFrom: '#d1fae515',
-          gradientTo: '#a7f3d010'
+          bgColor: '#ffffff'
         };
       case 'elegant':
         return {
-          cardClass: 'border-red-200 hover:border-red-300 shadow-md hover:shadow-lg bg-white',
+          cardClass: 'border-red-200 hover:border-red-300 bg-white',
           textClass: 'text-red-900',
           accentColor: '#dc2626',
           primaryColor: '#dc2626',
           secondaryColor: '#b91c1c',
-          bgColor: '#ffffff',
-          gradientFrom: '#fee2e215',
-          gradientTo: '#fecaca10'
+          bgColor: '#ffffff'
         };
       default:
         return {
-          cardClass: 'border-gray-200 hover:border-blue-300 shadow-md hover:shadow-lg bg-white',
+          cardClass: 'border-gray-200 hover:border-blue-300 bg-white',
           textClass: 'text-gray-800',
           accentColor: '#3b82f6',
           primaryColor: '#3b82f6',
           secondaryColor: '#a855f7',
-          bgColor: '#ffffff',
-          gradientFrom: '#f3f4f615',
-          gradientTo: '#e5e7eb10'
+          bgColor: '#ffffff'
         };
     }
   };
@@ -165,18 +150,15 @@ export function EnhancedProjectCard({
             }}
           />
           
-          <div 
-            className="hidden w-full h-full flex items-center justify-center"
-            style={{ background: `linear-gradient(135deg, ${themeStyles.gradientFrom}, ${themeStyles.gradientTo})` }}
-          >
+          <div className="hidden w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
             <div className="text-center">
               <div 
-                className="w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold shadow-lg"
+                className="w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold"
                 style={{ backgroundColor: themeStyles.accentColor }}
               >
                 {project.title.charAt(0)}
               </div>
-              <p className="text-sm" style={{ color: themeStyles.textClass }}>Project Preview</p>
+              <p className="text-sm text-gray-500">Project Preview</p>
             </div>
           </div>
 
@@ -185,7 +167,7 @@ export function EnhancedProjectCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="absolute left-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-white/90 hover:bg-white shadow-md"
+                className="absolute left-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-white/80 hover:bg-white"
                 onClick={prevImage}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -193,7 +175,7 @@ export function EnhancedProjectCard({
               <Button
                 size="sm"
                 variant="outline"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-white/90 hover:bg-white shadow-md"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-white/80 hover:bg-white"
                 onClick={nextImage}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -204,7 +186,7 @@ export function EnhancedProjectCard({
                   <div
                     key={index}
                     className={`w-2 h-2 rounded-full ${
-                      index === currentImageIndex ? 'bg-white shadow-md' : 'bg-white/50'
+                      index === currentImageIndex ? 'bg-white' : 'bg-white/50'
                     }`}
                   />
                 ))}
@@ -216,28 +198,22 @@ export function EnhancedProjectCard({
     }
 
     return (
-      <div 
-        className="w-full h-48 rounded-lg flex items-center justify-center shadow-inner"
-        style={{ background: `linear-gradient(135deg, ${themeStyles.gradientFrom}, ${themeStyles.gradientTo})` }}
-      >
+      <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
         <div className="text-center">
           <div 
-            className="w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold shadow-lg"
+            className="w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold"
             style={{ backgroundColor: themeStyles.accentColor }}
           >
             {project.title.charAt(0)}
           </div>
-          <p className="text-sm" style={{ color: themeStyles.textClass }}>Project Preview</p>
+          <p className="text-sm text-gray-500">Project Preview</p>
         </div>
       </div>
     );
   };
 
   return (
-    <Card 
-      className={`${themeStyles.cardClass} transition-all duration-300 hover:-translate-y-1 overflow-hidden`}
-      style={{ backgroundColor: themeStyles.bgColor }}
-    >
+    <Card className={`${themeStyles.cardClass} transition-all hover:shadow-lg overflow-hidden`}>
       <CardContent className="p-0">
         <div className="p-4 pb-0">
           {renderProjectImage()}
@@ -253,14 +229,10 @@ export function EnhancedProjectCard({
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="h-8 w-8 p-0 hover:shadow-md transition-all duration-300"
+                  className="h-8 w-8 p-0"
                   onClick={() => handleLinkClick(project.live_url)}
                   title="View live demo"
-                  style={{ 
-                    borderColor: themeStyles.primaryColor, 
-                    color: themeStyles.primaryColor,
-                    backgroundColor: `${themeStyles.primaryColor}05`
-                  }}
+                  style={{ borderColor: themeStyles.primaryColor, color: themeStyles.primaryColor }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
@@ -269,14 +241,10 @@ export function EnhancedProjectCard({
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="h-8 w-8 p-0 hover:shadow-md transition-all duration-300"
+                  className="h-8 w-8 p-0"
                   onClick={() => handleLinkClick(project.github_url)}
                   title="View source code"
-                  style={{ 
-                    borderColor: themeStyles.secondaryColor, 
-                    color: themeStyles.secondaryColor,
-                    backgroundColor: `${themeStyles.secondaryColor}05`
-                  }}
+                  style={{ borderColor: themeStyles.secondaryColor, color: themeStyles.secondaryColor }}
                 >
                   <Github className="h-4 w-4" />
                 </Button>
@@ -293,7 +261,7 @@ export function EnhancedProjectCard({
                 variant="ghost"
                 size="sm"
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="mt-2 p-0 h-auto text-xs font-medium hover:underline"
+                className="mt-2 p-0 h-auto text-xs"
                 style={{ color: themeStyles.accentColor }}
               >
                 {isExpanded ? 'Show less' : 'Read more'}
@@ -303,7 +271,7 @@ export function EnhancedProjectCard({
 
           {project.required_skills && project.required_skills.length > 0 && (
             <div className="mb-4">
-              <h4 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: themeStyles.primaryColor }}>
+              <h4 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-70">
                 Tech Stack
               </h4>
               <div className="flex flex-wrap gap-1">
@@ -311,10 +279,11 @@ export function EnhancedProjectCard({
                   <Badge
                     key={index}
                     variant="outline"
-                    className="text-xs px-2 py-1 border-0 font-medium"
+                    className="text-xs px-2 py-1"
                     style={{ 
-                      backgroundColor: `${themeStyles.accentColor}15`,
-                      color: themeStyles.accentColor
+                      borderColor: themeStyles.accentColor,
+                      color: themeStyles.accentColor,
+                      backgroundColor: `${themeStyles.accentColor}10`
                     }}
                   >
                     {skill}
@@ -324,24 +293,24 @@ export function EnhancedProjectCard({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4 text-xs mb-4">
+          <div className="grid grid-cols-2 gap-4 text-xs">
             {project.effort_level && (
               <div>
-                <span className="font-medium" style={{ color: themeStyles.primaryColor }}>Effort: </span>
+                <span className="font-medium opacity-70">Effort: </span>
                 <span className={themeStyles.textClass}>{project.effort_level}</span>
               </div>
             )}
             {project.impact && (
               <div>
-                <span className="font-medium" style={{ color: themeStyles.primaryColor }}>Impact: </span>
+                <span className="font-medium opacity-70">Impact: </span>
                 <span className={themeStyles.textClass}>{project.impact}</span>
               </div>
             )}
           </div>
 
           {project.roadmap && project.roadmap.milestones && project.roadmap.milestones.length > 0 && (
-            <div>
-              <h4 className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: themeStyles.primaryColor }}>
+            <div className="mt-4">
+              <h4 className="text-xs font-semibold uppercase tracking-wider mb-2 opacity-70">
                 Key Achievements
               </h4>
               <ul className="space-y-1">
