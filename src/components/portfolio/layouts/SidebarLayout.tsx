@@ -161,9 +161,9 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
               <div className="space-y-4">
                 {portfolioPage.profile_data.experience.slice(0, 2).map((exp, index) => (
                   <div key={index} className="border-l-3 pl-4" style={{ borderColor: themeStyles.primaryColor }}>
-                    <h4 className="font-semibold" style={{ color: themeStyles.color }}>{exp.position}</h4>
+                    <h4 className="font-semibold" style={{ color: themeStyles.color }}>{exp.role}</h4>
                     <p className="text-sm font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
-                    <p className="text-xs text-gray-600">{exp.start_date} - {exp.end_date || 'Present'}</p>
+                    <p className="text-xs text-gray-600">{exp.startDate} - {exp.endDate || 'Present'}</p>
                   </div>
                 ))}
               </div>

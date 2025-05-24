@@ -176,9 +176,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                 <div className="space-y-6">
                   {portfolioPage.profile_data.experience.map((exp, index) => (
                     <div key={index} className="border-l-4 pl-6" style={{ borderColor: themeStyles.primaryColor }}>
-                      <h4 className="text-xl font-semibold" style={{ color: themeStyles.color }}>{exp.position}</h4>
+                      <h4 className="text-xl font-semibold" style={{ color: themeStyles.color }}>{exp.role}</h4>
                       <p className="text-lg font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
-                      <p className="text-gray-600 mb-2">{exp.start_date} - {exp.end_date || 'Present'}</p>
+                      <p className="text-gray-600 mb-2">{exp.startDate} - {exp.endDate || 'Present'}</p>
                       {exp.description && (
                         <p className="text-gray-700">{exp.description}</p>
                       )}
@@ -199,11 +199,8 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                     <div key={index} className="border-l-4 pl-6" style={{ borderColor: themeStyles.secondaryColor }}>
                       <h4 className="text-xl font-semibold" style={{ color: themeStyles.color }}>{edu.degree}</h4>
                       <p className="text-lg font-medium" style={{ color: themeStyles.secondaryColor }}>{edu.institution}</p>
-                      {edu.graduation_date && (
-                        <p className="text-gray-600">{edu.graduation_date}</p>
-                      )}
-                      {edu.gpa && (
-                        <p className="text-gray-700">GPA: {edu.gpa}</p>
+                      {edu.graduationYear && (
+                        <p className="text-gray-600">{edu.graduationYear}</p>
                       )}
                     </div>
                   ))}

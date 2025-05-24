@@ -157,9 +157,9 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
               <div className="space-y-6">
                 {portfolioPage.profile_data.experience.map((exp, index) => (
                   <div key={index} className="border-l-4 pl-4" style={{ borderColor: themeStyles.primaryColor }}>
-                    <h4 className="text-lg font-semibold" style={{ color: themeStyles.color }}>{exp.position}</h4>
+                    <h4 className="text-lg font-semibold" style={{ color: themeStyles.color }}>{exp.role}</h4>
                     <p className="font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
-                    <p className="text-gray-600 text-sm">{exp.start_date} - {exp.end_date || 'Present'}</p>
+                    <p className="text-gray-600 text-sm">{exp.startDate} - {exp.endDate || 'Present'}</p>
                     {exp.description && (
                       <p className="text-gray-700 text-sm mt-2">{exp.description}</p>
                     )}
@@ -180,11 +180,8 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
                   <div key={index} className="border-l-4 pl-4" style={{ borderColor: themeStyles.secondaryColor }}>
                     <h4 className="text-lg font-semibold" style={{ color: themeStyles.color }}>{edu.degree}</h4>
                     <p className="font-medium" style={{ color: themeStyles.secondaryColor }}>{edu.institution}</p>
-                    {edu.graduation_date && (
-                      <p className="text-gray-600 text-sm">{edu.graduation_date}</p>
-                    )}
-                    {edu.gpa && (
-                      <p className="text-gray-700 text-sm">GPA: {edu.gpa}</p>
+                    {edu.graduationYear && (
+                      <p className="text-gray-600 text-sm">{edu.graduationYear}</p>
                     )}
                   </div>
                 ))}
