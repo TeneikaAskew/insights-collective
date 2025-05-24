@@ -1213,6 +1213,7 @@ export type Database = {
           id: string
           impact: string | null
           live_url: string | null
+          project_images: string[] | null
           required_skills: string[] | null
           roadmap: Json | null
           status: string | null
@@ -1228,6 +1229,7 @@ export type Database = {
           id?: string
           impact?: string | null
           live_url?: string | null
+          project_images?: string[] | null
           required_skills?: string[] | null
           roadmap?: Json | null
           status?: string | null
@@ -1243,6 +1245,7 @@ export type Database = {
           id?: string
           impact?: string | null
           live_url?: string | null
+          project_images?: string[] | null
           required_skills?: string[] | null
           roadmap?: Json | null
           status?: string | null
