@@ -193,6 +193,8 @@ export function KanbanBoard({
                         project={project}
                         onDelete={onDeleteProject}
                         onUpdate={onUpdateProject}
+                        onStatusChange={onStatusChange}
+                        isKanbanView={true}
                       />
                     ))}
                   </SortableContext>

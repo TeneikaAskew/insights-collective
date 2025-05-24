@@ -6,7 +6,8 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { PortfolioProject } from '@/types/portfolio';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PortfolioProject, ProjectStatus } from '@/types/portfolio';
 import { Edit, GripVertical, Trash, Plus, Briefcase } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -17,10 +18,11 @@ interface ProjectCardProps {
   project: PortfolioProject;
   onDelete: (projectId: string) => void;
   onUpdate: (project: PortfolioProject) => void;
+  onStatusChange?: (projectId: string, newStatus: ProjectStatus) => void;
   isKanbanView?: boolean;
 }
 
-export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }: ProjectCardProps) {
+export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKanbanView = true }: ProjectCardProps) {
   const { toast } = useToast();
   const { portfolioPages } = usePortfolioPages();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -48,6 +50,10 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSelectChange = (name: string, value: string) => {
     setFormData({ ...formData, [name]: value });
   };
 
@@ -88,6 +94,16 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
     });
   };
 
+  const handleStatusChange = (newStatus: ProjectStatus) => {
+    if (onStatusChange) {
+      onStatusChange(project.id, newStatus);
+      toast({
+        title: "Status updated",
+        description: `Project status changed to ${newStatus}`,
+      });
+    }
+  };
+
   const handleAddToPortfolio = () => {
     if (!portfolioPages || portfolioPages.length === 0) {
       toast({
@@ -104,6 +120,16 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
   const truncate = (str: string, length: number) => {
     if (!str) return '';
     return str.length > length ? str.substring(0, length) + '...' : str;
+  };
+
+  const getStatusColor = (status: ProjectStatus) => {
+    switch (status) {
+      case 'Idea': return 'bg-gray-100 text-gray-800';
+      case 'Planned': return 'bg-blue-100 text-blue-800';
+      case 'In Progress': return 'bg-amber-100 text-amber-800';
+      case 'Completed': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
   };
 
   // Simple Kanban view - only title and description
@@ -129,6 +155,26 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
                 <p className="text-sm text-gray-600">
                   {truncate(project.description, 100)}
                 </p>
+              )}
+              {project.status && (
+                <div className="flex justify-between items-center">
+                  <Badge className={`text-xs ${getStatusColor(project.status)}`}>
+                    {project.status}
+                  </Badge>
+                  {onStatusChange && (
+                    <Select value={project.status} onValueChange={handleStatusChange}>
+                      <SelectTrigger className="w-24 h-6 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Idea">Idea</SelectItem>
+                        <SelectItem value="Planned">Planned</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -159,7 +205,7 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="text-xs px-2 py-1 h-8 flex-shrink-0 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200 max-w-[100px]"
+                className="text-xs px-2 py-1 h-8 flex-shrink-0 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
                 onClick={handleAddToPortfolio}
               >
                 <Plus className="h-3 w-3 mr-1" />
@@ -218,24 +264,42 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="effort_level">Effort Level</Label>
-                  <Input
-                    id="effort_level"
-                    name="effort_level"
-                    value={formData.effort_level || ''}
-                    onChange={handleFormChange}
-                    placeholder="Low, Medium, High"
-                  />
+                  <Select value={formData.effort_level || ''} onValueChange={(value) => handleSelectChange('effort_level', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select effort level" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Low (< 10 hours)">Low (&lt; 10 hours)</SelectItem>
+                      <SelectItem value="Medium (10-30 hours)">Medium (10-30 hours)</SelectItem>
+                      <SelectItem value="High (30+ hours)">High (30+ hours)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="impact">Business Impact</Label>
-                  <Input
-                    id="impact"
-                    name="impact"
-                    value={formData.impact || ''}
-                    onChange={handleFormChange}
-                    placeholder="High ROI, User engagement, etc."
-                  />
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={formData.status || ''} onValueChange={(value) => handleSelectChange('status', value as ProjectStatus)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Idea">Idea</SelectItem>
+                      <SelectItem value="Planned">Planned</SelectItem>
+                      <SelectItem value="In Progress">In Progress</SelectItem>
+                      <SelectItem value="Completed">Completed</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="impact">Business Impact</Label>
+                <Input
+                  id="impact"
+                  name="impact"
+                  value={formData.impact || ''}
+                  onChange={handleFormChange}
+                  placeholder="High ROI, User engagement, etc."
+                />
               </div>
               
               <div className="space-y-2">
@@ -299,7 +363,6 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
                   variant="outline"
                   className="w-full justify-start mb-2"
                   onClick={() => {
-                    // This would integrate with the AddToPortfolio component functionality
                     toast({
                       title: "Project added",
                       description: `Added "${project.title}" to "${page.title}" portfolio.`,
@@ -341,7 +404,14 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
           </div>
           <div className="flex-1 min-w-0 space-y-3">
             <div>
-              <h3 className="font-semibold text-lg leading-tight">{project.title}</h3>
+              <div className="flex justify-between items-start mb-1">
+                <h3 className="font-semibold text-lg leading-tight">{project.title}</h3>
+                {project.status && (
+                  <Badge className={`text-xs ${getStatusColor(project.status)}`}>
+                    {project.status}
+                  </Badge>
+                )}
+              </div>
               {project.description && (
                 <p className="text-sm text-gray-600 mt-1">
                   {truncate(project.description, 120)}
@@ -401,6 +471,24 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
                     </li>
                   )}
                 </ul>
+              </div>
+            )}
+
+            {/* Status Update Dropdown for non-kanban view */}
+            {onStatusChange && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Status:</span>
+                <Select value={project.status || ''} onValueChange={handleStatusChange}>
+                  <SelectTrigger className="w-32 h-7 text-xs">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Idea">Idea</SelectItem>
+                    <SelectItem value="Planned">Planned</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             )}
           </div>
@@ -491,24 +579,42 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="effort_level">Effort Level</Label>
-                <Input
-                  id="effort_level"
-                  name="effort_level"
-                  value={formData.effort_level || ''}
-                  onChange={handleFormChange}
-                  placeholder="Low, Medium, High"
-                />
+                <Select value={formData.effort_level || ''} onValueChange={(value) => handleSelectChange('effort_level', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select effort level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low (< 10 hours)">Low (&lt; 10 hours)</SelectItem>
+                    <SelectItem value="Medium (10-30 hours)">Medium (10-30 hours)</SelectItem>
+                    <SelectItem value="High (30+ hours)">High (30+ hours)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="impact">Business Impact</Label>
-                <Input
-                  id="impact"
-                  name="impact"
-                  value={formData.impact || ''}
-                  onChange={handleFormChange}
-                  placeholder="High ROI, User engagement, etc."
-                />
+                <Label htmlFor="status">Status</Label>
+                <Select value={formData.status || ''} onValueChange={(value) => handleSelectChange('status', value as ProjectStatus)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Idea">Idea</SelectItem>
+                    <SelectItem value="Planned">Planned</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="impact">Business Impact</Label>
+              <Input
+                id="impact"
+                name="impact"
+                value={formData.impact || ''}
+                onChange={handleFormChange}
+                placeholder="High ROI, User engagement, etc."
+              />
             </div>
             
             <div className="space-y-2">
@@ -572,7 +678,6 @@ export function ProjectCard({ project, onDelete, onUpdate, isKanbanView = true }
                 variant="outline"
                 className="w-full justify-start mb-2"
                 onClick={() => {
-                  // This would integrate with the AddToPortfolio component functionality
                   toast({
                     title: "Project added",
                     description: `Added "${project.title}" to "${page.title}" portfolio.`,
