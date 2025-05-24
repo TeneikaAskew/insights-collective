@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface ProfileUpdateData {
   first_name?: string;
   last_name?: string;
+  bio?: string;
   avatar_url?: string;
   notification_settings?: {
     email: boolean;
@@ -25,7 +26,10 @@ export const useProfileUpdate = () => {
   const { user } = useAuth();
 
   const updateProfile = async (data: ProfileUpdateData) => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      throw new Error('User not authenticated');
+    }
+    
     setLoading(true);
 
     try {
@@ -43,12 +47,13 @@ export const useProfileUpdate = () => {
 
       return true;
     } catch (error: any) {
+      console.error('Profile update error:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: error.message || 'Failed to update profile',
         variant: 'destructive',
       });
-      return false;
+      throw error;
     } finally {
       setLoading(false);
     }
