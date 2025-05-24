@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { PortfolioTheme } from '@/types/portfolio';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CreatePortfolioPageFormProps {
   onSuccess: () => void;
@@ -19,6 +20,7 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
   const { toast } = useToast();
   const { addPortfolioPage } = usePortfolioPages();
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingUrl, setIsCheckingUrl] = useState(false);
   
   const [formData, setFormData] = useState({
     title: '',
@@ -32,6 +34,32 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
     title: '',
     custom_url: '',
   });
+
+  // Check if custom URL already exists
+  const checkUrlExists = async (url: string): Promise<boolean> => {
+    if (!url.trim()) return false;
+    
+    setIsCheckingUrl(true);
+    try {
+      const { data, error } = await supabase
+        .from('portfolio_pages')
+        .select('id')
+        .eq('custom_url', url)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error checking URL:', error);
+        return false;
+      }
+      
+      return !!data;
+    } catch (error) {
+      console.error('Error checking URL:', error);
+      return false;
+    } finally {
+      setIsCheckingUrl(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,18 +79,26 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
     }
     
     // Make sure custom URL is URL-friendly
+    let urlFriendlyCustomUrl = '';
     if (formData.custom_url) {
-      const urlFriendlyCustomUrl = formData.custom_url
+      urlFriendlyCustomUrl = formData.custom_url
         .trim()
         .toLowerCase()
         .replace(/\s+/g, '-')
         .replace(/[^a-z0-9-]/g, '');
       
-      setFormData(prev => ({...prev, custom_url: urlFriendlyCustomUrl}));
-      
       if (urlFriendlyCustomUrl !== formData.custom_url.trim().toLowerCase()) {
         newErrors.custom_url = 'URL can only contain letters, numbers, and hyphens';
         valid = false;
+      }
+      
+      // Check if URL already exists
+      if (valid && urlFriendlyCustomUrl) {
+        const urlExists = await checkUrlExists(urlFriendlyCustomUrl);
+        if (urlExists) {
+          newErrors.custom_url = 'This URL is already taken. Please choose a different one.';
+          valid = false;
+        }
       }
     }
     
@@ -71,7 +107,10 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
     if (valid) {
       try {
         setIsLoading(true);
-        await addPortfolioPage.mutateAsync(formData);
+        await addPortfolioPage.mutateAsync({
+          ...formData,
+          custom_url: urlFriendlyCustomUrl,
+        });
         toast({
           title: 'Success',
           description: 'Portfolio page created successfully',
@@ -105,6 +144,35 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
         ...prev,
         [field]: ''
       }));
+    }
+  };
+
+  const handleUrlBlur = async () => {
+    if (formData.custom_url && !errors.custom_url) {
+      const urlFriendlyCustomUrl = formData.custom_url
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '');
+      
+      // Update the URL to be URL-friendly
+      if (urlFriendlyCustomUrl !== formData.custom_url) {
+        setFormData(prev => ({
+          ...prev,
+          custom_url: urlFriendlyCustomUrl
+        }));
+      }
+      
+      // Check if URL exists
+      if (urlFriendlyCustomUrl) {
+        const urlExists = await checkUrlExists(urlFriendlyCustomUrl);
+        if (urlExists) {
+          setErrors(prev => ({
+            ...prev,
+            custom_url: 'This URL is already taken. Please choose a different one.'
+          }));
+        }
+      }
     }
   };
 
@@ -172,10 +240,15 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
             id="custom_url" 
             value={formData.custom_url} 
             onChange={(e) => handleChange('custom_url', e.target.value)}
+            onBlur={handleUrlBlur}
             placeholder="my-portfolio"
             className={errors.custom_url ? "border-red-500" : ""}
+            disabled={isCheckingUrl}
           />
         </div>
+        {isCheckingUrl && (
+          <p className="text-xs text-blue-500">Checking URL availability...</p>
+        )}
         {errors.custom_url ? (
           <p className="text-xs text-red-500">{errors.custom_url}</p>
         ) : (
@@ -190,14 +263,14 @@ export function CreatePortfolioPageForm({ onSuccess }: CreatePortfolioPageFormPr
           type="button" 
           variant="outline" 
           onClick={handleCancel}
-          disabled={isLoading}
+          disabled={isLoading || isCheckingUrl}
         >
           Cancel
         </Button>
         <Button 
           type="submit"
           className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
-          disabled={isLoading}
+          disabled={isLoading || isCheckingUrl}
         >
           {isLoading ? 'Creating...' : 'Create Portfolio Page'}
         </Button>
