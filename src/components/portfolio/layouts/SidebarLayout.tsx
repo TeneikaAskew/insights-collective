@@ -3,6 +3,7 @@ import React from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { EnhancedProjectCard } from '../EnhancedProjectCard';
 import { Badge } from '@/components/ui/badge';
+import { Mail } from 'lucide-react';
 
 interface SidebarLayoutProps {
   portfolioPage: PortfolioPage;
@@ -111,6 +112,27 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
             </div>
           )}
 
+          {/* Contact Information */}
+          {portfolioPage.profile_data?.location && (
+            <div className="mb-4">
+              <p className="text-gray-600">📍 You can find me in {portfolioPage.profile_data.location}</p>
+            </div>
+          )}
+
+          {/* Hire Me Button */}
+          {portfolioPage.profile_data?.email && (
+            <div className="mb-6">
+              <a
+                href={`mailto:${portfolioPage.profile_data.email}`}
+                className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-colors font-medium w-full justify-center"
+                style={{ backgroundColor: themeStyles.primaryColor }}
+              >
+                <Mail className="h-4 w-4" />
+                Hire Me
+              </a>
+            </div>
+          )}
+
           {portfolioPage.profile_data?.skills && portfolioPage.profile_data.skills.length > 0 && (
             <div className="mb-6">
               <h2 className="text-xl font-semibold mb-3">Skills</h2>
@@ -119,14 +141,45 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
                   <Badge 
                     key={index} 
                     variant="secondary"
+                    className="text-white font-medium"
                     style={{ 
-                      backgroundColor: `${themeStyles.accentColor}20`,
-                      color: themeStyles.accentColor,
-                      borderColor: themeStyles.accentColor
+                      backgroundColor: themeStyles.primaryColor,
+                      border: 'none'
                     }}
                   >
                     {skill}
                   </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Experience Section */}
+          {portfolioPage.profile_data?.experience && portfolioPage.profile_data.experience.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-3">💼 Experience</h2>
+              <div className="space-y-4">
+                {portfolioPage.profile_data.experience.slice(0, 2).map((exp, index) => (
+                  <div key={index} className="border-l-3 pl-4" style={{ borderColor: themeStyles.primaryColor }}>
+                    <h4 className="font-semibold" style={{ color: themeStyles.color }}>{exp.position}</h4>
+                    <p className="text-sm font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
+                    <p className="text-xs text-gray-600">{exp.start_date} - {exp.end_date || 'Present'}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Education Section */}
+          {portfolioPage.profile_data?.education && portfolioPage.profile_data.education.length > 0 && (
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold mb-3">🎓 Education</h2>
+              <div className="space-y-4">
+                {portfolioPage.profile_data.education.slice(0, 2).map((edu, index) => (
+                  <div key={index} className="border-l-3 pl-4" style={{ borderColor: themeStyles.secondaryColor }}>
+                    <h4 className="font-semibold" style={{ color: themeStyles.color }}>{edu.degree}</h4>
+                    <p className="text-sm font-medium" style={{ color: themeStyles.secondaryColor }}>{edu.institution}</p>
+                  </div>
                 ))}
               </div>
             </div>

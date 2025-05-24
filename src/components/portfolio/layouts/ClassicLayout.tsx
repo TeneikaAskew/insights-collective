@@ -3,7 +3,7 @@ import React from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Github, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Github, ExternalLink, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 interface ClassicLayoutProps {
@@ -124,24 +124,88 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                 {portfolioPage.profile_data.professional_summary}
               </p>
             )}
+
+            {/* Contact Information */}
+            {portfolioPage.profile_data.location && (
+              <div className="mb-4">
+                <p className="text-gray-600">📍 You can find me in {portfolioPage.profile_data.location}</p>
+              </div>
+            )}
+
+            {/* Hire Me Button */}
+            {portfolioPage.profile_data.email && (
+              <div className="mb-6">
+                <a
+                  href={`mailto:${portfolioPage.profile_data.email}`}
+                  className="inline-flex items-center gap-2 px-8 py-3 text-white rounded-lg hover:opacity-90 transition-colors text-lg font-medium"
+                  style={{ backgroundColor: themeStyles.primaryColor }}
+                >
+                  <Mail className="h-5 w-5" />
+                  Hire Me
+                </a>
+              </div>
+            )}
             
             {portfolioPage.profile_data.skills && portfolioPage.profile_data.skills.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold mb-4">Skills</h3>
+              <div className="mb-8">
+                <h3 className="text-xl font-semibold mb-4">Skills & Technologies</h3>
                 <div className="flex flex-wrap justify-center gap-2">
                   {portfolioPage.profile_data.skills.map((skill, index) => (
                     <Badge 
                       key={index} 
                       variant="secondary" 
-                      className="text-sm"
+                      className="text-sm px-3 py-1 text-white font-medium"
                       style={{ 
-                        backgroundColor: `${themeStyles.accentColor}20`,
-                        color: themeStyles.accentColor,
-                        borderColor: themeStyles.accentColor
+                        backgroundColor: themeStyles.primaryColor,
+                        border: 'none'
                       }}
                     >
                       {skill}
                     </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Experience Section */}
+            {portfolioPage.profile_data.experience && portfolioPage.profile_data.experience.length > 0 && (
+              <div className="mb-8 text-left max-w-3xl mx-auto">
+                <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.color }}>
+                  💼 Experience
+                </h3>
+                <div className="space-y-6">
+                  {portfolioPage.profile_data.experience.map((exp, index) => (
+                    <div key={index} className="border-l-4 pl-6" style={{ borderColor: themeStyles.primaryColor }}>
+                      <h4 className="text-xl font-semibold" style={{ color: themeStyles.color }}>{exp.position}</h4>
+                      <p className="text-lg font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
+                      <p className="text-gray-600 mb-2">{exp.start_date} - {exp.end_date || 'Present'}</p>
+                      {exp.description && (
+                        <p className="text-gray-700">{exp.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Education Section */}
+            {portfolioPage.profile_data.education && portfolioPage.profile_data.education.length > 0 && (
+              <div className="mb-8 text-left max-w-3xl mx-auto">
+                <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.color }}>
+                  🎓 Education
+                </h3>
+                <div className="space-y-6">
+                  {portfolioPage.profile_data.education.map((edu, index) => (
+                    <div key={index} className="border-l-4 pl-6" style={{ borderColor: themeStyles.secondaryColor }}>
+                      <h4 className="text-xl font-semibold" style={{ color: themeStyles.color }}>{edu.degree}</h4>
+                      <p className="text-lg font-medium" style={{ color: themeStyles.secondaryColor }}>{edu.institution}</p>
+                      {edu.graduation_date && (
+                        <p className="text-gray-600">{edu.graduation_date}</p>
+                      )}
+                      {edu.gpa && (
+                        <p className="text-gray-700">GPA: {edu.gpa}</p>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
