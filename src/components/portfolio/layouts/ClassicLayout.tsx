@@ -128,7 +128,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
             {/* Contact Information */}
             {portfolioPage.profile_data.location && (
               <div className="mb-4">
-                <p className="text-gray-600">📍 You can find me in {portfolioPage.profile_data.location}</p>
+                <p style={{ color: themeStyles.accentColor }}>📍 You can find me in {portfolioPage.profile_data.location}</p>
               </div>
             )}
 
@@ -178,9 +178,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                     <div key={index} className="border-l-4 pl-6" style={{ borderColor: themeStyles.primaryColor }}>
                       <h4 className="text-xl font-semibold" style={{ color: themeStyles.color }}>{exp.role}</h4>
                       <p className="text-lg font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
-                      <p className="text-gray-600 mb-2">{exp.startDate} - {exp.endDate || 'Present'}</p>
+                      <p style={{ color: themeStyles.accentColor }} className="mb-2">{exp.startDate} - {exp.endDate || 'Present'}</p>
                       {exp.description && (
-                        <p className="text-gray-700">{exp.description}</p>
+                        <p style={{ color: themeStyles.accentColor }}>{exp.description}</p>
                       )}
                     </div>
                   ))}
@@ -200,7 +200,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                       <h4 className="text-xl font-semibold" style={{ color: themeStyles.color }}>{edu.degree}</h4>
                       <p className="text-lg font-medium" style={{ color: themeStyles.secondaryColor }}>{edu.institution}</p>
                       {edu.graduationYear && (
-                        <p className="text-gray-600">{edu.graduationYear}</p>
+                        <p style={{ color: themeStyles.accentColor }}>{edu.graduationYear}</p>
                       )}
                     </div>
                   ))}
@@ -218,7 +218,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
           
           {(!portfolioPage.projects || !Array.isArray(portfolioPage.projects) || portfolioPage.projects.length === 0) ? (
             <div className="text-center py-16">
-              <p className="text-xl text-gray-500">
+              <p className="text-xl" style={{ color: themeStyles.accentColor }}>
                 This portfolio has no projects yet.
               </p>
             </div>
@@ -257,7 +257,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                                 >
                                   {project.title.charAt(0)}
                                 </div>
-                                <p className="text-sm text-gray-500">Project Preview</p>
+                                <p className="text-sm" style={{ color: themeStyles.accentColor }}>Project Preview</p>
                               </div>
                             </div>
                           </div>
@@ -273,7 +273,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                               >
                                 {project.title.charAt(0)}
                               </div>
-                              <p className="text-sm text-gray-500">Project Preview</p>
+                              <p className="text-sm" style={{ color: themeStyles.accentColor }}>Project Preview</p>
                             </div>
                           </div>
                         )}
@@ -327,11 +327,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                               <Badge
                                 key={i} 
                                 variant="secondary"
-                                className="text-sm px-3 py-1"
+                                className="text-sm px-3 py-1 text-white border-0"
                                 style={{ 
-                                  backgroundColor: `${themeStyles.accentColor}20`,
-                                  color: themeStyles.accentColor,
-                                  borderColor: themeStyles.accentColor
+                                  backgroundColor: themeStyles.accentColor
                                 }}
                               >
                                 {skill}

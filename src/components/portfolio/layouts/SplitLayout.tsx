@@ -263,9 +263,18 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
                 </h3>
                 <div className="space-y-4">
                   {profileData.experience.map((exp) => (
-                    <div key={exp.id} className="border-l-4 border-blue-500 pl-4">
+                    <div 
+                      key={exp.id} 
+                      className="border-l-4 pl-4"
+                      style={{ borderColor: themeStyles.primaryColor }}
+                    >
                       <h4 className="font-semibold text-gray-800">{exp.role}</h4>
-                      <p className="text-blue-600 font-medium">{exp.company}</p>
+                      <p 
+                        className="font-medium"
+                        style={{ color: themeStyles.primaryColor }}
+                      >
+                        {exp.company}
+                      </p>
                       <p className="text-sm text-gray-500">
                         {formatDateRange(exp.startDate, exp.endDate)}
                       </p>
@@ -287,9 +296,18 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
                 </h3>
                 <div className="space-y-4">
                   {profileData.education.map((edu) => (
-                    <div key={edu.id} className="border-l-4 border-purple-500 pl-4">
+                    <div 
+                      key={edu.id} 
+                      className="border-l-4 pl-4"
+                      style={{ borderColor: themeStyles.secondaryColor }}
+                    >
                       <h4 className="font-semibold text-gray-800">{edu.degree}</h4>
-                      <p className="text-purple-600 font-medium">{edu.institution}</p>
+                      <p 
+                        className="font-medium"
+                        style={{ color: themeStyles.secondaryColor }}
+                      >
+                        {edu.institution}
+                      </p>
                       <p className="text-sm text-gray-500">{edu.graduationYear}</p>
                     </div>
                   ))}
