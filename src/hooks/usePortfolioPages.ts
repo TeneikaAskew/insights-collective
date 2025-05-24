@@ -1,7 +1,6 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { PortfolioPage, PortfolioPageProject, PortfolioTheme } from '@/types/portfolio';
+import { PortfolioPage, PortfolioPageProject, PortfolioTheme, ProfileData } from '@/types/portfolio';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function usePortfolioPages() {
@@ -109,6 +108,7 @@ export function usePortfolioPages() {
       theme?: PortfolioTheme;
       is_public?: boolean;
       custom_url?: string;
+      profile_data?: ProfileData;
     }) => {
       const { data, error } = await supabase
         .from('portfolio_pages')
@@ -118,6 +118,7 @@ export function usePortfolioPages() {
           theme: pageData.theme,
           is_public: pageData.is_public,
           custom_url: pageData.custom_url,
+          profile_data: pageData.profile_data,
         })
         .eq('id', pageData.id)
         .select()

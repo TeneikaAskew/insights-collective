@@ -60,6 +60,28 @@ export interface ProjectIdea {
   roadmap: string[];
 }
 
+// Profile data interface
+export interface ProfileData {
+  avatar_url?: string;
+  professional_summary?: string;
+  skills?: string[];
+  location?: string;
+  experience?: Array<{
+    id: string;
+    role: string;
+    company: string;
+    startDate: string;
+    endDate: string;
+    description: string;
+  }>;
+  education?: Array<{
+    id: string;
+    institution: string;
+    degree: string;
+    graduationYear: string;
+  }>;
+}
+
 // New types for Portfolio Pages feature
 export interface PortfolioPage {
   id: string;
@@ -71,7 +93,8 @@ export interface PortfolioPage {
   custom_url?: string;
   created_at?: string;
   updated_at?: string;
-  projects?: PortfolioPageProject[]; // Add the projects property to match what's expected in PortfolioEditor
+  projects?: PortfolioPageProject[];
+  profile_data?: ProfileData; // Add profile_data to the interface
 }
 
 export interface PortfolioPageProject {
