@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
-import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
+import { FaGoogle } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -17,8 +17,10 @@ const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordError, setPasswordError] = useState('');
+  const [nameError, setNameError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmPasswordError, setConfirmPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -28,8 +30,6 @@ const Register = () => {
   const {
     register,
     googleSignIn,
-    githubSignIn,
-    twitterSignIn,
     loading,
     error,
     storeRedirectPath
@@ -99,8 +99,10 @@ const Register = () => {
   };
 
   const clearErrors = () => {
-    setPasswordError('');
+    setNameError('');
     setEmailError('');
+    setPasswordError('');
+    setConfirmPasswordError('');
     setGeneralError('');
   };
 
@@ -110,48 +112,38 @@ const Register = () => {
     console.log('Starting registration process...');
     
     clearErrors();
+    let hasErrors = false;
     
     // Validate name
     if (!name.trim()) {
-      setGeneralError('Please enter your full name');
-      toast({
-        title: 'Validation Error',
-        description: 'Please enter your full name',
-        variant: 'destructive',
-      });
-      return;
+      setNameError('Please enter your full name');
+      hasErrors = true;
     }
     
     // Validate email
     const emailValidation = validateEmail(email);
     if (!emailValidation.isValid) {
       setEmailError(emailValidation.message);
-      toast({
-        title: 'Invalid Email',
-        description: emailValidation.message,
-        variant: 'destructive',
-      });
-      return;
+      hasErrors = true;
     }
     
     // Validate password
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.isValid) {
       setPasswordError(passwordValidation.message);
-      toast({
-        title: 'Invalid Password',
-        description: passwordValidation.message,
-        variant: 'destructive',
-      });
-      return;
+      hasErrors = true;
     }
     
     // Check password confirmation
     if (password !== confirmPassword) {
-      setPasswordError('Passwords do not match');
+      setConfirmPasswordError('Passwords do not match');
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
       toast({
-        title: 'Password Mismatch',
-        description: 'Passwords do not match',
+        title: 'Please fix the errors below',
+        description: 'Check the highlighted fields and correct any errors.',
         variant: 'destructive',
       });
       return;
@@ -177,36 +169,52 @@ const Register = () => {
     } catch (error: any) {
       console.error('Registration error:', error);
       
-      let errorMessage = 'An error occurred during registration. Please try again.';
+      // Parse and display specific error messages
+      let errorMessage = error.message || 'An error occurred during registration. Please try again.';
       
-      // Handle specific error types
-      if (error.message) {
-        if (error.message.includes('email')) {
-          setEmailError('This email address is invalid or already in use');
-          errorMessage = 'This email address is invalid or already in use';
-        } else if (error.message.includes('password')) {
-          setPasswordError('Password does not meet requirements');
-          errorMessage = 'Password does not meet requirements';
-        } else if (error.message.includes('User already registered')) {
-          setEmailError('An account with this email already exists');
-          errorMessage = 'An account with this email already exists. Please try signing in instead.';
-        } else {
-          setGeneralError(error.message);
-          errorMessage = error.message;
-        }
+      // Handle specific Supabase error types
+      if (errorMessage.includes('Email address') && errorMessage.includes('is invalid')) {
+        setEmailError('This email address is not valid. Please check the format and try again.');
+        toast({
+          title: 'Invalid Email',
+          description: 'Please enter a valid email address.',
+          variant: 'destructive',
+        });
+      } else if (errorMessage.includes('User already registered') || errorMessage.includes('already exists')) {
+        setEmailError('An account with this email already exists. Please try signing in instead.');
+        toast({
+          title: 'Account Exists',
+          description: 'An account with this email already exists. Please try signing in instead.',
+          variant: 'destructive',
+        });
+      } else if (errorMessage.includes('password')) {
+        setPasswordError('Password does not meet requirements. Please try a different password.');
+        toast({
+          title: 'Password Error',
+          description: 'Password does not meet requirements.',
+          variant: 'destructive',
+        });
+      } else if (errorMessage.includes('signup_disabled')) {
+        setGeneralError('User registration is currently disabled. Please contact support.');
+        toast({
+          title: 'Registration Disabled',
+          description: 'User registration is currently disabled. Please contact support.',
+          variant: 'destructive',
+        });
+      } else {
+        setGeneralError(errorMessage);
+        toast({
+          title: 'Registration Failed',
+          description: errorMessage,
+          variant: 'destructive',
+        });
       }
-      
-      toast({
-        title: 'Registration Failed',
-        description: errorMessage,
-        variant: 'destructive',
-      });
     } finally {
       setFormSubmitting(false);
     }
   };
 
-  const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
+  const handleSocialSignIn = async (provider: 'google') => {
     try {
       setSocialLoading(provider);
       clearErrors();
@@ -220,17 +228,7 @@ const Register = () => {
       localStorage.setItem('redirectAfterLogin', redirectPath);
       console.log('[Register] Stored redirect path before social sign-in:', redirectPath);
       
-      const signInMethod = {
-        'google': googleSignIn,
-        'github': githubSignIn,
-        'twitter': twitterSignIn
-      }[provider];
-      
-      if (signInMethod) {
-        await signInMethod();
-      } else {
-        throw new Error(`Unsupported provider: ${provider}`);
-      }
+      await googleSignIn();
     } catch (error: any) {
       console.error(`[${provider}] Social sign-in failed:`, error);
       toast({
@@ -305,10 +303,20 @@ const Register = () => {
                   id="name" 
                   placeholder="John Doe" 
                   value={name} 
-                  onChange={(e) => setName(e.target.value)} 
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setNameError('');
+                  }} 
                   required 
                   disabled={formSubmitting || loading}
+                  className={nameError ? 'border-red-500 focus:border-red-500' : ''}
                 />
+                {nameError && (
+                  <p className="text-sm text-red-600 mt-1 flex items-center">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    {nameError}
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -324,9 +332,10 @@ const Register = () => {
                   }} 
                   required 
                   disabled={formSubmitting || loading}
+                  className={emailError ? 'border-red-500 focus:border-red-500' : ''}
                 />
                 {emailError && (
-                  <p className="text-sm text-destructive mt-1 flex items-center">
+                  <p className="text-sm text-red-600 mt-1 flex items-center">
                     <AlertCircle className="h-3 w-3 mr-1" />
                     {emailError}
                   </p>
@@ -347,6 +356,7 @@ const Register = () => {
                     }} 
                     required 
                     disabled={formSubmitting || loading}
+                    className={passwordError ? 'border-red-500 focus:border-red-500' : ''}
                   />
                   <button 
                     type="button" 
@@ -357,6 +367,12 @@ const Register = () => {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+                {passwordError && (
+                  <p className="text-sm text-red-600 mt-1 flex items-center">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    {passwordError}
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -369,10 +385,11 @@ const Register = () => {
                     value={confirmPassword} 
                     onChange={(e) => {
                       setConfirmPassword(e.target.value);
-                      setPasswordError('');
+                      setConfirmPasswordError('');
                     }} 
                     required 
                     disabled={formSubmitting || loading}
+                    className={confirmPasswordError ? 'border-red-500 focus:border-red-500' : ''}
                   />
                   <button 
                     type="button" 
@@ -383,10 +400,10 @@ const Register = () => {
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {passwordError && (
-                  <p className="text-sm text-destructive mt-1 flex items-center">
+                {confirmPasswordError && (
+                  <p className="text-sm text-red-600 mt-1 flex items-center">
                     <AlertCircle className="h-3 w-3 mr-1" />
-                    {passwordError}
+                    {confirmPasswordError}
                   </p>
                 )}
               </div>

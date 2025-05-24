@@ -225,13 +225,15 @@ export const useAuthProvider = () => {
       if (error) {
         console.error('[register] Supabase error:', error);
         
-        // Handle specific Supabase errors
-        if (error.message.includes('email_address_invalid')) {
-          throw new Error('The email address you entered is not valid. Please check and try again.');
+        // Handle specific Supabase errors with clearer messages
+        if (error.message.includes('email_address_invalid') || error.message.includes('Email address') && error.message.includes('is invalid')) {
+          throw new Error('Email address is invalid. Please check the format and try again.');
         } else if (error.message.includes('signup_disabled')) {
           throw new Error('User registration is currently disabled. Please contact support.');
-        } else if (error.message.includes('User already registered')) {
+        } else if (error.message.includes('User already registered') || error.message.includes('already exists')) {
           throw new Error('An account with this email already exists. Please try signing in instead.');
+        } else if (error.message.includes('password')) {
+          throw new Error('Password does not meet requirements. Please try a different password.');
         } else {
           throw new Error(error.message || 'Registration failed. Please try again.');
         }
