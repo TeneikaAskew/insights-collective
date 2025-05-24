@@ -26,7 +26,7 @@ export const usePortfolioPages = () => {
           *,
           portfolio_page_projects (
             *,
-            project:projects (*)
+            project:portfolio_projects (*)
           )
         `)
         .eq('user_id', user.id)
@@ -44,6 +44,42 @@ export const usePortfolioPages = () => {
     },
   });
 
+  // Alternative name for loading state (for backward compatibility)
+  const pagesLoading = portfolioPagesLoading;
+
+  // Fetch a single portfolio page with projects
+  const usePortfolioPageWithProjects = (pageId?: string) => {
+    return useQuery({
+      queryKey: ['portfolio-page', pageId],
+      queryFn: async () => {
+        if (!pageId) return null;
+        
+        const { data, error } = await supabase
+          .from('portfolio_pages')
+          .select(`
+            *,
+            portfolio_page_projects (
+              *,
+              project:portfolio_projects (*)
+            )
+          `)
+          .eq('id', pageId)
+          .single();
+
+        if (error) throw error;
+
+        return {
+          ...data,
+          projects: data.portfolio_page_projects?.map((pp: any) => ({
+            ...pp,
+            project: pp.project
+          })) || []
+        } as PortfolioPage;
+      },
+      enabled: !!pageId,
+    });
+  };
+
   // Fetch a single portfolio page by ID or custom URL
   const getPortfolioPage = async (identifier: string): Promise<PortfolioPage | null> => {
     // First try to get by custom URL
@@ -53,7 +89,7 @@ export const usePortfolioPages = () => {
         *,
         portfolio_page_projects (
           *,
-          project:projects (*)
+          project:portfolio_projects (*)
         )
       `)
       .eq('custom_url', identifier)
@@ -68,7 +104,7 @@ export const usePortfolioPages = () => {
           *,
           portfolio_page_projects (
             *,
-            project:projects (*)
+            project:portfolio_projects (*)
           )
         `)
         .eq('id', identifier)
@@ -86,6 +122,11 @@ export const usePortfolioPages = () => {
         project: pp.project
       })) || []
     } as PortfolioPage;
+  };
+
+  // Get public portfolio page (for public viewing)
+  const getPublicPortfolioPage = async (identifier: string): Promise<PortfolioPage | null> => {
+    return getPortfolioPage(identifier);
   };
 
   // Create a new portfolio page
@@ -123,6 +164,9 @@ export const usePortfolioPages = () => {
     }
   });
 
+  // Alternative name for create mutation (for backward compatibility)
+  const addPortfolioPage = createPortfolioPage;
+
   // Update a portfolio page
   const updatePortfolioPage = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<PortfolioPage> & { id: string }) => {
@@ -138,6 +182,7 @@ export const usePortfolioPages = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
     },
     onError: (error) => {
       console.error('Error updating portfolio page:', error);
@@ -207,6 +252,7 @@ export const usePortfolioPages = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
       toast({
         title: "Success",
         description: "Project added to portfolio!",
@@ -220,6 +266,20 @@ export const usePortfolioPages = () => {
         variant: "destructive"
       });
     }
+  });
+
+  // Alternative method name for adding projects
+  const addProjectToPage = useMutation({
+    mutationFn: async ({ pageId, projectId }: { pageId: string; projectId: string }) => {
+      return addProjectToPortfolio.mutateAsync({
+        portfolioPageId: pageId,
+        projectId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
+    },
   });
 
   // Remove project from portfolio page
@@ -238,6 +298,7 @@ export const usePortfolioPages = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
       toast({
         title: "Success",
         description: "Project removed from portfolio!",
@@ -250,6 +311,58 @@ export const usePortfolioPages = () => {
         description: "Failed to remove project from portfolio",
         variant: "destructive"
       });
+    }
+  });
+
+  // Alternative method name for removing projects
+  const removeProjectFromPage = useMutation({
+    mutationFn: async ({ pageId, projectId }: { pageId: string; projectId: string }) => {
+      return removeProjectFromPortfolio.mutateAsync({
+        portfolioPageId: pageId,
+        projectId,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
+    },
+  });
+
+  // Update portfolio page project
+  const updatePortfolioPageProject = useMutation({
+    mutationFn: async ({ 
+      pageId, 
+      projectId, 
+      customDescription, 
+      displayOrder 
+    }: {
+      pageId: string;
+      projectId: string;
+      customDescription?: string;
+      displayOrder?: number;
+    }) => {
+      const updates: any = {};
+      if (customDescription !== undefined) updates.custom_description = customDescription;
+      if (displayOrder !== undefined) updates.display_order = displayOrder;
+
+      const { data, error } = await supabase
+        .from('portfolio_page_projects')
+        .update(updates)
+        .eq('portfolio_page_id', pageId)
+        .eq('project_id', projectId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
+    },
+    onError: (error) => {
+      console.error('Error updating portfolio page project:', error);
+      throw error;
     }
   });
 
@@ -281,14 +394,21 @@ export const usePortfolioPages = () => {
   return {
     portfolioPages,
     portfolioPagesLoading,
+    pagesLoading, // backward compatibility
     portfolioPagesError,
     refetchPortfolioPages,
+    usePortfolioPageWithProjects,
     getPortfolioPage,
+    getPublicPortfolioPage,
     createPortfolioPage,
+    addPortfolioPage, // backward compatibility
     updatePortfolioPage,
     deletePortfolioPage,
     addProjectToPortfolio,
+    addProjectToPage,
     removeProjectFromPortfolio,
+    removeProjectFromPage,
+    updatePortfolioPageProject,
     exportPortfolioAsCSV,
     getShareableLink,
   };
