@@ -4,6 +4,7 @@ import { Upload, X, Image } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface ImageUploadAreaProps {
   onImagesUploaded: (imageUrls: string[]) => void;
@@ -21,6 +22,7 @@ export function ImageUploadArea({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile } = useStorageUpload();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -47,6 +49,15 @@ export function ImageUploadArea({
   };
 
   const handleFiles = async (files: File[]) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to upload images.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const imageFiles = files.filter(file => file.type.startsWith('image/'));
     
     if (imageFiles.length === 0) {
@@ -71,19 +82,24 @@ export function ImageUploadArea({
     const uploadedUrls: string[] = [];
 
     try {
+      console.log(`Uploading ${imageFiles.length} images to project-images bucket`);
+      
       for (const file of imageFiles) {
-        const result = await uploadFile(file, 'project-images', 'portfolio-projects');
+        const result = await uploadFile(file, 'project-images', user.id);
         if (result?.publicUrl) {
           uploadedUrls.push(result.publicUrl);
+          console.log('Image uploaded successfully:', result.publicUrl);
         }
       }
 
-      onImagesUploaded([...existingImages, ...uploadedUrls]);
-      
-      toast({
-        title: "Images uploaded",
-        description: `Successfully uploaded ${uploadedUrls.length} image(s).`,
-      });
+      if (uploadedUrls.length > 0) {
+        onImagesUploaded([...existingImages, ...uploadedUrls]);
+        
+        toast({
+          title: "Images uploaded",
+          description: `Successfully uploaded ${uploadedUrls.length} image(s).`,
+        });
+      }
     } catch (error) {
       console.error('Error uploading images:', error);
       toast({

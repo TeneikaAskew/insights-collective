@@ -25,17 +25,20 @@ export function useStorageUpload() {
       const fileName = `${uuidv4()}.${fileExt}`;
       const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
       
-      // Upload the file with corrected options
+      console.log(`Uploading file to bucket: ${bucket}, path: ${filePath}`);
+      
+      // Upload the file
       const { data, error } = await supabase.storage
         .from(bucket)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false,
-          contentType: file.type,
-          // Remove contentDisposition property as it's not supported in the FileOptions type
         });
       
-      if (error) throw error;
+      if (error) {
+        console.error('Upload error:', error);
+        throw error;
+      }
       
       // Set progress to 100% when upload completes
       setProgress(100);
@@ -44,6 +47,8 @@ export function useStorageUpload() {
       const { data: urlData } = supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
+      
+      console.log('File uploaded successfully:', urlData.publicUrl);
       
       toast({
         title: 'Success',

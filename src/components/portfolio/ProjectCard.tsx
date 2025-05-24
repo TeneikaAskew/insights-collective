@@ -25,7 +25,7 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKanbanView = true }: ProjectCardProps) {
   const { toast } = useToast();
-  const { portfolioPages } = usePortfolioPages();
+  const { portfolioPages, addProjectToPage } = usePortfolioPages();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAddToPortfolioOpen, setIsAddToPortfolioOpen] = useState(false);
@@ -142,6 +142,18 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
     setIsAddToPortfolioOpen(true);
   };
 
+  const handleAddToPortfolioPage = async (pageId: string) => {
+    try {
+      await addProjectToPage.mutateAsync({
+        pageId,
+        projectId: project.id
+      });
+      setIsAddToPortfolioOpen(false);
+    } catch (error) {
+      // Error is handled by the mutation
+    }
+  };
+
   const truncate = (str: string, length: number) => {
     if (!str) return '';
     return str.length > length ? str.substring(0, length) + '...' : str;
@@ -177,30 +189,6 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             <div className="flex-1 min-w-0 space-y-2">
               <div className="flex justify-between items-start gap-2">
                 <h3 className="font-semibold text-lg leading-tight flex-1">{project.title}</h3>
-                {project.status === 'Completed' && (
-                  <div className="flex gap-1 flex-shrink-0">
-                    {project.live_url && (
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-7 w-7 p-0 hover:bg-blue-50"
-                        onClick={() => window.open(project.live_url, '_blank')}
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                      </Button>
-                    )}
-                    {project.github_url && (
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-7 w-7 p-0 hover:bg-gray-50"
-                        onClick={() => window.open(project.github_url, '_blank')}
-                      >
-                        <Github className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                )}
               </div>
               {project.description && (
                 <p className="text-sm text-gray-600">
@@ -431,13 +419,8 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                   key={page.id}
                   variant="outline"
                   className="w-full justify-start mb-2"
-                  onClick={() => {
-                    toast({
-                      title: "Project added",
-                      description: `Added "${project.title}" to "${page.title}" portfolio.`,
-                    });
-                    setIsAddToPortfolioOpen(false);
-                  }}
+                  onClick={() => handleAddToPortfolioPage(page.id)}
+                  disabled={addProjectToPage.isPending}
                 >
                   <Briefcase className="h-4 w-4 mr-2" />
                   {page.title}
@@ -808,13 +791,8 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                 key={page.id}
                 variant="outline"
                 className="w-full justify-start mb-2"
-                onClick={() => {
-                  toast({
-                    title: "Project added",
-                    description: `Added "${project.title}" to "${page.title}" portfolio.`,
-                  });
-                  setIsAddToPortfolioOpen(false);
-                }}
+                onClick={() => handleAddToPortfolioPage(page.id)}
+                disabled={addProjectToPage.isPending}
               >
                 <Briefcase className="h-4 w-4 mr-2" />
                 {page.title}
