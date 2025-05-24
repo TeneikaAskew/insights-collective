@@ -16,6 +16,8 @@ export function usePortfolioPages() {
     queryFn: async () => {
       if (!user) throw new Error('User not authenticated');
 
+      console.log('Fetching portfolio pages for user:', user.id);
+
       const { data, error } = await supabase
         .from('portfolio_pages')
         .select(`
@@ -28,7 +30,12 @@ export function usePortfolioPages() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching portfolio pages:', error);
+        throw error;
+      }
+      
+      console.log('Fetched portfolio pages:', data);
       return data as PortfolioPage[];
     },
     enabled: !!user,
@@ -40,6 +47,8 @@ export function usePortfolioPages() {
       queryKey: ['portfolio-page', pageId],
       queryFn: async () => {
         if (!user) throw new Error('User not authenticated');
+
+        console.log('Fetching single portfolio page:', pageId);
 
         const { data, error } = await supabase
           .from('portfolio_pages')
@@ -54,7 +63,12 @@ export function usePortfolioPages() {
           .eq('user_id', user.id)
           .single();
 
-        if (error) throw error;
+        if (error) {
+          console.error('Error fetching portfolio page:', error);
+          throw error;
+        }
+        
+        console.log('Fetched portfolio page with projects:', data);
         return data as PortfolioPage;
       },
       enabled: !!user && !!pageId,
@@ -200,6 +214,8 @@ export function usePortfolioPages() {
     mutationFn: async ({ pageId, projectId }: { pageId: string; projectId: string }) => {
       if (!user) throw new Error('User not authenticated');
 
+      console.log('Adding project to page mutation:', { pageId, projectId, userId: user.id });
+
       // Check if project is already in this portfolio - use maybeSingle() instead of single()
       const { data: existingProject } = await supabase
         .from('portfolio_page_projects')
@@ -209,6 +225,7 @@ export function usePortfolioPages() {
         .maybeSingle();
 
       if (existingProject) {
+        console.log('Project already exists in portfolio');
         throw new Error('Project is already in this portfolio');
       }
 
@@ -223,6 +240,8 @@ export function usePortfolioPages() {
 
       const nextOrder = (maxOrderData?.display_order || 0) + 1;
 
+      console.log('Inserting portfolio page project with order:', nextOrder);
+
       const { data, error } = await supabase
         .from('portfolio_page_projects')
         .insert({
@@ -233,18 +252,31 @@ export function usePortfolioPages() {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error inserting portfolio page project:', error);
+        throw error;
+      }
+      
+      console.log('Successfully inserted portfolio page project:', data);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data, variables) => {
+      console.log('Project added successfully, invalidating queries');
+      
+      // Invalidate all relevant queries
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio-page', variables.pageId] });
+      
+      // Also refetch the data immediately
+      queryClient.refetchQueries({ queryKey: ['portfolio-pages', user?.id] });
+      
       toast({
         title: "Success",
         description: "Project added to portfolio successfully.",
       });
     },
     onError: (error: any) => {
+      console.error('Error in addProjectToPage mutation:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to add project to portfolio.",
@@ -258,24 +290,38 @@ export function usePortfolioPages() {
     mutationFn: async ({ pageId, projectId }: { pageId: string; projectId: string }) => {
       if (!user) throw new Error('User not authenticated');
 
+      console.log('Removing project from page:', { pageId, projectId });
+
       const { error } = await supabase
         .from('portfolio_page_projects')
         .delete()
         .eq('portfolio_page_id', pageId)
         .eq('project_id', projectId);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error removing project from page:', error);
+        throw error;
+      }
+      
+      console.log('Successfully removed project from page');
       return { pageId, projectId };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('Project removed successfully, invalidating queries');
+      
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
+      queryClient.invalidateQueries({ queryKey: ['portfolio-page', data.pageId] });
+      
+      // Also refetch the data immediately
+      queryClient.refetchQueries({ queryKey: ['portfolio-pages', user?.id] });
+      
       toast({
         title: "Success",
         description: "Project removed from portfolio successfully.",
       });
     },
     onError: (error: any) => {
+      console.error('Error in removeProjectFromPage mutation:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to remove project from portfolio.",

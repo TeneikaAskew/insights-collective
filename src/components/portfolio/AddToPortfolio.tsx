@@ -28,19 +28,26 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
       return;
     }
     
-    console.log('Adding project to page:', { pageId, projectId: project.id });
+    console.log('Starting handleAddToPage:', { pageId, projectId: project.id, userId: user.id });
     setAddingToPage(pageId);
     
     try {
-      await addProjectToPage.mutateAsync({
+      const result = await addProjectToPage.mutateAsync({
         pageId,
         projectId: project.id
       });
       
+      console.log('Successfully added project to page:', result);
       setAddedToPages((prev) => [...prev, pageId]);
-      console.log('Successfully added project to page');
+      
+      // Close dialog after successful addition
+      setTimeout(() => {
+        setDialogOpen(false);
+      }, 1000);
+      
     } catch (error) {
       console.error('Error adding project to page:', error);
+      // Don't close dialog on error so user can try again
     } finally {
       setAddingToPage(null);
     }
@@ -51,9 +58,19 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
     navigate('/portfolio-explorer?tab=pages&createNew=true');
   };
   
+  // Check if project already exists in any portfolio pages
+  const getProjectPortfolioStatus = (pageId: string) => {
+    const page = portfolioPages?.find(p => p.id === pageId);
+    if (!page || !page.portfolio_page_projects) return false;
+    
+    return page.portfolio_page_projects.some(pp => pp.project_id === project.id);
+  };
+  
   if (!user || project.status !== 'Completed') {
     return null;
   }
+  
+  console.log('Rendering AddToPortfolio with portfolioPages:', portfolioPages);
   
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -87,13 +104,25 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
             <ScrollArea className="max-h-[300px] pr-3">
               <div className="space-y-2">
                 {portfolioPages.map((page) => {
-                  const isAdded = addedToPages.includes(page.id);
+                  const isAlreadyInPortfolio = getProjectPortfolioStatus(page.id);
+                  const isAddedNow = addedToPages.includes(page.id);
+                  const isAdded = isAlreadyInPortfolio || isAddedNow;
                   const isLoading = addingToPage === page.id;
+                  
+                  console.log('Rendering page:', {
+                    pageId: page.id,
+                    title: page.title,
+                    isAlreadyInPortfolio,
+                    isAddedNow,
+                    isAdded,
+                    isLoading,
+                    projectCount: page.portfolio_page_projects?.length || 0
+                  });
                   
                   return (
                     <Card 
                       key={page.id} 
-                      className={`transition-colors ${isAdded ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50 cursor-pointer'}`}
+                      className={`transition-colors ${isAdded ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'}`}
                     >
                       <CardContent className="p-4 flex justify-between items-center">
                         <div className="flex-1">
@@ -101,18 +130,26 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                           {page.description && (
                             <p className="text-sm text-gray-500">{page.description}</p>
                           )}
+                          <p className="text-xs text-gray-400 mt-1">
+                            {page.portfolio_page_projects?.length || 0} project(s)
+                          </p>
                         </div>
                         
                         <div className="flex items-center">
                           {isAdded ? (
                             <div className="flex items-center text-green-600">
                               <CheckCircle2 className="h-5 w-5 mr-2" />
-                              <span className="text-sm font-medium">Added</span>
+                              <span className="text-sm font-medium">
+                                {isAlreadyInPortfolio ? 'Already Added' : 'Added'}
+                              </span>
                             </div>
                           ) : (
                             <Button 
                               size="sm"
-                              onClick={() => handleAddToPage(page.id)}
+                              onClick={() => {
+                                console.log('Button clicked for page:', page.id);
+                                handleAddToPage(page.id);
+                              }}
                               disabled={isLoading || addProjectToPage.isPending}
                               className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
                             >
