@@ -61,9 +61,9 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
   // Check if project already exists in any portfolio pages
   const getProjectPortfolioStatus = (pageId: string) => {
     const page = portfolioPages?.find(p => p.id === pageId);
-    if (!page || !page.portfolio_page_projects) return false;
+    if (!page || !page.projects) return false;
     
-    return page.portfolio_page_projects.some(pp => pp.project_id === project.id);
+    return page.projects.some(pp => pp.project_id === project.id);
   };
   
   if (!user || project.status !== 'Completed') {
@@ -116,13 +116,19 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                     isAddedNow,
                     isAdded,
                     isLoading,
-                    projectCount: page.portfolio_page_projects?.length || 0
+                    projectCount: page.projects?.length || 0
                   });
                   
                   return (
                     <Card 
                       key={page.id} 
-                      className={`transition-colors ${isAdded ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'}`}
+                      className={`transition-colors cursor-pointer ${isAdded ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50'}`}
+                      onClick={() => {
+                        if (!isAdded && !isLoading) {
+                          console.log('Card clicked for page:', page.id);
+                          handleAddToPage(page.id);
+                        }
+                      }}
                     >
                       <CardContent className="p-4 flex justify-between items-center">
                         <div className="flex-1">
@@ -131,7 +137,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                             <p className="text-sm text-gray-500">{page.description}</p>
                           )}
                           <p className="text-xs text-gray-400 mt-1">
-                            {page.portfolio_page_projects?.length || 0} project(s)
+                            {page.projects?.length || 0} project(s)
                           </p>
                         </div>
                         
@@ -146,7 +152,8 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                           ) : (
                             <Button 
                               size="sm"
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 console.log('Button clicked for page:', page.id);
                                 handleAddToPage(page.id);
                               }}
