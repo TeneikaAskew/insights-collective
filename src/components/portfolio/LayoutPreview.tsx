@@ -2,7 +2,7 @@
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { User, MapPin, Mail, Github, Linkedin } from 'lucide-react';
+import { User, MapPin, Mail, Github, Linkedin, Check } from 'lucide-react';
 
 interface LayoutPreviewProps {
   layout: string;
@@ -12,119 +12,158 @@ interface LayoutPreviewProps {
 
 export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewProps) {
   const renderPreview = () => {
-    const commonElements = {
-      profile: (
-        <div className="bg-gray-100 rounded p-1 text-xs">
-          <div className="w-4 h-4 bg-gray-300 rounded-full mb-1 mx-auto"></div>
-          <div className="h-1 bg-gray-300 rounded mb-0.5"></div>
-          <div className="h-0.5 bg-gray-200 rounded"></div>
-        </div>
-      ),
-      project: (
-        <div className="bg-gray-50 rounded p-1 text-xs">
-          <div className="h-2 bg-gray-200 rounded mb-0.5"></div>
-          <div className="h-0.5 bg-gray-300 rounded mb-0.5"></div>
-          <div className="h-0.5 bg-gray-300 rounded w-3/4"></div>
-        </div>
-      )
-    };
-
     switch (layout) {
       case 'sidebar':
         return (
-          <div className="flex gap-1 h-16">
-            <div className="w-1/3 space-y-1">
-              {commonElements.profile}
-              <div className="flex gap-0.5">
-                <div className="w-1 h-1 bg-[#9b87f5] rounded-full"></div>
-                <div className="w-1 h-1 bg-gray-300 rounded-full"></div>
+          <div className="w-full h-32 bg-white border rounded-md overflow-hidden relative">
+            {/* Sidebar */}
+            <div className="absolute left-0 top-0 w-1/3 h-full bg-gray-100 border-r">
+              <div className="p-2 space-y-2">
+                <div className="w-8 h-8 bg-blue-400 rounded-full mx-auto"></div>
+                <div className="h-2 bg-gray-300 rounded w-3/4 mx-auto"></div>
+                <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                <div className="space-y-1 mt-3">
+                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                  <div className="h-1 bg-gray-200 rounded w-1/2"></div>
+                </div>
               </div>
             </div>
-            <div className="flex-1 grid grid-cols-2 gap-1">
-              {Array(4).fill(0).map((_, i) => (
-                <div key={i}>{commonElements.project}</div>
-              ))}
+            {/* Main content area */}
+            <div className="absolute left-1/3 top-0 right-0 h-full p-2">
+              <div className="grid grid-cols-2 gap-1 h-full">
+                <div className="bg-gray-50 rounded border"></div>
+                <div className="bg-gray-50 rounded border"></div>
+                <div className="bg-gray-50 rounded border"></div>
+                <div className="bg-gray-50 rounded border"></div>
+              </div>
             </div>
           </div>
         );
       
       case 'hero-timeline':
         return (
-          <div className="space-y-1 h-16">
-            <div className="bg-gradient-to-r from-[#9b87f5] to-purple-600 rounded p-1 text-center h-6">
-              <div className="w-3 h-3 bg-white rounded-full mx-auto mb-0.5"></div>
-              <div className="h-0.5 bg-white rounded w-1/2 mx-auto"></div>
+          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
+            {/* Hero section */}
+            <div className="h-12 bg-gradient-to-r from-blue-400 to-purple-400 relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-6 h-6 bg-white rounded-full"></div>
+              </div>
             </div>
-            <div className="space-y-0.5 flex-1">
-              {Array(2).fill(0).map((_, i) => (
-                <div key={i} className="flex gap-1 items-start">
-                  <div className="w-1 h-1 bg-[#9b87f5] rounded-full mt-0.5 flex-shrink-0"></div>
-                  <div className="flex-1">{commonElements.project}</div>
+            {/* Timeline content */}
+            <div className="p-2 space-y-2">
+              <div className="flex items-start gap-2">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mt-1 flex-shrink-0"></div>
+                <div className="flex-1">
+                  <div className="h-2 bg-gray-200 rounded w-3/4 mb-1"></div>
+                  <div className="h-1 bg-gray-100 rounded w-1/2"></div>
                 </div>
-              ))}
+              </div>
+              <div className="flex items-start gap-2">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mt-1 flex-shrink-0"></div>
+                <div className="flex-1">
+                  <div className="h-2 bg-gray-200 rounded w-2/3 mb-1"></div>
+                  <div className="h-1 bg-gray-100 rounded w-1/3"></div>
+                </div>
+              </div>
             </div>
           </div>
         );
       
       case 'grid':
         return (
-          <div className="space-y-1 h-16">
-            <div className="bg-gray-100 rounded p-0.5 flex items-center gap-1 h-4">
-              <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
-              <div className="h-0.5 bg-gray-300 rounded flex-1"></div>
+          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
+            {/* Header */}
+            <div className="h-8 bg-gray-100 border-b flex items-center px-2">
+              <div className="w-4 h-4 bg-gray-300 rounded-full mr-2"></div>
+              <div className="h-1 bg-gray-300 rounded flex-1"></div>
             </div>
-            <div className="grid grid-cols-3 gap-0.5 flex-1">
-              {Array(6).fill(0).map((_, i) => (
-                <div key={i} className="bg-gray-50 rounded aspect-square"></div>
-              ))}
+            {/* Grid content */}
+            <div className="p-2">
+              <div className="grid grid-cols-4 gap-1 h-20">
+                <div className="bg-gray-100 rounded"></div>
+                <div className="bg-gray-100 rounded"></div>
+                <div className="bg-gray-100 rounded"></div>
+                <div className="bg-gray-100 rounded"></div>
+                <div className="bg-gray-50 rounded"></div>
+                <div className="bg-gray-50 rounded"></div>
+                <div className="bg-gray-50 rounded"></div>
+                <div className="bg-gray-50 rounded"></div>
+              </div>
             </div>
           </div>
         );
       
       case 'classic':
         return (
-          <div className="space-y-1 h-16">
-            <div className="bg-gray-100 rounded p-1 text-center h-6">
-              <div className="w-3 h-3 bg-gray-300 rounded-full mx-auto mb-0.5"></div>
-              <div className="h-0.5 bg-gray-300 rounded w-3/4 mx-auto"></div>
+          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
+            {/* Header */}
+            <div className="h-10 bg-gray-100 border-b flex flex-col items-center justify-center">
+              <div className="w-6 h-6 bg-gray-300 rounded-full mb-1"></div>
+              <div className="h-1 bg-gray-300 rounded w-16"></div>
             </div>
-            <div className="space-y-0.5 flex-1">
-              {Array(2).fill(0).map((_, i) => (
-                <div key={i}>{commonElements.project}</div>
-              ))}
+            {/* Content sections */}
+            <div className="p-2 space-y-2">
+              <div className="h-2 bg-gray-200 rounded w-full"></div>
+              <div className="h-1 bg-gray-100 rounded w-3/4"></div>
+              <div className="h-1 bg-gray-100 rounded w-1/2"></div>
+              <div className="mt-3 space-y-1">
+                <div className="h-3 bg-gray-50 rounded border"></div>
+                <div className="h-3 bg-gray-50 rounded border"></div>
+              </div>
             </div>
           </div>
         );
       
       case 'split':
         return (
-          <div className="flex gap-1 h-16">
-            <div className="w-1/2">
-              {commonElements.profile}
-            </div>
-            <div className="w-1/2 space-y-0.5">
-              {Array(2).fill(0).map((_, i) => (
-                <div key={i}>{commonElements.project}</div>
-              ))}
+          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
+            <div className="flex h-full">
+              {/* Left side - Profile */}
+              <div className="w-1/2 bg-gray-50 border-r p-2">
+                <div className="text-center space-y-2">
+                  <div className="w-8 h-8 bg-blue-400 rounded-full mx-auto"></div>
+                  <div className="h-2 bg-gray-300 rounded w-3/4 mx-auto"></div>
+                  <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                  <div className="space-y-1 mt-3">
+                    <div className="h-1 bg-gray-200 rounded w-2/3 mx-auto"></div>
+                    <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
+                  </div>
+                </div>
+              </div>
+              {/* Right side - Projects */}
+              <div className="w-1/2 p-2 space-y-1">
+                <div className="h-6 bg-gray-100 rounded border"></div>
+                <div className="h-6 bg-gray-100 rounded border"></div>
+                <div className="h-6 bg-gray-100 rounded border"></div>
+                <div className="h-6 bg-gray-50 rounded border"></div>
+              </div>
             </div>
           </div>
         );
       
       case 'hero-focus':
         return (
-          <div className="space-y-1 h-16">
-            <div className="bg-gradient-to-r from-[#9b87f5] to-purple-600 rounded p-1 h-10 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-4 h-4 bg-white rounded-full mx-auto mb-0.5"></div>
-                <div className="h-0.5 bg-white rounded w-6 mx-auto"></div>
+          <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
+            {/* Large hero section */}
+            <div className="h-20 bg-gradient-to-r from-blue-400 to-purple-400 relative">
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <div className="w-8 h-8 bg-white rounded-full mb-2"></div>
+                <div className="h-2 bg-white/80 rounded w-20"></div>
               </div>
             </div>
-            <div className="flex-1">{commonElements.project}</div>
+            {/* Featured content */}
+            <div className="p-2">
+              <div className="h-8 bg-gray-100 rounded border"></div>
+            </div>
           </div>
         );
       
       default:
-        return <div className="h-16 bg-gray-100 rounded flex items-center justify-center text-xs">Preview</div>;
+        return (
+          <div className="w-full h-32 bg-gray-100 rounded-md flex items-center justify-center">
+            <span className="text-gray-500 text-sm">Preview</span>
+          </div>
+        );
     }
   };
 
@@ -142,23 +181,38 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
 
   return (
     <Card 
-      className={`p-4 cursor-pointer transition-all hover:shadow-md ${
-        isSelected ? 'ring-2 ring-[#9b87f5] bg-[#9b87f5]/5' : ''
+      className={`relative cursor-pointer transition-all duration-200 hover:shadow-lg hover:scale-[1.02] ${
+        isSelected 
+          ? 'ring-2 ring-blue-500 bg-blue-50 shadow-md' 
+          : 'border-gray-200 hover:border-gray-300'
       }`}
       onClick={onSelect}
     >
-      <div className="mb-3">
-        {renderPreview()}
+      {isSelected && (
+        <div className="absolute -top-2 -right-2 z-10">
+          <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+            <Check className="w-4 h-4 text-white" />
+          </div>
+        </div>
+      )}
+      
+      <div className="p-4">
+        <div className="mb-4">
+          {renderPreview()}
+        </div>
+        
+        <div className="space-y-1">
+          <h3 className="font-semibold text-sm text-gray-900">{getLayoutName()}</h3>
+          <p className="text-xs text-gray-600 leading-relaxed">
+            {layout === 'sidebar' && 'Profile sidebar with project grid layout'}
+            {layout === 'hero-timeline' && 'Large hero header with timeline-style projects'}
+            {layout === 'grid' && 'Masonry grid layout for showcasing work'}
+            {layout === 'classic' && 'Traditional top-down portfolio layout'}
+            {layout === 'split' && 'Side-by-side profile and projects view'}
+            {layout === 'hero-focus' && 'Prominent hero section with featured project'}
+          </p>
+        </div>
       </div>
-      <h3 className="font-medium text-sm mb-1">{getLayoutName()}</h3>
-      <p className="text-xs text-gray-500 leading-tight">
-        {layout === 'sidebar' && 'Profile sidebar with project grid'}
-        {layout === 'hero-timeline' && 'Hero header with timeline projects'}
-        {layout === 'grid' && 'Masonry grid layout'}
-        {layout === 'classic' && 'Traditional top-down layout'}
-        {layout === 'split' && 'Side-by-side profile and projects'}
-        {layout === 'hero-focus' && 'Large profile with featured project'}
-      </p>
     </Card>
   );
 }
