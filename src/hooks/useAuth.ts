@@ -193,6 +193,23 @@ export const useAuthProvider = () => {
       setLoading(true);
       setError(null);
 
+      console.log('[register] Starting registration process for:', { name, email });
+
+      // Enhanced validation before sending to Supabase
+      const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+      
+      if (!emailRegex.test(email)) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      if (password.length < 6) {
+        throw new Error('Password must be at least 6 characters long');
+      }
+
+      if (!name.trim()) {
+        throw new Error('Please enter your full name');
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -200,21 +217,37 @@ export const useAuthProvider = () => {
           data: {
             first_name: name.split(' ')[0],
             last_name: name.split(' ').slice(1).join(' ') || '',
+            full_name: name,
           },
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[register] Supabase error:', error);
+        
+        // Handle specific Supabase errors
+        if (error.message.includes('email_address_invalid')) {
+          throw new Error('The email address you entered is not valid. Please check and try again.');
+        } else if (error.message.includes('signup_disabled')) {
+          throw new Error('User registration is currently disabled. Please contact support.');
+        } else if (error.message.includes('User already registered')) {
+          throw new Error('An account with this email already exists. Please try signing in instead.');
+        } else {
+          throw new Error(error.message || 'Registration failed. Please try again.');
+        }
+      }
 
-      console.log('[register] Registration successful:', data);
+      console.log('[register] Registration successful:', { userId: data.user?.id, needsConfirmation: !data.session });
 
       // Check if user needs email confirmation
       if (data.user && !data.session) {
+        console.log('[register] Email confirmation required');
         toast({
           title: 'Check your email',
           description: 'We sent you a confirmation link. Please check your email and click the link to verify your account.',
         });
       } else if (data.session) {
+        console.log('[register] User registered and signed in automatically');
         toast({
           title: 'Account created',
           description: 'Your account has been created successfully.',

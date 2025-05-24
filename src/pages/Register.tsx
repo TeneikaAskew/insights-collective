@@ -6,10 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Register = () => {
   const [name, setName] = useState('');
@@ -18,6 +19,7 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [emailError, setEmailError] = useState('');
+  const [generalError, setGeneralError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
@@ -53,47 +55,103 @@ const Register = () => {
     storeCurrentPath();
   }, [location]);
 
-  // Email validation function
-  const validateEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  // Enhanced email validation function
+  const validateEmail = (email: string): { isValid: boolean; message: string } => {
+    if (!email.trim()) {
+      return { isValid: false, message: 'Email is required' };
+    }
+    
+    // More comprehensive email regex
+    const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+    
+    if (!emailRegex.test(email)) {
+      return { isValid: false, message: 'Please enter a valid email address (e.g., user@example.com)' };
+    }
+    
+    // Additional checks for common email issues
+    if (email.includes('..')) {
+      return { isValid: false, message: 'Email cannot contain consecutive dots' };
+    }
+    
+    if (email.startsWith('.') || email.endsWith('.')) {
+      return { isValid: false, message: 'Email cannot start or end with a dot' };
+    }
+    
+    return { isValid: true, message: '' };
   };
 
-  // Password validation function
-  const validatePassword = (password: string): boolean => {
-    return password.length >= 6; // Minimum 6 characters
+  // Enhanced password validation function
+  const validatePassword = (password: string): { isValid: boolean; message: string } => {
+    if (!password) {
+      return { isValid: false, message: 'Password is required' };
+    }
+    
+    if (password.length < 6) {
+      return { isValid: false, message: 'Password must be at least 6 characters long' };
+    }
+    
+    // Additional password strength checks
+    if (password.length > 72) {
+      return { isValid: false, message: 'Password must be less than 72 characters' };
+    }
+    
+    return { isValid: true, message: '' };
+  };
+
+  const clearErrors = () => {
+    setPasswordError('');
+    setEmailError('');
+    setGeneralError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Reset errors
-    setPasswordError('');
-    setEmailError('');
+    console.log('Starting registration process...');
+    
+    clearErrors();
+    
+    // Validate name
+    if (!name.trim()) {
+      setGeneralError('Please enter your full name');
+      toast({
+        title: 'Validation Error',
+        description: 'Please enter your full name',
+        variant: 'destructive',
+      });
+      return;
+    }
     
     // Validate email
-    if (!validateEmail(email)) {
-      setEmailError('Please enter a valid email address');
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      setEmailError(emailValidation.message);
+      toast({
+        title: 'Invalid Email',
+        description: emailValidation.message,
+        variant: 'destructive',
+      });
       return;
     }
     
     // Validate password
-    if (!validatePassword(password)) {
-      setPasswordError('Password must be at least 6 characters long');
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      setPasswordError(passwordValidation.message);
+      toast({
+        title: 'Invalid Password',
+        description: passwordValidation.message,
+        variant: 'destructive',
+      });
       return;
     }
     
     // Check password confirmation
     if (password !== confirmPassword) {
       setPasswordError('Passwords do not match');
-      return;
-    }
-
-    // Check if name is provided
-    if (!name.trim()) {
       toast({
-        title: 'Error',
-        description: 'Please enter your full name',
+        title: 'Password Mismatch',
+        description: 'Passwords do not match',
         variant: 'destructive',
       });
       return;
@@ -102,20 +160,45 @@ const Register = () => {
     setFormSubmitting(true);
     
     try {
+      console.log('Attempting to register with:', { name: name.trim(), email: email.trim().toLowerCase() });
+      
       storeCurrentPath();
-      await register(name.trim(), email.trim(), password);
+      await register(name.trim(), email.trim().toLowerCase(), password);
+      
+      console.log('Registration successful');
       
       // Show success message
       toast({
         title: 'Registration Successful',
         description: 'Please check your email to verify your account before signing in.',
+        variant: 'default',
       });
       
     } catch (error: any) {
       console.error('Registration error:', error);
+      
+      let errorMessage = 'An error occurred during registration. Please try again.';
+      
+      // Handle specific error types
+      if (error.message) {
+        if (error.message.includes('email')) {
+          setEmailError('This email address is invalid or already in use');
+          errorMessage = 'This email address is invalid or already in use';
+        } else if (error.message.includes('password')) {
+          setPasswordError('Password does not meet requirements');
+          errorMessage = 'Password does not meet requirements';
+        } else if (error.message.includes('User already registered')) {
+          setEmailError('An account with this email already exists');
+          errorMessage = 'An account with this email already exists. Please try signing in instead.';
+        } else {
+          setGeneralError(error.message);
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
         title: 'Registration Failed',
-        description: error.message || 'An error occurred during registration. Please try again.',
+        description: errorMessage,
         variant: 'destructive',
       });
     } finally {
@@ -126,6 +209,7 @@ const Register = () => {
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
     try {
       setSocialLoading(provider);
+      clearErrors();
 
       // Store path for redirect before social sign-in
       const from = location.state?.from?.pathname;
@@ -178,6 +262,16 @@ const Register = () => {
           </CardHeader>
           
           <CardContent>
+            {/* General error display */}
+            {(generalError || error) && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  {generalError || error}
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="flex flex-col gap-3">
               <Button 
                 type="button" 
@@ -213,6 +307,7 @@ const Register = () => {
                   value={name} 
                   onChange={(e) => setName(e.target.value)} 
                   required 
+                  disabled={formSubmitting || loading}
                 />
               </div>
               
@@ -221,13 +316,20 @@ const Register = () => {
                 <Input 
                   id="email" 
                   type="email" 
-                  placeholder="your.email@example.com" 
+                  placeholder="user@example.com" 
                   value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setEmailError('');
+                  }} 
                   required 
+                  disabled={formSubmitting || loading}
                 />
                 {emailError && (
-                  <p className="text-sm text-destructive mt-1">{emailError}</p>
+                  <p className="text-sm text-destructive mt-1 flex items-center">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    {emailError}
+                  </p>
                 )}
               </div>
               
@@ -239,13 +341,18 @@ const Register = () => {
                     type={showPassword ? "text" : "password"} 
                     placeholder="••••••••" 
                     value={password} 
-                    onChange={(e) => setPassword(e.target.value)} 
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setPasswordError('');
+                    }} 
                     required 
+                    disabled={formSubmitting || loading}
                   />
                   <button 
                     type="button" 
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" 
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={formSubmitting || loading}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -260,27 +367,29 @@ const Register = () => {
                     type={showConfirmPassword ? "text" : "password"} 
                     placeholder="••••••••" 
                     value={confirmPassword} 
-                    onChange={(e) => setConfirmPassword(e.target.value)} 
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value);
+                      setPasswordError('');
+                    }} 
                     required 
+                    disabled={formSubmitting || loading}
                   />
                   <button 
                     type="button" 
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" 
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={formSubmitting || loading}
                   >
                     {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
                 {passwordError && (
-                  <p className="text-sm text-destructive mt-1">{passwordError}</p>
+                  <p className="text-sm text-destructive mt-1 flex items-center">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    {passwordError}
+                  </p>
                 )}
               </div>
-              
-              {error && (
-                <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm">
-                  {error}
-                </div>
-              )}
               
               <div className="text-xs text-muted-foreground">
                 By creating an account, you agree to our{' '}
