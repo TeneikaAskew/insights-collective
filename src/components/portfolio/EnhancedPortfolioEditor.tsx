@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,8 +15,6 @@ import { ProfileSection } from './ProfileSection';
 import { EnhancedProjectCard } from './EnhancedProjectCard';
 import { LayoutPreview } from './LayoutPreview';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 
 interface EnhancedPortfolioEditorProps {
   portfolioPage: PortfolioPage;
@@ -23,7 +22,6 @@ interface EnhancedPortfolioEditorProps {
 
 export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEditorProps) {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const { updatePortfolioPage, exportPortfolioAsCSV, getShareableLink } = usePortfolioPages();
   
   const [title, setTitle] = useState(portfolioPage.title);
@@ -42,98 +40,6 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     experience: [],
     education: []
   });
-
-  // Function to fetch skills from career pathway results
-  const fetchDiscoveredSkills = async (): Promise<string[]> => {
-    if (!user?.id) return [];
-    
-    try {
-      console.log('Starting fetchDiscoveredSkills for user:', user.id);
-      
-      // First check the portfolio table for recommendations
-      const { data: portfolioData, error: portfolioError } = await supabase
-        .from('portfolio')
-        .select('recommendations')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      console.log('Portfolio data fetched:', portfolioData);
-
-      if (portfolioData?.recommendations && portfolioData.recommendations.skills) {
-        console.log('Found skills in portfolio recommendations:', portfolioData.recommendations.skills);
-        return portfolioData.recommendations.skills;
-      }
-
-      // Fallback to career_pathway_results table
-      const { data, error } = await supabase
-        .from('career_pathway_results')
-        .select('report')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      console.log('Career pathway data fetched:', data);
-
-      if (error || !data?.report) {
-        console.log('No career pathway results found');
-        return [];
-      }
-
-      const report = data.report as any;
-      console.log('Full career pathway report:', report);
-      
-      // Look for skills in the main skills array first (this is where Portfolio Explorer gets them)
-      if (report.skills && Array.isArray(report.skills)) {
-        console.log('Found skills in report.skills:', report.skills);
-        return report.skills.filter((skill: any): skill is string => 
-          typeof skill === 'string' && skill.trim().length > 0
-        );
-      }
-      
-      // If no skills found, check if there's a skillGaps object with user skills
-      if (report.skillGaps) {
-        if (report.skillGaps.userSkills && Array.isArray(report.skillGaps.userSkills)) {
-          console.log('Found skills in skillGaps.userSkills:', report.skillGaps.userSkills);
-          return report.skillGaps.userSkills.filter((skill: any): skill is string => 
-            typeof skill === 'string' && skill.trim().length > 0
-          );
-        }
-      }
-      
-      console.log('No skills found in any expected location');
-      return [];
-    } catch (error) {
-      console.error('Error fetching discovered skills:', error);
-      return [];
-    }
-  };
-
-  // Prefill skills on component mount if no skills are currently set
-  useEffect(() => {
-    const prefillSkills = async () => {
-      console.log('Checking if skills need to be prefilled...');
-      console.log('Current profileData.skills:', profileData.skills);
-      
-      if (!profileData.skills || profileData.skills.length === 0) {
-        console.log('No skills in profile, fetching discovered skills...');
-        const discoveredSkills = await fetchDiscoveredSkills();
-        if (discoveredSkills.length > 0) {
-          console.log('Setting discovered skills:', discoveredSkills);
-          setProfileData(prev => ({
-            ...prev,
-            skills: discoveredSkills
-          }));
-        } else {
-          console.log('No discovered skills found');
-        }
-      } else {
-        console.log('Profile already has skills, skipping prefill');
-      }
-    };
-
-    prefillSkills();
-  }, [user?.id]);
 
   // Auto-save profile data when it changes
   useEffect(() => {
