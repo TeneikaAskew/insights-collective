@@ -1,4 +1,3 @@
-
 // Major cities by country/state for autocomplete suggestions
 export const CITIES_DATA: Record<string, Record<string, string[]>> = {
   "United States": {
@@ -49,7 +48,8 @@ export const getCitiesByCountryAndState = (country: string, state?: string): str
 
 export const searchCities = (query: string, country: string, state?: string): string[] => {
   const cities = getCitiesByCountryAndState(country, state);
-  if (!query || query.length < 2) return cities.slice(0, 10);
+  // Changed minimum query length from 2 to 3 characters
+  if (!query || query.length < 3) return cities.slice(0, 10);
   
   const lowerQuery = query.toLowerCase();
   return cities

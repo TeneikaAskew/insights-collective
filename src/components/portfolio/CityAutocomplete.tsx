@@ -5,7 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
-import { Check, ChevronsUpDown, MapPin } from 'lucide-react';
+import { Check, ChevronsUpDown, MapPin, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { searchCities } from '@/data/cities';
 import { validateCityName, formatCityName } from '@/utils/cityValidation';
@@ -26,18 +26,18 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (country) {
-      const cities = searchCities(searchQuery || value, country, state);
+    if (country && searchQuery.length >= 2) {
+      const cities = searchCities(searchQuery, country, state);
       setSuggestions(cities);
     } else {
       setSuggestions([]);
     }
-  }, [searchQuery, value, country, state]);
+  }, [searchQuery, country, state]);
 
   const handleInputChange = (inputValue: string) => {
     setSearchQuery(inputValue);
     
-    // Validate the input
+    // Validate the input - now requires 3 characters minimum
     const validation = validateCityName(inputValue);
     if (!validation.isValid && inputValue.trim().length > 0) {
       setValidationError(validation.error || null);
@@ -63,6 +63,20 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
       const formattedCity = formatCityName(value);
       if (formattedCity !== value) {
         onChange(formattedCity);
+      }
+    }
+  };
+
+  // Allow user to add custom city if not found in suggestions
+  const handleAddCustomCity = () => {
+    if (searchQuery.trim().length >= 3) {
+      const validation = validateCityName(searchQuery);
+      if (validation.isValid) {
+        const formattedCity = formatCityName(searchQuery);
+        onChange(formattedCity);
+        setSearchQuery('');
+        setOpen(false);
+        setValidationError(null);
       }
     }
   };
@@ -99,7 +113,28 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
                 onValueChange={handleInputChange}
               />
               <CommandList>
-                <CommandEmpty>No cities found.</CommandEmpty>
+                {suggestions.length === 0 && searchQuery.length >= 3 ? (
+                  <CommandEmpty>
+                    <div className="flex flex-col items-center gap-2 py-2">
+                      <span>No cities found.</span>
+                      {validateCityName(searchQuery).isValid && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleAddCustomCity}
+                          className="flex items-center gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add "{formatCityName(searchQuery)}"
+                        </Button>
+                      )}
+                    </div>
+                  </CommandEmpty>
+                ) : searchQuery.length > 0 && searchQuery.length < 3 ? (
+                  <CommandEmpty>Type at least 3 characters to search</CommandEmpty>
+                ) : (
+                  <CommandEmpty>No cities found.</CommandEmpty>
+                )}
                 <CommandGroup>
                   {suggestions.map((city) => (
                     <CommandItem

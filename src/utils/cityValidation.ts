@@ -6,9 +6,9 @@ export const validateCityName = (cityName: string): { isValid: boolean; error?: 
 
   const trimmedCity = cityName.trim();
 
-  // Length validation
-  if (trimmedCity.length < 2) {
-    return { isValid: false, error: "City name must be at least 2 characters" };
+  // Length validation - changed from 2 to 3 characters minimum
+  if (trimmedCity.length < 3) {
+    return { isValid: false, error: "City name must be at least 3 characters" };
   }
 
   if (trimmedCity.length > 50) {
