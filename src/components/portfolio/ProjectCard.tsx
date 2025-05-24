@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PortfolioProject, ProjectStatus } from '@/types/portfolio';
-import { Edit, GripVertical, Trash, Plus, Briefcase, ExternalLink, Github, Upload, X } from 'lucide-react';
+import { Edit, GripVertical, Trash, Plus, Briefcase, ExternalLink, Github } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -90,7 +90,14 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
   };
 
   const removeImage = (index: number) => {
-    setUploadedImages(prev => prev.filter((_, i) => i !== index));
+    setFormData(prev => {
+      const updatedImages = [...(prev.project_images || [])]; // Create a copy to avoid direct mutation
+      updatedImages.splice(index, 1); // Remove the image at the specified index
+      return {
+        ...prev,
+        project_images: updatedImages, // Update the project_images array
+      };
+    });
   };
 
   const handleUpdateProject = () => {
@@ -650,6 +657,42 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                 placeholder="Describe what this project does and its key features..."
               />
             </div>
+
+            {/* GitHub and External Links */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="github_url">GitHub URL</Label>
+                <Input
+                  id="github_url"
+                  name="github_url"
+                  value={formData.github_url || ''}
+                  onChange={handleFormChange}
+                  placeholder="https://github.com/username/repo"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="live_url">Live Demo URL</Label>
+                <Input
+                  id="live_url"
+                  name="live_url"
+                  value={formData.live_url || ''}
+                  onChange={handleFormChange}
+                  placeholder="https://myproject.com"
+                />
+              </div>
+            </div>
+
+            {/* Image Upload for Completed Projects */}
+            {formData.status === 'Completed' && (
+              <div className="space-y-2">
+                <Label>Project Screenshots</Label>
+                <ImageUploadArea
+                  onImagesUploaded={handleImageUpload}
+                  existingImages={formData.project_images || []}
+                  maxImages={5}
+                />
+              </div>
+            )}
             
             <div className="space-y-2">
               <Label htmlFor="skills">Technical Skills (comma separated)</Label>
