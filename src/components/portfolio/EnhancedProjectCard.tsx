@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Github } from 'lucide-react';
+import { ExternalLink, Github, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PortfolioPageProject } from '@/types/portfolio';
 
 interface EnhancedProjectCardProps {
@@ -14,7 +14,7 @@ interface EnhancedProjectCardProps {
 
 export function EnhancedProjectCard({ projectItem, layout = 'default', theme = 'default' }: EnhancedProjectCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
   const project = projectItem.project;
   if (!project) return null;
@@ -24,6 +24,9 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
   const displayDescription = shouldShowReadMore && !isExpanded 
     ? description.substring(0, 200) + '...' 
     : description;
+
+  const projectImages = project.project_images || [];
+  const hasImages = projectImages.length > 0;
 
   const getThemeStyles = () => {
     switch (theme) {
@@ -62,8 +65,80 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
     }
   };
 
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % projectImages.length);
+  };
+
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + projectImages.length) % projectImages.length);
+  };
+
   const renderProjectImage = () => {
-    // For now, show placeholder since project_images column doesn't exist
+    if (hasImages) {
+      return (
+        <div className="relative w-full h-48 rounded-lg overflow-hidden">
+          <img
+            src={projectImages[currentImageIndex]}
+            alt={`${project.title} screenshot ${currentImageIndex + 1}`}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to placeholder if image fails to load
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+          
+          {/* Fallback placeholder (hidden by default) */}
+          <div className="hidden w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+            <div className="text-center">
+              <div 
+                className="w-16 h-16 rounded-full mx-auto mb-2 flex items-center justify-center text-white text-2xl font-bold"
+                style={{ backgroundColor: themeStyles.accentColor }}
+              >
+                {project.title.charAt(0)}
+              </div>
+              <p className="text-sm text-gray-500">Project Preview</p>
+            </div>
+          </div>
+
+          {/* Image navigation for multiple images */}
+          {projectImages.length > 1 && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                className="absolute left-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-white/80 hover:bg-white"
+                onClick={prevImage}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 bg-white/80 hover:bg-white"
+                onClick={nextImage}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              
+              {/* Image indicators */}
+              <div className="absolute bottom-2 left-1/2 transform -translate-x-1/2 flex gap-1">
+                {projectImages.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`w-2 h-2 rounded-full ${
+                      index === currentImageIndex ? 'bg-white' : 'bg-white/50'
+                    }`}
+                  />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      );
+    }
+
+    // Fallback to placeholder when no images
     return (
       <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
         <div className="text-center">

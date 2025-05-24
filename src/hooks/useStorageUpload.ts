@@ -1,108 +1,54 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from './use-toast';
-import { v4 as uuidv4 } from 'uuid';
+import { useToast } from '@/hooks/use-toast';
+
+export interface UploadResult {
+  publicUrl: string;
+  path: string;
+}
 
 export function useStorageUpload() {
   const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState(0);
   const { toast } = useToast();
-  
+
   const uploadFile = async (
-    file: File, 
-    bucket: string = 'module-content', 
-    folderPath: string = ''
-  ) => {
-    if (!file) return null;
+    file: File,
+    bucket: string,
+    folder?: string
+  ): Promise<UploadResult | null> => {
+    setUploading(true);
     
     try {
-      setUploading(true);
-      setProgress(0);
-      
-      // Create a unique file path to avoid overwriting
       const fileExt = file.name.split('.').pop();
-      const fileName = `${uuidv4()}.${fileExt}`;
-      const filePath = folderPath ? `${folderPath}/${fileName}` : fileName;
-      
-      console.log(`Uploading file to bucket: ${bucket}, path: ${filePath}`);
-      
-      // Upload the file
-      const { data, error } = await supabase.storage
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = folder ? `${folder}/${fileName}` : fileName;
+
+      const { error: uploadError } = await supabase.storage
         .from(bucket)
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-      
-      if (error) {
-        console.error('Upload error:', error);
-        throw error;
+        .upload(filePath, file);
+
+      if (uploadError) {
+        throw uploadError;
       }
-      
-      // Set progress to 100% when upload completes
-      setProgress(100);
-      
-      // Get public URL
-      const { data: urlData } = supabase.storage
+
+      const { data: { publicUrl } } = supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
-      
-      console.log('File uploaded successfully:', urlData.publicUrl);
-      
+
+      return { publicUrl, path: filePath };
+    } catch (error) {
+      console.error('Upload error:', error);
       toast({
-        title: 'Success',
-        description: 'File uploaded successfully',
-      });
-      
-      return {
-        path: data.path,
-        fullPath: filePath,
-        publicUrl: urlData.publicUrl,
-        fileName: fileName
-      };
-    } catch (error: any) {
-      console.error('Error uploading file:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to upload file',
-        variant: 'destructive',
+        title: "Upload failed",
+        description: "Failed to upload file. Please try again.",
+        variant: "destructive",
       });
       return null;
     } finally {
       setUploading(false);
     }
   };
-  
-  const deleteFile = async (filePath: string, bucket: string = 'module-content') => {
-    try {
-      const { error } = await supabase.storage
-        .from(bucket)
-        .remove([filePath]);
-      
-      if (error) throw error;
-      
-      toast({
-        title: 'Success',
-        description: 'File deleted successfully',
-      });
-      
-      return true;
-    } catch (error: any) {
-      console.error('Error deleting file:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete file',
-        variant: 'destructive',
-      });
-      return false;
-    }
-  };
-  
-  return {
-    uploadFile,
-    deleteFile,
-    uploading,
-    progress
-  };
+
+  return { uploadFile, uploading };
 }

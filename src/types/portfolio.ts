@@ -1,4 +1,3 @@
-
 export interface PortfolioProject {
   id: string;
   user_id: string;
@@ -15,6 +14,7 @@ export interface PortfolioProject {
   status?: ProjectStatus;
   github_url?: string;
   live_url?: string;
+  project_images?: string[];
 }
 
 export type ProjectStatus = 'Idea' | 'Planned' | 'In Progress' | 'Completed';
