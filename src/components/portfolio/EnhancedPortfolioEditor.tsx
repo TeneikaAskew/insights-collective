@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -200,9 +199,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
           <Card>
             <CardHeader>
               <CardTitle>Your Projects</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Projects from your portfolio
-              </p>
+              <CardDescription>Projects from your portfolio</CardDescription>
             </CardHeader>
             <CardContent>
               {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
