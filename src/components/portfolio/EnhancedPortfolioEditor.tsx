@@ -421,7 +421,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
               <CardDescription>Projects from your portfolio</CardDescription>
             </CardHeader>
             <CardContent>
-              {console.log('Checking projects:', portfolioPage.projects)}
+              {(() => {
+                console.log('Checking projects:', portfolioPage.projects);
+                return null;
+              })()}
               {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {portfolioPage.projects.map((projectItem) => {
