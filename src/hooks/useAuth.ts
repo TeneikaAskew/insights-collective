@@ -186,34 +186,47 @@ export const useAuthProvider = () => {
   const register = useCallback(async (name: string, email: string, password: string) => {
     if (!navigate) {
       console.error('Navigation not available, cannot complete registration flow');
-      return;
+      throw new Error('Navigation not available');
     }
     
     try {
       setLoading(true);
+      setError(null);
 
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             first_name: name.split(' ')[0],
-            last_name: name.split(' ').slice(1).join(' '),
+            last_name: name.split(' ').slice(1).join(' ') || '',
           },
         },
       });
 
       if (error) throw error;
 
-      toast({
-        title: 'Success',
-        description: 'Account created successfully. Please check your email.',
-      });
+      console.log('[register] Registration successful:', data);
 
+      // Check if user needs email confirmation
+      if (data.user && !data.session) {
+        toast({
+          title: 'Check your email',
+          description: 'We sent you a confirmation link. Please check your email and click the link to verify your account.',
+        });
+      } else if (data.session) {
+        toast({
+          title: 'Account created',
+          description: 'Your account has been created successfully.',
+        });
+      }
+
+      // Navigate to login page after registration
       navigate('/login');
     } catch (error: any) {
       console.error('[register] Registration error:', error);
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+      setError(error.message);
+      throw error; // Re-throw so the component can handle it
     } finally {
       setLoading(false);
     }
@@ -238,52 +251,6 @@ export const useAuthProvider = () => {
       });
     }
   }, [navigate, toast]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    const { data } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      if (!isMounted) return;
-
-      console.log('[useAuth] Auth state changed, new session:', !!newSession);
-      setSession(newSession);
-    });
-
-    const init = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('[useAuth] Error getting session:', error);
-          setSession(null);
-        } else if (data.session) {
-          console.log('[useAuth] Session found during initialization');
-          setSession(data.session);
-        } else {
-          console.log('[useAuth] No session found during initialization');
-          setSession(null);
-        }
-      } catch (err) {
-        console.error('[useAuth] Unexpected error during getSession:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    init();
-
-    return () => {
-      isMounted = false;
-      data.subscription?.unsubscribe();
-    };
-  }, []);
-
-  useEffect(() => {
-    // On profile loaded & authenticated, perform redirect if redirect path set
-    if (isAuthenticated && !loading && !profileLoading && redirectPath && navigate) {
-      console.log('[useAuth] Ready to redirect - isAuthenticated:', isAuthenticated, 'loading:', loading, 'profileLoading:', profileLoading);
-      handleRedirectAfterLogin();
-    }
-  }, [isAuthenticated, loading, profileLoading, redirectPath, handleRedirectAfterLogin, navigate]);
 
   return {
     session,
