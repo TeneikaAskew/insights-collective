@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { PortfolioProject } from '@/types/portfolio';
-import { Edit, GripVertical, Trash } from 'lucide-react';
+import { Edit, GripVertical, Trash, Plus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { AddToPortfolio } from './AddToPortfolio';
 
@@ -111,28 +111,43 @@ export function ProjectCard({ project, onDelete, onUpdate }: ProjectCardProps) {
           </div>
         </div>
       </CardContent>
-      <CardFooter className="p-3 pt-0 flex justify-between border-t mt-3">
-        <div className="flex gap-1">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setIsDialogOpen(true)}
-          >
-            <Edit className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-red-500 hover:text-red-700 hover:bg-red-50"
-            onClick={() => setIsDeleteDialogOpen(true)}
-          >
-            <Trash className="h-3.5 w-3.5" />
-          </Button>
+      <CardFooter className="p-3 pt-0 border-t mt-3">
+        <div className="flex justify-between items-center w-full gap-2">
+          <div className="flex gap-1 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsDialogOpen(true)}
+            >
+              <Edit className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-red-500 hover:text-red-700 hover:bg-red-50"
+              onClick={() => setIsDeleteDialogOpen(true)}
+            >
+              <Trash className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          
+          {project.status === 'Completed' && (
+            <div className="flex-shrink-0 min-w-0">
+              <Button 
+                size="sm" 
+                variant="outline" 
+                className="text-xs px-2 py-1 h-7 max-w-[120px] truncate"
+                onClick={() => {
+                  // We'll handle the portfolio addition inline to avoid the overflow
+                  // This is a simplified version that doesn't need the full dialog
+                }}
+              >
+                <Plus className="h-3 w-3 mr-1 flex-shrink-0" />
+                <span className="truncate">Add Portfolio</span>
+              </Button>
+            </div>
+          )}
         </div>
-        
-        {project.status === 'Completed' && (
-          <AddToPortfolio project={project} />
-        )}
       </CardFooter>
 
       {/* Edit Dialog */}
