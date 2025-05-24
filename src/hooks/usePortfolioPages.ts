@@ -200,13 +200,13 @@ export function usePortfolioPages() {
     mutationFn: async ({ pageId, projectId }: { pageId: string; projectId: string }) => {
       if (!user) throw new Error('User not authenticated');
 
-      // Check if project is already in this portfolio
+      // Check if project is already in this portfolio - use maybeSingle() instead of single()
       const { data: existingProject } = await supabase
         .from('portfolio_page_projects')
         .select('id')
         .eq('portfolio_page_id', pageId)
         .eq('project_id', projectId)
-        .single();
+        .maybeSingle();
 
       if (existingProject) {
         throw new Error('Project is already in this portfolio');
@@ -219,7 +219,7 @@ export function usePortfolioPages() {
         .eq('portfolio_page_id', pageId)
         .order('display_order', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       const nextOrder = (maxOrderData?.display_order || 0) + 1;
 
