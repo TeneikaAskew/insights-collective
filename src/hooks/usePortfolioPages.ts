@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -75,7 +76,8 @@ export function usePortfolioPages() {
           throw error;
         }
         
-        console.log('Raw fetched portfolio page:', data);
+        console.log('Raw fetched single portfolio page:', data);
+        console.log('Raw portfolio_page_projects:', data.portfolio_page_projects);
         
         // Transform the data to match PortfolioPage interface
         const transformedData = {
@@ -83,7 +85,8 @@ export function usePortfolioPages() {
           projects: data.portfolio_page_projects || []
         } as PortfolioPage;
         
-        console.log('Transformed portfolio page with projects:', transformedData);
+        console.log('Transformed single portfolio page:', transformedData);
+        console.log('Transformed projects array:', transformedData.projects);
         return transformedData;
       },
       enabled: !!user && !!pageId,

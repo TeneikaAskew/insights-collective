@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -266,8 +265,8 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   if (portfolioPage.projects) {
     portfolioPage.projects.forEach((project, index) => {
       console.log(`7. Project ${index}:`, project);
-      console.log(`8. Project ${index} has portfolio_projects?`, !!project.portfolio_projects);
-      console.log(`9. Project ${index} portfolio_projects:`, project.portfolio_projects);
+      console.log(`8. Project ${index} has project?`, !!project.project);
+      console.log(`9. Project ${index} project data:`, project.project);
     });
   }
   
