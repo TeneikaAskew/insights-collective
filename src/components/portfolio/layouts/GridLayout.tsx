@@ -15,7 +15,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
       case 'minimal':
         return {
           backgroundColor: "#ffffff",
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: `'${portfolioPage.font_family || 'Inter'}', sans-serif`,
           color: "#333333",
           accentColor: "#6b7280",
           primaryColor: "#6b7280",
@@ -24,7 +24,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
       case 'professional':
         return {
           backgroundColor: "#f8f9fa",
-          fontFamily: "'Georgia', serif",
+          fontFamily: `'${portfolioPage.font_family || 'Georgia'}', serif`,
           color: "#2c3e50",
           accentColor: "#3b82f6",
           primaryColor: "#3b82f6",
@@ -33,7 +33,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
       case 'creative':
         return {
           backgroundColor: "#fff8f3",
-          fontFamily: "'Poppins', sans-serif",
+          fontFamily: `'${portfolioPage.font_family || 'Poppins'}', sans-serif`,
           color: "#333333",
           accentColor: "#a855f7",
           primaryColor: "#a855f7",
@@ -42,7 +42,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
       case 'modern':
         return {
           backgroundColor: "#f0fdf4",
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: `'${portfolioPage.font_family || 'Inter'}', sans-serif`,
           color: "#065f46",
           accentColor: "#10b981",
           primaryColor: "#10b981",
@@ -51,7 +51,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
       case 'elegant':
         return {
           backgroundColor: "#fef2f2",
-          fontFamily: "'Playfair Display', serif",
+          fontFamily: `'${portfolioPage.font_family || 'Playfair Display'}', serif`,
           color: "#7f1d1d",
           accentColor: "#dc2626",
           primaryColor: "#dc2626",
@@ -60,7 +60,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
       default:
         return {
           backgroundColor: "#ffffff",
-          fontFamily: "'system-ui', sans-serif",
+          fontFamily: `'${portfolioPage.font_family || 'system-ui'}', sans-serif`,
           color: "#111827",
           accentColor: "#3b82f6",
           primaryColor: "#3b82f6",
@@ -106,7 +106,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
         {/* Contact Information */}
         {portfolioPage.profile_data?.location && (
           <div className="text-center mb-6">
-            <p className="text-gray-600">📍 You can find me in {portfolioPage.profile_data.location}</p>
+            <p style={{ color: themeStyles.accentColor }}>📍 You can find me in {portfolioPage.profile_data.location}</p>
           </div>
         )}
 
@@ -115,8 +115,19 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           <div className="text-center mb-8">
             <a
               href={`mailto:${portfolioPage.profile_data.email}`}
-              className="inline-flex items-center gap-2 px-8 py-3 text-white rounded-lg hover:opacity-90 transition-colors text-lg font-medium"
-              style={{ backgroundColor: themeStyles.primaryColor }}
+              className="inline-flex items-center gap-2 px-8 py-3 text-white rounded-lg hover:opacity-90 transition-all text-lg font-medium shadow-md"
+              style={{ 
+                backgroundColor: themeStyles.primaryColor,
+                boxShadow: `0 4px 14px 0 ${themeStyles.primaryColor}30`
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = `0 6px 20px 0 ${themeStyles.primaryColor}40`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = `0 4px 14px 0 ${themeStyles.primaryColor}30`;
+              }}
             >
               <Mail className="h-5 w-5" />
               Hire Me
@@ -132,11 +143,11 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
               {portfolioPage.profile_data.skills.map((skill, index) => (
                 <Badge 
                   key={index} 
-                  variant="secondary" 
-                  className="text-sm px-4 py-2 text-white font-medium"
+                  variant="outline" 
+                  className="text-sm px-4 py-2 text-white font-medium border-0"
                   style={{ 
                     backgroundColor: themeStyles.primaryColor,
-                    border: 'none'
+                    color: 'white'
                   }}
                 >
                   {skill}
@@ -159,9 +170,9 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
                   <div key={index} className="border-l-4 pl-4" style={{ borderColor: themeStyles.primaryColor }}>
                     <h4 className="text-lg font-semibold" style={{ color: themeStyles.color }}>{exp.role}</h4>
                     <p className="font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
-                    <p className="text-gray-600 text-sm">{exp.startDate} - {exp.endDate || 'Present'}</p>
+                    <p className="text-sm" style={{ color: themeStyles.accentColor }}>{exp.startDate} - {exp.endDate || 'Present'}</p>
                     {exp.description && (
-                      <p className="text-gray-700 text-sm mt-2">{exp.description}</p>
+                      <p className="text-sm mt-2" style={{ color: themeStyles.accentColor }}>{exp.description}</p>
                     )}
                   </div>
                 ))}
@@ -181,7 +192,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
                     <h4 className="text-lg font-semibold" style={{ color: themeStyles.color }}>{edu.degree}</h4>
                     <p className="font-medium" style={{ color: themeStyles.secondaryColor }}>{edu.institution}</p>
                     {edu.graduationYear && (
-                      <p className="text-gray-600 text-sm">{edu.graduationYear}</p>
+                      <p className="text-sm" style={{ color: themeStyles.accentColor }}>{edu.graduationYear}</p>
                     )}
                   </div>
                 ))}

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -82,12 +83,12 @@ export function EnhancedProjectCard({
         };
       case 'creative':
         return {
-          cardClass: 'border-purple-200 hover:border-purple-300 bg-gradient-to-br from-white to-purple-50',
+          cardClass: 'border-purple-200 hover:border-purple-300 bg-white',
           textClass: 'text-purple-900',
           accentColor: '#a855f7',
           primaryColor: '#a855f7',
           secondaryColor: '#7c3aed',
-          bgColor: '#fef7ff'
+          bgColor: '#ffffff'
         };
       case 'modern':
         return {
@@ -229,10 +230,22 @@ export function EnhancedProjectCard({
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 transition-all"
                   onClick={() => handleLinkClick(project.live_url)}
                   title="View live demo"
-                  style={{ borderColor: themeStyles.primaryColor, color: themeStyles.primaryColor }}
+                  style={{ 
+                    borderColor: themeStyles.primaryColor, 
+                    color: themeStyles.primaryColor,
+                    backgroundColor: 'white'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = themeStyles.primaryColor;
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'white';
+                    e.currentTarget.style.color = themeStyles.primaryColor;
+                  }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
@@ -241,10 +254,22 @@ export function EnhancedProjectCard({
                 <Button 
                   size="sm" 
                   variant="outline" 
-                  className="h-8 w-8 p-0"
+                  className="h-8 w-8 p-0 transition-all"
                   onClick={() => handleLinkClick(project.github_url)}
                   title="View source code"
-                  style={{ borderColor: themeStyles.secondaryColor, color: themeStyles.secondaryColor }}
+                  style={{ 
+                    borderColor: themeStyles.secondaryColor, 
+                    color: themeStyles.secondaryColor,
+                    backgroundColor: 'white'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = themeStyles.secondaryColor;
+                    e.currentTarget.style.color = 'white';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'white';
+                    e.currentTarget.style.color = themeStyles.secondaryColor;
+                  }}
                 >
                   <Github className="h-4 w-4" />
                 </Button>
@@ -279,11 +304,10 @@ export function EnhancedProjectCard({
                   <Badge
                     key={index}
                     variant="outline"
-                    className="text-xs px-2 py-1"
+                    className="text-xs px-2 py-1 border-0 text-white"
                     style={{ 
-                      borderColor: themeStyles.accentColor,
-                      color: themeStyles.accentColor,
-                      backgroundColor: `${themeStyles.accentColor}10`
+                      backgroundColor: themeStyles.accentColor,
+                      color: 'white'
                     }}
                   >
                     {skill}

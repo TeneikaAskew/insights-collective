@@ -23,6 +23,73 @@ interface HeroTimelineLayoutProps {
 export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
   const profileData: ProfileData = portfolioPage.profile_data || {};
 
+  const getThemeStyles = () => {
+    switch (portfolioPage.theme) {
+      case 'minimal':
+        return {
+          backgroundColor: "#ffffff",
+          fontFamily: `'${portfolioPage.font_family || 'Inter'}', sans-serif`,
+          color: "#333333",
+          accentColor: "#6b7280",
+          primaryColor: "#6b7280",
+          secondaryColor: "#9ca3af",
+          heroGradient: "linear-gradient(135deg, #6b7280 0%, #9ca3af 100%)"
+        };
+      case 'professional':
+        return {
+          backgroundColor: "#f8f9fa",
+          fontFamily: `'${portfolioPage.font_family || 'Georgia'}', serif`,
+          color: "#2c3e50",
+          accentColor: "#3b82f6",
+          primaryColor: "#3b82f6",
+          secondaryColor: "#1e40af",
+          heroGradient: "linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)"
+        };
+      case 'creative':
+        return {
+          backgroundColor: "#fff8f3",
+          fontFamily: `'${portfolioPage.font_family || 'Poppins'}', sans-serif`,
+          color: "#333333",
+          accentColor: "#a855f7",
+          primaryColor: "#a855f7",
+          secondaryColor: "#7c3aed",
+          heroGradient: "linear-gradient(135deg, #a855f7 0%, #7c3aed 100%)"
+        };
+      case 'modern':
+        return {
+          backgroundColor: "#f0fdf4",
+          fontFamily: `'${portfolioPage.font_family || 'Inter'}', sans-serif`,
+          color: "#065f46",
+          accentColor: "#10b981",
+          primaryColor: "#10b981",
+          secondaryColor: "#059669",
+          heroGradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+        };
+      case 'elegant':
+        return {
+          backgroundColor: "#fef2f2",
+          fontFamily: `'${portfolioPage.font_family || 'Playfair Display'}', serif`,
+          color: "#7f1d1d",
+          accentColor: "#dc2626",
+          primaryColor: "#dc2626",
+          secondaryColor: "#b91c1c",
+          heroGradient: "linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)"
+        };
+      default:
+        return {
+          backgroundColor: "#ffffff",
+          fontFamily: `'${portfolioPage.font_family || 'system-ui'}', sans-serif`,
+          color: "#111827",
+          accentColor: "#3b82f6",
+          primaryColor: "#3b82f6",
+          secondaryColor: "#a855f7",
+          heroGradient: "linear-gradient(135deg, #3b82f6 0%, #a855f7 100%)"
+        };
+    }
+  };
+
+  const themeStyles = getThemeStyles();
+
   const getInitials = () => {
     if (profileData.professional_summary) {
       const words = profileData.professional_summary.split(' ');
@@ -61,13 +128,23 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+    <div 
+      className="min-h-screen"
+      style={{ 
+        backgroundColor: themeStyles.backgroundColor,
+        fontFamily: themeStyles.fontFamily,
+        color: themeStyles.color
+      }}
+    >
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
+      <div 
+        className="text-white py-20"
+        style={{ background: themeStyles.heroGradient }}
+      >
         <div className="max-w-4xl mx-auto text-center px-6">
           <Avatar className="w-32 h-32 mx-auto mb-6 border-4 border-white shadow-lg">
             <AvatarImage src={profileData.avatar_url} />
-            <AvatarFallback className="text-2xl bg-white text-blue-600">
+            <AvatarFallback className="text-2xl bg-white" style={{ color: themeStyles.primaryColor }}>
               {getInitials()}
             </AvatarFallback>
           </Avatar>
@@ -86,13 +163,13 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
           {/* Contact Links */}
           <div className="flex justify-center gap-6 mb-8">
             {profileData.github_url && (
-              <a href={profileData.github_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/90 hover:text-white">
+              <a href={profileData.github_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
                 <Github className="h-5 w-5" />
                 GitHub
               </a>
             )}
             {profileData.linkedin_url && (
-              <a href={profileData.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/90 hover:text-white">
+              <a href={profileData.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
                 <Linkedin className="h-5 w-5" />
                 LinkedIn
               </a>
@@ -106,7 +183,20 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
           </div>
 
           {profileData.email && (
-            <Button onClick={handleHireMe} size="lg" className="bg-white text-blue-600 hover:bg-gray-100">
+            <Button 
+              onClick={handleHireMe} 
+              size="lg" 
+              className="bg-white hover:bg-gray-100 transition-all shadow-md"
+              style={{ color: themeStyles.primaryColor }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 6px 20px 0 rgba(255,255,255,0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 14px 0 rgba(255,255,255,0.2)';
+              }}
+            >
               <Mail className="h-5 w-5 mr-2" />
               Hire Me
             </Button>
@@ -119,10 +209,17 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
         {/* Skills */}
         {profileData.skills && profileData.skills.length > 0 && (
           <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">Skills & Technologies</h2>
+            <h2 className="text-2xl font-bold mb-6" style={{ color: themeStyles.color }}>
+              Skills & Technologies
+            </h2>
             <div className="flex flex-wrap gap-3">
               {profileData.skills.map((skill, index) => (
-                <Badge key={index} variant="secondary" className="px-4 py-2 text-sm">
+                <Badge 
+                  key={index} 
+                  variant="outline" 
+                  className="px-4 py-2 text-sm text-white border-0"
+                  style={{ backgroundColor: themeStyles.primaryColor }}
+                >
                   {skill}
                 </Badge>
               ))}
@@ -133,7 +230,7 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
         {/* Experience Timeline */}
         {profileData.experience && profileData.experience.length > 0 && (
           <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2" style={{ color: themeStyles.color }}>
               <Briefcase className="h-6 w-6" />
               Experience Timeline
             </h2>
@@ -141,7 +238,10 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
               {profileData.experience.map((exp, index) => (
                 <div key={exp.id} className="flex items-start gap-4">
                   <div className="flex flex-col items-center">
-                    <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                    <div 
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: themeStyles.primaryColor }}
+                    ></div>
                     {index < profileData.experience!.length - 1 && (
                       <div className="w-0.5 h-16 bg-gray-300 mt-2"></div>
                     )}
@@ -149,15 +249,27 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
                   <div className="flex-1 bg-white rounded-lg shadow-md p-6">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h3 className="text-xl font-semibold text-gray-800">{exp.role}</h3>
-                        <p className="text-lg text-blue-600 font-medium">{exp.company}</p>
+                        <h3 className="text-xl font-semibold" style={{ color: themeStyles.color }}>
+                          {exp.role}
+                        </h3>
+                        <p className="text-lg font-medium" style={{ color: themeStyles.primaryColor }}>
+                          {exp.company}
+                        </p>
                       </div>
-                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                      <span 
+                        className="text-sm px-3 py-1 rounded-full"
+                        style={{ 
+                          color: themeStyles.accentColor,
+                          backgroundColor: `${themeStyles.accentColor}20`
+                        }}
+                      >
                         {formatDateRange(exp.startDate, exp.endDate)}
                       </span>
                     </div>
                     {exp.description && (
-                      <p className="text-gray-600 leading-relaxed">{exp.description}</p>
+                      <p style={{ color: themeStyles.accentColor }} className="leading-relaxed">
+                        {exp.description}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -169,7 +281,7 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
         {/* Education Timeline */}
         {profileData.education && profileData.education.length > 0 && (
           <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2">
+            <h2 className="text-2xl font-bold mb-8 flex items-center gap-2" style={{ color: themeStyles.color }}>
               <GraduationCap className="h-6 w-6" />
               Education
             </h2>
@@ -177,7 +289,10 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
               {profileData.education.map((edu, index) => (
                 <div key={edu.id} className="flex items-start gap-4">
                   <div className="flex flex-col items-center">
-                    <div className="w-4 h-4 bg-purple-500 rounded-full"></div>
+                    <div 
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: themeStyles.secondaryColor }}
+                    ></div>
                     {index < profileData.education!.length - 1 && (
                       <div className="w-0.5 h-16 bg-gray-300 mt-2"></div>
                     )}
@@ -185,10 +300,20 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
                   <div className="flex-1 bg-white rounded-lg shadow-md p-6">
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-xl font-semibold text-gray-800">{edu.degree}</h3>
-                        <p className="text-lg text-purple-600 font-medium">{edu.institution}</p>
+                        <h3 className="text-xl font-semibold" style={{ color: themeStyles.color }}>
+                          {edu.degree}
+                        </h3>
+                        <p className="text-lg font-medium" style={{ color: themeStyles.secondaryColor }}>
+                          {edu.institution}
+                        </p>
                       </div>
-                      <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                      <span 
+                        className="text-sm px-3 py-1 rounded-full"
+                        style={{ 
+                          color: themeStyles.accentColor,
+                          backgroundColor: `${themeStyles.accentColor}20`
+                        }}
+                      >
                         {edu.graduationYear}
                       </span>
                     </div>
@@ -201,13 +326,18 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
 
         {/* Projects Timeline */}
         <div className="mb-12">
-          <h2 className="text-2xl font-bold mb-8">Project Timeline</h2>
+          <h2 className="text-2xl font-bold mb-8" style={{ color: themeStyles.color }}>
+            Project Timeline
+          </h2>
           {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
             <div className="space-y-8">
               {portfolioPage.projects.map((projectItem, index) => (
                 <div key={projectItem.id} className="flex items-start gap-4">
                   <div className="flex flex-col items-center">
-                    <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                    <div 
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: themeStyles.primaryColor }}
+                    ></div>
                     {index < portfolioPage.projects!.length - 1 && (
                       <div className="w-0.5 h-16 bg-gray-300 mt-2"></div>
                     )}
@@ -217,6 +347,11 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
                       projectItem={projectItem}
                       layout="hero-timeline"
                       theme={portfolioPage.theme}
+                      themeColors={{
+                        primary: themeStyles.primaryColor,
+                        secondary: themeStyles.secondaryColor,
+                        accent: themeStyles.accentColor
+                      }}
                     />
                   </div>
                 </div>
@@ -224,7 +359,7 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
             </div>
           ) : (
             <div className="text-center py-16">
-              <p className="text-xl text-muted-foreground">
+              <p className="text-xl" style={{ color: themeStyles.accentColor }}>
                 No projects to showcase yet.
               </p>
             </div>

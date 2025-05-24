@@ -15,7 +15,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
       case 'minimal':
         return {
           backgroundColor: "#ffffff",
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: `'${portfolioPage.font_family || 'Inter'}', sans-serif`,
           color: "#333333",
           accentColor: "#6b7280",
           sidebarBg: "#f9fafb",
@@ -25,7 +25,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
       case 'professional':
         return {
           backgroundColor: "#f8f9fa",
-          fontFamily: "'Georgia', serif",
+          fontFamily: `'${portfolioPage.font_family || 'Georgia'}', serif`,
           color: "#2c3e50",
           accentColor: "#3b82f6",
           sidebarBg: "#ffffff",
@@ -35,7 +35,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
       case 'creative':
         return {
           backgroundColor: "#fff8f3",
-          fontFamily: "'Poppins', sans-serif",
+          fontFamily: `'${portfolioPage.font_family || 'Poppins'}', sans-serif`,
           color: "#333333",
           accentColor: "#a855f7",
           sidebarBg: "#fef7ff",
@@ -45,7 +45,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
       case 'modern':
         return {
           backgroundColor: "#f0fdf4",
-          fontFamily: "'Inter', sans-serif",
+          fontFamily: `'${portfolioPage.font_family || 'Inter'}', sans-serif`,
           color: "#065f46",
           accentColor: "#10b981",
           sidebarBg: "#ffffff",
@@ -55,7 +55,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
       case 'elegant':
         return {
           backgroundColor: "#fef2f2",
-          fontFamily: "'Playfair Display', serif",
+          fontFamily: `'${portfolioPage.font_family || 'Playfair Display'}', serif`,
           color: "#7f1d1d",
           accentColor: "#dc2626",
           sidebarBg: "#ffffff",
@@ -65,7 +65,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
       default:
         return {
           backgroundColor: "#ffffff",
-          fontFamily: "'system-ui', sans-serif",
+          fontFamily: `'${portfolioPage.font_family || 'system-ui'}', sans-serif`,
           color: "#111827",
           accentColor: "#3b82f6",
           sidebarBg: "#f9fafb",
@@ -115,7 +115,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           {/* Contact Information */}
           {portfolioPage.profile_data?.location && (
             <div className="mb-4">
-              <p className="text-gray-600">📍 You can find me in {portfolioPage.profile_data.location}</p>
+              <p style={{ color: themeStyles.accentColor }}>📍 You can find me in {portfolioPage.profile_data.location}</p>
             </div>
           )}
 
@@ -124,8 +124,19 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
             <div className="mb-6">
               <a
                 href={`mailto:${portfolioPage.profile_data.email}`}
-                className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-colors font-medium w-full justify-center"
-                style={{ backgroundColor: themeStyles.primaryColor }}
+                className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-all font-medium w-full justify-center shadow-md"
+                style={{ 
+                  backgroundColor: themeStyles.primaryColor,
+                  boxShadow: `0 4px 14px 0 ${themeStyles.primaryColor}30`
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                  e.currentTarget.style.boxShadow = `0 6px 20px 0 ${themeStyles.primaryColor}40`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = `0 4px 14px 0 ${themeStyles.primaryColor}30`;
+                }}
               >
                 <Mail className="h-4 w-4" />
                 Hire Me
@@ -140,11 +151,11 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
                 {portfolioPage.profile_data.skills.map((skill, index) => (
                   <Badge 
                     key={index} 
-                    variant="secondary"
-                    className="text-white font-medium"
+                    variant="outline"
+                    className="text-white font-medium border-0 transition-all"
                     style={{ 
                       backgroundColor: themeStyles.primaryColor,
-                      border: 'none'
+                      color: 'white'
                     }}
                   >
                     {skill}
@@ -157,13 +168,13 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           {/* Experience Section */}
           {portfolioPage.profile_data?.experience && portfolioPage.profile_data.experience.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-3">💼 Experience</h2>
+              <h2 className="text-xl font-semibold mb-3" style={{ color: themeStyles.color }}>💼 Experience</h2>
               <div className="space-y-4">
                 {portfolioPage.profile_data.experience.slice(0, 2).map((exp, index) => (
                   <div key={index} className="border-l-3 pl-4" style={{ borderColor: themeStyles.primaryColor }}>
                     <h4 className="font-semibold" style={{ color: themeStyles.color }}>{exp.role}</h4>
                     <p className="text-sm font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
-                    <p className="text-xs text-gray-600">{exp.startDate} - {exp.endDate || 'Present'}</p>
+                    <p className="text-xs" style={{ color: themeStyles.accentColor }}>{exp.startDate} - {exp.endDate || 'Present'}</p>
                   </div>
                 ))}
               </div>
@@ -173,7 +184,7 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           {/* Education Section */}
           {portfolioPage.profile_data?.education && portfolioPage.profile_data.education.length > 0 && (
             <div className="mb-6">
-              <h2 className="text-xl font-semibold mb-3">🎓 Education</h2>
+              <h2 className="text-xl font-semibold mb-3" style={{ color: themeStyles.color }}>🎓 Education</h2>
               <div className="space-y-4">
                 {portfolioPage.profile_data.education.slice(0, 2).map((edu, index) => (
                   <div key={index} className="border-l-3 pl-4" style={{ borderColor: themeStyles.secondaryColor }}>

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Eye, Save, Share2, Download, ExternalLink, ArrowLeft } from 'lucide-react';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { PortfolioPage, ProfileData, PortfolioTheme } from '@/types/portfolio';
@@ -35,6 +36,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   const [customUrl, setCustomUrl] = useState(portfolioPage.custom_url || '');
   const [theme, setTheme] = useState<PortfolioTheme>(portfolioPage.theme as PortfolioTheme || 'default');
   const [layout, setLayout] = useState(portfolioPage.layout || 'classic');
+  const [fontFamily, setFontFamily] = useState(portfolioPage.font_family || 'Inter');
   const [profileData, setProfileData] = useState<ProfileData>(portfolioPage.profile_data || {
     avatar_url: '',
     professional_summary: '',
@@ -57,8 +59,25 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     customUrl: portfolioPage.custom_url || '',
     theme: portfolioPage.theme || 'default',
     layout: portfolioPage.layout || 'classic',
+    fontFamily: portfolioPage.font_family || 'Inter',
     profileData: portfolioPage.profile_data || {}
   });
+
+  // Available font families
+  const fontFamilies = [
+    { value: 'Inter', label: 'Inter (Sans-serif)', family: "'Inter', sans-serif" },
+    { value: 'Playfair Display', label: 'Playfair Display (Serif)', family: "'Playfair Display', serif" },
+    { value: 'Poppins', label: 'Poppins (Sans-serif)', family: "'Poppins', sans-serif" },
+    { value: 'Georgia', label: 'Georgia (Serif)', family: "'Georgia', serif" },
+    { value: 'Roboto', label: 'Roboto (Sans-serif)', family: "'Roboto', sans-serif" },
+    { value: 'Open Sans', label: 'Open Sans (Sans-serif)', family: "'Open Sans', sans-serif" },
+    { value: 'Lato', label: 'Lato (Sans-serif)', family: "'Lato', sans-serif" },
+    { value: 'Montserrat', label: 'Montserrat (Sans-serif)', family: "'Montserrat', sans-serif" },
+    { value: 'Source Sans Pro', label: 'Source Sans Pro (Sans-serif)', family: "'Source Sans Pro', sans-serif" },
+    { value: 'Merriweather', label: 'Merriweather (Serif)', family: "'Merriweather', serif" },
+    { value: 'Nunito', label: 'Nunito (Sans-serif)', family: "'Nunito', sans-serif" },
+    { value: 'Raleway', label: 'Raleway (Sans-serif)', family: "'Raleway', sans-serif" },
+  ];
 
   // Function to fetch skills from user's recommendations
   const fetchDiscoveredSkills = async (): Promise<string[]> => {
@@ -144,12 +163,13 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       customUrl,
       theme,
       layout,
+      fontFamily,
       profileData
     };
 
     const hasChanges = JSON.stringify(savedBaseline) !== JSON.stringify(currentData);
     setHasUnsavedChanges(hasChanges);
-  }, [savedBaseline, title, description, isPublic, customUrl, theme, layout, profileData]);
+  }, [savedBaseline, title, description, isPublic, customUrl, theme, layout, fontFamily, profileData]);
 
   const handleSave = async () => {
     try {
@@ -162,6 +182,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         custom_url: customUrl,
         theme,
         layout,
+        font_family: fontFamily,
         profile_data: profileData,
       });
       
@@ -173,6 +194,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         customUrl,
         theme,
         layout,
+        fontFamily,
         profileData
       };
       setSavedBaseline(newBaseline);
@@ -233,7 +255,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   const themes: { value: PortfolioTheme; label: string; color: string }[] = [
     { value: 'default', label: 'Default', color: 'bg-blue-500' },
     { value: 'minimal', label: 'Minimal', color: 'bg-gray-500' },
-    { value: 'professional', label: 'Professional', color: 'bg-navy-600' },
+    { value: 'professional', label: 'Professional', color: 'bg-blue-600' },
     { value: 'creative', label: 'Creative', color: 'bg-purple-500' },
     { value: 'modern', label: 'Modern', color: 'bg-green-500' },
     { value: 'elegant', label: 'Elegant', color: 'bg-rose-500' },
@@ -248,6 +270,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     description,
     theme,
     layout,
+    font_family: fontFamily,
     profile_data: profileData,
     is_public: isPublic,
     custom_url: customUrl
@@ -329,6 +352,46 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
                     onSelect={() => setLayout(layoutOption)}
                   />
                 ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Typography</CardTitle>
+              <CardDescription>Choose a font family for your portfolio</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="font-family">Font Family</Label>
+                  <Select value={fontFamily} onValueChange={setFontFamily}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a font family" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {fontFamilies.map((font) => (
+                        <SelectItem key={font.value} value={font.value}>
+                          <span style={{ fontFamily: font.family }}>{font.label}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="p-4 border rounded-lg">
+                  <p 
+                    className="text-lg font-medium mb-2"
+                    style={{ fontFamily: fontFamilies.find(f => f.value === fontFamily)?.family || 'Inter' }}
+                  >
+                    Sample Text Preview
+                  </p>
+                  <p 
+                    className="text-sm text-muted-foreground"
+                    style={{ fontFamily: fontFamilies.find(f => f.value === fontFamily)?.family || 'Inter' }}
+                  >
+                    This is how your portfolio text will look with the selected font family.
+                  </p>
+                </div>
               </div>
             </CardContent>
           </Card>
