@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import {
   DndContext,
@@ -9,7 +10,7 @@ import {
   DragOverlay,
   DragStartEvent,
   UniqueIdentifier,
-  closestCorners,
+  rectIntersection,
   useDroppable,
 } from '@dnd-kit/core';
 import {
@@ -45,9 +46,12 @@ function DroppableColumn({
   children: React.ReactNode; 
   className?: string;
 }) {
-  const { setNodeRef } = useDroppable({ id });
+  const { setNodeRef, isOver } = useDroppable({ id });
   return (
-    <div ref={setNodeRef} className={className}>
+    <div 
+      ref={setNodeRef} 
+      className={`${className} ${isOver ? 'ring-2 ring-blue-400 ring-opacity-50' : ''}`}
+    >
       {children}
     </div>
   );
@@ -68,17 +72,17 @@ export function KanbanBoard({
     setLocalProjects(projects || []);
   }, [projects]);
 
-  // Configure sensors for drag and drop with appropriate sensitivity
+  // Configure sensors for drag and drop with better sensitivity
   const sensors = useSensors(
     useSensor(MouseSensor, {
       activationConstraint: {
-        distance: 5,
+        distance: 8,
       },
     }),
     useSensor(TouchSensor, {
       activationConstraint: {
         delay: 250,
-        tolerance: 5,
+        tolerance: 8,
       },
     })
   );
@@ -89,6 +93,8 @@ export function KanbanBoard({
     const projectId = active.id as string;
     const project = localProjects.find(p => p.id === projectId);
     
+    console.log('Drag started for project:', projectId, project);
+    
     if (project) {
       setDraggingProject(project);
     }
@@ -98,27 +104,41 @@ export function KanbanBoard({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     
+    console.log('Drag ended:', { active: active?.id, over: over?.id });
+    
     setDraggingProject(null);
     
-    if (!over) return;
+    if (!over || !active) {
+      console.log('No valid drop target or active item');
+      return;
+    }
     
     const projectId = active.id as string;
     const newStatus = over.id as ProjectStatus;
     
+    // Validate that the new status is a valid ProjectStatus
+    const validStatuses: ProjectStatus[] = ['Idea', 'Planned', 'In Progress', 'Completed'];
+    if (!validStatuses.includes(newStatus)) {
+      console.log('Invalid drop target:', newStatus);
+      return;
+    }
+    
     // Only update if the status actually changed
     const project = localProjects.find(p => p.id === projectId);
     if (project && project.status !== newStatus) {
-      // Call parent handler to update status in database
-      onStatusChange(projectId, newStatus);
+      console.log('Updating project status:', projectId, 'from', project.status, 'to', newStatus);
       
-      // Optimistically update local state
+      // Optimistically update local state first
       setLocalProjects(prevProjects => 
-        prevProjects.map(project => 
-          project.id === projectId 
-            ? { ...project, status: newStatus }
-            : project
+        prevProjects.map(p => 
+          p.id === projectId 
+            ? { ...p, status: newStatus }
+            : p
         )
       );
+      
+      // Call parent handler to update status in database
+      onStatusChange(projectId, newStatus);
       
       // Show toast notification
       toast({
@@ -143,7 +163,7 @@ export function KanbanBoard({
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        collisionDetection={closestCorners}
+        collisionDetection={rectIntersection}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {statusColumns.map((column) => {
@@ -153,7 +173,7 @@ export function KanbanBoard({
               <DroppableColumn
                 key={column.id}
                 id={column.id}
-                className={`rounded-lg p-3 ${column.color} border min-h-[300px]`}
+                className={`rounded-lg p-3 ${column.color} border min-h-[300px] transition-all duration-200`}
               >
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="font-semibold text-gray-700">{column.title}</h3>
@@ -179,7 +199,7 @@ export function KanbanBoard({
                   
                   {columnProjects.length === 0 && (
                     <div className="border border-dashed rounded-lg p-4 text-center text-gray-400 text-sm h-24 flex items-center justify-center">
-                      No projects yet
+                      Drop projects here
                     </div>
                   )}
                 </div>
@@ -190,9 +210,14 @@ export function KanbanBoard({
         
         {draggingProject && createPortal(
           <DragOverlay>
-            <div className="opacity-80">
-              <Card className="p-3 shadow-md">
+            <div className="opacity-80 rotate-3 scale-105">
+              <Card className="p-3 shadow-lg border-2 border-blue-400">
                 <p className="font-medium">{draggingProject.title}</p>
+                <p className="text-sm text-gray-500 mt-1">
+                  {draggingProject.description && draggingProject.description.length > 50 
+                    ? draggingProject.description.substring(0, 50) + '...' 
+                    : draggingProject.description || 'No description'}
+                </p>
               </Card>
             </div>
           </DragOverlay>,
