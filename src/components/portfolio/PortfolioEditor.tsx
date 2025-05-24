@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { usePortfolio } from '@/hooks/usePortfolio';
@@ -13,24 +14,57 @@ import {
   DragDropContext, Droppable, Draggable, DropResult
 } from 'react-beautiful-dnd';
 import { PortfolioProject, PortfolioPageProject } from '@/types/portfolio';
-import { ArrowLeft, Check, Edit, Trash, MoveVertical, Plus, FileCheck } from 'lucide-react';
+import { ArrowLeft, Check, Edit, Trash, MoveVertical, Plus, FileCheck, X } from 'lucide-react';
 import { Spinner } from '@/components/ui/spinner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function PortfolioEditor() {
   const { pageId } = useParams<{ pageId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { usePortfolioPageWithProjects, addProjectToPage, removeProjectFromPage, updatePortfolioPageProject } = usePortfolioPages();
   const { projects, projectsLoading } = usePortfolio();
   
-  const { data: portfolioPage, isLoading: pageLoading } = usePortfolioPageWithProjects(pageId);
+  const { data: portfolioPage, isLoading: pageLoading, refetch: refetchPortfolioPage } = usePortfolioPageWithProjects(pageId);
   const [addProjectDialogOpen, setAddProjectDialogOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<PortfolioPageProject | null>(null);
   const [customDescription, setCustomDescription] = useState('');
+
+  // Set up real-time subscription for portfolio project updates
+  useEffect(() => {
+    if (!user?.id) return;
+
+    console.log('Setting up real-time subscription for portfolio projects');
+
+    const channel = supabase
+      .channel('portfolio-projects-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'portfolio_projects',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('Portfolio project changed:', payload);
+          // Refetch the portfolio page to get updated project data
+          refetchPortfolioPage();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('Cleaning up real-time subscription');
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, refetchPortfolioPage]);
   
   const handleAddProject = async (project: PortfolioProject) => {
     if (!pageId) return;
@@ -286,23 +320,22 @@ export function PortfolioEditor() {
                                       </div>
                                     </div>
                                     
-                                    <div className="flex space-x-2">
-                                      {editingProject?.id !== projectItem.id && (
-                                        <Button 
-                                          size="sm" 
-                                          variant="ghost" 
-                                          onClick={() => handleEditProject(projectItem)}
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                      )}
-                                      <Button 
-                                        size="sm" 
-                                        variant="ghost" 
-                                        className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                        onClick={() => handleRemoveProject(projectItem.project_id)}
+                                    <div className="flex space-x-1 ml-2">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleEditProject(projectItem)}
+                                        disabled={editingProject?.id === projectItem.id}
                                       >
-                                        <Trash className="h-4 w-4" />
+                                        <Edit className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleRemoveProject(project.id)}
+                                        className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                      >
+                                        <X className="h-4 w-4" />
                                       </Button>
                                     </div>
                                   </div>
@@ -321,89 +354,45 @@ export function PortfolioEditor() {
           </Card>
         </TabsContent>
         
-        <TabsContent value="preview">
+        <TabsContent value="preview" className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Portfolio Preview</CardTitle>
+              <CardTitle>Preview</CardTitle>
               <CardDescription>
-                This is how your portfolio will look to visitors.
+                This is how your portfolio projects will appear to visitors
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg p-6">
-                <h1 className="text-3xl font-bold mb-2">{portfolioPage.title}</h1>
-                {portfolioPage.description && (
-                  <p className="text-gray-600 mb-8 max-w-3xl">
-                    {portfolioPage.description}
-                  </p>
-                )}
-                
-                {!portfolioPage.projects || portfolioPage.projects.length === 0 ? (
-                  <div className="text-center py-12">
-                    <p className="text-gray-500">
-                      No projects added to this portfolio yet.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-10">
-                    {portfolioPage.projects.map((projectItem) => {
-                      const project = projectItem.project;
-                      if (!project) return null;
-                      
-                      return (
-                        <div key={projectItem.id} className="border-b pb-10 last:border-0">
-                          <h2 className="text-2xl font-semibold mb-3">{project.title}</h2>
-                          <p className="text-gray-700 mb-4">
-                            {projectItem.custom_description || project.description}
-                          </p>
-                          
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
-                            {project.required_skills && project.required_skills.length > 0 && (
-                              <div>
-                                <h3 className="text-sm font-semibold text-gray-500 mb-2">SKILLS</h3>
-                                <div className="flex flex-wrap gap-2">
-                                  {project.required_skills.map((skill, i) => (
-                                    <span 
-                                      key={i} 
-                                      className="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-1 rounded"
-                                    >
-                                      {skill}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            
-                            <div>
-                              <h3 className="text-sm font-semibold text-gray-500 mb-2">PROJECT DETAILS</h3>
-                              <div className="space-y-1">
-                                {project.effort_level && (
-                                  <p className="text-sm">
-                                    <span className="font-medium">Effort Level:</span> {project.effort_level}
-                                  </p>
-                                )}
-                                {project.impact && (
-                                  <p className="text-sm">
-                                    <span className="font-medium">Impact:</span> {project.impact}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
+                  portfolioPage.projects.map((projectItem) => {
+                    const project = projectItem.project;
+                    if (!project) return null;
+                    
+                    return (
+                      <div key={projectItem.id} className="border rounded-lg p-4">
+                        <h3 className="font-semibold text-lg mb-2">{project.title}</h3>
+                        <p className="text-gray-600 text-sm mb-3">
+                          {projectItem.custom_description || project.description || 'No description'}
+                        </p>
+                        {project.required_skills && project.required_skills.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {project.required_skills.map((skill, i) => (
+                              <span 
+                                key={i} 
+                                className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded"
+                              >
+                                {skill}
+                              </span>
+                            ))}
                           </div>
-                          
-                          {project.roadmap && project.roadmap.milestones && project.roadmap.milestones.length > 0 && (
-                            <div className="mt-4">
-                              <h3 className="text-sm font-semibold text-gray-500 mb-2">KEY ACHIEVEMENTS</h3>
-                              <ul className="list-disc list-inside space-y-1">
-                                {project.roadmap.milestones.map((milestone, idx) => (
-                                  <li key={idx} className="text-gray-700">{milestone}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                        )}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="col-span-full text-center py-8 text-gray-500">
+                    No projects to preview
                   </div>
                 )}
               </div>
@@ -414,65 +403,63 @@ export function PortfolioEditor() {
       
       {/* Add Project Dialog */}
       <Dialog open={addProjectDialogOpen} onOpenChange={setAddProjectDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Add Project to Portfolio</DialogTitle>
             <DialogDescription>
-              Select a completed project to add to your portfolio page.
+              Select completed projects to add to your portfolio
             </DialogDescription>
           </DialogHeader>
           
-          {projectsLoading ? (
-            <div className="py-8 flex justify-center">
-              <Spinner size="lg" />
-            </div>
-          ) : availableProjects.length === 0 ? (
-            <div className="text-center py-8">
-              <FileCheck className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <h3 className="text-lg font-medium mb-1">No available projects</h3>
-              <p className="text-gray-500">
-                All your completed projects are already added to this portfolio.
-              </p>
-            </div>
-          ) : (
-            <ScrollArea className="max-h-[400px] pr-4">
-              <div className="space-y-3">
-                {availableProjects.map((project) => (
-                  <Card key={project.id} className="cursor-pointer hover:bg-gray-50 transition-colors">
-                    <CardContent className="p-4" onClick={() => handleAddProject(project)}>
-                      <h3 className="font-medium">{project.title}</h3>
-                      <p className="text-gray-500 text-sm line-clamp-2 mt-1">
-                        {project.description || 'No description'}
-                      </p>
-                      {project.required_skills && project.required_skills.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-1">
-                          {project.required_skills.slice(0, 3).map((skill, i) => (
+          <ScrollArea className="max-h-[60vh] pr-4">
+            <div className="space-y-4">
+              {availableProjects.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileCheck className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No completed projects</h3>
+                  <p className="text-gray-500">
+                    Complete some projects in your project tracker to add them here.
+                  </p>
+                </div>
+              ) : (
+                availableProjects.map((project) => (
+                  <Card key={project.id} className="cursor-pointer hover:bg-gray-50">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{project.title}</CardTitle>
+                          <CardDescription className="mt-1">
+                            {project.description || 'No description'}
+                          </CardDescription>
+                        </div>
+                        <Button
+                          onClick={() => handleAddProject(project)}
+                          className="bg-[#9b87f5] hover:bg-[#8B5CF6] ml-4"
+                        >
+                          <Plus className="h-4 w-4 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    </CardHeader>
+                    {project.required_skills && project.required_skills.length > 0 && (
+                      <CardContent className="pt-0">
+                        <div className="flex flex-wrap gap-1">
+                          {project.required_skills.map((skill, i) => (
                             <span 
                               key={i} 
-                              className="bg-gray-100 text-gray-800 text-xs px-2 py-0.5 rounded"
+                              className="bg-gray-100 text-gray-800 text-xs font-medium px-2 py-0.5 rounded"
                             >
                               {skill}
                             </span>
                           ))}
-                          {project.required_skills.length > 3 && (
-                            <span className="text-xs text-gray-500">
-                              +{project.required_skills.length - 3} more
-                            </span>
-                          )}
                         </div>
-                      )}
-                    </CardContent>
+                      </CardContent>
+                    )}
                   </Card>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddProjectDialogOpen(false)}>
-              Cancel
-            </Button>
-          </DialogFooter>
+                ))
+              )}
+            </div>
+          </ScrollArea>
         </DialogContent>
       </Dialog>
     </div>
