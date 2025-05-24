@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Upload, X, Plus } from 'lucide-react';
+import { ExperienceSection } from './ExperienceSection';
+import { EducationSection } from './EducationSection';
 
 interface ProfileSectionProps {
   profileData: {
@@ -15,6 +17,7 @@ interface ProfileSectionProps {
     skills?: string[];
     location?: string;
     experience?: Array<{
+      id: string;
       role: string;
       company: string;
       startDate: string;
@@ -22,6 +25,7 @@ interface ProfileSectionProps {
       description: string;
     }>;
     education?: Array<{
+      id: string;
       institution: string;
       degree: string;
       graduationYear: string;
@@ -32,8 +36,6 @@ interface ProfileSectionProps {
 
 export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
   const [newSkill, setNewSkill] = useState('');
-  const [showExperience, setShowExperience] = useState(false);
-  const [showEducation, setShowEducation] = useState(false);
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -186,49 +188,17 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
         </CardContent>
       </Card>
 
-      {/* Experience (Optional) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Experience
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowExperience(!showExperience)}
-            >
-              {showExperience ? 'Hide' : 'Add'}
-            </Button>
-          </CardTitle>
-          <CardDescription>Add your work experience (optional)</CardDescription>
-        </CardHeader>
-        {showExperience && (
-          <CardContent>
-            <p className="text-sm text-gray-500">Experience editing coming soon...</p>
-          </CardContent>
-        )}
-      </Card>
+      {/* Experience */}
+      <ExperienceSection 
+        experiences={profileData.experience || []}
+        onUpdate={(experience) => onUpdate({ ...profileData, experience })}
+      />
 
-      {/* Education (Optional) */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Education
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowEducation(!showEducation)}
-            >
-              {showEducation ? 'Hide' : 'Add'}
-            </Button>
-          </CardTitle>
-          <CardDescription>Add your educational background (optional)</CardDescription>
-        </CardHeader>
-        {showEducation && (
-          <CardContent>
-            <p className="text-sm text-gray-500">Education editing coming soon...</p>
-          </CardContent>
-        )}
-      </Card>
+      {/* Education */}
+      <EducationSection 
+        education={profileData.education || []}
+        onUpdate={(education) => onUpdate({ ...profileData, education })}
+      />
     </div>
   );
 }

@@ -114,6 +114,9 @@ export function EnhancedPublicPortfolioView() {
     const url = encodeURIComponent(window.location.href);
     window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank');
   };
+
+  // Get profile data from portfolio or use defaults
+  const profileData = portfolioData.profile_data || {};
   
   return (
     <div 
@@ -167,11 +170,21 @@ export function EnhancedPublicPortfolioView() {
       <section className="py-20 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <div className="mb-8">
-            <div 
-              className="w-32 h-32 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-4xl font-bold shadow-lg"
-              style={{ backgroundColor: theme.accentColor }}
-            >
-              {portfolioData.title.charAt(0)}
+            <div className="mb-6">
+              {profileData.avatar_url ? (
+                <img 
+                  src={profileData.avatar_url} 
+                  alt="Profile" 
+                  className="w-32 h-32 rounded-full mx-auto shadow-lg object-cover"
+                />
+              ) : (
+                <div 
+                  className="w-32 h-32 rounded-full mx-auto flex items-center justify-center text-white text-4xl font-bold shadow-lg"
+                  style={{ backgroundColor: theme.accentColor }}
+                >
+                  {portfolioData.title.charAt(0)}
+                </div>
+              )}
             </div>
             <h1 
               className="text-5xl md:text-6xl font-bold mb-6"
@@ -179,12 +192,42 @@ export function EnhancedPublicPortfolioView() {
             >
               {portfolioData.title}
             </h1>
-            {portfolioData.description && (
+            {profileData.professional_summary ? (
+              <p className="text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed">
+                {profileData.professional_summary}
+              </p>
+            ) : portfolioData.description ? (
               <p className="text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed">
                 {portfolioData.description}
               </p>
+            ) : null}
+            
+            {profileData.location && (
+              <p className="text-lg text-gray-600 mt-4">
+                📍 {profileData.location}
+              </p>
             )}
           </div>
+          
+          {/* Skills */}
+          {profileData.skills && profileData.skills.length > 0 && (
+            <div className="mb-8">
+              <div className="flex flex-wrap justify-center gap-2 max-w-4xl mx-auto">
+                {profileData.skills.map((skill, index) => (
+                  <span 
+                    key={index}
+                    className="px-3 py-1 rounded-full text-sm font-medium"
+                    style={{ 
+                      backgroundColor: `${theme.accentColor}20`,
+                      color: theme.accentColor
+                    }}
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
           
           {/* Social Links */}
           <div className="flex justify-center space-x-6 mb-12">
@@ -200,6 +243,57 @@ export function EnhancedPublicPortfolioView() {
           </div>
         </div>
       </section>
+
+      {/* Experience Section */}
+      {profileData.experience && profileData.experience.length > 0 && (
+        <section className="py-16 px-4">
+          <div className="max-w-6xl mx-auto">
+            <h2 
+              className="text-4xl font-bold mb-8 text-center"
+              style={{ color: theme.primaryColor }}
+            >
+              Experience
+            </h2>
+            <div className="space-y-6">
+              {profileData.experience.map((exp, index) => (
+                <div key={index} className="bg-white rounded-lg p-6 shadow-sm">
+                  <h3 className="text-xl font-semibold">{exp.role}</h3>
+                  <p className="text-lg text-gray-600">{exp.company}</p>
+                  <p className="text-sm text-gray-500 mb-3">
+                    {exp.startDate} - {exp.endDate || 'Present'}
+                  </p>
+                  {exp.description && (
+                    <p className="text-gray-700">{exp.description}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Education Section */}
+      {profileData.education && profileData.education.length > 0 && (
+        <section className="py-16 px-4">
+          <div className="max-w-6xl mx-auto">
+            <h2 
+              className="text-4xl font-bold mb-8 text-center"
+              style={{ color: theme.primaryColor }}
+            >
+              Education
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {profileData.education.map((edu, index) => (
+                <div key={index} className="bg-white rounded-lg p-6 shadow-sm">
+                  <h3 className="text-xl font-semibold">{edu.degree}</h3>
+                  <p className="text-lg text-gray-600">{edu.institution}</p>
+                  <p className="text-sm text-gray-500">{edu.graduationYear}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Projects Section */}
       <section className="py-16 px-4">

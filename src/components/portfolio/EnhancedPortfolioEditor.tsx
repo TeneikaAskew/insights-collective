@@ -42,6 +42,20 @@ export function EnhancedPortfolioEditor() {
     professional_summary: '',
     skills: [] as string[],
     location: '',
+    experience: [] as Array<{
+      id: string;
+      role: string;
+      company: string;
+      startDate: string;
+      endDate: string;
+      description: string;
+    }>,
+    education: [] as Array<{
+      id: string;
+      institution: string;
+      degree: string;
+      graduationYear: string;
+    }>,
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -56,6 +70,18 @@ export function EnhancedPortfolioEditor() {
         custom_url: portfolioData.custom_url || '',
         layout: 'classic', // Default layout
       });
+      
+      // Load profile data if it exists
+      if (portfolioData.profile_data) {
+        setProfileData({
+          avatar_url: portfolioData.profile_data.avatar_url || '',
+          professional_summary: portfolioData.profile_data.professional_summary || '',
+          skills: portfolioData.profile_data.skills || [],
+          location: portfolioData.profile_data.location || '',
+          experience: portfolioData.profile_data.experience || [],
+          education: portfolioData.profile_data.education || [],
+        });
+      }
     }
   }, [portfolioData]);
 
@@ -71,6 +97,7 @@ export function EnhancedPortfolioEditor() {
         theme: formData.theme,
         is_public: formData.is_public,
         custom_url: formData.custom_url,
+        profile_data: profileData,
       });
       toast({
         title: 'Success',
@@ -286,7 +313,7 @@ export function EnhancedPortfolioEditor() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {['sidebar', 'hero-timeline', 'grid', 'classic', 'split', 'hero-focus'].map((layout) => (
                     <LayoutPreview
                       key={layout}
