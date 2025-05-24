@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { GraduationCap, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { GraduationCap, Loader2, Eye, EyeOff, AlertCircle, CheckCircle, Mail } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { FaGoogle } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +26,8 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [formSubmitting, setFormSubmitting] = useState(false);
   const [socialLoading, setSocialLoading] = useState<string | null>(null);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
   
   const {
     register,
@@ -112,6 +114,8 @@ const Register = () => {
     console.log('Starting registration process...');
     
     clearErrors();
+    setRegistrationSuccess(false);
+    setNeedsEmailVerification(false);
     let hasErrors = false;
     
     // Validate name
@@ -155,13 +159,15 @@ const Register = () => {
       console.log('Attempting to register with:', { name: name.trim(), email: email.trim().toLowerCase() });
       
       storeCurrentPath();
-      await register(name.trim(), email.trim().toLowerCase(), password);
+      const result = await register(name.trim(), email.trim().toLowerCase(), password);
       
       console.log('Registration successful');
+      setRegistrationSuccess(true);
+      setNeedsEmailVerification(true);
       
       // Show success message
       toast({
-        title: 'Registration Successful',
+        title: 'Registration Successful!',
         description: 'Please check your email to verify your account before signing in.',
         variant: 'default',
       });
@@ -172,18 +178,18 @@ const Register = () => {
       // Parse and display specific error messages
       let errorMessage = error.message || 'An error occurred during registration. Please try again.';
       
-      // Handle specific Supabase error types
+      // Handle specific Supabase error types with clearer messages
       if (errorMessage.includes('Email address') && errorMessage.includes('is invalid')) {
         setEmailError('This email address is not valid. Please check the format and try again.');
         toast({
-          title: 'Invalid Email',
-          description: 'Please enter a valid email address.',
+          title: 'Invalid Email Address',
+          description: 'Please enter a valid email address and try again.',
           variant: 'destructive',
         });
       } else if (errorMessage.includes('User already registered') || errorMessage.includes('already exists')) {
         setEmailError('An account with this email already exists. Please try signing in instead.');
         toast({
-          title: 'Account Exists',
+          title: 'Account Already Exists',
           description: 'An account with this email already exists. Please try signing in instead.',
           variant: 'destructive',
         });
@@ -202,6 +208,7 @@ const Register = () => {
           variant: 'destructive',
         });
       } else {
+        // For any other error, show it as a general error
         setGeneralError(errorMessage);
         toast({
           title: 'Registration Failed',
@@ -260,6 +267,16 @@ const Register = () => {
           </CardHeader>
           
           <CardContent>
+            {/* Success message */}
+            {registrationSuccess && needsEmailVerification && (
+              <Alert className="mb-4 border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  <strong>Registration successful!</strong> Please check your email and click the verification link to activate your account.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* General error display */}
             {(generalError || error) && (
               <Alert variant="destructive" className="mb-4">

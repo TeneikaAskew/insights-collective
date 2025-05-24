@@ -226,15 +226,18 @@ export const useAuthProvider = () => {
         console.error('[register] Supabase error:', error);
         
         // Handle specific Supabase errors with clearer messages
-        if (error.message.includes('email_address_invalid') || error.message.includes('Email address') && error.message.includes('is invalid')) {
-          throw new Error('Email address is invalid. Please check the format and try again.');
+        if (error.message.includes('email_address_invalid') || 
+            (error.message.includes('Email address') && error.message.includes('is invalid'))) {
+          throw new Error('This email address is not valid. Please check the format and try again.');
         } else if (error.message.includes('signup_disabled')) {
           throw new Error('User registration is currently disabled. Please contact support.');
-        } else if (error.message.includes('User already registered') || error.message.includes('already exists')) {
+        } else if (error.message.includes('User already registered') || 
+                   error.message.includes('already exists')) {
           throw new Error('An account with this email already exists. Please try signing in instead.');
         } else if (error.message.includes('password')) {
           throw new Error('Password does not meet requirements. Please try a different password.');
         } else {
+          // Pass through the original error message for any other errors
           throw new Error(error.message || 'Registration failed. Please try again.');
         }
       }
@@ -244,20 +247,18 @@ export const useAuthProvider = () => {
       // Check if user needs email confirmation
       if (data.user && !data.session) {
         console.log('[register] Email confirmation required');
-        toast({
-          title: 'Check your email',
-          description: 'We sent you a confirmation link. Please check your email and click the link to verify your account.',
-        });
+        // Don't navigate immediately, let the component handle showing the success message
+        return { success: true, needsEmailVerification: true };
       } else if (data.session) {
         console.log('[register] User registered and signed in automatically');
-        toast({
-          title: 'Account created',
-          description: 'Your account has been created successfully.',
-        });
+        // Navigate to login page after a brief delay to show success message
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+        return { success: true, needsEmailVerification: false };
       }
 
-      // Navigate to login page after registration
-      navigate('/login');
+      return { success: true, needsEmailVerification: true };
     } catch (error: any) {
       console.error('[register] Registration error:', error);
       setError(error.message);
