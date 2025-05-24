@@ -15,7 +15,7 @@ type AppLayoutProps = {
 
 const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
   const { navigateWithAuth } = useAuthenticatedNavigation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
   
   // Check if the current path is one of the interview prep pages
@@ -35,8 +35,8 @@ const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
         <AppSidebar />
         <div className="flex flex-col flex-1 w-full h-full overflow-hidden">
           <Navbar />
-          {/* Only show UserPresenceBar for authenticated users */}
-          {isAuthenticated && <UserPresenceBar />}
+          {/* Only show UserPresenceBar for admin users */}
+          {isAuthenticated && isAdmin && <UserPresenceBar />}
           <main data-component-name="main" className={`flex-1 w-full overflow-auto ${fullWidth ? 'p-0' : 'p-4'}`}>
             {children}
           </main>
