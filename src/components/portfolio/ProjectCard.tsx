@@ -156,26 +156,6 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                   {truncate(project.description, 100)}
                 </p>
               )}
-              {project.status && (
-                <div className="flex justify-between items-center">
-                  <Badge className={`text-xs ${getStatusColor(project.status)}`}>
-                    {project.status}
-                  </Badge>
-                  {onStatusChange && (
-                    <Select value={project.status} onValueChange={handleStatusChange}>
-                      <SelectTrigger className="w-24 h-6 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Idea">Idea</SelectItem>
-                        <SelectItem value="Planned">Planned</SelectItem>
-                        <SelectItem value="In Progress">In Progress</SelectItem>
-                        <SelectItem value="Completed">Completed</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         </CardContent>
