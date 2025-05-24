@@ -9,10 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Eye, Save, Share2, Download, ExternalLink } from 'lucide-react';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
-import { PortfolioPage, ProfileData } from '@/types/portfolio';
+import { PortfolioPage, ProfileData, PortfolioTheme } from '@/types/portfolio';
 import { toast } from '@/hooks/use-toast';
 import { ProfileSection } from './ProfileSection';
 import { EnhancedProjectCard } from './EnhancedProjectCard';
+import { LayoutPreview } from './LayoutPreview';
 
 interface EnhancedPortfolioEditorProps {
   portfolioPage: PortfolioPage;
@@ -25,11 +26,15 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   const [description, setDescription] = useState(portfolioPage.description || '');
   const [isPublic, setIsPublic] = useState(portfolioPage.is_public || false);
   const [customUrl, setCustomUrl] = useState(portfolioPage.custom_url || '');
+  const [theme, setTheme] = useState<PortfolioTheme>(portfolioPage.theme as PortfolioTheme || 'default');
   const [profileData, setProfileData] = useState<ProfileData>(portfolioPage.profile_data || {
     avatar_url: '',
     professional_summary: '',
     skills: [],
     location: '',
+    email: '',
+    github_url: '',
+    linkedin_url: '',
     experience: [],
     education: []
   });
@@ -41,7 +46,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     }, 1000);
 
     return () => clearTimeout(saveTimer);
-  }, [profileData, title, description, isPublic, customUrl]);
+  }, [profileData, title, description, isPublic, customUrl, theme]);
 
   const handleSave = async () => {
     try {
@@ -51,6 +56,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         description,
         is_public: isPublic,
         custom_url: customUrl,
+        theme,
         profile_data: profileData,
       });
     } catch (error) {
@@ -96,6 +102,15 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     window.open(previewUrl, '_blank');
   };
 
+  const themes: { value: PortfolioTheme; label: string; color: string }[] = [
+    { value: 'default', label: 'Default', color: 'bg-blue-500' },
+    { value: 'minimal', label: 'Minimal', color: 'bg-gray-500' },
+    { value: 'professional', label: 'Professional', color: 'bg-navy-600' },
+    { value: 'creative', label: 'Creative', color: 'bg-purple-500' },
+    { value: 'modern', label: 'Modern', color: 'bg-green-500' },
+    { value: 'elegant', label: 'Elegant', color: 'bg-rose-500' },
+  ];
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -121,8 +136,9 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       </div>
 
       <Tabs defaultValue="profile" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="profile">Profile</TabsTrigger>
+          <TabsTrigger value="layout">Layout</TabsTrigger>
           <TabsTrigger value="projects">Projects</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
@@ -132,6 +148,52 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
             profileData={profileData}
             onUpdate={setProfileData}
           />
+        </TabsContent>
+
+        <TabsContent value="layout" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Choose Your Layout</CardTitle>
+              <CardDescription>Select a layout that best showcases your work</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                {['sidebar', 'hero-timeline', 'grid', 'classic', 'split', 'hero-focus'].map((layout) => (
+                  <LayoutPreview
+                    key={layout}
+                    layout={layout}
+                    isSelected={false}
+                    onSelect={() => {}}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Color Theme</CardTitle>
+              <CardDescription>Choose a color scheme for your portfolio</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {themes.map((themeOption) => (
+                  <div
+                    key={themeOption.value}
+                    className={`cursor-pointer p-4 rounded-lg border-2 transition-all ${
+                      theme === themeOption.value
+                        ? 'border-primary bg-primary/5'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}
+                    onClick={() => setTheme(themeOption.value)}
+                  >
+                    <div className={`w-full h-12 rounded-md mb-3 ${themeOption.color}`}></div>
+                    <h3 className="font-medium text-center">{themeOption.label}</h3>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="projects" className="space-y-6">

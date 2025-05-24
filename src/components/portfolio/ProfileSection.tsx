@@ -16,6 +16,9 @@ interface ProfileSectionProps {
     professional_summary?: string;
     skills?: string[];
     location?: string;
+    email?: string;
+    github_url?: string;
+    linkedin_url?: string;
     experience?: Array<{
       id: string;
       role: string;
@@ -40,7 +43,6 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // In a real implementation, this would upload to Supabase Storage
       const reader = new FileReader();
       reader.onload = (e) => {
         onUpdate({
@@ -131,21 +133,65 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
         </CardContent>
       </Card>
 
-      {/* Location */}
+      {/* Contact Information */}
       <Card>
         <CardHeader>
-          <CardTitle>Location</CardTitle>
-          <CardDescription>Your current location</CardDescription>
+          <CardTitle>Contact Information</CardTitle>
+          <CardDescription>Your contact details and social links</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Input
-            value={profileData.location || ''}
-            onChange={(e) => onUpdate({
-              ...profileData,
-              location: e.target.value
-            })}
-            placeholder="San Francisco, CA"
-          />
+        <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              value={profileData.email || ''}
+              onChange={(e) => onUpdate({
+                ...profileData,
+                email: e.target.value
+              })}
+              placeholder="your.email@example.com"
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="location">Location</Label>
+            <Input
+              id="location"
+              value={profileData.location || ''}
+              onChange={(e) => onUpdate({
+                ...profileData,
+                location: e.target.value
+              })}
+              placeholder="San Francisco, CA"
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="github">GitHub URL</Label>
+            <Input
+              id="github"
+              value={profileData.github_url || ''}
+              onChange={(e) => onUpdate({
+                ...profileData,
+                github_url: e.target.value
+              })}
+              placeholder="https://github.com/yourusername"
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="linkedin">LinkedIn URL</Label>
+            <Input
+              id="linkedin"
+              value={profileData.linkedin_url || ''}
+              onChange={(e) => onUpdate({
+                ...profileData,
+                linkedin_url: e.target.value
+              })}
+              placeholder="https://linkedin.com/in/yourprofile"
+            />
+          </div>
         </CardContent>
       </Card>
 

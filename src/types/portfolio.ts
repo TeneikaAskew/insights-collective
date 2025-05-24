@@ -66,6 +66,9 @@ export interface ProfileData {
   professional_summary?: string;
   skills?: string[];
   location?: string;
+  email?: string;
+  github_url?: string;
+  linkedin_url?: string;
   experience?: Array<{
     id: string;
     role: string;
@@ -94,7 +97,7 @@ export interface PortfolioPage {
   created_at?: string;
   updated_at?: string;
   projects?: PortfolioPageProject[];
-  profile_data?: ProfileData; // Add profile_data to the interface
+  profile_data?: ProfileData;
 }
 
 export interface PortfolioPageProject {
@@ -106,4 +109,4 @@ export interface PortfolioPageProject {
   project?: PortfolioProject;
 }
 
-export type PortfolioTheme = 'default' | 'minimal' | 'professional' | 'creative';
+export type PortfolioTheme = 'default' | 'minimal' | 'professional' | 'creative' | 'modern' | 'elegant';

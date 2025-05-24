@@ -14,7 +14,10 @@ import {
   Download,
   Moon,
   Sun,
-  Eye
+  Eye,
+  Calendar,
+  GraduationCap,
+  Briefcase
 } from 'lucide-react';
 import { PortfolioPage, ProfileData } from '@/types/portfolio';
 import { EnhancedProjectCard } from './EnhancedProjectCard';
@@ -101,7 +104,7 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
         return `${words[0][0]}${words[1][0]}`.toUpperCase();
       }
     }
-    return 'DS'; // Default to Data Scientist
+    return 'DS';
   };
 
   return (
@@ -118,9 +121,11 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
             <Button size="sm" variant="ghost" onClick={() => setIsDarkMode(!isDarkMode)}>
               {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Button size="sm" variant="ghost" onClick={handleEmailShare}>
-              <Mail className="h-4 w-4" />
-            </Button>
+            {profileData.email && (
+              <Button size="sm" variant="ghost" onClick={handleEmailShare}>
+                <Mail className="h-4 w-4" />
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={handleShare}>
               <Share2 className="h-4 w-4" />
             </Button>
@@ -148,17 +153,42 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
                 {profileData.professional_summary}
               </p>
             )}
-            {profileData.location && (
-              <p className="flex items-center justify-center gap-2 mb-6 text-muted-foreground">
-                <MapPin className="h-5 w-5" />
-                {profileData.location}
-              </p>
-            )}
+            
+            {/* Contact Info */}
+            <div className="flex flex-wrap gap-4 justify-center mb-6">
+              {profileData.location && (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="h-5 w-5" />
+                  {profileData.location}
+                </div>
+              )}
+              {profileData.email && (
+                <a href={`mailto:${profileData.email}`} className="flex items-center gap-2 text-muted-foreground hover:text-primary">
+                  <Mail className="h-5 w-5" />
+                  {profileData.email}
+                </a>
+              )}
+              {profileData.github_url && (
+                <a href={profileData.github_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-primary">
+                  <Github className="h-5 w-5" />
+                  GitHub
+                </a>
+              )}
+              {profileData.linkedin_url && (
+                <a href={profileData.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-muted-foreground hover:text-primary">
+                  <Linkedin className="h-5 w-5" />
+                  LinkedIn
+                </a>
+              )}
+            </div>
+            
             <div className="flex gap-4 justify-center">
-              <Button size="lg" onClick={handleEmailShare}>
-                <Mail className="h-5 w-5 mr-2" />
-                Contact Me
-              </Button>
+              {profileData.email && (
+                <Button size="lg" onClick={handleEmailShare}>
+                  <Mail className="h-5 w-5 mr-2" />
+                  Contact Me
+                </Button>
+              )}
               <Button size="lg" variant="outline">
                 Hire Me
               </Button>
@@ -174,6 +204,58 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
                   <Badge key={index} variant="secondary" className="px-4 py-2 text-sm">
                     {skill}
                   </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Experience Section */}
+          {profileData.experience && profileData.experience.length > 0 && (
+            <div className="mb-12">
+              <h2 className="text-2xl font-bold mb-6 text-center">Experience</h2>
+              <div className="space-y-6 max-w-4xl mx-auto">
+                {profileData.experience.map((exp) => (
+                  <Card key={exp.id} className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Briefcase className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold">{exp.role}</h3>
+                        <p className="text-muted-foreground mb-2">{exp.company}</p>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {exp.startDate} - {exp.endDate}
+                        </p>
+                        <p className="text-gray-700">{exp.description}</p>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Education Section */}
+          {profileData.education && profileData.education.length > 0 && (
+            <div className="mb-12">
+              <h2 className="text-2xl font-bold mb-6 text-center">Education</h2>
+              <div className="space-y-6 max-w-4xl mx-auto">
+                {profileData.education.map((edu) => (
+                  <Card key={edu.id} className="p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <GraduationCap className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold">{edu.degree}</h3>
+                        <p className="text-muted-foreground mb-2">{edu.institution}</p>
+                        <p className="text-sm text-muted-foreground">
+                          <Calendar className="h-4 w-4 inline mr-1" />
+                          {edu.graduationYear}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
                 ))}
               </div>
             </div>
@@ -209,10 +291,17 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
             <p className="text-muted-foreground mb-6">
               Interested in collaborating? I'd love to hear about your project.
             </p>
-            <Button size="lg" onClick={handleEmailShare}>
-              <Mail className="h-5 w-5 mr-2" />
-              Get In Touch
-            </Button>
+            {profileData.email ? (
+              <Button size="lg" onClick={handleEmailShare}>
+                <Mail className="h-5 w-5 mr-2" />
+                Get In Touch
+              </Button>
+            ) : (
+              <Button size="lg" onClick={handleShare}>
+                <Share2 className="h-5 w-5 mr-2" />
+                Share Portfolio
+              </Button>
+            )}
           </div>
         </div>
 
