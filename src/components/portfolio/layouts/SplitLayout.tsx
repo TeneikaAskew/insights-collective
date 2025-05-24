@@ -31,9 +31,7 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
           color: "#333333",
           accentColor: "#6b7280",
           primaryColor: "#6b7280",
-          secondaryColor: "#9ca3af",
-          cardBg: "#f9fafb",
-          borderColor: "#e5e7eb"
+          secondaryColor: "#9ca3af"
         };
       case 'professional':
         return {
@@ -42,9 +40,7 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
           color: "#2c3e50",
           accentColor: "#3b82f6",
           primaryColor: "#3b82f6",
-          secondaryColor: "#1e40af",
-          cardBg: "#ffffff",
-          borderColor: "#d1d5db"
+          secondaryColor: "#1e40af"
         };
       case 'creative':
         return {
@@ -53,9 +49,7 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
           color: "#333333",
           accentColor: "#a855f7",
           primaryColor: "#a855f7",
-          secondaryColor: "#7c3aed",
-          cardBg: "#fef7ff",
-          borderColor: "#e879f9"
+          secondaryColor: "#7c3aed"
         };
       case 'modern':
         return {
@@ -64,9 +58,7 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
           color: "#065f46",
           accentColor: "#10b981",
           primaryColor: "#10b981",
-          secondaryColor: "#059669",
-          cardBg: "#ffffff",
-          borderColor: "#6ee7b7"
+          secondaryColor: "#059669"
         };
       case 'elegant':
         return {
@@ -75,9 +67,7 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
           color: "#7f1d1d",
           accentColor: "#dc2626",
           primaryColor: "#dc2626",
-          secondaryColor: "#b91c1c",
-          cardBg: "#ffffff",
-          borderColor: "#fca5a5"
+          secondaryColor: "#b91c1c"
         };
       default:
         return {
@@ -86,9 +76,7 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
           color: "#111827",
           accentColor: "#3b82f6",
           primaryColor: "#3b82f6",
-          secondaryColor: "#a855f7",
-          cardBg: "#f9fafb",
-          borderColor: "#e5e7eb"
+          secondaryColor: "#a855f7"
         };
     }
   };
@@ -160,10 +148,7 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
       <div className="max-w-7xl mx-auto p-6">
         <div className="grid lg:grid-cols-2 gap-8 min-h-screen">
           {/* Left Side - Profile */}
-          <div 
-            className="rounded-lg shadow-lg p-8 h-fit sticky top-6"
-            style={{ backgroundColor: themeStyles.cardBg }}
-          >
+          <div className="bg-white rounded-lg shadow-lg p-8 h-fit sticky top-6">
             <div className="text-center mb-8">
               <Avatar className="w-32 h-32 mx-auto mb-6 border-4 border-white shadow-lg">
                 <AvatarImage src={profileData.avatar_url} />
@@ -272,20 +257,20 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
             {/* Experience */}
             {profileData.experience && profileData.experience.length > 0 && (
               <div className="mb-8">
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: themeStyles.color }}>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <Briefcase className="h-5 w-5" />
                   Experience
                 </h3>
                 <div className="space-y-4">
                   {profileData.experience.map((exp) => (
-                    <div key={exp.id} className="border-l-4 pl-4" style={{ borderColor: themeStyles.primaryColor }}>
-                      <h4 className="font-semibold" style={{ color: themeStyles.color }}>{exp.role}</h4>
-                      <p className="font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
-                      <p className="text-sm" style={{ color: themeStyles.accentColor }}>
+                    <div key={exp.id} className="border-l-4 border-blue-500 pl-4">
+                      <h4 className="font-semibold text-gray-800">{exp.role}</h4>
+                      <p className="text-blue-600 font-medium">{exp.company}</p>
+                      <p className="text-sm text-gray-500">
                         {formatDateRange(exp.startDate, exp.endDate)}
                       </p>
                       {exp.description && (
-                        <p className="text-sm mt-1" style={{ color: themeStyles.accentColor }}>{exp.description}</p>
+                        <p className="text-sm text-gray-600 mt-1">{exp.description}</p>
                       )}
                     </div>
                   ))}
@@ -296,16 +281,16 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
             {/* Education */}
             {profileData.education && profileData.education.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2" style={{ color: themeStyles.color }}>
+                <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
                   <GraduationCap className="h-5 w-5" />
                   Education
                 </h3>
                 <div className="space-y-4">
                   {profileData.education.map((edu) => (
-                    <div key={edu.id} className="border-l-4 pl-4" style={{ borderColor: themeStyles.secondaryColor }}>
-                      <h4 className="font-semibold" style={{ color: themeStyles.color }}>{edu.degree}</h4>
-                      <p className="font-medium" style={{ color: themeStyles.secondaryColor }}>{edu.institution}</p>
-                      <p className="text-sm" style={{ color: themeStyles.accentColor }}>{edu.graduationYear}</p>
+                    <div key={edu.id} className="border-l-4 border-purple-500 pl-4">
+                      <h4 className="font-semibold text-gray-800">{edu.degree}</h4>
+                      <p className="text-purple-600 font-medium">{edu.institution}</p>
+                      <p className="text-sm text-gray-500">{edu.graduationYear}</p>
                     </div>
                   ))}
                 </div>
