@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { User, Settings, LogOut } from 'lucide-react';
+import { User, Settings, LogOut, Save } from 'lucide-react';
 import QuizResultsSection from '@/components/profile/QuizResultsSection';
 import CareerPathwaySection from '@/components/profile/CareerPathwaySection';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
@@ -17,6 +17,7 @@ import { useProfileUpdate } from '@/hooks/useProfileUpdate';
 import { supabase } from '@/integrations/supabase/client';
 import { UserWithProfile } from '@/types/index';
 import { useCareerPathwayResults } from '@/hooks/useCareerPathwayResults';
+import { useToast } from '@/hooks/use-toast';
 
 interface UserProfile {
   first_name: string;
@@ -33,12 +34,14 @@ const Profile = () => {
   const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const { updateProfile, loading } = useProfileUpdate();
+  const { toast } = useToast();
   const [enrolledCourses, setEnrolledCourses] = useState([]);
   const [formData, setFormData] = useState<UserProfile>({
     first_name: '',
     last_name: '',
     bio: '',
   });
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string | number>>({});
 
@@ -59,11 +62,12 @@ const Profile = () => {
           .single();
 
         if (data && !error) {
-          setFormData({
+          const profileData = {
             first_name: data.first_name || '',
             last_name: data.last_name || '',
             bio: data.bio || '',
-          });
+          };
+          setFormData(profileData);
         }
       };
 
@@ -101,11 +105,26 @@ const Profile = () => {
     }
   }, [user, isAuthenticated, navigate]);
 
+  const handleInputChange = (field: keyof UserProfile, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setHasUnsavedChanges(true);
+  };
+
   const handleSaveProfile = async () => {
     try {
       await updateProfile(formData);
+      setHasUnsavedChanges(false);
+      toast({
+        title: "Success",
+        description: "Profile updated successfully",
+      });
     } catch (error) {
       console.error('Error saving profile:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save profile changes",
+        variant: "destructive",
+      });
     }
   };
 
@@ -154,14 +173,14 @@ const Profile = () => {
                     <Input
                       placeholder="First Name"
                       value={formData.first_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                      onChange={(e) => handleInputChange('first_name', e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
                     <Input
                       placeholder="Last Name"
                       value={formData.last_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                      onChange={(e) => handleInputChange('last_name', e.target.value)}
                     />
                   </div>
                 </div>
@@ -170,15 +189,20 @@ const Profile = () => {
                   <Textarea
                     placeholder="Tell us about yourself"
                     value={formData.bio}
-                    onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
+                    onChange={(e) => handleInputChange('bio', e.target.value)}
                     className="resize-none"
                     rows={4}
                   />
                 </div>
               </CardContent>
               <CardFooter>
-                <Button onClick={handleSaveProfile} disabled={loading}>
-                  Save Changes
+                <Button 
+                  onClick={handleSaveProfile} 
+                  disabled={loading || !hasUnsavedChanges}
+                  className="w-full"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  {loading ? 'Saving...' : 'Save Changes'}
                 </Button>
               </CardFooter>
             </Card>

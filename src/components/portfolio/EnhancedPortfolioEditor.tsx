@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -9,7 +10,7 @@ import { Switch } from '@/components/ui/switch';
 import { Eye, Save, Share2, Download, ExternalLink, ArrowLeft } from 'lucide-react';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { PortfolioPage, ProfileData, PortfolioTheme } from '@/types/portfolio';
-import { toast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-toast';
 import { ProfileSection } from './ProfileSection';
 import { EnhancedProjectCard } from './EnhancedProjectCard';
 import { LayoutPreview } from './LayoutPreview';
@@ -24,6 +25,7 @@ interface EnhancedPortfolioEditorProps {
 export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEditorProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
   const { updatePortfolioPage, exportPortfolioAsCSV, getShareableLink } = usePortfolioPages();
   
   const [title, setTitle] = useState(portfolioPage.title);
