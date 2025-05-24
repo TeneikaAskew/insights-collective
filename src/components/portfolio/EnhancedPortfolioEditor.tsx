@@ -253,27 +253,6 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     custom_url: customUrl
   };
 
-  // COMPREHENSIVE DEBUG LOGGING FOR PROJECTS
-  console.log('=== PORTFOLIO PROJECTS DEBUG ===');
-  console.log('1. Raw portfolioPage:', portfolioPage);
-  console.log('2. portfolioPage.projects exists?', !!portfolioPage.projects);
-  console.log('3. portfolioPage.projects type:', typeof portfolioPage.projects);
-  console.log('4. portfolioPage.projects value:', portfolioPage.projects);
-  console.log('5. portfolioPage.projects length:', portfolioPage.projects?.length);
-  console.log('6. portfolioPage.projects isArray?', Array.isArray(portfolioPage.projects));
-  
-  if (portfolioPage.projects) {
-    portfolioPage.projects.forEach((project, index) => {
-      console.log(`7. Project ${index}:`, project);
-      console.log(`8. Project ${index} has project?`, !!project.project);
-      console.log(`9. Project ${index} project data:`, project.project);
-    });
-  }
-  
-  console.log('10. Condition portfolioPage.projects && portfolioPage.projects.length > 0:', 
-    portfolioPage.projects && portfolioPage.projects.length > 0);
-  console.log('=== END DEBUG ===');
-
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -437,13 +416,6 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
               <CardDescription>Projects from your portfolio</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-medium text-blue-800 mb-2">Debug Information:</h4>
-                <p className="text-sm text-blue-700">Projects found: {portfolioPage.projects?.length || 0}</p>
-                <p className="text-sm text-blue-700">Projects array exists: {portfolioPage.projects ? 'Yes' : 'No'}</p>
-                <p className="text-sm text-blue-700">Is array: {Array.isArray(portfolioPage.projects) ? 'Yes' : 'No'}</p>
-              </div>
-              
               {(!portfolioPage.projects || !Array.isArray(portfolioPage.projects) || portfolioPage.projects.length === 0) ? (
                 <div className="text-center py-12">
                   <p className="text-muted-foreground mb-4">
@@ -458,15 +430,12 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
                 </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {portfolioPage.projects.map((projectItem) => {
-                    console.log('Rendering project item in loop:', projectItem);
-                    return (
-                      <EnhancedProjectCard
-                        key={projectItem.id}
-                        projectItem={projectItem}
-                      />
-                    );
-                  })}
+                  {portfolioPage.projects.map((projectItem) => (
+                    <EnhancedProjectCard
+                      key={projectItem.id}
+                      projectItem={projectItem}
+                    />
+                  ))}
                 </div>
               )}
             </CardContent>
