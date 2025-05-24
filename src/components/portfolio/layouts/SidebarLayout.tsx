@@ -17,7 +17,9 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           fontFamily: "'Inter', sans-serif",
           color: "#333333",
           accentColor: "#6b7280",
-          sidebarBg: "#f9fafb"
+          sidebarBg: "#f9fafb",
+          primaryColor: "#6b7280",
+          secondaryColor: "#9ca3af"
         };
       case 'professional':
         return {
@@ -25,7 +27,9 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           fontFamily: "'Georgia', serif",
           color: "#2c3e50",
           accentColor: "#3b82f6",
-          sidebarBg: "#ffffff"
+          sidebarBg: "#ffffff",
+          primaryColor: "#3b82f6",
+          secondaryColor: "#1e40af"
         };
       case 'creative':
         return {
@@ -33,7 +37,9 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           fontFamily: "'Poppins', sans-serif",
           color: "#333333",
           accentColor: "#a855f7",
-          sidebarBg: "#fef7ff"
+          sidebarBg: "#fef7ff",
+          primaryColor: "#a855f7",
+          secondaryColor: "#7c3aed"
         };
       case 'modern':
         return {
@@ -41,7 +47,9 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           fontFamily: "'Inter', sans-serif",
           color: "#065f46",
           accentColor: "#10b981",
-          sidebarBg: "#ffffff"
+          sidebarBg: "#ffffff",
+          primaryColor: "#10b981",
+          secondaryColor: "#059669"
         };
       case 'elegant':
         return {
@@ -49,7 +57,9 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           fontFamily: "'Playfair Display', serif",
           color: "#7f1d1d",
           accentColor: "#dc2626",
-          sidebarBg: "#ffffff"
+          sidebarBg: "#ffffff",
+          primaryColor: "#dc2626",
+          secondaryColor: "#b91c1c"
         };
       default:
         return {
@@ -57,7 +67,9 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
           fontFamily: "'system-ui', sans-serif",
           color: "#111827",
           accentColor: "#3b82f6",
-          sidebarBg: "#f9fafb"
+          sidebarBg: "#f9fafb",
+          primaryColor: "#3b82f6",
+          secondaryColor: "#a855f7"
         };
     }
   };
@@ -136,6 +148,11 @@ export function SidebarLayout({ portfolioPage }: SidebarLayoutProps) {
                 projectItem={projectItem}
                 theme={portfolioPage.theme}
                 layout="sidebar"
+                themeColors={{
+                  primary: themeStyles.primaryColor,
+                  secondary: themeStyles.secondaryColor,
+                  accent: themeStyles.accentColor
+                }}
               />
             ))}
           </div>

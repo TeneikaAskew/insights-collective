@@ -15,42 +15,54 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           backgroundColor: "#ffffff",
           fontFamily: "'Inter', sans-serif",
           color: "#333333",
-          accentColor: "#6b7280"
+          accentColor: "#6b7280",
+          primaryColor: "#6b7280",
+          secondaryColor: "#9ca3af"
         };
       case 'professional':
         return {
           backgroundColor: "#f8f9fa",
           fontFamily: "'Georgia', serif",
           color: "#2c3e50",
-          accentColor: "#3b82f6"
+          accentColor: "#3b82f6",
+          primaryColor: "#3b82f6",
+          secondaryColor: "#1e40af"
         };
       case 'creative':
         return {
           backgroundColor: "#fff8f3",
           fontFamily: "'Poppins', sans-serif",
           color: "#333333",
-          accentColor: "#a855f7"
+          accentColor: "#a855f7",
+          primaryColor: "#a855f7",
+          secondaryColor: "#7c3aed"
         };
       case 'modern':
         return {
           backgroundColor: "#f0fdf4",
           fontFamily: "'Inter', sans-serif",
           color: "#065f46",
-          accentColor: "#10b981"
+          accentColor: "#10b981",
+          primaryColor: "#10b981",
+          secondaryColor: "#059669"
         };
       case 'elegant':
         return {
           backgroundColor: "#fef2f2",
           fontFamily: "'Playfair Display', serif",
           color: "#7f1d1d",
-          accentColor: "#dc2626"
+          accentColor: "#dc2626",
+          primaryColor: "#dc2626",
+          secondaryColor: "#b91c1c"
         };
       default:
         return {
           backgroundColor: "#ffffff",
           fontFamily: "'system-ui', sans-serif",
           color: "#111827",
-          accentColor: "#3b82f6"
+          accentColor: "#3b82f6",
+          primaryColor: "#3b82f6",
+          secondaryColor: "#a855f7"
         };
     }
   };
@@ -98,6 +110,11 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
                 projectItem={projectItem}
                 theme={portfolioPage.theme}
                 layout="grid"
+                themeColors={{
+                  primary: themeStyles.primaryColor,
+                  secondary: themeStyles.secondaryColor,
+                  accent: themeStyles.accentColor
+                }}
               />
             ))}
           </div>

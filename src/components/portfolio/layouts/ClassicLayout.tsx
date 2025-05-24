@@ -21,7 +21,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
           color: "#333333",
           accentColor: "#6b7280",
           cardBg: "#f9fafb",
-          borderColor: "#e5e7eb"
+          borderColor: "#e5e7eb",
+          primaryColor: "#6b7280",
+          secondaryColor: "#9ca3af"
         };
       case 'professional':
         return {
@@ -30,7 +32,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
           color: "#2c3e50",
           accentColor: "#3b82f6",
           cardBg: "#ffffff",
-          borderColor: "#d1d5db"
+          borderColor: "#d1d5db",
+          primaryColor: "#3b82f6",
+          secondaryColor: "#1e40af"
         };
       case 'creative':
         return {
@@ -39,7 +43,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
           color: "#333333",
           accentColor: "#a855f7",
           cardBg: "#fef7ff",
-          borderColor: "#e879f9"
+          borderColor: "#e879f9",
+          primaryColor: "#a855f7",
+          secondaryColor: "#7c3aed"
         };
       case 'modern':
         return {
@@ -48,7 +54,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
           color: "#065f46",
           accentColor: "#10b981",
           cardBg: "#ffffff",
-          borderColor: "#6ee7b7"
+          borderColor: "#6ee7b7",
+          primaryColor: "#10b981",
+          secondaryColor: "#059669"
         };
       case 'elegant':
         return {
@@ -57,7 +65,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
           color: "#7f1d1d",
           accentColor: "#dc2626",
           cardBg: "#ffffff",
-          borderColor: "#fca5a5"
+          borderColor: "#fca5a5",
+          primaryColor: "#dc2626",
+          secondaryColor: "#b91c1c"
         };
       default:
         return {
@@ -66,7 +76,9 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
           color: "#111827",
           accentColor: "#3b82f6",
           cardBg: "#f9fafb",
-          borderColor: "#e5e7eb"
+          borderColor: "#e5e7eb",
+          primaryColor: "#3b82f6",
+          secondaryColor: "#a855f7"
         };
     }
   };
@@ -214,7 +226,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
-                              style={{ backgroundColor: themeStyles.accentColor }}
+                              style={{ backgroundColor: themeStyles.primaryColor }}
                             >
                               <Github className="h-4 w-4" />
                               Code
@@ -226,7 +238,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
-                              style={{ backgroundColor: themeStyles.accentColor }}
+                              style={{ backgroundColor: themeStyles.secondaryColor }}
                             >
                               <ExternalLink className="h-4 w-4" />
                               Live Demo

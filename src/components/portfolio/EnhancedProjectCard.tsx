@@ -6,13 +6,25 @@ import { Badge } from '@/components/ui/badge';
 import { ExternalLink, Github, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PortfolioPageProject } from '@/types/portfolio';
 
+interface ThemeColors {
+  primary: string;
+  secondary: string;
+  accent: string;
+}
+
 interface EnhancedProjectCardProps {
   projectItem: PortfolioPageProject;
   layout?: string;
   theme?: string;
+  themeColors?: ThemeColors;
 }
 
-export function EnhancedProjectCard({ projectItem, layout = 'default', theme = 'default' }: EnhancedProjectCardProps) {
+export function EnhancedProjectCard({ 
+  projectItem, 
+  layout = 'default', 
+  theme = 'default',
+  themeColors
+}: EnhancedProjectCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   
@@ -29,12 +41,26 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
   const hasImages = projectImages.length > 0;
 
   const getThemeStyles = () => {
+    // Use passed theme colors if available, otherwise fall back to theme-based colors
+    if (themeColors) {
+      return {
+        cardClass: 'border-gray-200 hover:border-gray-300 bg-white',
+        textClass: 'text-gray-800',
+        accentColor: themeColors.accent,
+        primaryColor: themeColors.primary,
+        secondaryColor: themeColors.secondary,
+        bgColor: '#ffffff'
+      };
+    }
+
     switch (theme) {
       case 'minimal':
         return {
           cardClass: 'border-gray-200 hover:border-gray-300 bg-white',
           textClass: 'text-gray-800',
           accentColor: '#6b7280',
+          primaryColor: '#6b7280',
+          secondaryColor: '#9ca3af',
           bgColor: '#ffffff'
         };
       case 'professional':
@@ -42,6 +68,8 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
           cardClass: 'border-gray-300 hover:border-blue-300 shadow-sm bg-white',
           textClass: 'text-gray-900',
           accentColor: '#3b82f6',
+          primaryColor: '#3b82f6',
+          secondaryColor: '#1e40af',
           bgColor: '#ffffff'
         };
       case 'creative':
@@ -49,6 +77,8 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
           cardClass: 'border-purple-200 hover:border-purple-300 bg-gradient-to-br from-white to-purple-50',
           textClass: 'text-purple-900',
           accentColor: '#a855f7',
+          primaryColor: '#a855f7',
+          secondaryColor: '#7c3aed',
           bgColor: '#fef7ff'
         };
       case 'modern':
@@ -56,6 +86,8 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
           cardClass: 'border-green-200 hover:border-green-300 bg-white',
           textClass: 'text-green-900',
           accentColor: '#10b981',
+          primaryColor: '#10b981',
+          secondaryColor: '#059669',
           bgColor: '#ffffff'
         };
       case 'elegant':
@@ -63,6 +95,8 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
           cardClass: 'border-red-200 hover:border-red-300 bg-white',
           textClass: 'text-red-900',
           accentColor: '#dc2626',
+          primaryColor: '#dc2626',
+          secondaryColor: '#b91c1c',
           bgColor: '#ffffff'
         };
       default:
@@ -70,6 +104,8 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
           cardClass: 'border-gray-200 hover:border-blue-300 bg-white',
           textClass: 'text-gray-800',
           accentColor: '#3b82f6',
+          primaryColor: '#3b82f6',
+          secondaryColor: '#a855f7',
           bgColor: '#ffffff'
         };
     }
@@ -187,7 +223,7 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
                   className="h-8 w-8 p-0"
                   onClick={() => handleLinkClick(project.live_url)}
                   title="View live demo"
-                  style={{ borderColor: themeStyles.accentColor, color: themeStyles.accentColor }}
+                  style={{ borderColor: themeStyles.primaryColor, color: themeStyles.primaryColor }}
                 >
                   <ExternalLink className="h-4 w-4" />
                 </Button>
@@ -199,7 +235,7 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
                   className="h-8 w-8 p-0"
                   onClick={() => handleLinkClick(project.github_url)}
                   title="View source code"
-                  style={{ borderColor: themeStyles.accentColor, color: themeStyles.accentColor }}
+                  style={{ borderColor: themeStyles.secondaryColor, color: themeStyles.secondaryColor }}
                 >
                   <Github className="h-4 w-4" />
                 </Button>
