@@ -105,24 +105,25 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-full p-0" align="start">
-            <Command>
+          <PopoverContent className="w-full p-0 bg-white border shadow-lg z-50" align="start">
+            <Command className="bg-white">
               <CommandInput
                 placeholder="Search cities..."
                 value={searchQuery}
                 onValueChange={handleInputChange}
+                className="border-0 focus:ring-0"
               />
-              <CommandList>
+              <CommandList className="max-h-[200px] overflow-y-auto bg-white">
                 {suggestions.length === 0 && searchQuery.length >= 3 ? (
-                  <CommandEmpty>
-                    <div className="flex flex-col items-center gap-2 py-2">
+                  <CommandEmpty className="py-6 text-center text-sm">
+                    <div className="flex flex-col items-center gap-2">
                       <span>No cities found.</span>
                       {validateCityName(searchQuery).isValid && (
                         <Button
                           variant="ghost"
                           size="sm"
                           onClick={handleAddCustomCity}
-                          className="flex items-center gap-2"
+                          className="flex items-center gap-2 hover:bg-gray-100"
                         >
                           <Plus className="h-4 w-4" />
                           Add "{formatCityName(searchQuery)}"
@@ -131,9 +132,13 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
                     </div>
                   </CommandEmpty>
                 ) : searchQuery.length > 0 && searchQuery.length < 3 ? (
-                  <CommandEmpty>Type at least 3 characters to search</CommandEmpty>
+                  <CommandEmpty className="py-6 text-center text-sm">
+                    Type at least 3 characters to search
+                  </CommandEmpty>
                 ) : (
-                  <CommandEmpty>No cities found.</CommandEmpty>
+                  <CommandEmpty className="py-6 text-center text-sm">
+                    No cities found.
+                  </CommandEmpty>
                 )}
                 <CommandGroup>
                   {suggestions.map((city) => (
@@ -141,6 +146,7 @@ export function CityAutocomplete({ value, onChange, country, state, placeholder 
                       key={city}
                       value={city}
                       onSelect={() => handleSelectCity(city)}
+                      className="cursor-pointer hover:bg-gray-100 px-3 py-2 text-sm"
                     >
                       <Check
                         className={cn(
