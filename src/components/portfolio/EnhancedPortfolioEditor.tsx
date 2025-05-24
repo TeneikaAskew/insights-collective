@@ -254,6 +254,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     custom_url: customUrl
   };
 
+  // Debug logging for projects
+  console.log('Portfolio page projects in editor:', portfolioPage.projects);
+  console.log('Portfolio page data structure:', portfolioPage);
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -417,14 +421,18 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
               <CardDescription>Projects from your portfolio</CardDescription>
             </CardHeader>
             <CardContent>
+              {console.log('Checking projects:', portfolioPage.projects)}
               {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {portfolioPage.projects.map((projectItem) => (
-                    <EnhancedProjectCard
-                      key={projectItem.id}
-                      projectItem={projectItem}
-                    />
-                  ))}
+                  {portfolioPage.projects.map((projectItem) => {
+                    console.log('Rendering project item:', projectItem);
+                    return (
+                      <EnhancedProjectCard
+                        key={projectItem.id}
+                        projectItem={projectItem}
+                      />
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-12">

@@ -9,6 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { CheckCircle2, Loader2, Plus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
 
 interface AddToPortfolioProps {
   project: PortfolioProject;
@@ -17,6 +18,7 @@ interface AddToPortfolioProps {
 export function AddToPortfolio({ project }: AddToPortfolioProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { portfolioPages, pagesLoading, addProjectToPage } = usePortfolioPages();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [addingToPage, setAddingToPage] = useState<string | null>(null);
@@ -40,14 +42,25 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
       console.log('Successfully added project to page:', result);
       setAddedToPages((prev) => [...prev, pageId]);
       
+      // Show success toast
+      const page = portfolioPages?.find(p => p.id === pageId);
+      toast({
+        title: "Success!",
+        description: `"${project.title}" was added to "${page?.title || 'your portfolio'}"`,
+      });
+      
       // Close dialog after successful addition
       setTimeout(() => {
         setDialogOpen(false);
-      }, 1000);
+      }, 1500);
       
     } catch (error) {
       console.error('Error adding project to page:', error);
-      // Don't close dialog on error so user can try again
+      toast({
+        title: "Error",
+        description: "Failed to add project to portfolio. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setAddingToPage(null);
     }
