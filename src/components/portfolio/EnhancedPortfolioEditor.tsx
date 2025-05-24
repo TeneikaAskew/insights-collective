@@ -31,6 +31,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   const [isPublic, setIsPublic] = useState(portfolioPage.is_public || false);
   const [customUrl, setCustomUrl] = useState(portfolioPage.custom_url || '');
   const [theme, setTheme] = useState<PortfolioTheme>(portfolioPage.theme as PortfolioTheme || 'default');
+  const [layout, setLayout] = useState(portfolioPage.layout || 'classic');
   const [profileData, setProfileData] = useState<ProfileData>(portfolioPage.profile_data || {
     avatar_url: '',
     professional_summary: '',
@@ -124,7 +125,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     }, 1000);
 
     return () => clearTimeout(saveTimer);
-  }, [profileData, title, description, isPublic, customUrl, theme]);
+  }, [profileData, title, description, isPublic, customUrl, theme, layout]);
 
   const handleSave = async () => {
     try {
@@ -135,6 +136,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         is_public: isPublic,
         custom_url: customUrl,
         theme,
+        layout,
         profile_data: profileData,
       });
     } catch (error) {
@@ -193,6 +195,8 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     { value: 'elegant', label: 'Elegant', color: 'bg-rose-500' },
   ];
 
+  const layouts = ['sidebar', 'hero-timeline', 'grid', 'classic', 'split', 'hero-focus'];
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -245,12 +249,12 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-                {['sidebar', 'hero-timeline', 'grid', 'classic', 'split', 'hero-focus'].map((layout) => (
+                {layouts.map((layoutOption) => (
                   <LayoutPreview
-                    key={layout}
-                    layout={layout}
-                    isSelected={false}
-                    onSelect={() => {}}
+                    key={layoutOption}
+                    layout={layoutOption}
+                    isSelected={layout === layoutOption}
+                    onSelect={() => setLayout(layoutOption)}
                   />
                 ))}
               </div>

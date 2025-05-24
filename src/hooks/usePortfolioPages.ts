@@ -106,6 +106,7 @@ export function usePortfolioPages() {
       title?: string;
       description?: string;
       theme?: PortfolioTheme;
+      layout?: string;
       is_public?: boolean;
       custom_url?: string;
       profile_data?: ProfileData;
@@ -116,6 +117,7 @@ export function usePortfolioPages() {
           title: pageData.title,
           description: pageData.description,
           theme: pageData.theme,
+          layout: pageData.layout,
           is_public: pageData.is_public,
           custom_url: pageData.custom_url,
           profile_data: pageData.profile_data,

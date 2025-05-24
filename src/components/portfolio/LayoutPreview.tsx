@@ -1,8 +1,7 @@
 
 import React from 'react';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { User, MapPin, Mail, Github, Linkedin, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 interface LayoutPreviewProps {
   layout: string;
@@ -16,25 +15,27 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       case 'sidebar':
         return (
           <div className="w-full h-32 bg-white border rounded-md overflow-hidden relative">
-            {/* Sidebar */}
-            <div className="absolute left-0 top-0 w-1/3 h-full bg-gray-100 border-r">
+            <div className="absolute left-0 top-0 w-1/3 h-full bg-blue-50 border-r">
               <div className="p-2 space-y-2">
-                <div className="w-8 h-8 bg-blue-400 rounded-full mx-auto"></div>
+                <div className="w-8 h-8 bg-blue-500 rounded-full mx-auto"></div>
                 <div className="h-2 bg-gray-300 rounded w-3/4 mx-auto"></div>
                 <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
                 <div className="space-y-1 mt-3">
-                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
-                  <div className="h-1 bg-gray-200 rounded w-1/2"></div>
+                  <div className="h-1 bg-gray-200 rounded w-2/3 mx-auto"></div>
+                  <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
                 </div>
               </div>
             </div>
-            {/* Main content area */}
             <div className="absolute left-1/3 top-0 right-0 h-full p-2">
-              <div className="grid grid-cols-2 gap-1 h-full">
-                <div className="bg-gray-50 rounded border"></div>
-                <div className="bg-gray-50 rounded border"></div>
-                <div className="bg-gray-50 rounded border"></div>
-                <div className="bg-gray-50 rounded border"></div>
+              <div className="grid grid-cols-1 gap-2 h-full">
+                <div className="bg-gray-50 rounded border p-2">
+                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-1 bg-gray-200 rounded w-3/4"></div>
+                </div>
+                <div className="bg-gray-50 rounded border p-2">
+                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -43,13 +44,14 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       case 'hero-timeline':
         return (
           <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
-            {/* Hero section */}
             <div className="h-12 bg-gradient-to-r from-blue-400 to-purple-400 relative">
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-6 h-6 bg-white rounded-full"></div>
+                <div className="text-center">
+                  <div className="w-6 h-6 bg-white rounded-full mx-auto mb-1"></div>
+                  <div className="h-1 bg-white/80 rounded w-16 mx-auto"></div>
+                </div>
               </div>
             </div>
-            {/* Timeline content */}
             <div className="p-2 space-y-2">
               <div className="flex items-start gap-2">
                 <div className="w-2 h-2 bg-blue-400 rounded-full mt-1 flex-shrink-0"></div>
@@ -72,22 +74,36 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       case 'grid':
         return (
           <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
-            {/* Header */}
-            <div className="h-8 bg-gray-100 border-b flex items-center px-2">
+            <div className="h-6 bg-gray-100 border-b flex items-center px-2">
               <div className="w-4 h-4 bg-gray-300 rounded-full mr-2"></div>
               <div className="h-1 bg-gray-300 rounded flex-1"></div>
             </div>
-            {/* Grid content */}
             <div className="p-2">
-              <div className="grid grid-cols-4 gap-1 h-20">
-                <div className="bg-gray-100 rounded"></div>
-                <div className="bg-gray-100 rounded"></div>
-                <div className="bg-gray-100 rounded"></div>
-                <div className="bg-gray-100 rounded"></div>
-                <div className="bg-gray-50 rounded"></div>
-                <div className="bg-gray-50 rounded"></div>
-                <div className="bg-gray-50 rounded"></div>
-                <div className="bg-gray-50 rounded"></div>
+              <div className="grid grid-cols-3 gap-1 h-20">
+                <div className="bg-gray-100 rounded p-1">
+                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                </div>
+                <div className="bg-gray-100 rounded p-1">
+                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-1 bg-gray-200 rounded w-3/4"></div>
+                </div>
+                <div className="bg-gray-100 rounded p-1">
+                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-1 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className="bg-gray-50 rounded p-1">
+                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-1 bg-gray-200 rounded w-3/4"></div>
+                </div>
+                <div className="bg-gray-50 rounded p-1">
+                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-1 bg-gray-200 rounded w-1/2"></div>
+                </div>
+                <div className="bg-gray-50 rounded p-1">
+                  <div className="h-1 bg-gray-300 rounded mb-1"></div>
+                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -96,19 +112,21 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       case 'classic':
         return (
           <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
-            {/* Header */}
-            <div className="h-10 bg-gray-100 border-b flex flex-col items-center justify-center">
-              <div className="w-6 h-6 bg-gray-300 rounded-full mb-1"></div>
-              <div className="h-1 bg-gray-300 rounded w-16"></div>
+            <div className="h-8 bg-gray-100 border-b flex flex-col items-center justify-center">
+              <div className="w-4 h-4 bg-gray-300 rounded-full mb-1"></div>
+              <div className="h-1 bg-gray-300 rounded w-12"></div>
             </div>
-            {/* Content sections */}
             <div className="p-2 space-y-2">
               <div className="h-2 bg-gray-200 rounded w-full"></div>
               <div className="h-1 bg-gray-100 rounded w-3/4"></div>
               <div className="h-1 bg-gray-100 rounded w-1/2"></div>
-              <div className="mt-3 space-y-1">
-                <div className="h-3 bg-gray-50 rounded border"></div>
-                <div className="h-3 bg-gray-50 rounded border"></div>
+              <div className="mt-2 space-y-1">
+                <div className="h-4 bg-gray-50 rounded border p-1">
+                  <div className="h-1 bg-gray-200 rounded w-2/3"></div>
+                </div>
+                <div className="h-4 bg-gray-50 rounded border p-1">
+                  <div className="h-1 bg-gray-200 rounded w-3/4"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -118,24 +136,27 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
         return (
           <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
             <div className="flex h-full">
-              {/* Left side - Profile */}
               <div className="w-1/2 bg-gray-50 border-r p-2">
-                <div className="text-center space-y-2">
-                  <div className="w-8 h-8 bg-blue-400 rounded-full mx-auto"></div>
-                  <div className="h-2 bg-gray-300 rounded w-3/4 mx-auto"></div>
+                <div className="text-center space-y-1">
+                  <div className="w-6 h-6 bg-blue-400 rounded-full mx-auto"></div>
+                  <div className="h-1 bg-gray-300 rounded w-3/4 mx-auto"></div>
                   <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
-                  <div className="space-y-1 mt-3">
+                  <div className="space-y-1 mt-2">
                     <div className="h-1 bg-gray-200 rounded w-2/3 mx-auto"></div>
                     <div className="h-1 bg-gray-200 rounded w-1/2 mx-auto"></div>
                   </div>
                 </div>
               </div>
-              {/* Right side - Projects */}
               <div className="w-1/2 p-2 space-y-1">
-                <div className="h-6 bg-gray-100 rounded border"></div>
-                <div className="h-6 bg-gray-100 rounded border"></div>
-                <div className="h-6 bg-gray-100 rounded border"></div>
-                <div className="h-6 bg-gray-50 rounded border"></div>
+                <div className="h-4 bg-gray-100 rounded border p-1">
+                  <div className="h-1 bg-gray-300 rounded"></div>
+                </div>
+                <div className="h-4 bg-gray-100 rounded border p-1">
+                  <div className="h-1 bg-gray-300 rounded w-3/4"></div>
+                </div>
+                <div className="h-4 bg-gray-100 rounded border p-1">
+                  <div className="h-1 bg-gray-300 rounded w-2/3"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -144,16 +165,17 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       case 'hero-focus':
         return (
           <div className="w-full h-32 bg-white border rounded-md overflow-hidden">
-            {/* Large hero section */}
             <div className="h-20 bg-gradient-to-r from-blue-400 to-purple-400 relative">
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <div className="w-8 h-8 bg-white rounded-full mb-2"></div>
-                <div className="h-2 bg-white/80 rounded w-20"></div>
+                <div className="h-1 bg-white/80 rounded w-20 mb-1"></div>
+                <div className="h-1 bg-white/60 rounded w-16"></div>
               </div>
             </div>
-            {/* Featured content */}
             <div className="p-2">
-              <div className="h-8 bg-gray-100 rounded border"></div>
+              <div className="h-6 bg-gray-100 rounded border p-1">
+                <div className="h-1 bg-gray-300 rounded w-3/4"></div>
+              </div>
             </div>
           </div>
         );
@@ -171,7 +193,7 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
     const names = {
       'sidebar': 'Sidebar Profile',
       'hero-timeline': 'Hero Banner + Timeline',
-      'grid': 'Grid Focus',
+      'grid': 'Project Grid',
       'classic': 'Classic',
       'split': 'Split View',
       'hero-focus': 'Hero Focus'
@@ -197,7 +219,7 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
       )}
       
       <div className="p-4">
-        <div className="mb-4">
+        <div className="mb-3">
           {renderPreview()}
         </div>
         
@@ -206,7 +228,7 @@ export function LayoutPreview({ layout, isSelected, onSelect }: LayoutPreviewPro
           <p className="text-xs text-gray-600 leading-relaxed">
             {layout === 'sidebar' && 'Profile sidebar with project grid layout'}
             {layout === 'hero-timeline' && 'Large hero header with timeline-style projects'}
-            {layout === 'grid' && 'Masonry grid layout for showcasing work'}
+            {layout === 'grid' && 'Clean project grid layout for easy browsing'}
             {layout === 'classic' && 'Traditional top-down portfolio layout'}
             {layout === 'split' && 'Side-by-side profile and projects view'}
             {layout === 'hero-focus' && 'Prominent hero section with featured project'}
