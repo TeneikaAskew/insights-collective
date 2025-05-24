@@ -1,3 +1,4 @@
+
 export interface PortfolioProject {
   id: string;
   user_id: string;
@@ -100,6 +101,7 @@ export interface PortfolioPage {
   description?: string;
   theme: string;
   layout?: string;
+  font_family?: string;
   is_public: boolean;
   custom_url?: string;
   created_at?: string;

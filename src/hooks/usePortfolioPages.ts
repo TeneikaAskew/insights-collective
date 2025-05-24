@@ -1,21 +1,24 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
+import { PortfolioPage, PortfolioPageProject } from '@/types/portfolio';
 import { useToast } from '@/hooks/use-toast';
-import { PortfolioPage, PortfolioPageProject, PortfolioTheme } from '@/types/portfolio';
 
-export function usePortfolioPages() {
-  const { user } = useAuth();
-  const { toast } = useToast();
+export const usePortfolioPages = () => {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  // Fetch portfolio pages
-  const { data: portfolioPages, isLoading: pagesLoading } = useQuery({
-    queryKey: ['portfolio-pages', user?.id],
+  // Fetch all portfolio pages for the current user
+  const {
+    data: portfolioPages = [],
+    isLoading: portfolioPagesLoading,
+    error: portfolioPagesError,
+    refetch: refetchPortfolioPages
+  } = useQuery({
+    queryKey: ['portfolio-pages'],
     queryFn: async () => {
-      if (!user) throw new Error('User not authenticated');
-
-      console.log('Fetching portfolio pages for user:', user.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('portfolio_pages')
@@ -23,137 +26,78 @@ export function usePortfolioPages() {
           *,
           portfolio_page_projects (
             *,
-            portfolio_projects (*)
+            project:projects (*)
           )
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching portfolio pages:', error);
-        throw error;
-      }
-      
-      console.log('Raw fetched portfolio pages:', data);
-      
-      // Transform the data to match PortfolioPage interface
-      const transformedData = data?.map(page => ({
+      if (error) throw error;
+
+      return data.map(page => ({
         ...page,
-        projects: (page.portfolio_page_projects || []).map(item => ({
-          ...item,
-          project: item.portfolio_projects
-        }))
+        projects: page.portfolio_page_projects?.map(pp => ({
+          ...pp,
+          project: pp.project
+        })) || []
       })) as PortfolioPage[];
-      
-      console.log('Transformed portfolio pages:', transformedData);
-      return transformedData;
     },
-    enabled: !!user,
   });
 
-  // Fetch a single portfolio page with projects
-  const usePortfolioPageWithProjects = (pageId: string) => {
-    return useQuery({
-      queryKey: ['portfolio-page', pageId],
-      queryFn: async () => {
-        if (!user) throw new Error('User not authenticated');
-
-        console.log('Fetching single portfolio page:', pageId);
-
-        const { data, error } = await supabase
-          .from('portfolio_pages')
-          .select(`
-            *,
-            portfolio_page_projects (
-              *,
-              portfolio_projects (*)
-            )
-          `)
-          .eq('id', pageId)
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) {
-          console.error('Error fetching portfolio page:', error);
-          throw error;
-        }
-        
-        console.log('Raw fetched single portfolio page:', data);
-        console.log('Raw portfolio_page_projects:', data.portfolio_page_projects);
-        
-        // Transform the data to match PortfolioPage interface
-        const transformedData = {
-          ...data,
-          projects: (data.portfolio_page_projects || []).map(item => ({
-            ...item,
-            project: item.portfolio_projects
-          }))
-        } as PortfolioPage;
-        
-        console.log('Transformed single portfolio page:', transformedData);
-        console.log('Transformed projects array:', transformedData.projects);
-        return transformedData;
-      },
-      enabled: !!user && !!pageId,
-    });
-  };
-
-  // Get public portfolio page
-  const getPublicPortfolioPage = async (customUrl: string) => {
-    console.log('Fetching public portfolio for customUrl:', customUrl);
-    
-    const { data, error } = await supabase
+  // Fetch a single portfolio page by ID or custom URL
+  const getPortfolioPage = async (identifier: string): Promise<PortfolioPage | null> => {
+    // First try to get by custom URL
+    let { data, error } = await supabase
       .from('portfolio_pages')
       .select(`
         *,
         portfolio_page_projects (
           *,
-          portfolio_projects (*)
+          project:projects (*)
         )
       `)
-      .eq('custom_url', customUrl)
+      .eq('custom_url', identifier)
       .eq('is_public', true)
-      .single();
+      .maybeSingle();
 
-    console.log('Raw public portfolio data:', data);
-    console.log('Raw portfolio_page_projects:', data?.portfolio_page_projects);
-
-    if (error) {
-      console.error('Error fetching public portfolio:', error);
-      throw error;
+    // If not found by custom URL, try by ID
+    if (!data && !error) {
+      ({ data, error } = await supabase
+        .from('portfolio_pages')
+        .select(`
+          *,
+          portfolio_page_projects (
+            *,
+            project:projects (*)
+          )
+        `)
+        .eq('id', identifier)
+        .eq('is_public', true)
+        .maybeSingle());
     }
-    
-    // Transform the data to match PortfolioPage interface
-    const transformedData = {
+
+    if (error) throw error;
+    if (!data) return null;
+
+    return {
       ...data,
-      projects: (data.portfolio_page_projects || []).map(item => ({
-        ...item,
-        project: item.portfolio_projects
-      }))
+      projects: data.portfolio_page_projects?.map((pp: any) => ({
+        ...pp,
+        project: pp.project
+      })) || []
     } as PortfolioPage;
-    
-    console.log('Transformed public portfolio data:', transformedData);
-    console.log('Transformed projects array:', transformedData.projects);
-    console.log('Number of projects:', transformedData.projects?.length || 0);
-    
-    return transformedData;
   };
 
-  // Add portfolio page
-  const addPortfolioPage = useMutation({
-    mutationFn: async (pageData: {
-      title: string;
-      description?: string;
-      theme: PortfolioTheme;
-      is_public: boolean;
-      custom_url?: string;
-    }) => {
-      if (!user) throw new Error('User not authenticated');
+  // Create a new portfolio page
+  const createPortfolioPage = useMutation({
+    mutationFn: async (portfolioPage: Omit<PortfolioPage, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
       const { data, error } = await supabase
         .from('portfolio_pages')
         .insert({
-          ...pageData,
+          ...portfolioPage,
           user_id: user.id,
         })
         .select()
@@ -166,41 +110,26 @@ export function usePortfolioPages() {
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
       toast({
         title: "Success",
-        description: "Portfolio page created successfully.",
+        description: "Portfolio page created successfully!",
       });
     },
-    onError: (error: any) => {
+    onError: (error) => {
+      console.error('Error creating portfolio page:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to create portfolio page.",
-        variant: "destructive",
+        description: "Failed to create portfolio page",
+        variant: "destructive"
       });
-    },
+    }
   });
 
-  // Update portfolio page
+  // Update a portfolio page
   const updatePortfolioPage = useMutation({
-    mutationFn: async (pageData: {
-      id: string;
-      title?: string;
-      description?: string;
-      theme?: PortfolioTheme;
-      layout?: string;
-      is_public?: boolean;
-      custom_url?: string;
-      profile_data?: any;
-    }) => {
-      if (!user) throw new Error('User not authenticated');
-
-      const { id, ...updateData } = pageData;
+    mutationFn: async ({ id, ...updates }: Partial<PortfolioPage> & { id: string }) => {
       const { data, error } = await supabase
         .from('portfolio_pages')
-        .update({
-          ...updateData,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updates)
         .eq('id', id)
-        .eq('user_id', user.id)
         .select()
         .single();
 
@@ -209,196 +138,67 @@ export function usePortfolioPages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
-      toast({
-        title: "Success",
-        description: "Portfolio page updated successfully.",
-      });
     },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update portfolio page.",
-        variant: "destructive",
-      });
-    },
+    onError: (error) => {
+      console.error('Error updating portfolio page:', error);
+      throw error;
+    }
   });
 
-  // Delete portfolio page
+  // Delete a portfolio page
   const deletePortfolioPage = useMutation({
-    mutationFn: async (pageId: string) => {
-      if (!user) throw new Error('User not authenticated');
-
+    mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('portfolio_pages')
         .delete()
-        .eq('id', pageId)
-        .eq('user_id', user.id);
+        .eq('id', id);
 
       if (error) throw error;
-      return pageId;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
       toast({
         title: "Success",
-        description: "Portfolio page deleted successfully.",
+        description: "Portfolio page deleted successfully!",
       });
     },
-    onError: (error: any) => {
+    onError: (error) => {
+      console.error('Error deleting portfolio page:', error);
       toast({
         title: "Error",
-        description: error.message || "Failed to delete portfolio page.",
-        variant: "destructive",
+        description: "Failed to delete portfolio page",
+        variant: "destructive"
       });
-    },
+    }
   });
 
   // Add project to portfolio page
-  const addProjectToPage = useMutation({
-    mutationFn: async ({ pageId, projectId }: { pageId: string; projectId: string }) => {
-      if (!user) throw new Error('User not authenticated');
-
-      console.log('Adding project to page mutation:', { pageId, projectId, userId: user.id });
-
-      // Check if project is already in this portfolio - use maybeSingle() instead of single()
-      const { data: existingProject } = await supabase
-        .from('portfolio_page_projects')
-        .select('id')
-        .eq('portfolio_page_id', pageId)
-        .eq('project_id', projectId)
-        .maybeSingle();
-
-      if (existingProject) {
-        console.log('Project already exists in portfolio');
-        throw new Error('Project is already in this portfolio');
-      }
-
-      // Get the highest display order for this portfolio
-      const { data: maxOrderData } = await supabase
+  const addProjectToPortfolio = useMutation({
+    mutationFn: async ({ portfolioPageId, projectId, customDescription }: {
+      portfolioPageId: string;
+      projectId: string;
+      customDescription?: string;
+    }) => {
+      // Get the current highest display order
+      const { data: existingProjects } = await supabase
         .from('portfolio_page_projects')
         .select('display_order')
-        .eq('portfolio_page_id', pageId)
+        .eq('portfolio_page_id', portfolioPageId)
         .order('display_order', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
-      const nextOrder = (maxOrderData?.display_order || 0) + 1;
-
-      console.log('Inserting portfolio page project with order:', nextOrder);
+      const nextDisplayOrder = existingProjects && existingProjects.length > 0 
+        ? existingProjects[0].display_order + 1 
+        : 0;
 
       const { data, error } = await supabase
         .from('portfolio_page_projects')
         .insert({
-          portfolio_page_id: pageId,
+          portfolio_page_id: portfolioPageId,
           project_id: projectId,
-          display_order: nextOrder,
+          display_order: nextDisplayOrder,
+          custom_description: customDescription,
         })
-        .select()
-        .single();
-
-      if (error) {
-        console.error('Error inserting portfolio page project:', error);
-        throw error;
-      }
-      
-      console.log('Successfully inserted portfolio page project:', data);
-      return data;
-    },
-    onSuccess: (data, variables) => {
-      console.log('Project added successfully, invalidating queries');
-      
-      // Invalidate all relevant queries
-      queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['portfolio-page', variables.pageId] });
-      
-      // Also refetch the data immediately
-      queryClient.refetchQueries({ queryKey: ['portfolio-pages', user?.id] });
-      
-      toast({
-        title: "Success",
-        description: "Project added to portfolio successfully.",
-      });
-    },
-    onError: (error: any) => {
-      console.error('Error in addProjectToPage mutation:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to add project to portfolio.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Remove project from portfolio page
-  const removeProjectFromPage = useMutation({
-    mutationFn: async ({ pageId, projectId }: { pageId: string; projectId: string }) => {
-      if (!user) throw new Error('User not authenticated');
-
-      console.log('Removing project from page:', { pageId, projectId });
-
-      const { error } = await supabase
-        .from('portfolio_page_projects')
-        .delete()
-        .eq('portfolio_page_id', pageId)
-        .eq('project_id', projectId);
-
-      if (error) {
-        console.error('Error removing project from page:', error);
-        throw error;
-      }
-      
-      console.log('Successfully removed project from page');
-      return { pageId, projectId };
-    },
-    onSuccess: (data) => {
-      console.log('Project removed successfully, invalidating queries');
-      
-      queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['portfolio-page', data.pageId] });
-      
-      // Also refetch the data immediately
-      queryClient.refetchQueries({ queryKey: ['portfolio-pages', user?.id] });
-      
-      toast({
-        title: "Success",
-        description: "Project removed from portfolio successfully.",
-      });
-    },
-    onError: (error: any) => {
-      console.error('Error in removeProjectFromPage mutation:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to remove project from portfolio.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Update portfolio page project
-  const updatePortfolioPageProject = useMutation({
-    mutationFn: async ({ 
-      pageId, 
-      projectId, 
-      displayOrder, 
-      customDescription 
-    }: { 
-      pageId: string; 
-      projectId: string; 
-      displayOrder?: number; 
-      customDescription?: string;
-    }) => {
-      if (!user) throw new Error('User not authenticated');
-
-      const updateData: any = {};
-      if (displayOrder !== undefined) updateData.display_order = displayOrder;
-      if (customDescription !== undefined) updateData.custom_description = customDescription;
-
-      const { data, error } = await supabase
-        .from('portfolio_page_projects')
-        .update(updateData)
-        .eq('portfolio_page_id', pageId)
-        .eq('project_id', projectId)
         .select()
         .single();
 
@@ -407,87 +207,115 @@ export function usePortfolioPages() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
-      queryClient.invalidateQueries({ queryKey: ['portfolio-page'] });
-    },
-    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: error.message || "Failed to update project in portfolio.",
-        variant: "destructive",
+        title: "Success",
+        description: "Project added to portfolio!",
       });
     },
+    onError: (error) => {
+      console.error('Error adding project to portfolio:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add project to portfolio",
+        variant: "destructive"
+      });
+    }
+  });
+
+  // Remove project from portfolio page
+  const removeProjectFromPortfolio = useMutation({
+    mutationFn: async ({ portfolioPageId, projectId }: {
+      portfolioPageId: string;
+      projectId: string;
+    }) => {
+      const { error } = await supabase
+        .from('portfolio_page_projects')
+        .delete()
+        .eq('portfolio_page_id', portfolioPageId)
+        .eq('project_id', projectId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['portfolio-pages'] });
+      toast({
+        title: "Success",
+        description: "Project removed from portfolio!",
+      });
+    },
+    onError: (error) => {
+      console.error('Error removing project from portfolio:', error);
+      toast({
+        title: "Error",
+        description: "Failed to remove project from portfolio",
+        variant: "destructive"
+      });
+    }
   });
 
   // Export portfolio as CSV
-  const exportPortfolioAsCSV = async (pageId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('portfolio_pages')
-        .select(`
-          *,
-          portfolio_page_projects (
-            *,
-            portfolio_projects (*)
-          )
-        `)
-        .eq('id', pageId)
-        .single();
+  const exportPortfolioAsCSV = async (portfolioPageId: string) => {
+    const portfolioPage = portfolioPages.find(p => p.id === portfolioPageId);
+    if (!portfolioPage) throw new Error('Portfolio page not found');
 
-      if (error) throw error;
-
-      // Create CSV content
-      const csvContent = [
-        ['Project Title', 'Description', 'Skills', 'Status', 'GitHub URL', 'Live URL'],
-        ...(data.portfolio_page_projects || []).map((item: any) => [
-          item.portfolio_projects?.title || '',
-          item.portfolio_projects?.description || '',
-          item.portfolio_projects?.required_skills?.join(', ') || '',
-          item.portfolio_projects?.status || '',
-          item.portfolio_projects?.github_url || '',
-          item.portfolio_projects?.live_url || '',
-        ])
-      ].map(row => row.map(field => `"${field}"`).join(',')).join('\n');
-
-      // Download CSV
-      const blob = new Blob([csvContent], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${data.title || 'portfolio'}.csv`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-
-      toast({
-        title: "Success",
-        description: "Portfolio exported successfully.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to export portfolio.",
-        variant: "destructive",
-      });
-    }
+    const csvContent = generateCSVContent(portfolioPage);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    link.setAttribute('href', url);
+    link.setAttribute('download', `${portfolioPage.title.replace(/\s+/g, '_')}_portfolio.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  // Get shareable link
-  const getShareableLink = (customUrl: string) => {
+  // Generate shareable link
+  const getShareableLink = (customUrlOrId: string) => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/portfolio/${customUrl}`;
+    return `${baseUrl}/portfolio/${customUrlOrId}`;
   };
 
   return {
     portfolioPages,
-    pagesLoading,
-    usePortfolioPageWithProjects,
-    getPublicPortfolioPage,
-    addPortfolioPage,
+    portfolioPagesLoading,
+    portfolioPagesError,
+    refetchPortfolioPages,
+    getPortfolioPage,
+    createPortfolioPage,
     updatePortfolioPage,
     deletePortfolioPage,
-    addProjectToPage,
-    removeProjectFromPage,
-    updatePortfolioPageProject,
+    addProjectToPortfolio,
+    removeProjectFromPortfolio,
     exportPortfolioAsCSV,
     getShareableLink,
   };
-}
+};
+
+// Helper function to generate CSV content
+const generateCSVContent = (portfolioPage: PortfolioPage): string => {
+  const headers = ['Project Title', 'Description', 'Required Skills', 'Effort Level', 'Impact', 'Status', 'GitHub URL', 'Live URL'];
+  const rows = portfolioPage.projects?.map(projectItem => {
+    const project = projectItem.project;
+    if (!project) return [];
+    
+    return [
+      project.title || '',
+      projectItem.custom_description || project.description || '',
+      project.required_skills?.join('; ') || '',
+      project.effort_level || '',
+      project.impact || '',
+      project.status || '',
+      project.github_url || '',
+      project.live_url || ''
+    ];
+  }) || [];
+
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(field => `"${field}"`).join(','))
+    .join('\n');
+
+  return csvContent;
+};
