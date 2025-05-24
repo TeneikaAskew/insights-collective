@@ -13,7 +13,7 @@ import { ProfileData } from '@/types/portfolio';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
 import { useAuth } from '@/contexts/AuthContext';
-import { format } from 'date-fns';
+import { format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 
 interface ProfileSectionProps {
@@ -388,11 +388,22 @@ interface ExperienceCardProps {
 }
 
 function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps) {
+  // Helper function to safely parse and validate dates
+  const parseDate = (dateString: string): Date | undefined => {
+    if (!dateString) return undefined;
+    try {
+      const date = parseISO(dateString);
+      return isValid(date) ? date : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+
   const [startDate, setStartDate] = useState<Date | undefined>(
-    experience.startDate ? new Date(experience.startDate) : undefined
+    parseDate(experience.startDate)
   );
   const [endDate, setEndDate] = useState<Date | undefined>(
-    experience.endDate ? new Date(experience.endDate) : undefined
+    parseDate(experience.endDate)
   );
 
   const handleStartDateChange = (date: Date | undefined) => {
@@ -403,6 +414,12 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
   const handleEndDateChange = (date: Date | undefined) => {
     setEndDate(date);
     onUpdate('endDate', date ? format(date, 'yyyy-MM') : '');
+  };
+
+  // Helper function to safely format dates for display
+  const formatDateForDisplay = (date: Date | undefined): string => {
+    if (!date || !isValid(date)) return 'Select date';
+    return format(date, 'MMM yyyy');
   };
 
   return (
@@ -440,7 +457,7 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {startDate ? format(startDate, "MMM yyyy") : <span>Select date</span>}
+                    {formatDateForDisplay(startDate)}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -449,7 +466,7 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
                     selected={startDate}
                     onSelect={handleStartDateChange}
                     initialFocus
-                    className={cn("p-3 pointer-events-auto")}
+                    className="p-3"
                   />
                 </PopoverContent>
               </Popover>
@@ -466,7 +483,7 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? format(endDate, "MMM yyyy") : <span>Current / Select date</span>}
+                    {endDate ? formatDateForDisplay(endDate) : "Current / Select date"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -475,7 +492,7 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
                     selected={endDate}
                     onSelect={handleEndDateChange}
                     initialFocus
-                    className={cn("p-3 pointer-events-auto")}
+                    className="p-3"
                   />
                 </PopoverContent>
               </Popover>

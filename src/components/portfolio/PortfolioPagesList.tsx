@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { PenSquare, Settings, Share2, Trash, FileDown, Globe, Eye } from 'lucide-react';
+import { PenSquare, Settings, Share2, Trash, FileDown, Globe, Eye, Plus } from 'lucide-react';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
@@ -136,99 +136,147 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">My Portfolio Pages</h2>
-        <Button onClick={onCreatePage} className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
-          Create New Page
-        </Button>
-      </div>
-      
-      {pages.length === 0 ? (
-        <Card>
-          <CardContent className="pt-6 pb-6 flex flex-col items-center justify-center">
-            <div className="text-center space-y-4">
-              <h3 className="text-lg font-medium">No Portfolio Pages Yet</h3>
-              <p className="text-gray-500">Create your first portfolio page to showcase your projects.</p>
-              <Button onClick={onCreatePage} className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
-                Create Your First Portfolio
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {pages.map((page) => (
-            <Card key={page.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between">
-                  <div>
-                    <CardTitle className="text-xl">{page.title}</CardTitle>
-                    <CardDescription className="mt-1">
-                      {page.description || 'No description'}
-                    </CardDescription>
-                  </div>
-                  <Badge variant={page.is_public ? "default" : "outline"}>
-                    {page.is_public ? "Public" : "Private"}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-sm">
-                  <p><strong>Theme:</strong> {page.theme}</p>
-                  {page.custom_url && (
-                    <p><strong>URL:</strong> /portfolio/{page.custom_url}</p>
-                  )}
-                  <p className="text-gray-500 text-xs mt-2">
-                    Created on {new Date(page.created_at as string).toLocaleDateString()}
-                  </p>
-                </div>
-              </CardContent>
-              <Separator />
-              <CardFooter className="px-6 py-3 justify-between">
-                <div className="flex space-x-2">
-                  <Button 
-                    size="sm" 
-                    variant="secondary" 
-                    onClick={() => viewPage(page)}
-                  >
-                    <Settings className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleShare(page)}
-                  >
-                    <Share2 className="h-4 w-4 mr-1" />
-                    Share
-                  </Button>
-                </div>
-                <div className="flex space-x-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => handleExport(page.id)}
-                  >
-                    <FileDown className="h-4 w-4 mr-1" />
-                    Export
-                  </Button>
-                  {page.is_public && page.custom_url && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => previewPage(page)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      Preview
-                    </Button>
-                  )}
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+    <Card>
+      <CardHeader>
+        <div className="flex justify-between items-center">
+          <div>
+            <CardTitle className="text-2xl">My Portfolio Pages</CardTitle>
+            <CardDescription>
+              Create professional portfolio pages to showcase your completed projects
+            </CardDescription>
+          </div>
+          
+          <Button onClick={onCreatePage} className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Portfolio
+          </Button>
         </div>
-      )}
+      </CardHeader>
+      
+      <CardContent>
+        {!pages || pages.length === 0 ? (
+          <div className="text-center py-12">
+            <div className="mb-6">
+              <div className="w-16 h-16 bg-[#9b87f5]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Globe className="h-8 w-8 text-[#9b87f5]" />
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Create Your First Portfolio</h3>
+              <p className="text-gray-500 max-w-md mx-auto">
+                Transform your completed projects into professional portfolio pages that you can share with employers and clients.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
+              <div className="text-center p-4">
+                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <FileText className="h-6 w-6 text-blue-500" />
+                </div>
+                <h4 className="font-medium text-sm">Select Projects</h4>
+                <p className="text-xs text-gray-500 mt-1">Choose from your completed projects</p>
+              </div>
+              
+              <div className="text-center p-4">
+                <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <PenSquare className="h-6 w-6 text-purple-500" />
+                </div>
+                <h4 className="font-medium text-sm">Customize Design</h4>
+                <p className="text-xs text-gray-500 mt-1">Pick themes and layouts</p>
+              </div>
+              
+              <div className="text-center p-4">
+                <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <Share2 className="h-6 w-6 text-green-500" />
+                </div>
+                <h4 className="font-medium text-sm">Share & Export</h4>
+                <p className="text-xs text-gray-500 mt-1">Get shareable links and exports</p>
+              </div>
+            </div>
+            
+            <Button size="lg" onClick={onCreatePage} className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
+              <Plus className="h-5 w-5 mr-2" />
+              Create Your First Portfolio
+            </Button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {pages.map((page) => (
+              <Card key={page.id} className="overflow-hidden">
+                <CardHeader className="pb-3">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-lg truncate">{page.title}</CardTitle>
+                      <CardDescription className="mt-1 line-clamp-2">
+                        {page.description || 'No description'}
+                      </CardDescription>
+                    </div>
+                    <Badge variant={page.is_public ? "default" : "outline"} className="ml-2 flex-shrink-0">
+                      {page.is_public ? "Public" : "Private"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pb-3">
+                  <div className="text-sm space-y-1">
+                    <p><strong>Theme:</strong> {page.theme}</p>
+                    {page.custom_url && (
+                      <p><strong>URL:</strong> /portfolio/{page.custom_url}</p>
+                    )}
+                    <p className="text-gray-500 text-xs">
+                      Created on {new Date(page.created_at as string).toLocaleDateString()}
+                    </p>
+                  </div>
+                </CardContent>
+                <Separator />
+                <CardFooter className="p-3">
+                  <div className="flex justify-between items-center w-full">
+                    <div className="flex space-x-1">
+                      <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        onClick={() => viewPage(page)}
+                        className="text-xs px-2"
+                      >
+                        <Settings className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleShare(page)}
+                        className="text-xs px-2"
+                      >
+                        <Share2 className="h-3 w-3 mr-1" />
+                        Share
+                      </Button>
+                    </div>
+                    <div className="flex space-x-1">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleExport(page.id)}
+                        className="text-xs px-2"
+                      >
+                        <FileDown className="h-3 w-3 mr-1" />
+                        Export
+                      </Button>
+                      {page.is_public && page.custom_url && (
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => previewPage(page)}
+                          className="text-xs px-2"
+                        >
+                          <Eye className="h-3 w-3 mr-1" />
+                          Preview
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        )}
+      </CardContent>
       
       {/* Edit Page Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -323,6 +371,6 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </Card>
   );
 }
