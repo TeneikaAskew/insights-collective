@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ExternalLink, Github, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { ExternalLink, Github } from 'lucide-react';
 import { PortfolioPageProject } from '@/types/portfolio';
 
 interface EnhancedProjectCardProps {
@@ -63,22 +63,7 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
   };
 
   const renderProjectImage = () => {
-    // Check if there are project images available
-    const projectImages = project.project_images;
-    const hasImages = projectImages && Array.isArray(projectImages) && projectImages.length > 0;
-
-    if (hasImages && !imageError) {
-      return (
-        <img
-          src={projectImages[0]}
-          alt={`${project.title} preview`}
-          className="w-full h-48 object-cover rounded-lg"
-          onError={() => setImageError(true)}
-        />
-      );
-    }
-
-    // Fallback to placeholder
+    // For now, show placeholder since project_images column doesn't exist
     return (
       <div className="w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 rounded-lg flex items-center justify-center">
         <div className="text-center">
@@ -109,36 +94,28 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
               {project.title}
             </h3>
             <div className="flex gap-2 ml-4">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                onClick={() => handleLinkClick(project.live_url)}
-                disabled={!project.live_url}
-                title={project.live_url ? "View live demo" : "No live demo available"}
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                onClick={() => handleLinkClick(project.github_url)}
-                disabled={!project.github_url}
-                title={project.github_url ? "View source code" : "No source code available"}
-              >
-                <Github className="h-4 w-4" />
-              </Button>
-              <Button 
-                size="sm" 
-                variant="outline" 
-                className="h-8 w-8 p-0"
-                onClick={() => handleLinkClick(project.live_url)}
-                disabled={!project.live_url}
-                title={project.live_url ? "Preview project" : "No preview available"}
-              >
-                <Eye className="h-4 w-4" />
-              </Button>
+              {project.live_url && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleLinkClick(project.live_url)}
+                  title="View live demo"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </Button>
+              )}
+              {project.github_url && (
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="h-8 w-8 p-0"
+                  onClick={() => handleLinkClick(project.github_url)}
+                  title="View source code"
+                >
+                  <Github className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           </div>
 
@@ -155,17 +132,7 @@ export function EnhancedProjectCard({ projectItem, layout = 'default', theme = '
                 className="mt-2 p-0 h-auto text-xs"
                 style={{ color: themeStyles.accentColor }}
               >
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="h-3 w-3 mr-1" />
-                    Show less
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3 mr-1" />
-                    Read more
-                  </>
-                )}
+                {isExpanded ? 'Show less' : 'Read more'}
               </Button>
             )}
           </div>

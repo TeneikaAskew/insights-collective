@@ -94,7 +94,15 @@ export function PublicPortfolioView() {
           )}
         </header>
         
-        {!portfolioData.projects || !Array.isArray(portfolioData.projects) || portfolioData.projects.length === 0 ? (
+        {/* Debug information */}
+        <div className="mb-4 p-4 bg-gray-100 rounded text-sm">
+          <h3 className="font-bold">Debug Information:</h3>
+          <p>Projects found: {portfolioData.projects?.length || 0}</p>
+          <p>Projects array exists: {portfolioData.projects ? 'Yes' : 'No'}</p>
+          <p>Is array: {Array.isArray(portfolioData.projects) ? 'Yes' : 'No'}</p>
+        </div>
+        
+        {(!portfolioData.projects || !Array.isArray(portfolioData.projects) || portfolioData.projects.length === 0) ? (
           <div className="text-center py-16">
             <p className="text-xl text-gray-500">
               This portfolio has no projects yet.
@@ -102,9 +110,13 @@ export function PublicPortfolioView() {
           </div>
         ) : (
           <div className="space-y-16">
+            <h2 className="text-2xl font-bold mb-8">Projects</h2>
             {portfolioData.projects.map((projectItem) => {
               const project = projectItem.project;
-              if (!project) return null;
+              if (!project) {
+                console.log('No project data for item:', projectItem);
+                return null;
+              }
               
               return (
                 <div key={projectItem.id} className="border-b pb-14 last:border-0">
