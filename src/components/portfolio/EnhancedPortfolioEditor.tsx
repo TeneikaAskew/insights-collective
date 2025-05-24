@@ -13,9 +13,12 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { ArrowLeft, Save, Eye, Share, Settings, Palette, Layout, Folder } from 'lucide-react';
+import { ArrowLeft, Save, Eye, Share, Settings, Palette, Layout, Folder, Download, Link as LinkIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PortfolioTheme } from '@/types/portfolio';
+import { LayoutPreview } from './LayoutPreview';
+import { ProfileSection } from './ProfileSection';
+import { EnhancedProjectCard } from './EnhancedProjectCard';
 
 export function EnhancedPortfolioEditor() {
   const { pageId } = useParams<{ pageId: string }>();
@@ -31,6 +34,14 @@ export function EnhancedPortfolioEditor() {
     theme: 'default' as PortfolioTheme,
     is_public: false,
     custom_url: '',
+    layout: 'classic',
+  });
+
+  const [profileData, setProfileData] = useState({
+    avatar_url: '',
+    professional_summary: '',
+    skills: [] as string[],
+    location: '',
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -43,6 +54,7 @@ export function EnhancedPortfolioEditor() {
         theme: portfolioData.theme as PortfolioTheme,
         is_public: portfolioData.is_public,
         custom_url: portfolioData.custom_url || '',
+        layout: 'classic', // Default layout
       });
     }
   }, [portfolioData]);
@@ -54,7 +66,11 @@ export function EnhancedPortfolioEditor() {
       setIsSaving(true);
       await updatePortfolioPage.mutateAsync({
         id: pageId,
-        ...formData
+        title: formData.title,
+        description: formData.description,
+        theme: formData.theme,
+        is_public: formData.is_public,
+        custom_url: formData.custom_url,
       });
       toast({
         title: 'Success',
@@ -79,6 +95,24 @@ export function EnhancedPortfolioEditor() {
         title: 'Preview unavailable',
         description: 'Set a custom URL to enable preview',
         variant: 'destructive',
+      });
+    }
+  };
+
+  const handleExportPDF = () => {
+    toast({
+      title: 'PDF Export',
+      description: 'PDF export functionality coming soon',
+    });
+  };
+
+  const handleShareLink = () => {
+    if (formData.custom_url) {
+      const url = `${window.location.origin}/portfolio/${formData.custom_url}`;
+      navigator.clipboard.writeText(url);
+      toast({
+        title: 'Link copied',
+        description: 'Portfolio link copied to clipboard',
       });
     }
   };
@@ -129,6 +163,14 @@ export function EnhancedPortfolioEditor() {
               <Badge variant={formData.is_public ? "default" : "outline"}>
                 {formData.is_public ? "Public" : "Private"}
               </Badge>
+              <Button variant="outline" onClick={handleShareLink}>
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Share
+              </Button>
+              <Button variant="outline" onClick={handleExportPDF}>
+                <Download className="h-4 w-4 mr-2" />
+                PDF
+              </Button>
               <Button variant="outline" onClick={handlePreview}>
                 <Eye className="h-4 w-4 mr-2" />
                 Preview
@@ -167,62 +209,95 @@ export function EnhancedPortfolioEditor() {
           {/* Design Tab */}
           <TabsContent value="design">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Basic Information</CardTitle>
-                  <CardDescription>
-                    Update your portfolio's basic details
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="title">Portfolio Title</Label>
-                    <Input
-                      id="title"
-                      value={formData.title}
-                      onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                      placeholder="My Professional Portfolio"
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor="description">Description</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                      placeholder="A showcase of my best work..."
-                      rows={3}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
+              <div className="space-y-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Basic Information</CardTitle>
+                    <CardDescription>
+                      Update your portfolio's basic details
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label htmlFor="title">Portfolio Title</Label>
+                      <Input
+                        id="title"
+                        value={formData.title}
+                        onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="My Professional Portfolio"
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label htmlFor="description">Description</Label>
+                      <Textarea
+                        id="description"
+                        value={formData.description}
+                        onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                        placeholder="A showcase of my best work..."
+                        rows={3}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Theme Selection</CardTitle>
-                  <CardDescription>
-                    Choose a visual theme for your portfolio
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Select
-                    value={formData.theme}
-                    onValueChange={(value: PortfolioTheme) => setFormData(prev => ({ ...prev, theme: value }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select theme" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="default">Default</SelectItem>
-                      <SelectItem value="minimal">Minimal</SelectItem>
-                      <SelectItem value="professional">Professional</SelectItem>
-                      <SelectItem value="creative">Creative</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </CardContent>
-              </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Theme Selection</CardTitle>
+                    <CardDescription>
+                      Choose a visual theme for your portfolio
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Select
+                      value={formData.theme}
+                      onValueChange={(value: PortfolioTheme) => setFormData(prev => ({ ...prev, theme: value }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select theme" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Default</SelectItem>
+                        <SelectItem value="minimal">Minimal</SelectItem>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="creative">Creative</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div>
+                <ProfileSection 
+                  profileData={profileData}
+                  onUpdate={setProfileData}
+                />
+              </div>
             </div>
+          </TabsContent>
+
+          {/* Layout Tab */}
+          <TabsContent value="layout">
+            <Card>
+              <CardHeader>
+                <CardTitle>Choose Your Layout</CardTitle>
+                <CardDescription>
+                  Select how your portfolio will be displayed. Click on a layout to see a live preview.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {['sidebar', 'hero-timeline', 'grid', 'classic', 'split', 'hero-focus'].map((layout) => (
+                    <LayoutPreview
+                      key={layout}
+                      layout={layout}
+                      isSelected={formData.layout === layout}
+                      onSelect={() => setFormData(prev => ({ ...prev, layout }))}
+                    />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Projects Tab */}
@@ -237,23 +312,31 @@ export function EnhancedPortfolioEditor() {
               <CardContent>
                 <div className="space-y-4">
                   {portfolioData.projects && portfolioData.projects.length > 0 ? (
-                    <div className="space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {portfolioData.projects.map((projectItem) => (
-                        <div key={projectItem.id} className="flex items-center justify-between p-4 border rounded-lg">
-                          <div>
-                            <h4 className="font-medium">{projectItem.project?.title}</h4>
-                            <p className="text-sm text-gray-500">{projectItem.project?.description}</p>
-                          </div>
-                          <Badge variant="outline">Included</Badge>
-                        </div>
+                        <EnhancedProjectCard
+                          key={projectItem.id}
+                          projectItem={projectItem}
+                          layout={formData.layout}
+                          theme={formData.theme}
+                        />
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500 mb-4">No projects added yet</p>
-                      <p className="text-sm text-gray-400">
-                        Add completed projects from your project tracker
-                      </p>
+                    <div className="text-center py-12">
+                      <div className="mb-4">
+                        <Folder className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No projects added yet</h3>
+                        <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                          You haven't added any projects yet. Head to your Kanban board and mark projects as 'Completed' to add them here.
+                        </p>
+                      </div>
+                      <Button
+                        onClick={() => navigate('/portfolio-explorer?tab=tracker')}
+                        className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
+                      >
+                        Go to Project Tracker
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -302,21 +385,6 @@ export function EnhancedPortfolioEditor() {
                     Use only letters, numbers, and hyphens
                   </p>
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Layout Tab */}
-          <TabsContent value="layout">
-            <Card>
-              <CardHeader>
-                <CardTitle>Layout Options</CardTitle>
-                <CardDescription>
-                  Customize how your portfolio is displayed
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-500">Layout customization coming soon...</p>
               </CardContent>
             </Card>
           </TabsContent>

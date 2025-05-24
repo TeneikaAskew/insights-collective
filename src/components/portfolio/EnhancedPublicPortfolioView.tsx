@@ -1,13 +1,15 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { Spinner } from '@/components/ui/spinner';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ExternalLink, Github, Mail, Linkedin } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Github, Mail, Linkedin, Share, Download, Copy } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+import { EnhancedProjectCard } from './EnhancedProjectCard';
 
 export function EnhancedPublicPortfolioView() {
   const { customUrl } = useParams<{ customUrl: string }>();
@@ -18,6 +20,14 @@ export function EnhancedPublicPortfolioView() {
     queryFn: () => getPublicPortfolioPage(customUrl || ''),
     enabled: !!customUrl,
   });
+
+  // Track page view
+  useEffect(() => {
+    if (portfolioData?.id) {
+      // Log the page view in Supabase (implement this in the hook)
+      console.log('Portfolio view tracked:', portfolioData.id);
+    }
+  }, [portfolioData?.id]);
   
   if (isLoading) {
     return (
@@ -88,6 +98,22 @@ export function EnhancedPublicPortfolioView() {
   };
   
   const theme = getThemeStyles();
+
+  const handleEmailShare = () => {
+    const subject = encodeURIComponent("Check out my portfolio");
+    const body = encodeURIComponent(`Here's my portfolio: ${window.location.href}`);
+    window.open(`mailto:?subject=${subject}&body=${body}`);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href);
+    // You could add a toast notification here
+  };
+
+  const handleLinkedInShare = () => {
+    const url = encodeURIComponent(window.location.href);
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank');
+  };
   
   return (
     <div 
@@ -97,27 +123,39 @@ export function EnhancedPublicPortfolioView() {
         minHeight: '100vh'
       }}
     >
-      {/* Navigation */}
+      {/* Sticky Navigation */}
       <nav className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 border-b border-gray-200">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex justify-between items-center">
             <h1 className="text-xl font-bold" style={{ color: theme.primaryColor }}>
               {portfolioData.title}
             </h1>
-            <div className="flex space-x-4">
+            
+            {/* Action Toolbar */}
+            <div className="flex items-center space-x-2">
+              <Button variant="ghost" size="sm" onClick={handleCopyLink}>
+                <Copy className="h-4 w-4 mr-1" />
+                Copy
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleEmailShare}>
+                <Mail className="h-4 w-4 mr-1" />
+                Email
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleLinkedInShare}>
+                <Share className="h-4 w-4 mr-1" />
+                Share
+              </Button>
               <Button variant="ghost" size="sm">
-                <Mail className="h-4 w-4 mr-2" />
+                <Mail className="h-4 w-4 mr-1" />
                 Contact
               </Button>
               <Button 
-                variant="outline" 
                 size="sm"
                 style={{ 
-                  borderColor: theme.accentColor,
-                  color: theme.accentColor 
+                  backgroundColor: theme.accentColor,
+                  color: 'white'
                 }}
               >
-                <ExternalLink className="h-4 w-4 mr-2" />
                 Hire Me
               </Button>
             </div>
@@ -130,7 +168,7 @@ export function EnhancedPublicPortfolioView() {
         <div className="max-w-6xl mx-auto text-center">
           <div className="mb-8">
             <div 
-              className="w-32 h-32 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-4xl font-bold"
+              className="w-32 h-32 rounded-full mx-auto mb-6 flex items-center justify-center text-white text-4xl font-bold shadow-lg"
               style={{ backgroundColor: theme.accentColor }}
             >
               {portfolioData.title.charAt(0)}
@@ -185,141 +223,14 @@ export function EnhancedPublicPortfolioView() {
               </p>
             </div>
           ) : (
-            <div className="space-y-24">
-              {portfolioData.projects.map((projectItem, index) => {
-                const project = projectItem.project;
-                if (!project) return null;
-                
-                const isEven = index % 2 === 0;
-                
-                return (
-                  <div 
-                    key={projectItem.id} 
-                    className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${isEven ? '' : 'lg:grid-flow-col-dense'}`}
-                  >
-                    {/* Project Image/Visual */}
-                    <div className={`${isEven ? 'lg:order-1' : 'lg:order-2'}`}>
-                      <div 
-                        className="aspect-video rounded-2xl shadow-2xl p-8 flex items-center justify-center"
-                        style={{ backgroundColor: theme.cardBg }}
-                      >
-                        <div className="text-center">
-                          <div 
-                            className="w-20 h-20 rounded-2xl mx-auto mb-4 flex items-center justify-center text-white text-2xl font-bold"
-                            style={{ backgroundColor: theme.accentColor }}
-                          >
-                            {project.title.charAt(0)}
-                          </div>
-                          <h3 className="text-lg font-semibold" style={{ color: theme.primaryColor }}>
-                            {project.title}
-                          </h3>
-                          <p className="text-sm text-gray-500 mt-2">
-                            Interactive Demo
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Project Content */}
-                    <div className={`${isEven ? 'lg:order-2' : 'lg:order-1'}`}>
-                      <div className="space-y-6">
-                        <div>
-                          <h3 
-                            className="text-3xl font-bold mb-4"
-                            style={{ color: theme.primaryColor }}
-                          >
-                            {project.title}
-                          </h3>
-                          <p className="text-lg leading-relaxed">
-                            {projectItem.custom_description || project.description}
-                          </p>
-                        </div>
-                        
-                        {/* Technologies */}
-                        {project.required_skills && project.required_skills.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: theme.primaryColor }}>
-                              Technologies Used
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {project.required_skills.map((skill, i) => (
-                                <span 
-                                  key={i} 
-                                  className="px-4 py-2 rounded-full text-sm font-medium"
-                                  style={{ 
-                                    backgroundColor: `${theme.accentColor}20`,
-                                    color: theme.accentColor 
-                                  }}
-                                >
-                                  {skill}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {/* Key Features */}
-                        {project.roadmap && project.roadmap.milestones && project.roadmap.milestones.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-semibold uppercase tracking-wider mb-3" style={{ color: theme.primaryColor }}>
-                              Key Features
-                            </h4>
-                            <ul className="space-y-2">
-                              {project.roadmap.milestones.slice(0, 3).map((milestone, idx) => (
-                                <li key={idx} className="flex items-start">
-                                  <div 
-                                    className="w-2 h-2 rounded-full mt-2 mr-3 flex-shrink-0"
-                                    style={{ backgroundColor: theme.accentColor }}
-                                  ></div>
-                                  <span>{milestone}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-                        
-                        {/* Project Links */}
-                        <div className="flex space-x-4 pt-4">
-                          <Button 
-                            variant="default"
-                            style={{ 
-                              backgroundColor: theme.accentColor,
-                              color: 'white'
-                            }}
-                          >
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Live Demo
-                          </Button>
-                          <Button variant="outline">
-                            <Github className="h-4 w-4 mr-2" />
-                            Source Code
-                          </Button>
-                        </div>
-                        
-                        {/* Project Stats */}
-                        <div className="grid grid-cols-2 gap-4 pt-6 border-t border-gray-200">
-                          {project.effort_level && (
-                            <div>
-                              <p className="text-sm text-gray-500">Complexity</p>
-                              <p className="font-semibold" style={{ color: theme.primaryColor }}>
-                                {project.effort_level}
-                              </p>
-                            </div>
-                          )}
-                          {project.impact && (
-                            <div>
-                              <p className="text-sm text-gray-500">Impact</p>
-                              <p className="font-semibold" style={{ color: theme.primaryColor }}>
-                                {project.impact}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {portfolioData.projects.map((projectItem) => (
+                <EnhancedProjectCard
+                  key={projectItem.id}
+                  projectItem={projectItem}
+                  theme={portfolioData.theme}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -340,17 +251,29 @@ export function EnhancedPublicPortfolioView() {
           <p className="text-xl mb-8 text-gray-600">
             Interested in collaborating? I'd love to hear about your project.
           </p>
-          <Button 
-            size="lg"
-            className="px-8 py-4 text-lg"
-            style={{ 
-              backgroundColor: theme.accentColor,
-              color: 'white'
-            }}
-          >
-            <Mail className="h-5 w-5 mr-2" />
-            Get In Touch
-          </Button>
+          <div className="flex justify-center gap-4">
+            <Button 
+              size="lg"
+              className="px-8 py-4 text-lg"
+              style={{ 
+                backgroundColor: theme.accentColor,
+                color: 'white'
+              }}
+              onClick={handleEmailShare}
+            >
+              <Mail className="h-5 w-5 mr-2" />
+              Get In Touch
+            </Button>
+            <Button 
+              size="lg"
+              variant="outline"
+              className="px-8 py-4 text-lg"
+              onClick={handleLinkedInShare}
+            >
+              <Linkedin className="h-5 w-5 mr-2" />
+              Connect on LinkedIn
+            </Button>
+          </div>
         </div>
       </section>
       
