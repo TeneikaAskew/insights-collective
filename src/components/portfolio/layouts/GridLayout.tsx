@@ -19,7 +19,9 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           color: "#333333",
           accentColor: "#6b7280",
           primaryColor: "#6b7280",
-          secondaryColor: "#9ca3af"
+          secondaryColor: "#9ca3af",
+          gradientFrom: "#f3f4f6",
+          gradientTo: "#e5e7eb"
         };
       case 'professional':
         return {
@@ -28,7 +30,9 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           color: "#2c3e50",
           accentColor: "#3b82f6",
           primaryColor: "#3b82f6",
-          secondaryColor: "#1e40af"
+          secondaryColor: "#1e40af",
+          gradientFrom: "#dbeafe",
+          gradientTo: "#bfdbfe"
         };
       case 'creative':
         return {
@@ -37,7 +41,9 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           color: "#333333",
           accentColor: "#a855f7",
           primaryColor: "#a855f7",
-          secondaryColor: "#7c3aed"
+          secondaryColor: "#7c3aed",
+          gradientFrom: "#f3e8ff",
+          gradientTo: "#e9d5ff"
         };
       case 'modern':
         return {
@@ -46,7 +52,9 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           color: "#065f46",
           accentColor: "#10b981",
           primaryColor: "#10b981",
-          secondaryColor: "#059669"
+          secondaryColor: "#059669",
+          gradientFrom: "#d1fae5",
+          gradientTo: "#a7f3d0"
         };
       case 'elegant':
         return {
@@ -55,7 +63,9 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           color: "#7f1d1d",
           accentColor: "#dc2626",
           primaryColor: "#dc2626",
-          secondaryColor: "#b91c1c"
+          secondaryColor: "#b91c1c",
+          gradientFrom: "#fee2e2",
+          gradientTo: "#fecaca"
         };
       default:
         return {
@@ -64,7 +74,9 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           color: "#111827",
           accentColor: "#3b82f6",
           primaryColor: "#3b82f6",
-          secondaryColor: "#a855f7"
+          secondaryColor: "#a855f7",
+          gradientFrom: "#f3f4f6",
+          gradientTo: "#e5e7eb"
         };
     }
   };
@@ -88,7 +100,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
             {portfolioPage.title}
           </h1>
           {portfolioPage.description && (
-            <p className="text-xl max-w-2xl mx-auto opacity-80">
+            <p className="text-xl max-w-2xl mx-auto" style={{ color: `${themeStyles.color}CC` }}>
               {portfolioPage.description}
             </p>
           )}
@@ -97,7 +109,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
         {/* Profile Summary */}
         {portfolioPage.profile_data?.professional_summary && (
           <div className="max-w-4xl mx-auto mb-16 text-center">
-            <p className="text-lg leading-relaxed">
+            <p className="text-lg leading-relaxed" style={{ color: themeStyles.color }}>
               {portfolioPage.profile_data.professional_summary}
             </p>
           </div>
@@ -106,7 +118,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
         {/* Contact Information */}
         {portfolioPage.profile_data?.location && (
           <div className="text-center mb-6">
-            <p className="text-gray-600">📍 You can find me in {portfolioPage.profile_data.location}</p>
+            <p style={{ color: themeStyles.secondaryColor }}>📍 You can find me in {portfolioPage.profile_data.location}</p>
           </div>
         )}
 
@@ -115,8 +127,11 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           <div className="text-center mb-8">
             <a
               href={`mailto:${portfolioPage.profile_data.email}`}
-              className="inline-flex items-center gap-2 px-8 py-3 text-white rounded-lg hover:opacity-90 transition-colors text-lg font-medium"
-              style={{ backgroundColor: themeStyles.primaryColor }}
+              className="inline-flex items-center gap-2 px-8 py-3 text-white rounded-lg hover:opacity-90 transition-all duration-300 text-lg font-medium shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              style={{ 
+                background: `linear-gradient(135deg, ${themeStyles.primaryColor}, ${themeStyles.secondaryColor})`,
+                border: `2px solid ${themeStyles.primaryColor}20`
+              }}
             >
               <Mail className="h-5 w-5" />
               Hire Me
@@ -127,16 +142,16 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
         {/* Skills Section */}
         {portfolioPage.profile_data?.skills && portfolioPage.profile_data.skills.length > 0 && (
           <div className="max-w-4xl mx-auto mb-16 text-center">
-            <h3 className="text-2xl font-bold mb-6" style={{ color: themeStyles.color }}>Skills & Technologies</h3>
+            <h3 className="text-2xl font-bold mb-6" style={{ color: themeStyles.primaryColor }}>Skills & Technologies</h3>
             <div className="flex flex-wrap justify-center gap-3">
               {portfolioPage.profile_data.skills.map((skill, index) => (
                 <Badge 
                   key={index} 
                   variant="secondary" 
-                  className="text-sm px-4 py-2 text-white font-medium"
+                  className="text-sm px-4 py-2 text-white font-medium border-0 shadow-sm hover:shadow-md transition-all duration-300"
                   style={{ 
-                    backgroundColor: themeStyles.primaryColor,
-                    border: 'none'
+                    background: `linear-gradient(135deg, ${themeStyles.primaryColor}, ${themeStyles.secondaryColor})`,
+                    color: 'white'
                   }}
                 >
                   {skill}
@@ -151,17 +166,24 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           {/* Experience Section */}
           {portfolioPage.profile_data?.experience && portfolioPage.profile_data.experience.length > 0 && (
             <div>
-              <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.color }}>
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.primaryColor }}>
                 💼 Experience
               </h3>
               <div className="space-y-6">
                 {portfolioPage.profile_data.experience.map((exp, index) => (
-                  <div key={index} className="border-l-4 pl-4" style={{ borderColor: themeStyles.primaryColor }}>
+                  <div 
+                    key={index} 
+                    className="border-l-4 pl-4 p-4 rounded-r-lg shadow-sm"
+                    style={{ 
+                      borderColor: themeStyles.primaryColor,
+                      background: `linear-gradient(135deg, ${themeStyles.primaryColor}10, ${themeStyles.secondaryColor}05)`
+                    }}
+                  >
                     <h4 className="text-lg font-semibold" style={{ color: themeStyles.color }}>{exp.role}</h4>
                     <p className="font-medium" style={{ color: themeStyles.primaryColor }}>{exp.company}</p>
-                    <p className="text-gray-600 text-sm">{exp.startDate} - {exp.endDate || 'Present'}</p>
+                    <p className="text-sm" style={{ color: themeStyles.secondaryColor }}>{exp.startDate} - {exp.endDate || 'Present'}</p>
                     {exp.description && (
-                      <p className="text-gray-700 text-sm mt-2">{exp.description}</p>
+                      <p className="text-sm mt-2" style={{ color: `${themeStyles.color}E6` }}>{exp.description}</p>
                     )}
                   </div>
                 ))}
@@ -172,16 +194,23 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
           {/* Education Section */}
           {portfolioPage.profile_data?.education && portfolioPage.profile_data.education.length > 0 && (
             <div>
-              <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.color }}>
+              <h3 className="text-2xl font-bold mb-6 flex items-center gap-2" style={{ color: themeStyles.primaryColor }}>
                 🎓 Education
               </h3>
               <div className="space-y-6">
                 {portfolioPage.profile_data.education.map((edu, index) => (
-                  <div key={index} className="border-l-4 pl-4" style={{ borderColor: themeStyles.secondaryColor }}>
+                  <div 
+                    key={index} 
+                    className="border-l-4 pl-4 p-4 rounded-r-lg shadow-sm"
+                    style={{ 
+                      borderColor: themeStyles.secondaryColor,
+                      background: `linear-gradient(135deg, ${themeStyles.secondaryColor}10, ${themeStyles.primaryColor}05)`
+                    }}
+                  >
                     <h4 className="text-lg font-semibold" style={{ color: themeStyles.color }}>{edu.degree}</h4>
                     <p className="font-medium" style={{ color: themeStyles.secondaryColor }}>{edu.institution}</p>
                     {edu.graduationYear && (
-                      <p className="text-gray-600 text-sm">{edu.graduationYear}</p>
+                      <p className="text-sm" style={{ color: themeStyles.accentColor }}>{edu.graduationYear}</p>
                     )}
                   </div>
                 ))}
@@ -192,7 +221,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
 
         {/* Projects Section */}
         <div className="mb-16">
-          <h2 className="text-3xl font-bold mb-8 text-center" style={{ color: themeStyles.color }}>
+          <h2 className="text-3xl font-bold mb-8 text-center" style={{ color: themeStyles.primaryColor }}>
             Projects
           </h2>
           
@@ -216,7 +245,7 @@ export function GridLayout({ portfolioPage }: GridLayoutProps) {
 
           {(!portfolioPage.projects || portfolioPage.projects.length === 0) && (
             <div className="text-center py-20">
-              <p className="text-xl opacity-60">No projects to display</p>
+              <p className="text-xl" style={{ color: `${themeStyles.color}60` }}>No projects to display</p>
             </div>
           )}
         </div>
