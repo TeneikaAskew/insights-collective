@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
+import { ImageUploadArea } from './ImageUploadArea';
 
 interface ProjectCardProps {
   project: PortfolioProject;
@@ -29,7 +30,6 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAddToPortfolioOpen, setIsAddToPortfolioOpen] = useState(false);
   const [formData, setFormData] = useState({ ...project });
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
 
   // Update formData when project prop changes
   useEffect(() => {
@@ -82,19 +82,11 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
     });
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (files) {
-      Array.from(files).forEach((file) => {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          if (event.target?.result) {
-            setUploadedImages(prev => [...prev, event.target!.result as string]);
-          }
-        };
-        reader.readAsDataURL(file);
-      });
-    }
+  const handleImageUpload = (imageUrls: string[]) => {
+    setFormData(prev => ({
+      ...prev,
+      project_images: imageUrls
+    }));
   };
 
   const removeImage = (index: number) => {
@@ -309,55 +301,12 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
               {/* Image Upload for Completed Projects */}
               {formData.status === 'Completed' && (
                 <div className="space-y-2">
-                  <Label htmlFor="project_images">Project Screenshots</Label>
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                    <div className="text-center">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="mt-2">
-                        <label htmlFor="image-upload" className="cursor-pointer">
-                          <span className="mt-2 block text-sm font-medium text-gray-900">
-                            Upload project screenshots
-                          </span>
-                          <span className="mt-1 block text-sm text-gray-500">
-                            PNG, JPG, GIF up to 10MB
-                          </span>
-                        </label>
-                        <input
-                          id="image-upload"
-                          type="file"
-                          className="hidden"
-                          multiple
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {uploadedImages.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {uploadedImages.map((image, index) => (
-                          <div key={index} className="relative">
-                            <img
-                              src={image}
-                              alt={`Project screenshot ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg"
-                            />
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="absolute top-1 right-1 h-6 w-6 p-0"
-                              onClick={() => removeImage(index)}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <Label>Project Screenshots</Label>
+                  <ImageUploadArea
+                    onImagesUploaded={handleImageUpload}
+                    existingImages={formData.project_images || []}
+                    maxImages={5}
+                  />
                 </div>
               )}
               
