@@ -29,6 +29,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   const { toast } = useToast();
   const { updatePortfolioPage, exportPortfolioAsCSV, getShareableLink } = usePortfolioPages();
   
+  // State for form data
   const [title, setTitle] = useState(portfolioPage.title);
   const [description, setDescription] = useState(portfolioPage.description || '');
   const [isPublic, setIsPublic] = useState(portfolioPage.is_public || false);
@@ -48,6 +49,17 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   });
   const [saving, setSaving] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  // State to track the "saved" baseline for comparison
+  const [savedBaseline, setSavedBaseline] = useState({
+    title: portfolioPage.title,
+    description: portfolioPage.description || '',
+    isPublic: portfolioPage.is_public || false,
+    customUrl: portfolioPage.custom_url || '',
+    theme: portfolioPage.theme || 'default',
+    layout: portfolioPage.layout || 'classic',
+    profileData: portfolioPage.profile_data || {}
+  });
 
   // Function to fetch skills from user's recommendations
   const fetchDiscoveredSkills = async (): Promise<string[]> => {
@@ -124,18 +136,8 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     prefillSkills();
   }, [user?.id, portfolioPage.profile_data?.skills]);
 
-  // Track changes
+  // Track changes by comparing current state with saved baseline
   useEffect(() => {
-    const originalData = {
-      title: portfolioPage.title,
-      description: portfolioPage.description || '',
-      isPublic: portfolioPage.is_public || false,
-      customUrl: portfolioPage.custom_url || '',
-      theme: portfolioPage.theme || 'default',
-      layout: portfolioPage.layout || 'classic',
-      profileData: portfolioPage.profile_data || {}
-    };
-
     const currentData = {
       title,
       description,
@@ -146,9 +148,9 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       profileData
     };
 
-    const hasChanges = JSON.stringify(originalData) !== JSON.stringify(currentData);
+    const hasChanges = JSON.stringify(savedBaseline) !== JSON.stringify(currentData);
     setHasUnsavedChanges(hasChanges);
-  }, [portfolioPage, title, description, isPublic, customUrl, theme, layout, profileData]);
+  }, [savedBaseline, title, description, isPublic, customUrl, theme, layout, profileData]);
 
   const handleSave = async () => {
     try {
@@ -164,7 +166,18 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         profile_data: profileData,
       });
       
-      setHasUnsavedChanges(false);
+      // Update the saved baseline to match current state
+      const newBaseline = {
+        title,
+        description,
+        isPublic,
+        customUrl,
+        theme,
+        layout,
+        profileData
+      };
+      setSavedBaseline(newBaseline);
+      
       toast({
         title: "Success",
         description: "Portfolio saved successfully!",
