@@ -198,7 +198,7 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6">
+          <div className="space-y-4 max-w-4xl">
             {pages.map((page) => (
               <Card key={page.id} className="w-full">
                 <CardHeader className="pb-4">
@@ -216,24 +216,24 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
                 </CardHeader>
                 
                 <CardContent className="pb-4">
-                  <div className="space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                      <span className="font-medium text-sm">Theme:</span> 
-                      <span className="text-sm capitalize">{page.theme}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <span className="font-medium text-sm text-gray-600">Theme</span>
+                      <p className="text-sm capitalize">{page.theme}</p>
                     </div>
                     
                     {page.custom_url && (
-                      <div className="flex flex-col gap-1">
-                        <span className="font-medium text-sm">URL:</span>
-                        <span className="text-sm text-gray-500 break-all">/portfolio/{page.custom_url}</span>
+                      <div className="space-y-1 md:col-span-2 lg:col-span-1">
+                        <span className="font-medium text-sm text-gray-600">URL</span>
+                        <p className="text-sm text-gray-500 break-all">/portfolio/{page.custom_url}</p>
                       </div>
                     )}
                     
-                    <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
-                      <span className="font-medium text-sm">Created:</span>
-                      <span className="text-sm text-gray-500">
+                    <div className="space-y-1">
+                      <span className="font-medium text-sm text-gray-600">Created</span>
+                      <p className="text-sm text-gray-500">
                         {new Date(page.created_at as string).toLocaleDateString()}
-                      </span>
+                      </p>
                     </div>
                   </div>
                 </CardContent>
