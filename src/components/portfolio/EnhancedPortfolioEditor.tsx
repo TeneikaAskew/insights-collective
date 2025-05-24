@@ -11,7 +11,6 @@ import { Eye, Save, Share2, Download, ExternalLink } from 'lucide-react';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
 import { PortfolioPage, ProfileData } from '@/types/portfolio';
 import { toast } from '@/hooks/use-toast';
-import { LayoutPreview } from './LayoutPreview';
 import { ProfileSection } from './ProfileSection';
 import { EnhancedProjectCard } from './EnhancedProjectCard';
 
@@ -19,21 +18,11 @@ interface EnhancedPortfolioEditorProps {
   portfolioPage: PortfolioPage;
 }
 
-const LAYOUT_OPTIONS = [
-  'sidebar',
-  'hero-timeline',
-  'grid',
-  'classic',
-  'split',
-  'hero-focus'
-];
-
 export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEditorProps) {
   const { updatePortfolioPage, exportPortfolioAsCSV, getShareableLink } = usePortfolioPages();
   
   const [title, setTitle] = useState(portfolioPage.title);
   const [description, setDescription] = useState(portfolioPage.description || '');
-  const [selectedLayout, setSelectedLayout] = useState(portfolioPage.theme || 'sidebar');
   const [isPublic, setIsPublic] = useState(portfolioPage.is_public || false);
   const [customUrl, setCustomUrl] = useState(portfolioPage.custom_url || '');
   const [profileData, setProfileData] = useState<ProfileData>(portfolioPage.profile_data || {
@@ -52,7 +41,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     }, 1000);
 
     return () => clearTimeout(saveTimer);
-  }, [profileData, title, description, selectedLayout, isPublic, customUrl]);
+  }, [profileData, title, description, isPublic, customUrl]);
 
   const handleSave = async () => {
     try {
@@ -60,7 +49,6 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         id: portfolioPage.id,
         title,
         description,
-        theme: selectedLayout as any,
         is_public: isPublic,
         custom_url: customUrl,
         profile_data: profileData,
@@ -114,7 +102,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Portfolio Editor</h1>
-          <p className="text-muted-foreground">Customize your portfolio layout and content</p>
+          <p className="text-muted-foreground">Customize your portfolio content</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handlePreview}>
@@ -132,42 +120,18 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         </div>
       </div>
 
-      <Tabs defaultValue="design" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="design">Design</TabsTrigger>
-          <TabsTrigger value="layout">Layout</TabsTrigger>
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="projects">Projects</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="design" className="space-y-6">
+        <TabsContent value="profile" className="space-y-6">
           <ProfileSection 
             profileData={profileData}
             onUpdate={setProfileData}
           />
-        </TabsContent>
-
-        <TabsContent value="layout" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Choose Your Layout</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                Select a layout that best showcases your work
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {LAYOUT_OPTIONS.map((layout) => (
-                  <LayoutPreview
-                    key={layout}
-                    layout={layout}
-                    isSelected={selectedLayout === layout}
-                    onSelect={() => setSelectedLayout(layout)}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="projects" className="space-y-6">

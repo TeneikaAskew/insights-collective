@@ -104,177 +104,6 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
     return 'DS'; // Default to Data Scientist
   };
 
-  const renderSidebarLayout = () => (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      <div className="flex flex-col lg:flex-row max-w-7xl mx-auto">
-        {/* Sidebar Profile */}
-        <div className="lg:w-1/3 p-6 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
-          <Card className="p-6 space-y-6">
-            <div className="text-center">
-              <Avatar className="w-24 h-24 mx-auto mb-4">
-                <AvatarImage src={profileData.avatar_url} />
-                <AvatarFallback className="text-lg">{getInitials()}</AvatarFallback>
-              </Avatar>
-              <h1 className="text-2xl font-bold">{portfolioPage.title}</h1>
-              {profileData.location && (
-                <p className="text-muted-foreground flex items-center justify-center gap-1 mt-2">
-                  <MapPin className="h-4 w-4" />
-                  {profileData.location}
-                </p>
-              )}
-            </div>
-
-            {profileData.professional_summary && (
-              <div>
-                <h3 className="font-semibold mb-2">About</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {profileData.professional_summary}
-                </p>
-              </div>
-            )}
-
-            {profileData.skills && profileData.skills.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2">Skills</h3>
-                <div className="flex flex-wrap gap-2">
-                  {profileData.skills.map((skill, index) => (
-                    <Badge key={index} variant="secondary" className="text-xs">
-                      {skill}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {profileData.experience && profileData.experience.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2">Experience</h3>
-                <div className="space-y-3">
-                  {profileData.experience.slice(0, 2).map((exp) => (
-                    <div key={exp.id} className="text-sm">
-                      <p className="font-medium">{exp.role}</p>
-                      <p className="text-muted-foreground">{exp.company}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {exp.startDate} - {exp.endDate || 'Present'}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Button size="sm" onClick={handleEmailShare}>
-                <Mail className="h-4 w-4 mr-1" />
-                Contact
-              </Button>
-              <Button size="sm" variant="outline">
-                Hire Me
-              </Button>
-            </div>
-          </Card>
-        </div>
-
-        {/* Projects Grid */}
-        <div className="lg:w-2/3 p-6">
-          <div className="grid gap-6 md:grid-cols-2">
-            {portfolioPage.projects?.map((projectItem) => (
-              <EnhancedProjectCard
-                key={projectItem.id}
-                projectItem={projectItem}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderHeroTimelineLayout = () => (
-    <div className="min-h-screen">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-to-r from-[#9b87f5] to-purple-600 text-white py-20">
-        <div className="absolute inset-0 bg-black/20"></div>
-        <div className="relative max-w-4xl mx-auto text-center px-6">
-          <Avatar className="w-32 h-32 mx-auto mb-6 border-4 border-white/20">
-            <AvatarImage src={profileData.avatar_url} />
-            <AvatarFallback className="text-2xl bg-white/10">{getInitials()}</AvatarFallback>
-          </Avatar>
-          <h1 className="text-4xl md:text-5xl font-bold mb-4">{portfolioPage.title}</h1>
-          {profileData.professional_summary && (
-            <p className="text-xl mb-6 opacity-90 max-w-2xl mx-auto">
-              {profileData.professional_summary}
-            </p>
-          )}
-          {profileData.location && (
-            <p className="flex items-center justify-center gap-2 mb-6">
-              <MapPin className="h-5 w-5" />
-              {profileData.location}
-            </p>
-          )}
-          <div className="flex gap-4 justify-center">
-            <Button size="lg" variant="secondary" onClick={handleEmailShare}>
-              <Mail className="h-5 w-5 mr-2" />
-              Contact Me
-            </Button>
-            <Button size="lg" variant="outline" className="text-white border-white hover:bg-white/10">
-              Hire Me
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="max-w-6xl mx-auto p-6">
-        {/* Skills Section */}
-        {profileData.skills && profileData.skills.length > 0 && (
-          <div className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">Skills & Technologies</h2>
-            <div className="flex flex-wrap gap-3">
-              {profileData.skills.map((skill, index) => (
-                <Badge key={index} variant="secondary" className="px-3 py-1">
-                  {skill}
-                </Badge>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Projects Timeline */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-bold mb-6">Projects</h2>
-          <div className="space-y-8">
-            {portfolioPage.projects?.map((projectItem, index) => (
-              <div key={projectItem.id} className="flex gap-6">
-                <div className="flex flex-col items-center">
-                  <div className="w-3 h-3 bg-[#9b87f5] rounded-full"></div>
-                  {index < portfolioPage.projects!.length - 1 && (
-                    <div className="w-px h-24 bg-gray-300 mt-2"></div>
-                  )}
-                </div>
-                <div className="flex-1">
-                  <EnhancedProjectCard
-                    projectItem={projectItem}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderLayout = () => {
-    switch (portfolioPage.theme) {
-      case 'hero-timeline':
-        return renderHeroTimelineLayout();
-      case 'sidebar':
-      default:
-        return renderSidebarLayout();
-    }
-  };
-
   return (
     <div className={isDarkMode ? 'dark' : ''}>
       {/* Sticky Navigation */}
@@ -302,7 +131,98 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
         </div>
       </div>
 
-      {renderLayout()}
+      {/* Main Content */}
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="max-w-6xl mx-auto p-6">
+          {/* Profile Header */}
+          <div className="text-center mb-12">
+            <Avatar className="w-32 h-32 mx-auto mb-6 border-4 border-white shadow-lg">
+              <AvatarImage src={profileData.avatar_url} />
+              <AvatarFallback className="text-2xl bg-gradient-to-br from-purple-500 to-purple-600 text-white">
+                {getInitials()}
+              </AvatarFallback>
+            </Avatar>
+            <h1 className="text-4xl font-bold mb-4">{portfolioPage.title}</h1>
+            {profileData.professional_summary && (
+              <p className="text-xl text-muted-foreground mb-6 max-w-3xl mx-auto">
+                {profileData.professional_summary}
+              </p>
+            )}
+            {profileData.location && (
+              <p className="flex items-center justify-center gap-2 mb-6 text-muted-foreground">
+                <MapPin className="h-5 w-5" />
+                {profileData.location}
+              </p>
+            )}
+            <div className="flex gap-4 justify-center">
+              <Button size="lg" onClick={handleEmailShare}>
+                <Mail className="h-5 w-5 mr-2" />
+                Contact Me
+              </Button>
+              <Button size="lg" variant="outline">
+                Hire Me
+              </Button>
+            </div>
+          </div>
+
+          {/* Skills Section */}
+          {profileData.skills && profileData.skills.length > 0 && (
+            <div className="mb-12">
+              <h2 className="text-2xl font-bold mb-6 text-center">Skills & Technologies</h2>
+              <div className="flex flex-wrap gap-3 justify-center">
+                {profileData.skills.map((skill, index) => (
+                  <Badge key={index} variant="secondary" className="px-4 py-2 text-sm">
+                    {skill}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Projects Section */}
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-6 text-center">Featured Projects</h2>
+            <p className="text-muted-foreground text-center mb-8">
+              A showcase of my work and the technologies I've mastered
+            </p>
+            {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {portfolioPage.projects.map((projectItem) => (
+                  <EnhancedProjectCard
+                    key={projectItem.id}
+                    projectItem={projectItem}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-16">
+                <p className="text-xl text-muted-foreground">
+                  No projects to showcase yet.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* CTA Section */}
+          <div className="text-center bg-white rounded-lg p-8 shadow-sm">
+            <h2 className="text-2xl font-bold mb-4">Let's Work Together</h2>
+            <p className="text-muted-foreground mb-6">
+              Interested in collaborating? I'd love to hear about your project.
+            </p>
+            <Button size="lg" onClick={handleEmailShare}>
+              <Mail className="h-5 w-5 mr-2" />
+              Get In Touch
+            </Button>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <footer className="mt-12 py-6 border-t bg-white">
+          <div className="max-w-6xl mx-auto px-6 text-center text-sm text-muted-foreground">
+            <p>© 2024 {portfolioPage.title}. Built with AI Portfolio Explorer.</p>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
