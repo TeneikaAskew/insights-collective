@@ -1,103 +1,83 @@
 
-import React, { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { usePortfolioPages } from '@/hooks/usePortfolioPages';
-import { Spinner } from '@/components/ui/spinner';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ExternalLink, Github, Mail, Linkedin, Share, Download, Copy } from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { 
+  Mail, 
+  MapPin, 
+  Github, 
+  Linkedin, 
+  ExternalLink, 
+  Share2, 
+  Download,
+  Moon,
+  Sun,
+  Eye
+} from 'lucide-react';
+import { PortfolioPage, ProfileData } from '@/types/portfolio';
 import { EnhancedProjectCard } from './EnhancedProjectCard';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
-export function EnhancedPublicPortfolioView() {
-  const { customUrl } = useParams<{ customUrl: string }>();
-  const { getPublicPortfolioPage } = usePortfolioPages();
+interface EnhancedPublicPortfolioViewProps {
+  portfolioPage: PortfolioPage;
+}
+
+export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPortfolioViewProps) {
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [viewCount, setViewCount] = useState(0);
   
-  const { data: portfolioData, isLoading, error } = useQuery({
-    queryKey: ['public-portfolio', customUrl],
-    queryFn: () => getPublicPortfolioPage(customUrl || ''),
-    enabled: !!customUrl,
-  });
+  const profileData: ProfileData = portfolioPage.profile_data || {};
 
-  // Track page view
   useEffect(() => {
-    if (portfolioData?.id) {
-      // Log the page view in Supabase (implement this in the hook)
-      console.log('Portfolio view tracked:', portfolioData.id);
-    }
-  }, [portfolioData?.id]);
-  
-  if (isLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-50">
-        <div className="text-center">
-          <Spinner size="lg" />
-          <p className="mt-4 text-gray-600">Loading portfolio...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  if (error || !portfolioData) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <Card className="p-8 text-center max-w-md w-full">
-          <h2 className="text-2xl font-bold mb-4">Portfolio not found</h2>
-          <p className="text-gray-600 mb-6">
-            The portfolio you're looking for may have been removed or is private.
-          </p>
-          <Button asChild>
-            <Link to="/">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Return to home
-            </Link>
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-  
-  // Apply enhanced theme styles
-  const getThemeStyles = () => {
-    switch (portfolioData.theme) {
-      case 'minimal':
-        return {
-          background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-          primaryColor: '#1e293b',
-          accentColor: '#9b87f5',
-          textColor: '#334155',
-          cardBg: '#ffffff',
-        };
-      case 'professional':
-        return {
-          background: 'linear-gradient(135deg, #fafafa 0%, #f4f4f5 100%)',
-          primaryColor: '#18181b',
-          accentColor: '#6366f1',
-          textColor: '#3f3f46',
-          cardBg: '#ffffff',
-        };
-      case 'creative':
-        return {
-          background: 'linear-gradient(135deg, #fef7ff 0%, #f3e8ff 100%)',
-          primaryColor: '#581c87',
-          accentColor: '#a855f7',
-          textColor: '#6b21a8',
-          cardBg: '#ffffff',
-        };
-      default:
-        return {
-          background: 'linear-gradient(135deg, #fefefe 0%, #f9fafb 100%)',
-          primaryColor: '#111827',
-          accentColor: '#9b87f5',
-          textColor: '#374151',
-          cardBg: '#ffffff',
-        };
+    // Track page view
+    trackPageView();
+    
+    // Load view count
+    loadViewCount();
+  }, []);
+
+  const trackPageView = async () => {
+    try {
+      // Insert view record
+      await supabase
+        .from('portfolio_page_views')
+        .insert({
+          portfolio_page_id: portfolioPage.id,
+          viewed_at: new Date().toISOString()
+        });
+    } catch (error) {
+      console.error('Error tracking page view:', error);
     }
   };
-  
-  const theme = getThemeStyles();
+
+  const loadViewCount = async () => {
+    try {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { count } = await supabase
+        .from('portfolio_page_views')
+        .select('*', { count: 'exact', head: true })
+        .eq('portfolio_page_id', portfolioPage.id)
+        .gte('viewed_at', thirtyDaysAgo.toISOString());
+
+      setViewCount(count || 0);
+    } catch (error) {
+      console.error('Error loading view count:', error);
+    }
+  };
+
+  const handleShare = () => {
+    const shareUrl = window.location.href;
+    navigator.clipboard.writeText(shareUrl);
+    toast({
+      title: "Success",
+      description: "Portfolio link copied to clipboard!",
+    });
+  };
 
   const handleEmailShare = () => {
     const subject = encodeURIComponent("Check out my portfolio");
@@ -105,280 +85,226 @@ export function EnhancedPublicPortfolioView() {
     window.open(`mailto:?subject=${subject}&body=${body}`);
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    // You could add a toast notification here
+  const generateEmbedCode = () => {
+    const embedCode = `<iframe src="${window.location.href}" style="width:100%;height:600px;border:none;"></iframe>`;
+    navigator.clipboard.writeText(embedCode);
+    toast({
+      title: "Success",
+      description: "Embed code copied to clipboard!",
+    });
   };
 
-  const handleLinkedInShare = () => {
-    const url = encodeURIComponent(window.location.href);
-    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank');
+  const getInitials = () => {
+    if (profileData.professional_summary) {
+      const words = profileData.professional_summary.split(' ');
+      if (words.length >= 2) {
+        return `${words[0][0]}${words[1][0]}`.toUpperCase();
+      }
+    }
+    return 'DS'; // Default to Data Scientist
   };
 
-  // Get profile data from portfolio or use defaults
-  const profileData = portfolioData.profile_data || {};
-  
-  return (
-    <div 
-      style={{ 
-        background: theme.background,
-        color: theme.textColor,
-        minHeight: '100vh'
-      }}
-    >
-      {/* Sticky Navigation */}
-      <nav className="sticky top-0 z-50 backdrop-blur-lg bg-white/80 border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-4 py-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-xl font-bold" style={{ color: theme.primaryColor }}>
-              {portfolioData.title}
-            </h1>
-            
-            {/* Action Toolbar */}
-            <div className="flex items-center space-x-2">
-              <Button variant="ghost" size="sm" onClick={handleCopyLink}>
-                <Copy className="h-4 w-4 mr-1" />
-                Copy
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleEmailShare}>
-                <Mail className="h-4 w-4 mr-1" />
-                Email
-              </Button>
-              <Button variant="ghost" size="sm" onClick={handleLinkedInShare}>
-                <Share className="h-4 w-4 mr-1" />
-                Share
-              </Button>
-              <Button variant="ghost" size="sm">
+  const renderSidebarLayout = () => (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="flex flex-col lg:flex-row max-w-7xl mx-auto">
+        {/* Sidebar Profile */}
+        <div className="lg:w-1/3 p-6 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">
+          <Card className="p-6 space-y-6">
+            <div className="text-center">
+              <Avatar className="w-24 h-24 mx-auto mb-4">
+                <AvatarImage src={profileData.avatar_url} />
+                <AvatarFallback className="text-lg">{getInitials()}</AvatarFallback>
+              </Avatar>
+              <h1 className="text-2xl font-bold">{portfolioPage.title}</h1>
+              {profileData.location && (
+                <p className="text-muted-foreground flex items-center justify-center gap-1 mt-2">
+                  <MapPin className="h-4 w-4" />
+                  {profileData.location}
+                </p>
+              )}
+            </div>
+
+            {profileData.professional_summary && (
+              <div>
+                <h3 className="font-semibold mb-2">About</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {profileData.professional_summary}
+                </p>
+              </div>
+            )}
+
+            {profileData.skills && profileData.skills.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-2">Skills</h3>
+                <div className="flex flex-wrap gap-2">
+                  {profileData.skills.map((skill, index) => (
+                    <Badge key={index} variant="secondary" className="text-xs">
+                      {skill}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {profileData.experience && profileData.experience.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-2">Experience</h3>
+                <div className="space-y-3">
+                  {profileData.experience.slice(0, 2).map((exp) => (
+                    <div key={exp.id} className="text-sm">
+                      <p className="font-medium">{exp.role}</p>
+                      <p className="text-muted-foreground">{exp.company}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {exp.startDate} - {exp.endDate || 'Present'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleEmailShare}>
                 <Mail className="h-4 w-4 mr-1" />
                 Contact
               </Button>
-              <Button 
-                size="sm"
-                style={{ 
-                  backgroundColor: theme.accentColor,
-                  color: 'white'
-                }}
-              >
+              <Button size="sm" variant="outline">
                 Hire Me
               </Button>
             </div>
+          </Card>
+        </div>
+
+        {/* Projects Grid */}
+        <div className="lg:w-2/3 p-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            {portfolioPage.projects?.map((projectItem) => (
+              <EnhancedProjectCard
+                key={projectItem.id}
+                project={projectItem.project!}
+                customDescription={projectItem.custom_description}
+              />
+            ))}
           </div>
         </div>
-      </nav>
+      </div>
+    </div>
+  );
 
+  const renderHeroTimelineLayout = () => (
+    <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="py-20 px-4">
-        <div className="max-w-6xl mx-auto text-center">
-          <div className="mb-8">
-            <div className="mb-6">
-              {profileData.avatar_url ? (
-                <img 
-                  src={profileData.avatar_url} 
-                  alt="Profile" 
-                  className="w-32 h-32 rounded-full mx-auto shadow-lg object-cover"
-                />
-              ) : (
-                <div 
-                  className="w-32 h-32 rounded-full mx-auto flex items-center justify-center text-white text-4xl font-bold shadow-lg"
-                  style={{ backgroundColor: theme.accentColor }}
-                >
-                  {portfolioData.title.charAt(0)}
-                </div>
-              )}
-            </div>
-            <h1 
-              className="text-5xl md:text-6xl font-bold mb-6"
-              style={{ color: theme.primaryColor }}
-            >
-              {portfolioData.title}
-            </h1>
-            {profileData.professional_summary ? (
-              <p className="text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed">
-                {profileData.professional_summary}
-              </p>
-            ) : portfolioData.description ? (
-              <p className="text-xl md:text-2xl max-w-4xl mx-auto leading-relaxed">
-                {portfolioData.description}
-              </p>
-            ) : null}
-            
-            {profileData.location && (
-              <p className="text-lg text-gray-600 mt-4">
-                📍 {profileData.location}
-              </p>
-            )}
-          </div>
-          
-          {/* Skills */}
-          {profileData.skills && profileData.skills.length > 0 && (
-            <div className="mb-8">
-              <div className="flex flex-wrap justify-center gap-2 max-w-4xl mx-auto">
-                {profileData.skills.map((skill, index) => (
-                  <span 
-                    key={index}
-                    className="px-3 py-1 rounded-full text-sm font-medium"
-                    style={{ 
-                      backgroundColor: `${theme.accentColor}20`,
-                      color: theme.accentColor
-                    }}
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            </div>
+      <div className="relative bg-gradient-to-r from-[#9b87f5] to-purple-600 text-white py-20">
+        <div className="absolute inset-0 bg-black/20"></div>
+        <div className="relative max-w-4xl mx-auto text-center px-6">
+          <Avatar className="w-32 h-32 mx-auto mb-6 border-4 border-white/20">
+            <AvatarImage src={profileData.avatar_url} />
+            <AvatarFallback className="text-2xl bg-white/10">{getInitials()}</AvatarFallback>
+          </Avatar>
+          <h1 className="text-4xl md:text-5xl font-bold mb-4">{portfolioPage.title}</h1>
+          {profileData.professional_summary && (
+            <p className="text-xl mb-6 opacity-90 max-w-2xl mx-auto">
+              {profileData.professional_summary}
+            </p>
           )}
-          
-          {/* Social Links */}
-          <div className="flex justify-center space-x-6 mb-12">
-            <Button variant="ghost" size="lg" className="text-gray-600 hover:text-gray-900">
-              <Github className="h-6 w-6" />
+          {profileData.location && (
+            <p className="flex items-center justify-center gap-2 mb-6">
+              <MapPin className="h-5 w-5" />
+              {profileData.location}
+            </p>
+          )}
+          <div className="flex gap-4 justify-center">
+            <Button size="lg" variant="secondary" onClick={handleEmailShare}>
+              <Mail className="h-5 w-5 mr-2" />
+              Contact Me
             </Button>
-            <Button variant="ghost" size="lg" className="text-gray-600 hover:text-gray-900">
-              <Linkedin className="h-6 w-6" />
-            </Button>
-            <Button variant="ghost" size="lg" className="text-gray-600 hover:text-gray-900">
-              <Mail className="h-6 w-6" />
+            <Button size="lg" variant="outline" className="text-white border-white hover:bg-white/10">
+              Hire Me
             </Button>
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* Experience Section */}
-      {profileData.experience && profileData.experience.length > 0 && (
-        <section className="py-16 px-4">
-          <div className="max-w-6xl mx-auto">
-            <h2 
-              className="text-4xl font-bold mb-8 text-center"
-              style={{ color: theme.primaryColor }}
-            >
-              Experience
-            </h2>
-            <div className="space-y-6">
-              {profileData.experience.map((exp, index) => (
-                <div key={index} className="bg-white rounded-lg p-6 shadow-sm">
-                  <h3 className="text-xl font-semibold">{exp.role}</h3>
-                  <p className="text-lg text-gray-600">{exp.company}</p>
-                  <p className="text-sm text-gray-500 mb-3">
-                    {exp.startDate} - {exp.endDate || 'Present'}
-                  </p>
-                  {exp.description && (
-                    <p className="text-gray-700">{exp.description}</p>
+      {/* Content */}
+      <div className="max-w-6xl mx-auto p-6">
+        {/* Skills Section */}
+        {profileData.skills && profileData.skills.length > 0 && (
+          <div className="mb-12">
+            <h2 className="text-2xl font-bold mb-6">Skills & Technologies</h2>
+            <div className="flex flex-wrap gap-3">
+              {profileData.skills.map((skill, index) => (
+                <Badge key={index} variant="secondary" className="px-3 py-1">
+                  {skill}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Projects Timeline */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-6">Projects</h2>
+          <div className="space-y-8">
+            {portfolioPage.projects?.map((projectItem, index) => (
+              <div key={projectItem.id} className="flex gap-6">
+                <div className="flex flex-col items-center">
+                  <div className="w-3 h-3 bg-[#9b87f5] rounded-full"></div>
+                  {index < portfolioPage.projects!.length - 1 && (
+                    <div className="w-px h-24 bg-gray-300 mt-2"></div>
                   )}
                 </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Education Section */}
-      {profileData.education && profileData.education.length > 0 && (
-        <section className="py-16 px-4">
-          <div className="max-w-6xl mx-auto">
-            <h2 
-              className="text-4xl font-bold mb-8 text-center"
-              style={{ color: theme.primaryColor }}
-            >
-              Education
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {profileData.education.map((edu, index) => (
-                <div key={index} className="bg-white rounded-lg p-6 shadow-sm">
-                  <h3 className="text-xl font-semibold">{edu.degree}</h3>
-                  <p className="text-lg text-gray-600">{edu.institution}</p>
-                  <p className="text-sm text-gray-500">{edu.graduationYear}</p>
+                <div className="flex-1">
+                  <EnhancedProjectCard
+                    project={projectItem.project!}
+                    customDescription={projectItem.custom_description}
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        </section>
-      )}
+        </div>
+      </div>
+    </div>
+  );
 
-      {/* Projects Section */}
-      <section className="py-16 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 
-              className="text-4xl font-bold mb-4"
-              style={{ color: theme.primaryColor }}
-            >
-              Featured Projects
-            </h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              A showcase of my work and the technologies I've mastered
-            </p>
+  const renderLayout = () => {
+    switch (portfolioPage.theme) {
+      case 'hero-timeline':
+        return renderHeroTimelineLayout();
+      case 'sidebar':
+      default:
+        return renderSidebarLayout();
+    }
+  };
+
+  return (
+    <div className={isDarkMode ? 'dark' : ''}>
+      {/* Sticky Navigation */}
+      <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Eye className="h-4 w-4" />
+            {viewCount} views (30 days)
           </div>
           
-          {!portfolioData.projects || portfolioData.projects.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-xl text-gray-500">
-                No projects to showcase yet.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {portfolioData.projects.map((projectItem) => (
-                <EnhancedProjectCard
-                  key={projectItem.id}
-                  projectItem={projectItem}
-                  theme={portfolioData.theme}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-      
-      {/* Contact Section */}
-      <section 
-        className="py-20 px-4"
-        style={{ backgroundColor: `${theme.accentColor}10` }}
-      >
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 
-            className="text-4xl font-bold mb-6"
-            style={{ color: theme.primaryColor }}
-          >
-            Let's Work Together
-          </h2>
-          <p className="text-xl mb-8 text-gray-600">
-            Interested in collaborating? I'd love to hear about your project.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Button 
-              size="lg"
-              className="px-8 py-4 text-lg"
-              style={{ 
-                backgroundColor: theme.accentColor,
-                color: 'white'
-              }}
-              onClick={handleEmailShare}
-            >
-              <Mail className="h-5 w-5 mr-2" />
-              Get In Touch
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={() => setIsDarkMode(!isDarkMode)}>
+              {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              className="px-8 py-4 text-lg"
-              onClick={handleLinkedInShare}
-            >
-              <Linkedin className="h-5 w-5 mr-2" />
-              Connect on LinkedIn
+            <Button size="sm" variant="ghost" onClick={handleEmailShare}>
+              <Mail className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={handleShare}>
+              <Share2 className="h-4 w-4" />
+            </Button>
+            <Button size="sm" variant="ghost" onClick={generateEmbedCode}>
+              <ExternalLink className="h-4 w-4" />
             </Button>
           </div>
         </div>
-      </section>
-      
-      {/* Footer */}
-      <footer className="py-12 px-4 border-t border-gray-200">
-        <div className="max-w-6xl mx-auto text-center">
-          <p className="text-gray-500">
-            © 2024 {portfolioData.title}. Built with AI Portfolio Explorer.
-          </p>
-        </div>
-      </footer>
+      </div>
+
+      {renderLayout()}
     </div>
   );
 }

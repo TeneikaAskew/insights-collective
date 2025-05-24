@@ -1169,6 +1169,7 @@ export type Database = {
           description: string | null
           id: string
           is_public: boolean | null
+          profile_data: Json | null
           theme: string | null
           title: string
           updated_at: string | null
@@ -1180,6 +1181,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_public?: boolean | null
+          profile_data?: Json | null
           theme?: string | null
           title: string
           updated_at?: string | null
@@ -1191,6 +1193,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_public?: boolean | null
+          profile_data?: Json | null
           theme?: string | null
           title?: string
           updated_at?: string | null
