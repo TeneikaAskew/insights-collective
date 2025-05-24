@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { PortfolioPage } from '@/types/portfolio';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -198,27 +197,33 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
             </Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {pages.map((page) => (
-              <Card key={page.id} className="overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
+              <Card key={page.id} className="overflow-hidden flex flex-col h-full">
+                <CardHeader className="pb-3 flex-shrink-0">
+                  <div className="flex justify-between items-start gap-3">
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-lg truncate">{page.title}</CardTitle>
                       <CardDescription className="mt-1 line-clamp-2">
                         {page.description || 'No description'}
                       </CardDescription>
                     </div>
-                    <Badge variant={page.is_public ? "default" : "outline"} className="ml-2 flex-shrink-0">
+                    <Badge variant={page.is_public ? "default" : "outline"} className="flex-shrink-0">
                       {page.is_public ? "Public" : "Private"}
                     </Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="pb-3">
-                  <div className="text-sm space-y-1">
-                    <p><strong>Theme:</strong> {page.theme}</p>
+                <CardContent className="pb-3 flex-1">
+                  <div className="text-sm space-y-2">
+                    <div className="flex justify-between">
+                      <strong>Theme:</strong> 
+                      <span className="text-right">{page.theme}</span>
+                    </div>
                     {page.custom_url && (
-                      <p><strong>URL:</strong> /portfolio/{page.custom_url}</p>
+                      <div className="flex flex-col gap-1">
+                        <strong>URL:</strong>
+                        <span className="text-xs text-gray-500 break-all">/portfolio/{page.custom_url}</span>
+                      </div>
                     )}
                     <p className="text-gray-500 text-xs">
                       Created on {new Date(page.created_at as string).toLocaleDateString()}
@@ -226,49 +231,51 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
                   </div>
                 </CardContent>
                 <Separator />
-                <CardFooter className="p-3">
-                  <div className="flex justify-between items-center w-full">
-                    <div className="flex space-x-1">
-                      <Button 
-                        size="sm" 
-                        variant="secondary" 
-                        onClick={() => viewPage(page)}
-                        className="text-xs px-2"
-                      >
-                        <Settings className="h-3 w-3 mr-1" />
-                        Edit
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleShare(page)}
-                        className="text-xs px-2"
-                      >
-                        <Share2 className="h-3 w-3 mr-1" />
-                        Share
-                      </Button>
-                    </div>
-                    <div className="flex space-x-1">
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => handleExport(page.id)}
-                        className="text-xs px-2"
-                      >
-                        <FileDown className="h-3 w-3 mr-1" />
-                        Export
-                      </Button>
-                      {page.is_public && page.custom_url && (
+                <CardFooter className="p-3 flex-shrink-0">
+                  <div className="flex flex-col gap-2 w-full">
+                    <div className="flex justify-between items-center">
+                      <div className="flex space-x-1">
+                        <Button 
+                          size="sm" 
+                          variant="secondary" 
+                          onClick={() => viewPage(page)}
+                          className="text-xs px-2"
+                        >
+                          <Settings className="h-3 w-3 mr-1" />
+                          Edit
+                        </Button>
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => previewPage(page)}
+                          onClick={() => handleShare(page)}
                           className="text-xs px-2"
                         >
-                          <Eye className="h-3 w-3 mr-1" />
-                          Preview
+                          <Share2 className="h-3 w-3 mr-1" />
+                          Share
                         </Button>
-                      )}
+                      </div>
+                      <div className="flex space-x-1">
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleExport(page.id)}
+                          className="text-xs px-2"
+                        >
+                          <FileDown className="h-3 w-3 mr-1" />
+                          Export
+                        </Button>
+                        {page.is_public && page.custom_url && (
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => previewPage(page)}
+                            className="text-xs px-2"
+                          >
+                            <Eye className="h-3 w-3 mr-1" />
+                            Preview
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardFooter>
