@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
@@ -37,17 +36,16 @@ export function PortfolioEditor() {
     if (!pageId) return;
     await addProjectToPage.mutateAsync({
       pageId,
-      projectId: project.id,
-      displayOrder: portfolioPage?.projects?.length || 0
+      projectId: project.id
     });
     setAddProjectDialogOpen(false);
   };
   
-  const handleRemoveProject = async (pageProjectId: string) => {
+  const handleRemoveProject = async (projectId: string) => {
     if (!pageId) return;
     await removeProjectFromPage.mutateAsync({
-      pageProjectId,
-      pageId
+      pageId,
+      projectId
     });
   };
   
@@ -85,11 +83,9 @@ export function PortfolioEditor() {
       // Only update if the order has changed
       if (newProjects[i].display_order !== i) {
         await updatePortfolioPageProject.mutateAsync({
-          id: newProjects[i].id,
           pageId: pageId!,
-          updates: {
-            display_order: i
-          }
+          projectId: newProjects[i].project_id,
+          displayOrder: i
         });
       }
     }
@@ -104,11 +100,9 @@ export function PortfolioEditor() {
     if (!editingProject || !pageId) return;
     
     await updatePortfolioPageProject.mutateAsync({
-      id: editingProject.id,
       pageId,
-      updates: {
-        custom_description: customDescription
-      }
+      projectId: editingProject.project_id,
+      customDescription
     });
     
     setEditingProject(null);
@@ -306,7 +300,7 @@ export function PortfolioEditor() {
                                         size="sm" 
                                         variant="ghost" 
                                         className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                                        onClick={() => handleRemoveProject(projectItem.id)}
+                                        onClick={() => handleRemoveProject(projectItem.project_id)}
                                       >
                                         <Trash className="h-4 w-4" />
                                       </Button>
