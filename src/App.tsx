@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -41,6 +42,18 @@ import DataBlueprint from '@/pages/DataBlueprint';
 import Survey from '@/pages/Survey';
 import Notifications from '@/pages/Notifications';
 
+// Additional missing imports
+import AuthCallback from '@/pages/AuthCallback';
+import CreateBlogPost from '@/pages/CreateBlogPost';
+import EditBlogPost from '@/pages/EditBlogPost';
+import ExploreDataCareers from '@/pages/ExploreDataCareers';
+import UserDashboard from '@/pages/UserDashboard';
+import ThreadDetail from '@/pages/ThreadDetail';
+import CourseManagement from '@/pages/CourseManagement';
+import CourseManageMaterials from '@/pages/CourseManageMaterials';
+import DataBlueprintSeries from '@/pages/DataBlueprintSeries';
+import SurveyConfirmation from '@/pages/SurveyConfirmation';
+
 // Admin components
 import AdminDashboard from '@/pages/AdminDashboard';
 import AdminUsers from '@/pages/AdminUsers';
@@ -55,6 +68,16 @@ import AdminEnrollments from '@/pages/AdminEnrollments';
 import AdminCourseEdit from '@/pages/AdminCourseEdit';
 import AdminPageVisibility from '@/pages/AdminPageVisibility';
 import AdminGuard from '@/components/admin/AdminGuard';
+
+// Admin pages from admin folder
+import FormManagement from '@/pages/admin/FormManagement';
+import LocalStorageDebug from '@/pages/admin/LocalStorageDebug';
+import UnifiedFormManagement from '@/pages/admin/UnifiedFormManagement';
+
+// Survey pages
+import SurveyFormCreate from '@/pages/survey/SurveyFormCreate';
+import SurveyFormEdit from '@/pages/survey/SurveyFormEdit';
+import SurveyPage from '@/pages/survey/SurveyPage';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -84,15 +107,75 @@ function App() {
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
                 
-                {/* Protected routes */}
-                
+                {/* Blog routes - some public, some protected */}
+                <Route 
+                  path="/blog" 
+                  element={
+                    <PageVisibilityGuard>
+                      <BlogList />
+                    </PageVisibilityGuard>
+                  } 
+                />
+                <Route 
+                  path="/blog/:postId" 
+                  element={
+                    <PageVisibilityGuard>
+                      <BlogPost />
+                    </PageVisibilityGuard>
+                  } 
+                />
+                <Route
+                  path="/blog/create"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <CreateBlogPost />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/blog/edit/:postId"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <EditBlogPost />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Career exploration routes */}
+                <Route
+                  path="/explore-data-careers"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <ExploreDataCareers />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Dashboard routes */}
                 <Route
                   path="/dashboard"
                   element={
                     <ProtectedRoute>
                       <PageVisibilityGuard>
                         <Dashboard />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/user-dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <UserDashboard />
                       </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
@@ -130,6 +213,28 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+
+                {/* Course management routes */}
+                <Route
+                  path="/course-management"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <CourseManagement />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/course/:courseId/manage-materials"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <CourseManageMaterials />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
                 
                 <Route
                   path="/module/:moduleId"
@@ -153,7 +258,7 @@ function App() {
                   }
                 />
 
-                {/* New routes for 404 fixes */}
+                {/* Data Blueprint routes */}
                 <Route
                   path="/data-blueprint"
                   element={
@@ -164,13 +269,64 @@ function App() {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/data-blueprint-series"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <DataBlueprintSeries />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
                 
+                {/* Survey routes */}
                 <Route
                   path="/survey"
                   element={
                     <ProtectedRoute>
                       <PageVisibilityGuard>
                         <Survey />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/survey/confirmation"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <SurveyConfirmation />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/survey/create"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <SurveyFormCreate />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/survey/edit/:surveyId"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <SurveyFormEdit />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/survey/:surveyId"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <SurveyPage />
                       </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
@@ -315,24 +471,6 @@ function App() {
                   }
                 />
                 
-                {/* Blog routes */}
-                <Route 
-                  path="/blog" 
-                  element={
-                    <PageVisibilityGuard>
-                      <BlogList />
-                    </PageVisibilityGuard>
-                  } 
-                />
-                <Route 
-                  path="/blog/:postId" 
-                  element={
-                    <PageVisibilityGuard>
-                      <BlogPost />
-                    </PageVisibilityGuard>
-                  } 
-                />
-                
                 {/* Messaging routes */}
                 <Route
                   path="/messages"
@@ -362,6 +500,16 @@ function App() {
                     <ProtectedRoute>
                       <PageVisibilityGuard>
                         <ForumDetail />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/thread/:threadId"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <ThreadDetail />
                       </PageVisibilityGuard>
                     </ProtectedRoute>
                   }
@@ -465,6 +613,30 @@ function App() {
                   element={
                     <AdminGuard>
                       <AdminForms />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/form-management"
+                  element={
+                    <AdminGuard>
+                      <FormManagement />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/unified-form-management"
+                  element={
+                    <AdminGuard>
+                      <UnifiedFormManagement />
+                    </AdminGuard>
+                  }
+                />
+                <Route
+                  path="/admin/localstorage-debug"
+                  element={
+                    <AdminGuard>
+                      <LocalStorageDebug />
                     </AdminGuard>
                   }
                 />
