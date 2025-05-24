@@ -32,6 +32,22 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
     return `${start} - ${end}`;
   };
 
+  // Helper function to get location display
+  const getLocationDisplay = () => {
+    const location = profileData?.location_details;
+    if (!location) {
+      // Fallback to old location field for backward compatibility
+      return profileData?.location || '';
+    }
+    
+    const parts = [];
+    if (location.city) parts.push(location.city);
+    if (location.state) parts.push(location.state);
+    if (location.country) parts.push(location.country);
+    
+    return parts.length > 0 ? `You can find me in ${parts.join(', ')}` : '';
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Hero Section */}
@@ -56,10 +72,10 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
           )}
 
           <div className="flex flex-wrap gap-4 mb-6">
-            {profileData?.location && (
+            {getLocationDisplay() && (
               <div className="flex items-center gap-2">
                 <MapPin className="h-5 w-5" />
-                <span>{profileData.location}</span>
+                <span>{getLocationDisplay()}</span>
               </div>
             )}
             {profileData?.github_url && (

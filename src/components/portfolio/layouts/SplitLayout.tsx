@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,6 +58,22 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
     return `${start} - ${end}`;
   };
 
+  // Helper function to get location display
+  const getLocationDisplay = () => {
+    const location = profileData?.location_details;
+    if (!location) {
+      // Fallback to old location field for backward compatibility
+      return profileData?.location || '';
+    }
+    
+    const parts = [];
+    if (location.city) parts.push(location.city);
+    if (location.state) parts.push(location.state);
+    if (location.country) parts.push(location.country);
+    
+    return parts.length > 0 ? `You can find me in ${parts.join(', ')}` : '';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
       <div className="max-w-7xl mx-auto p-6">
@@ -87,10 +102,10 @@ export function SplitLayout({ portfolioPage }: SplitLayoutProps) {
 
             {/* Contact Info */}
             <div className="space-y-4 mb-8">
-              {profileData.location && (
+              {getLocationDisplay() && (
                 <div className="flex items-center gap-3 text-muted-foreground">
                   <MapPin className="h-5 w-5" />
-                  {profileData.location}
+                  {getLocationDisplay()}
                 </div>
               )}
               {profileData.github_url && (

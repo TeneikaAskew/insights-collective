@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { X, Plus, Upload, CalendarIcon } from 'lucide-react';
+import { X, Plus, Upload, CalendarIcon, MapPin } from 'lucide-react';
 import { ProfileData } from '@/types/portfolio';
 import { ProfileAvatar } from '@/components/profile/ProfileAvatar';
 import { useStorageUpload } from '@/hooks/useStorageUpload';
@@ -121,6 +121,26 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
     updateField('education', updatedEducation);
   };
 
+  // Helper function to update location fields
+  const updateLocationField = (field: 'city' | 'state' | 'country', value: string) => {
+    const currentLocation = profileData.location_details || {};
+    const updatedLocation = { ...currentLocation, [field]: value };
+    updateField('location_details', updatedLocation);
+  };
+
+  // Generate display location string
+  const getLocationDisplay = () => {
+    const location = profileData.location_details;
+    if (!location) return '';
+    
+    const parts = [];
+    if (location.city) parts.push(location.city);
+    if (location.state) parts.push(location.state);
+    if (location.country) parts.push(location.country);
+    
+    return parts.length > 0 ? `You can find me in ${parts.join(', ')}` : '';
+  };
+
   return (
     <div className="space-y-6">
       {/* Basic Information Card */}
@@ -131,9 +151,9 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="avatar-url">Avatar</Label>
-            <div className="flex items-center gap-4 mt-2">
-              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+            <Label htmlFor="avatar-section">Avatar</Label>
+            <div className="flex items-start gap-4 mt-2">
+              <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0">
                 {profileData.avatar_url ? (
                   <img 
                     src={profileData.avatar_url} 
@@ -144,39 +164,44 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
                   <span className="text-gray-500 text-sm">No image</span>
                 )}
               </div>
-              <div className="flex-1">
-                <Input
-                  id="avatar-url"
-                  value={profileData.avatar_url || ''}
-                  onChange={(e) => updateField('avatar_url', e.target.value)}
-                  placeholder="https://example.com/avatar.jpg"
-                  className="mb-2"
-                />
-                <input
-                  type="file"
-                  id="avatar-upload"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) handleAvatarUpload(file);
-                  }}
-                  disabled={uploadingAvatar}
-                />
-                <label htmlFor="avatar-upload">
-                  <Button
-                    variant="outline"
-                    size="sm"
+              <div className="flex-1 space-y-3">
+                <div>
+                  <Label htmlFor="avatar-url" className="text-sm">Avatar URL</Label>
+                  <Input
+                    id="avatar-url"
+                    value={profileData.avatar_url || ''}
+                    onChange={(e) => updateField('avatar_url', e.target.value)}
+                    placeholder="https://example.com/avatar.jpg"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-500">or</span>
+                  <input
+                    type="file"
+                    id="avatar-upload"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAvatarUpload(file);
+                    }}
                     disabled={uploadingAvatar}
-                    className="cursor-pointer"
-                    asChild
-                  >
-                    <span>
-                      <Upload className="h-4 w-4 mr-2" />
-                      {uploadingAvatar ? 'Uploading...' : 'Upload Image'}
-                    </span>
-                  </Button>
-                </label>
+                  />
+                  <label htmlFor="avatar-upload">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={uploadingAvatar}
+                      className="cursor-pointer"
+                      asChild
+                    >
+                      <span>
+                        <Upload className="h-4 w-4 mr-2" />
+                        {uploadingAvatar ? 'Uploading...' : 'Upload Image'}
+                      </span>
+                    </Button>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
@@ -193,13 +218,44 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
           </div>
 
           <div>
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              value={profileData.location || ''}
-              onChange={(e) => updateField('location', e.target.value)}
-              placeholder="City, Country"
-            />
+            <Label className="flex items-center gap-2">
+              <MapPin className="h-4 w-4" />
+              Location
+            </Label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
+              <div>
+                <Label htmlFor="city" className="text-sm">City</Label>
+                <Input
+                  id="city"
+                  value={profileData.location_details?.city || ''}
+                  onChange={(e) => updateLocationField('city', e.target.value)}
+                  placeholder="New York"
+                />
+              </div>
+              <div>
+                <Label htmlFor="state" className="text-sm">State/Province</Label>
+                <Input
+                  id="state"
+                  value={profileData.location_details?.state || ''}
+                  onChange={(e) => updateLocationField('state', e.target.value)}
+                  placeholder="NY"
+                />
+              </div>
+              <div>
+                <Label htmlFor="country" className="text-sm">Country</Label>
+                <Input
+                  id="country"
+                  value={profileData.location_details?.country || ''}
+                  onChange={(e) => updateLocationField('country', e.target.value)}
+                  placeholder="United States"
+                />
+              </div>
+            </div>
+            {getLocationDisplay() && (
+              <div className="mt-2 p-2 bg-gray-50 rounded text-sm text-gray-600">
+                Preview: {getLocationDisplay()}
+              </div>
+            )}
           </div>
 
           <div>
@@ -463,6 +519,7 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
               />
             </div>
           </div>
+          
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Start Date</Label>
@@ -485,11 +542,11 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
                     selected={startDate}
                     onSelect={handleStartDateChange}
                     initialFocus
-                    className="p-3"
                   />
                 </PopoverContent>
               </Popover>
             </div>
+            
             <div>
               <Label>End Date</Label>
               <Popover>
@@ -502,7 +559,7 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
                     )}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {endDate ? formatDateForDisplay(endDate) : "Current / Select date"}
+                    {endDate ? formatDateForDisplay(endDate) : 'Present'}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -511,12 +568,12 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
                     selected={endDate}
                     onSelect={handleEndDateChange}
                     initialFocus
-                    className="p-3"
                   />
                 </PopoverContent>
               </Popover>
             </div>
           </div>
+          
           <div>
             <Label>Description</Label>
             <Textarea

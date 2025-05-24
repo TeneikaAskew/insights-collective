@@ -65,7 +65,12 @@ export interface ProfileData {
   avatar_url?: string;
   professional_summary?: string;
   skills?: string[];
-  location?: string;
+  location?: string; // Keep for backward compatibility
+  location_details?: {
+    city?: string;
+    state?: string;
+    country?: string;
+  };
   email?: string;
   github_url?: string;
   linkedin_url?: string;
