@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -13,7 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { usePortfolioPages } from '@/hooks/usePortfolioPages';
-import { ImageUploadArea } from './ImageUploadArea';
 
 interface ProjectCardProps {
   project: PortfolioProject;
@@ -79,24 +79,6 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
     setFormData({ 
       ...formData, 
       roadmap: { milestones }
-    });
-  };
-
-  const handleImageUpload = (imageUrls: string[]) => {
-    setFormData(prev => ({
-      ...prev,
-      project_images: imageUrls
-    }));
-  };
-
-  const removeImage = (index: number) => {
-    setFormData(prev => {
-      const updatedImages = [...(prev.project_images || [])]; // Create a copy to avoid direct mutation
-      updatedImages.splice(index, 1); // Remove the image at the specified index
-      return {
-        ...prev,
-        project_images: updatedImages, // Update the project_images array
-      };
     });
   };
 
@@ -292,18 +274,6 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                   />
                 </div>
               </div>
-
-              {/* Image Upload for Completed Projects */}
-              {formData.status === 'Completed' && (
-                <div className="space-y-2">
-                  <Label>Project Screenshots</Label>
-                  <ImageUploadArea
-                    onImagesUploaded={handleImageUpload}
-                    existingImages={formData.project_images || []}
-                    maxImages={5}
-                  />
-                </div>
-              )}
               
               <div className="space-y-2">
                 <Label htmlFor="skills">Technical Skills (comma separated)</Label>
@@ -664,18 +634,6 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                 />
               </div>
             </div>
-
-            {/* Image Upload for Completed Projects */}
-            {formData.status === 'Completed' && (
-              <div className="space-y-2">
-                <Label>Project Screenshots</Label>
-                <ImageUploadArea
-                  onImagesUploaded={handleImageUpload}
-                  existingImages={formData.project_images || []}
-                  maxImages={5}
-                />
-              </div>
-            )}
             
             <div className="space-y-2">
               <Label htmlFor="skills">Technical Skills (comma separated)</Label>
