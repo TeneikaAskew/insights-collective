@@ -138,62 +138,63 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
   return (
     <Card>
       <CardHeader>
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <CardTitle className="text-2xl">My Portfolio Pages</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-xl sm:text-2xl">My Portfolio Pages</CardTitle>
+            <CardDescription className="text-sm">
               Create professional portfolio pages to showcase your completed projects
             </CardDescription>
           </div>
           
-          <Button onClick={onCreatePage} className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
-            <Plus className="h-4 w-4 mr-2" />
-            Create Portfolio
+          <Button onClick={onCreatePage} className="bg-[#9b87f5] hover:bg-[#8B5CF6] text-sm sm:text-base px-3 sm:px-4 py-2 flex-shrink-0">
+            <Plus className="h-4 w-4 mr-1 sm:mr-2" />
+            <span className="hidden xs:inline">Create Portfolio</span>
+            <span className="xs:hidden">Create</span>
           </Button>
         </div>
       </CardHeader>
       
       <CardContent>
         {!pages || pages.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="mb-6">
-              <div className="w-16 h-16 bg-[#9b87f5]/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Globe className="h-8 w-8 text-[#9b87f5]" />
+          <div className="text-center py-8 sm:py-12">
+            <div className="mb-4 sm:mb-6">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-[#9b87f5]/10 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                <Globe className="h-6 w-6 sm:h-8 sm:w-8 text-[#9b87f5]" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Create Your First Portfolio</h3>
-              <p className="text-gray-500 max-w-md mx-auto">
+              <h3 className="text-lg sm:text-xl font-semibold mb-2">Create Your First Portfolio</h3>
+              <p className="text-gray-500 max-w-md mx-auto text-sm sm:text-base">
                 Transform your completed projects into professional portfolio pages that you can share with employers and clients.
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-2xl mx-auto mb-8">
-              <div className="text-center p-4">
-                <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <FileText className="h-6 w-6 text-blue-500" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 max-w-2xl mx-auto mb-6 sm:mb-8">
+              <div className="text-center p-3 sm:p-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-50 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
                 </div>
-                <h4 className="font-medium text-sm">Select Projects</h4>
+                <h4 className="font-medium text-xs sm:text-sm">Select Projects</h4>
                 <p className="text-xs text-gray-500 mt-1">Choose from your completed projects</p>
               </div>
               
-              <div className="text-center p-4">
-                <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <PenSquare className="h-6 w-6 text-purple-500" />
+              <div className="text-center p-3 sm:p-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-purple-50 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <PenSquare className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
                 </div>
-                <h4 className="font-medium text-sm">Customize Design</h4>
+                <h4 className="font-medium text-xs sm:text-sm">Customize Design</h4>
                 <p className="text-xs text-gray-500 mt-1">Pick themes and layouts</p>
               </div>
               
-              <div className="text-center p-4">
-                <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center mx-auto mb-2">
-                  <Share2 className="h-6 w-6 text-green-500" />
+              <div className="text-center p-3 sm:p-4">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-green-50 rounded-lg flex items-center justify-center mx-auto mb-2">
+                  <Share2 className="h-5 w-5 sm:h-6 sm:w-6 text-green-500" />
                 </div>
-                <h4 className="font-medium text-sm">Share & Export</h4>
+                <h4 className="font-medium text-xs sm:text-sm">Share & Export</h4>
                 <p className="text-xs text-gray-500 mt-1">Get shareable links and exports</p>
               </div>
             </div>
             
-            <Button size="lg" onClick={onCreatePage} className="bg-[#9b87f5] hover:bg-[#8B5CF6]">
-              <Plus className="h-5 w-5 mr-2" />
+            <Button size="lg" onClick={onCreatePage} className="bg-[#9b87f5] hover:bg-[#8B5CF6] text-sm sm:text-base">
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Create Your First Portfolio
             </Button>
           </div>
@@ -204,34 +205,34 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
                 <CardHeader className="pb-4">
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
                     <div className="flex-1 min-w-0">
-                      <CardTitle className="text-lg break-words">{page.title}</CardTitle>
-                      <CardDescription className="mt-1 break-words">
+                      <CardTitle className="text-base sm:text-lg break-words">{page.title}</CardTitle>
+                      <CardDescription className="mt-1 break-words text-sm">
                         {page.description || 'No description'}
                       </CardDescription>
                     </div>
-                    <Badge variant={page.is_public ? "default" : "outline"} className="flex-shrink-0 self-start">
+                    <Badge variant={page.is_public ? "default" : "outline"} className="flex-shrink-0 self-start text-xs">
                       {page.is_public ? "Public" : "Private"}
                     </Badge>
                   </div>
                 </CardHeader>
                 
                 <CardContent className="pb-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                     <div className="space-y-1">
-                      <span className="font-medium text-sm text-gray-600">Theme</span>
-                      <p className="text-sm capitalize">{page.theme}</p>
+                      <span className="font-medium text-xs sm:text-sm text-gray-600">Theme</span>
+                      <p className="text-xs sm:text-sm capitalize">{page.theme}</p>
                     </div>
                     
                     {page.custom_url && (
-                      <div className="space-y-1 md:col-span-2 lg:col-span-1">
-                        <span className="font-medium text-sm text-gray-600">URL</span>
-                        <p className="text-sm text-gray-500 break-all">/portfolio/{page.custom_url}</p>
+                      <div className="space-y-1 sm:col-span-2 lg:col-span-1">
+                        <span className="font-medium text-xs sm:text-sm text-gray-600">URL</span>
+                        <p className="text-xs sm:text-sm text-gray-500 break-all">/portfolio/{page.custom_url}</p>
                       </div>
                     )}
                     
                     <div className="space-y-1">
-                      <span className="font-medium text-sm text-gray-600">Created</span>
-                      <p className="text-sm text-gray-500">
+                      <span className="font-medium text-xs sm:text-sm text-gray-600">Created</span>
+                      <p className="text-xs sm:text-sm text-gray-500">
                         {new Date(page.created_at as string).toLocaleDateString()}
                       </p>
                     </div>
@@ -240,14 +241,14 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
                 
                 <Separator />
                 
-                <CardFooter className="p-4">
-                  <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <CardFooter className="p-3 sm:p-4">
+                  <div className="flex flex-col gap-2 w-full">
                     <div className="flex flex-wrap gap-2">
                       <Button 
                         size="sm" 
                         variant="secondary" 
                         onClick={() => viewPage(page)}
-                        className="text-xs"
+                        className="text-xs flex-1 sm:flex-initial"
                       >
                         <Settings className="h-3 w-3 mr-1" />
                         Edit
@@ -256,19 +257,19 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
                         size="sm" 
                         variant="outline"
                         onClick={() => handleShare(page)}
-                        className="text-xs"
+                        className="text-xs flex-1 sm:flex-initial"
                       >
                         <Share2 className="h-3 w-3 mr-1" />
                         Share
                       </Button>
                     </div>
                     
-                    <div className="flex flex-wrap gap-2 sm:ml-auto">
+                    <div className="flex flex-wrap gap-2">
                       <Button 
                         size="sm" 
                         variant="outline"
                         onClick={() => handleExport(page.id)}
-                        className="text-xs"
+                        className="text-xs flex-1 sm:flex-initial"
                       >
                         <FileDown className="h-3 w-3 mr-1" />
                         Export
@@ -278,7 +279,7 @@ export function PortfolioPagesList({ pages, isLoading, onCreatePage }: Portfolio
                           size="sm" 
                           variant="outline"
                           onClick={() => previewPage(page)}
-                          className="text-xs"
+                          className="text-xs flex-1 sm:flex-initial"
                         >
                           <Eye className="h-3 w-3 mr-1" />
                           Preview
