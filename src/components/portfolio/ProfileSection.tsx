@@ -1,250 +1,346 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, Plus } from 'lucide-react';
-import { ExperienceSection } from './ExperienceSection';
-import { EducationSection } from './EducationSection';
+import { Button } from '@/components/ui/button';
+import { X, Plus } from 'lucide-react';
+import { ProfileData } from '@/types/portfolio';
 
 interface ProfileSectionProps {
-  profileData: {
-    avatar_url?: string;
-    professional_summary?: string;
-    skills?: string[];
-    location?: string;
-    email?: string;
-    github_url?: string;
-    linkedin_url?: string;
-    experience?: Array<{
-      id: string;
-      role: string;
-      company: string;
-      startDate: string;
-      endDate: string;
-      description: string;
-    }>;
-    education?: Array<{
-      id: string;
-      institution: string;
-      degree: string;
-      graduationYear: string;
-    }>;
-  };
-  onUpdate: (data: any) => void;
+  profileData: ProfileData;
+  onUpdate: (data: ProfileData) => void;
 }
 
 export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
-  const [newSkill, setNewSkill] = useState('');
-
-  const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        onUpdate({
-          ...profileData,
-          avatar_url: e.target?.result as string
-        });
-      };
-      reader.readAsDataURL(file);
-    }
+  const updateField = (field: keyof ProfileData, value: any) => {
+    const updatedData = { ...profileData, [field]: value };
+    onUpdate(updatedData);
   };
 
-  const addSkill = () => {
-    if (newSkill.trim() && !profileData.skills?.includes(newSkill.trim())) {
-      onUpdate({
-        ...profileData,
-        skills: [...(profileData.skills || []), newSkill.trim()]
-      });
-      setNewSkill('');
+  const addSkill = (skill: string) => {
+    if (skill.trim() && !profileData.skills?.includes(skill.trim())) {
+      const updatedSkills = [...(profileData.skills || []), skill.trim()];
+      updateField('skills', updatedSkills);
     }
   };
 
   const removeSkill = (skillToRemove: string) => {
-    onUpdate({
-      ...profileData,
-      skills: profileData.skills?.filter(skill => skill !== skillToRemove) || []
-    });
+    const updatedSkills = profileData.skills?.filter(skill => skill !== skillToRemove) || [];
+    updateField('skills', updatedSkills);
+  };
+
+  const addExperience = () => {
+    const newExperience = {
+      id: Date.now().toString(),
+      role: '',
+      company: '',
+      startDate: '',
+      endDate: '',
+      description: ''
+    };
+    const updatedExperience = [...(profileData.experience || []), newExperience];
+    updateField('experience', updatedExperience);
+  };
+
+  const updateExperience = (id: string, field: string, value: string) => {
+    const updatedExperience = profileData.experience?.map(exp => 
+      exp.id === id ? { ...exp, [field]: value } : exp
+    ) || [];
+    updateField('experience', updatedExperience);
+  };
+
+  const removeExperience = (id: string) => {
+    const updatedExperience = profileData.experience?.filter(exp => exp.id !== id) || [];
+    updateField('experience', updatedExperience);
+  };
+
+  const addEducation = () => {
+    const newEducation = {
+      id: Date.now().toString(),
+      institution: '',
+      degree: '',
+      graduationYear: ''
+    };
+    const updatedEducation = [...(profileData.education || []), newEducation];
+    updateField('education', updatedEducation);
+  };
+
+  const updateEducation = (id: string, field: string, value: string) => {
+    const updatedEducation = profileData.education?.map(edu => 
+      edu.id === id ? { ...edu, [field]: value } : edu
+    ) || [];
+    updateField('education', updatedEducation);
+  };
+
+  const removeEducation = (id: string) => {
+    const updatedEducation = profileData.education?.filter(edu => edu.id !== id) || [];
+    updateField('education', updatedEducation);
   };
 
   return (
     <div className="space-y-6">
-      {/* Avatar Upload */}
       <Card>
         <CardHeader>
-          <CardTitle>Profile Photo</CardTitle>
-          <CardDescription>Upload a professional headshot</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-              {profileData.avatar_url ? (
-                <img 
-                  src={profileData.avatar_url} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <Upload className="h-8 w-8 text-gray-400" />
-              )}
-            </div>
-            <div>
-              <Label htmlFor="avatar-upload" className="cursor-pointer">
-                <Button variant="outline" asChild>
-                  <span>
-                    <Upload className="h-4 w-4 mr-2" />
-                    Upload Photo
-                  </span>
-                </Button>
-              </Label>
-              <input
-                id="avatar-upload"
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleAvatarUpload}
-              />
-              <p className="text-xs text-gray-500 mt-1">JPEG or PNG, max 5MB</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Professional Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Professional Summary</CardTitle>
-          <CardDescription>A brief 3-4 sentence overview of your expertise</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Textarea
-            value={profileData.professional_summary || ''}
-            onChange={(e) => onUpdate({
-              ...profileData,
-              professional_summary: e.target.value
-            })}
-            placeholder="Data Scientist focused on urban analytics and civic impact using Python, R, and geospatial tools. Experienced in building machine learning models and interactive dashboards..."
-            rows={4}
-          />
-        </CardContent>
-      </Card>
-
-      {/* Contact Information */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Contact Information</CardTitle>
-          <CardDescription>Your contact details and social links</CardDescription>
+          <CardTitle>Basic Information</CardTitle>
+          <CardDescription>Tell the world about yourself</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div>
+            <Label htmlFor="avatar-url">Avatar URL</Label>
+            <Input
+              id="avatar-url"
+              value={profileData.avatar_url || ''}
+              onChange={(e) => updateField('avatar_url', e.target.value)}
+              placeholder="https://example.com/avatar.jpg"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="professional-summary">Professional Summary</Label>
+            <Textarea
+              id="professional-summary"
+              value={profileData.professional_summary || ''}
+              onChange={(e) => updateField('professional_summary', e.target.value)}
+              placeholder="Describe your professional background and expertise..."
+              rows={4}
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="location">Location</Label>
+            <Input
+              id="location"
+              value={profileData.location || ''}
+              onChange={(e) => updateField('location', e.target.value)}
+              placeholder="City, Country"
+            />
+          </div>
+
           <div>
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
               type="email"
               value={profileData.email || ''}
-              onChange={(e) => onUpdate({
-                ...profileData,
-                email: e.target.value
-              })}
+              onChange={(e) => updateField('email', e.target.value)}
               placeholder="your.email@example.com"
             />
           </div>
-          
-          <div>
-            <Label htmlFor="location">Location</Label>
-            <Input
-              id="location"
-              value={profileData.location || ''}
-              onChange={(e) => onUpdate({
-                ...profileData,
-                location: e.target.value
-              })}
-              placeholder="San Francisco, CA"
-            />
-          </div>
-          
+
           <div>
             <Label htmlFor="github">GitHub URL</Label>
             <Input
               id="github"
               value={profileData.github_url || ''}
-              onChange={(e) => onUpdate({
-                ...profileData,
-                github_url: e.target.value
-              })}
-              placeholder="https://github.com/yourusername"
+              onChange={(e) => updateField('github_url', e.target.value)}
+              placeholder="https://github.com/username"
             />
           </div>
-          
+
           <div>
             <Label htmlFor="linkedin">LinkedIn URL</Label>
             <Input
               id="linkedin"
               value={profileData.linkedin_url || ''}
-              onChange={(e) => onUpdate({
-                ...profileData,
-                linkedin_url: e.target.value
-              })}
-              placeholder="https://linkedin.com/in/yourprofile"
+              onChange={(e) => updateField('linkedin_url', e.target.value)}
+              placeholder="https://linkedin.com/in/username"
             />
           </div>
         </CardContent>
       </Card>
 
-      {/* Skills */}
       <Card>
         <CardHeader>
-          <CardTitle>Skills & Technologies</CardTitle>
-          <CardDescription>Add your technical skills and tools</CardDescription>
+          <CardTitle>Skills</CardTitle>
+          <CardDescription>Add your technical and professional skills</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            <Input
-              value={newSkill}
-              onChange={(e) => setNewSkill(e.target.value)}
-              placeholder="e.g., Python, React, AWS"
-              onKeyPress={(e) => e.key === 'Enter' && addSkill()}
-            />
-            <Button onClick={addSkill} size="sm">
-              <Plus className="h-4 w-4" />
-            </Button>
-          </div>
-          
-          {profileData.skills && profileData.skills.length > 0 && (
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Input
+                placeholder="Enter a skill and press Enter"
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    const target = e.target as HTMLInputElement;
+                    addSkill(target.value);
+                    target.value = '';
+                  }
+                }}
+              />
+              <Button 
+                type="button"
+                onClick={(e) => {
+                  const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                  if (input?.value) {
+                    addSkill(input.value);
+                    input.value = '';
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+            
             <div className="flex flex-wrap gap-2">
-              {profileData.skills.map((skill, index) => (
-                <Badge
-                  key={index}
-                  variant="secondary"
-                  className="flex items-center gap-1"
-                >
+              {profileData.skills?.map((skill, index) => (
+                <Badge key={index} variant="secondary" className="flex items-center gap-1">
                   {skill}
-                  <X
-                    className="h-3 w-3 cursor-pointer hover:text-red-500"
+                  <button
                     onClick={() => removeSkill(skill)}
-                  />
+                    className="ml-1 text-xs hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </Badge>
               ))}
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Experience */}
-      <ExperienceSection 
-        experiences={profileData.experience || []}
-        onUpdate={(experience) => onUpdate({ ...profileData, experience })}
-      />
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Experience</CardTitle>
+              <CardDescription>Add your work experience</CardDescription>
+            </div>
+            <Button onClick={addExperience} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Experience
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {profileData.experience?.map((exp) => (
+              <div key={exp.id} className="border p-4 rounded-lg space-y-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Role</Label>
+                        <Input
+                          value={exp.role}
+                          onChange={(e) => updateExperience(exp.id, 'role', e.target.value)}
+                          placeholder="Software Engineer"
+                        />
+                      </div>
+                      <div>
+                        <Label>Company</Label>
+                        <Input
+                          value={exp.company}
+                          onChange={(e) => updateExperience(exp.id, 'company', e.target.value)}
+                          placeholder="Company Name"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Start Date</Label>
+                        <Input
+                          value={exp.startDate}
+                          onChange={(e) => updateExperience(exp.id, 'startDate', e.target.value)}
+                          placeholder="MM/YYYY"
+                        />
+                      </div>
+                      <div>
+                        <Label>End Date</Label>
+                        <Input
+                          value={exp.endDate}
+                          onChange={(e) => updateExperience(exp.id, 'endDate', e.target.value)}
+                          placeholder="MM/YYYY or Current"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label>Description</Label>
+                      <Textarea
+                        value={exp.description}
+                        onChange={(e) => updateExperience(exp.id, 'description', e.target.value)}
+                        placeholder="Describe your role and achievements..."
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeExperience(exp.id)}
+                    className="ml-2 text-destructive hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Education */}
-      <EducationSection 
-        education={profileData.education || []}
-        onUpdate={(education) => onUpdate({ ...profileData, education })}
-      />
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Education</CardTitle>
+              <CardDescription>Add your educational background</CardDescription>
+            </div>
+            <Button onClick={addEducation} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Education
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {profileData.education?.map((edu) => (
+              <div key={edu.id} className="border p-4 rounded-lg space-y-3">
+                <div className="flex justify-between items-start">
+                  <div className="flex-1 space-y-3">
+                    <div>
+                      <Label>Institution</Label>
+                      <Input
+                        value={edu.institution}
+                        onChange={(e) => updateEducation(edu.id, 'institution', e.target.value)}
+                        placeholder="University Name"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Degree</Label>
+                        <Input
+                          value={edu.degree}
+                          onChange={(e) => updateEducation(edu.id, 'degree', e.target.value)}
+                          placeholder="Bachelor's in Computer Science"
+                        />
+                      </div>
+                      <div>
+                        <Label>Graduation Year</Label>
+                        <Input
+                          value={edu.graduationYear}
+                          onChange={(e) => updateEducation(edu.id, 'graduationYear', e.target.value)}
+                          placeholder="2023"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeEducation(edu.id)}
+                    className="ml-2 text-destructive hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
