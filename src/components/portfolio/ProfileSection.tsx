@@ -123,6 +123,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
 
   return (
     <div className="space-y-6">
+      {/* Basic Information Card */}
       <Card>
         <CardHeader>
           <CardTitle>Basic Information</CardTitle>
@@ -234,6 +235,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
         </CardContent>
       </Card>
 
+      {/* Skills Card */}
       <Card>
         <CardHeader>
           <CardTitle>Skills</CardTitle>
@@ -283,6 +285,7 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
         </CardContent>
       </Card>
 
+      {/* Experience Card */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -306,10 +309,16 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
                 onRemove={() => removeExperience(exp.id)}
               />
             ))}
+            {(!profileData.experience || profileData.experience.length === 0) && (
+              <div className="text-center py-8 text-gray-500">
+                <p>No experience added yet. Click "Add Experience" to get started.</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
+      {/* Education Card */}
       <Card>
         <CardHeader>
           <div className="flex justify-between items-center">
@@ -367,6 +376,11 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
                 </div>
               </div>
             ))}
+            {(!profileData.education || profileData.education.length === 0) && (
+              <div className="text-center py-8 text-gray-500">
+                <p>No education added yet. Click "Add Education" to get started.</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -392,7 +406,8 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
   const parseDate = (dateString: string): Date | undefined => {
     if (!dateString) return undefined;
     try {
-      const date = parseISO(dateString);
+      // Handle both YYYY-MM format and full ISO dates
+      const date = dateString.includes('T') ? parseISO(dateString) : parseISO(`${dateString}-01`);
       return isValid(date) ? date : undefined;
     } catch {
       return undefined;
@@ -419,7 +434,11 @@ function ExperienceCard({ experience, onUpdate, onRemove }: ExperienceCardProps)
   // Helper function to safely format dates for display
   const formatDateForDisplay = (date: Date | undefined): string => {
     if (!date || !isValid(date)) return 'Select date';
-    return format(date, 'MMM yyyy');
+    try {
+      return format(date, 'MMM yyyy');
+    } catch {
+      return 'Select date';
+    }
   };
 
   return (
