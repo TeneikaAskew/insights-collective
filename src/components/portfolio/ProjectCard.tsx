@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -8,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PortfolioProject, ProjectStatus } from '@/types/portfolio';
-import { Edit, GripVertical, Trash, Plus, Briefcase } from 'lucide-react';
+import { Edit, GripVertical, Trash, Plus, Briefcase, ExternalLink, Github, Upload, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +30,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isAddToPortfolioOpen, setIsAddToPortfolioOpen] = useState(false);
   const [formData, setFormData] = useState({ ...project });
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
 
   const {
     attributes,
@@ -74,6 +76,25 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
       ...formData, 
       roadmap: { milestones }
     });
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files) {
+      Array.from(files).forEach((file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setUploadedImages(prev => [...prev, event.target!.result as string]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setUploadedImages(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleUpdateProject = () => {
@@ -150,7 +171,19 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
               <GripVertical className="h-5 w-5 text-gray-400" />
             </div>
             <div className="flex-1 min-w-0 space-y-2">
-              <h3 className="font-semibold text-lg leading-tight">{project.title}</h3>
+              <div className="flex justify-between items-start gap-2">
+                <h3 className="font-semibold text-lg leading-tight flex-1">{project.title}</h3>
+                {project.status === 'Completed' && (
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-50">
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-gray-50">
+                      <Github className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
               {project.description && (
                 <p className="text-sm text-gray-600">
                   {truncate(project.description, 100)}
@@ -161,35 +194,37 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
         </CardContent>
         
         <CardFooter className="p-4 pt-0 border-t bg-gray-50/50">
-          <div className="flex justify-between items-center w-full gap-2">
-            <div className="flex gap-1 flex-shrink-0">
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => setIsDialogOpen(true)}
-                className="hover:bg-blue-50 hover:text-blue-600"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                onClick={() => setIsDeleteDialogOpen(true)}
-              >
-                <Trash className="h-4 w-4" />
-              </Button>
+          <div className="flex flex-col w-full gap-2">
+            <div className="flex justify-between items-center w-full">
+              <div className="flex gap-1 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setIsDialogOpen(true)}
+                  className="hover:bg-blue-50 hover:text-blue-600"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                >
+                  <Trash className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             
             {project.status === 'Completed' && (
               <Button 
                 size="sm" 
                 variant="outline" 
-                className="text-xs px-2 py-1 h-8 flex-shrink-0 hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
+                className="text-xs px-2 py-1 h-8 w-full hover:bg-purple-50 hover:text-purple-600 hover:border-purple-200"
                 onClick={handleAddToPortfolio}
               >
                 <Plus className="h-3 w-3 mr-1" />
-                <span className="truncate">Portfolio</span>
+                <span>Portfolio</span>
               </Button>
             )}
           </div>
@@ -227,6 +262,85 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                   placeholder="Describe what this project does and its key features..."
                 />
               </div>
+
+              {/* GitHub and External Links */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="github_url">GitHub URL</Label>
+                  <Input
+                    id="github_url"
+                    name="github_url"
+                    value={formData.github_url || ''}
+                    onChange={handleFormChange}
+                    placeholder="https://github.com/username/repo"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="live_url">Live Demo URL</Label>
+                  <Input
+                    id="live_url"
+                    name="live_url"
+                    value={formData.live_url || ''}
+                    onChange={handleFormChange}
+                    placeholder="https://myproject.com"
+                  />
+                </div>
+              </div>
+
+              {/* Image Upload for Completed Projects */}
+              {formData.status === 'Completed' && (
+                <div className="space-y-2">
+                  <Label htmlFor="project_images">Project Screenshots</Label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                    <div className="text-center">
+                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                      <div className="mt-2">
+                        <label htmlFor="image-upload" className="cursor-pointer">
+                          <span className="mt-2 block text-sm font-medium text-gray-900">
+                            Upload project screenshots
+                          </span>
+                          <span className="mt-1 block text-sm text-gray-500">
+                            PNG, JPG, GIF up to 10MB
+                          </span>
+                        </label>
+                        <input
+                          id="image-upload"
+                          type="file"
+                          className="hidden"
+                          multiple
+                          accept="image/*"
+                          onChange={handleImageUpload}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {uploadedImages.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-gray-700 mb-2">Uploaded Images:</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {uploadedImages.map((image, index) => (
+                          <div key={index} className="relative">
+                            <img
+                              src={image}
+                              alt={`Project screenshot ${index + 1}`}
+                              className="w-full h-32 object-cover rounded-lg"
+                            />
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="absolute top-1 right-1 h-6 w-6 p-0"
+                              onClick={() => removeImage(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
               
               <div className="space-y-2">
                 <Label htmlFor="skills">Technical Skills (comma separated)</Label>
