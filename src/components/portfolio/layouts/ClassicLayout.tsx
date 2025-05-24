@@ -11,6 +11,15 @@ interface ClassicLayoutProps {
 }
 
 export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
+  // Utility function to ensure URLs have proper protocol
+  const formatUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return `https://${url}`;
+  };
+
   // Apply theme styles based on the portfolio theme
   const getThemeStyles = () => {
     switch (portfolioPage.theme) {
@@ -222,7 +231,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                         <div className="flex gap-3 mb-6">
                           {project.github_url && (
                             <a
-                              href={project.github_url}
+                              href={formatUrl(project.github_url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"
@@ -234,7 +243,7 @@ export function ClassicLayout({ portfolioPage }: ClassicLayoutProps) {
                           )}
                           {project.live_url && (
                             <a
-                              href={project.live_url}
+                              href={formatUrl(project.live_url)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-2 px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors"

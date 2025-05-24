@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,6 +38,15 @@ export function EnhancedProjectCard({
 
   const projectImages = project.project_images || [];
   const hasImages = projectImages.length > 0;
+
+  // Utility function to ensure URLs have proper protocol
+  const formatUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return `https://${url}`;
+  };
 
   const getThemeStyles = () => {
     // Use passed theme colors if available, otherwise fall back to theme-based colors
@@ -115,7 +123,8 @@ export function EnhancedProjectCard({
 
   const handleLinkClick = (url?: string) => {
     if (url) {
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const formattedUrl = formatUrl(url);
+      window.open(formattedUrl, '_blank', 'noopener,noreferrer');
     }
   };
 

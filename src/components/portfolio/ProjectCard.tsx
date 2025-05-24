@@ -52,6 +52,15 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
     zIndex: isDragging ? 999 : 'auto',
   };
 
+  // Utility function to ensure URLs have proper protocol
+  const formatUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      return url;
+    }
+    return `https://${url}`;
+  };
+
   const handleFormChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -455,7 +464,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                           size="sm" 
                           variant="ghost" 
                           className="h-7 w-7 p-0 hover:bg-blue-50"
-                          onClick={() => window.open(project.live_url, '_blank')}
+                          onClick={() => window.open(formatUrl(project.live_url), '_blank')}
                         >
                           <ExternalLink className="h-3 w-3" />
                         </Button>
@@ -465,7 +474,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                           size="sm" 
                           variant="ghost" 
                           className="h-7 w-7 p-0 hover:bg-gray-50"
-                          onClick={() => window.open(project.github_url, '_blank')}
+                          onClick={() => window.open(formatUrl(project.github_url), '_blank')}
                         >
                           <Github className="h-3 w-3" />
                         </Button>
