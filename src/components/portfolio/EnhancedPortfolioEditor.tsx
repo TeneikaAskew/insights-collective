@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -63,25 +62,44 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
       }
 
       const report = data.report as any;
+      console.log('Full career pathway report:', report);
       
-      // Extract skills from the report structure - focus on the skills array
+      // Look for skills in the specific structure that matches the skill gap analysis
       let discoveredSkills: string[] = [];
       
-      // First try to get skills directly from the report
+      // First, try to get skills from the main skills array (user's current skills)
       if (report.skills && Array.isArray(report.skills)) {
         discoveredSkills = report.skills.filter((skill: any): skill is string => 
           typeof skill === 'string' && skill.trim().length > 0
         );
+        console.log('Found skills in report.skills:', discoveredSkills);
       }
       
-      // If no skills found, try to get from strengths
+      // If no skills found, check if there's a skillGaps object with user skills
+      if (discoveredSkills.length === 0 && report.skillGaps) {
+        // Check if skillGaps has userSkills or currentSkills
+        if (report.skillGaps.userSkills && Array.isArray(report.skillGaps.userSkills)) {
+          discoveredSkills = report.skillGaps.userSkills.filter((skill: any): skill is string => 
+            typeof skill === 'string' && skill.trim().length > 0
+          );
+          console.log('Found skills in skillGaps.userSkills:', discoveredSkills);
+        } else if (report.skillGaps.currentSkills && Array.isArray(report.skillGaps.currentSkills)) {
+          discoveredSkills = report.skillGaps.currentSkills.filter((skill: any): skill is string => 
+            typeof skill === 'string' && skill.trim().length > 0
+          );
+          console.log('Found skills in skillGaps.currentSkills:', discoveredSkills);
+        }
+      }
+      
+      // If still no skills, try to get from strengths as fallback
       if (discoveredSkills.length === 0 && report.strengths && Array.isArray(report.strengths)) {
         discoveredSkills = report.strengths.filter((strength: any): strength is string => 
           typeof strength === 'string' && strength.trim().length > 0
         );
+        console.log('Found skills in strengths as fallback:', discoveredSkills);
       }
       
-      // If still no skills, try to extract from target roles
+      // If still no skills, try to extract from target roles core skills
       if (discoveredSkills.length === 0 && report.targetRoles && Array.isArray(report.targetRoles)) {
         const allSkills = report.targetRoles.flatMap((role: any) => 
           role.coreSkills && Array.isArray(role.coreSkills) ? role.coreSkills : []
@@ -89,9 +107,10 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         discoveredSkills = [...new Set(allSkills)].filter((skill: any): skill is string => 
           typeof skill === 'string' && skill.trim().length > 0
         );
+        console.log('Found skills from target roles:', discoveredSkills);
       }
 
-      console.log('Discovered skills from career pathway:', discoveredSkills);
+      console.log('Final discovered skills from career pathway:', discoveredSkills);
       return discoveredSkills;
     } catch (error) {
       console.error('Error fetching discovered skills:', error);
