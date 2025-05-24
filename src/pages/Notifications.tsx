@@ -1,173 +1,105 @@
 
-import { useState } from 'react';
+import React from 'react';
 import AppLayout from '@/components/layout/AppLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Bell, Book, CheckCircle, Clock, MessageSquare } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { mockService } from '@/lib/mockData';
-import { useToast } from '@/hooks/use-toast';
-import { Notification } from '@/types';
-
-type NotificationItem = {
-  id: string;
-  userId: string;
-  title: string;
-  message: string;
-  type: 'assignment' | 'quiz' | 'announcement' | 'feedback';
-  isRead: boolean;
-  createdAt: string;
-  link?: string;
-};
-
-const NotificationTypeIcon = ({ type }: { type: string }) => {
-  switch (type) {
-    case 'assignment':
-      return <Book className="h-5 w-5 text-blue-500" />;
-    case 'quiz':
-      return <Clock className="h-5 w-5 text-amber-500" />;
-    case 'announcement':
-      return <Bell className="h-5 w-5 text-purple-500" />;
-    case 'feedback':
-      return <MessageSquare className="h-5 w-5 text-green-500" />;
-    default:
-      return <Bell className="h-5 w-5 text-primary" />;
-  }
-};
-
-const NotificationCard = ({ 
-  notification, 
-  onMarkAsRead 
-}: { 
-  notification: Notification; 
-  onMarkAsRead: (id: string) => void;
-}) => {
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  return (
-    <Card className={`mb-4 border-l-4 ${notification.isRead ? 'border-l-transparent' : 'border-l-primary'}`}>
-      <CardContent className="p-4">
-        <div className="flex items-start gap-4">
-          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-            <NotificationTypeIcon type={notification.type} />
-          </div>
-          <div className="flex-1">
-            <div className="flex justify-between items-start">
-              <div>
-                <h3 className={`font-semibold ${notification.isRead ? '' : 'text-primary'}`}>{notification.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{notification.message}</p>
-              </div>
-              <div className="text-xs text-muted-foreground">
-                {formatDate(notification.createdAt)}
-              </div>
-            </div>
-            <div className="flex justify-between items-center mt-4">
-              {notification.link && (
-                <Button variant="outline" size="sm" asChild>
-                  <a href={notification.link}>View Details</a>
-                </Button>
-              )}
-              {!notification.isRead && (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="ml-auto" 
-                  onClick={() => onMarkAsRead(notification.id)}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Mark as Read
-                </Button>
-              )}
-            </div>
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
+import { Bell, Mail, Calendar, MessageSquare, CheckCircle } from 'lucide-react';
 
 const Notifications = () => {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  
-  // Get notifications for the user
-  const initialNotifications = user ? mockService.getUserNotifications(user.id) : [];
-  const [notifications, setNotifications] = useState(initialNotifications);
-  
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-  
-  const handleMarkAsRead = (id: string) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, isRead: true } 
-          : notification
-      )
-    );
-    
-    toast({
-      title: "Notification marked as read",
-      description: "This notification has been marked as read.",
-    });
-  };
-  
-  const handleMarkAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
-    
-    toast({
-      title: "All notifications marked as read",
-      description: `${unreadCount} notifications have been marked as read.`,
-    });
-  };
-  
+  const notifications = [
+    {
+      id: '1',
+      type: 'course',
+      title: 'New Course Available',
+      message: 'Advanced Data Science with Python is now available',
+      timestamp: '2 hours ago',
+      read: false,
+      icon: <Bell className="h-4 w-4" />
+    },
+    {
+      id: '2',
+      type: 'message',
+      title: 'New Message',
+      message: 'You have a new message from your mentor',
+      timestamp: '4 hours ago',
+      read: false,
+      icon: <MessageSquare className="h-4 w-4" />
+    },
+    {
+      id: '3',
+      type: 'event',
+      title: 'Upcoming Event',
+      message: 'Data Science Workshop starts in 2 days',
+      timestamp: '1 day ago',
+      read: true,
+      icon: <Calendar className="h-4 w-4" />
+    },
+    {
+      id: '4',
+      type: 'achievement',
+      title: 'Achievement Unlocked',
+      message: 'You completed the Python Fundamentals course!',
+      timestamp: '2 days ago',
+      read: true,
+      icon: <CheckCircle className="h-4 w-4" />
+    }
+  ];
+
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="container mx-auto py-8 px-4 space-y-8">
         <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
-            <p className="text-muted-foreground mt-1">
-              Stay updated with the latest activity from your courses and the platform.
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight">Notifications</h1>
+            <p className="text-xl text-muted-foreground">
+              Stay updated with your latest activities and messages
             </p>
           </div>
-          {unreadCount > 0 && (
-            <Button onClick={handleMarkAllAsRead}>
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Mark All as Read
-            </Button>
-          )}
+          <Button variant="outline">
+            Mark All as Read
+          </Button>
         </div>
-        
-        {notifications.length > 0 ? (
-          <div className="space-y-2">
-            {notifications.map(notification => (
-              <NotificationCard 
-                key={notification.id} 
-                notification={notification} 
-                onMarkAsRead={handleMarkAsRead}
-              />
-            ))}
-          </div>
-        ) : (
+
+        <div className="space-y-4">
+          {notifications.map((notification) => (
+            <Card key={notification.id} className={`${!notification.read ? 'border-l-4 border-l-primary' : ''}`}>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/10 rounded-full">
+                      {notification.icon}
+                    </div>
+                    <div>
+                      <CardTitle className="text-base">{notification.title}</CardTitle>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {notification.message}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!notification.read && (
+                      <Badge variant="default" className="text-xs">
+                        New
+                      </Badge>
+                    )}
+                    <span className="text-xs text-muted-foreground">
+                      {notification.timestamp}
+                    </span>
+                  </div>
+                </div>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+
+        {notifications.length === 0 && (
           <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
-                <Bell className="h-8 w-8 text-primary" />
-              </div>
-              <h3 className="text-xl font-medium mb-2">No Notifications</h3>
-              <p className="text-muted-foreground text-center max-w-md">
-                You don't have any notifications at the moment. When you get new notifications, they'll appear here.
+            <CardContent className="text-center py-12">
+              <Mail className="h-16 w-16 text-muted-foreground/40 mx-auto mb-4" />
+              <h3 className="text-xl font-medium mb-2">No notifications</h3>
+              <p className="text-muted-foreground">
+                You're all caught up! Check back later for new updates.
               </p>
             </CardContent>
           </Card>

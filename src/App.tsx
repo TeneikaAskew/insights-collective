@@ -37,6 +37,9 @@ import JobDescription from '@/pages/interview-prep/JobDescription';
 import StarPractice from '@/pages/interview-prep/StarPractice';
 import CodePracticeInterview from '@/pages/interview-prep/CodePractice';
 import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
+import DataBlueprint from '@/pages/DataBlueprint';
+import Survey from '@/pages/Survey';
+import Notifications from '@/pages/Notifications';
 
 // Admin components
 import AdminDashboard from '@/pages/AdminDashboard';
@@ -145,6 +148,40 @@ function App() {
                     <ProtectedRoute>
                       <PageVisibilityGuard>
                         <CareerPathway />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* New routes for 404 fixes */}
+                <Route
+                  path="/data-blueprint"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <DataBlueprint />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                
+                <Route
+                  path="/survey"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <Survey />
+                      </PageVisibilityGuard>
+                    </ProtectedRoute>
+                  }
+                />
+                
+                <Route
+                  path="/notifications"
+                  element={
+                    <ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <Notifications />
                       </PageVisibilityGuard>
                     </ProtectedRoute>
                   }

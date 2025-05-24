@@ -48,12 +48,16 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     if (!user?.id) return [];
     
     try {
+      console.log('Starting fetchDiscoveredSkills for user:', user.id);
+      
       // First check the portfolio table for recommendations
       const { data: portfolioData, error: portfolioError } = await supabase
         .from('portfolio')
         .select('recommendations')
         .eq('user_id', user.id)
         .maybeSingle();
+
+      console.log('Portfolio data fetched:', portfolioData);
 
       if (portfolioData?.recommendations && portfolioData.recommendations.skills) {
         console.log('Found skills in portfolio recommendations:', portfolioData.recommendations.skills);
@@ -67,7 +71,9 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
+
+      console.log('Career pathway data fetched:', data);
 
       if (error || !data?.report) {
         console.log('No career pathway results found');
@@ -106,7 +112,11 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
   // Prefill skills on component mount if no skills are currently set
   useEffect(() => {
     const prefillSkills = async () => {
+      console.log('Checking if skills need to be prefilled...');
+      console.log('Current profileData.skills:', profileData.skills);
+      
       if (!profileData.skills || profileData.skills.length === 0) {
+        console.log('No skills in profile, fetching discovered skills...');
         const discoveredSkills = await fetchDiscoveredSkills();
         if (discoveredSkills.length > 0) {
           console.log('Setting discovered skills:', discoveredSkills);
@@ -114,12 +124,16 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
             ...prev,
             skills: discoveredSkills
           }));
+        } else {
+          console.log('No discovered skills found');
         }
+      } else {
+        console.log('Profile already has skills, skipping prefill');
       }
     };
 
     prefillSkills();
-  }, [user?.id, profileData.skills]);
+  }, [user?.id]);
 
   // Auto-save profile data when it changes
   useEffect(() => {
