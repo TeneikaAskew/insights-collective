@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
@@ -264,40 +263,34 @@ function PortfolioExplorer() {
         </Card>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-          <TabsList className="grid grid-cols-4 gap-4 mb-8 w-full max-w-3xl mx-auto">
-            <TabsTrigger value="discover" className="relative">
-              <div className="flex items-center gap-2">
-                <div className={`${profileCompleted ? 'bg-green-500' : 'bg-[#9b87f5]'} rounded-full w-6 h-6 text-white flex items-center justify-center text-xs`}>
-                  {profileCompleted ? <Check className="h-4 w-4" /> : '1'}
+          <div className="w-full">
+            <TabsList className="grid grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-2 mb-8 w-full max-w-4xl mx-auto h-auto p-2">
+              <TabsTrigger value="discover" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
+                <div className={`${profileCompleted ? 'bg-green-500' : 'bg-[#9b87f5]'} rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0`}>
+                  {profileCompleted ? <Check className="h-3 w-3 sm:h-4 sm:w-4" /> : '1'}
                 </div>
-                <span>Discover You</span>
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="ideas" disabled={!profileCompleted}>
-              <div className="flex items-center gap-2">
-                <div className="bg-[#9b87f5] rounded-full w-6 h-6 text-white flex items-center justify-center text-xs">
+                <span className="text-xs sm:text-sm">Discover You</span>
+              </TabsTrigger>
+              <TabsTrigger value="ideas" disabled={!profileCompleted} className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
+                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
                   2
                 </div>
-                <span>Project Ideas</span>
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="tracker">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#9b87f5] rounded-full w-6 h-6 text-white flex items-center justify-center text-xs">
+                <span className="text-xs sm:text-sm">Project Ideas</span>
+              </TabsTrigger>
+              <TabsTrigger value="tracker" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
+                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
                   3
                 </div>
-                <span>Project Tracker</span>
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="pages">
-              <div className="flex items-center gap-2">
-                <div className="bg-[#9b87f5] rounded-full w-6 h-6 text-white flex items-center justify-center text-xs">
+                <span className="text-xs sm:text-sm">Project Tracker</span>
+              </TabsTrigger>
+              <TabsTrigger value="pages" className="relative flex-col sm:flex-row gap-1 sm:gap-2 py-2 sm:py-1.5">
+                <div className="bg-[#9b87f5] rounded-full w-5 h-5 sm:w-6 sm:h-6 text-white flex items-center justify-center text-xs flex-shrink-0">
                   4
                 </div>
-                <span>Portfolio Pages</span>
-              </div>
-            </TabsTrigger>
-          </TabsList>
+                <span className="text-xs sm:text-sm">Portfolio Pages</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="discover" className="space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
