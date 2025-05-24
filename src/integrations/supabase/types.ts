@@ -1209,8 +1209,10 @@ export type Database = {
           created_at: string | null
           description: string | null
           effort_level: string | null
+          github_url: string | null
           id: string
           impact: string | null
+          live_url: string | null
           required_skills: string[] | null
           roadmap: Json | null
           status: string | null
@@ -1222,8 +1224,10 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           effort_level?: string | null
+          github_url?: string | null
           id?: string
           impact?: string | null
+          live_url?: string | null
           required_skills?: string[] | null
           roadmap?: Json | null
           status?: string | null
@@ -1235,8 +1239,10 @@ export type Database = {
           created_at?: string | null
           description?: string | null
           effort_level?: string | null
+          github_url?: string | null
           id?: string
           impact?: string | null
+          live_url?: string | null
           required_skills?: string[] | null
           roadmap?: Json | null
           status?: string | null

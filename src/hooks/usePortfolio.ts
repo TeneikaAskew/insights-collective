@@ -307,22 +307,39 @@ export function usePortfolio() {
     }
   });
 
-  // Update project details
+  // Update project details - Fixed to properly handle all fields including URLs
   const updateProject = useMutation({
     mutationFn: async (project: Partial<PortfolioProject> & { id: string }) => {
+      if (!user?.id) throw new Error('User must be logged in');
+      
       const { id, ...updateData } = project;
 
+      // Ensure updated_at is set
+      const dataToUpdate = {
+        ...updateData,
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('Updating project with data:', dataToUpdate);
+
       // Update project details including status if provided
-      const { error: projectError } = await supabase
+      const { data, error: projectError } = await supabase
         .from('portfolio_projects')
-        .update(updateData)
-        .eq('id', id);
+        .update(dataToUpdate)
+        .eq('id', id)
+        .eq('user_id', user.id) // Ensure user can only update their own projects
+        .select('*')
+        .single();
 
-      if (projectError) throw new Error(projectError.message);
+      if (projectError) {
+        console.error('Database update error:', projectError);
+        throw new Error(projectError.message);
+      }
 
-      return project;
+      console.log('Project updated successfully:', data);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (updatedProject) => {
       queryClient.invalidateQueries({ queryKey: ['portfolio-projects'] });
       toast({
         title: "Project updated",

@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { Button } from '@/components/ui/button';
@@ -31,6 +30,11 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
   const [isAddToPortfolioOpen, setIsAddToPortfolioOpen] = useState(false);
   const [formData, setFormData] = useState({ ...project });
   const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+
+  // Update formData when project prop changes
+  useEffect(() => {
+    setFormData({ ...project });
+  }, [project]);
 
   const {
     attributes,
@@ -98,6 +102,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
   };
 
   const handleUpdateProject = () => {
+    console.log('Updating project with form data:', formData);
     onUpdate(formData);
     setIsDialogOpen(false);
     toast({
@@ -175,12 +180,26 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
                 <h3 className="font-semibold text-lg leading-tight flex-1">{project.title}</h3>
                 {project.status === 'Completed' && (
                   <div className="flex gap-1 flex-shrink-0">
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-blue-50">
-                      <ExternalLink className="h-3 w-3" />
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 hover:bg-gray-50">
-                      <Github className="h-3 w-3" />
-                    </Button>
+                    {project.live_url && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-7 w-7 p-0 hover:bg-blue-50"
+                        onClick={() => window.open(project.live_url, '_blank')}
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                      </Button>
+                    )}
+                    {project.github_url && (
+                      <Button 
+                        size="sm" 
+                        variant="ghost" 
+                        className="h-7 w-7 p-0 hover:bg-gray-50"
+                        onClick={() => window.open(project.github_url, '_blank')}
+                      >
+                        <Github className="h-3 w-3" />
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -500,11 +519,37 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             <div>
               <div className="flex justify-between items-start mb-1">
                 <h3 className="font-semibold text-lg leading-tight">{project.title}</h3>
-                {project.status && (
-                  <Badge className={`text-xs ${getStatusColor(project.status)}`}>
-                    {project.status}
-                  </Badge>
-                )}
+                <div className="flex items-center gap-2">
+                  {project.status === 'Completed' && (
+                    <div className="flex gap-1 flex-shrink-0">
+                      {project.live_url && (
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-7 w-7 p-0 hover:bg-blue-50"
+                          onClick={() => window.open(project.live_url, '_blank')}
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </Button>
+                      )}
+                      {project.github_url && (
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-7 w-7 p-0 hover:bg-gray-50"
+                          onClick={() => window.open(project.github_url, '_blank')}
+                        >
+                          <Github className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                  {project.status && (
+                    <Badge className={`text-xs ${getStatusColor(project.status)}`}>
+                      {project.status}
+                    </Badge>
+                  )}
+                </div>
               </div>
               {project.description && (
                 <p className="text-sm text-gray-600 mt-1">
