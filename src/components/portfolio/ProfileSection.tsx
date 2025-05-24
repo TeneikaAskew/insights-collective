@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -16,6 +15,7 @@ import { useStorageUpload } from '@/hooks/useStorageUpload';
 import { useAuth } from '@/contexts/AuthContext';
 import { format, parseISO, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
+import { CityAutocomplete } from './CityAutocomplete';
 
 interface ProfileSectionProps {
   profileData: ProfileData;
@@ -261,15 +261,13 @@ export function ProfileSection({ profileData, onUpdate }: ProfileSectionProps) {
               Location
             </Label>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
-              <div>
-                <Label htmlFor="city" className="text-sm">City</Label>
-                <Input
-                  id="city"
-                  value={profileData.location_details?.city || ''}
-                  onChange={(e) => updateLocationField('city', e.target.value)}
-                  placeholder="New York"
-                />
-              </div>
+              <CityAutocomplete
+                value={profileData.location_details?.city || ''}
+                onChange={(value) => updateLocationField('city', value)}
+                country={profileData.location_details?.country}
+                state={profileData.location_details?.state}
+                placeholder="New York"
+              />
               <div>
                 <Label htmlFor="state" className="text-sm">State/Province</Label>
                 {isUnitedStatesSelected ? (
