@@ -181,8 +181,7 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
             {portfolioPage.projects?.map((projectItem) => (
               <EnhancedProjectCard
                 key={projectItem.id}
-                project={projectItem.project!}
-                customDescription={projectItem.custom_description}
+                projectItem={projectItem}
               />
             ))}
           </div>
@@ -255,8 +254,7 @@ export function EnhancedPublicPortfolioView({ portfolioPage }: EnhancedPublicPor
                 </div>
                 <div className="flex-1">
                   <EnhancedProjectCard
-                    project={projectItem.project!}
-                    customDescription={projectItem.custom_description}
+                    projectItem={projectItem}
                   />
                 </div>
               </div>

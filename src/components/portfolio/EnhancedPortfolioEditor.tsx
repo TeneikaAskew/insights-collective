@@ -184,8 +184,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
                   {portfolioPage.projects.map((projectItem) => (
                     <EnhancedProjectCard
                       key={projectItem.id}
-                      project={projectItem.project!}
-                      customDescription={projectItem.custom_description}
+                      projectItem={projectItem}
                     />
                   ))}
                 </div>
