@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -175,13 +174,23 @@ export function HeroFocusLayout({ portfolioPage }: HeroFocusLayoutProps) {
 
               <div className="flex gap-4 mb-8">
                 {profileData.github_url && (
-                  <a href={profileData.github_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/90 hover:text-white">
+                  <a 
+                    href={profileData.github_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 text-white hover:text-white transition-colors"
+                  >
                     <Github className="h-5 w-5" />
                     GitHub
                   </a>
                 )}
                 {profileData.linkedin_url && (
-                  <a href={profileData.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/90 hover:text-white">
+                  <a 
+                    href={profileData.linkedin_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="flex items-center gap-2 text-white hover:text-white transition-colors"
+                  >
                     <Linkedin className="h-5 w-5" />
                     LinkedIn
                   </a>

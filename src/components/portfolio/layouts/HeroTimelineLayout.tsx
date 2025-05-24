@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -163,19 +162,29 @@ export function HeroTimelineLayout({ portfolioPage }: HeroTimelineLayoutProps) {
           {/* Contact Links */}
           <div className="flex justify-center gap-6 mb-8">
             {profileData.github_url && (
-              <a href={profileData.github_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
+              <a 
+                href={profileData.github_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center gap-2 text-white hover:text-white transition-colors"
+              >
                 <Github className="h-5 w-5" />
                 GitHub
               </a>
             )}
             {profileData.linkedin_url && (
-              <a href={profileData.linkedin_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-white/90 hover:text-white transition-colors">
+              <a 
+                href={profileData.linkedin_url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="flex items-center gap-2 text-white hover:text-white transition-colors"
+              >
                 <Linkedin className="h-5 w-5" />
                 LinkedIn
               </a>
             )}
             {profileData.location && (
-              <div className="flex items-center gap-2 text-white/90">
+              <div className="flex items-center gap-2 text-white">
                 <MapPin className="h-5 w-5" />
                 {profileData.location}
               </div>
