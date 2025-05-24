@@ -652,7 +652,7 @@ export function ProjectCard({ project, onDelete, onUpdate, onStatusChange, isKan
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
-            {portfolioPages?.data?.map((page) => (
+            {portfolioPages?.map((page) => (
               <Button
                 key={page.id}
                 variant="outline"
