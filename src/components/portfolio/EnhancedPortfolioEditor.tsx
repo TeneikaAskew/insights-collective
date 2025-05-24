@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { ProfileSection } from './ProfileSection';
 import { EnhancedProjectCard } from './EnhancedProjectCard';
 import { LayoutPreview } from './LayoutPreview';
+import { PortfolioLayoutRenderer } from './PortfolioLayoutRenderer';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +45,8 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     experience: [],
     education: []
   });
+  const [saving, setSaving] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   // Function to fetch skills from user's recommendations
   const fetchDiscoveredSkills = async (): Promise<string[]> => {
@@ -101,36 +103,55 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
     }
   };
 
-  // Always prefill skills from recommendations on component mount
+  // Prefill skills from recommendations on component mount
   useEffect(() => {
     const prefillSkills = async () => {
-      console.log('Prefilling skills from recommendations...');
-      const discoveredSkills = await fetchDiscoveredSkills();
-      if (discoveredSkills.length > 0) {
-        console.log('Prefilling skills:', discoveredSkills);
-        setProfileData(prev => ({
-          ...prev,
-          skills: discoveredSkills
-        }));
-      } else {
-        console.log('No skills found to prefill');
+      if (!portfolioPage.profile_data?.skills || portfolioPage.profile_data.skills.length === 0) {
+        console.log('Prefilling skills from recommendations...');
+        const discoveredSkills = await fetchDiscoveredSkills();
+        if (discoveredSkills.length > 0) {
+          console.log('Prefilling skills:', discoveredSkills);
+          setProfileData(prev => ({
+            ...prev,
+            skills: discoveredSkills
+          }));
+          setHasUnsavedChanges(true);
+        }
       }
     };
 
     prefillSkills();
-  }, [user?.id]);
+  }, [user?.id, portfolioPage.profile_data?.skills]);
 
-  // Auto-save profile data when it changes
+  // Track changes
   useEffect(() => {
-    const saveTimer = setTimeout(() => {
-      handleSave();
-    }, 1000);
+    const originalData = {
+      title: portfolioPage.title,
+      description: portfolioPage.description || '',
+      isPublic: portfolioPage.is_public || false,
+      customUrl: portfolioPage.custom_url || '',
+      theme: portfolioPage.theme || 'default',
+      layout: portfolioPage.layout || 'classic',
+      profileData: portfolioPage.profile_data || {}
+    };
 
-    return () => clearTimeout(saveTimer);
-  }, [profileData, title, description, isPublic, customUrl, theme, layout]);
+    const currentData = {
+      title,
+      description,
+      isPublic,
+      customUrl,
+      theme,
+      layout,
+      profileData
+    };
+
+    const hasChanges = JSON.stringify(originalData) !== JSON.stringify(currentData);
+    setHasUnsavedChanges(hasChanges);
+  }, [portfolioPage, title, description, isPublic, customUrl, theme, layout, profileData]);
 
   const handleSave = async () => {
     try {
+      setSaving(true);
       await updatePortfolioPage.mutateAsync({
         id: portfolioPage.id,
         title,
@@ -141,6 +162,12 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         layout,
         profile_data: profileData,
       });
+      
+      setHasUnsavedChanges(false);
+      toast({
+        title: "Success",
+        description: "Portfolio saved successfully!",
+      });
     } catch (error) {
       console.error('Error saving portfolio:', error);
       toast({
@@ -148,6 +175,8 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         description: "Failed to save portfolio changes",
         variant: "destructive"
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -199,6 +228,18 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
 
   const layouts = ['sidebar', 'hero-timeline', 'grid', 'classic', 'split', 'hero-focus'];
 
+  // Create updated portfolio page for preview
+  const updatedPortfolioPage: PortfolioPage = {
+    ...portfolioPage,
+    title,
+    description,
+    theme,
+    layout,
+    profile_data: profileData,
+    is_public: isPublic,
+    custom_url: customUrl
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -213,11 +254,19 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
           </div>
         </div>
         <div className="flex gap-2">
+          <Button 
+            onClick={handleSave} 
+            disabled={saving || !hasUnsavedChanges}
+            className="bg-primary hover:bg-primary/90"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {saving ? 'Saving...' : 'Save'}
+          </Button>
           <Button variant="outline" onClick={handlePreview}>
             <Eye className="h-4 w-4 mr-2" />
             Preview
           </Button>
-          <Button variant="outline" onClick={handleExport}>
+          <Button variant="outline" onClick={exportPortfolioAsCSV}>
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
@@ -228,12 +277,20 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
         </div>
       </div>
 
+      {hasUnsavedChanges && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <p className="text-amber-800 text-sm">
+            You have unsaved changes. Don't forget to save your work!
+          </p>
+        </div>
+      )}
+
       <Tabs defaultValue="profile" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="layout">Layout</TabsTrigger>
           <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="preview">Live Preview</TabsTrigger>
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -287,42 +344,7 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="projects" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Your Projects</CardTitle>
-              <CardDescription>Projects from your portfolio</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {portfolioPage.projects.map((projectItem) => (
-                    <EnhancedProjectCard
-                      key={projectItem.id}
-                      projectItem={projectItem}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-muted-foreground mb-4">
-                    You haven't added any projects yet. Head to your Kanban board and mark projects as 'Completed' to add them here.
-                  </p>
-                  <Button asChild>
-                    <a href="/project-tracker">
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Go to Project Tracker
-                    </a>
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="settings" className="space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Portfolio Settings</CardTitle>
@@ -369,6 +391,55 @@ export function EnhancedPortfolioEditor({ portfolioPage }: EnhancedPortfolioEdit
                   onCheckedChange={setIsPublic}
                 />
                 <Label htmlFor="public">Make portfolio public</Label>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="projects" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Projects</CardTitle>
+              <CardDescription>Projects from your portfolio</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {portfolioPage.projects && portfolioPage.projects.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {portfolioPage.projects.map((projectItem) => (
+                    <EnhancedProjectCard
+                      key={projectItem.id}
+                      projectItem={projectItem}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-muted-foreground mb-4">
+                    You haven't added any projects yet. Head to your Kanban board and mark projects as 'Completed' to add them here.
+                  </p>
+                  <Button asChild>
+                    <a href="/project-tracker">
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Go to Project Tracker
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="preview" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Live Preview</CardTitle>
+              <CardDescription>
+                This is how your portfolio will look with the current layout and theme
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="border rounded-lg overflow-hidden">
+                <PortfolioLayoutRenderer portfolioPage={updatedPortfolioPage} />
               </div>
             </CardContent>
           </Card>

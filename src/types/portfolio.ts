@@ -111,3 +111,6 @@ export interface PortfolioPageProject {
 }
 
 export type PortfolioTheme = 'default' | 'minimal' | 'professional' | 'creative' | 'modern' | 'elegant';
+
+// Add missing layout type
+export type PortfolioLayout = 'classic' | 'sidebar' | 'hero-timeline' | 'grid' | 'split' | 'hero-focus';
