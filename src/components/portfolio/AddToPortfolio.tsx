@@ -87,6 +87,7 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                     <Card 
                       key={page.id} 
                       className={`cursor-pointer hover:bg-gray-50 transition-colors ${isAdded ? 'border-green-500 bg-green-50' : ''}`}
+                      onClick={() => !isAdded && !isLoading && handleAddToPage(page.id)}
                     >
                       <CardContent className="p-4 flex justify-between items-center">
                         <div>
@@ -98,19 +99,18 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                         
                         {isAdded ? (
                           <CheckCircle2 className="h-5 w-5 text-green-500" />
+                        ) : isLoading ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
                           <Button 
                             size="sm"
-                            onClick={() => handleAddToPage(page.id)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAddToPage(page.id);
+                            }}
                             disabled={isLoading}
-                            className={isLoading ? "opacity-80" : ""}
                           >
-                            {isLoading ? (
-                              <>
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                                Adding...
-                              </>
-                            ) : "Add"}
+                            Add
                           </Button>
                         )}
                       </CardContent>
