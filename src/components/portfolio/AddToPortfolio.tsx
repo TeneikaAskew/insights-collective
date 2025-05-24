@@ -23,15 +23,22 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
   const [addedToPages, setAddedToPages] = useState<string[]>([]);
   
   const handleAddToPage = async (pageId: string) => {
-    if (!user) return;
+    if (!user) {
+      console.log('No user found');
+      return;
+    }
     
+    console.log('Adding project to page:', { pageId, projectId: project.id });
     setAddingToPage(pageId);
+    
     try {
       await addProjectToPage.mutateAsync({
         pageId,
         projectId: project.id
       });
+      
       setAddedToPages((prev) => [...prev, pageId]);
+      console.log('Successfully added project to page');
     } catch (error) {
       console.error('Error adding project to page:', error);
     } finally {
@@ -86,33 +93,40 @@ export function AddToPortfolio({ project }: AddToPortfolioProps) {
                   return (
                     <Card 
                       key={page.id} 
-                      className={`cursor-pointer hover:bg-gray-50 transition-colors ${isAdded ? 'border-green-500 bg-green-50' : ''}`}
-                      onClick={() => !isAdded && !isLoading && handleAddToPage(page.id)}
+                      className={`transition-colors ${isAdded ? 'border-green-500 bg-green-50' : 'hover:bg-gray-50 cursor-pointer'}`}
                     >
                       <CardContent className="p-4 flex justify-between items-center">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-medium">{page.title}</h3>
                           {page.description && (
                             <p className="text-sm text-gray-500">{page.description}</p>
                           )}
                         </div>
                         
-                        {isAdded ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        ) : isLoading ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Button 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleAddToPage(page.id);
-                            }}
-                            disabled={isLoading}
-                          >
-                            Add
-                          </Button>
-                        )}
+                        <div className="flex items-center">
+                          {isAdded ? (
+                            <div className="flex items-center text-green-600">
+                              <CheckCircle2 className="h-5 w-5 mr-2" />
+                              <span className="text-sm font-medium">Added</span>
+                            </div>
+                          ) : (
+                            <Button 
+                              size="sm"
+                              onClick={() => handleAddToPage(page.id)}
+                              disabled={isLoading || addProjectToPage.isPending}
+                              className="bg-[#9b87f5] hover:bg-[#8B5CF6]"
+                            >
+                              {isLoading ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                  Adding...
+                                </>
+                              ) : (
+                                'Add'
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   );
