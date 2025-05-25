@@ -123,6 +123,7 @@ export type Database = {
           answer: string
           created_at: string
           id: string
+          is_reset: boolean | null
           question: string
           session_id: string
           user_id: string
@@ -131,6 +132,7 @@ export type Database = {
           answer: string
           created_at?: string
           id?: string
+          is_reset?: boolean | null
           question: string
           session_id: string
           user_id: string
@@ -139,6 +141,7 @@ export type Database = {
           answer?: string
           created_at?: string
           id?: string
+          is_reset?: boolean | null
           question?: string
           session_id?: string
           user_id?: string

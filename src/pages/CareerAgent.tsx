@@ -132,11 +132,12 @@ const CareerAgent: React.FC = () => {
     try {
       console.log('Loading previous career pathway data for user:', user.id);
       
-      // Load previous answers
+      // Load previous answers that haven't been reset
       const { data: previousAnswers, error: answersError } = await supabase
         .from('career_pathway_answers')
         .select('question, answer')
         .eq('user_id', user.id)
+        .eq('is_reset', false) // Only load non-reset answers
         .order('created_at', { ascending: true });
         
       if (answersError) {
@@ -147,7 +148,7 @@ const CareerAgent: React.FC = () => {
       }
 
       if (previousAnswers && previousAnswers.length > 0) {
-        console.log('Found previous answers:', previousAnswers.length);
+        console.log('Found previous non-reset answers:', previousAnswers.length);
         
         // Map answers
         const answersMap: Record<string, string> = {};
@@ -236,7 +237,7 @@ const CareerAgent: React.FC = () => {
         setMessages(chatHistory);
       } else {
         // No previous answers, just initialize a new conversation
-        console.log('No previous answers found, initializing new conversation');
+        console.log('No previous non-reset answers found, initializing new conversation');
         initializeConversation();
       }
       
@@ -277,6 +278,7 @@ const CareerAgent: React.FC = () => {
           session_id: sessionId,
           question: questionId,
           answer,
+          is_reset: false // Explicitly set as not reset when saving new answers
         });
       } catch (err) {
         console.error('Error saving answer:', err);
@@ -327,14 +329,15 @@ const CareerAgent: React.FC = () => {
       setIsTyping(false);
       setPreviousChatLoaded(false);
 
-      // Delete all previous answers from database
+      // Mark all previous answers as reset instead of deleting them
       const { error: answersError } = await supabase
         .from('career_pathway_answers')
-        .delete()
-        .eq('user_id', user.id);
+        .update({ is_reset: true })
+        .eq('user_id', user.id)
+        .eq('is_reset', false); // Only update non-reset answers
 
       if (answersError) {
-        console.error('Error deleting answers:', answersError);
+        console.error('Error marking answers as reset:', answersError);
         toast({
           title: 'Error',
           description: 'Failed to reset answers. Please try again.',
@@ -354,7 +357,7 @@ const CareerAgent: React.FC = () => {
       const newSessionId = Date.now().toString();
       setSessionId(newSessionId);
 
-      console.log('Database cleared, initializing new conversation');
+      console.log('Database updated, initializing new conversation');
 
       // Initialize fresh conversation immediately
       initializeConversation();
