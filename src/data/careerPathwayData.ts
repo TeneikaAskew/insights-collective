@@ -79,7 +79,7 @@ export const pathwayQuestions: PathwayQuestion[] = [
 export const quickReplies = [
   "I am not happy in my current job (or I am currently in transition) and would like to find another one",
   "I am interested in exploring other career paths aligned with my skills and experience",
-  "I would like to explore logical steps and overcome obstacles in my current career path",
+  "I would like to explore logical next steps and overcome obstacles in my current career path",
   "I am a recent or soon-to-be college grad looking for potential career paths",
 ];
 
@@ -92,7 +92,7 @@ export const starterMessages = [
 export const careerAdvicePrompt = `Here are outputs from a career chat:
 - A set of recommended roles with descriptions & salary bands
 - A table of skills and matching courses
-- A narrative of career recommendations
+- A narrative of next-step career recommendations
 - A 'Roles that might be right for you' list
 - A 'Path to your aspirational role' carousel
 Please combine these data points with the user's pathway answers to generate a personalized career pathway report.`;
