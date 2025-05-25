@@ -18,6 +18,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import CareerHeader from '@/components/career/CareerHeader';
 import { Helmet } from 'react-helmet-async';
+import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 // Define the ActionPlan interface
 interface ActionPlanTimeframe {
@@ -230,8 +232,21 @@ const CareerPathway: React.FC = () => {
         </motion.div>
       </AppLayout>;
   }
+  const { completedTours, startTour } = useOnboarding();
+
+  // Auto-start tour for first-time visitors to this page
+  useEffect(() => {
+    if (data?.report && Object.keys(data.report).length > 0 && !completedTours.includes('career-pathway')) {
+      const timer = setTimeout(() => {
+        startTour('career-pathway');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [data?.report, completedTours, startTour]);
+
   return <AppLayout>
       
+      <OnboardingGuide tourId="career-pathway" />
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
         {/* Hero Section */}
         <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-6 mb-12">
