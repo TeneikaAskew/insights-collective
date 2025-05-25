@@ -100,23 +100,10 @@ const CareerAgent: React.FC = () => {
 
   // Load previous answers and chat history - but NOT during reset
   useEffect(() => {
-    console.log('useEffect for loading previous data', { 
-      userId: user?.id, 
-      previousChatLoaded, 
-      isResetting 
-    });
-    
-    // Don't load previous data if we're resetting or if already loaded
-    if (isResetting || previousChatLoaded) {
-      console.log('Skipping load - resetting or already loaded');
-      return;
-    }
-    
+    if (isResetting || previousChatLoaded) return;
     if (user?.id) {
       loadPreviousCareerPathwayData();
     } else {
-      // If no user, just initialize
-      console.log('No user, initializing conversation');
       initializeConversation();
       setPreviousChatLoaded(true);
     }
@@ -340,10 +327,8 @@ const CareerAgent: React.FC = () => {
 
   const handleResetAnswers = async () => {
     if (!user?.id) return;
-    
-    console.log('Starting reset process');
     setIsResetting(true);
-    
+
     try {
       // Clear all state immediately - this should clear the UI
       setMessages([]);
