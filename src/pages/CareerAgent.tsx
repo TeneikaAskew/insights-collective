@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -49,6 +50,7 @@ const CareerAgent: React.FC = () => {
   const [resumePromptShown, setResumePromptShown] = useState<boolean>(false);
   const [resumeUseConfirmed, setResumeUseConfirmed] = useState<boolean | null>(null);
   const [previousChatLoaded, setPreviousChatLoaded] = useState<boolean>(false);
+  const [isResetting, setIsResetting] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -94,14 +96,14 @@ const CareerAgent: React.FC = () => {
 
   // Load previous answers and chat history
   useEffect(() => {
-    if (user?.id && !previousChatLoaded) {
+    if (user?.id && !previousChatLoaded && !isResetting) {
       loadPreviousCareerPathwayData();
     }
-  }, [user,previousChatLoaded]);
+  }, [user, previousChatLoaded, isResetting]);
 
   // Load previous career pathway data
   const loadPreviousCareerPathwayData = async () => {
-    if (!user?.id) return;
+    if (!user?.id || isResetting) return;
     
     try {
       // Load previous answers
@@ -167,7 +169,7 @@ const CareerAgent: React.FC = () => {
               chatHistory.push({
                 id: `bot_q_${nextQ.id}`,
                 sender: 'bot',
-                text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`
+                text: `${nextQ.label}. ${nextQ.placeholder}`
               });
             }
           }
@@ -207,10 +209,12 @@ const CareerAgent: React.FC = () => {
       } else {
         // No previous answers, just initialize a new conversation
         initializeConversation();
+        setPreviousChatLoaded(true);
       }
     } catch (err) {
       console.error('Error loading career pathway data:', err);
       initializeConversation();
+      setPreviousChatLoaded(true);
     }
   };
 
@@ -276,6 +280,8 @@ const CareerAgent: React.FC = () => {
   const handleResetAnswers = async () => {
     if (!user?.id) return;
     
+    setIsResetting(true);
+    
     try {
       const { error } = await supabase
         .from('career_pathway_answers')
@@ -289,21 +295,30 @@ const CareerAgent: React.FC = () => {
           description: 'Failed to reset answers. Please try again.',
           variant: 'destructive'
         });
+        setIsResetting(false);
         return;
       }
 
+      // Also delete the career pathway results
+      await supabase
+        .from('career_pathway_results')
+        .delete()
+        .eq('user_id', user.id);
+
+      // Reset all state
       setAnswers({});
-      setMessages(starterMessages.map((text, index) => ({
-        id: `bot_starter_${index}`,
-        sender: "bot",
-        text,
-      })));
       setCurrentQuestionIndex(0);
-      setShowQuickReplies(true);
       setCareerAdviceReport('');
       setResumePromptShown(false);
       setResumeUseConfirmed(null);
       setPreviousChatLoaded(false);
+      setShowQuickReplies(true);
+      setInputValue('');
+      setResumeFile(null);
+      setIsTyping(false);
+
+      // Initialize fresh conversation
+      initializeConversation();
 
       toast({
         title: 'Success',
@@ -316,6 +331,8 @@ const CareerAgent: React.FC = () => {
         description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive'
       });
+    } finally {
+      setIsResetting(false);
     }
   };
 
@@ -345,22 +362,29 @@ const CareerAgent: React.FC = () => {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`
-        }
+        },
+        body: JSON.stringify({
+          prompt: careerAdvicePrompt,
+          pathwayQuestions,
+          pathwayAnswers: answers,
+          resumeText: resumeText || ''
+        })
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorText = await response.text();
+        throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
       }
 
       const data = await response.json();
       
       console.log("Response from evaluateCareerAdvice:", data);
       
-      if (!data) {
-        throw new Error("No result returned from career pathway form");
+      if (!data || !data.generatedText) {
+        throw new Error("No career advice generated");
       }
       
-      const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
+      const raw = data.generatedText;
       console.log("Career Pathway Insights: ", raw);
       const html = formatCareerPathwayReport(raw);
       setCareerAdviceReport(html);
@@ -414,7 +438,7 @@ const CareerAgent: React.FC = () => {
       const botMessage: Message = {
         id: `bot_${Date.now()}`,
         sender: "bot",
-        text: `Next question: ${nextQuestion.label}. ${nextQuestion.placeholder}`,
+        text: `${nextQuestion.label}. ${nextQuestion.placeholder}`,
       };
       setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
@@ -518,7 +542,7 @@ const CareerAgent: React.FC = () => {
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
-            text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
+            text: `${nextQ.label}. ${nextQ.placeholder}`,
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
@@ -656,8 +680,9 @@ const CareerAgent: React.FC = () => {
                   onClick={handleResetAnswers}
                   size="sm"
                   className="text-red-600 hover:text-red-700"
+                  disabled={isResetting}
                 >
-                  Reset Answers
+                  {isResetting ? "Resetting..." : "Reset Answers"}
                 </Button>
               </div>
             </div>
