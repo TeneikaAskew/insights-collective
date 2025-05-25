@@ -167,7 +167,7 @@ const CareerAgent: React.FC = () => {
               chatHistory.push({
                 id: `bot_q_${nextQ.id}`,
                 sender: 'bot',
-                text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`
+                text: `${nextQ.label}. ${nextQ.placeholder}`
               });
             }
           }
