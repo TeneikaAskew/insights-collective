@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -87,26 +88,15 @@ const CareerPathwayChat = () => {
   };
 
   const handleReset = () => {
-    // Clear all state
+    setMessages([]);
     setPathwayAnswers({});
     setCurrentQuestionIndex(0);
     setIsComplete(false);
     setGeneratedReport(null);
-    setShowReportButton(false);
+    setShowReportButton(false); // Clear the report button
     setInput('');
-    setIsProcessing(false);
-    
-    // Clear localStorage
     localStorage.removeItem(LOCAL_STORAGE_KEY);
-    
-    // Reinitialize chat with welcome message
-    const welcomeMessage: Message = {
-      id: Date.now().toString(),
-      content: starterMessages[0],
-      role: 'assistant',
-      timestamp: new Date(),
-    };
-    setMessages([welcomeMessage]);
+    initializeChat();
   };
 
   const handleSendMessage = async (messageContent?: string) => {
