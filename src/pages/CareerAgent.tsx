@@ -132,12 +132,32 @@ const CareerAgent: React.FC = () => {
     try {
       console.log('Loading previous career pathway data for user:', user.id);
       
-      // Load previous answers that haven't been reset
-      const { data: previousAnswers, error: answersError } = await supabase
+      // First check if there was a recent reset by looking for any reset records
+      const { data: resetCheck, error: resetError } = await supabase
         .from('career_pathway_answers')
-        .select('question, answer')
+        .select('created_at')
         .eq('user_id', user.id)
-        .eq('is_reset', false) // Only load non-reset answers
+        .eq('is_reset', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Get the most recent reset time
+      const lastResetTime = resetCheck?.created_at;
+      
+      // Load previous answers that haven't been reset AND were created after the last reset
+      let query = supabase
+        .from('career_pathway_answers')
+        .select('question, answer, created_at')
+        .eq('user_id', user.id)
+        .eq('is_reset', false);
+
+      // If there was a reset, only load answers created after the reset
+      if (lastResetTime) {
+        query = query.gt('created_at', lastResetTime);
+      }
+
+      const { data: previousAnswers, error: answersError } = await query
         .order('created_at', { ascending: true });
         
       if (answersError) {
@@ -148,7 +168,7 @@ const CareerAgent: React.FC = () => {
       }
 
       if (previousAnswers && previousAnswers.length > 0) {
-        console.log('Found previous non-reset answers:', previousAnswers.length);
+        console.log('Found previous non-reset answers after last reset:', previousAnswers.length);
         
         // Map answers
         const answersMap: Record<string, string> = {};
@@ -161,19 +181,28 @@ const CareerAgent: React.FC = () => {
         const questionCount = Math.min(previousAnswers.length, pathwayQuestions.length);
         setCurrentQuestionIndex(questionCount);
         
-        // Load the latest report
-        const { data: reportData, error: reportError } = await supabase
-          .from('career_pathway_results')
-          .select('report')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-          
-        if (!reportError && reportData?.report) {
-          const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-          const html = formatCareerPathwayReport(raw);
-          setCareerAdviceReport(html);
+        // Only load the latest report if they completed all questions
+        if (questionCount >= pathwayQuestions.length) {
+          // Load the latest report (only those created after the last reset)
+          let reportQuery = supabase
+            .from('career_pathway_results')
+            .select('report')
+            .eq('user_id', user.id);
+
+          if (lastResetTime) {
+            reportQuery = reportQuery.gt('created_at', lastResetTime);
+          }
+
+          const { data: reportData, error: reportError } = await reportQuery
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+            
+          if (!reportError && reportData?.report) {
+            const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
+            const html = formatCareerPathwayReport(raw);
+            setCareerAdviceReport(html);
+          }
         }
         
         // Reconstruct chat history from answers
@@ -237,7 +266,7 @@ const CareerAgent: React.FC = () => {
         setMessages(chatHistory);
       } else {
         // No previous answers, just initialize a new conversation
-        console.log('No previous non-reset answers found, initializing new conversation');
+        console.log('No previous non-reset answers found after last reset, initializing new conversation');
         initializeConversation();
       }
       
@@ -329,7 +358,7 @@ const CareerAgent: React.FC = () => {
       setIsTyping(false);
       setPreviousChatLoaded(false);
 
-      // Mark all previous answers as reset instead of deleting them
+      // Mark all previous non-reset answers as reset
       const { error: answersError } = await supabase
         .from('career_pathway_answers')
         .update({ is_reset: true })
@@ -347,11 +376,30 @@ const CareerAgent: React.FC = () => {
         return;
       }
 
-      // Also delete the career pathway results
-      await supabase
-        .from('career_pathway_results')
-        .delete()
-        .eq('user_id', user.id);
+      // Also delete the career pathway results created after the previous reset
+      // We'll use a timestamp approach - delete results newer than the oldest reset record
+      const { data: oldestReset } = await supabase
+        .from('career_pathway_answers')
+        .select('created_at')
+        .eq('user_id', user.id)
+        .eq('is_reset', true)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (oldestReset) {
+        await supabase
+          .from('career_pathway_results')
+          .delete()
+          .eq('user_id', user.id)
+          .gte('created_at', oldestReset.created_at);
+      } else {
+        // If no previous reset, delete all results
+        await supabase
+          .from('career_pathway_results')
+          .delete()
+          .eq('user_id', user.id);
+      }
 
       // Generate new session ID
       const newSessionId = Date.now().toString();
@@ -568,7 +616,8 @@ const CareerAgent: React.FC = () => {
             user_id: user.id,
             session_id: sessionId,
             question: currentQuestion.id,
-            answer: answer
+            answer: answer,
+            is_reset: false
           });
         } catch (err) {
           console.error('Error saving answer:', err);
