@@ -9,7 +9,7 @@ const corsHeaders = {
   'Content-Type': 'application/json'
 };
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -30,10 +30,10 @@ serve(async (req) => {
       );
     }
 
-    if (!openAIApiKey) {
-      console.error("OpenAI API key not configured");
+    if (!togetherApiKey) {
+      console.error("Together AI API key not configured");
       return new Response(
-        JSON.stringify({ error: "OpenAI API key not configured" }),
+        JSON.stringify({ error: "Together AI API key not configured" }),
         { status: 500, headers: corsHeaders }
       );
     }
@@ -92,18 +92,23 @@ Structure your response exactly as follows:
 
 Be specific, actionable, and personalized based on their responses. Focus on data/tech careers when relevant.`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Prepare chat messages for Together.ai
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userContext }
+    ];
+
+    console.log("Making request to Together.ai API");
+
+    const response = await fetch('https://api.together.xyz/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${togetherApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContext }
-        ],
+        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+        messages: messages,
         temperature: 0.7,
         max_tokens: 2000,
       }),
@@ -111,7 +116,7 @@ Be specific, actionable, and personalized based on their responses. Focus on dat
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('OpenAI API error:', errorText);
+      console.error('Together.ai API error:', errorText);
       return new Response(
         JSON.stringify({ error: "Failed to generate career advice" }),
         { status: 500, headers: corsHeaders }
