@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -13,6 +14,7 @@ import {
   PathwayQuestion
 } from '@/data/careerPathwayData';
 import { useNavigate } from 'react-router-dom';
+// CareerAgent.tsx
 import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
 interface Message {
@@ -58,19 +60,13 @@ const CareerAgent: React.FC = () => {
 
   // Initialize conversation
   const initializeConversation = () => {
-    console.log('Initializing conversation');
-    const initialMessages = starterMessages.map((text, index) => ({
+    setMessages(starterMessages.map((text, index) => ({
       id: `bot_starter_${index}`,
-      sender: "bot" as const,
+      sender: "bot",
       text,
-    }));
-    setMessages(initialMessages);
+    })));
     setShowQuickReplies(true);
     setCurrentQuestionIndex(0);
-    setCareerAdviceReport('');
-    setResumePromptShown(false);
-    setResumeUseConfirmed(null);
-    console.log('Conversation initialized with messages:', initialMessages);
   };
 
   // Initialize session ID
@@ -98,65 +94,32 @@ const CareerAgent: React.FC = () => {
     }
   }, [careerAdviceReport]);
 
-  // Load previous answers and chat history - but NOT during reset
+  // Load previous answers and chat history
   useEffect(() => {
-    if (isResetting || previousChatLoaded) return;
-    if (user?.id) {
+    if (user?.id && !previousChatLoaded && !isResetting) {
       loadPreviousCareerPathwayData();
-    } else {
-      initializeConversation();
-      setPreviousChatLoaded(true);
     }
-  }, [user?.id, isResetting, previousChatLoaded]);
+  }, [user, previousChatLoaded, isResetting]);
 
   // Load previous career pathway data
   const loadPreviousCareerPathwayData = async () => {
-    if (!user?.id || isResetting) {
-      console.log('Skipping load due to reset or no user');
-      return;
-    }
+    if (!user?.id || isResetting) return;
     
     try {
-      console.log('Loading previous career pathway data for user:', user.id);
-      
-      // First check if there was a recent reset by looking for any reset records
-      const { data: resetCheck, error: resetError } = await supabase
+      // Load previous answers
+      const { data: previousAnswers, error: answersError } = await supabase
         .from('career_pathway_answers')
-        .select('created_at')
+        .select('question, answer')
         .eq('user_id', user.id)
-        .eq('is_reset', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Get the most recent reset time
-      const lastResetTime = resetCheck?.created_at;
-      
-      // Load previous answers that haven't been reset AND were created after the last reset
-      let query = supabase
-        .from('career_pathway_answers')
-        .select('question, answer, created_at')
-        .eq('user_id', user.id)
-        .eq('is_reset', false);
-
-      // If there was a reset, only load answers created after the reset
-      if (lastResetTime) {
-        query = query.gt('created_at', lastResetTime);
-      }
-
-      const { data: previousAnswers, error: answersError } = await query
         .order('created_at', { ascending: true });
         
       if (answersError) {
         console.error('Error loading previous answers:', answersError);
         initializeConversation();
-        setPreviousChatLoaded(true);
         return;
       }
 
       if (previousAnswers && previousAnswers.length > 0) {
-        console.log('Found previous non-reset answers after last reset:', previousAnswers.length);
-        
         // Map answers
         const answersMap: Record<string, string> = {};
         previousAnswers.forEach(item => {
@@ -168,28 +131,19 @@ const CareerAgent: React.FC = () => {
         const questionCount = Math.min(previousAnswers.length, pathwayQuestions.length);
         setCurrentQuestionIndex(questionCount);
         
-        // Only load the latest report if they completed all questions
-        if (questionCount >= pathwayQuestions.length) {
-          // Load the latest report (only those created after the last reset)
-          let reportQuery = supabase
-            .from('career_pathway_results')
-            .select('report')
-            .eq('user_id', user.id);
-
-          if (lastResetTime) {
-            reportQuery = reportQuery.gt('created_at', lastResetTime);
-          }
-
-          const { data: reportData, error: reportError } = await reportQuery
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-            
-          if (!reportError && reportData?.report) {
-            const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-            const html = formatCareerPathwayReport(raw);
-            setCareerAdviceReport(html);
-          }
+        // Load the latest report
+        const { data: reportData, error: reportError } = await supabase
+          .from('career_pathway_results')
+          .select('report')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+          
+        if (!reportError && reportData?.report) {
+          const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
+          const html = formatCareerPathwayReport(raw);
+          setCareerAdviceReport(html);
         }
         
         // Reconstruct chat history from answers
@@ -215,7 +169,7 @@ const CareerAgent: React.FC = () => {
               chatHistory.push({
                 id: `bot_q_${nextQ.id}`,
                 sender: 'bot',
-                text: `${nextQ.placeholder}`
+                text: `${nextQ.label}. ${nextQ.placeholder}`
               });
             }
           }
@@ -251,13 +205,12 @@ const CareerAgent: React.FC = () => {
         }
         
         setMessages(chatHistory);
+        setPreviousChatLoaded(true);
       } else {
         // No previous answers, just initialize a new conversation
-        console.log('No previous non-reset answers found after last reset, initializing new conversation');
         initializeConversation();
+        setPreviousChatLoaded(true);
       }
-      
-      setPreviousChatLoaded(true);
     } catch (err) {
       console.error('Error loading career pathway data:', err);
       initializeConversation();
@@ -294,7 +247,6 @@ const CareerAgent: React.FC = () => {
           session_id: sessionId,
           question: questionId,
           answer,
-          is_reset: false // Explicitly set as not reset when saving new answers
         });
       } catch (err) {
         console.error('Error saving answer:', err);
@@ -327,31 +279,17 @@ const CareerAgent: React.FC = () => {
 
   const handleResetAnswers = async () => {
     if (!user?.id) return;
+    
     setIsResetting(true);
-
+    
     try {
-      // Clear all state immediately - this should clear the UI
-      setMessages([]);
-      setAnswers({});
-      setCurrentQuestionIndex(0);
-      setCareerAdviceReport('');
-      setResumePromptShown(false);
-      setResumeUseConfirmed(null);
-      setShowQuickReplies(false);
-      setInputValue('');
-      setResumeFile(null);
-      setIsTyping(false);
-      setPreviousChatLoaded(false);
-
-      // Mark all previous non-reset answers as reset
-      const { error: answersError } = await supabase
+      const { error } = await supabase
         .from('career_pathway_answers')
-        .update({ is_reset: true })
-        .eq('user_id', user.id)
-        .eq('is_reset', false); // Only update non-reset answers
+        .delete()
+        .eq('user_id', user.id);
 
-      if (answersError) {
-        console.error('Error marking answers as reset:', answersError);
+      if (error) {
+        console.error('Error deleting answers:', error);
         toast({
           title: 'Error',
           description: 'Failed to reset answers. Please try again.',
@@ -361,48 +299,31 @@ const CareerAgent: React.FC = () => {
         return;
       }
 
-      // Also delete the career pathway results created after the previous reset
-      // We'll use a timestamp approach - delete results newer than the oldest reset record
-      const { data: oldestReset } = await supabase
-        .from('career_pathway_answers')
-        .select('created_at')
-        .eq('user_id', user.id)
-        .eq('is_reset', true)
-        .order('created_at', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      // Also delete the career pathway results
+      await supabase
+        .from('career_pathway_results')
+        .delete()
+        .eq('user_id', user.id);
 
-      if (oldestReset) {
-        await supabase
-          .from('career_pathway_results')
-          .delete()
-          .eq('user_id', user.id)
-          .gte('created_at', oldestReset.created_at);
-      } else {
-        // If no previous reset, delete all results
-        await supabase
-          .from('career_pathway_results')
-          .delete()
-          .eq('user_id', user.id);
-      }
+      // Reset all state
+      setAnswers({});
+      setCurrentQuestionIndex(0);
+      setCareerAdviceReport('');
+      setResumePromptShown(false);
+      setResumeUseConfirmed(null);
+      setPreviousChatLoaded(false);
+      setShowQuickReplies(true);
+      setInputValue('');
+      setResumeFile(null);
+      setIsTyping(false);
 
-      // Generate new session ID
-      const newSessionId = Date.now().toString();
-      setSessionId(newSessionId);
-
-      console.log('Database updated, initializing new conversation');
-
-      // Initialize fresh conversation immediately
+      // Initialize fresh conversation
       initializeConversation();
-      setPreviousChatLoaded(true);
-      setIsResetting(false);
 
       toast({
         title: 'Success',
         description: 'Your answers have been reset.',
       });
-
-      console.log('Reset completed successfully');
     } catch (err) {
       console.error('Error in reset:', err);
       toast({
@@ -410,6 +331,7 @@ const CareerAgent: React.FC = () => {
         description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive'
       });
+    } finally {
       setIsResetting(false);
     }
   };
@@ -516,7 +438,7 @@ const CareerAgent: React.FC = () => {
       const botMessage: Message = {
         id: `bot_${Date.now()}`,
         sender: "bot",
-        text: `${nextQuestion.placeholder}`,
+        text: `${nextQuestion.label}. ${nextQuestion.placeholder}`,
       };
       setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
@@ -601,8 +523,7 @@ const CareerAgent: React.FC = () => {
             user_id: user.id,
             session_id: sessionId,
             question: currentQuestion.id,
-            answer: answer,
-            is_reset: false
+            answer: answer
           });
         } catch (err) {
           console.error('Error saving answer:', err);
@@ -621,7 +542,7 @@ const CareerAgent: React.FC = () => {
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
-            text: `${nextQ.placeholder}`,
+            text: `${nextQ.label}. ${nextQ.placeholder}`,
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
@@ -766,256 +687,242 @@ const CareerAgent: React.FC = () => {
               </div>
             </div>
           </div>
-          
-          {/* Show loading state during reset */}
-          {isResetting ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-2 text-gray-600">Resetting conversation...</p>
-              </div>
-            </div>
-          ) : (
-            <div 
-              ref={scrollAreaRef}
-              className="flex-1 overflow-y-auto pt-20 pb-20 px-2"
-            >
-              <div className="space-y-4 max-w-xl mx-auto">
-                {messages.map((msg) => {
-                  const isBot = msg.sender === "bot";
-                  const isUser = msg.sender === "user";
+          <div 
+            ref={scrollAreaRef}
+            className="flex-1 overflow-y-auto pt-20 pb-20 px-2"
+          >
+            <div className="space-y-4 max-w-xl mx-auto">
+              {messages.map((msg) => {
+                const isBot = msg.sender === "bot";
+                const isUser = msg.sender === "user";
 
-                  return (
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex ${isBot ? "justify-start" : "justify-end"} items-end space-x-2`}
+                  >
+                    {isBot && (
+                      <div className="w-8 h-8 rounded-full overflow-hidden">
+                        <img
+                          src={coachAvatarUrl}
+                          alt="Career Coach Avatar"
+                          className="w-full h-full object-cover"
+                          draggable={false}
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.style.display = "none";
+                            if (target.parentElement) {
+                              target.parentElement.textContent = "CC";
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+
                     <div
-                      key={msg.id}
-                      className={`flex ${isBot ? "justify-start" : "justify-end"} items-end space-x-2`}
+                      className={`relative max-w-[75%] px-4 py-2 rounded-2xl text-sm
+                        ${isBot
+                          ? "bg-gray-100 text-gray-900 rounded-bl-none"
+                          : "bg-blue-500 text-white rounded-br-none"
+                        }
+                      `}
                     >
-                      {isBot && (
-                        <div className="w-8 h-8 rounded-full overflow-hidden">
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                      {reactingMessageId === msg.id && isBot && (
+                        <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
+                          {["👍", "❤️", "💡"].map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => handleEmojiClick(msg.id, emoji)}
+                              className="hover:bg-gray-200 rounded-md p-1"
+                              type="button"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {isUser && (
+                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                        {user?.user_metadata?.avatar_url ? (
                           <img
-                            src={coachAvatarUrl}
-                            alt="Career Coach Avatar"
+                            src={user.user_metadata.avatar_url}
+                            alt="User Avatar"
                             className="w-full h-full object-cover"
                             draggable={false}
                             onError={(e) => {
                               const target = e.currentTarget;
                               target.style.display = "none";
                               if (target.parentElement) {
-                                target.parentElement.textContent = "CC";
+                                target.parentElement.textContent = getUserInitials(user?.user_metadata?.name);
                               }
                             }}
                           />
-                        </div>
-                      )}
-
-                      <div
-                        className={`relative max-w-[75%] px-4 py-2 rounded-2xl text-sm
-                          ${isBot
-                            ? "bg-gray-100 text-gray-900 rounded-bl-none"
-                            : "bg-blue-500 text-white rounded-br-none"
-                          }
-                        `}
-                      >
-                        <p className="whitespace-pre-wrap">{msg.text}</p>
-                        {reactingMessageId === msg.id && isBot && (
-                          <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
-                            {["👍", "❤️", "💡"].map((emoji) => (
-                              <button
-                                key={emoji}
-                                onClick={() => handleEmojiClick(msg.id, emoji)}
-                                className="hover:bg-gray-200 rounded-md p-1"
-                                type="button"
-                              >
-                                {emoji}
-                              </button>
-                            ))}
-                          </div>
+                        ) : (
+                          <span className="text-gray-700 font-semibold text-sm">
+                            {getUserInitials(user?.user_metadata?.name)}
+                          </span>
                         )}
                       </div>
-
-                      {isUser && (
-                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                          {user?.user_metadata?.avatar_url ? (
-                            <img
-                              src={user.user_metadata.avatar_url}
-                              alt="User Avatar"
-                              className="w-full h-full object-cover"
-                              draggable={false}
-                              onError={(e) => {
-                                const target = e.currentTarget;
-                                target.style.display = "none";
-                                if (target.parentElement) {
-                                  target.parentElement.textContent = getUserInitials(user?.user_metadata?.name);
-                                }
-                              }}
-                            />
-                          ) : (
-                            <span className="text-gray-700 font-semibold text-sm">
-                              {getUserInitials(user?.user_metadata?.name)}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-                
-                {isTyping && (
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 rounded-full overflow-hidden">
-                      <img
-                        src={coachAvatarUrl}
-                        alt="Career Coach Avatar"
-                        className="w-full h-full object-cover"
-                        draggable={false}
-                        onError={(e) => {
-                          const target = e.currentTarget;
-                          target.style.display = "none";
-                          if (target.parentElement) {
-                            target.parentElement.textContent = "CC";
-                          }
-                        }}
-                      />
-                    </div>
-                    <div className="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-2">
-                      <div className="flex space-x-1">
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === 0 && (
-                  <div className="flex flex-col space-y-3 mb-4">
-                    {quickReplies.map((reply, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => handleQuickReply(reply)}
-                        className="rounded-full px-6 py-3 border border-blue-500 text-blue-500 text-left hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-full sm:max-w-md mx-auto"
-                        type="button"
-                      >
-                        {reply}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === pathwayQuestions.length && (
-                  <div className="flex flex-col space-y-2 mt-4">
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left border-blue-500 text-blue-500 hover:bg-blue-50"
-                      type="button"
-                      onClick={() => handleResumeUseConfirm(true)}
-                    >
-                      Use existing resume
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left border-blue-500 text-blue-500 hover:bg-blue-50"
-                      type="button"
-                      onClick={() => handleResumeUseConfirm(false)}
-                    >
-                      Upload new resume
-                    </Button>
-                  </div>
-                )}
-
-                {currentQuestionIndex === pathwayQuestions.length && 
-                 ((!resume) || (resumeUseConfirmed === false)) && (
-                  <div className="flex flex-col space-y-4 mt-4">
-                    <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
-                    <input
-                      type="file"
-                      accept=".pdf,.docx"
-                      onChange={handleFileChange}
-                      disabled={isTyping || resumeUploading}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                    />
-                    {resumeFile && (
-                      <Button
-                        onClick={handleResumeUpload}
-                        disabled={isTyping || resumeUploading}
-                        className="mt-2"
-                      >
-                        {resumeUploading ? "Uploading..." : "Upload Resume"}
-                      </Button>
                     )}
                   </div>
-                )}
-
-              {careerAdviceReport && (
-                <>
-                  <style>
-                    {`
-                      @keyframes slideInUp {
-                        from {
-                          transform: translateY(20px);
-                          opacity: 0;
+                );
+              })}
+              
+              {isTyping && (
+                <div className="flex items-center space-x-2">
+                  <div className="w-8 h-8 rounded-full overflow-hidden">
+                    <img
+                      src={coachAvatarUrl}
+                      alt="Career Coach Avatar"
+                      className="w-full h-full object-cover"
+                      draggable={false}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = "none";
+                        if (target.parentElement) {
+                          target.parentElement.textContent = "CC";
                         }
-                        to {
-                          transform: translateY(0);
-                          opacity: 1;
-                        }
-                      }
-                      
-                      .career-advice-report {
-                        animation: slideInUp 0.5s ease-out forwards;
-                      }
-                    `}
-                  </style>
-                  <div 
-                    ref={reportRef}
-                    className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
-                    dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-                  />
-                </>
+                      }}
+                    />
+                  </div>
+                  <div className="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                </div>
               )}
-              <div ref={messagesEndRef}></div>
-              {careerAdviceReport && (
-                <Button 
-                  onClick={() => navigate('/career-pathway')}
-                  className="block mx-auto mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-                >
-                  View Your Career Pathway
-                </Button>
+              
+              {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === 0 && (
+                <div className="flex flex-col space-y-3 mb-4">
+                  {quickReplies.map((reply, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleQuickReply(reply)}
+                      className="rounded-full px-6 py-3 border border-blue-500 text-blue-500 text-left hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-full sm:max-w-md mx-auto"
+                      type="button"
+                    >
+                      {reply}
+                    </button>
+                  ))}
+                </div>
               )}
-            </div>
-          </div>
-          )}
 
-          {/* Input area - hide during reset */}
-          {!isResetting && (
-            <div className="sticky bottom-0 bg-gradient-to-t from-white to-transparent pb-4 pt-2 w-full">
-              <div className="mx-auto max-w-2xl px-4">
-                <div className="relative flex items-center">
-                  <input
-                    type="text"
-                    value={inputValue}
-                    onChange={(e) => setInputValue(e.target.value)}
-                    onKeyDown={handleInputKeyDown}
-                    disabled={isTyping}
-                    className="flex-1 border border-gray-300 rounded-full py-3 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder={isTyping ? "Please wait..." : "Type your message..."}
-                  />
+              {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === pathwayQuestions.length && (
+                <div className="flex flex-col space-y-2 mt-4">
                   <Button
+                    variant="outline"
+                    className="w-full justify-start text-left border-blue-500 text-blue-500 hover:bg-blue-50"
                     type="button"
-                    onClick={handleSubmit}
-                    disabled={!inputValue.trim() || isTyping}
-                    className="absolute right-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center"
+                    onClick={() => handleResumeUseConfirm(true)}
                   >
-                    <span className="sr-only">Send message</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <line x1="22" y1="2" x2="11" y2="13"></line>
-                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                    </svg>
+                    Use existing resume
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left border-blue-500 text-blue-500 hover:bg-blue-50"
+                    type="button"
+                    onClick={() => handleResumeUseConfirm(false)}
+                  >
+                    Upload new resume
                   </Button>
                 </div>
+              )}
+
+              {currentQuestionIndex === pathwayQuestions.length && 
+               ((!resume) || (resumeUseConfirmed === false)) && (
+                <div className="flex flex-col space-y-4 mt-4">
+                  <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
+                  <input
+                    type="file"
+                    accept=".pdf,.docx"
+                    onChange={handleFileChange}
+                    disabled={isTyping || resumeUploading}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                  />
+                  {resumeFile && (
+                    <Button
+                      onClick={handleResumeUpload}
+                      disabled={isTyping || resumeUploading}
+                      className="mt-2"
+                    >
+                      {resumeUploading ? "Uploading..." : "Upload Resume"}
+                    </Button>
+                  )}
+                </div>
+              )}
+
+
+            {careerAdviceReport && (
+              <>
+                <style>
+                  {`
+                    @keyframes slideInUp {
+                      from {
+                        transform: translateY(20px);
+                        opacity: 0;
+                      }
+                      to {
+                        transform: translateY(0);
+                        opacity: 1;
+                      }
+                    }
+                    
+                    .career-advice-report {
+                      animation: slideInUp 0.5s ease-out forwards;
+                    }
+                  `}
+                </style>
+                <div 
+                  ref={reportRef}
+                  className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
+                  dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+                />
+              </>
+            )}
+              <div ref={messagesEndRef}></div>
+              <Button 
+              onClick={() => navigate('/career-pathway')}
+              className="block mx-auto mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+            >
+              View Your Career Pathway
+            </Button>
+            </div>
+          </div>
+
+          {/* Input area */}
+          <div className="sticky bottom-0 bg-gradient-to-t from-white to-transparent pb-4 pt-2 w-full">
+            <div className="mx-auto max-w-2xl px-4">
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  onKeyDown={handleInputKeyDown}
+                  disabled={isTyping}
+                  className="flex-1 border border-gray-300 rounded-full py-3 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={isTyping ? "Please wait..." : "Type your message..."}
+                />
+                <Button
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!inputValue.trim() || isTyping}
+                  className="absolute right-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center"
+                >
+                  <span className="sr-only">Send message</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </Button>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </AppLayout>
