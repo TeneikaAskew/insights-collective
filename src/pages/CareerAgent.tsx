@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AppLayout from '@/components/layout/AppLayout';
@@ -107,15 +106,21 @@ const CareerAgent: React.FC = () => {
       isResetting 
     });
     
-    if (user?.id && !previousChatLoaded && !isResetting) {
+    // Don't load previous data if we're resetting or if already loaded
+    if (isResetting || previousChatLoaded) {
+      console.log('Skipping load - resetting or already loaded');
+      return;
+    }
+    
+    if (user?.id) {
       loadPreviousCareerPathwayData();
-    } else if (!user?.id || isResetting) {
-      // If no user or we're resetting, just initialize
-      console.log('No user or resetting, initializing conversation');
+    } else {
+      // If no user, just initialize
+      console.log('No user, initializing conversation');
       initializeConversation();
       setPreviousChatLoaded(true);
     }
-  }, [user, previousChatLoaded, isResetting]);
+  }, [user?.id, isResetting, previousChatLoaded]);
 
   // Load previous career pathway data
   const loadPreviousCareerPathwayData = async () => {
@@ -309,6 +314,19 @@ const CareerAgent: React.FC = () => {
     setIsResetting(true);
     
     try {
+      // Clear all state immediately - this should clear the UI
+      setMessages([]);
+      setAnswers({});
+      setCurrentQuestionIndex(0);
+      setCareerAdviceReport('');
+      setResumePromptShown(false);
+      setResumeUseConfirmed(null);
+      setShowQuickReplies(false);
+      setInputValue('');
+      setResumeFile(null);
+      setIsTyping(false);
+      setPreviousChatLoaded(false);
+
       // Delete all previous answers from database
       const { error: answersError } = await supabase
         .from('career_pathway_answers')
@@ -332,38 +350,23 @@ const CareerAgent: React.FC = () => {
         .delete()
         .eq('user_id', user.id);
 
-      console.log('Database cleared, resetting state');
-
-      // Reset ALL state immediately
-      setAnswers({});
-      setCurrentQuestionIndex(0);
-      setCareerAdviceReport('');
-      setResumePromptShown(false);
-      setResumeUseConfirmed(null);
-      setPreviousChatLoaded(false);
-      setShowQuickReplies(false);
-      setInputValue('');
-      setResumeFile(null);
-      setIsTyping(false);
-      setMessages([]); // Clear messages immediately
-
       // Generate new session ID
       const newSessionId = Date.now().toString();
       setSessionId(newSessionId);
 
-      console.log('State reset, initializing new conversation');
+      console.log('Database cleared, initializing new conversation');
 
-      // Initialize fresh conversation after a brief delay to ensure state is cleared
-      setTimeout(() => {
-        initializeConversation();
-        setIsResetting(false);
-        setPreviousChatLoaded(true);
-      }, 100);
+      // Initialize fresh conversation immediately
+      initializeConversation();
+      setPreviousChatLoaded(true);
+      setIsResetting(false);
 
       toast({
         title: 'Success',
         description: 'Your answers have been reset.',
       });
+
+      console.log('Reset completed successfully');
     } catch (err) {
       console.error('Error in reset:', err);
       toast({
@@ -726,203 +729,213 @@ const CareerAgent: React.FC = () => {
               </div>
             </div>
           </div>
-          <div 
-            ref={scrollAreaRef}
-            className="flex-1 overflow-y-auto pt-20 pb-20 px-2"
-          >
-            <div className="space-y-4 max-w-xl mx-auto">
-              {messages.map((msg) => {
-                const isBot = msg.sender === "bot";
-                const isUser = msg.sender === "user";
+          
+          {/* Show loading state during reset */}
+          {isResetting ? (
+            <div className="flex-1 flex items-center justify-center">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+                <p className="mt-2 text-gray-600">Resetting conversation...</p>
+              </div>
+            </div>
+          ) : (
+            <div 
+              ref={scrollAreaRef}
+              className="flex-1 overflow-y-auto pt-20 pb-20 px-2"
+            >
+              <div className="space-y-4 max-w-xl mx-auto">
+                {messages.map((msg) => {
+                  const isBot = msg.sender === "bot";
+                  const isUser = msg.sender === "user";
 
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${isBot ? "justify-start" : "justify-end"} items-end space-x-2`}
-                  >
-                    {isBot && (
-                      <div className="w-8 h-8 rounded-full overflow-hidden">
-                        <img
-                          src={coachAvatarUrl}
-                          alt="Career Coach Avatar"
-                          className="w-full h-full object-cover"
-                          draggable={false}
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            target.style.display = "none";
-                            if (target.parentElement) {
-                              target.parentElement.textContent = "CC";
-                            }
-                          }}
-                        />
-                      </div>
-                    )}
-
+                  return (
                     <div
-                      className={`relative max-w-[75%] px-4 py-2 rounded-2xl text-sm
-                        ${isBot
-                          ? "bg-gray-100 text-gray-900 rounded-bl-none"
-                          : "bg-blue-500 text-white rounded-br-none"
-                        }
-                      `}
+                      key={msg.id}
+                      className={`flex ${isBot ? "justify-start" : "justify-end"} items-end space-x-2`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.text}</p>
-                      {reactingMessageId === msg.id && isBot && (
-                        <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
-                          {["👍", "❤️", "💡"].map((emoji) => (
-                            <button
-                              key={emoji}
-                              onClick={() => handleEmojiClick(msg.id, emoji)}
-                              className="hover:bg-gray-200 rounded-md p-1"
-                              type="button"
-                            >
-                              {emoji}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-
-                    {isUser && (
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
-                        {user?.user_metadata?.avatar_url ? (
+                      {isBot && (
+                        <div className="w-8 h-8 rounded-full overflow-hidden">
                           <img
-                            src={user.user_metadata.avatar_url}
-                            alt="User Avatar"
+                            src={coachAvatarUrl}
+                            alt="Career Coach Avatar"
                             className="w-full h-full object-cover"
                             draggable={false}
                             onError={(e) => {
                               const target = e.currentTarget;
                               target.style.display = "none";
                               if (target.parentElement) {
-                                target.parentElement.textContent = getUserInitials(user?.user_metadata?.name);
+                                target.parentElement.textContent = "CC";
                               }
                             }}
                           />
-                        ) : (
-                          <span className="text-gray-700 font-semibold text-sm">
-                            {getUserInitials(user?.user_metadata?.name)}
-                          </span>
+                        </div>
+                      )}
+
+                      <div
+                        className={`relative max-w-[75%] px-4 py-2 rounded-2xl text-sm
+                          ${isBot
+                            ? "bg-gray-100 text-gray-900 rounded-bl-none"
+                            : "bg-blue-500 text-white rounded-br-none"
+                          }
+                        `}
+                      >
+                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                        {reactingMessageId === msg.id && isBot && (
+                          <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
+                            {["👍", "❤️", "💡"].map((emoji) => (
+                              <button
+                                key={emoji}
+                                onClick={() => handleEmojiClick(msg.id, emoji)}
+                                className="hover:bg-gray-200 rounded-md p-1"
+                                type="button"
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-              
-              {isTyping && (
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 rounded-full overflow-hidden">
-                    <img
-                      src={coachAvatarUrl}
-                      alt="Career Coach Avatar"
-                      className="w-full h-full object-cover"
-                      draggable={false}
-                      onError={(e) => {
-                        const target = e.currentTarget;
-                        target.style.display = "none";
-                        if (target.parentElement) {
-                          target.parentElement.textContent = "CC";
-                        }
-                      }}
-                    />
-                  </div>
-                  <div className="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-2">
-                    <div className="flex space-x-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+
+                      {isUser && (
+                        <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center">
+                          {user?.user_metadata?.avatar_url ? (
+                            <img
+                              src={user.user_metadata.avatar_url}
+                              alt="User Avatar"
+                              className="w-full h-full object-cover"
+                              draggable={false}
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                target.style.display = "none";
+                                if (target.parentElement) {
+                                  target.parentElement.textContent = getUserInitials(user?.user_metadata?.name);
+                                }
+                              }}
+                            />
+                          ) : (
+                            <span className="text-gray-700 font-semibold text-sm">
+                              {getUserInitials(user?.user_metadata?.name)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                
+                {isTyping && (
+                  <div className="flex items-center space-x-2">
+                    <div className="w-8 h-8 rounded-full overflow-hidden">
+                      <img
+                        src={coachAvatarUrl}
+                        alt="Career Coach Avatar"
+                        className="w-full h-full object-cover"
+                        draggable={false}
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          target.style.display = "none";
+                          if (target.parentElement) {
+                            target.parentElement.textContent = "CC";
+                          }
+                        }}
+                      />
+                    </div>
+                    <div className="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-              
-              {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === 0 && (
-                <div className="flex flex-col space-y-3 mb-4">
-                  {quickReplies.map((reply, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleQuickReply(reply)}
-                      className="rounded-full px-6 py-3 border border-blue-500 text-blue-500 text-left hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-full sm:max-w-md mx-auto"
-                      type="button"
-                    >
-                      {reply}
-                    </button>
-                  ))}
-                </div>
-              )}
+                )}
+                
+                {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === 0 && (
+                  <div className="flex flex-col space-y-3 mb-4">
+                    {quickReplies.map((reply, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => handleQuickReply(reply)}
+                        className="rounded-full px-6 py-3 border border-blue-500 text-blue-500 text-left hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-300 max-w-full sm:max-w-md mx-auto"
+                        type="button"
+                      >
+                        {reply}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
-              {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === pathwayQuestions.length && (
-                <div className="flex flex-col space-y-2 mt-4">
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left border-blue-500 text-blue-500 hover:bg-blue-50"
-                    type="button"
-                    onClick={() => handleResumeUseConfirm(true)}
-                  >
-                    Use existing resume
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left border-blue-500 text-blue-500 hover:bg-blue-50"
-                    type="button"
-                    onClick={() => handleResumeUseConfirm(false)}
-                  >
-                    Upload new resume
-                  </Button>
-                </div>
-              )}
-
-              {currentQuestionIndex === pathwayQuestions.length && 
-               ((!resume) || (resumeUseConfirmed === false)) && (
-                <div className="flex flex-col space-y-4 mt-4">
-                  <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
-                  <input
-                    type="file"
-                    accept=".pdf,.docx"
-                    onChange={handleFileChange}
-                    disabled={isTyping || resumeUploading}
-                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                  />
-                  {resumeFile && (
+                {showQuickRepliesAtCorrectPlace() && currentQuestionIndex === pathwayQuestions.length && (
+                  <div className="flex flex-col space-y-2 mt-4">
                     <Button
-                      onClick={handleResumeUpload}
-                      disabled={isTyping || resumeUploading}
-                      className="mt-2"
+                      variant="outline"
+                      className="w-full justify-start text-left border-blue-500 text-blue-500 hover:bg-blue-50"
+                      type="button"
+                      onClick={() => handleResumeUseConfirm(true)}
                     >
-                      {resumeUploading ? "Uploading..." : "Upload Resume"}
+                      Use existing resume
                     </Button>
-                  )}
-                </div>
-              )}
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left border-blue-500 text-blue-500 hover:bg-blue-50"
+                      type="button"
+                      onClick={() => handleResumeUseConfirm(false)}
+                    >
+                      Upload new resume
+                    </Button>
+                  </div>
+                )}
 
-            {careerAdviceReport && (
-              <>
-                <style>
-                  {`
-                    @keyframes slideInUp {
-                      from {
-                        transform: translateY(20px);
-                        opacity: 0;
+                {currentQuestionIndex === pathwayQuestions.length && 
+                 ((!resume) || (resumeUseConfirmed === false)) && (
+                  <div className="flex flex-col space-y-4 mt-4">
+                    <label className="text-sm font-medium">Upload your resume (PDF or DOCX):</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.docx"
+                      onChange={handleFileChange}
+                      disabled={isTyping || resumeUploading}
+                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    />
+                    {resumeFile && (
+                      <Button
+                        onClick={handleResumeUpload}
+                        disabled={isTyping || resumeUploading}
+                        className="mt-2"
+                      >
+                        {resumeUploading ? "Uploading..." : "Upload Resume"}
+                      </Button>
+                    )}
+                  </div>
+                )}
+
+              {careerAdviceReport && (
+                <>
+                  <style>
+                    {`
+                      @keyframes slideInUp {
+                        from {
+                          transform: translateY(20px);
+                          opacity: 0;
+                        }
+                        to {
+                          transform: translateY(0);
+                          opacity: 1;
+                        }
                       }
-                      to {
-                        transform: translateY(0);
-                        opacity: 1;
+                      
+                      .career-advice-report {
+                        animation: slideInUp 0.5s ease-out forwards;
                       }
-                    }
-                    
-                    .career-advice-report {
-                      animation: slideInUp 0.5s ease-out forwards;
-                    }
-                  `}
-                </style>
-                <div 
-                  ref={reportRef}
-                  className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
-                  dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-                />
-              </>
-            )}
+                    `}
+                  </style>
+                  <div 
+                    ref={reportRef}
+                    className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
+                    dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
+                  />
+                </>
+              )}
               <div ref={messagesEndRef}></div>
               {careerAdviceReport && (
                 <Button 
@@ -935,34 +948,36 @@ const CareerAgent: React.FC = () => {
             </div>
           </div>
 
-          {/* Input area */}
-          <div className="sticky bottom-0 bg-gradient-to-t from-white to-transparent pb-4 pt-2 w-full">
-            <div className="mx-auto max-w-2xl px-4">
-              <div className="relative flex items-center">
-                <input
-                  type="text"
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={handleInputKeyDown}
-                  disabled={isTyping}
-                  className="flex-1 border border-gray-300 rounded-full py-3 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder={isTyping ? "Please wait..." : "Type your message..."}
-                />
-                <Button
-                  type="button"
-                  onClick={handleSubmit}
-                  disabled={!inputValue.trim() || isTyping}
-                  className="absolute right-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center"
-                >
-                  <span className="sr-only">Send message</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                  </svg>
-                </Button>
+          {/* Input area - hide during reset */}
+          {!isResetting && (
+            <div className="sticky bottom-0 bg-gradient-to-t from-white to-transparent pb-4 pt-2 w-full">
+              <div className="mx-auto max-w-2xl px-4">
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleInputKeyDown}
+                    disabled={isTyping}
+                    className="flex-1 border border-gray-300 rounded-full py-3 px-4 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder={isTyping ? "Please wait..." : "Type your message..."}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleSubmit}
+                    disabled={!inputValue.trim() || isTyping}
+                    className="absolute right-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center"
+                  >
+                    <span className="sr-only">Send message</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="22" y1="2" x2="11" y2="13"></line>
+                      <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </AppLayout>
