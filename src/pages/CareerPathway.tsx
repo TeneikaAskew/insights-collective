@@ -198,7 +198,7 @@ const CareerPathway: React.FC = () => {
   };
 
   // If there's an error or no report data found
-  if (isError || data?.report && data.report.skillsAndCourses && data.report.skillsAndCourses.length === 0) {
+  if (isError || !data?.report || Object.keys(data.report).length === 0) {
     return <AppLayout>
         
         <motion.div initial={{
@@ -351,6 +351,67 @@ const CareerPathway: React.FC = () => {
                     </Button>
                   </CardContent>
                 </Card>
+
+                {/* Potential Roles */}
+                {data?.report?.potentialRoles && data.report.potentialRoles.length > 0 && (
+                  <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
+                    <CardHeader className="bg-primary/5 pb-2">
+                      <CardTitle className="flex items-center gap-2">
+                        <Users className="h-5 w-5 text-primary" />
+                        Roles That Might Be Right for You
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-4">
+                      <ul className="list-disc ml-6">
+                        {data.report.potentialRoles.map((role, idx) => (
+                          <li key={idx} className="mb-2">
+                            <span className="font-medium">{role.title}</span>: {role.description}
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Career Path Steps */}
+                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && (
+                  <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
+                    <CardHeader className="bg-primary/5 pb-2">
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                        Path to Your Aspirational Role
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-4">
+                      <ol className="list-decimal ml-6">
+                        {data.report.careerPathSteps.map((step, idx) => (
+                          <li key={idx} className="mb-2">
+                            <span className="font-medium">{step.step || step.title}</span>: {step.action || step.description} <span className="text-gray-500">({step.timeline})</span>
+                          </li>
+                        ))}
+                      </ol>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Key Takeaways */}
+                {data?.report?.keyTakeaways && data.report.keyTakeaways.length > 0 && (
+                  <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
+                    <CardHeader className="bg-primary/5 pb-2">
+                      <CardTitle className="flex items-center gap-2">
+                        <Star className="h-5 w-5 text-primary" />
+                        Key Takeaways
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-6 pt-4">
+                      <ul className="list-disc ml-6">
+                        {data.report.keyTakeaways.map((takeaway, idx) => (
+                          <li key={idx}>{takeaway}</li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                )}
               </motion.div>
             </TabsContent>
             
@@ -617,7 +678,8 @@ const CareerPathway: React.FC = () => {
       </div>
 
       {/* No assessment results view */}
-      {(!data?.report || !data.report.recommendedRoles?.length) && <div className="text-center py-12 space-y-6">
+      {!isLoading && (!data?.report || Object.keys(data.report).length === 0) && (
+        <div className="text-center py-12 space-y-6">
           <h2 className="text-3xl font-bold">No Career Assessment Results Yet</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Take our career assessment quiz to get personalized career pathway recommendations,
@@ -640,7 +702,8 @@ const CareerPathway: React.FC = () => {
               </div>
             </motion.div>
           </div>
-        </div>}
+        </div>
+      )}
     </AppLayout>;
 };
 

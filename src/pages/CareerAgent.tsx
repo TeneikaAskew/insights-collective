@@ -22,6 +22,35 @@ interface Message {
   text: string;
 }
 
+// Define the type for the structured report
+interface StructuredCareerReport {
+  summary: string;
+  recommendedRoles: Array<{
+    title: string;
+    description: string;
+    salaryRange: string;
+  }>;
+  skillsAndCourses: Array<{
+    skill: string;
+    course: string;
+    provider: string;
+    level: string;
+  }>;
+  nextStepRecommendations: string;
+  potentialRoles: Array<{
+    title: string;
+    description: string;
+  }>;
+  careerPathSteps: Array<{
+    step: string;
+    action: string;
+    timeline: string;
+  }>;
+  keyTakeaways: string[];
+  error?: string;
+  raw?: string;
+}
+
 const CareerAgent: React.FC = () => {
   const navigate = useNavigate();
 
@@ -53,6 +82,7 @@ const CareerAgent: React.FC = () => {
   const reportRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [structuredReport, setStructuredReport] = useState<StructuredCareerReport | null>(null);
 
   // Use proper coach avatar URL
   const coachAvatarUrl = "https://wp-aberdeen.s3.amazonaws.com/wp-content/uploads/2019/12/10043240/GettyImages-1017199998-e1654696271733.jpg";
@@ -143,8 +173,15 @@ const CareerAgent: React.FC = () => {
         
       if (!reportError && reportData?.report) {
         const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-        const html = formatCareerPathwayReport(raw);
-        setCareerAdviceReport(html);
+        let parsed: StructuredCareerReport | null = null;
+        try {
+          parsed = JSON.parse(raw);
+        } catch {
+          parsed = { summary: '', recommendedRoles: [], skillsAndCourses: [], nextStepRecommendations: '', potentialRoles: [], careerPathSteps: [], keyTakeaways: [], error: 'Invalid JSON from DB', raw };
+        }
+        setStructuredReport(parsed);
+        // Optionally keep this if you use the HTML version elsewhere:
+        setCareerAdviceReport(formatCareerPathwayReport(raw));
       }
       
       // Reconstruct chat history from answers
@@ -332,6 +369,7 @@ const CareerAgent: React.FC = () => {
       setCurrentQuestionIndex(0);
       setShowQuickReplies(true);
       setCareerAdviceReport('');
+      setStructuredReport(null);
       setResumePromptShown(false);
       setResumeUseConfirmed(null);
       setPreviousChatLoaded(false);
@@ -364,13 +402,6 @@ const CareerAgent: React.FC = () => {
     try {
       console.log('Calling evaluateCareerAdvice edge function');
       // Get the session properly using await
-      const { data: sessionData } = await supabase.auth.getSession();
-      if (!sessionData?.session?.access_token) {
-        throw new Error("No valid authentication session found");
-      }
-      
-      const accessToken = sessionData.session.access_token;
-      
       const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
         body: {
           prompt: careerAdvicePrompt,
@@ -383,25 +414,33 @@ const CareerAgent: React.FC = () => {
       if (!data) {
         throw new Error("No result returned from career pathway form");
       }
-      
-      const raw = typeof data === 'string' ? data : data.generatedText || data.message || JSON.stringify(data);
-      console.log("Career Pathway Insights: ", raw);
-      const html = formatCareerPathwayReport(raw);
-      setCareerAdviceReport(html);
-      
+
+      // If the response is a string, try to parse it
+      let report: StructuredCareerReport;
+      if (typeof data === 'string') {
+        try {
+          report = JSON.parse(data);
+        } catch (e) {
+          report = { summary: '', recommendedRoles: [], skillsAndCourses: [], nextStepRecommendations: '', potentialRoles: [], careerPathSteps: [], keyTakeaways: [], error: 'Invalid JSON from LLM', raw: data };
+        }
+      } else {
+        report = data as StructuredCareerReport;
+      }
+      setStructuredReport(report);
+      setCareerAdviceReport(''); // clear old markdown report if any
+
       // Save the report to career_pathway_results
       if (user?.id) {
         try {
           await supabase.from("career_pathway_results").insert({
             user_id: user.id,
             session_id: sessionId,
-            report: raw
+            report: JSON.stringify(report)
           });
         } catch (saveError) {
           console.error("Error saving career pathway report:", saveError);
         }
       }
-      
       setMessages(prev => [...prev, { 
         id: `bot_done_${Date.now()}`, 
         sender: 'bot', 
@@ -684,7 +723,7 @@ const CareerAgent: React.FC = () => {
                   size="sm"
                   className="text-red-600 hover:text-red-700"
                 >
-                  Reset 3Answers
+                  Reset Answers
                 </Button>
                 <Button
                   variant="outline"
@@ -878,43 +917,118 @@ const CareerAgent: React.FC = () => {
                 </div>
               )}
 
-
-            {careerAdviceReport && (
-              <>
-                <style>
-                  {`
-                    @keyframes slideInUp {
-                      from {
-                        transform: translateY(20px);
-                        opacity: 0;
-                      }
-                      to {
-                        transform: translateY(0);
-                        opacity: 1;
-                      }
-                    }
-                    
-                    .career-advice-report {
-                      animation: slideInUp 0.5s ease-out forwards;
-                    }
-                  `}
-                </style>
-                <div 
-                  ref={reportRef}
-                  className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300"
-                  dangerouslySetInnerHTML={{ __html: careerAdviceReport }}
-                />
-              </>
-            )}
-              <div ref={messagesEndRef}></div>
-              {careerAdviceReport && (
+              {/* View Your Career Pathway button should appear above the report and as soon as structuredReport is set and has no error */}
+              {structuredReport && !structuredReport.error && (
                 <Button 
                   onClick={() => navigate('/career-pathway')}
-                  className="block mx-auto mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                  className="block mx-auto mt-6 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
                 >
                   View Your Career Pathway
                 </Button>
               )}
+              {structuredReport && !structuredReport.error && (
+                <div ref={reportRef} className="career-advice-report p-6 mt-6 rounded-lg bg-white border border-blue-300 max-w-3xl mx-auto text-gray-900 text-sm shadow-lg hover:shadow-xl transition-shadow duration-300">
+                  <h1 className="text-xl font-bold text-blue-600 mb-4">Personalized Career Pathway Report</h1>
+                  <section className="mb-6">
+                    <h2 className="text-lg font-semibold text-blue-700 mb-2">Summary</h2>
+                    <p>{structuredReport.summary}</p>
+                  </section>
+                  <section className="mb-6">
+                    <h2 className="text-lg font-semibold text-blue-700 mb-2">Recommended Roles</h2>
+                    {structuredReport.recommendedRoles && structuredReport.recommendedRoles.length > 0 ? (
+                      <ul className="list-decimal ml-6">
+                        {structuredReport.recommendedRoles.map((role, idx) => (
+                          <li key={idx} className="mb-2">
+                            <span className="font-medium">{role.title}</span>: {role.description} <span className="text-gray-500">({role.salaryRange})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p>No roles found.</p>}
+                  </section>
+                  <section className="mb-6">
+                    <h2 className="text-lg font-semibold text-blue-700 mb-2">Skills and Matching Courses</h2>
+                    {structuredReport.skillsAndCourses && structuredReport.skillsAndCourses.length > 0 ? (
+                      <div className="overflow-x-auto">
+                        <table className="min-w-full bg-white border border-gray-200">
+                          <thead className="bg-blue-50">
+                            <tr>
+                              <th className="py-2 px-4 border border-gray-200 font-medium text-left">Skill</th>
+                              <th className="py-2 px-4 border border-gray-200 font-medium text-left">Course</th>
+                              <th className="py-2 px-4 border border-gray-200 font-medium text-left">Provider</th>
+                              <th className="py-2 px-4 border border-gray-200 font-medium text-left">Level</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {structuredReport.skillsAndCourses.map((row, idx) => (
+                              <tr key={idx}>
+                                <td className="py-2 px-4 border border-gray-200">{row.skill}</td>
+                                <td className="py-2 px-4 border border-gray-200">{row.course}</td>
+                                <td className="py-2 px-4 border border-gray-200">{row.provider}</td>
+                                <td className="py-2 px-4 border border-gray-200">{row.level}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : <p>No skills/courses found.</p>}
+                  </section>
+                  <section className="mb-6">
+                    <h2 className="text-lg font-semibold text-blue-700 mb-2">Next-Step Career Recommendations</h2>
+                    <p>{structuredReport.nextStepRecommendations}</p>
+                  </section>
+                  <section className="mb-6">
+                    <h2 className="text-lg font-semibold text-blue-700 mb-2">Roles that Might be Right for You</h2>
+                    {structuredReport.potentialRoles && structuredReport.potentialRoles.length > 0 ? (
+                      <ul className="list-disc ml-6">
+                        {structuredReport.potentialRoles.map((role, idx) => (
+                          <li key={idx}>
+                            <span className="font-medium">{role.title}</span>: {role.description}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <p>No potential roles found.</p>}
+                  </section>
+                  <section className="mb-6">
+                    <h2 className="text-lg font-semibold text-blue-700 mb-2">Path to Your Aspirational Role</h2>
+                    {structuredReport.careerPathSteps && structuredReport.careerPathSteps.length > 0 ? (
+                      <ol className="list-decimal ml-6">
+                        {structuredReport.careerPathSteps.map((step, idx) => (
+                          <li key={idx}>
+                            <span className="font-medium">{step.step}</span>: {step.action} <span className="text-gray-500">({step.timeline})</span>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : <p>No steps found.</p>}
+                  </section>
+                  <section className="mb-6">
+                    <h2 className="text-lg font-semibold text-blue-700 mb-2">Key Takeaways</h2>
+                    {structuredReport.keyTakeaways && structuredReport.keyTakeaways.length > 0 ? (
+                      <ul className="list-disc ml-6">
+                        {structuredReport.keyTakeaways.map((takeaway, idx) => (
+                          <li key={idx}>{takeaway}</li>
+                        ))}
+                      </ul>
+                    ) : <p>No key takeaways found.</p>}
+                  </section>
+                </div>
+              )}
+              {/* View Your Career Pathway button should appear above the report and as soon as structuredReport is set and has no error */}
+              {structuredReport && !structuredReport.error && (
+                <Button 
+                  onClick={() => navigate('/career-pathway')}
+                  className="block mx-auto mt-6 mb-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  View Your Career Pathway
+                </Button>
+              )}
+              {structuredReport && structuredReport.error && (
+                <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                  <h2 className="font-bold mb-2">Error</h2>
+                  <p>{structuredReport.error}</p>
+                  {structuredReport.raw && <pre className="mt-2 text-xs whitespace-pre-wrap">{structuredReport.raw}</pre>}
+                </div>
+              )}
+              <div ref={messagesEndRef}></div>
             </div>
           </div>
 

@@ -39,7 +39,47 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
   }
 
   try {
-    // Handle case when reportData is already an object
+    // If reportData is a valid JSON string, parse and map it directly
+    let parsed: any = reportData;
+    if (typeof reportData === 'string') {
+      try {
+        parsed = JSON.parse(reportData);
+        // If parsing succeeds and it has the expected fields, return mapped object
+        if (parsed && typeof parsed === 'object' && (
+          parsed.summary || parsed.recommendedRoles || parsed.skillsAndCourses || parsed.careerPathSteps
+        )) {
+          return {
+            userName: parsed.userName || 'there',
+            summary: parsed.summary || '',
+            recommendedRoles: parsed.recommendedRoles || [],
+            skillsAndCourses: parsed.skillsAndCourses || [],
+            careerPathSteps: parsed.careerPathSteps || [],
+            keyTakeaways: parsed.keyTakeaways || [],
+            nextStepRecommendations: parsed.nextStepRecommendations || '',
+            potentialRoles: parsed.potentialRoles || []
+          };
+        }
+      } catch (e) {
+        // Not valid JSON, fall through to text parsing
+      }
+    } else if (typeof reportData === 'object' && (
+      reportData.summary || reportData.recommendedRoles || reportData.skillsAndCourses || reportData.careerPathSteps
+    )) {
+      // Already an object with expected fields
+      return {
+        userName: reportData.userName || 'there',
+        summary: reportData.summary || '',
+        recommendedRoles: reportData.recommendedRoles || [],
+        skillsAndCourses: reportData.skillsAndCourses || [],
+        careerPathSteps: reportData.careerPathSteps || [],
+        keyTakeaways: reportData.keyTakeaways || [],
+        nextStepRecommendations: reportData.nextStepRecommendations || '',
+        potentialRoles: reportData.potentialRoles || []
+      };
+    }
+
+    // Fallback: treat as plain text and use regex parsing
+    // ... existing text parsing logic ...
     const reportText = typeof reportData === 'object' && reportData.report 
       ? reportData.report 
       : typeof reportData === 'string'
