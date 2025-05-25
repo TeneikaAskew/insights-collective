@@ -14,7 +14,6 @@ import {
   PathwayQuestion
 } from '@/data/careerPathwayData';
 import { useNavigate } from 'react-router-dom';
-// CareerAgent.tsx
 import { formatCareerPathwayReport } from '@/components/assistants/utils/CareerReportParser';
 
 interface Message {
@@ -60,13 +59,19 @@ const CareerAgent: React.FC = () => {
 
   // Initialize conversation
   const initializeConversation = () => {
-    setMessages(starterMessages.map((text, index) => ({
+    console.log('Initializing conversation');
+    const initialMessages = starterMessages.map((text, index) => ({
       id: `bot_starter_${index}`,
-      sender: "bot",
+      sender: "bot" as const,
       text,
-    })));
+    }));
+    setMessages(initialMessages);
     setShowQuickReplies(true);
     setCurrentQuestionIndex(0);
+    setCareerAdviceReport('');
+    setResumePromptShown(false);
+    setResumeUseConfirmed(null);
+    console.log('Conversation initialized with messages:', initialMessages);
   };
 
   // Initialize session ID
@@ -94,18 +99,34 @@ const CareerAgent: React.FC = () => {
     }
   }, [careerAdviceReport]);
 
-  // Load previous answers and chat history
+  // Load previous answers and chat history - but NOT during reset
   useEffect(() => {
+    console.log('useEffect for loading previous data', { 
+      userId: user?.id, 
+      previousChatLoaded, 
+      isResetting 
+    });
+    
     if (user?.id && !previousChatLoaded && !isResetting) {
       loadPreviousCareerPathwayData();
+    } else if (!user?.id || isResetting) {
+      // If no user or we're resetting, just initialize
+      console.log('No user or resetting, initializing conversation');
+      initializeConversation();
+      setPreviousChatLoaded(true);
     }
   }, [user, previousChatLoaded, isResetting]);
 
   // Load previous career pathway data
   const loadPreviousCareerPathwayData = async () => {
-    if (!user?.id || isResetting) return;
+    if (!user?.id || isResetting) {
+      console.log('Skipping load due to reset or no user');
+      return;
+    }
     
     try {
+      console.log('Loading previous career pathway data for user:', user.id);
+      
       // Load previous answers
       const { data: previousAnswers, error: answersError } = await supabase
         .from('career_pathway_answers')
@@ -116,10 +137,13 @@ const CareerAgent: React.FC = () => {
       if (answersError) {
         console.error('Error loading previous answers:', answersError);
         initializeConversation();
+        setPreviousChatLoaded(true);
         return;
       }
 
       if (previousAnswers && previousAnswers.length > 0) {
+        console.log('Found previous answers:', previousAnswers.length);
+        
         // Map answers
         const answersMap: Record<string, string> = {};
         previousAnswers.forEach(item => {
@@ -169,7 +193,7 @@ const CareerAgent: React.FC = () => {
               chatHistory.push({
                 id: `bot_q_${nextQ.id}`,
                 sender: 'bot',
-                text: `${nextQ.label}. ${nextQ.placeholder}`
+                text: `${nextQ.placeholder}`
               });
             }
           }
@@ -205,12 +229,13 @@ const CareerAgent: React.FC = () => {
         }
         
         setMessages(chatHistory);
-        setPreviousChatLoaded(true);
       } else {
         // No previous answers, just initialize a new conversation
+        console.log('No previous answers found, initializing new conversation');
         initializeConversation();
-        setPreviousChatLoaded(true);
       }
+      
+      setPreviousChatLoaded(true);
     } catch (err) {
       console.error('Error loading career pathway data:', err);
       initializeConversation();
@@ -280,16 +305,18 @@ const CareerAgent: React.FC = () => {
   const handleResetAnswers = async () => {
     if (!user?.id) return;
     
+    console.log('Starting reset process');
     setIsResetting(true);
     
     try {
-      const { error } = await supabase
+      // Delete all previous answers from database
+      const { error: answersError } = await supabase
         .from('career_pathway_answers')
         .delete()
         .eq('user_id', user.id);
 
-      if (error) {
-        console.error('Error deleting answers:', error);
+      if (answersError) {
+        console.error('Error deleting answers:', answersError);
         toast({
           title: 'Error',
           description: 'Failed to reset answers. Please try again.',
@@ -305,20 +332,33 @@ const CareerAgent: React.FC = () => {
         .delete()
         .eq('user_id', user.id);
 
-      // Reset all state
+      console.log('Database cleared, resetting state');
+
+      // Reset ALL state immediately
       setAnswers({});
       setCurrentQuestionIndex(0);
       setCareerAdviceReport('');
       setResumePromptShown(false);
       setResumeUseConfirmed(null);
       setPreviousChatLoaded(false);
-      setShowQuickReplies(true);
+      setShowQuickReplies(false);
       setInputValue('');
       setResumeFile(null);
       setIsTyping(false);
+      setMessages([]); // Clear messages immediately
 
-      // Initialize fresh conversation
-      initializeConversation();
+      // Generate new session ID
+      const newSessionId = Date.now().toString();
+      setSessionId(newSessionId);
+
+      console.log('State reset, initializing new conversation');
+
+      // Initialize fresh conversation after a brief delay to ensure state is cleared
+      setTimeout(() => {
+        initializeConversation();
+        setIsResetting(false);
+        setPreviousChatLoaded(true);
+      }, 100);
 
       toast({
         title: 'Success',
@@ -331,7 +371,6 @@ const CareerAgent: React.FC = () => {
         description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive'
       });
-    } finally {
       setIsResetting(false);
     }
   };
@@ -438,7 +477,7 @@ const CareerAgent: React.FC = () => {
       const botMessage: Message = {
         id: `bot_${Date.now()}`,
         sender: "bot",
-        text: `${nextQuestion.label}. ${nextQuestion.placeholder}`,
+        text: `${nextQuestion.placeholder}`,
       };
       setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
@@ -542,7 +581,7 @@ const CareerAgent: React.FC = () => {
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
-            text: `${nextQ.label}. ${nextQ.placeholder}`,
+            text: `${nextQ.placeholder}`,
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
@@ -857,7 +896,6 @@ const CareerAgent: React.FC = () => {
                 </div>
               )}
 
-
             {careerAdviceReport && (
               <>
                 <style>
@@ -886,12 +924,14 @@ const CareerAgent: React.FC = () => {
               </>
             )}
               <div ref={messagesEndRef}></div>
-              <Button 
-              onClick={() => navigate('/career-pathway')}
-              className="block mx-auto mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-            >
-              View Your Career Pathway
-            </Button>
+              {careerAdviceReport && (
+                <Button 
+                  onClick={() => navigate('/career-pathway')}
+                  className="block mx-auto mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  View Your Career Pathway
+                </Button>
+              )}
             </div>
           </div>
 
