@@ -1,9 +1,9 @@
-
 // import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+import { encoding_for_model } from 'npm:@dqbd/tiktoken';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -29,14 +29,14 @@ serve(async (req) => {
   try {
     console.log("Career advice function called");
     
-    const { prompt, pathwayQuestions, pathwayAnswers, resumeText } = await req.json();
+    const body = await req.json();
+    const { prompt, pathwayQuestions, pathwayAnswers, resumeText } = body;
 
     console.log("Prompt:", prompt);
     console.log("Pathway questions:", pathwayQuestions);
     console.log("Pathway answers:", pathwayAnswers);
     console.log("Resume text:", resumeText);
 
-    
     // Validate required fields
     if (!prompt || !pathwayQuestions || !pathwayAnswers) {
       return new Response(
@@ -68,46 +68,42 @@ serve(async (req) => {
 
     console.log("User context:", userContext);
 
-    const systemPrompt = `You are a professional career advisor. Based on the user's responses and resume, generate a comprehensive career pathway report in markdown format. 
-
-Structure your response exactly as follows:
-
-**Personalized Career Advice Report**
-
-**Summary:** 
-[2-3 sentences about their career profile and strengths]
-
-**Recommended Roles:** 
-1. [Role Title] - [Description] (Salary: $X,XXX - $X,XXX)
-2. [Role Title] - [Description] (Salary: $X,XXX - $X,XXX)
-3. [Role Title] - [Description] (Salary: $X,XXX - $X,XXX)
-
-**Skills and Matching Courses:**
-| Skill | Course | Provider | Level |
-|-------|--------|----------|-------|
-| [Skill] | [Course Name] | [Provider] | [Beginner/Intermediate/Advanced] |
-| [Skill] | [Course Name] | [Provider] | [Beginner/Intermediate/Advanced] |
-| [Skill] | [Course Name] | [Provider] | [Beginner/Intermediate/Advanced] |
-
-**Next-Step Career Recommendations:**
-[Detailed paragraph with specific actionable advice]
-
-**Roles that Might be Right for You:**
-1. [Alternative Role 1]
-2. [Alternative Role 2]
-3. [Alternative Role 3]
-
-**Path to Your Aspirational Role:**
-1. **Step 1:** [Action] (Timeline: [X months])
-2. **Step 2:** [Action] (Timeline: [X months])
-3. **Step 3:** [Action] (Timeline: [X months])
-
-**Key Takeaways:**
-- [Important insight 1]
-- [Important insight 2]
-- [Important insight 3]
-
-Be specific, actionable, and personalized based on their responses. Focus on data/tech careers when relevant.`;
+    // New system prompt for structured JSON output
+    const systemPrompt = `You are a professional career advisor. Based on the user's responses and resume, generate a comprehensive career pathway report as a valid JSON object with the following structure:\n\n{
+  \"summary\": \"string\",
+  \"recommendedRoles\": [
+    {
+      \"title\": \"string\",
+      \"description\": \"string\",
+      \"salaryRange\": \"string\"
+    }
+  ],
+  \"skillsAndCourses\": [
+    {
+      \"skill\": \"string\",
+      \"course\": \"string\",
+      \"provider\": \"string\",
+      \"level\": \"string\"
+    }
+  ],
+  \"nextStepRecommendations\": \"string\",
+  \"potentialRoles\": [
+    {
+      \"title\": \"string\",
+      \"description\": \"string\"
+    }
+  ],
+  \"careerPathSteps\": [
+    {
+      \"step\": \"string\",
+      \"action\": \"string\",
+      \"timeline\": \"string\"
+    }
+  ],
+  \"keyTakeaways\": [
+    \"string\"
+  ]
+}\n\nDo not include any markdown or commentary, only return valid JSON. Fill in each section with personalized, actionable, and specific content based on the user's answers and resume.`;
 
     // Prepare chat messages for Together.ai
     const messages = [
@@ -144,12 +140,17 @@ Be specific, actionable, and personalized based on their responses. Focus on dat
     }
 
     const data = await response.json();
-    const generatedText = data.choices[0].message.content;
-
-    console.log("Generated career advice successfully");
-    
+    console.log("Response from Together.ai API:", data);
+    let report;
+    try {
+      report = JSON.parse(data.choices[0].message.content);
+    } catch (e) {
+      // fallback or error handling
+      report = { error: "Invalid JSON from LLM", raw: data.choices[0].message.content };
+    }
+    console.log("Generated structured career advice successfully: ", report);
     return new Response(
-      JSON.stringify({ generatedText }),
+      JSON.stringify(report),
       { status: 200, headers: corsHeaders }
     );
   } catch (error) {

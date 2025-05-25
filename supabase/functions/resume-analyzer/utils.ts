@@ -1,5 +1,7 @@
 // This function sets up Supabase client with service role key credentials from env
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+import { encoding_for_model } from 'npm:@dqbd/tiktoken';
 async function countTokens(text, model = 'gpt-4o-mini') {
   const enc = await encoding_for_model(model);
   const tokenCount = enc.encode(text).length;
