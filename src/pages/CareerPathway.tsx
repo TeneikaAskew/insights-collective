@@ -358,7 +358,7 @@ const CareerPathway: React.FC = () => {
                     <CardHeader className="bg-primary/5 pb-2">
                       <CardTitle className="flex items-center gap-2">
                         <Users className="h-5 w-5 text-primary" />
-                        Roles That Might Be Right for You
+                        Roles That You Might Be Right For Today
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 pt-4">
@@ -379,7 +379,7 @@ const CareerPathway: React.FC = () => {
                     <CardHeader className="bg-primary/5 pb-2">
                       <CardTitle className="flex items-center gap-2">
                         <TrendingUp className="h-5 w-5 text-primary" />
-                        Path to Your Aspirational Role
+                        Path to <p className="text-2xl font-bold">{data?.report?.recommendedRoles?.[0]?.title || 'Data Analyst'}</p>
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="p-6 pt-4">
