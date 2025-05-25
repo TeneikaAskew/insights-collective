@@ -1,4 +1,3 @@
-
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { PortfolioPage, PortfolioPageProject } from '@/types/portfolio';
@@ -82,6 +81,8 @@ export const usePortfolioPages = () => {
 
   // Fetch a single portfolio page by ID or custom URL
   const getPortfolioPage = async (identifier: string): Promise<PortfolioPage | null> => {
+    console.log('getPortfolioPage called with identifier:', identifier);
+    
     // First try to get by custom URL
     let { data, error } = await supabase
       .from('portfolio_pages')
@@ -96,8 +97,11 @@ export const usePortfolioPages = () => {
       .eq('is_public', true)
       .maybeSingle();
 
+    console.log('Query by custom_url result:', { data, error });
+
     // If not found by custom URL, try by ID
     if (!data && !error) {
+      console.log('Trying to fetch by ID:', identifier);
       ({ data, error } = await supabase
         .from('portfolio_pages')
         .select(`
@@ -110,23 +114,40 @@ export const usePortfolioPages = () => {
         .eq('id', identifier)
         .eq('is_public', true)
         .maybeSingle());
+      
+      console.log('Query by ID result:', { data, error });
     }
 
-    if (error) throw error;
-    if (!data) return null;
+    if (error) {
+      console.error('getPortfolioPage error:', error);
+      throw error;
+    }
+    
+    if (!data) {
+      console.log('No portfolio data found for identifier:', identifier);
+      return null;
+    }
 
-    return {
+    const result = {
       ...data,
       projects: data.portfolio_page_projects?.map((pp: any) => ({
         ...pp,
         project: pp.project
       })) || []
     } as PortfolioPage;
+
+    console.log('getPortfolioPage final result:', result);
+    console.log('getPortfolioPage projects count:', result.projects?.length);
+    
+    return result;
   };
 
   // Get public portfolio page (for public viewing)
   const getPublicPortfolioPage = async (identifier: string): Promise<PortfolioPage | null> => {
-    return getPortfolioPage(identifier);
+    console.log('getPublicPortfolioPage called with:', identifier);
+    const result = await getPortfolioPage(identifier);
+    console.log('getPublicPortfolioPage returning:', result);
+    return result;
   };
 
   // Create a new portfolio page
