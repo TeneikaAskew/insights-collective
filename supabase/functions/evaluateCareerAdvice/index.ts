@@ -69,7 +69,7 @@ serve(async (req) => {
     console.log("User context:", userContext);
 
     // New system prompt for structured JSON output
-    const systemPrompt = `You are a professional career advisor. Based on the user's responses and resume, generate a comprehensive career pathway report as a valid JSON object with the following structure:\n\n{
+    const systemPrompt = `You are a professional career advisor and industry expert in technology. Based on the user's responses and resume, generate a comprehensive career pathway report as a valid JSON object with the following structure:\n\n{
   \"summary\": \"string\",
   \"recommendedRoles\": [
     {
@@ -100,10 +100,20 @@ serve(async (req) => {
       \"timeline\": \"string\"
     }
   ],
+  
+  \"futureCareerPath\": [
+    {
+      \"step\": \"string\",
+      \"action\": \"string\",
+      \"timeline\": \"string\",
+      \"focusAreas\": \"string\"
+    }
+  ],
   \"keyTakeaways\": [
     \"string\"
   ]
-}\n\nDo not include any markdown or commentary, only return valid JSON. Fill in each section with personalized, actionable, and specific content based on the user's answers and resume.`;
+}\n\nDo not include any markdown or commentary, only return valid JSON. Fill in each section with personalized, actionable, and specific content based on the user's answers and resume.
+\n\nProvide a minimum of 3 future career steps. Provide a minimum of 3 skills. Provide a minimum of 3 recommended roles. Provide a minimum of 3 key takeaways. Provide a minimum of 3 career path steps.`;
 
     // Prepare chat messages for Together.ai
     const messages = [
