@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.7';
-import { corsHeaders, callGroqWithRetry } from '../_shared/utils.ts';
+import { corsHeaders, callLLMWithRetry } from '../_shared/utils.ts';
 // CORS handling for preflight requests
 function handleCors(req) {
   if (req.method === 'OPTIONS') {
@@ -29,68 +29,51 @@ async function getUserCareerData(supabase, userId) {
     }
   };
 }
-// function extractJsonPayload(rawResponse) {
-//   // 1) strip ANY markdown fences
-//   let raw = rawResponse.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
-//   // 2) grab the first {...} block
-//   const m = raw.match(/{[\s\S]*}/);
-//   if (!m) {
-//     console.error('No JSON found in LLM response:', raw);
-//     throw new Error('Invalid JSON payload');
-//   }
-//   raw = m[0];
-//   // 3) parse it
-//   try {
-//     return JSON.parse(raw);
-//   } catch (e) {
-//     console.error('Failed to parse extracted JSON:', raw, e);
-//     throw new Error('Invalid JSON payload');
-//   }
-// }
+// Improved robust JSON parser for LLM output
 export function extractJsonPayload(rawResponse) {
-  // 1) strip ANY markdown fences
-  let raw = rawResponse.replace(/```(?:json)?\s*([\s\S]*?)\s*```/g, '$1').trim();
-  // 2) grab the first {...} block
-  const match = raw.match(/\{[\s\S]*\}/);
-  if (!match) {
+  let raw = rawResponse;
+  // 1. Remove markdown code fences if present
+  raw = raw.replace(/```(?:json)?[\s\S]*?```/g, (m) => m.replace(/```(?:json)?|```/g, ''));
+  // 2. Try to extract the largest JSON-like block
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
     console.error('No JSON found in LLM response:', raw);
     throw new Error('Invalid JSON payload');
   }
-  raw = match[0];
-  // 3) try parsing directly
+  raw = jsonMatch[0];
+
+  // 3. Try parsing directly
   try {
     return JSON.parse(raw);
-  } catch (initialError) {
-    console.warn('Initial JSON.parse failed, attempting recovery:', initialError);
-    // 4) attempt to fix unbalanced braces by appending missing '}'
-    const openCount = (raw.match(/\{/g) || []).length;
-    const closeCount = (raw.match(/\}/g) || []).length;
-    if (openCount > closeCount) {
-      const fixed = raw + '}'.repeat(openCount - closeCount);
+  } catch (e) {
+    // 4. Try to fix unbalanced brackets
+    const open = (raw.match(/\{/g) || []).length;
+    const close = (raw.match(/\}/g) || []).length;
+    if (open > close) {
       try {
-        return JSON.parse(fixed);
-      } catch (e) {
-        console.warn('Recovery with appended braces failed:', e);
-      }
+        return JSON.parse(raw + '}'.repeat(open - close));
+      } catch {}
     }
-    // 5) attempt to trim after last complete brace
-    const lastIndex = raw.lastIndexOf('}');
-    if (lastIndex !== -1) {
-      const trimmed = raw.slice(0, lastIndex + 1);
-      try {
-        return JSON.parse(trimmed);
-      } catch (e) {
-        console.warn('Recovery by trimming failed:', e);
-      }
-    }
-    // 6) fallback: remove trailing commas before closing delimiters
-    const cleaned = raw.replace(/,\s*([}\]])/g, '$1');
+    // 5. Remove trailing commas before } or ]
+    let cleaned = raw.replace(/,\s*([}\]])/g, '$1');
     try {
       return JSON.parse(cleaned);
-    } catch (e) {
-      console.error('All JSON recovery attempts failed:', e);
-      throw new Error('Invalid JSON payload');
+    } catch {}
+    // 6. Replace single quotes with double quotes (if any)
+    cleaned = cleaned.replace(/'/g, '"');
+    try {
+      return JSON.parse(cleaned);
+    } catch {}
+    // 7. Try to trim after last closing brace
+    const lastBrace = raw.lastIndexOf('}');
+    if (lastBrace !== -1) {
+      try {
+        return JSON.parse(raw.slice(0, lastBrace + 1));
+      } catch {}
     }
+    // 8. Fallback: return error and raw
+    console.error('All JSON recovery attempts failed:', e, raw);
+    return { error: 'Invalid JSON from LLM', raw };
   }
 }
 // Generate the career action plan using GROQ API
@@ -100,10 +83,10 @@ async function generateActionPlan(userData) {
     - OUTPUT ONLY a single JSON object with EXACT keys:
       "6_weeks","9_weeks","12_weeks","6_months","12_months".
     - Each key's value must be an object with EXACTLY these properties:
-        "skills_to_acquire": [{ "skill": string, "courses": string[] }] (MAX 3 items with the courses),
-        "projects_to_build": { title: string; description: string }[] (MAX 2 items),
-        "content_to_post": { platform: string; topics: string[] }[] (MAX 2 items),
-        "milestones_to_achieve": string[] (MAX 3 items),
+        "skills_to_acquire": [{ "skill": string, "courses": string[] }] (MIN 3, MAX 3 items with the courses),
+        "projects_to_build": { title: string; description: string }[] (MIN 2, MAX 3 items, be specific and aligned with their personal interests and career direction),
+        "content_to_post": { platform: string; topics: string[] }[] (MIN 2, MAX 3 items),
+        "milestones_to_achieve": string[] (MIN 3, MAX 3 items),
         "motivational_narrative": string (MAX 250 chars)
     - Keep descriptions BRIEF - under 150 characters each.
     - DO NOT include ANY additional keys, markdown, or explanatory text.
@@ -122,16 +105,35 @@ ${userData.pathway.report ? JSON.stringify(userData.pathway.report) : ''}
 2. Projects to build (practical portfolio projects aligned with their career direction)
 3. Content to post on LinkedIn/Twitter to build their professional brand
 4. Milestones to achieve (concrete steps like updating resume, applying to roles, joining communities)
-5. A motivational narrative about their trajectory for this timeframe
+5. A motivational narrative about their trajectory for this timeframe, be supportive, actionable, and focused. The plan should feel like a natural extension of their existing career insights. Minimum of 100 words.
 Be supportive, actionable, and focused. The plan should feel like a natural extension of their existing career insights.
 
 Using only this information, generate the Career Action Plan in the exact JSON format described above.`;
-    // Call the GROQ API
-    const response = await callGroqWithRetry(systemPrompt, userPrompt);
-    console.log("Raw Response: ");
-    console.log(response);
-    // Extract JSON from the response
-    return extractJsonPayload(response);
+    const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
+    const response = await fetch('https://api.together.xyz/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${togetherApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 5000,
+      }),
+    });
+    const data = await response.json();
+    let plan;
+    try {
+      plan = JSON.parse(data.choices[0].message.content);
+    } catch (e) {
+      plan = { error: "Invalid JSON from LLM", raw: data.choices[0].message.content };
+    }
+    return plan;
   } catch (error) {
     console.error('Error generating action plan:', error);
     throw error;
