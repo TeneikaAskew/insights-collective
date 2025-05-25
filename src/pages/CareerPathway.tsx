@@ -363,18 +363,25 @@ const CareerPathway: React.FC = () => {
                     </CardHeader>
                     <CardContent className="p-6 pt-4">
                       <ul className="list-disc ml-6">
-                        {data.report.potentialRoles.map((role, idx) => (
-                          <li key={idx} className="mb-2">
-                            <span className="font-medium">{role.title}</span>: {role.description}
-                          </li>
-                        ))}
+                        {(data.report.potentialRoles as Array<any>).map((role, idx) => {
+                          if (role && typeof role === 'object' && 'title' in role && 'description' in role) {
+                            return (
+                              <li key={idx} className="mb-2">
+                                <span className="font-medium">{role.title}</span>: {role.description}
+                              </li>
+                            );
+                          } else if (role !== null && role !== undefined) {
+                            return <li key={idx} className="mb-2">{String(role)}</li>;
+                          }
+                          return null;
+                        })}
                       </ul>
                     </CardContent>
                   </Card>
                 )}
 
                 {/* Career Path Steps */}
-                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && (
+                {data?.report && ((data.report.futureCareerPath && data.report.futureCareerPath.length > 0) || (data.report.careerPathSteps && data.report.careerPathSteps.length > 0)) && (
                   <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
                     <CardHeader className="bg-primary/5 pb-2">
                       <CardTitle className="flex items-center gap-2">
@@ -384,10 +391,12 @@ const CareerPathway: React.FC = () => {
                     </CardHeader>
                     <CardContent className="p-6 pt-4">
                       <ol className="list-decimal ml-6">
-                        {data.report.careerPathSteps.map((step, idx) => (
-                          <li key={idx} className="mb-2">
-                            <span className="font-medium">{step.step || step.title}</span>: {step.action || step.description} <span className="text-gray-500">({step.timeline})</span>
-                          </li>
+                        {(data.report.futureCareerPath && data.report.futureCareerPath.length > 0
+                          ? data.report.futureCareerPath
+                          : data.report.careerPathSteps || []).map((step: any, idx: number) => (
+                            <li key={idx} className="mb-2">
+                              <span className="font-medium">{step.step || step.title}</span>: {step.action || step.description} <span className="text-gray-500">({step.timeline || step.timeframe})</span>
+                            </li>
                         ))}
                       </ol>
                     </CardContent>
@@ -585,38 +594,44 @@ const CareerPathway: React.FC = () => {
                     <div className="flex items-center flex-grow overflow-x-auto p-6 relative">
                       {/* Career path timeline line */}
                       <div className="absolute left-0 right-0 top-1/2 h-1 bg-gray-200 -translate-y-1/2 z-0"></div>
-                      
-                      {isLoading ? <CareerPathSkeleton /> : data?.report?.careerPathSteps?.map((step, index) => <div key={index} className={`relative flex-shrink-0 w-64 px-4 transition-all duration-300 z-10 ${index === activeCareerStep ? 'scale-105' : 'scale-95 opacity-75'}`}>
-                            <Card className={`${index === activeCareerStep ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white'} relative`}>
-                              {/* Step number marker */}
-                              <div className="absolute top-0 left-1/2 -translate-y-1/2 -translate-x-1/2 bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-medium">
-                                {index + 1}
-                              </div>
-                              
-                              <CardContent className="p-6 pt-8">
-                                <h3 className="font-bold text-xl text-center text-gray-900">{step.title}</h3>
-                                <p className="text-primary text-sm mb-4 font-medium text-center">
-                                  1-2 years
-                                </p>
-                                <p className="text-gray-600 text-sm">{step.description}</p>
-                                
+                      {isLoading ? <CareerPathSkeleton /> : (data?.report?.futureCareerPath && data.report.futureCareerPath.length > 0
+                        ? data.report.futureCareerPath
+                        : data?.report?.careerPathSteps || []).map((step, index) => (
+                        <div key={index} className={`relative flex-shrink-0 w-64 px-4 transition-all duration-300 z-10 ${index === activeCareerStep ? 'scale-105' : 'scale-95 opacity-75'}`}>
+                          <Card className={`${index === activeCareerStep ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white'} relative`}>
+                            {/* Step number marker */}
+                            <div className="absolute top-0 left-1/2 -translate-y-1/2 -translate-x-1/2 bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-medium">
+                              {index + 1}
+                            </div>
+                            <CardContent className="p-6 pt-8">
+                              <h3 className="font-bold text-xl text-center text-gray-900">{step.step || step.title}</h3>
+                              <p className="text-primary text-sm mb-4 font-medium text-center">
+                                {step.timeline || step.timeframe}
+                              </p>
+                              <p className="text-gray-600 text-sm">{step.action || step.description}</p>
+                              {step.focusAreas && (
                                 <div className="mt-4 pt-4 border-t">
                                   <h4 className="font-medium text-sm mb-2">Focus areas:</h4>
                                   <div className="flex flex-wrap gap-1">
-                                    {['Technical skills', 'Domain knowledge', 'Communication'].map(area => <Badge key={area} variant="secondary" className="text-xs">{area}</Badge>)}
+                                    {step.focusAreas.split(',').map((area, i) => (
+                                      <Badge key={i} variant="secondary" className="text-xs">{area.trim()}</Badge>
+                                    ))}
                                   </div>
                                 </div>
-                              </CardContent>
-                            </Card>
-                          </div>)}
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  
                   <div className="flex justify-end gap-2 p-4 border-t">
                     <Button variant="outline" size="icon" onClick={prevCareerStep} disabled={activeCareerStep === 0}>
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <Button variant="outline" size="icon" onClick={nextCareerStep} disabled={!data?.report?.careerPathSteps || activeCareerStep === data.report.careerPathSteps.length - 1}>
+                    <Button variant="outline" size="icon" onClick={nextCareerStep} disabled={!(data?.report?.futureCareerPath && data.report.futureCareerPath.length > 0
+                      ? activeCareerStep === data.report.futureCareerPath.length - 1
+                      : data?.report?.careerPathSteps && activeCareerStep === data.report.careerPathSteps.length - 1)}>
                       <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>

@@ -23,7 +23,7 @@ const cleanListItem = (item: string): string => {
     .trim();
 };
 
-export const parseCareerReport = (reportData: any): CareerReportData => {
+export const parseCareerReport = (reportData: any): CareerReportData & { futureCareerPath?: any[] } => {
   if (!reportData) {
     console.error("No report data provided to parser");
     return {
@@ -34,19 +34,18 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
       careerPathSteps: [],
       keyTakeaways: [],
       nextStepRecommendations: "",
-      potentialRoles: []
+      potentialRoles: [],
+      futureCareerPath: []
     };
   }
 
   try {
-    // If reportData is a valid JSON string, parse and map it directly
     let parsed: any = reportData;
     if (typeof reportData === 'string') {
       try {
         parsed = JSON.parse(reportData);
-        // If parsing succeeds and it has the expected fields, return mapped object
         if (parsed && typeof parsed === 'object' && (
-          parsed.summary || parsed.recommendedRoles || parsed.skillsAndCourses || parsed.careerPathSteps
+          parsed.summary || parsed.recommendedRoles || parsed.skillsAndCourses || parsed.careerPathSteps || parsed.futureCareerPath
         )) {
           return {
             userName: parsed.userName || 'there',
@@ -56,16 +55,16 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
             careerPathSteps: parsed.careerPathSteps || [],
             keyTakeaways: parsed.keyTakeaways || [],
             nextStepRecommendations: parsed.nextStepRecommendations || '',
-            potentialRoles: parsed.potentialRoles || []
+            potentialRoles: parsed.potentialRoles || [],
+            futureCareerPath: parsed.futureCareerPath || parsed.careerPathSteps || []
           };
         }
       } catch (e) {
         // Not valid JSON, fall through to text parsing
       }
     } else if (typeof reportData === 'object' && (
-      reportData.summary || reportData.recommendedRoles || reportData.skillsAndCourses || reportData.careerPathSteps
+      reportData.summary || reportData.recommendedRoles || reportData.skillsAndCourses || reportData.careerPathSteps || reportData.futureCareerPath
     )) {
-      // Already an object with expected fields
       return {
         userName: reportData.userName || 'there',
         summary: reportData.summary || '',
@@ -74,7 +73,8 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
         careerPathSteps: reportData.careerPathSteps || [],
         keyTakeaways: reportData.keyTakeaways || [],
         nextStepRecommendations: reportData.nextStepRecommendations || '',
-        potentialRoles: reportData.potentialRoles || []
+        potentialRoles: reportData.potentialRoles || [],
+        futureCareerPath: reportData.futureCareerPath || reportData.careerPathSteps || []
       };
     }
 
@@ -138,7 +138,8 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
       careerPathSteps,
       keyTakeaways: [],
       nextStepRecommendations: "Follow these recommended steps to advance your career.",
-      potentialRoles: ["Data Analyst", "Business Analyst", "Data Scientist"]
+      potentialRoles: ["Data Analyst", "Business Analyst", "Data Scientist"],
+      futureCareerPath: []
     };
   } catch (error) {
     console.error("Error parsing career report:", error);
@@ -150,7 +151,8 @@ export const parseCareerReport = (reportData: any): CareerReportData => {
       careerPathSteps: [],
       keyTakeaways: [],
       nextStepRecommendations: "",
-      potentialRoles: []
+      potentialRoles: [],
+      futureCareerPath: []
     };
   }
 };
