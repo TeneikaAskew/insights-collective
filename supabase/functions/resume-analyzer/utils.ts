@@ -1,5 +1,11 @@
 // This function sets up Supabase client with service role key credentials from env
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+async function countTokens(text, model = 'gpt-4o-mini') {
+  const enc = await encoding_for_model(model);
+  const tokenCount = enc.encode(text).length;
+  enc.free();
+  return tokenCount;
+}
 // Call tracking system
 export const callTracking = {
   calls: [],
@@ -339,6 +345,8 @@ const callQueue = {
 export async function callLLMAPI(system, user) {
   validateInput(system, user);
   callTracking.addCall();
+  const n = await countTokens(system + user, 'gpt-4o-mini');
+  console.log(`Prompt uses ${n} tokens`);
   
   // Get available endpoints
   const preferredOrder = ['TOGETHER', 'TOGETHER2', 'GROQ', 'ANWAN'];

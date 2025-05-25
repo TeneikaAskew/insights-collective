@@ -49,6 +49,7 @@ const CareerAgent: React.FC = () => {
   const [resumePromptShown, setResumePromptShown] = useState<boolean>(false);
   const [resumeUseConfirmed, setResumeUseConfirmed] = useState<boolean | null>(null);
   const [previousChatLoaded, setPreviousChatLoaded] = useState<boolean>(false);
+  const [edgeFunctionError, setEdgeFunctionError] = useState<boolean>(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -102,114 +103,113 @@ const CareerAgent: React.FC = () => {
   // Load previous career pathway data
   const loadPreviousCareerPathwayData = async () => {
     if (!user?.id) return;
-    
-    try {
-      // Load previous answers
-      const { data: previousAnswers, error: answersError } = await supabase
-        .from('career_pathway_answers')
-        .select('question, answer')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: true });
-        
-      if (answersError) {
-        console.error('Error loading previous answers:', answersError);
-        initializeConversation();
-        return;
-      }
 
-      if (previousAnswers && previousAnswers.length > 0) {
-        // Map answers
-        const answersMap: Record<string, string> = {};
-        previousAnswers.forEach(item => {
-          answersMap[item.question] = item.answer;
+    console.log('loadPreviousCareerPathwayData called');
+    // Only load answers for the user where is_reset is false
+    const { data: previousAnswers, error: answersError } = await supabase
+      .from('career_pathway_answers')
+      .select('question, answer, created_at, is_reset')
+      .eq('user_id', user.id)
+      .eq('is_reset', false)
+      .order('created_at', { ascending: true });
+    console.log('previousAnswers loaded:', previousAnswers);
+    
+    if (answersError) {
+      console.error('Error loading previous answers:', answersError);
+      initializeConversation();
+      return;
+    }
+
+    if (previousAnswers && previousAnswers.length > 0) {
+      // Map answers
+      const answersMap: Record<string, string> = {};
+      previousAnswers.forEach(item => {
+        answersMap[item.question] = item.answer;
+      });
+      setAnswers(answersMap);
+      
+      // Calculate how far they got in the quiz
+      const questionCount = Math.min(previousAnswers.length, pathwayQuestions.length);
+      setCurrentQuestionIndex(questionCount);
+      
+      // Load the latest report
+      const { data: reportData, error: reportError } = await supabase
+        .from('career_pathway_results')
+        .select('report')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+        
+      if (!reportError && reportData?.report) {
+        const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
+        const html = formatCareerPathwayReport(raw);
+        setCareerAdviceReport(html);
+      }
+      
+      // Reconstruct chat history from answers
+      const chatHistory: Message[] = [...starterMessages.map((text, index) => ({
+        id: `bot_starter_${index}`,
+        sender: "bot" as const,
+        text,
+      }))];
+      
+      // Add user answers and questions
+      pathwayQuestions.forEach((question, index) => {
+        if (answersMap[question.id]) {
+          // Add user answer
+          chatHistory.push({
+            id: `user_${question.id}`,
+            sender: 'user',
+            text: answersMap[question.id]
+          });
+          
+          // Add next question from bot if not the last question
+          if (index < pathwayQuestions.length - 1) {
+            const nextQ = pathwayQuestions[index + 1];
+            chatHistory.push({
+              id: `bot_q_${nextQ.id}`,
+              sender: 'bot',
+              // text: `${nextQ.label}. ${nextQ.placeholder}`
+              text: `${nextQ.placeholder}`
+            });
+          }
+        }
+      });
+      
+      // Add final message if they completed all questions
+      if (questionCount >= pathwayQuestions.length) {
+        chatHistory.push({
+          id: `bot_done_${Date.now()}`,
+          sender: 'bot',
+          text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
         });
-        setAnswers(answersMap);
         
-        // Calculate how far they got in the quiz
-        const questionCount = Math.min(previousAnswers.length, pathwayQuestions.length);
-        setCurrentQuestionIndex(questionCount);
-        
-        // Load the latest report
-        const { data: reportData, error: reportError } = await supabase
-          .from('career_pathway_results')
-          .select('report')
+        // Check if resume was used
+        const { data: resumeData } = await supabase
+          .from('resumes')
+          .select('text')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle();
           
-        if (!reportError && reportData?.report) {
-          const raw = typeof reportData.report === 'string' ? reportData.report : JSON.stringify(reportData.report);
-          const html = formatCareerPathwayReport(raw);
-          setCareerAdviceReport(html);
-        }
-        
-        // Reconstruct chat history from answers
-        const chatHistory: Message[] = [...starterMessages.map((text, index) => ({
-          id: `bot_starter_${index}`,
-          sender: "bot" as const,
-          text,
-        }))];
-        
-        // Add user answers and questions
-        pathwayQuestions.forEach((question, index) => {
-          if (answersMap[question.id]) {
-            // Add user answer
-            chatHistory.push({
-              id: `user_${question.id}`,
-              sender: 'user',
-              text: answersMap[question.id]
-            });
-            
-            // Add next question from bot if not the last question
-            if (index < pathwayQuestions.length - 1) {
-              const nextQ = pathwayQuestions[index + 1];
-              chatHistory.push({
-                id: `bot_q_${nextQ.id}`,
-                sender: 'bot',
-                text: `${nextQ.label}. ${nextQ.placeholder}`
-              });
-            }
-          }
-        });
-        
-        // Add final message if they completed all questions
-        if (questionCount >= pathwayQuestions.length) {
+        if (resumeData?.text) {
+          setResumePromptShown(true);
+          setResumeUseConfirmed(true);
           chatHistory.push({
-            id: `bot_done_${Date.now()}`,
+            id: `bot_resume_use_confirm_${Date.now()}`,
             sender: 'bot',
-            text: "Your personalized career pathway report is ready! I've prepared it below based on your answers and resume."
+            text: "Using your existing resume on file for personalized career advice."
           });
-          
-          // Check if resume was used
-          const { data: resumeData } = await supabase
-            .from('resumes')
-            .select('text')
-            .eq('user_id', user.id)
-            .limit(1)
-            .maybeSingle();
-            
-          if (resumeData?.text) {
-            setResumePromptShown(true);
-            setResumeUseConfirmed(true);
-            chatHistory.push({
-              id: `bot_resume_use_confirm_${Date.now()}`,
-              sender: 'bot',
-              text: "Using your existing resume on file for personalized career advice."
-            });
-          }
-        } else {
-          setShowQuickReplies(currentQuestionIndex === 0);
         }
-        
-        setMessages(chatHistory);
-        setPreviousChatLoaded(true);
       } else {
-        // No previous answers, just initialize a new conversation
-        initializeConversation();
+        setShowQuickReplies(currentQuestionIndex === 0);
       }
-    } catch (err) {
-      console.error('Error loading career pathway data:', err);
+      
+      setMessages(chatHistory);
+      setPreviousChatLoaded(true);
+    } else {
+      // No previous answers, just initialize a new conversation
       initializeConversation();
     }
   };
@@ -258,6 +258,7 @@ const CareerAgent: React.FC = () => {
   // Update the handleReportError function
   const handleReportError = (msg: string) => {
     let displayMessage = msg;
+    let isEdgeError = false;
     if (msg.includes("Rate limit reached")) {
       const timeMatch = msg.match(/Please try again in (\d+m\d+\.\d+s)/);
       if (timeMatch && timeMatch[1]) {
@@ -265,7 +266,12 @@ const CareerAgent: React.FC = () => {
         displayMessage = `API rate limit reached. Please try again in ${waitTime}.`;
       }
     }
-    
+    // Detect edge function error (customize as needed)
+    if (msg.toLowerCase().includes("career advice") || msg.toLowerCase().includes("edge function")) {
+      isEdgeError = true;
+    }
+    setEdgeFunctionError(isEdgeError);
+
     setMessages(prev => [...prev, { 
       id: `bot_error_${Date.now()}`, 
       sender: 'bot', 
@@ -273,25 +279,50 @@ const CareerAgent: React.FC = () => {
     }]);
   };
 
+  const handleRetryEdgeFunction = () => {
+    setEdgeFunctionError(false);
+    generateCareerAdviceReport(resume?.text);
+  };
+
   const handleResetAnswers = async () => {
     if (!user?.id) return;
+    console.log(`handleResetAnswers called for user ${user.id}`);
     
     try {
-      const { error } = await supabase
+      console.log('Checking rows before update...');
+      const { data: beforeRows } = await supabase
         .from('career_pathway_answers')
-        .delete()
-        .eq('user_id', user.id);
+        .select('*')
+        .eq('user_id', user.id)
+        .is('is_reset', false);
+      console.log('Rows to update:', beforeRows);
+
+      const { data, error } = await supabase
+        .from('career_pathway_answers')
+        .update({ is_reset: true, updated_at: new Date().toISOString() })
+        .eq('user_id', user.id)
 
       if (error) {
-        console.error('Error deleting answers:', error);
+        console.log('Update error:', error);
         toast({
           title: 'Error',
-          description: 'Failed to reset answers. Please try again.',
+          description: 'Failed to reset your answers. Please try again.',
           variant: 'destructive'
         });
         return;
       }
+      console.log('Update successful:', data);
+      console.log('Checking rows after update...');
+      
 
+      const { data: afterRows } = await supabase
+        .from('career_pathway_answers')
+        .select('*')
+        .eq('user_id', user.id)
+        .is('is_reset', false);
+      console.log('Rows remaining after update:', afterRows);
+
+      // Clear all local state
       setAnswers({});
       setMessages(starterMessages.map((text, index) => ({
         id: `bot_starter_${index}`,
@@ -304,13 +335,14 @@ const CareerAgent: React.FC = () => {
       setResumePromptShown(false);
       setResumeUseConfirmed(null);
       setPreviousChatLoaded(false);
+      console.log('State cleared after reset');
 
       toast({
         title: 'Success',
         description: 'Your answers have been reset.',
       });
     } catch (err) {
-      console.error('Error in reset:', err);
+      console.log('Error in reset:', err);
       toast({
         title: 'Error',
         description: 'An unexpected error occurred. Please try again.',
@@ -331,7 +363,6 @@ const CareerAgent: React.FC = () => {
     
     try {
       console.log('Calling evaluateCareerAdvice edge function');
-      
       // Get the session properly using await
       const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session?.access_token) {
@@ -340,22 +371,15 @@ const CareerAgent: React.FC = () => {
       
       const accessToken = sessionData.session.access_token;
       
-      const response = await fetch('https://siuqvhscuiycvdrtiqsh.supabase.co/functions/v1/evaluateCareerAdvice', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`
-        }
+      const { data, error } = await supabase.functions.invoke('evaluateCareerAdvice', {
+        body: {
+          prompt: careerAdvicePrompt,
+          pathwayQuestions,
+          pathwayAnswers: answers,
+          resumeText: resumeText || "",
+        },
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      console.log("Response from evaluateCareerAdvice:", data);
-      
       if (!data) {
         throw new Error("No result returned from career pathway form");
       }
@@ -414,7 +438,8 @@ const CareerAgent: React.FC = () => {
       const botMessage: Message = {
         id: `bot_${Date.now()}`,
         sender: "bot",
-        text: `Next question: ${nextQuestion.label}. ${nextQuestion.placeholder}`,
+        text: `${nextQuestion.placeholder}`,
+        // text: `Next question: ${nextQuestion.label}. ${nextQ.placeholder}`,
       };
       setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
@@ -436,7 +461,7 @@ const CareerAgent: React.FC = () => {
     if (useExisting && resume) {
       const botMsg: Message = {
         id: `bot_resume_use_confirm_${Date.now()}`,
-        sender: "bot",
+        sender: 'bot',
         text: "Using your existing resume on file for personalized career advice.",
       };
       setMessages((prev) => [...prev, botMsg]);
@@ -445,7 +470,7 @@ const CareerAgent: React.FC = () => {
     } else {
       const botMsg: Message = {
         id: `bot_resume_upload_prompt_${Date.now()}`,
-        sender: "bot",
+        sender: 'bot',
         text: "Please upload your resume to receive personalized career advice.",
       };
       setMessages((prev) => [...prev, botMsg]);
@@ -518,7 +543,9 @@ const CareerAgent: React.FC = () => {
           const botMessage: Message = {
             id: `bot_${Date.now()}`,
             sender: "bot",
-            text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
+            
+            text: `${nextQ.placeholder}`,
+            // text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
           };
           setMessages((prev) => [...prev, botMessage]);
         } else {
@@ -657,7 +684,15 @@ const CareerAgent: React.FC = () => {
                   size="sm"
                   className="text-red-600 hover:text-red-700"
                 >
-                  Reset Answers
+                  Reset 3Answers
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-red-600 hover:text-red-700"
+                  onClick={handleRetryEdgeFunction}
+                >
+                    Retry
                 </Button>
               </div>
             </div>
@@ -670,7 +705,7 @@ const CareerAgent: React.FC = () => {
               {messages.map((msg) => {
                 const isBot = msg.sender === "bot";
                 const isUser = msg.sender === "user";
-
+                const isError = msg.id.startsWith("bot_error_");
                 return (
                   <div
                     key={msg.id}
@@ -703,6 +738,17 @@ const CareerAgent: React.FC = () => {
                       `}
                     >
                       <p className="whitespace-pre-wrap">{msg.text}</p>
+                      {/* Show Retry button if this is the latest error and it's an edge function error */}
+                      {isError && edgeFunctionError && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="mt-2"
+                          onClick={handleRetryEdgeFunction}
+                        >
+                          Retry
+                        </Button>
+                      )}
                       {reactingMessageId === msg.id && isBot && (
                         <div className="absolute -top-8 left-0 flex space-x-1 bg-white rounded-md shadow-lg p-1 text-lg select-none z-50">
                           {["👍", "❤️", "💡"].map((emoji) => (
@@ -861,12 +907,14 @@ const CareerAgent: React.FC = () => {
               </>
             )}
               <div ref={messagesEndRef}></div>
-              <Button 
-              onClick={() => navigate('/career-pathway')}
-              className="block mx-auto mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
-            >
-              View Your Career Pathway
-            </Button>
+              {careerAdviceReport && (
+                <Button 
+                  onClick={() => navigate('/career-pathway')}
+                  className="block mx-auto mt-6 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                >
+                  View Your Career Pathway
+                </Button>
+              )}
             </div>
           </div>
 
