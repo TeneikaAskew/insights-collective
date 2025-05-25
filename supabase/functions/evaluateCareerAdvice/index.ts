@@ -113,7 +113,8 @@ serve(async (req) => {
     \"string\"
   ]
 }\n\nDo not include any markdown or commentary, only return valid JSON. Fill in each section with personalized, actionable, and specific content based on the user's answers and resume.
-\n\nProvide a minimum of 3 future career steps. Provide a minimum of 3 skills. Provide a minimum of 3 recommended roles. Provide a minimum of 3 key takeaways. Provide a minimum of 3 career path steps.`;
+\n\nProvide a minimum of 3 future career steps. Provide a minimum of 4 skills and courses. Provide a minimum of 3 recommended roles. Provide a minimumn of 3 recommended roles. 
+\n\nProvide a minimum of 3 key takeaways. Provide a minimum of 3 career path steps.`;
 
     // Prepare chat messages for Together.ai
     const messages = [
