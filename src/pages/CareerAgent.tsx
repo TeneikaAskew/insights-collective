@@ -947,6 +947,7 @@ const CareerAgent: React.FC = () => {
               )}
             </div>
           </div>
+          )}
 
           {/* Input area - hide during reset */}
           {!isResetting && (
