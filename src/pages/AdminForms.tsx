@@ -14,7 +14,7 @@ import { Plus } from 'lucide-react';
 import { slugify } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-const LegacyFormManagement = () => {
+const AdminForms = () => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState('');
@@ -191,4 +191,4 @@ const LegacyFormManagement = () => {
   );
 };
 
-export default LegacyFormManagement;
+export default AdminForms;
