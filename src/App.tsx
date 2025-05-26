@@ -6,21 +6,21 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import Index from '@/pages/Index';
 import Resources from '@/pages/Resources';
-import CareerAgent from '@/pages/CareerAgent';
+import CareerAgent from '@/pages/career/CareerAgent';
 import CareerPathway from '@/pages/CareerPathway';
 import PortfolioExplorer from '@/pages/PortfolioExplorer';
-import Login from '@/pages/Login';
-import Register from '@/pages/Register';
-import Profile from '@/pages/Profile';
-import UserDashboard from '@/pages/UserDashboard';
-import Dashboard from '@/pages/Dashboard';
-import AdminDashboard from '@/pages/AdminDashboard';
-import InterviewPrep from '@/pages/InterviewPrep';
+import Login from '@/pages/auth/Login';
+import Register from '@/pages/auth/Register';
+import Profile from '@/pages/user/Profile';
+import UserDashboard from '@/pages/user/UserDashboard';
+import Dashboard from '@/pages/user/Dashboard';
+import AdminDashboard from '@/pages/admin/AdminDashboard';
+import InterviewPrep from '@/pages/career/InterviewPrep';
 import CodePractice from '@/pages/interview-prep/CodePractice';
 import StarPractice from '@/pages/interview-prep/StarPractice';
 import JobDescription from '@/pages/interview-prep/JobDescription';
 import MockInterviews from '@/pages/interview-prep/MockInterviews';
-import ExploreDataCareers from '@/pages/ExploreDataCareers';
+import ExploreDataCareers from '@/pages/career/ExploreDataCareers';
 import Resume from '@/pages/Resume';
 import Survey from '@/pages/Survey';
 import SurveyConfirmation from '@/pages/SurveyConfirmation';
@@ -35,6 +35,8 @@ import Messages from '@/pages/Messages';
 import Assistants from '@/pages/Assistants';
 import DataBlueprint from '@/pages/DataBlueprint';
 import NotFound from '@/pages/NotFound';
+import UnifiedFormManagement from '@/pages/admin/UnifiedFormManagement';
+import LegacyFormManagement from '@/pages/admin/LegacyFormManagement';
 import { Toaster } from '@/components/ui/toaster';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 
@@ -53,6 +55,8 @@ function App() {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/user-dashboard" element={<UserDashboard />} />
                   <Route path="/admin-dashboard" element={<AdminDashboard />} />
+                  <Route path="/admin/forms" element={<UnifiedFormManagement />} />
+                  <Route path="/admin/legacy-forms" element={<LegacyFormManagement />} />
                   <Route path="/resources" element={<Resources />} />
                   <Route path="/career-agent" element={<CareerAgent />} />
                   <Route path="/career-pathway" element={<CareerPathway />} />
