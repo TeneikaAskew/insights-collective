@@ -1,3 +1,4 @@
+
 import React from 'react';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
@@ -20,7 +21,7 @@ import WelcomeModal from '@/components/onboarding/WelcomeModal';
 import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
 import { useOnboarding } from '@/contexts/OnboardingContext';
 
-const Index = () => {
+const Index: React.FC = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
   const upcomingEvents = mockService.getEvents().slice(0, 3);
   const { isFirstVisit, completedTours, startTour } = useOnboarding();
@@ -99,4 +100,5 @@ const Index = () => {
   );
 };
 
+// Ensure proper default export for lazy loading
 export default Index;
