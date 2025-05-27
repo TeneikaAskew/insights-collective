@@ -123,30 +123,24 @@ export type Database = {
           answer: string
           created_at: string
           id: string
-          is_reset: boolean | null
           question: string
           session_id: string
-          updated_at: string | null
           user_id: string
         }
         Insert: {
           answer: string
           created_at?: string
           id?: string
-          is_reset?: boolean | null
           question: string
           session_id: string
-          updated_at?: string | null
           user_id: string
         }
         Update: {
           answer?: string
           created_at?: string
           id?: string
-          is_reset?: boolean | null
           question?: string
           session_id?: string
-          updated_at?: string | null
           user_id?: string
         }
         Relationships: []

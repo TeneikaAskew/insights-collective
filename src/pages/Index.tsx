@@ -1,3 +1,4 @@
+
 import React from 'react';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
@@ -16,25 +17,11 @@ import InteractiveShowcase from '@/components/home/InteractiveShowcase';
 import CommunityShowcase from '@/components/home/CommunityShowcase';
 import FeaturesSection from '@/components/home/FeaturesSection';
 import ExploreTools from '@/components/home/ExploreTools';
-import WelcomeModal from '@/components/onboarding/WelcomeModal';
-import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
-import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
   const upcomingEvents = mockService.getEvents().slice(0, 3);
-  const { isFirstVisit, completedTours, startTour } = useOnboarding();
   
-  // Auto-start home tour for returning users who haven't completed it
-  useEffect(() => {
-    if (!isFirstVisit && !completedTours.includes('home')) {
-      const timer = setTimeout(() => {
-        startTour('home');
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isFirstVisit, completedTours, startTour]);
-
   // Create sections array first
   const sections = [
     { id: 'hero', Component: HeroSection, threshold: 0.1 },
@@ -82,9 +69,6 @@ const Index = () => {
   
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden">
-      <WelcomeModal />
-      <OnboardingGuide tourId="home" />
-      
       {sectionRefs.map(({ id, ref, inView, Component }) => (
         <div 
           key={id} 

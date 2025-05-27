@@ -5,8 +5,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import SiteSearch from '@/components/search/SiteSearch';
-import SidebarTrigger from '@/components/ui/SidebarTrigger';
-
 const Navbar = () => {
   const location = useLocation();
   const {
@@ -18,16 +16,19 @@ const Navbar = () => {
     isAdminAuthenticated,
     logout
   } = useAuth();
-  return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-14 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <SidebarTrigger data-testid="sidebar-trigger" className="md:hidden" />
-          <div className="flex items-center mr-4">
-            <Link to="/" className="flex items-center gap-2 font-bold text-lg">
-              <span>Insights Collective</span>
-            </Link>
-          </div>
+  return <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 z-50">
+      <div className="flex h-14 items-center px-4 gap-4 w-full">
+        <div>
+          <Button variant="ghost" size="icon" onClick={toggleSidebar}>
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle menu</span>
+          </Button>
+        </div>
+        
+        <div className="flex items-center mr-4">
+          <Link to="/" className="flex items-center gap-2 font-bold text-lg">
+            <span>Insights Collective</span>
+          </Link>
         </div>
         
         <SiteSearch />
@@ -78,8 +79,6 @@ const Navbar = () => {
           </nav>
         </div>
       </div>
-    </header>
-  );
+    </header>;
 };
-
 export default Navbar;
