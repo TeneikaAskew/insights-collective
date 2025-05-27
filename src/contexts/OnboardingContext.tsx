@@ -18,6 +18,13 @@ interface OnboardingContextType {
   skipOnboarding: () => void;
   nextStep: () => void;
   prevStep: () => void;
+  // New properties for tour functionality
+  isFirstVisit: boolean;
+  completedTours: string[];
+  currentTour: string | null;
+  startTour: (tourId: string) => void;
+  skipTour: () => void;
+  completeTour: () => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -71,11 +78,29 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [currentStep, setCurrentStep] = useState(0);
   const [steps, setSteps] = useState<OnboardingStep[]>(defaultSteps);
   const [isOnboardingActive, setIsOnboardingActive] = useState(false);
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [completedTours, setCompletedTours] = useState<string[]>([]);
+  const [currentTour, setCurrentTour] = useState<string | null>(null);
 
   useEffect(() => {
     const onboardingCompleted = localStorage.getItem('onboarding-completed');
+    const firstVisit = localStorage.getItem('first-visit-completed');
+    const tours = localStorage.getItem('completed-tours');
+    
     if (!onboardingCompleted) {
       setIsOnboardingActive(true);
+    }
+    
+    if (!firstVisit) {
+      setIsFirstVisit(true);
+    }
+    
+    if (tours) {
+      try {
+        setCompletedTours(JSON.parse(tours));
+      } catch (error) {
+        setCompletedTours([]);
+      }
     }
   }, []);
 
@@ -114,6 +139,31 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   };
 
+  const startTour = (tourId: string) => {
+    setCurrentTour(tourId);
+    setCurrentStep(0);
+    setIsOnboardingActive(true);
+  };
+
+  const skipTour = () => {
+    setCurrentTour(null);
+    setIsOnboardingActive(false);
+  };
+
+  const completeTour = () => {
+    setIsFirstVisit(false);
+    localStorage.setItem('first-visit-completed', 'true');
+    
+    if (currentTour && !completedTours.includes(currentTour)) {
+      const newCompletedTours = [...completedTours, currentTour];
+      setCompletedTours(newCompletedTours);
+      localStorage.setItem('completed-tours', JSON.stringify(newCompletedTours));
+    }
+    
+    setCurrentTour(null);
+    setIsOnboardingActive(false);
+  };
+
   return (
     <OnboardingContext.Provider
       value={{
@@ -125,6 +175,12 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         skipOnboarding,
         nextStep,
         prevStep,
+        isFirstVisit,
+        completedTours,
+        currentTour,
+        startTour,
+        skipTour,
+        completeTour,
       }}
     >
       {children}
