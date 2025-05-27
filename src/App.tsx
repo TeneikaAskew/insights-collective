@@ -20,6 +20,12 @@ import StarPractice from '@/pages/interview-prep/StarPractice';
 import JobDescription from '@/pages/interview-prep/JobDescription';
 import MockInterviews from '@/pages/interview-prep/MockInterviews';
 import ExploreDataCareers from '@/pages/ExploreDataCareers';
+import Resume from '@/pages/Resume';
+import Survey from '@/pages/Survey';
+import SurveyConfirmation from '@/pages/SurveyConfirmation';
+import Notifications from '@/pages/Notifications';
+import ThreadDetail from '@/pages/ThreadDetail';
+import ForumDetail from '@/pages/ForumDetail';
 import NotFound from '@/pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -51,6 +57,13 @@ function App() {
                   <Route path="/interview-prep/job-description" element={<JobDescription />} />
                   <Route path="/interview-prep/mock-interviews" element={<MockInterviews />} />
                   <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
+                  <Route path="/resume" element={<Resume />} />
+                  <Route path="/survey" element={<Survey />} />
+                  <Route path="/survey/:slug" element={<Survey />} />
+                  <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
+                  <Route path="/notifications" element={<Notifications />} />
+                  <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ThreadDetail />} />
+                  <Route path="/courses/:courseId/forums/:forumId" element={<ForumDetail />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
                 <Toaster />
