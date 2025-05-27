@@ -24,17 +24,20 @@ const WelcomeModal: React.FC = () => {
     navigate(path);
   };
 
+  // Don't render if not first visit
   if (!isFirstVisit) return null;
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 z-[1100] flex items-center justify-center p-4"
     >
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
         className="relative max-w-2xl w-full"
       >
         <Card className="border-primary shadow-2xl">

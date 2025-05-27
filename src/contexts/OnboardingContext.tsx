@@ -93,15 +93,21 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const completeTour = () => {
+    // Always set isFirstVisit to false when completing tour
+    setIsFirstVisit(false);
+    
     if (currentTour && !completedTours.includes(currentTour)) {
       const newCompletedTours = [...completedTours, currentTour];
       setCompletedTours(newCompletedTours);
       saveProgress(newCompletedTours);
+    } else {
+      // Even if no tour is active, save the progress to mark as not first visit
+      saveProgress(completedTours);
     }
+    
     setIsOnboardingActive(false);
     setCurrentTour(null);
     setCurrentStep(0);
-    setIsFirstVisit(false);
   };
 
   const resetOnboarding = () => {

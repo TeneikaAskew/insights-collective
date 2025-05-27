@@ -1,3 +1,4 @@
+
 import React from 'react';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
@@ -35,14 +36,14 @@ const Index = () => {
     }
   }, [isFirstVisit, completedTours, startTour]);
 
-  // Create sections array first
+  // Create sections array with reordered sections - career quiz before personalized pathway
   const sections = [
     { id: 'hero', Component: HeroSection, threshold: 0.1 },
+    { id: 'quiz', Component: QuizSection, threshold: 0.3 },
     { id: 'personalizedPathway', Component: PersonalizedPathway, threshold: 0.3 },
     { id: 'interactiveShowcase', Component: InteractiveShowcase, threshold: 0.2 },
     { id: 'features', Component: FeaturesSection, threshold: 0.3 },
     { id: 'blueprint', Component: BlueprintBanner, threshold: 0.3 },
-    { id: 'quiz', Component: QuizSection, threshold: 0.3 },
     { id: 'journey', Component: LearningJourney, threshold: 0.2 },
     { id: 'courses', Component: () => <FeaturedCourses courses={featuredCourses} />, threshold: 0.2 },
     { id: 'tools', Component: ExploreTools, threshold: 0.3 },
