@@ -40,7 +40,7 @@ import JobDescription from '@/pages/interview-prep/JobDescription';
 import StarPractice from '@/pages/interview-prep/StarPractice';
 import CodePracticeInterview from '@/pages/interview-prep/CodePractice';
 import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
-import DataBlueprint from '@/pages/DataBlueprint';
+
 import Survey from '@/pages/Survey';
 import Notifications from '@/pages/Notifications';
 
@@ -269,7 +269,7 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
-                          <DataBlueprint />
+                          <DataBlueprintSeries />
                         </PageVisibilityGuard>
                       </ProtectedRoute>
                     }
