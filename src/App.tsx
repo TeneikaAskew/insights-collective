@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import { QueryClient } from 'react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import Index from '@/pages/Index';
 import Courses from '@/pages/Courses';
@@ -26,10 +27,20 @@ import NotFound from '@/pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
 
+// Create a query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
+
 function App() {
   return (
     <HelmetProvider>
-      <QueryClient>
+      <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <OnboardingProvider>
             <Router>
@@ -61,7 +72,7 @@ function App() {
             </Router>
           </OnboardingProvider>
         </AuthProvider>
-      </QueryClient>
+      </QueryClientProvider>
     </HelmetProvider>
   );
 }
