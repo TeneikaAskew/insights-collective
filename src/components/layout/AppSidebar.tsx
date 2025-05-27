@@ -15,7 +15,7 @@ const AppSidebar = () => {
     isAuthenticated
   } = useAuth();
 
-  // Define public menu items in the requested order
+  // Define public menu items with correct paths
   const publicMenuItems = [{
     title: "Dashboard",
     url: "/dashboard",
@@ -25,7 +25,7 @@ const AppSidebar = () => {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources' && !location.pathname.includes('/admin/resources')
+    active: location.pathname === '/resources'
   }, {
     title: "Resume Analyzer",
     url: "/resume",
@@ -78,7 +78,7 @@ const AppSidebar = () => {
     title: "Events",
     url: "/events",
     icon: Calendar,
-    active: location.pathname === '/events' && !location.pathname.includes('/admin/events')
+    active: location.pathname === '/events'
   }, {
     title: "Assistants",
     url: "/assistants",
@@ -89,6 +89,11 @@ const AppSidebar = () => {
     url: "/messages",
     icon: MessageSquare,
     active: location.pathname.startsWith('/messages')
+  }, {
+    title: "Explore Data Careers",
+    url: "/explore-data-careers",
+    icon: Compass,
+    active: location.pathname === '/explore-data-careers'
   }, {
     title: "Notifications",
     url: "/notifications",
@@ -101,67 +106,17 @@ const AppSidebar = () => {
     active: location.pathname === '/profile'
   }];
 
-  // Define admin menu items with the new blog management item
+  // Define admin menu items
   const adminMenuItems = [{
     title: "Admin Dashboard",
     url: "/admin-dashboard",
     icon: BarChart2,
-    active: location.pathname === '/admin-dashboard' || location.pathname === '/admin/activity'
+    active: location.pathname === '/admin-dashboard'
   }, {
-    title: "Manage Courses",
-    url: "/admin/courses",
-    icon: GraduationCap,
-    active: location.pathname === '/admin/courses'
-  }, {
-    title: "Manage Users",
-    url: "/admin/users",
+    title: "User Dashboard",
+    url: "/user-dashboard",
     icon: Users,
-    active: location.pathname === '/admin/users'
-  }, {
-    title: "Manage Forms",
-    url: "/admin/forms",
-    icon: FormInput,
-    active: location.pathname === '/admin/forms'
-  }, {
-    title: "Manage Enrollments",
-    url: "/admin/enrollments",
-    icon: FileText,
-    active: location.pathname === '/admin/enrollments'
-  }, {
-    title: "Manage Certificates",
-    url: "/admin/certificates",
-    icon: Award,
-    active: location.pathname === '/admin/certificates'
-  }, {
-    title: "Manage Resources",
-    url: "/admin/resources",
-    icon: FileText,
-    active: location.pathname === '/admin/resources'
-  }, {
-    title: "Manage Blog",
-    url: "/admin/blog",
-    icon: Newspaper,
-    active: location.pathname === '/admin/blog' || location.pathname.includes('/admin/blog/')
-  }, {
-    title: "Manage Events",
-    url: "/admin/events",
-    icon: Calendar,
-    active: location.pathname === '/admin/events'
-  }, {
-    title: "Page Visibility",
-    url: "/admin/page-visibility",
-    icon: Eye,
-    active: location.pathname === '/admin/page-visibility'
-  }, {
-    title: "Settings",
-    url: "/admin/settings",
-    icon: Settings,
-    active: location.pathname === '/admin/settings'
-  }, {
-    title: "Debugging",
-    url: "/admin/debug",
-    icon: Bug,
-    active: location.pathname === '/admin/debug'
+    active: location.pathname === '/user-dashboard'
   }];
 
   const isAdmin = user?.roles?.includes('admin');

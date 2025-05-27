@@ -5,131 +5,137 @@ interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  target?: string;
-  position?: 'top' | 'bottom' | 'left' | 'right';
-  action?: () => void;
-}
-
-interface OnboardingTour {
-  id: string;
-  name: string;
-  steps: OnboardingStep[];
+  targetPath: string;
+  completed: boolean;
 }
 
 interface OnboardingContextType {
-  isOnboardingActive: boolean;
-  currentTour: string | null;
   currentStep: number;
-  completedTours: string[];
-  startTour: (tourId: string) => void;
+  steps: OnboardingStep[];
+  isOnboardingActive: boolean;
+  completeStep: (stepId: string) => void;
+  startOnboarding: () => void;
+  skipOnboarding: () => void;
   nextStep: () => void;
   prevStep: () => void;
-  skipTour: () => void;
-  completeTour: () => void;
-  resetOnboarding: () => void;
-  isFirstVisit: boolean;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
-export const useOnboarding = () => {
-  const context = useContext(OnboardingContext);
-  if (!context) {
-    throw new Error('useOnboarding must be used within an OnboardingProvider');
-  }
-  return context;
-};
-
-const STORAGE_KEY = 'onboarding_progress';
+const defaultSteps: OnboardingStep[] = [
+  {
+    id: 'welcome',
+    title: 'Welcome to Insights Collective',
+    description: 'Let\'s get you started with your data science journey',
+    targetPath: '/dashboard',
+    completed: false,
+  },
+  {
+    id: 'profile',
+    title: 'Complete Your Profile',
+    description: 'Tell us about yourself to get personalized recommendations',
+    targetPath: '/profile',
+    completed: false,
+  },
+  {
+    id: 'career-pathway',
+    title: 'Discover Your Career Path',
+    description: 'Take our assessment to find the perfect data science career for you',
+    targetPath: '/career-pathway',
+    completed: false,
+  },
+  {
+    id: 'explore-courses',
+    title: 'Explore Courses',
+    description: 'Browse our comprehensive course catalog',
+    targetPath: '/courses',
+    completed: false,
+  },
+  {
+    id: 'join-community',
+    title: 'Join the Community',
+    description: 'Connect with other learners in our forums',
+    targetPath: '/forums',
+    completed: false,
+  },
+  {
+    id: 'resources',
+    title: 'Access Resources',
+    description: 'Discover tools and resources to accelerate your learning',
+    targetPath: '/resources',
+    completed: false,
+  },
+];
 
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isOnboardingActive, setIsOnboardingActive] = useState(false);
-  const [currentTour, setCurrentTour] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
-  const [completedTours, setCompletedTours] = useState<string[]>([]);
-  const [isFirstVisit, setIsFirstVisit] = useState(false);
+  const [steps, setSteps] = useState<OnboardingStep[]>(defaultSteps);
+  const [isOnboardingActive, setIsOnboardingActive] = useState(false);
 
   useEffect(() => {
-    const savedProgress = localStorage.getItem(STORAGE_KEY);
-    if (savedProgress) {
-      try {
-        const progress = JSON.parse(savedProgress);
-        setCompletedTours(progress.completedTours || []);
-        setIsFirstVisit(false);
-      } catch (error) {
-        console.error('Failed to parse onboarding progress:', error);
-        setIsFirstVisit(true);
-      }
-    } else {
-      setIsFirstVisit(true);
+    const onboardingCompleted = localStorage.getItem('onboarding-completed');
+    if (!onboardingCompleted) {
+      setIsOnboardingActive(true);
     }
   }, []);
 
-  const saveProgress = (tours: string[]) => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ 
-      completedTours: tours,
-      lastUpdated: Date.now()
-    }));
+  const completeStep = (stepId: string) => {
+    setSteps(prev => 
+      prev.map(step => 
+        step.id === stepId ? { ...step, completed: true } : step
+      )
+    );
   };
 
-  const startTour = (tourId: string) => {
-    setCurrentTour(tourId);
-    setCurrentStep(0);
+  const startOnboarding = () => {
     setIsOnboardingActive(true);
+    setCurrentStep(0);
+    localStorage.removeItem('onboarding-completed');
+  };
+
+  const skipOnboarding = () => {
+    setIsOnboardingActive(false);
+    localStorage.setItem('onboarding-completed', 'true');
   };
 
   const nextStep = () => {
-    setCurrentStep(prev => prev + 1);
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    } else {
+      // Onboarding completed
+      setIsOnboardingActive(false);
+      localStorage.setItem('onboarding-completed', 'true');
+    }
   };
 
   const prevStep = () => {
-    setCurrentStep(prev => Math.max(0, prev - 1));
-  };
-
-  const skipTour = () => {
-    setIsOnboardingActive(false);
-    setCurrentTour(null);
-    setCurrentStep(0);
-  };
-
-  const completeTour = () => {
-    if (currentTour && !completedTours.includes(currentTour)) {
-      const newCompletedTours = [...completedTours, currentTour];
-      setCompletedTours(newCompletedTours);
-      saveProgress(newCompletedTours);
+    if (currentStep > 0) {
+      setCurrentStep(prev => prev - 1);
     }
-    setIsOnboardingActive(false);
-    setCurrentTour(null);
-    setCurrentStep(0);
-    setIsFirstVisit(false);
-  };
-
-  const resetOnboarding = () => {
-    localStorage.removeItem(STORAGE_KEY);
-    setCompletedTours([]);
-    setIsFirstVisit(true);
-    setIsOnboardingActive(false);
-    setCurrentTour(null);
-    setCurrentStep(0);
   };
 
   return (
     <OnboardingContext.Provider
       value={{
-        isOnboardingActive,
-        currentTour,
         currentStep,
-        completedTours,
-        startTour,
+        steps,
+        isOnboardingActive,
+        completeStep,
+        startOnboarding,
+        skipOnboarding,
         nextStep,
         prevStep,
-        skipTour,
-        completeTour,
-        resetOnboarding,
-        isFirstVisit,
       }}
     >
       {children}
     </OnboardingContext.Provider>
   );
+};
+
+export const useOnboarding = () => {
+  const context = useContext(OnboardingContext);
+  if (context === undefined) {
+    throw new Error('useOnboarding must be used within an OnboardingProvider');
+  }
+  return context;
 };
