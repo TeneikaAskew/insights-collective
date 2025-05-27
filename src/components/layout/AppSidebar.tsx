@@ -1,4 +1,3 @@
-
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
@@ -104,9 +103,9 @@ const AppSidebar = () => {
   // Define admin menu items with the new blog management item
   const adminMenuItems = [{
     title: "Admin Dashboard",
-    url: "/admin-dashboard",
+    url: "/admin",
     icon: BarChart2,
-    active: location.pathname === '/admin-dashboard' || location.pathname === '/admin/activity'
+    active: location.pathname === '/admin' || location.pathname === '/admin/activity'
   }, {
     title: "Manage Courses",
     url: "/admin/courses",
