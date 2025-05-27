@@ -55,22 +55,32 @@ interface ActionPlan {
 
 // Sample data for skill building purposes
 const userSkills = ["Data Analysis", "SQL", "Problem Solving", "Communication"];
-
 const CareerPathway: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { data, isLoading, error, isError } = useCareerPathwayResults();
-  const { toast } = useToast();
-  const { completedTours, startTour } = useOnboarding();
-  
-  // All useState hooks at the top
+  const {
+    user
+  } = useAuth();
+  const {
+    data,
+    isLoading,
+    error,
+    isError
+  } = useCareerPathwayResults();
   const [activeCareerStep, setActiveCareerStep] = useState(0);
   const [activeTab, setActiveTab] = useState('overview');
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState<string>("6_weeks");
   const [actionPlan, setActionPlan] = useState<ActionPlan | null>(null);
-
-  // All useEffect hooks after useState
+  const {
+    toast
+  } = useToast();
+  const timeframeLabels = {
+    "6_weeks": "6 Weeks",
+    "9_weeks": "9 Weeks",
+    "12_weeks": "12 Weeks",
+    "6_months": "6 Months",
+    "12_months": "12 Months"
+  };
   useEffect(() => {
     console.log("Career pathway report data:", data);
     // Set the action plan from the data if it exists
@@ -78,24 +88,6 @@ const CareerPathway: React.FC = () => {
       setActionPlan(data.actionPlan);
     }
   }, [data]);
-
-  // Auto-start tour for first-time visitors to this page
-  useEffect(() => {
-    if (data?.report && Object.keys(data.report).length > 0 && !completedTours.includes('career-pathway')) {
-      const timer = setTimeout(() => {
-        startTour('career-pathway');
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [data?.report, completedTours, startTour]);
-
-  const timeframeLabels = {
-    "6_weeks": "6 Weeks",
-    "9_weeks": "9 Weeks", 
-    "12_weeks": "12 Weeks",
-    "6_months": "6 Months",
-    "12_months": "12 Months"
-  };
 
   // Get user name from available properties
   const userName = (user as any)?.first_name || (user as any)?.user_metadata?.first_name || user?.email?.split('@')[0] || 'there';
@@ -106,13 +98,11 @@ const CareerPathway: React.FC = () => {
       setActiveCareerStep(activeCareerStep + 1);
     }
   };
-  
   const prevCareerStep = () => {
     if (activeCareerStep > 0) {
       setActiveCareerStep(activeCareerStep - 1);
     }
   };
-  
   const handleTakeQuiz = () => {
     navigate('/career-agent');
   };
@@ -129,8 +119,13 @@ const CareerPathway: React.FC = () => {
     }
     setIsGeneratingPlan(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-career-action-plan', {
-        body: { userId: user.id }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('generate-career-action-plan', {
+        body: {
+          userId: user.id
+        }
       });
       if (error) {
         console.error("Error invoking function:", error);
@@ -159,9 +154,23 @@ const CareerPathway: React.FC = () => {
 
   // Animation variants
   const fadeInUp = {
-    initial: { opacity: 0, y: 20 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.6 } },
-    exit: { opacity: 0, transition: { duration: 0.2 } }
+    initial: {
+      opacity: 0,
+      y: 20
+    },
+    animate: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6
+      }
+    },
+    exit: {
+      opacity: 0,
+      transition: {
+        duration: 0.2
+      }
+    }
   };
 
   // Prepare data for the career components
@@ -172,8 +181,8 @@ const CareerPathway: React.FC = () => {
     return data.report.recommendedRoles.map(role => ({
       title: role.title,
       description: role.description || 'No description available',
-      level: role.salaryRange ? `${role.matchPercentage || 80}% Match` : 'Intermediate',
-      requirements: []
+      level: role.salaryRange ? `${role.matchPercentage || 80}% Match` : 'Intermediate', // Use matchPercentage for level or default
+      requirements: [] // Add empty requirements array since it's optional but expected
     }));
   };
   
@@ -183,8 +192,8 @@ const CareerPathway: React.FC = () => {
     }
     return data.report.skillsAndCourses.map(item => ({
       name: item.skill,
-      level: item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90,
-      category: item.provider || 'Technical',
+      level: item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90, // Convert string level to number
+      category: item.provider || 'Technical', // Use provider as category or default to 'Technical'
       type: item.level?.toLowerCase() === "beginner" ? "soft" : "hard",
       course: item.course
     }));
@@ -192,10 +201,13 @@ const CareerPathway: React.FC = () => {
 
   // If there's an error or no report data found
   if (isError || !data?.report || Object.keys(data.report).length === 0) {
-    return (
-      <AppLayout>
-        <OnboardingGuide tourId="career-pathway" />
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="container mx-auto py-16 px-4">
+    return <AppLayout>
+        
+        <motion.div initial={{
+        opacity: 0
+      }} animate={{
+        opacity: 1
+      }} className="container mx-auto py-16 px-4">
           <Card className="max-w-3xl mx-auto overflow-hidden">
             <div className="relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 z-0" />
@@ -218,12 +230,22 @@ const CareerPathway: React.FC = () => {
             </div>
           </Card>
         </motion.div>
-      </AppLayout>
-    );
+      </AppLayout>;
   }
+  const { completedTours, startTour } = useOnboarding();
 
-  return (
-    <AppLayout>
+  // Auto-start tour for first-time visitors to this page
+  useEffect(() => {
+    if (data?.report && Object.keys(data.report).length > 0 && !completedTours.includes('career-pathway')) {
+      const timer = setTimeout(() => {
+        startTour('career-pathway');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [data?.report, completedTours, startTour]);
+
+  return <AppLayout>
+      
       <OnboardingGuide tourId="career-pathway" />
       <div className="container mx-auto py-8 px-4 space-y-8 max-w-6xl">
         {/* Hero Section */}
@@ -251,7 +273,15 @@ const CareerPathway: React.FC = () => {
             
             {/* Overview Tab */}
             <TabsContent value="overview">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-8">
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              delay: 0.2
+            }} className="space-y-8">
                 {/* Summary Card */}
                 <Card className="overflow-hidden border-t-4 border-t-primary">
                   <CardHeader className="bg-primary/5 pb-2">
@@ -261,13 +291,9 @@ const CareerPathway: React.FC = () => {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6 pt-4">
-                    {isLoading ? (
-                      <Skeleton className="h-20 w-full" />
-                    ) : (
-                      <p className="text-gray-700 leading-relaxed text-lg">
+                    {isLoading ? <Skeleton className="h-20 w-full" /> : <p className="text-gray-700 leading-relaxed text-lg">
                         {data?.report?.summary || 'Loading your personalized career insights...'}
-                      </p>
-                    )}
+                      </p>}
                   </CardContent>
                 </Card>
                 
@@ -321,11 +347,7 @@ const CareerPathway: React.FC = () => {
                   </CardHeader>
                   <CardContent className="p-6 pt-4">
                     <div className="grid gap-4 sm:grid-cols-2">
-                      {isLoading ? (
-                        <SkillsSkeleton />
-                      ) : (
-                        (data?.report?.skillsAndCourses || []).slice(0, 4).map((item, index) => (
-                          <div key={index} className="flex items-start gap-3">
+                      {isLoading ? <SkillsSkeleton /> : (data?.report?.skillsAndCourses || []).slice(0, 4).map((item, index) => <div key={index} className="flex items-start gap-3">
                             <div className="bg-primary/10 p-2 rounded-full">
                               <BookOpen className="h-4 w-4 text-primary" />
                             </div>
@@ -336,9 +358,7 @@ const CareerPathway: React.FC = () => {
                                 <span className="text-xs text-muted-foreground">{item.level || 'intermediate'}</span>
                               </div>
                             </div>
-                          </div>
-                        ))
-                      )}
+                          </div>)}
                     </div>
                     <Button variant="link" className="mt-4" onClick={() => setActiveTab('skills')}>
                       View all recommended skills
@@ -375,6 +395,7 @@ const CareerPathway: React.FC = () => {
                   </Card>
                 )}
 
+                {/* Career Path Steps */}
                 {data?.report && ((data.report.futureCareerPath && data.report.futureCareerPath.length > 0) || (data.report.careerPathSteps && data.report.careerPathSteps.length > 0)) && (
                   <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
                     <CardHeader className="bg-primary/5 pb-2">
@@ -397,6 +418,7 @@ const CareerPathway: React.FC = () => {
                   </Card>
                 )}
 
+                {/* Key Takeaways */}
                 {data?.report?.keyTakeaways && data.report.keyTakeaways.length > 0 && (
                   <Card className="overflow-hidden border-t-4 border-t-primary mt-8">
                     <CardHeader className="bg-primary/5 pb-2">
@@ -419,7 +441,15 @@ const CareerPathway: React.FC = () => {
             
             {/* Skills Tab */}
             <TabsContent value="skills">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              duration: 0.5
+            }}>
                 <Card>
                   <CardHeader className="bg-primary/5 pb-2">
                     <div className="flex items-center justify-between">
@@ -446,33 +476,27 @@ const CareerPathway: React.FC = () => {
                         <div className="col-span-4 md:col-span-5">Recommended Course</div>
                         <div className="hidden md:block md:col-span-3">Level</div>
                       </div>
-                      {isLoading ? (
-                        <SkillsSkeleton />
-                      ) : (
-                        data?.report?.skillsAndCourses?.map((item, index) => (
-                          <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors">
-                            <div className="col-span-4 flex items-center gap-3">
-                              <BookOpen className="h-5 w-5 text-gray-600" />
-                              <div>
-                                <div className="font-medium">{item.skill}</div>
-                                <div className="md:hidden">
-                                  <Badge variant="secondary" className="mt-1">{item.level || 'intermediate'}</Badge>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="col-span-8 md:col-span-5 text-gray-600 flex items-center">{item.course}</div>
-                            <div className="hidden md:flex md:col-span-3 items-center">
-                              <div className="w-full">
-                                <div className="flex justify-between mb-1 text-xs">
-                                  <span>{item.level || 'Intermediate'}</span>
-                                  <span>{item.level === 'beginner' ? '30%' : item.level === 'intermediate' ? '60%' : '90%'}</span>
-                                </div>
-                                <Progress value={item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90} className="h-2" />
+                      {isLoading ? <SkillsSkeleton /> : data?.report?.skillsAndCourses?.map((item, index) => <div key={index} className="grid grid-cols-12 gap-4 p-4 border-b hover:bg-gray-50 transition-colors">
+                          <div className="col-span-4 flex items-center gap-3">
+                            <BookOpen className="h-5 w-5 text-gray-600" />
+                            <div>
+                              <div className="font-medium">{item.skill}</div>
+                              <div className="md:hidden">
+                                <Badge variant="secondary" className="mt-1">{item.level || 'intermediate'}</Badge>
                               </div>
                             </div>
                           </div>
-                        ))
-                      )}
+                          <div className="col-span-8 md:col-span-5 text-gray-600 flex items-center">{item.course}</div>
+                          <div className="hidden md:flex md:col-span-3 items-center">
+                            <div className="w-full">
+                              <div className="flex justify-between mb-1 text-xs">
+                                <span>{item.level || 'Intermediate'}</span>
+                                <span>{item.level === 'beginner' ? '30%' : item.level === 'intermediate' ? '60%' : '90%'}</span>
+                              </div>
+                              <Progress value={item.level === 'beginner' ? 30 : item.level === 'intermediate' ? 60 : 90} className="h-2" />
+                            </div>
+                          </div>
+                        </div>)}
                     </div>
                   </CardContent>
                   <CardFooter className="bg-primary/5 p-4">
@@ -486,7 +510,15 @@ const CareerPathway: React.FC = () => {
             
             {/* Roles Tab */}
             <TabsContent value="roles">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] p-8 rounded-lg">
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              duration: 0.5
+            }} className="bg-gradient-to-br from-[#EEF2FF] to-[#F5F3FF] p-8 rounded-lg">
                 <div className="flex items-center justify-between mb-8">
                   <div>
                     <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -505,42 +537,34 @@ const CareerPathway: React.FC = () => {
                 </div>
 
                 <div className="space-y-4">
-                  {isLoading ? (
-                    <AlternativeRolesSkeleton />
-                  ) : (
-                    data?.report?.recommendedRoles?.map((role, index) => (
-                      <Card key={index} className="bg-white border-l-4 border-l-primary overflow-hidden">
-                        <CardContent className="p-0">
-                          <div className="p-6 flex items-start gap-4">
-                            <div className="bg-primary/10 p-3 rounded-full">
-                              <Briefcase className="h-6 w-6 text-primary" />
+                  {isLoading ? <AlternativeRolesSkeleton /> : data?.report?.recommendedRoles?.map((role, index) => <Card key={index} className="bg-white border-l-4 border-l-primary overflow-hidden">
+                      <CardContent className="p-0">
+                        <div className="p-6 flex items-start gap-4">
+                          <div className="bg-primary/10 p-3 rounded-full">
+                            <Briefcase className="h-6 w-6 text-primary" />
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-xl text-gray-900">{role.title}</h3>
+                            <div className="flex items-center gap-3 mt-1 mb-3">
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
+                                {role.salaryRange || '$80-120K'}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">Match: {90 - index * 5}%</span>
                             </div>
-                            <div className="flex-1">
-                              <h3 className="font-semibold text-xl text-gray-900">{role.title}</h3>
-                              <div className="flex items-center gap-3 mt-1 mb-3">
-                                <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100">
-                                  {role.salaryRange || '$80-120K'}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">Match: {90 - index * 5}%</span>
-                              </div>
-                              <p className="text-gray-600">{role.description}</p>
-                              
-                              <div className="mt-4 flex flex-wrap gap-2">
-                                {['SQL', 'Python', 'Data Visualization', 'Communication'].map(skill => (
-                                  <Badge key={skill} variant="outline">{skill}</Badge>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <Button onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)} variant="outline" size="sm">
-                                Explore
-                              </Button>
+                            <p className="text-gray-600">{role.description}</p>
+                            
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              {['SQL', 'Python', 'Data Visualization', 'Communication'].map(skill => <Badge key={skill} variant="outline">{skill}</Badge>)}
                             </div>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
+                          <div>
+                            <Button onClick={() => navigate(`/explore-data-careers?role=${encodeURIComponent(role.title.toLowerCase().replace(/\s+/g, '-'))}`)} variant="outline" size="sm">
+                              Explore
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>)}
                 </div>
                 
                 <div className="mt-8 flex justify-center">
@@ -554,7 +578,15 @@ const CareerPathway: React.FC = () => {
             
             {/* Career Path Tab */}
             <TabsContent value="pathway">
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+              <motion.div initial={{
+              opacity: 0,
+              y: 20
+            }} animate={{
+              opacity: 1,
+              y: 0
+            }} transition={{
+              duration: 0.5
+            }}>
                 <div className="mb-8">
                   <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
                     <TrendingUp className="h-6 w-6 text-primary" />
@@ -575,39 +607,37 @@ const CareerPathway: React.FC = () => {
                     </div>
 
                     <div className="flex items-center flex-grow overflow-x-auto p-6 relative">
+                      {/* Career path timeline line */}
                       <div className="absolute left-0 right-0 top-1/2 h-1 bg-gray-200 -translate-y-1/2 z-0"></div>
-                      {isLoading ? (
-                        <CareerPathSkeleton />
-                      ) : (
-                        (data?.report?.futureCareerPath && data.report.futureCareerPath.length > 0
-                          ? data.report.futureCareerPath
-                          : data?.report?.careerPathSteps || []).map((step, index) => (
-                          <div key={index} className={`relative flex-shrink-0 w-64 px-4 transition-all duration-300 z-10 ${index === activeCareerStep ? 'scale-105' : 'scale-95 opacity-75'}`}>
-                            <Card className={`${index === activeCareerStep ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white'} relative`}>
-                              <div className="absolute top-0 left-1/2 -translate-y-1/2 -translate-x-1/2 bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-medium">
-                                {index + 1}
-                              </div>
-                              <CardContent className="p-6 pt-8">
-                                <h3 className="font-bold text-xl text-center text-gray-900">{step.step || step.title}</h3>
-                                <p className="text-primary text-sm mb-4 font-medium text-center">
-                                  {step.timeline || step.timeframe}
-                                </p>
-                                <p className="text-gray-600 text-sm">{step.action || step.description}</p>
-                                {step.focusAreas && (
-                                  <div className="mt-4 pt-4 border-t">
-                                    <h4 className="font-medium text-sm mb-2">Focus areas:</h4>
-                                    <div className="flex flex-wrap gap-1">
-                                      {step.focusAreas.split(',').map((area, i) => (
-                                        <Badge key={i} variant="secondary" className="text-xs">{area.trim()}</Badge>
-                                      ))}
-                                    </div>
+                      {isLoading ? <CareerPathSkeleton /> : (data?.report?.futureCareerPath && data.report.futureCareerPath.length > 0
+                        ? data.report.futureCareerPath
+                        : data?.report?.careerPathSteps || []).map((step, index) => (
+                        <div key={index} className={`relative flex-shrink-0 w-64 px-4 transition-all duration-300 z-10 ${index === activeCareerStep ? 'scale-105' : 'scale-95 opacity-75'}`}>
+                          <Card className={`${index === activeCareerStep ? 'bg-blue-50 border-blue-200 shadow-lg' : 'bg-white'} relative`}>
+                            {/* Step number marker */}
+                            <div className="absolute top-0 left-1/2 -translate-y-1/2 -translate-x-1/2 bg-primary text-white h-8 w-8 rounded-full flex items-center justify-center font-medium">
+                              {index + 1}
+                            </div>
+                            <CardContent className="p-6 pt-8">
+                              <h3 className="font-bold text-xl text-center text-gray-900">{step.step || step.title}</h3>
+                              <p className="text-primary text-sm mb-4 font-medium text-center">
+                                {step.timeline || step.timeframe}
+                              </p>
+                              <p className="text-gray-600 text-sm">{step.action || step.description}</p>
+                              {step.focusAreas && (
+                                <div className="mt-4 pt-4 border-t">
+                                  <h4 className="font-medium text-sm mb-2">Focus areas:</h4>
+                                  <div className="flex flex-wrap gap-1">
+                                    {step.focusAreas.split(',').map((area, i) => (
+                                      <Badge key={i} variant="secondary" className="text-xs">{area.trim()}</Badge>
+                                    ))}
                                   </div>
-                                )}
-                              </CardContent>
-                            </Card>
-                          </div>
-                        ))
-                      )}
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        </div>
+                      ))}
                     </div>
                   </div>
                   <div className="flex justify-end gap-2 p-4 border-t">
@@ -622,9 +652,7 @@ const CareerPathway: React.FC = () => {
                   </div>
                 </div>
                 
-                {/* Action Plan section */}
-                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && (
-                  <Card className="bg-white mt-8">
+                {data?.report?.careerPathSteps && data.report.careerPathSteps.length > 0 && <Card className="bg-white mt-8">
                     <CardHeader className="bg-primary/5 pb-2">
                       <CardTitle className="flex items-center gap-2">
                         <FileText className="h-5 w-5 text-primary" />
@@ -658,19 +686,15 @@ const CareerPathway: React.FC = () => {
                     </CardContent>
                     <CardFooter className="bg-primary/5 border-t p-4">
                       <Button onClick={generateActionPlan} disabled={isGeneratingPlan}>
-                        {isGeneratingPlan ? (
-                          <>
+                        {isGeneratingPlan ? <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             Generating...
-                          </>
-                        ) : (
-                          "Generate Detailed Action Plan"
-                        )}
+                          </> : "Generate Detailed Action Plan"}
                       </Button>
                     </CardFooter>
-                  </Card>
-                )}
+                  </Card>}
 
+                {/* Display the Action Plan component */}
                 <CareerActionPlan initialActionPlan={data?.actionPlan} />
               </motion.div>
             </TabsContent>
@@ -695,8 +719,11 @@ const CareerPathway: React.FC = () => {
             Take Career Assessment <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         
+          {/* Show AI recommendations even without assessment */}
           <div className="pt-12">
             <CareerAIRecommendations />
+        
+            {/* Feedback Buttons */}
             <motion.div initial="initial" animate="animate" variants={fadeInUp} className="text-center space-y-4 mt-12">
               <p className="text-gray-600">Was this information useful?</p>
               <div className="flex justify-center gap-4">
@@ -707,15 +734,12 @@ const CareerPathway: React.FC = () => {
           </div>
         </div>
       )}
-    </AppLayout>
-  );
+    </AppLayout>;
 };
 
 // Skeleton components
-const SkillsSkeleton = () => (
-  <>
-    {[1, 2, 3].map(i => (
-      <div key={i} className="grid grid-cols-12 gap-4 p-4 border-b">
+const SkillsSkeleton = () => <>
+    {[1, 2, 3].map(i => <div key={i} className="grid grid-cols-12 gap-4 p-4 border-b">
         <div className="col-span-4">
           <Skeleton className="h-6 w-32 mb-2" />
           <Skeleton className="h-4 w-20" />
@@ -726,33 +750,20 @@ const SkillsSkeleton = () => (
         <div className="hidden md:block md:col-span-3">
           <Skeleton className="h-4 w-full" />
         </div>
-      </div>
-    ))}
-  </>
-);
-
-const CareerPathSkeleton = () => (
-  <>
-    {[1, 2, 3].map(i => (
-      <div key={i} className="flex-shrink-0 w-64 px-4">
+      </div>)}
+  </>;
+const CareerPathSkeleton = () => <>
+    {[1, 2, 3].map(i => <div key={i} className="flex-shrink-0 w-64 px-4">
         <Skeleton className="h-40 w-full rounded-lg" />
-      </div>
-    ))}
-  </>
-);
-
-const AlternativeRolesSkeleton = () => (
-  <>
-    {[1, 2, 3].map(i => (
-      <Card key={i} className="bg-white">
+      </div>)}
+  </>;
+const AlternativeRolesSkeleton = () => <>
+    {[1, 2, 3].map(i => <Card key={i} className="bg-white">
         <CardContent className="p-6">
           <Skeleton className="h-6 w-48 mb-2" />
           <Skeleton className="h-4 w-32 mb-2" />
           <Skeleton className="h-16 w-full" />
         </CardContent>
-      </Card>
-    ))}
-  </>
-);
-
+      </Card>)}
+  </>;
 export default CareerPathway;

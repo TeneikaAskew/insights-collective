@@ -91,7 +91,7 @@ const WelcomeModal: React.FC = () => {
                   </div>
                 </Button>
                 <Button
-                  onClick={() => handleGetStarted('/resume')}
+                  onClick={() => handleGetStarted('/resume-analyzer')}
                   className="w-full justify-start gap-3 h-auto p-4"
                   variant="outline"
                 >

@@ -1,11 +1,11 @@
-
 import { Bell, Menu, UserCircle } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useSidebar, SidebarTrigger } from '@/components/ui/sidebar';
+import { useSidebar } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import SiteSearch from '@/components/search/SiteSearch';
+import SidebarTrigger from '@/components/ui/SidebarTrigger';
 
 const Navbar = () => {
   const location = useLocation();
@@ -59,7 +59,7 @@ const Navbar = () => {
                       <Link to="/dashboard">Dashboard</Link>
                     </DropdownMenuItem>
                     {isAdminAuthenticated && <DropdownMenuItem asChild>
-                        <Link to="/admin-dashboard">Admin Dashboard</Link>
+                        <Link to="/admin">Admin Dashboard</Link>
                       </DropdownMenuItem>}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout}>

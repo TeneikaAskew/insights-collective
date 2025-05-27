@@ -1,127 +1,67 @@
-
-import React, { Suspense } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
+import { QueryClient } from 'react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
-import { OnboardingProvider } from '@/contexts/OnboardingContext';
+import Index from '@/pages/Index';
+import Courses from '@/pages/Courses';
+import CourseDetails from '@/pages/CourseDetails';
+import Resources from '@/pages/Resources';
+import CareerAgent from '@/pages/CareerAgent';
+import CareerPathway from '@/pages/CareerPathway';
+import ResumeAnalyzer from '@/pages/ResumeAnalyzer';
+import PortfolioExplorer from '@/pages/PortfolioExplorer';
+import Login from '@/pages/Login';
+import Signup from '@/pages/Signup';
+import Profile from '@/pages/Profile';
+import UserDashboard from '@/pages/UserDashboard';
+import AdminDashboard from '@/pages/AdminDashboard';
+import InterviewPrep from '@/pages/InterviewPrep';
+import CodePractice from '@/pages/interview-prep/CodePractice';
+import StarPractice from '@/pages/interview-prep/StarPractice';
+import JobDescription from '@/pages/interview-prep/JobDescription';
+import MockInterviews from '@/pages/interview-prep/MockInterviews';
+import ExploreDataCareers from '@/pages/ExploreDataCareers';
+import NotFound from '@/pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
-import { Spinner } from '@/components/ui/spinner';
-
-// Lazy load all page components
-const Index = React.lazy(() => import('@/pages/Index'));
-const Resources = React.lazy(() => import('@/pages/Resources'));
-const CareerAgent = React.lazy(() => import('@/pages/CareerAgent'));
-const CareerPathway = React.lazy(() => import('@/pages/CareerPathway'));
-const PortfolioExplorer = React.lazy(() => import('@/pages/PortfolioExplorer'));
-const Login = React.lazy(() => import('@/pages/Login'));
-const Register = React.lazy(() => import('@/pages/Register'));
-const Profile = React.lazy(() => import('@/pages/Profile'));
-const UserDashboard = React.lazy(() => import('@/pages/UserDashboard'));
-const Dashboard = React.lazy(() => import('@/pages/Dashboard'));
-const AdminDashboard = React.lazy(() => import('@/pages/AdminDashboard'));
-const InterviewPrep = React.lazy(() => import('@/pages/InterviewPrep'));
-const CodePractice = React.lazy(() => import('@/pages/interview-prep/CodePractice'));
-const StarPractice = React.lazy(() => import('@/pages/interview-prep/StarPractice'));
-const JobDescription = React.lazy(() => import('@/pages/interview-prep/JobDescription'));
-const MockInterviews = React.lazy(() => import('@/pages/interview-prep/MockInterviews'));
-const ExploreDataCareers = React.lazy(() => import('@/pages/ExploreDataCareers'));
-const Resume = React.lazy(() => import('@/pages/Resume'));
-const Survey = React.lazy(() => import('@/pages/Survey'));
-const SurveyConfirmation = React.lazy(() => import('@/pages/SurveyConfirmation'));
-const Notifications = React.lazy(() => import('@/pages/Notifications'));
-const ThreadDetail = React.lazy(() => import('@/pages/ThreadDetail'));
-const ForumDetail = React.lazy(() => import('@/pages/ForumDetail'));
-const ForumList = React.lazy(() => import('@/pages/ForumList'));
-const CourseList = React.lazy(() => import('@/pages/CourseList'));
-const CourseDetail = React.lazy(() => import('@/pages/CourseDetail'));
-const Events = React.lazy(() => import('@/pages/Events'));
-const Messages = React.lazy(() => import('@/pages/Messages'));
-const Assistants = React.lazy(() => import('@/pages/Assistants'));
-const DataBlueprint = React.lazy(() => import('@/pages/DataBlueprint'));
-const NotFound = React.lazy(() => import('@/pages/NotFound'));
-
-// Enhanced Query Client configuration with better caching and performance
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 30, // 30 minutes (renamed from cacheTime)
-      retry: (failureCount, error: any) => {
-        // Don't retry on 4xx errors except 408 (timeout)
-        if (error?.status >= 400 && error?.status < 500 && error?.status !== 408) {
-          return false;
-        }
-        return failureCount < 3;
-      },
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
-    },
-    mutations: {
-      retry: 1,
-    },
-  },
-});
-
-// Loading component for suspense fallback
-const PageLoader = () => (
-  <div className="flex items-center justify-center min-h-screen">
-    <Spinner className="h-8 w-8" />
-  </div>
-);
+import { OnboardingProvider } from '@/contexts/OnboardingContext';
 
 function App() {
   return (
     <HelmetProvider>
-      <QueryClientProvider client={queryClient}>
+      <QueryClient>
         <AuthProvider>
           <OnboardingProvider>
             <Router>
               <div className="min-h-screen bg-background">
-                <Suspense fallback={<PageLoader />}>
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/user-dashboard" element={<UserDashboard />} />
-                    <Route path="/admin-dashboard" element={<AdminDashboard />} />
-                    <Route path="/resources" element={<Resources />} />
-                    <Route path="/career-agent" element={<CareerAgent />} />
-                    <Route path="/career-pathway" element={<CareerPathway />} />
-                    <Route path="/portfolio-explorer" element={<PortfolioExplorer />} />
-                    <Route path="/courses" element={<CourseList />} />
-                    <Route path="/courses/:id" element={<CourseDetail />} />
-                    <Route path="/events" element={<Events />} />
-                    <Route path="/forums" element={<ForumList />} />
-                    <Route path="/messages" element={<Messages />} />
-                    <Route path="/assistants" element={<Assistants />} />
-                    <Route path="/data-blueprint" element={<DataBlueprint />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/register" element={<Register />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/interview-prep" element={<InterviewPrep />} />
-                    <Route path="/interview-prep/code-practice" element={<CodePractice />} />
-                    <Route path="/interview-prep/star-practice" element={<StarPractice />} />
-                    <Route path="/interview-prep/job-description" element={<JobDescription />} />
-                    <Route path="/interview-prep/mock-interviews" element={<MockInterviews />} />
-                    <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
-                    <Route path="/resume" element={<Resume />} />
-                    <Route path="/survey" element={<Survey />} />
-                    <Route path="/survey/:slug" element={<Survey />} />
-                    <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
-                    <Route path="/notifications" element={<Notifications />} />
-                    <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ThreadDetail />} />
-                    <Route path="/courses/:courseId/forums/:forumId" element={<ForumDetail />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </Suspense>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/courses" element={<Courses />} />
+                  <Route path="/courses/:courseId" element={<CourseDetails />} />
+                  <Route path="/resources" element={<Resources />} />
+                  <Route path="/career-agent" element={<CareerAgent />} />
+                  <Route path="/career-pathway" element={<CareerPathway />} />
+                  <Route path="/resume-analyzer" element={<ResumeAnalyzer />} />
+                  <Route path="/portfolio-explorer" element={<PortfolioExplorer />} />
+                  <Route path="/login" element={<Login />} />
+                  <Route path="/signup" element={<Signup />} />
+                  <Route path="/profile" element={<Profile />} />
+                  <Route path="/user-dashboard" element={<UserDashboard />} />
+                  <Route path="/admin-dashboard" element={<AdminDashboard />} />
+                  <Route path="/interview-prep" element={<InterviewPrep />} />
+                  <Route path="/interview-prep/code-practice" element={<CodePractice />} />
+                  <Route path="/interview-prep/star-practice" element={<StarPractice />} />
+                  <Route path="/interview-prep/job-description" element={<JobDescription />} />
+                  <Route path="/interview-prep/mock-interviews" element={<MockInterviews />} />
+                  <Route path="/explore-data-careers" element={<ExploreDataCareers />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
                 <Toaster />
               </div>
             </Router>
           </OnboardingProvider>
         </AuthProvider>
-        <ReactQueryDevtools initialIsOpen={false} />
-      </QueryClientProvider>
+      </QueryClient>
     </HelmetProvider>
   );
 }

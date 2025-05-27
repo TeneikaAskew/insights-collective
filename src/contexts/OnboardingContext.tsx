@@ -5,138 +5,71 @@ interface OnboardingStep {
   id: string;
   title: string;
   description: string;
-  targetPath: string;
-  completed: boolean;
+  target?: string;
+  position?: 'top' | 'bottom' | 'left' | 'right';
+  action?: () => void;
+}
+
+interface OnboardingTour {
+  id: string;
+  name: string;
+  steps: OnboardingStep[];
 }
 
 interface OnboardingContextType {
-  currentStep: number;
-  steps: OnboardingStep[];
   isOnboardingActive: boolean;
-  completeStep: (stepId: string) => void;
-  startOnboarding: () => void;
-  skipOnboarding: () => void;
+  currentTour: string | null;
+  currentStep: number;
+  completedTours: string[];
+  startTour: (tourId: string) => void;
   nextStep: () => void;
   prevStep: () => void;
-  // New properties for tour functionality
-  isFirstVisit: boolean;
-  completedTours: string[];
-  currentTour: string | null;
-  startTour: (tourId: string) => void;
   skipTour: () => void;
   completeTour: () => void;
+  resetOnboarding: () => void;
+  isFirstVisit: boolean;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
 
-const defaultSteps: OnboardingStep[] = [
-  {
-    id: 'welcome',
-    title: 'Welcome to Insights Collective',
-    description: 'Let\'s get you started with your data science journey',
-    targetPath: '/dashboard',
-    completed: false,
-  },
-  {
-    id: 'profile',
-    title: 'Complete Your Profile',
-    description: 'Tell us about yourself to get personalized recommendations',
-    targetPath: '/profile',
-    completed: false,
-  },
-  {
-    id: 'career-pathway',
-    title: 'Discover Your Career Path',
-    description: 'Take our assessment to find the perfect data science career for you',
-    targetPath: '/career-pathway',
-    completed: false,
-  },
-  {
-    id: 'explore-courses',
-    title: 'Explore Courses',
-    description: 'Browse our comprehensive course catalog',
-    targetPath: '/courses',
-    completed: false,
-  },
-  {
-    id: 'join-community',
-    title: 'Join the Community',
-    description: 'Connect with other learners in our forums',
-    targetPath: '/forums',
-    completed: false,
-  },
-  {
-    id: 'resources',
-    title: 'Access Resources',
-    description: 'Discover tools and resources to accelerate your learning',
-    targetPath: '/resources',
-    completed: false,
-  },
-];
+export const useOnboarding = () => {
+  const context = useContext(OnboardingContext);
+  if (!context) {
+    throw new Error('useOnboarding must be used within an OnboardingProvider');
+  }
+  return context;
+};
+
+const STORAGE_KEY = 'onboarding_progress';
 
 export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentStep, setCurrentStep] = useState(0);
-  const [steps, setSteps] = useState<OnboardingStep[]>(defaultSteps);
   const [isOnboardingActive, setIsOnboardingActive] = useState(false);
-  const [isFirstVisit, setIsFirstVisit] = useState(false);
-  const [completedTours, setCompletedTours] = useState<string[]>([]);
   const [currentTour, setCurrentTour] = useState<string | null>(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [completedTours, setCompletedTours] = useState<string[]>([]);
+  const [isFirstVisit, setIsFirstVisit] = useState(false);
 
   useEffect(() => {
-    const onboardingCompleted = localStorage.getItem('onboarding-completed');
-    const firstVisit = localStorage.getItem('first-visit-completed');
-    const tours = localStorage.getItem('completed-tours');
-    
-    if (!onboardingCompleted) {
-      setIsOnboardingActive(true);
-    }
-    
-    if (!firstVisit) {
-      setIsFirstVisit(true);
-    }
-    
-    if (tours) {
+    const savedProgress = localStorage.getItem(STORAGE_KEY);
+    if (savedProgress) {
       try {
-        setCompletedTours(JSON.parse(tours));
+        const progress = JSON.parse(savedProgress);
+        setCompletedTours(progress.completedTours || []);
+        setIsFirstVisit(false);
       } catch (error) {
-        setCompletedTours([]);
+        console.error('Failed to parse onboarding progress:', error);
+        setIsFirstVisit(true);
       }
+    } else {
+      setIsFirstVisit(true);
     }
   }, []);
 
-  const completeStep = (stepId: string) => {
-    setSteps(prev => 
-      prev.map(step => 
-        step.id === stepId ? { ...step, completed: true } : step
-      )
-    );
-  };
-
-  const startOnboarding = () => {
-    setIsOnboardingActive(true);
-    setCurrentStep(0);
-    localStorage.removeItem('onboarding-completed');
-  };
-
-  const skipOnboarding = () => {
-    setIsOnboardingActive(false);
-    localStorage.setItem('onboarding-completed', 'true');
-  };
-
-  const nextStep = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(prev => prev + 1);
-    } else {
-      // Onboarding completed
-      setIsOnboardingActive(false);
-      localStorage.setItem('onboarding-completed', 'true');
-    }
-  };
-
-  const prevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(prev => prev - 1);
-    }
+  const saveProgress = (tours: string[]) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ 
+      completedTours: tours,
+      lastUpdated: Date.now()
+    }));
   };
 
   const startTour = (tourId: string) => {
@@ -145,53 +78,58 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setIsOnboardingActive(true);
   };
 
+  const nextStep = () => {
+    setCurrentStep(prev => prev + 1);
+  };
+
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(0, prev - 1));
+  };
+
   const skipTour = () => {
-    setCurrentTour(null);
     setIsOnboardingActive(false);
+    setCurrentTour(null);
+    setCurrentStep(0);
   };
 
   const completeTour = () => {
-    setIsFirstVisit(false);
-    localStorage.setItem('first-visit-completed', 'true');
-    
     if (currentTour && !completedTours.includes(currentTour)) {
       const newCompletedTours = [...completedTours, currentTour];
       setCompletedTours(newCompletedTours);
-      localStorage.setItem('completed-tours', JSON.stringify(newCompletedTours));
+      saveProgress(newCompletedTours);
     }
-    
-    setCurrentTour(null);
     setIsOnboardingActive(false);
+    setCurrentTour(null);
+    setCurrentStep(0);
+    setIsFirstVisit(false);
+  };
+
+  const resetOnboarding = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setCompletedTours([]);
+    setIsFirstVisit(true);
+    setIsOnboardingActive(false);
+    setCurrentTour(null);
+    setCurrentStep(0);
   };
 
   return (
     <OnboardingContext.Provider
       value={{
-        currentStep,
-        steps,
         isOnboardingActive,
-        completeStep,
-        startOnboarding,
-        skipOnboarding,
+        currentTour,
+        currentStep,
+        completedTours,
+        startTour,
         nextStep,
         prevStep,
-        isFirstVisit,
-        completedTours,
-        currentTour,
-        startTour,
         skipTour,
         completeTour,
+        resetOnboarding,
+        isFirstVisit,
       }}
     >
       {children}
     </OnboardingContext.Provider>
   );
-};
-
-export const useOnboarding = () => {
-  const context = useContext(OnboardingContext);
-  if (context === undefined) {
-    throw new Error('useOnboarding must be used within an OnboardingProvider');
-  }
-  return context;
 };
