@@ -6,22 +6,29 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import Index from '@/pages/Index';
 import Resources from '@/pages/Resources';
+import CareerAgent from '@/pages/CareerAgent';
+import CareerPathway from '@/pages/CareerPathway';
+import PortfolioExplorer from '@/pages/PortfolioExplorer';
 import { Login, Register } from '@/pages/auth';
 import { Dashboard, UserDashboard, Profile, Notifications } from '@/pages/user';
-import { CareerAgent, CareerPathway, ExploreDataCareers, Resume, InterviewPrep } from '@/pages/career';
-import { CourseList, CourseDetail, Events, DataBlueprint } from '@/pages/learning';
-import { Messages, ForumList, ForumDetail, ThreadDetail, Assistants } from '@/pages/communication';
-import { PortfolioExplorer } from '@/pages/portfolio';
-import { AdminDashboard, UnifiedFormManagement, FormManagement } from '@/pages/admin';
-import { Survey, SurveyConfirmation, SurveyFormCreate } from '@/pages/survey';
+import AdminDashboard from '@/pages/AdminDashboard';
+import InterviewPrep from '@/pages/InterviewPrep';
 import CodePractice from '@/pages/interview-prep/CodePractice';
 import StarPractice from '@/pages/interview-prep/StarPractice';
 import JobDescription from '@/pages/interview-prep/JobDescription';
 import MockInterviews from '@/pages/interview-prep/MockInterviews';
-import AdminActivity from '@/pages/AdminActivity';
-import AdminCertificates from '@/pages/AdminCertificates';
-import AdminEnrollments from '@/pages/AdminEnrollments';
-import AdminForms from '@/pages/AdminForms';
+import ExploreDataCareers from '@/pages/ExploreDataCareers';
+import Resume from '@/pages/Resume';
+import Survey from '@/pages/Survey';
+import SurveyConfirmation from '@/pages/SurveyConfirmation';
+import ThreadDetail from '@/pages/ThreadDetail';
+import ForumDetail from '@/pages/ForumDetail';
+import ForumList from '@/pages/ForumList';
+import { CourseList, Events } from '@/pages/learning';
+import CourseDetail from '@/pages/CourseDetail';
+import Messages from '@/pages/Messages';
+import Assistants from '@/pages/Assistants';
+import DataBlueprint from '@/pages/DataBlueprint';
 import NotFound from '@/pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -65,13 +72,6 @@ function App() {
                   <Route path="/survey" element={<Survey />} />
                   <Route path="/survey/:slug" element={<Survey />} />
                   <Route path="/survey/:slug/confirmation" element={<SurveyConfirmation />} />
-                  <Route path="/survey/create" element={<SurveyFormCreate />} />
-                  <Route path="/admin/forms" element={<AdminForms />} />
-                  <Route path="/admin/forms/unified" element={<UnifiedFormManagement />} />
-                  <Route path="/admin/forms/submissions/:slug" element={<FormManagement />} />
-                  <Route path="/admin/activity" element={<AdminActivity />} />
-                  <Route path="/admin/certificates" element={<AdminCertificates />} />
-                  <Route path="/admin/enrollments" element={<AdminEnrollments />} />
                   <Route path="/notifications" element={<Notifications />} />
                   <Route path="/courses/:courseId/forums/:forumId/threads/:threadId" element={<ThreadDetail />} />
                   <Route path="/courses/:courseId/forums/:forumId" element={<ForumDetail />} />
