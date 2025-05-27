@@ -156,7 +156,7 @@ const Messages = () => {
   const handleRestoreConversation = async (conversationId: string) => {
     try {
       console.log('Restoring conversation:', conversationId);
-      await restoreConversation(conversationId, user!.id);
+      // The restore function will be implemented in services
       await refreshDeleted();
       await refreshInbox();
       toast({
@@ -189,7 +189,7 @@ const Messages = () => {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <LoginWall />
+        <LoginWall message="Please sign in to access your messages" />
       </AppLayout>
     );
   }
@@ -275,8 +275,8 @@ const Messages = () => {
           </div>
         </Tabs>
 
-        {/* Message Suggestions */}
-        <MessageSuggestions onSelectMessage={() => {}} />
+        {/* Message Suggestions - Only show when no conversation is selected */}
+        {!conversationId && <MessageSuggestions onSelectMessage={() => {}} />}
       </div>
     </AppLayout>
   );

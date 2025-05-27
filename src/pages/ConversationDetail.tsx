@@ -106,7 +106,7 @@ const ConversationDetail = () => {
   if (!isAuthenticated) {
     return (
       <AppLayout>
-        <LoginWall />
+        <LoginWall message="Please sign in to access your messages" />
       </AppLayout>
     );
   }

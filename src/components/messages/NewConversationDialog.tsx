@@ -102,7 +102,7 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       if (conversationId) {
         // Close dialog and navigate to the conversation
         onOpenChange(false);
-        navigate(`/messages/${conversationId}`);
+        navigate(`/messages/conversation/${conversationId}`);
         
         toast({
           title: 'Success',
