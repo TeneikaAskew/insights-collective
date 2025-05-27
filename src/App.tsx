@@ -48,6 +48,7 @@ import Notifications from '@/pages/Notifications';
 import AuthCallback from '@/pages/AuthCallback';
 import CreateBlogPost from '@/pages/CreateBlogPost';
 import EditBlogPost from '@/pages/EditBlogPost';
+import ResetPassword from '@/pages/ResetPassword';
 import ExploreDataCareers from '@/pages/ExploreDataCareers';
 import UserDashboard from '@/pages/UserDashboard';
 import ThreadDetail from '@/pages/ThreadDetail';
@@ -110,6 +111,7 @@ function App() {
                   <Route path="/" element={<Index />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   
                   {/* Blog routes - some public, some protected */}
