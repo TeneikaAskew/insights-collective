@@ -15,6 +15,7 @@ import Profile from '@/pages/Profile';
 import UserDashboard from '@/pages/UserDashboard';
 import Dashboard from '@/pages/Dashboard';
 import AdminDashboard from '@/pages/AdminDashboard';
+import AdminForms from '@/pages/AdminForms';
 import InterviewPrep from '@/pages/InterviewPrep';
 import CodePractice from '@/pages/interview-prep/CodePractice';
 import StarPractice from '@/pages/interview-prep/StarPractice';
@@ -53,6 +54,7 @@ function App() {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/user-dashboard" element={<UserDashboard />} />
                   <Route path="/admin-dashboard" element={<AdminDashboard />} />
+                  <Route path="/admin-forms" element={<AdminForms />} />
                   <Route path="/resources" element={<Resources />} />
                   <Route path="/career-agent" element={<CareerAgent />} />
                   <Route path="/career-pathway" element={<CareerPathway />} />
