@@ -56,7 +56,7 @@ const adminNavItems = [
   {
     title: 'Dashboard',
     icon: LayoutDashboard,
-    path: '/admin',
+    path: '/admin-dashboard',
   },
   {
     title: 'Activity',

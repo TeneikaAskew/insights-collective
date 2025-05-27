@@ -13,6 +13,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Profile from '@/pages/Profile';
 import UserDashboard from '@/pages/UserDashboard';
+import Dashboard from '@/pages/Dashboard';
 import AdminDashboard from '@/pages/AdminDashboard';
 import InterviewPrep from '@/pages/InterviewPrep';
 import CodePractice from '@/pages/interview-prep/CodePractice';
@@ -26,6 +27,13 @@ import SurveyConfirmation from '@/pages/SurveyConfirmation';
 import Notifications from '@/pages/Notifications';
 import ThreadDetail from '@/pages/ThreadDetail';
 import ForumDetail from '@/pages/ForumDetail';
+import ForumList from '@/pages/ForumList';
+import CourseList from '@/pages/CourseList';
+import CourseDetail from '@/pages/CourseDetail';
+import Events from '@/pages/Events';
+import Messages from '@/pages/Messages';
+import Assistants from '@/pages/Assistants';
+import DataBlueprint from '@/pages/DataBlueprint';
 import NotFound from '@/pages/NotFound';
 import { Toaster } from '@/components/ui/toaster';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -42,15 +50,23 @@ function App() {
               <div className="min-h-screen bg-background">
                 <Routes>
                   <Route path="/" element={<Index />} />
+                  <Route path="/dashboard" element={<Dashboard />} />
+                  <Route path="/user-dashboard" element={<UserDashboard />} />
+                  <Route path="/admin-dashboard" element={<AdminDashboard />} />
                   <Route path="/resources" element={<Resources />} />
                   <Route path="/career-agent" element={<CareerAgent />} />
                   <Route path="/career-pathway" element={<CareerPathway />} />
                   <Route path="/portfolio-explorer" element={<PortfolioExplorer />} />
+                  <Route path="/courses" element={<CourseList />} />
+                  <Route path="/courses/:id" element={<CourseDetail />} />
+                  <Route path="/events" element={<Events />} />
+                  <Route path="/forums" element={<ForumList />} />
+                  <Route path="/messages" element={<Messages />} />
+                  <Route path="/assistants" element={<Assistants />} />
+                  <Route path="/data-blueprint" element={<DataBlueprint />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
                   <Route path="/profile" element={<Profile />} />
-                  <Route path="/user-dashboard" element={<UserDashboard />} />
-                  <Route path="/admin-dashboard" element={<AdminDashboard />} />
                   <Route path="/interview-prep" element={<InterviewPrep />} />
                   <Route path="/interview-prep/code-practice" element={<CodePractice />} />
                   <Route path="/interview-prep/star-practice" element={<StarPractice />} />

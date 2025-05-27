@@ -59,7 +59,7 @@ const Navbar = () => {
                       <Link to="/dashboard">Dashboard</Link>
                     </DropdownMenuItem>
                     {isAdminAuthenticated && <DropdownMenuItem asChild>
-                        <Link to="/admin">Admin Dashboard</Link>
+                        <Link to="/admin-dashboard">Admin Dashboard</Link>
                       </DropdownMenuItem>}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={logout}>
