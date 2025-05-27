@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { SidebarProvider } from '@/components/ui/sidebar';
 import AppSidebar from './AppSidebar';
@@ -7,17 +6,21 @@ import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { UserPresenceBar } from '@/components/presence/UserPresenceBar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLocation } from 'react-router-dom';
+import { useQueryPerformance } from '@/hooks/useQueryPerformance';
 
 type AppLayoutProps = {
   children: React.ReactNode;
   fullWidth?: boolean;
 };
 
-const AppLayout = ({ children, fullWidth = false }: AppLayoutProps) => {
+const AppLayout: React.FC<AppLayoutProps> = ({ children, fullWidth = false }) => {
   const { navigateWithAuth } = useAuthenticatedNavigation();
   const { isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
   
+  // Add query performance monitoring
+  useQueryPerformance();
+
   // Check if the current path is one of the interview prep pages
   const isInterviewPrepPage = [
     '/interview-prep/code-practice',

@@ -2,11 +2,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast'; 
-import type { Resource } from './useResources'; // Import type
+import type { Resource } from './useResources';
 
-// Constants for caching
-const TWEETS_GC_TIME = 1000 * 60 * 30; // 30 minutes
-const TWEETS_STALE_TIME = 1000 * 60 * 5; // 5 minutes
+// Enhanced query keys for better cache management
+export const tweetsKeys = {
+  all: ['tweets'] as const,
+  lists: () => [...tweetsKeys.all, 'list'] as const,
+  list: (filters: Record<string, any>) => [...tweetsKeys.lists(), filters] as const,
+};
 
 export function useAllTweetsData() {
   const { toast } = useToast();
@@ -16,7 +19,6 @@ export function useAllTweetsData() {
     const { data, error } = await supabase
       .from('resources')
       .select('*')
-      // Fetches resources that are likely tweets based on source, link, or if they have a tweet_id
       .or('source.ilike.%twitter%,resource_link.ilike.%twitter.com%,tweet_id.not.is.null') 
       .order('created_at', { ascending: false }); 
 
@@ -32,11 +34,17 @@ export function useAllTweetsData() {
     return data || [];
   };
 
-  return useQuery<Resource[], Error>({
-    queryKey: ['allTweetsData'],
+  return useQuery({
+    queryKey: tweetsKeys.lists(),
     queryFn: fetchAllTweets,
-    staleTime: TWEETS_STALE_TIME, // Data will be considered fresh for 5 minutes
-    gcTime: TWEETS_GC_TIME, // Cached data will be kept for 30 minutes (renamed from cacheTime)
-    refetchOnWindowFocus: false, // Prevent refetching when window gains focus
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error: any) => {
+      if (error?.status >= 400 && error?.status < 500) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 }

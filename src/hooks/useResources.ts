@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -39,52 +39,53 @@ export interface Resource {
 export const parseArrayField = (field: string | null | undefined): string[] => {
   if (!field) return [];
 
-  let cleanedField = String(field).trim(); // Ensure field is treated as a string
+  let cleanedField = String(field).trim();
 
   // Handle JSON-like arrays: ['value1','value2'] or ["value1","value2"]
   if (cleanedField.startsWith('[') && cleanedField.endsWith(']')) {
     try {
-      const jsonStr = cleanedField.replace(/'/g, '"'); // Ensure double quotes for valid JSON
+      const jsonStr = cleanedField.replace(/'/g, '"');
       const parsed = JSON.parse(jsonStr);
       if (Array.isArray(parsed)) {
         return parsed.map(item => String(item).trim()).filter(Boolean);
       }
     } catch (e) {
-      // Fallback for malformed JSON-like strings: remove brackets and split
       cleanedField = cleanedField.substring(1, cleanedField.length - 1);
     }
   }
   
-  // Handle tuple-like strings: (value1, value2) by removing parentheses
   if (cleanedField.startsWith('(') && cleanedField.endsWith(')')) {
     cleanedField = cleanedField.substring(1, cleanedField.length - 1);
   }
 
-  // Split by comma for remaining cases (e.g., "value1,value2" or after bracket/parentheses removal)
-  // Also remove any remaining single or double quotes from individual items
   return cleanedField
     .split(',')
     .map(item => item.replace(/['"]/g, '').trim()) 
     .filter(Boolean);
 };
 
-// Helper to normalize text for display
 export const normalizeString = (str: string | null | undefined): string => {
   if (!str) return '';
-  return String(str) // Ensure str is treated as a string
+  return String(str)
     .toLowerCase()
-    .split(/[\s_]+/) // Split by space or underscore
+    .split(/[\s_]+/)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
-    .replace(/^['"]+|['"]+$/g, ''); // Remove surrounding single or double quotes
+    .replace(/^['"]+|['"]+$/g, '');
 };
 
-// Constants for caching
-const RESOURCES_GC_TIME = 1000 * 60 * 30; // 30 minutes
-const RESOURCES_STALE_TIME = 1000 * 60 * 5; // 5 minutes
+// Enhanced query keys for better cache management
+export const resourcesKeys = {
+  all: ['resources'] as const,
+  lists: () => [...resourcesKeys.all, 'list'] as const,
+  list: (filters: Record<string, any>) => [...resourcesKeys.lists(), filters] as const,
+  details: () => [...resourcesKeys.all, 'detail'] as const,
+  detail: (id: string) => [...resourcesKeys.details(), id] as const,
+};
 
 export function useResources() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   
   const fetchResources = async (): Promise<Resource[]> => {
     console.log('Fetching resources from API');
@@ -106,16 +107,21 @@ export function useResources() {
     return data || [];
   };
 
-  // Use React Query with caching configuration
-  const { data: resources, isLoading, error } = useQuery<Resource[], Error>({
-    queryKey: ['resources'],
+  const { data: resources, isLoading, error, isError } = useQuery({
+    queryKey: resourcesKeys.lists(),
     queryFn: fetchResources,
-    staleTime: RESOURCES_STALE_TIME, // Data will be considered fresh for 5 minutes
-    gcTime: RESOURCES_GC_TIME, // Cached data will be kept for 30 minutes (renamed from cacheTime)
-    refetchOnWindowFocus: false, // Prevent refetching when window gains focus
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    gcTime: 1000 * 60 * 30, // 30 minutes
+    refetchOnWindowFocus: false,
+    retry: (failureCount, error: any) => {
+      if (error?.status >= 400 && error?.status < 500) {
+        return false;
+      }
+      return failureCount < 2;
+    },
   });
 
-  // Set up realtime subscription for updates
+  // Set up realtime subscription for updates with optimistic updates
   useEffect(() => {
     const channel = supabase
       .channel('resources_changes')
@@ -124,8 +130,17 @@ export function useResources() {
         { event: '*', schema: 'public', table: 'resources' },
         (payload) => {
           console.log('Resources change received:', payload);
-          // Invalidate and refetch
-          window.location.reload(); // Consider queryClient.invalidateQueries(['resources']) for a smoother update
+          
+          // Invalidate and refetch the resources query
+          queryClient.invalidateQueries({ queryKey: resourcesKeys.all });
+          
+          // Show toast for real-time updates
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: 'New resource added',
+              description: 'Fresh content is now available!',
+            });
+          }
         }
       )
       .subscribe();
@@ -133,11 +148,12 @@ export function useResources() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []); // queryClient should be a dependency if used for invalidation
+  }, [queryClient, toast]);
 
   return {
     resources: resources || [],
     isLoading,
     error,
+    isError,
   };
 }
