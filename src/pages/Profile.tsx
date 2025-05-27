@@ -42,7 +42,9 @@ const Profile = () => {
     bio: '',
   });
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
   const [quizAnswers, setQuizAnswers] = useState<Record<string, string | number>>({});
+
   const { data: careerReportData, isLoading: careerReportLoading } = useCareerPathwayResults();
 
   useEffect(() => {
