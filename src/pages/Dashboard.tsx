@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useAuthenticatedNavigation } from '@/hooks/useAuthenticatedNavigation';
 import { useAuth } from '@/contexts/AuthContext';
