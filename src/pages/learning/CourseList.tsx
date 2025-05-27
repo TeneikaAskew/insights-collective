@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import AppLayout from '@/components/layout/AppLayout';
 import CourseCard from '@/components/common/CourseCard';
