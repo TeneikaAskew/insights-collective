@@ -1,4 +1,3 @@
-
 export interface OnboardingStep {
   id: string;
   title: string;
@@ -27,6 +26,10 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         target: '[data-tour="hero"]',
         position: 'bottom',
         highlight: true,
+        action: () => {
+          const element = document.querySelector('[data-tour="hero"]');
+          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       },
       {
         id: 'career-quiz',
@@ -35,14 +38,22 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         target: '[data-tour="quiz"]',
         position: 'top',
         highlight: true,
+        action: () => {
+          const element = document.querySelector('[data-tour="quiz"]');
+          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       },
       {
         id: 'personalized-pathway',
         title: 'Your Personalized Career Path',
         description: 'Get customized recommendations based on your quiz results and career goals.',
-        target: '[data-tour="personalized-pathway"]',
+        target: '[data-tour="personalizedPathway"]',
         position: 'top',
         highlight: true,
+        action: () => {
+          const element = document.querySelector('[data-tour="personalizedPathway"]');
+          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       },
       {
         id: 'features',
@@ -51,6 +62,10 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         target: '[data-tour="features"]',
         position: 'top',
         highlight: true,
+        action: () => {
+          const element = document.querySelector('[data-tour="features"]');
+          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       },
       {
         id: 'courses',
@@ -59,6 +74,10 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         target: '[data-tour="courses"]',
         position: 'top',
         highlight: true,
+        action: () => {
+          const element = document.querySelector('[data-tour="courses"]');
+          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       },
       {
         id: 'tools',
@@ -67,6 +86,10 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         target: '[data-tour="tools"]',
         position: 'top',
         highlight: true,
+        action: () => {
+          const element = document.querySelector('[data-tour="tools"]');
+          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
     ]
   },

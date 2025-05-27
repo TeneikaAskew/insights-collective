@@ -87,9 +87,8 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const skipTour = () => {
-    setIsOnboardingActive(false);
-    setCurrentTour(null);
-    setCurrentStep(0);
+    // Call completeTour to properly save progress and set isFirstVisit to false
+    completeTour();
   };
 
   const completeTour = () => {

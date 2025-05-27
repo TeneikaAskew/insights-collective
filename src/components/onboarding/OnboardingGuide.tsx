@@ -46,6 +46,11 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
 
         // Scroll element into view
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Execute the step action if it exists
+        if (currentStepData.action) {
+          setTimeout(() => currentStepData.action?.(), 500);
+        }
       }
     } else {
       setTargetElement(null);
