@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +10,7 @@ import { GraduationCap, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { FaGoogle, FaGithub, FaTwitter } from 'react-icons/fa';
 import { useToast } from '@/hooks/use-toast';
+
 const Login = () => {
   const {
     login,
@@ -18,9 +20,7 @@ const Login = () => {
     isAuthenticated,
     handleRedirectAfterLogin
   } = useAuth();
-  const {
-    toast
-  } = useToast();
+  const { toast } = useToast();
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,6 +30,7 @@ const Login = () => {
   const [error, setError] = useState<string | null>(null);
   const query = new URLSearchParams(location.search);
   const redirectParam = query.get('redirect');
+
   useEffect(() => {
     console.log('[Login] Mounted');
     console.log('[Login] redirectParam:', redirectParam);
@@ -39,6 +40,7 @@ const Login = () => {
       localStorage.setItem('redirectAfterLogin', redirectParam);
     }
   }, [redirectParam]);
+
   useEffect(() => {
     if (isAuthenticated) {
       console.log('[Login] isAuthenticated true. Calling handleRedirectAfterLogin...');
@@ -47,6 +49,7 @@ const Login = () => {
       console.log('[Login] Not authenticated');
     }
   }, [isAuthenticated, handleRedirectAfterLogin]);
+
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -65,6 +68,7 @@ const Login = () => {
       setLoading(false);
     }
   };
+
   const handleSocialSignIn = async (provider: 'google' | 'github' | 'twitter') => {
     console.log(`[handleSocialSignIn] Initiating ${provider} login`);
     try {
@@ -98,16 +102,21 @@ const Login = () => {
       setSocialLoading(null);
     }
   };
+
   if (isAuthenticated) {
     console.log('[Login] Already authenticated - showing "Redirecting..." screen');
-    return <div className="flex justify-center items-center h-screen">
+    return (
+      <div className="flex justify-center items-center h-screen">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-lg">Redirecting to your dashboard...</p>
         </div>
-      </div>;
+      </div>
+    );
   }
-  return <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center text-2xl font-bold text-primary">
@@ -130,16 +139,6 @@ const Login = () => {
                 {socialLoading === 'google' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaGoogle className="mr-2 h-4 w-4" />}
                 Sign in with Google
               </Button>
-              
-              {/* <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('github')} disabled={!!socialLoading}>
-                {socialLoading === 'github' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaGithub className="mr-2 h-4 w-4" />}
-                Sign in with GitHub
-              </Button>
-              
-              <Button type="button" variant="outline" className="w-full flex items-center justify-center" onClick={() => handleSocialSignIn('twitter')} disabled={!!socialLoading}>
-                {socialLoading === 'twitter' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FaTwitter className="mr-2 h-4 w-4" />}
-                Sign in with Twitter
-              </Button> */}
             </div>
 
             <div className="relative my-6">
@@ -196,6 +195,8 @@ const Login = () => {
           </CardContent>
         </Card>
       </div>
-    </div>;
+    </div>
+  );
 };
+
 export default Login;
