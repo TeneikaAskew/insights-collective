@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import { useParams } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card } from '@/components/ui/card';
@@ -7,18 +6,26 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDistanceToNow } from 'date-fns';
 import { AlertCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useAuth } from '@/contexts/AuthContext'; // Import useAuth to get the current user ID
+import { useAuth } from '@/contexts/AuthContext';
+import { Conversation } from '@/types/supabase';
 
 interface ConversationListProps {
-  conversations: any[];
+  conversations: Conversation[];
   loading: boolean;
   error?: any;
+  onConversationClick?: (conversation: Conversation) => void;
+  actions?: (conversation: Conversation) => React.ReactNode;
 }
 
-const ConversationList: React.FC<ConversationListProps> = ({ conversations = [], loading, error }) => {
+const ConversationList: React.FC<ConversationListProps> = ({ 
+  conversations = [], 
+  loading, 
+  error,
+  onConversationClick,
+  actions
+}) => {
   const { conversationId } = useParams();
-  const navigate = useNavigate();
-  const { user } = useAuth(); // Get the current user
+  const { user } = useAuth();
 
   // Helper function to get initials
   const getInitials = (profile: any): string => {
@@ -29,6 +36,35 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     
     if (!firstName && !lastName) return 'U';
     return (firstName.charAt(0) + (lastName ? lastName.charAt(0) : '')).toUpperCase();
+  };
+
+  // Helper function to get display name for conversation
+  const getConversationDisplayName = (conversation: Conversation): string => {
+    if (conversation.subject && conversation.subject !== 'null null') {
+      return conversation.subject;
+    }
+
+    // Find the other participant (not the current user)
+    const otherParticipant = conversation.participants?.find(
+      p => p.user_id !== user?.id
+    );
+
+    if (otherParticipant?.profile) {
+      const { first_name, last_name } = otherParticipant.profile;
+      if (first_name || last_name) {
+        return `${first_name || ''} ${last_name || ''}`.trim();
+      }
+    }
+
+    return 'Unknown User';
+  };
+
+  // Helper function to get the other participant's avatar
+  const getOtherParticipantAvatar = (conversation: Conversation) => {
+    const otherParticipant = conversation.participants?.find(
+      p => p.user_id !== user?.id
+    );
+    return otherParticipant?.profile;
   };
 
   if (error) {
@@ -48,12 +84,13 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
           <Card key={i} className="p-4">
-            <div className="flex gap-3">
+            <div className="flex items-center space-x-3">
               <Skeleton className="h-10 w-10 rounded-full" />
-              <div className="flex-1">
-                <Skeleton className="h-4 w-3/4 mb-2" />
-                <Skeleton className="h-3 w-1/2" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-48" />
               </div>
+              <Skeleton className="h-3 w-16" />
             </div>
           </Card>
         ))}
@@ -61,205 +98,65 @@ const ConversationList: React.FC<ConversationListProps> = ({ conversations = [],
     );
   }
 
-  if (!conversations || conversations.length === 0) {
+  if (conversations.length === 0) {
     return (
-      <div className="text-center p-6 border rounded-md bg-amber-50 border-amber-200">
-        <p className="text-amber-800 mb-2 font-medium">No conversations yet</p>
-        <p className="text-sm text-amber-700">Start a new conversation to connect with instructors and classmates.</p>
+      <div className="text-center py-8">
+        <p className="text-gray-500">No conversations found.</p>
       </div>
     );
   }
 
-  // Deduplicate conversations, keeping the most recent for each 1-on-1 pair
-  const deduplicatedConversationsMap = new Map<string, any>();
-
-  conversations.forEach((conv) => {
-    if (!conv || !user) return; // Skip invalid conversations or if user is not loaded
-
-    if (conv.is_group) {
-      // Always keep group conversations, use conversation ID as key
-      if (!deduplicatedConversationsMap.has(conv.id) || new Date(conv.updated_at || conv.created_at) > new Date(deduplicatedConversationsMap.get(conv.id).updated_at || deduplicatedConversationsMap.get(conv.id).created_at)) {
-         deduplicatedConversationsMap.set(conv.id, conv);
-      }
-    } else {
-      // For 1-on-1, create a unique key based on sorted participant IDs
-      const participants = conv.participants || [];
-      // Ensure the current user's ID is included, even if they are the creator but not explicitly listed sometimes
-      const participantIds = [...new Set(participants.map((p: any) => p?.user_id).filter(Boolean))];
-       if (!participantIds.includes(user.id)) {
-           participantIds.push(user.id);
-       }
-
-      // Filter out potential null/undefined IDs before sorting
-      const validParticipantIds = participantIds.filter(id => id != null);
-
-      if (validParticipantIds.length === 2) { // Ensure it's a valid 1-on-1 pair
-        const conversationKey = validParticipantIds.sort().join('-');
-        const existingConv = deduplicatedConversationsMap.get(conversationKey);
-
-        // Keep the conversation with the latest update time
-        if (!existingConv || new Date(conv.updated_at || conv.created_at) > new Date(existingConv.updated_at || existingConv.created_at)) {
-          deduplicatedConversationsMap.set(conversationKey, conv);
-        }
-      } else {
-         // If it's not a group and doesn't have exactly 2 valid participants, treat it uniquely by ID
-         // This handles cases like conversations only with self or potential data inconsistencies
-         if (!deduplicatedConversationsMap.has(conv.id) || new Date(conv.updated_at || conv.created_at) > new Date(deduplicatedConversationsMap.get(conv.id).updated_at || deduplicatedConversationsMap.get(conv.id).created_at)) {
-             deduplicatedConversationsMap.set(conv.id, conv);
-         }
-      }
-    }
-  });
-
-  const uniqueConversations = Array.from(deduplicatedConversationsMap.values());
-
-  // Sort conversations by most recent first, prioritizing unread messages
-  const sortedConversations = [...uniqueConversations].sort((a, b) => {
-    // Prioritize unread messages (assuming 'read' refers to the *other* participant reading *your* message)
-     const aIsUnread = a.last_message && !a.last_message.read && a.last_message.sender_id !== user?.id;
-     const bIsUnread = b.last_message && !b.last_message.read && b.last_message.sender_id !== user?.id;
-
-    if (aIsUnread && !bIsUnread) return -1;
-    if (!aIsUnread && bIsUnread) return 1;
-
-    // Then sort by date (last message date or conversation update date)
-    const dateA = new Date(a.last_message?.created_at || a.updated_at || a.created_at);
-    const dateB = new Date(b.last_message?.created_at || b.updated_at || b.created_at);
-    return dateB.getTime() - dateA.getTime();
-  });
-
   return (
-    <div className="space-y-2 h-full overflow-auto">
-      {sortedConversations.map((conversation) => {
-        if (!conversation || !user) return null; // Added check for user
-
-        // Safely handle participants - Filter out the current user
-        const participants = conversation.participants || [];
-        const otherParticipants = participants.filter(
-          (p: any) => p?.user_id !== user.id // Use the authenticated user's ID
-        );
-
-        // Format the timestamp
-        let timeAgo = '';
-        try {
-          if (conversation.last_message?.created_at) {
-            timeAgo = formatDistanceToNow(new Date(conversation.last_message.created_at), { addSuffix: true });
-          } else if (conversation.updated_at) {
-            timeAgo = formatDistanceToNow(new Date(conversation.updated_at), { addSuffix: true });
-          }
-        } catch (error) {
-          console.error('Error formatting date:', error);
-          timeAgo = 'Recently';
-        }
-
-        // Calculate if there are any unread messages for the current user
-        const isUnread = conversation.last_message &&
-                         !conversation.last_message.read &&
-                         conversation.last_message.sender_id !== user.id; // Check against current user ID
-
-        // Get the first other participant's profile for display
-         // For groups, maybe show creator or just a generic group icon?
-         // For 1-on-1, show the other person.
-         let displayProfile = null;
-         let displayName = conversation.subject || 'Conversation';
-         let avatarFallback = '??';
-         let avatarUrl = null;
-
-         if (conversation.is_group) {
-             displayName = conversation.subject || `Group (${participants.length} participants)`;
-             avatarFallback = 'GP';
-             // Use a generic group avatar or maybe the creator's?
-             const creatorProfile = participants.find((p:any) => p?.user_id === conversation.created_by)?.profile;
-             avatarUrl = creatorProfile?.avatar_url; // Or a generic group icon URL
-             if (!avatarUrl) avatarFallback = getInitials(creatorProfile); // Fallback to creator initials if no group icon
-
-             // Optional: find *first* other participant for secondary avatar in group view
-             displayProfile = otherParticipants.length > 0 ? otherParticipants[0].profile : null;
-
-         } else if (otherParticipants.length > 0) {
-             displayProfile = otherParticipants[0].profile;
-             if (displayProfile) {
-                 displayName = `${displayProfile.first_name || ''} ${displayProfile.last_name || ''}`.trim() || 'Conversation';
-                 avatarUrl = displayProfile.avatar_url;
-                 avatarFallback = getInitials(displayProfile);
-             } else {
-                 // Handle case where profile might be missing for the other participant
-                 displayName = conversation.subject || 'Conversation';
-                 avatarFallback = 'U'; // Unknown user
-             }
-         } else {
-            // Conversation likely with self or data issue
-            displayName = conversation.subject || 'Notes to self'; // Or similar
-            // Use current user's avatar
-            avatarUrl = user.user_metadata?.avatar_url;
-            avatarFallback = getInitials({first_name: user.user_metadata?.name?.split(' ')[0], last_name: user.user_metadata?.name?.split(' ')[1]});
-         }
-
-
+    <div className="space-y-2">
+      {conversations.map((conversation) => {
+        const otherParticipant = getOtherParticipantAvatar(conversation);
+        const displayName = getConversationDisplayName(conversation);
+        const isActive = conversationId === conversation.id;
+        
         return (
-          <Card
-            key={conversation.id}
-            className={`hover:bg-amber-50/50 cursor-pointer transition-colors ${
-              isUnread ? 'border-amber-500 bg-amber-50/80' : ''
-            } ${
-              conversationId === conversation.id ? 'bg-amber-50 border-amber-200' : ''
+          <Card 
+            key={conversation.id} 
+            className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+              isActive ? 'ring-2 ring-blue-500 bg-blue-50' : ''
             }`}
+            onClick={() => onConversationClick?.(conversation)}
           >
-            <Link
-              to={`/messages/${conversation.id}`}
-              onClick={(e) => {
-                e.preventDefault();
-                navigate(`/messages/${conversation.id}`);
-              }}
-            >
-              <div className="p-4">
-                <div className="flex justify-between items-start gap-3">
-                  <div className="flex gap-3 items-center"> {/* Centered avatar and text */}
-                    {conversation.is_group ? (
-                      <div className="relative">
-                         <Avatar className="h-10 w-10">
-                            {/* Generic Group Icon or Creator Avatar */}
-                            <AvatarImage src={avatarUrl || "https://api.dicebear.com/6.x/initials/svg?seed=Group"} />
-                            <AvatarFallback className="bg-amber-100 text-amber-800">{avatarFallback}</AvatarFallback>
-                          </Avatar>
-                          {/* Optional: Small avatar for first other participant */}
-                          {displayProfile && (
-                            <Avatar className="h-6 w-6 absolute -bottom-1 -right-1 border-2 border-background">
-                              <AvatarImage src={displayProfile.avatar_url} />
-                              <AvatarFallback className="bg-amber-200 text-amber-800 text-xs">
-                                {getInitials(displayProfile)}
-                              </AvatarFallback>
-                            </Avatar>
-                           )}
-                      </div>
-                    ) : (
-                       <Avatar className="h-10 w-10">
-                         <AvatarImage src={avatarUrl} />
-                         <AvatarFallback className="bg-amber-100 text-amber-800">
-                           {avatarFallback}
-                         </AvatarFallback>
-                       </Avatar>
-                    )}
-                    <div className="space-y-1">
-                      <p className={`font-medium line-clamp-1 text-gray-800 ${isUnread ? 'font-semibold' : ''}`}>
-                         {displayName}
-                      </p>
-                      <p className={`text-sm text-gray-600 line-clamp-1 ${isUnread ? 'font-medium' : ''}`}>
-                        {conversation.last_message?.content || 'Start a conversation'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end shrink-0"> {/* Prevent shrinking */}
-                    <span className="text-xs text-gray-500 whitespace-nowrap">{timeAgo}</span> {/* Prevent wrapping */}
-                    {isUnread && (
-                      <span className="bg-amber-500 text-white text-xs rounded-full px-2 py-0.5 mt-1">
-                        New
-                      </span>
-                    )}
-                  </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3 flex-1">
+                <Avatar className="h-10 w-10">
+                  <AvatarImage src={otherParticipant?.avatar_url || ''} />
+                  <AvatarFallback>{getInitials(otherParticipant)}</AvatarFallback>
+                </Avatar>
+                
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-sm text-gray-900 truncate">
+                    {displayName}
+                  </h3>
+                  
+                  {conversation.last_message && (
+                    <p className="text-sm text-gray-500 truncate mt-1">
+                      {conversation.last_message.content}
+                    </p>
+                  )}
+                  
+                  {!conversation.last_message && (
+                    <p className="text-sm text-gray-400 italic">No messages yet</p>
+                  )}
                 </div>
               </div>
-            </Link>
+
+              <div className="flex items-center space-x-2">
+                {conversation.last_message && (
+                  <span className="text-xs text-gray-400">
+                    {formatDistanceToNow(new Date(conversation.last_message.created_at), { 
+                      addSuffix: true 
+                    })}
+                  </span>
+                )}
+                
+                {actions && actions(conversation)}
+              </div>
+            </div>
           </Card>
         );
       })}
