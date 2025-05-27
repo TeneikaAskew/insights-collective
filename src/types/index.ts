@@ -1,3 +1,4 @@
+
 // Course interface with all required properties
 export interface Course {
   id: string;
@@ -15,6 +16,7 @@ export interface Course {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  learning_objectives?: string[];
   
   // Adding missing properties used across the application
   instructor?: {
@@ -24,6 +26,7 @@ export interface Course {
     lastName?: string;
     email?: string;
     avatar?: string;
+    bio?: string;
   };
   enrollmentCount?: number;
   modules?: Module[];
@@ -69,6 +72,7 @@ export interface Module {
   title: string;
   description: string;
   week: number;
+  duration?: number;
   completionStatus?: number;
   lessons?: Lesson[];
   assignments?: Assignment[];

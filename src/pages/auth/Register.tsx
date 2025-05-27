@@ -77,7 +77,7 @@ const Register = () => {
     console.log('[handleUserRegister] Registering with email:', email);
     try {
       setLoading(true);
-      await register(email, password, firstName, lastName);
+      await register(email, password, `${firstName} ${lastName}`);
     } catch (error: any) {
       console.error('[handleUserRegister] Registration error:', error);
       setError(error.message);
