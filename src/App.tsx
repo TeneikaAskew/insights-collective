@@ -6,6 +6,7 @@ import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from '@/components/ui/toaster';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { PageVisibilityProvider } from '@/contexts/PageVisibilityContext';
+import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import Index from '@/pages/Index';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
