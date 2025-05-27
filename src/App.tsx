@@ -38,7 +38,6 @@ const CourseList = React.lazy(() => import('@/pages/CourseList'));
 const CourseDetail = React.lazy(() => import('@/pages/CourseDetail'));
 const Events = React.lazy(() => import('@/pages/Events'));
 const Messages = React.lazy(() => import('@/pages/Messages'));
-const ConversationDetail = React.lazy(() => import('@/pages/ConversationDetail'));
 const Assistants = React.lazy(() => import('@/pages/Assistants'));
 const DataBlueprint = React.lazy(() => import('@/pages/DataBlueprint'));
 const NotFound = React.lazy(() => import('@/pages/NotFound'));
@@ -95,7 +94,6 @@ function App() {
                     <Route path="/events" element={<Events />} />
                     <Route path="/forums" element={<ForumList />} />
                     <Route path="/messages" element={<Messages />} />
-                    <Route path="/messages/conversation/:conversationId" element={<ConversationDetail />} />
                     <Route path="/assistants" element={<Assistants />} />
                     <Route path="/data-blueprint" element={<DataBlueprint />} />
                     <Route path="/login" element={<Login />} />
