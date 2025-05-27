@@ -123,24 +123,30 @@ export type Database = {
           answer: string
           created_at: string
           id: string
+          is_reset: boolean | null
           question: string
           session_id: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
           answer: string
           created_at?: string
           id?: string
+          is_reset?: boolean | null
           question: string
           session_id: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
           answer?: string
           created_at?: string
           id?: string
+          is_reset?: boolean | null
           question?: string
           session_id?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: []
@@ -327,19 +333,25 @@ export type Database = {
       conversation_participants: {
         Row: {
           added_at: string | null
+          archived: boolean | null
           conversation_id: string | null
+          deleted_at: string | null
           id: string
           user_id: string | null
         }
         Insert: {
           added_at?: string | null
+          archived?: boolean | null
           conversation_id?: string | null
+          deleted_at?: string | null
           id?: string
           user_id?: string | null
         }
         Update: {
           added_at?: string | null
+          archived?: boolean | null
           conversation_id?: string | null
+          deleted_at?: string | null
           id?: string
           user_id?: string | null
         }
@@ -1853,6 +1865,12 @@ export type Database = {
       delete_resume_records: {
         Args: { user_id_param: string; problem_id_param: string }
         Returns: undefined
+      }
+      find_one_on_one_conversation: {
+        Args: { user1_id: string; user2_id: string }
+        Returns: {
+          conversation_id: string
+        }[]
       }
       generate_initial_assistant_message: {
         Args: { quiz_attempt_id: string }
