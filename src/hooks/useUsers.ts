@@ -14,7 +14,7 @@ export function useUsers() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (searchQuery.trim().length < 2) {
+    if (searchQuery.trim().length < 1) {
       setUsers([]);
       return;
     }
@@ -22,25 +22,30 @@ export function useUsers() {
     const searchUsers = async () => {
       setLoading(true);
       try {
+        console.log('[useUsers] Searching for users with query:', searchQuery);
+        
         const { data, error } = await supabase
           .from('profiles')
           .select('id, first_name, last_name, avatar_url, role, bio, roles')
           .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`)
-          .limit(20);
+          .limit(50);
 
         if (error) throw error;
+
+        console.log('[useUsers] Raw user data received:', data?.length || 0, 'users');
 
         // Transform the data to match Profile type, providing defaults for missing fields
         const transformedData: Profile[] = (data || []).map(user => ({
           id: user.id,
-          first_name: user.first_name,
-          last_name: user.last_name,
+          first_name: user.first_name || '',
+          last_name: user.last_name || '',
           avatar_url: user.avatar_url,
-          role: user.role,
+          role: user.role || 'student',
           bio: user.bio || '',
           roles: user.roles || ['student']
         }));
 
+        console.log('[useUsers] Transformed user data:', transformedData.length, 'users');
         setUsers(transformedData);
       } catch (error) {
         console.error('Error searching users:', error);
@@ -59,6 +64,7 @@ export function useUsers() {
   }, [searchQuery, toast]);
 
   const updateSearchQuery = (query: string) => {
+    console.log('[useUsers] Updating search query to:', query);
     setSearchQuery(query);
   };
 
