@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Search, Edit, Trash2, Plus, FilterX } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,6 +29,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import CourseEditModal from '@/components/course/CourseEditModal';
+import { mockService } from '@/lib/mockData';
 
 const mockCourses = [
   {
@@ -109,7 +111,28 @@ export default function AdminCourses() {
   const [publishedFilter, setPublishedFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [courseToEdit, setCourseToEdit] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState('courses');
+  const [enrollmentSearchTerm, setEnrollmentSearchTerm] = useState('');
   const { toast } = useToast();
+
+  // Create mock enrollments data for the enrollments tab
+  const users = mockService.getAllUsers();
+  const enrollments = users.flatMap(user => 
+    (user.enrolledCourses || []).map(courseId => {
+      const course = courses.find(c => c.id === courseId);
+      return {
+        id: `${user.id}-${courseId}`,
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        courseId,
+        courseTitle: course?.title || 'Unknown Course',
+        enrollmentDate: new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
+        progress: Math.floor(Math.random() * 101),
+        status: Math.random() > 0.3 ? 'Active' : (Math.random() > 0.5 ? 'Completed' : 'On Hold')
+      };
+    })
+  );
 
   const handleEditCourse = (course: any) => {
     setCourseToEdit(course);
@@ -169,6 +192,11 @@ export default function AdminCourses() {
     return matchesSearch && matchesCategory && matchesPublished;
   });
 
+  const filteredEnrollments = enrollments.filter(enrollment => 
+    enrollment.userName.toLowerCase().includes(enrollmentSearchTerm.toLowerCase()) || 
+    enrollment.courseTitle.toLowerCase().includes(enrollmentSearchTerm.toLowerCase())
+  );
+
   const clearFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
@@ -180,9 +208,9 @@ export default function AdminCourses() {
       <div className="space-y-8">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Manage Courses</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Manage Courses & Enrollments</h1>
             <p className="text-muted-foreground mt-2">
-              Create, edit, and manage your educational courses.
+              Create, edit, and manage your educational courses and track student enrollments.
             </p>
           </div>
           <Button onClick={handleAddCourse} className="bg-insightBlue hover:bg-insightBlue/90">
@@ -197,7 +225,17 @@ export default function AdminCourses() {
           course={courseToEdit}
         />
 
-        <Card>
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="mb-6">
+            <TabsTrigger value="courses">Courses</TabsTrigger>
+            <TabsTrigger value="enrollments">
+              <Users className="mr-2 h-4 w-4" />
+              Enrollments
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="courses">
+            <Card>
           <CardHeader>
             <CardTitle>Courses</CardTitle>
             <CardDescription>
@@ -364,6 +402,106 @@ export default function AdminCourses() {
             </div>
           </CardContent>
         </Card>
+          </TabsContent>
+
+          <TabsContent value="enrollments">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Student Enrollments
+                </CardTitle>
+                <CardDescription>
+                  View and manage all student enrollments across courses.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        placeholder="Search enrollments by student or course..."
+                        className="pl-8"
+                        value={enrollmentSearchTerm}
+                        onChange={(e) => setEnrollmentSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filter
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Student Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Course</TableHead>
+                          <TableHead>Enrollment Date</TableHead>
+                          <TableHead>Progress</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredEnrollments.length > 0 ? (
+                          filteredEnrollments.map((enrollment) => (
+                            <TableRow key={enrollment.id}>
+                              <TableCell className="font-medium">{enrollment.userName}</TableCell>
+                              <TableCell>{enrollment.userEmail}</TableCell>
+                              <TableCell>{enrollment.courseTitle}</TableCell>
+                              <TableCell>{new Date(enrollment.enrollmentDate).toLocaleDateString()}</TableCell>
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <div className="bg-slate-200 h-2 w-24 rounded-full overflow-hidden">
+                                    <div 
+                                      className="bg-primary h-full" 
+                                      style={{ width: `${enrollment.progress}%` }}
+                                    ></div>
+                                  </div>
+                                  <span className="text-xs">{enrollment.progress}%</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <Badge variant={
+                                  enrollment.status === 'Active' ? 'outline' :
+                                  enrollment.status === 'Completed' ? 'default' : 'secondary'
+                                }>
+                                  {enrollment.status}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="sm">
+                                  View Details
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={7} className="h-24 text-center">
+                              No enrollments found.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
