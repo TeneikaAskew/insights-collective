@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message } from '@/types/supabase'; // Import Conversation and Message types
 
@@ -87,340 +88,260 @@ export const fetchDeletedUserConversations = async (userId: string): Promise<Con
    }
   try {
     console.log('[fetchDeletedUserConversations] Invoking messages-helper with action: getDeletedConversations');
-    // Destructure only data and error
     const { data, error } = await supabase.functions.invoke('messages-helper', {
-      body: { action: 'getDeletedConversations', userId }, // Use new action
+      body: { action: 'getDeletedConversations', userId },
     });
 
-     // Check for invocation errors first
     if (error) {
       console.error('[fetchDeletedUserConversations] Edge function invocation error:', error);
       throw new Error(error.message || 'Failed to invoke messages-helper');
     }
 
-     // Check if the function returned an error structure within its data payload
-     if (data?.error) {
-       console.error('[fetchDeletedUserConversations] Edge function returned error message:', data.error);
-       throw new Error(data.error || 'Edge function failed');
-     }
+    if (data?.error) {
+      console.error('[fetchDeletedUserConversations] Edge function returned error message:', data.error);
+      throw new Error(data.error || 'Edge function failed');
+    }
 
-    console.log('[fetchDeletedUserConversations] Deleted conversations fetched:', data?.conversations?.length || 0); // Log count
-
-    return (data?.conversations as Conversation[]) || []; // Cast to Conversation[]
+    console.log('[fetchDeletedUserConversations] Deleted conversations fetched:', data?.conversations?.length || 0);
+    return (data?.conversations as Conversation[]) || [];
   } catch (error) {
     console.error('[fetchDeletedUserConversations] Unexpected error:', error);
-     throw error instanceof Error ? error : new Error('An unknown error occurred while fetching deleted conversations.');
+    throw error instanceof Error ? error : new Error('An unknown error occurred while fetching deleted conversations.');
   }
 };
 
 /**
  * Create a new conversation
  */
-export const createConversation = async (subject: string, participantIds: string[], currentUserId: string) => {
-  const { data: conversation, error: conversationError } = await supabase
-    .from('conversations')
-    .insert({
-      subject,
-      is_group: participantIds.length > 1,
-      created_by: currentUserId
-    })
-    .select()
-    .single();
+export const createNewConversation = async (subject: string, recipientIds: string[]): Promise<string | null> => {
+  console.log('[createNewConversation] Creating conversation with subject:', subject);
+  console.log('[createNewConversation] Recipients:', recipientIds);
   
-  if (conversationError) {
-    console.error('Error creating conversation:', conversationError);
-    throw conversationError;
-  }
-  
-  // Add all participants including the creator
-  const allParticipantIds = [...new Set([...participantIds, currentUserId])];
-  
-  const participants = allParticipantIds.map(userId => ({
-    conversation_id: conversation.id,
-    user_id: userId
-  }));
-  
-  const { error: participantsError } = await supabase
-    .from('conversation_participants')
-    .insert(participants);
-  
-  if (participantsError) {
-    console.error('Error adding participants:', participantsError);
-    throw participantsError;
-  }
-  
-  return conversation;
-};
-
-/**
- * Wrapper function for createConversation that matches the expected interface in useConversationCreate.ts
- */
-export const createNewConversation = async (subject: string, participantIds: string[]) => {
   try {
-    // Get the current user
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      throw new Error('No authenticated user found');
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { 
+        action: 'createConversation', 
+        subject, 
+        recipientIds 
+      },
+    });
+
+    if (error) {
+      console.error('[createNewConversation] Edge function invocation error:', error);
+      throw new Error(error.message || 'Failed to create conversation');
     }
-    
-    const conversation = await createConversation(subject, participantIds, user.id);
-    return conversation.id;
+
+    if (data?.error) {
+      console.error('[createNewConversation] Edge function returned error:', data.error);
+      throw new Error(data.error || 'Failed to create conversation');
+    }
+
+    console.log('[createNewConversation] Successfully created conversation:', data?.conversationId);
+    return data?.conversationId || null;
   } catch (error) {
-    console.error('Error in createNewConversation:', error);
-    throw error;
+    console.error('[createNewConversation] Unexpected error:', error);
+    throw error instanceof Error ? error : new Error('An unknown error occurred while creating conversation.');
   }
 };
 
 /**
  * Get or create a one-on-one conversation between two users
  */
-export const getOrCreateOneOnOneConversation = async (currentUserId: string, otherUserId: string) => {
+export const getOrCreateOneOnOneConversation = async (currentUserId: string, otherUserId: string): Promise<string | null> => {
+  console.log('[getOrCreateOneOnOneConversation] Checking for existing conversation between:', currentUserId, 'and', otherUserId);
+  
   try {
-    console.log('Checking for existing conversation between', currentUserId, 'and', otherUserId);
-    
-    // First, check if there's already a one-on-one conversation between these users
+    // First check if a one-on-one conversation already exists
     const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { 
-        action: 'checkOneOnOneConversation',
-        currentUserId,
-        otherUserId
+        action: 'checkOneOnOneConversation', 
+        currentUserId, 
+        otherUserId 
       },
     });
-    
+
     if (error) {
-      console.error('Error checking for existing conversations:', error);
-      throw error;
+      console.error('[getOrCreateOneOnOneConversation] Edge function invocation error:', error);
+      throw new Error(error.message || 'Failed to check existing conversation');
     }
-    
-    // If a conversation exists, return its ID
-    if (data?.conversation?.id) {
-      console.log('Found existing conversation:', data.conversation.id);
-      return data.conversation.id;
+
+    if (data?.error) {
+      console.error('[getOrCreateOneOnOneConversation] Edge function returned error:', data.error);
+      throw new Error(data.error || 'Failed to check existing conversation');
     }
-    
-    // Otherwise, create a new one-on-one conversation
-    console.log('No existing conversation found, creating new one');
-    const otherUser = await supabase
-      .from('profiles')
-      .select('first_name, last_name')
-      .eq('id', otherUserId)
-      .single();
-      
-    if (otherUser.error) {
-      throw otherUser.error;
+
+    if (data?.conversationId) {
+      console.log('[getOrCreateOneOnOneConversation] Found existing conversation:', data.conversationId);
+      return data.conversationId;
     }
-    
-    const subject = `Chat with ${otherUser.data.first_name} ${otherUser.data.last_name}`;
-    const conversation = await createConversation(subject, [otherUserId], currentUserId);
-    
-    console.log('Created new conversation:', conversation.id);
-    return conversation.id;
+
+    // If no existing conversation, create a new one
+    console.log('[getOrCreateOneOnOneConversation] No existing conversation found, creating new one');
+    return await createNewConversation('', [otherUserId]);
   } catch (error) {
-    console.error('Error in getOrCreateOneOnOneConversation:', error);
-    throw error;
+    console.error('[getOrCreateOneOnOneConversation] Unexpected error:', error);
+    throw error instanceof Error ? error : new Error('An unknown error occurred while getting or creating conversation.');
   }
 };
 
 /**
- * Fetch messages for a specific conversation
+ * Send a message in a conversation
  */
-export const fetchMessages = async (conversationId: string): Promise<Message[]> => { // Added return type
+export const sendConversationMessage = async (senderId: string, conversationId: string, content: string, attachmentUrl?: string): Promise<void> => {
+  console.log('[sendConversationMessage] Sending message in conversation:', conversationId);
+  
   try {
     const { data, error } = await supabase.functions.invoke('messages-helper', {
-      body: { action: 'getMessages', conversationId },
-    });
-
-    if (error) {
-       console.error('[fetchMessages] Edge function invocation error:', error);
-       throw new Error(error.message || 'Failed to invoke messages-helper');
-    }
-     if (data?.error) {
-         console.error('[fetchMessages] Edge function returned error message:', data.error);
-         throw new Error(data.error || 'Edge function failed');
-     }
-
-    return (data?.messages as Message[]) || []; // Cast to Message[]
-  } catch (error) {
-    console.error('Error fetching messages:', error);
-    throw error;
-  }
-};
-
-/**
- * Send a new message in a conversation
- */
-export const sendMessage = async (conversationId: string, content: string, senderId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: conversationId,
+      body: { 
+        action: 'sendMessage', 
+        senderId,
+        conversationId, 
         content,
-        sender_id: senderId
-      })
-      .select()
-      .single();
-    
-    if (error) throw error;
-    
-    // Update the conversation's updated_at timestamp
-    await supabase
-      .from('conversations')
-      .update({ updated_at: new Date().toISOString() })
-      .eq('id', conversationId);
-    
-    return data;
-  } catch (error) {
-    console.error('Error sending message:', error);
-    throw error;
-  }
-};
-
-/**
- * Wrapper for sendMessage that matches the expected interface in useMessageSend.ts
- */
-export const sendConversationMessage = async (senderId: string, conversationId: string, content: string, attachmentUrl?: string) => {
-  return sendMessage(conversationId, content, senderId);
-};
-
-/**
- * Helper function to update conversation properties using the Edge Function
- */
-const updateConversationViaEdgeFunction = async (conversationId: string, userId: string, updates: any) => {
-   console.log(`[updateConversationViaEdgeFunction] Attempting update for conv ${conversationId}, user ${userId}`, updates);
-   if (!userId || !conversationId) {
-     console.error('[updateConversationViaEdgeFunction] Error: userId or conversationId is missing.');
-     throw new Error('User ID and Conversation ID are required.');
-   }
-  try {
-    console.log('[updateConversationViaEdgeFunction] Invoking messages-helper with action: updateConversation');
-    // Destructure only data and error
-    const { data, error } = await supabase.functions.invoke('messages-helper', {
-      body: {
-        action: 'updateConversation',
-        conversationId,
-        userId,
-        updates
+        attachmentUrl 
       },
     });
 
-     // Check for invocation errors first
     if (error) {
-       console.error('[updateConversationViaEdgeFunction] Edge function invocation error:', error);
-      throw new Error(error.message || 'Failed to invoke messages-helper');
+      console.error('[sendConversationMessage] Edge function invocation error:', error);
+      throw new Error(error.message || 'Failed to send message');
     }
 
-     // Check if the function returned an error structure within its data payload
-     if (data?.error) {
-       console.error('[updateConversationViaEdgeFunction] Edge function returned error message:', data.error);
-       throw new Error(data.error || `Edge function failed`);
-     }
-
-     // Log warning if the update didn't return data (might indicate RLS issue or non-existent convo)
-     // Note: The edge function might return null even on success if no conversation matched
-     if (!data?.conversation) {
-       console.warn(`[updateConversationViaEdgeFunction] Update for conv ${conversationId} might have failed or returned no data. Check if conversation exists and user has permissions.`);
-     } else {
-        console.log(`[updateConversationViaEdgeFunction] Successfully updated conv ${conversationId}.`);
-     }
-
-    return data?.conversation || null; // Return null if no conversation was updated/returned
-  } catch (error) {
-    console.error('[updateConversationViaEdgeFunction] Unexpected error:', error);
-    throw error instanceof Error ? error : new Error('An unknown error occurred while updating conversation.');
-  }
-};
-
-/**
- * Archive or unarchive a conversation
- */
-export const updateConversationArchiveStatus = async (conversationId: string, archived: boolean) => {
-  console.log(`[updateConversationArchiveStatus] Setting archived=${archived} for conv ${conversationId}`);
-  try {
-    // Get the current user ID
-    const { data: { user } } = await supabase.auth.getUser();
-
-    if (!user) {
-      console.error('[updateConversationArchiveStatus] Error: No authenticated user found');
-      throw new Error('No authenticated user found');
+    if (data?.error) {
+      console.error('[sendConversationMessage] Edge function returned error:', data.error);
+      throw new Error(data.error || 'Failed to send message');
     }
 
-    return await updateConversationViaEdgeFunction(conversationId, user.id, { archived });
+    console.log('[sendConversationMessage] Message sent successfully');
   } catch (error) {
-    console.error('[updateConversationArchiveStatus] Error:', error);
-    throw error; // Re-throw original error
+    console.error('[sendConversationMessage] Unexpected error:', error);
+    throw error instanceof Error ? error : new Error('An unknown error occurred while sending message.');
   }
 };
 
 /**
- * Archive a conversation - wrapper function for updateConversationArchiveStatus
+ * Archive a conversation for a user
  */
-export const archiveConversation = async (conversationId: string, userId: string) => {
-   console.log(`[archiveConversation] User ${userId} archiving conv ${conversationId}`);
-   if (!userId || !conversationId) {
-     console.error('[archiveConversation] Error: userId or conversationId missing.');
-     throw new Error('User ID and Conversation ID are required.');
-   }
+export const archiveConversation = async (conversationId: string, userId: string): Promise<void> => {
+  console.log('[archiveConversation] Archiving conversation:', conversationId, 'for user:', userId);
+  
   try {
-    // The edge function now handles permission checks internally based on the passed userId
-    return updateConversationViaEdgeFunction(conversationId, userId, { archived: true });
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { 
+        action: 'archiveConversation', 
+        conversationId, 
+        userId 
+      },
+    });
+
+    if (error) {
+      console.error('[archiveConversation] Edge function invocation error:', error);
+      throw new Error(error.message || 'Failed to archive conversation');
+    }
+
+    if (data?.error) {
+      console.error('[archiveConversation] Edge function returned error:', data.error);
+      throw new Error(data.error || 'Failed to archive conversation');
+    }
+
+    console.log('[archiveConversation] Conversation archived successfully');
   } catch (error) {
-    console.error('[archiveConversation] Error:', error);
-    throw error;
+    console.error('[archiveConversation] Unexpected error:', error);
+    throw error instanceof Error ? error : new Error('An unknown error occurred while archiving conversation.');
   }
 };
 
 /**
- * Unarchive a conversation - wrapper function for updateConversationArchiveStatus
+ * Unarchive a conversation for a user
  */
-export const unarchiveConversation = async (conversationId: string, userId: string) => {
-   console.log(`[unarchiveConversation] User ${userId} unarchiving conv ${conversationId}`);
-    if (!userId || !conversationId) {
-     console.error('[unarchiveConversation] Error: userId or conversationId missing.');
-     throw new Error('User ID and Conversation ID are required.');
-   }
+export const unarchiveConversation = async (conversationId: string, userId: string): Promise<void> => {
+  console.log('[unarchiveConversation] Unarchiving conversation:', conversationId, 'for user:', userId);
+  
   try {
-     // The edge function handles permission checks
-    return updateConversationViaEdgeFunction(conversationId, userId, { archived: false });
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { 
+        action: 'unarchiveConversation', 
+        conversationId, 
+        userId 
+      },
+    });
+
+    if (error) {
+      console.error('[unarchiveConversation] Edge function invocation error:', error);
+      throw new Error(error.message || 'Failed to unarchive conversation');
+    }
+
+    if (data?.error) {
+      console.error('[unarchiveConversation] Edge function returned error:', data.error);
+      throw new Error(data.error || 'Failed to unarchive conversation');
+    }
+
+    console.log('[unarchiveConversation] Conversation unarchived successfully');
   } catch (error) {
-    console.error('[unarchiveConversation] Error:', error);
-    throw error;
+    console.error('[unarchiveConversation] Unexpected error:', error);
+    throw error instanceof Error ? error : new Error('An unknown error occurred while unarchiving conversation.');
   }
 };
 
 /**
-* Delete a conversation (sets deleted_at) - New Function
-*/
-export const deleteConversation = async (conversationId: string, userId: string) => {
-  console.log(`[deleteConversation] User ${userId} deleting conv ${conversationId}`);
-   if (!userId || !conversationId) {
-     console.error('[deleteConversation] Error: userId or conversationId missing.');
-     throw new Error('User ID and Conversation ID are required.');
-   }
+ * Delete a conversation for a user
+ */
+export const deleteConversation = async (conversationId: string, userId: string): Promise<void> => {
+  console.log('[deleteConversation] Deleting conversation:', conversationId, 'for user:', userId);
+  
   try {
-    // The edge function handles permission checks
-    return updateConversationViaEdgeFunction(conversationId, userId, { deleted_at: new Date().toISOString() });
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { 
+        action: 'deleteConversation', 
+        conversationId, 
+        userId 
+      },
+    });
+
+    if (error) {
+      console.error('[deleteConversation] Edge function invocation error:', error);
+      throw new Error(error.message || 'Failed to delete conversation');
+    }
+
+    if (data?.error) {
+      console.error('[deleteConversation] Edge function returned error:', data.error);
+      throw new Error(data.error || 'Failed to delete conversation');
+    }
+
+    console.log('[deleteConversation] Conversation deleted successfully');
   } catch (error) {
-    console.error('[deleteConversation] Error:', error);
-    throw error;
+    console.error('[deleteConversation] Unexpected error:', error);
+    throw error instanceof Error ? error : new Error('An unknown error occurred while deleting conversation.');
   }
 };
 
 /**
-* Restore a conversation (sets deleted_at to null) - New Function
-*/
-export const restoreConversation = async (conversationId: string, userId: string) => {
-   console.log(`[restoreConversation] User ${userId} restoring conv ${conversationId}`);
-    if (!userId || !conversationId) {
-     console.error('[restoreConversation] Error: userId or conversationId missing.');
-     throw new Error('User ID and Conversation ID are required.');
-   }
+ * Restore a deleted conversation for a user
+ */
+export const restoreConversation = async (conversationId: string, userId: string): Promise<void> => {
+  console.log('[restoreConversation] Restoring conversation:', conversationId, 'for user:', userId);
+  
   try {
-    // The edge function handles permission checks
-    return updateConversationViaEdgeFunction(conversationId, userId, { deleted_at: null });
+    const { data, error } = await supabase.functions.invoke('messages-helper', {
+      body: { 
+        action: 'restoreConversation', 
+        conversationId, 
+        userId 
+      },
+    });
+
+    if (error) {
+      console.error('[restoreConversation] Edge function invocation error:', error);
+      throw new Error(error.message || 'Failed to restore conversation');
+    }
+
+    if (data?.error) {
+      console.error('[restoreConversation] Edge function returned error:', data.error);
+      throw new Error(data.error || 'Failed to restore conversation');
+    }
+
+    console.log('[restoreConversation] Conversation restored successfully');
   } catch (error) {
-    console.error('[restoreConversation] Error:', error);
-    throw error;
+    console.error('[restoreConversation] Unexpected error:', error);
+    throw error instanceof Error ? error : new Error('An unknown error occurred while restoring conversation.');
   }
 };

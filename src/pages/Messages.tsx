@@ -1,394 +1,224 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MessageSquare, Send, Search, Inbox, Archive, Trash2, ArchiveRestore, Undo2 } from 'lucide-react';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useToast } from '@/hooks/use-toast';
+import { Send, ArrowLeft } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import AppLayout from '@/components/layout/AppLayout';
-import LoginWall from '@/components/common/LoginWall';
+import { useToast } from '@/hooks/use-toast';
 import ConversationList from '@/components/messages/ConversationList';
 import MessageThread from '@/components/messages/MessageThread';
+import MessageActions from '@/components/messages/MessageActions';
+import { NewConversationButton } from '@/components/messages/NewConversationButton';
 import { useConversationList } from '@/hooks/useConversationList';
 import { useArchivedConversations } from '@/hooks/useArchivedConversations';
 import { useDeletedConversations } from '@/hooks/useDeletedConversations';
 import { useConversationMessages } from '@/hooks/useConversationMessages';
 import { useMessageSend } from '@/hooks/useMessageSend';
-import { NewConversationButton } from '@/components/messages/NewConversationButton';
-import MessageSuggestions from '@/components/messages/MessageSuggestions';
-import MessageActions from '@/components/messages/MessageActions';
-import { Conversation } from '@/types/supabase';
 
-const Messages = () => {
+export default function Messages() {
   const { conversationId } = useParams();
-  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
-  // Determine initial tab based on URL or default to inbox
-  const [activeTab, setActiveTab] = useState('inbox'); // Default to inbox
-  const [messageContent, setMessageContent] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [newMessage, setNewMessage] = useState('');
+  const [activeTab, setActiveTab] = useState('inbox');
 
-  // Use dedicated hooks for different conversation types
-  // Get refreshConversations from useConversationList
-  const { conversations: inboxConversations, loading: loadingInbox, error: inboxError, refreshConversations: refreshInbox } = useConversationList();
-  const { conversations: archivedConversations, loading: loadingArchived, refreshConversations: refreshArchived } = useArchivedConversations();
-  const { conversations: deletedConversations, loading: loadingDeleted, refreshConversations: refreshDeleted } = useDeletedConversations();
-  const { sendMessage } = useMessageSend();
-  
-  const { messages, loading: loadingMessages } = useConversationMessages(conversationId);
+  // Hooks for different conversation types
+  const { conversations: inboxConversations, loading: inboxLoading, error: inboxError, refreshConversations: refreshInbox } = useConversationList();
+  const { conversations: archivedConversations, loading: archivedLoading, error: archivedError, refreshConversations: refreshArchived } = useArchivedConversations();
+  const { conversations: deletedConversations, loading: deletedLoading, error: deletedError, refreshConversations: refreshDeleted } = useDeletedConversations();
 
-  // If we encounter an authentication error, show a toast and navigate to login
-  useEffect(() => {
-    if (inboxError?.message?.includes('JWT')) {
-      toast({
-        title: 'Authentication Error',
-        description: 'Please sign in to access your messages',
-        variant: 'destructive',
-      });
-      navigate('/login?redirect=/messages');
-    }
-  }, [inboxError, toast, navigate]);
+  // Hooks for individual conversation
+  const { messages, loading: messagesLoading } = useConversationMessages(conversationId);
+  const { sendMessage, sending } = useMessageSend();
 
-  const handleSendMessage = async () => {
-    if (!messageContent.trim() || !conversationId || !user) return;
+  // Handle conversation selection
+  const handleConversationSelect = (convId: string) => {
+    navigate(`/messages/${convId}`);
+  };
 
-    const success = await sendMessage(conversationId, messageContent);
+  // Handle sending a new message
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !conversationId || !user) return;
 
+    const success = await sendMessage(conversationId, newMessage.trim());
     if (success) {
-      setMessageContent('');
-      toast({
-        title: 'Message sent',
-        description: 'Your message has been sent successfully',
-      });
-    } else {
-      toast({
-        title: 'Error',
-        description: 'Failed to send message.',
-        variant: 'destructive',
-      });
+      setNewMessage('');
     }
   };
 
-  const handleSuggestedMessage = (message: string) => {
-    setMessageContent(message);
-  };
-
-  // Filter conversations based on search query
-  const filterConversations = (conversationList: Conversation[] | undefined): Conversation[] => {
-    if (!searchQuery) return conversationList || [];
-
-    const searchLower = searchQuery.toLowerCase();
-
-    return (conversationList || []).filter(conv => {
-      if (conv.subject?.toLowerCase().includes(searchLower)) return true;
-
-      const hasMatchingParticipant = conv.participants?.some(p =>
-        p.profile?.first_name?.toLowerCase().includes(searchLower) ||
-        p.profile?.last_name?.toLowerCase().includes(searchLower)
-      );
-      if (hasMatchingParticipant) return true;
-
-      if (conv.last_message?.content?.toLowerCase().includes(searchLower)) return true;
-
-      return false;
-    });
-  };
-
-  // Handler for successful actions
-  const handleActionSuccess = (actionType: 'archive' | 'unarchive' | 'delete' | 'restore') => {
-    // Navigate back to messages list view
-    navigate('/messages');
-
-    // Refresh appropriate conversation lists based on action
-    // Always refresh the inbox
-    console.log('[Messages] Action success, refreshing inbox...');
-    refreshInbox();
-
-    if (actionType === 'archive' || actionType === 'unarchive' || actionType === 'restore') {
-       console.log('[Messages] Action success, refreshing archived...');
-      refreshArchived(); // Refresh archived if archiving, unarchiving, or restoring
+  // Handle conversation actions
+  const handleConversationAction = (actionType: 'archive' | 'unarchive' | 'delete' | 'restore') => {
+    // Refresh the appropriate conversation list
+    switch (actionType) {
+      case 'archive':
+        refreshInbox();
+        refreshArchived();
+        break;
+      case 'unarchive':
+        refreshArchived();
+        refreshInbox();
+        break;
+      case 'delete':
+        refreshInbox();
+        refreshArchived();
+        refreshDeleted();
+        break;
+      case 'restore':
+        refreshDeleted();
+        refreshInbox();
+        break;
     }
-    if (actionType === 'delete' || actionType === 'restore') {
-       console.log('[Messages] Action success, refreshing deleted...');
-      refreshDeleted(); // Refresh deleted if deleting or restoring
-    }
-
-    toast({
-      title: 'Success',
-      description: `Conversation ${actionType}d.`,
-    });
-  };
-
-  // Get filtered conversations for each tab
-  const filteredInboxConversations = filterConversations(inboxConversations);
-  const filteredArchivedConversations = filterConversations(archivedConversations);
-  const filteredDeletedConversations = filterConversations(deletedConversations);
-
-  // Determine if the current conversation belongs to *any* of the lists for initial tab setting
-   useEffect(() => {
-     if (conversationId) {
-       const isInArchivedInitial = archivedConversations?.some(c => c.id === conversationId);
-       const isInDeletedInitial = deletedConversations?.some(c => c.id === conversationId);
-       // Default to inbox if not found elsewhere or if no conversationId
-       if (isInDeletedInitial) {
-         setActiveTab('deleted');
-       } else if (isInArchivedInitial) {
-         setActiveTab('archived');
-       } else {
-          // This could be inbox or a conversation not yet loaded/filtered
-          // Let's default to inbox and rely on user interaction or explicit navigation
-          // Keep the default or previously set activeTab unless found elsewhere
-       }
-     } else {
-        setActiveTab('inbox'); // Reset to inbox if no conversation ID
-     }
-     // Run only when conversationId or the initial lists change
-   }, [conversationId, archivedConversations, deletedConversations]);
-
-  // Check if the current conversation *should* be displayed in the active tab's list
-  // This is used for conditional rendering of the thread view
-  const isCurrentConversationInActiveTabList = () => {
-    if (!conversationId) return false;
-    switch(activeTab) {
-      case 'inbox':
-        return inboxConversations?.some(c => c.id === conversationId);
-      case 'archived':
-        return archivedConversations?.some(c => c.id === conversationId);
-      case 'deleted':
-        return deletedConversations?.some(c => c.id === conversationId);
-      default:
-        return false;
+    
+    // Navigate back to messages list if we're viewing the affected conversation
+    if (conversationId) {
+      navigate('/messages');
     }
   };
 
-  if (!isAuthenticated) {
-    return <LoginWall 
-      message="Sign in to access your messages and connect with instructors and classmates."
-      visibleItems={0}
-      totalItems={inboxConversations?.length ?? 0}
-    />;
+  // Get current conversation details
+  const getCurrentConversation = () => {
+    if (!conversationId) return null;
+    
+    const allConversations = [
+      ...inboxConversations,
+      ...archivedConversations,
+      ...deletedConversations
+    ];
+    
+    return allConversations.find(conv => conv.id === conversationId);
+  };
+
+  const currentConversation = getCurrentConversation();
+
+  // If viewing a specific conversation
+  if (conversationId) {
+    const isArchived = archivedConversations.some(conv => conv.id === conversationId);
+    const isDeleted = deletedConversations.some(conv => conv.id === conversationId);
+
+    return (
+      <AppLayout>
+        <div className="container mx-auto py-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate('/messages')}
+                className="flex items-center space-x-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back to Messages</span>
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">
+                  {currentConversation?.subject || 'Conversation'}
+                </h1>
+                <p className="text-muted-foreground">
+                  {isDeleted ? 'Deleted conversation' : isArchived ? 'Archived conversation' : 'Active conversation'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <Card className="h-[600px] flex flex-col">
+            {/* Message Actions */}
+            <MessageActions
+              conversationId={conversationId}
+              onSuccess={handleConversationAction}
+              isArchived={isArchived}
+              isDeleted={isDeleted}
+              currentTab={isDeleted ? 'deleted' : isArchived ? 'archived' : 'inbox'}
+            />
+
+            {/* Message Thread */}
+            <div className="flex-1 overflow-hidden">
+              <MessageThread messages={messages} loading={messagesLoading} />
+            </div>
+
+            {/* Message Input */}
+            {!isDeleted && (
+              <div className="p-4 border-t">
+                <form onSubmit={handleSendMessage} className="flex space-x-2">
+                  <Input
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    placeholder="Type your message..."
+                    disabled={sending}
+                    className="flex-1"
+                  />
+                  <Button type="submit" disabled={sending || !newMessage.trim()}>
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </form>
+              </div>
+            )}
+          </Card>
+        </div>
+      </AppLayout>
+    );
   }
 
+  // Default messages list view
   return (
     <AppLayout>
-      <div className="container mx-auto">
-        <div className="flex flex-col space-y-4">
-          <div className="flex justify-between items-center">
-            <h1 className="text-2xl font-bold">Messages</h1>
-            <NewConversationButton />
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Messages</h1>
+            <p className="text-muted-foreground">
+              Connect with instructors and classmates
+            </p>
           </div>
-          
-          <Tabs defaultValue="inbox" value={activeTab} onValueChange={setActiveTab} className="w-full">
-             {/* Use value and onValueChange for controlled mode */}
-            <TabsList>
-              <TabsTrigger value="inbox"><Inbox className="h-4 w-4 mr-2" />Inbox</TabsTrigger>
-              <TabsTrigger value="archived"><Archive className="h-4 w-4 mr-2" />Archived</TabsTrigger>
-              <TabsTrigger value="deleted"><Trash2 className="h-4 w-4 mr-2" />Deleted</TabsTrigger>
-            </TabsList>
-            
-            {/* INBOX TAB */}
-            <TabsContent value="inbox" className="space-y-4">
-              {/* ... keep existing code (Search input) ... */}
-              <div className="relative">
-                <Input
-                  placeholder="Search messages..."
-                  className="pl-10"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1 h-full">
-                  <ConversationList
-                    conversations={filteredInboxConversations}
-                    loading={loadingInbox}
-                    error={inboxError}
-                  />
-                </div>
-                
-                {conversationId && isCurrentConversationInActiveTabList() ? (
-                  // ... keep existing code (Message thread view for Inbox) ...
-                  <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
-                    <MessageActions
-                      conversationId={conversationId}
-                      onSuccess={handleActionSuccess}
-                      currentTab={activeTab} // Pass currentTab for conditional actions
-                    />
-
-                    <div className="flex-1 overflow-y-auto">
-                      <MessageThread messages={messages || []} loading={loadingMessages} />
-                    </div>
-
-                    <MessageSuggestions
-                      onSelectMessage={handleSuggestedMessage}
-                      conversationId={conversationId}
-                      messages={messages}
-                    />
-
-                    <div className="p-4 border-t">
-                      <div className="flex space-x-2">
-                        <Input
-                          value={messageContent}
-                          onChange={(e) => setMessageContent(e.target.value)}
-                          placeholder="Type your message..."
-                          className="flex-1"
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                        />
-
-                        <Button
-                          onClick={handleSendMessage}
-                          disabled={!messageContent.trim()}
-                          className="bg-amber-600 hover:bg-amber-700"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          Send
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // ... keep existing code (Placeholder view for Inbox) ...
-                  <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
-                    <div className="text-center p-6">
-                      <MessageSquare className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2 text-gray-800">No conversation selected</h3>
-                      <p className="text-gray-600 mb-4">
-                        Select a conversation from the list or start a new one
-                      </p>
-                      <NewConversationButton />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            
-            {/* ARCHIVED TAB */}
-            <TabsContent value="archived" className="space-y-4">
-               {/* ... keep existing code (Search input) ... */}
-               <div className="relative">
-                 <Input
-                   placeholder="Search archived messages..."
-                   className="pl-10"
-                   value={searchQuery}
-                   onChange={(e) => setSearchQuery(e.target.value)}
-                 />
-                 <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1 h-full">
-                  <ConversationList
-                    conversations={filteredArchivedConversations}
-                    loading={loadingArchived}
-                    error={null} // Assuming no specific error handling needed here yet
-                  />
-                </div>
-                
-                {conversationId && isCurrentConversationInActiveTabList() ? (
-                   // ... keep existing code (Message thread view for Archived) ...
-                   <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
-                     <MessageActions
-                       conversationId={conversationId}
-                       onSuccess={handleActionSuccess}
-                       isArchived={true} // Indicate this is for an archived convo
-                       currentTab={activeTab}
-                     />
-
-                     <div className="flex-1 overflow-y-auto">
-                       <MessageThread messages={messages || []} loading={loadingMessages} />
-                     </div>
-
-                     <div className="p-4 border-t bg-gray-50">
-                       <p className="text-sm text-gray-500 italic text-center">
-                         This conversation is archived. Unarchive it to send new messages.
-                       </p>
-                     </div>
-                   </div>
-                ) : (
-                  // ... keep existing code (Placeholder view for Archived) ...
-                  <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
-                    <div className="text-center p-6">
-                      <Archive className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2 text-gray-800">Archived Conversations</h3>
-                      <p className="text-gray-600 mb-4">
-                        Select an archived conversation to view it. You can unarchive it using the actions above.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            
-            {/* DELETED TAB */}
-            <TabsContent value="deleted" className="space-y-4">
-               {/* ... keep existing code (Search input) ... */}
-               <div className="relative">
-                 <Input
-                   placeholder="Search deleted messages..."
-                   className="pl-10"
-                   value={searchQuery}
-                   onChange={(e) => setSearchQuery(e.target.value)}
-                 />
-                 <Search className="absolute left-3 top-2.5 h-5 w-5 text-muted-foreground" />
-               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-1 h-full">
-                  <ConversationList
-                    conversations={filteredDeletedConversations}
-                    loading={loadingDeleted}
-                    error={null} // Assuming no specific error handling needed here yet
-                  />
-                </div>
-                
-                {conversationId && isCurrentConversationInActiveTabList() ? (
-                   // ... keep existing code (Message thread view for Deleted) ...
-                   <div className="md:col-span-2 border rounded-md flex flex-col h-[calc(70vh-100px)]">
-                     <MessageActions
-                       conversationId={conversationId}
-                       onSuccess={handleActionSuccess}
-                       isDeleted={true} // Indicate this is for a deleted convo
-                       currentTab={activeTab}
-                     />
-
-                     <div className="flex-1 overflow-y-auto">
-                       <MessageThread messages={messages || []} loading={loadingMessages} />
-                     </div>
-
-                     <div className="p-4 border-t bg-gray-50">
-                       <p className="text-sm text-gray-500 italic text-center">
-                         This conversation is deleted. Restore it to send new messages.
-                       </p>
-                     </div>
-                   </div>
-                ) : (
-                  // ... keep existing code (Placeholder view for Deleted) ...
-                  <div className="md:col-span-2 border rounded-md flex items-center justify-center h-[calc(70vh-100px)]">
-                    <div className="text-center p-6">
-                      <Trash2 className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2 text-gray-800">Deleted Conversations</h3>
-                      <p className="text-gray-600 mb-4">
-                        These are conversations you've deleted. Select one to view it or restore it.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
+          <NewConversationButton />
         </div>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Your Conversations</CardTitle>
+            <CardDescription>
+              View and manage your conversations with other users
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="inbox">Inbox</TabsTrigger>
+                <TabsTrigger value="archived">Archived</TabsTrigger>
+                <TabsTrigger value="deleted">Deleted</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="inbox" className="mt-6">
+                <ConversationList
+                  conversations={inboxConversations}
+                  loading={inboxLoading}
+                  error={inboxError}
+                />
+              </TabsContent>
+              
+              <TabsContent value="archived" className="mt-6">
+                <ConversationList
+                  conversations={archivedConversations}
+                  loading={archivedLoading}
+                  error={archivedError}
+                />
+              </TabsContent>
+              
+              <TabsContent value="deleted" className="mt-6">
+                <ConversationList
+                  conversations={deletedConversations}
+                  loading={deletedLoading}
+                  error={deletedError}
+                />
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
       </div>
     </AppLayout>
   );
-};
-
-export default Messages;
+}

@@ -1,79 +1,59 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile } from '@/types/supabase';
 import { useToast } from './use-toast';
-import { useDebounce } from './useDebounce';
-import { useAuth } from '@/contexts/AuthContext';
 
-export function useUsers(initialSearchQuery = '') {
+/**
+ * Hook for fetching and searching users
+ */
+export function useUsers() {
   const [users, setUsers] = useState<Profile[]>([]);
-  const [searchQuery, setSearchQuery] = useState(initialSearchQuery);
   const [loading, setLoading] = useState(false);
-  const debouncedSearchQuery = useDebounce(searchQuery, 300);
+  const [searchQuery, setSearchQuery] = useState('');
   const { toast } = useToast();
-  const { user: currentUser } = useAuth();
 
-  const fetchUsers = useCallback(async (query?: string) => {
-    setLoading(true);
-    try {
-      console.log('Fetching users with query:', query);
-      let supabaseQuery = supabase
-        .from('profiles')
-        .select('*');
-      
-      // Exclude current user from results if specified
-      if (currentUser?.id) {
-        supabaseQuery = supabaseQuery.neq('id', currentUser.id);
-      }
-      
-      if (query && query.length > 0) {
-        // Use ilike for case-insensitive search on first and last names
-        supabaseQuery = supabaseQuery.or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%`);
-      }
-      
-      const { data, error } = await supabaseQuery;
-      
-      if (error) {
-        console.error("Error fetching users:", error);
-        throw error;
-      }
-      
-      console.log('[useUsers] Fetched users:', data);
-      
-      // Ensure all profiles have the roles property
-      const profilesWithRoles = data?.map(profile => ({
-        ...profile,
-        roles: profile.roles || (profile.role ? [profile.role, 'student'] : ['student'])
-      })) || [];
-      
-      setUsers(profilesWithRoles);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        title: 'Error',
-        description: 'Could not load user list. Please try again later.',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast, currentUser]);
-
-  // Update the search query
-  const updateSearchQuery = useCallback((newQuery: string) => {
-    setSearchQuery(newQuery);
-  }, []);
-
-  // Fetch users when component mounts or debounced search query changes
   useEffect(() => {
-    fetchUsers(debouncedSearchQuery);
-  }, [debouncedSearchQuery, fetchUsers]);
+    if (searchQuery.trim().length < 2) {
+      setUsers([]);
+      return;
+    }
 
-  return { 
-    users, 
-    loading, 
-    fetchUsers,
+    const searchUsers = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, avatar_url, role')
+          .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`)
+          .limit(20);
+
+        if (error) throw error;
+
+        setUsers(data || []);
+      } catch (error) {
+        console.error('Error searching users:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to search users. Please try again.',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchUsers, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, toast]);
+
+  const updateSearchQuery = (query: string) => {
+    setSearchQuery(query);
+  };
+
+  return {
+    users,
+    loading,
     searchQuery,
     updateSearchQuery
   };

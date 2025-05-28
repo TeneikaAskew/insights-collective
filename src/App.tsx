@@ -487,6 +487,16 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+                  <Route
+                    path="/messages/:conversationId"
+                    element={
+                      <ProtectedRoute>
+                        <PageVisibilityGuard>
+                          <Messages />
+                        </PageVisibilityGuard>
+                      </ProtectedRoute>
+                    }
+                  />
                   
                   {/* Forum routes */}
                   <Route
