@@ -155,7 +155,7 @@ async function getConversations(supabaseAdmin: any, userId: string) {
     if (!subject || subject.trim() === '') {
       if (conv.is_group) {
         const participantNames = conv.participants
-          ?.filter((p: any) => p.profile && p.profile.first_name)
+          ?.filter((p: any) => p.profile && p.profile.first_name && p.user_id !== userId)
           ?.map((p: any) => `${p.profile.first_name} ${p.profile.last_name || ''}`.trim())
           ?.slice(0, 3);
         subject = participantNames?.length > 0 ? participantNames.join(', ') + (conv.participants?.length > 3 ? '...' : '') : 'Group Conversation';
@@ -254,7 +254,7 @@ async function getArchivedConversations(supabaseAdmin: any, userId: string) {
     if (!subject || subject.trim() === '') {
       if (conv.is_group) {
         const participantNames = conv.participants
-          ?.filter((p: any) => p.profile && p.profile.first_name)
+          ?.filter((p: any) => p.profile && p.profile.first_name && p.user_id !== userId)
           ?.map((p: any) => `${p.profile.first_name} ${p.profile.last_name || ''}`.trim())
           ?.slice(0, 3);
         subject = participantNames?.length > 0 ? participantNames.join(', ') + (conv.participants?.length > 3 ? '...' : '') : 'Group Conversation';
@@ -350,7 +350,7 @@ async function getDeletedConversations(supabaseAdmin: any, userId: string) {
     if (!subject || subject.trim() === '') {
       if (conv.is_group) {
         const participantNames = conv.participants
-          ?.filter((p: any) => p.profile && p.profile.first_name)
+          ?.filter((p: any) => p.profile && p.profile.first_name && p.user_id !== userId)
           ?.map((p: any) => `${p.profile.first_name} ${p.profile.last_name || ''}`.trim())
           ?.slice(0, 3);
         subject = participantNames?.length > 0 ? participantNames.join(', ') + (conv.participants?.length > 3 ? '...' : '') : 'Group Conversation';
