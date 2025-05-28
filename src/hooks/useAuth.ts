@@ -5,6 +5,7 @@ import { useNavigate, useLocation, NavigateFunction, Location } from 'react-rout
 import { supabase } from '@/integrations/supabase/client';
 import { useUserProfile } from './useUserProfile';
 import { useToast } from './use-toast';
+import { useAuthRedirect } from './useAuthRedirect';
 
 export interface EnrichedUser extends User {
   roles?: string[];
@@ -35,6 +36,7 @@ export const useAuthProvider = () => {
 
   const { navigate, location } = useSafeNavigation();
   const { toast } = useToast();
+  const redirect = useAuthRedirect();
 
   const { enrichedUser, loading: profileLoading } = useUserProfile(session?.user ?? null);
 
@@ -44,50 +46,13 @@ export const useAuthProvider = () => {
   const isAdmin = enrichedUser?.roles?.includes('admin') || false;
   const isAdminAuthenticated = enrichedUser?.roles?.includes('admin');
 
-  // Centralized redirect path state in Auth context
-  const [redirectPath, setRedirectPath] = useState<string | null>(null);
-
-  const storeRedirectPath = useCallback((path: string) => {
-    if (path && !['/login', '/register', '/'].includes(path)) {
-      localStorage.setItem('redirectAfterLogin', path);
-      setRedirectPath(path);
-      console.log('[storeRedirectPath] Stored redirect path:', path);
-    } else {
-      console.log('[storeRedirectPath] Skipped storing path:', path);
-    }
-  }, []);
-
+  // Use redirect hook instead of local state
+  const storeRedirectPath = redirect.storeRedirectPath;
   const handleRedirectAfterLogin = useCallback(() => {
-    if (!navigate) {
-      console.warn('Cannot redirect: navigation not available');
-      return;
+    if (isAuthenticated && enrichedUser) {
+      redirect.executeRedirect(enrichedUser);
     }
-    
-    let redirectTo = redirectPath;
-
-    if (!redirectTo) {
-      // fallback to localStorage if state lost (unlikely)
-      redirectTo = localStorage.getItem('redirectAfterLogin') || '/dashboard';
-      console.log('[handleRedirectAfterLogin] Fallback redirectTo from localStorage:', redirectTo);
-    } else {
-      console.log('[handleRedirectAfterLogin] RedirectTo from state:', redirectTo);
-    }
-
-    if (!enrichedUser?.roles?.includes('admin') && redirectTo.startsWith('/admin')) {
-      toast({
-        title: 'Access Denied',
-        description: 'You do not have permission to access the admin area.',
-        variant: 'destructive',
-      });
-      redirectTo = '/dashboard';
-    }
-
-    localStorage.removeItem('redirectAfterLogin');
-    setRedirectPath(null);
-    console.log('[handleRedirectAfterLogin] Redirecting to:', redirectTo);
-    navigate(redirectTo, { replace: true });
-
-  }, [navigate, redirectPath, enrichedUser, toast]);
+  }, [isAuthenticated, enrichedUser, redirect]);
 
   useEffect(() => {
     let isMounted = true;
@@ -127,13 +92,7 @@ export const useAuthProvider = () => {
     };
   }, []);
 
-  useEffect(() => {
-    // On profile loaded & authenticated, perform redirect if redirect path set
-    if (isAuthenticated && !loading && !profileLoading && redirectPath) {
-      console.log('[useAuth] Ready to redirect - isAuthenticated:', isAuthenticated, 'loading:', loading, 'profileLoading:', profileLoading);
-      handleRedirectAfterLogin();
-    }
-  }, [isAuthenticated, loading, profileLoading, redirectPath, handleRedirectAfterLogin]);
+  // Remove automatic redirect - let AuthProvider handle it manually
 
   const login = useCallback(async (email: string, password: string) => {
     try {

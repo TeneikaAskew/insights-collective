@@ -9,27 +9,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuthProvider();
 
-  useEffect(() => {
-    const storedRedirect = localStorage.getItem('redirectAfterLogin');
-
-    console.log('[AuthProvider] 🔄 Checking auth context init');
-    console.log('[AuthProvider] State:', {
-      isAuthenticated: auth.isAuthenticated,
-      loading: auth.loading,
-      storedRedirect
-    });
-
-    if (auth.isAuthenticated && !auth.loading) {
-      if (storedRedirect && !['/login', '/register'].includes(storedRedirect)) {
-        console.log('[AuthProvider] ✅ Redirect detected. Routing to:', storedRedirect);
-        auth.handleRedirectAfterLogin();
-      } else {
-        console.log('[AuthProvider] ℹ️ No redirect path needed or on login/register');
-      }
-    } else {
-      console.log('[AuthProvider] ⏳ Waiting on authentication to complete...');
-    }
-  }, [auth.isAuthenticated, auth.loading, auth.handleRedirectAfterLogin]);
+  // Remove automatic redirect from context - only handle redirects manually
 
   return (
     <AuthContext.Provider value={auth}>

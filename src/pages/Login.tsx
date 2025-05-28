@@ -41,10 +41,8 @@ const Login = () => {
   }, [redirectParam]);
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('[Login] isAuthenticated true. Calling handleRedirectAfterLogin...');
+      console.log('[Login] User authenticated, redirecting...');
       handleRedirectAfterLogin();
-    } else {
-      console.log('[Login] Not authenticated');
     }
   }, [isAuthenticated, handleRedirectAfterLogin]);
   const handleUserLogin = async (e: React.FormEvent) => {

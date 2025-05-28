@@ -9,6 +9,11 @@ const AuthCallback = () => {
   const redirect = searchParams.get('redirect') || '/resources';
 
   useEffect(() => {
+    // Store the redirect path and let auth system handle it
+    if (redirect && redirect !== '/dashboard') {
+      localStorage.setItem('redirectAfterLogin', redirect);
+    }
+    
     // Short delay to ensure any auth state changes are processed
     const timer = setTimeout(() => {
       console.log('[AuthCallback] Redirecting to:', redirect);
