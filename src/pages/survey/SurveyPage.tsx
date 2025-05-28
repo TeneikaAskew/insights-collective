@@ -41,6 +41,7 @@ export default function SurveyPage() {
           .from('forms')
           .select('*')
           .eq('slug', slug)
+          .eq('status', true) // Only fetch active forms
           .single();
 
         // If there's an error and the form doesn't exist but the slug is 'ai-fellowship'

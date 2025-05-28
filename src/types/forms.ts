@@ -42,6 +42,7 @@ export interface FormData {
   slug: string;
   description?: string;
   status: boolean; // true = active, false = inactive
+  featured: boolean;
   deadline?: string | null;
   form_link: string;
   form_structure?: FormStructure;

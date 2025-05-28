@@ -162,6 +162,34 @@ export function FormList({ searchTerm }: FormListProps) {
     setDeleteDialogOpen(true);
   };
 
+  const toggleFeatured = async (form: FormData) => {
+    try {
+      const { error } = await supabase
+        .from('forms')
+        .update({ featured: !form.featured })
+        .eq('id', form.id);
+
+      if (error) throw error;
+
+      // Update the forms list
+      setForms(forms.map(f => 
+        f.id === form.id ? { ...f, featured: !f.featured } : f
+      ));
+      
+      toast({
+        title: "Success",
+        description: form.featured ? "Form unfeatured successfully" : "Form featured successfully"
+      });
+    } catch (error) {
+      console.error('Error toggling featured status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update featured status",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleEditForm = (form: FormData) => {
     const editUrl = `/survey/${form.slug}/edit`;
     
@@ -250,6 +278,17 @@ export function FormList({ searchTerm }: FormListProps) {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
+                    <Button 
+                      variant={form.featured ? "default" : "outline"} 
+                      size="sm" 
+                      onClick={() => toggleFeatured(form)}
+                      className="flex items-center gap-1"
+                    >
+                      <Star className={`h-4 w-4 ${form.featured ? 'fill-current' : ''}`} />
+                      <span className="sr-only sm:not-sr-only sm:inline-block">
+                        {form.featured ? 'Unfeature' : 'Feature'}
+                      </span>
+                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm" 

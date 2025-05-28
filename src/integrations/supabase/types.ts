@@ -697,6 +697,7 @@ export type Database = {
           created_at: string
           deadline: string | null
           description: string | null
+          featured: boolean
           form_data: Json | null
           form_link: string
           form_structure: Json | null
@@ -710,6 +711,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           description?: string | null
+          featured?: boolean
           form_data?: Json | null
           form_link: string
           form_structure?: Json | null
@@ -723,6 +725,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           description?: string | null
+          featured?: boolean
           form_data?: Json | null
           form_link?: string
           form_structure?: Json | null
