@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Conversation, Message } from '@/types/supabase'; // Import Conversation and Message types
 
@@ -113,16 +112,27 @@ export const fetchDeletedUserConversations = async (userId: string): Promise<Con
 /**
  * Create a new conversation
  */
-export const createNewConversation = async (subject: string, recipientIds: string[]): Promise<string | null> => {
+export const createNewConversation = async (subject: string, recipientIds: string[], currentUserId?: string): Promise<string | null> => {
   console.log('[createNewConversation] Creating conversation with subject:', subject);
   console.log('[createNewConversation] Recipients:', recipientIds);
+  console.log('[createNewConversation] Current user:', currentUserId);
   
   try {
+    // Get current user if not provided
+    if (!currentUserId) {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) {
+        throw new Error('Authentication required to create conversation');
+      }
+      currentUserId = user.id;
+    }
+
     const { data, error } = await supabase.functions.invoke('messages-helper', {
       body: { 
         action: 'createConversation', 
         subject, 
-        recipientIds 
+        recipientIds,
+        currentUserId 
       },
     });
 
@@ -177,7 +187,7 @@ export const getOrCreateOneOnOneConversation = async (currentUserId: string, oth
 
     // If no existing conversation, create a new one
     console.log('[getOrCreateOneOnOneConversation] No existing conversation found, creating new one');
-    return await createNewConversation('', [otherUserId]);
+    return await createNewConversation('', [otherUserId], currentUserId);
   } catch (error) {
     console.error('[getOrCreateOneOnOneConversation] Unexpected error:', error);
     throw error instanceof Error ? error : new Error('An unknown error occurred while getting or creating conversation.');

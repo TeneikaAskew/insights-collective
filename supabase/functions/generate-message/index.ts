@@ -1,6 +1,8 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import "https://deno.land/x/xhr@0.1.0/mod.ts"
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,50 +10,57 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
     const { conversationHistory, messageType } = await req.json();
-    const GROQ_API_KEY = Deno.env.get('GROQ');
 
-    if (!GROQ_API_KEY) {
-      throw new Error('GROQ API key not configured');
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
     }
 
-    const systemPrompt = messageType === 'initial' 
-      ? "Generate a friendly, professional initial message to start a conversation in an educational context."
-      : "Generate a contextually appropriate response based on the conversation history in an educational context.";
+    // Build context based on conversation history
+    let systemPrompt = 'You are a helpful assistant that generates appropriate conversation messages. Generate a friendly, professional message that fits the context.';
+    
+    if (messageType === 'followup' && conversationHistory && conversationHistory.length > 0) {
+      const lastMessage = conversationHistory[conversationHistory.length - 1];
+      systemPrompt += ` The last message in the conversation was: "${lastMessage.content}". Generate an appropriate follow-up message.`;
+    } else {
+      systemPrompt += ' Generate a friendly conversation starter message.';
+    }
 
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'llama3-8b-8192',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          ...(conversationHistory?.map(msg => ({
-            role: msg.sender_id === 'ai' ? 'assistant' : 'user',
-            content: msg.content
-          })) || [])
+          { role: 'user', content: 'Generate a brief, friendly message for this conversation context.' }
         ],
-        max_tokens: 200,
+        max_tokens: 100,
         temperature: 0.7,
       }),
     });
 
-    const data = await response.json();
-    const generatedMessage = data.choices[0].message.content;
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
 
-    return new Response(JSON.stringify({ message: generatedMessage }), {
+    const data = await response.json();
+    const message = data.choices[0].message.content.trim();
+
+    return new Response(JSON.stringify({ message }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in generate-message function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

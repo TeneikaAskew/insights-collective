@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import ConversationList from '@/components/messages/ConversationList';
 import MessageThread from '@/components/messages/MessageThread';
 import MessageActions from '@/components/messages/MessageActions';
+import MessageSuggestions from '@/components/messages/MessageSuggestions';
 import { NewConversationButton } from '@/components/messages/NewConversationButton';
 import { useConversationList } from '@/hooks/useConversationList';
 import { useArchivedConversations } from '@/hooks/useArchivedConversations';
@@ -50,6 +51,11 @@ export default function Messages() {
     if (success) {
       setNewMessage('');
     }
+  };
+
+  // Handle selecting a suggested message
+  const handleSelectSuggestedMessage = (message: string) => {
+    setNewMessage(message);
   };
 
   // Handle conversation actions
@@ -139,6 +145,15 @@ export default function Messages() {
             <div className="flex-1 overflow-hidden">
               <MessageThread messages={messages} loading={messagesLoading} />
             </div>
+
+            {/* Message Suggestions */}
+            {!isDeleted && (
+              <MessageSuggestions
+                onSelectMessage={handleSelectSuggestedMessage}
+                conversationId={conversationId}
+                messages={messages}
+              />
+            )}
 
             {/* Message Input */}
             {!isDeleted && (

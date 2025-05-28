@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
@@ -42,7 +43,7 @@ serve(async (req) => {
         result = await getDeletedConversations(supabaseAdmin, requestBody.userId);
         break;
       case 'createConversation':
-        result = await createConversation(supabaseAdmin, requestBody.subject, requestBody.recipientIds);
+        result = await createConversation(supabaseAdmin, requestBody.subject, requestBody.recipientIds, requestBody.currentUserId);
         break;
       case 'checkOneOnOneConversation':
         result = await checkOneOnOneConversation(supabaseAdmin, requestBody.currentUserId, requestBody.otherUserId);
@@ -146,11 +147,35 @@ async function getConversations(supabaseAdmin: any, userId: string) {
     throw new Error(`Failed to fetch conversation details: ${conversationError.message}`);
   }
 
-  // Process conversations to include latest message
-  const processedConversations = (conversationData || []).map(conv => ({
-    ...conv,
-    last_message: conv.last_message?.[0] || null
-  }));
+  // Process conversations to include latest message and generate subject if missing
+  const processedConversations = (conversationData || []).map(conv => {
+    let subject = conv.subject;
+    
+    // Generate subject for conversations without one
+    if (!subject || subject.trim() === '') {
+      if (conv.is_group) {
+        const participantNames = conv.participants
+          ?.filter((p: any) => p.profile && p.profile.first_name)
+          ?.map((p: any) => `${p.profile.first_name} ${p.profile.last_name || ''}`.trim())
+          ?.slice(0, 3);
+        subject = participantNames?.length > 0 ? participantNames.join(', ') + (conv.participants?.length > 3 ? '...' : '') : 'Group Conversation';
+      } else {
+        // For one-on-one, find the other participant
+        const otherParticipant = conv.participants?.find((p: any) => p.user_id !== userId);
+        if (otherParticipant?.profile) {
+          subject = `${otherParticipant.profile.first_name || ''} ${otherParticipant.profile.last_name || ''}`.trim() || 'Conversation';
+        } else {
+          subject = 'Conversation';
+        }
+      }
+    }
+
+    return {
+      ...conv,
+      subject,
+      last_message: conv.last_message?.[0] || null
+    };
+  });
 
   console.log(`[messages-helper/getConversations] Retrieved ${processedConversations.length} conversations.`);
   return { conversations: processedConversations };
@@ -222,11 +247,33 @@ async function getArchivedConversations(supabaseAdmin: any, userId: string) {
     throw new Error(`Failed to fetch archived conversation details: ${conversationError.message}`);
   }
 
-  // Process conversations
-  const processedConversations = (conversationData || []).map(conv => ({
-    ...conv,
-    last_message: conv.last_message?.[0] || null
-  }));
+  // Process conversations with proper subject generation
+  const processedConversations = (conversationData || []).map(conv => {
+    let subject = conv.subject;
+    
+    if (!subject || subject.trim() === '') {
+      if (conv.is_group) {
+        const participantNames = conv.participants
+          ?.filter((p: any) => p.profile && p.profile.first_name)
+          ?.map((p: any) => `${p.profile.first_name} ${p.profile.last_name || ''}`.trim())
+          ?.slice(0, 3);
+        subject = participantNames?.length > 0 ? participantNames.join(', ') + (conv.participants?.length > 3 ? '...' : '') : 'Group Conversation';
+      } else {
+        const otherParticipant = conv.participants?.find((p: any) => p.user_id !== userId);
+        if (otherParticipant?.profile) {
+          subject = `${otherParticipant.profile.first_name || ''} ${otherParticipant.profile.last_name || ''}`.trim() || 'Conversation';
+        } else {
+          subject = 'Conversation';
+        }
+      }
+    }
+
+    return {
+      ...conv,
+      subject,
+      last_message: conv.last_message?.[0] || null
+    };
+  });
 
   console.log(`[messages-helper/getArchivedConversations] Retrieved ${processedConversations.length} archived conversations.`);
   return { conversations: processedConversations };
@@ -296,33 +343,80 @@ async function getDeletedConversations(supabaseAdmin: any, userId: string) {
     throw new Error(`Failed to fetch deleted conversation details: ${conversationError.message}`);
   }
 
-  // Process conversations
-  const processedConversations = (conversationData || []).map(conv => ({
-    ...conv,
-    last_message: conv.last_message?.[0] || null
-  }));
+  // Process conversations with proper subject generation
+  const processedConversations = (conversationData || []).map(conv => {
+    let subject = conv.subject;
+    
+    if (!subject || subject.trim() === '') {
+      if (conv.is_group) {
+        const participantNames = conv.participants
+          ?.filter((p: any) => p.profile && p.profile.first_name)
+          ?.map((p: any) => `${p.profile.first_name} ${p.profile.last_name || ''}`.trim())
+          ?.slice(0, 3);
+        subject = participantNames?.length > 0 ? participantNames.join(', ') + (conv.participants?.length > 3 ? '...' : '') : 'Group Conversation';
+      } else {
+        const otherParticipant = conv.participants?.find((p: any) => p.user_id !== userId);
+        if (otherParticipant?.profile) {
+          subject = `${otherParticipant.profile.first_name || ''} ${otherParticipant.profile.last_name || ''}`.trim() || 'Conversation';
+        } else {
+          subject = 'Conversation';
+        }
+      }
+    }
+
+    return {
+      ...conv,
+      subject,
+      last_message: conv.last_message?.[0] || null
+    };
+  });
 
   console.log(`[messages-helper/getDeletedConversations] Retrieved ${processedConversations.length} deleted conversations.`);
   return { conversations: processedConversations };
 }
 
-async function createConversation(supabaseAdmin: any, subject: string, recipientIds: string[]) {
-  console.log(`[messages-helper/createConversation] Creating conversation with ${recipientIds.length} recipients`);
+async function createConversation(supabaseAdmin: any, subject: string, recipientIds: string[], currentUserId: string) {
+  console.log(`[messages-helper/createConversation] Creating conversation with ${recipientIds.length} recipients for user ${currentUserId}`);
   
-  // Get current user from auth context
-  const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser();
-  if (userError || !user) {
-    throw new Error('Authentication required to create conversation');
-  }
-
-  const currentUserId = user.id;
   const isGroup = recipientIds.length > 1;
+  let finalSubject = subject;
+
+  // If no subject provided, generate one based on participants
+  if (!finalSubject || finalSubject.trim() === '') {
+    if (isGroup) {
+      // For groups, get participant names
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('first_name, last_name')
+        .in('id', recipientIds);
+      
+      if (profiles && profiles.length > 0) {
+        const names = profiles.map((p: any) => `${p.first_name || ''} ${p.last_name || ''}`.trim()).slice(0, 3);
+        finalSubject = names.join(', ') + (recipientIds.length > 3 ? '...' : '');
+      } else {
+        finalSubject = 'Group Conversation';
+      }
+    } else {
+      // For one-on-one, use the other participant's name
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('first_name, last_name')
+        .eq('id', recipientIds[0])
+        .single();
+      
+      if (profile) {
+        finalSubject = `${profile.first_name || ''} ${profile.last_name || ''}`.trim() || 'Conversation';
+      } else {
+        finalSubject = 'Conversation';
+      }
+    }
+  }
 
   // Create the conversation
   const { data: conversationData, error: conversationError } = await supabaseAdmin
     .from('conversations')
     .insert({
-      subject: subject || (isGroup ? 'Group Conversation' : ''),
+      subject: finalSubject,
       is_group: isGroup,
       created_by: currentUserId
     })
