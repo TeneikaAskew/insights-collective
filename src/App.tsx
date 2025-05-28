@@ -65,7 +65,7 @@ import AdminBlogPosts from '@/pages/AdminBlogPosts';
 
 import AdminForms from '@/pages/AdminForms';
 import AdminActivity from '@/pages/AdminActivity';
-import AdminCertificates from '@/pages/AdminCertificates';
+
 
 import AdminCourseEdit from '@/pages/AdminCourseEdit';
 import AdminPageVisibility from '@/pages/AdminPageVisibility';
@@ -663,14 +663,7 @@ function App() {
                       </AdminGuard>
                     }
                   />
-                  <Route
-                    path="/admin/certificates"
-                    element={
-                      <AdminGuard>
-                        <AdminCertificates />
-                      </AdminGuard>
-                    }
-                  />
+                  
                   
                   <Route
                     path="/admin/courses/:courseId/edit"

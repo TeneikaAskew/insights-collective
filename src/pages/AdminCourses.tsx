@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users } from 'lucide-react';
+import { Search, Edit, Trash2, Plus, FilterX, Download, Filter, Users, Badge as BadgeIcon, Eye, PlusCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,6 +29,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import CourseEditModal from '@/components/course/CourseEditModal';
+import { IssueCertificatesModal } from '@/components/admin/IssueCertificatesModal';
 import { mockService } from '@/lib/mockData';
 
 const mockCourses = [
@@ -113,6 +114,7 @@ export default function AdminCourses() {
   const [courseToEdit, setCourseToEdit] = useState<any>(null);
   const [activeTab, setActiveTab] = useState('courses');
   const [enrollmentSearchTerm, setEnrollmentSearchTerm] = useState('');
+  const [certificateSearchTerm, setCertificateSearchTerm] = useState('');
   const { toast } = useToast();
 
   // Create mock enrollments data for the enrollments tab
@@ -197,6 +199,35 @@ export default function AdminCourses() {
     enrollment.courseTitle.toLowerCase().includes(enrollmentSearchTerm.toLowerCase())
   );
 
+  // Create mock certificates data
+  const certificates = users.flatMap(user => 
+    (user.enrolledCourses || []).slice(0, Math.floor(Math.random() * 2) + 1).map(courseId => {
+      const course = courses.find(c => c.id === courseId);
+      return {
+        id: `cert-${user.id}-${courseId}`,
+        userId: user.id,
+        userName: user.name,
+        userEmail: user.email,
+        courseId,
+        courseTitle: course?.title || 'Unknown Course',
+        issueDate: new Date(2023, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28) + 1).toISOString(),
+        certificateUrl: '#'
+      };
+    })
+  );
+
+  const filteredCertificates = certificates.filter(certificate => 
+    certificate.userName.toLowerCase().includes(certificateSearchTerm.toLowerCase()) || 
+    certificate.courseTitle.toLowerCase().includes(certificateSearchTerm.toLowerCase())
+  );
+
+  const handleIssueCertificates = (courseId: string, userIds: string[]) => {
+    toast({
+      title: 'Certificates Issued',
+      description: `Successfully issued ${userIds.length} certificates for the selected course.`,
+    });
+  };
+
   const clearFilters = () => {
     setSearchQuery('');
     setCategoryFilter('all');
@@ -231,6 +262,10 @@ export default function AdminCourses() {
             <TabsTrigger value="enrollments">
               <Users className="mr-2 h-4 w-4" />
               Enrollments
+            </TabsTrigger>
+            <TabsTrigger value="certificates">
+              <BadgeIcon className="mr-2 h-4 w-4" />
+              Certificates
             </TabsTrigger>
           </TabsList>
 
@@ -491,6 +526,90 @@ export default function AdminCourses() {
                           <TableRow>
                             <TableCell colSpan={7} className="h-24 text-center">
                               No enrollments found.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="certificates">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BadgeIcon className="h-5 w-5" />
+                  Certificates Management
+                </CardTitle>
+                <CardDescription>
+                  View and manage all certificates issued to students for completed courses.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        type="search"
+                        placeholder="Search certificates by student or course..."
+                        className="pl-8"
+                        value={certificateSearchTerm}
+                        onChange={(e) => setCertificateSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm">
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filter
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4 mr-2" />
+                        Export
+                      </Button>
+                      <IssueCertificatesModal onIssueCertificates={handleIssueCertificates}>
+                        <Button size="sm" className="bg-insightBlue hover:bg-insightBlue/90">
+                          <PlusCircle className="h-4 w-4 mr-2" />
+                          Issue Certificates
+                        </Button>
+                      </IssueCertificatesModal>
+                    </div>
+                  </div>
+
+                  <div className="rounded-md border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Certificate ID</TableHead>
+                          <TableHead>Student Name</TableHead>
+                          <TableHead>Course</TableHead>
+                          <TableHead>Issue Date</TableHead>
+                          <TableHead className="text-right">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {filteredCertificates.length > 0 ? (
+                          filteredCertificates.map((certificate) => (
+                            <TableRow key={certificate.id}>
+                              <TableCell className="font-medium">{certificate.id}</TableCell>
+                              <TableCell>{certificate.userName}</TableCell>
+                              <TableCell>{certificate.courseTitle}</TableCell>
+                              <TableCell>{new Date(certificate.issueDate).toLocaleDateString()}</TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="sm">
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={5} className="h-24 text-center">
+                              No certificates found.
                             </TableCell>
                           </TableRow>
                         )}
