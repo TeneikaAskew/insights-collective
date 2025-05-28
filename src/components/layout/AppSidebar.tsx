@@ -133,16 +133,6 @@ const AppSidebar = () => {
     icon: FormInput,
     active: location.pathname === '/admin/forms'
   }, {
-    title: "Manage Enrollments",
-    url: "/admin/enrollments",
-    icon: FileText,
-    active: location.pathname === '/admin/enrollments'
-  }, {
-    title: "Manage Certificates",
-    url: "/admin/certificates",
-    icon: Award,
-    active: location.pathname === '/admin/certificates'
-  }, {
     title: "Manage Resources",
     url: "/admin/resources",
     icon: FileText,
