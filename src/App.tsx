@@ -208,7 +208,7 @@ function App() {
                   />
                   
                   <Route
-                    path="/course/:courseId"
+                    path="/courses/:courseId"
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
@@ -680,7 +680,7 @@ function App() {
                     }
                   />
                   <Route
-                    path="/admin/course/:courseId/edit"
+                    path="/admin/courses/:courseId/edit"
                     element={
                       <AdminGuard>
                         <AdminCourseEdit />
