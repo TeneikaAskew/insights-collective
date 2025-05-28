@@ -9,101 +9,78 @@ const GROQ = Deno.env.get("GROQ");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-async function evaluateStarResponse(responseId: string) {
-  console.log(`[evaluate-star-response] Starting process for response ID: ${responseId}`);
-  
-  // Log environment variables availability (not their values for security)
-  console.log(`[evaluate-star-response] Environment check: TOGETHER_API_KEY exists: ${!!TOGETHER_API_KEY}`);
-  console.log(`[evaluate-star-response] Environment check: SUPABASE_URL exists: ${!!SUPABASE_URL}`);
-  console.log(`[evaluate-star-response] Environment check: SUPABASE_SERVICE_ROLE_KEY exists: ${!!SUPABASE_SERVICE_ROLE_KEY}`);
-
-  try {
-    // Create Supabase client with service role key for admin access
-    const supabase = createClient(
-      SUPABASE_URL!,
-      SUPABASE_SERVICE_ROLE_KEY!
-    );
-
-    console.log(`[evaluate-star-response] Supabase client created successfully`);
-
-    // Fetch the STAR response first
-    console.log(`[evaluate-star-response] Fetching STAR response with ID: ${responseId}`);
-    const { data: starResponse, error: responseError } = await supabase
-      .from("star_responses")
-      .select("*")
-      .eq("id", responseId)
-      .single();
-
-    if (responseError) {
-      console.error(`[evaluate-star-response] Error fetching STAR response:`, responseError);
-      throw handleError(responseError);
-    }
-
-    if (!starResponse) {
-      console.error(`[evaluate-star-response] STAR response not found with ID: ${responseId}`);
-      throw new Error("STAR response not found");
-    }
-
-    console.log(`[evaluate-star-response] STAR response fetched successfully:`, {
-      id: starResponse.id,
-      question_id: starResponse.question_id,
-      situation_length: starResponse.situation?.length || 0,
-      task_length: starResponse.task?.length || 0,
-      action_length: starResponse.action?.length || 0,
-      result_length: starResponse.result?.length || 0
-    });
-
-    // Separately fetch the question based on question_id
-    let questionData = null;
-    let targetCompetency = "Behavioral competency";
-    let questionText = "Behavioral interview question";
-
-    // Get the related question if question_id is available
-    if (starResponse.question_id) {
-      console.log(`[evaluate-star-response] Fetching related question with ID: ${starResponse.question_id}`);
-      
-      // Try to get the question from study guide questions
-      const { data: studyGuides, error: studyGuidesError } = await supabase
-        .from("study_guides")
-        .select("questions")
-        .eq("user_id", starResponse.user_id);
-        
-      if (studyGuidesError) {
-        console.warn(`[evaluate-star-response] Error fetching study guides: ${studyGuidesError.message}`);
-      } else if (studyGuides && studyGuides.length > 0) {
-        // Look through all questions in all study guides for this user
-        for (const guide of studyGuides) {
-          if (guide.questions && Array.isArray(guide.questions)) {
-            const matchingQuestion = guide.questions.find(q => q.id === starResponse.question_id);
-            if (matchingQuestion) {
-              console.log(`[evaluate-star-response] Found matching question in study guide`);
-              questionData = matchingQuestion;
-              questionText = matchingQuestion.question || questionText;
-              targetCompetency = matchingQuestion.targetCompetency || targetCompetency;
-              break;
-            }
-          }
-        }
-      }
-
-      if (!questionData) {
-        console.warn(`[evaluate-star-response] Could not find question in study guides, using defaults`);
-      }
-    }
-
-    // Call the AI model to evaluate the STAR response
-    console.log(`[evaluate-star-response] Calling Together AI API to evaluate STAR response`);
+function createAssessmentEvaluationPrompt(response: any, questionData: any, assessmentArea: string, rubricCriteria: any[]): string {
+  const rubricText = rubricCriteria && rubricCriteria.length > 0 ? 
+    rubricCriteria.map(criteria => 
+      `${criteria.performance_level} (Score: ${criteria.score}): ${criteria.criteria_description}`
+    ).join('\n') : 
+    `Assessment scoring guidelines:
+Performance Level 5: Exceptional demonstration with clear impact and leadership
+Performance Level 4: Strong demonstration with good examples and results  
+Performance Level 3: Adequate demonstration with some examples
+Performance Level 2: Limited demonstration with weak examples
+Performance Level 1: Poor demonstration with insufficient examples`;
     
-    const promptContent = `Please evaluate this STAR response for the following interview question:
+  return `Evaluate this STAR response for the Assessment Area: ${assessmentArea}
 
-Question: ${questionText}
-Target Competency: ${targetCompetency}
+Question: ${questionData.question}
+Assessment Area: ${assessmentArea}
 
 STAR Response:
-Situation: ${starResponse.situation}
-Task: ${starResponse.task}
-Action: ${starResponse.action}
-Result: ${starResponse.result}
+Situation: ${response.situation}
+Task: ${response.task}  
+Action: ${response.action}
+Result: ${response.result}
+
+Evaluation Criteria:
+${rubricText}
+
+Evaluate this response against the assessment area of ${assessmentArea}. Provide scores on a 1-5 scale (which will be converted to 1-10 for display consistency).
+
+Return your evaluation in this exact JSON format:
+{
+  "scores": {
+    "situation": number (1-5), // How well the situation demonstrates relevant context
+    "task": number (1-5), // How clearly the challenge/responsibility is explained  
+    "action": number (1-5), // How effectively specific actions are described
+    "result": number (1-5), // How well outcomes and impact are quantified
+    "overall": number (1-5) // Overall demonstration of the assessment competency
+  },
+  "assessment_evaluation": {
+    "performance_level": "Exceptional|Strong|Adequate|Limited|Poor",
+    "performance_score": number (1-5), // Based on rubric criteria
+    "competency_demonstration": string, // How well they demonstrated this assessment area
+    "behavioral_indicators": [string], // Specific behaviors observed
+    "development_areas": [string] // Areas where competency could be strengthened
+  },
+  "analysis": {
+    "completeness": string, // Comment on whether all STAR elements show competency
+    "specificity": string, // Comment on concrete examples and details
+    "relevance": string, // Comment on relevance to the assessment area  
+    "impact": string, // Comment on impact and results achieved
+    "communication": string // Comment on clarity and structure
+  },
+  "feedback": {
+    "strengths": [string], // 3-5 specific strengths demonstrated
+    "improvements": [string], // 3-5 areas to strengthen competency demonstration  
+    "suggestions": [string] // 3-5 actionable suggestions for better examples
+  }
+}
+
+Return ONLY the JSON object with no additional explanation or text.`;
+}
+
+function createStandardEvaluationPrompt(response: any, questionData: any): string {
+  return `Please evaluate this STAR response for the following interview question:
+
+Question: ${questionData.question}
+Target Competency: ${questionData.targetCompetency}
+
+STAR Response:
+Situation: ${response.situation}
+Task: ${response.task}
+Action: ${response.action} 
+Result: ${response.result}
 
 Evaluate this STAR response and provide feedback in the following JSON format:
 {
@@ -129,25 +106,123 @@ Evaluate this STAR response and provide feedback in the following JSON format:
 }
 
 Return ONLY the JSON object with no additional explanation or text.`;
+}
 
-    console.log(`[evaluate-star-response] Prompt prepared with length: ${promptContent.length}`);
+async function evaluateStarResponse(responseId: string) {
+  console.log(`[evaluate-star-response] Starting evaluation for response ID: ${responseId}`);
+  
+  try {
+    // Create Supabase client with service role key for admin access
+    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {//"https://api.groq.com/v1/chat/completions", { //"https://api.together.xyz/v1/chat/completions", {
+    console.log(`[evaluate-star-response] Supabase client created successfully`);
+
+    // Fetch the STAR response first
+    console.log(`[evaluate-star-response] Fetching STAR response with ID: ${responseId}`);
+    const { data: starResponse, error: responseError } = await supabase
+      .from("star_responses")
+      .select("*")
+      .eq("id", responseId)
+      .single();
+
+    if (responseError) {
+      console.error(`[evaluate-star-response] Error fetching STAR response:`, responseError);
+      throw handleError(responseError);
+    }
+
+    if (!starResponse) {
+      console.error(`[evaluate-star-response] STAR response not found with ID: ${responseId}`);
+      throw new Error("STAR response not found");
+    }
+
+    console.log(`[evaluate-star-response] STAR response fetched successfully`);
+
+    // Get the related question based on question_id
+    let questionData = null;
+    let targetCompetency = "Behavioral competency";
+    let questionText = "Behavioral interview question";
+    let isAssessmentQuestion = false;
+    let assessmentArea = null;
+
+    // Get the question from study guide questions
+    if (starResponse.question_id) {
+      console.log(`[evaluate-star-response] Fetching related question with ID: ${starResponse.question_id}`);
+      
+      const { data: studyGuides, error: studyGuidesError } = await supabase
+        .from("study_guides")
+        .select("questions, assessment_areas")
+        .eq("user_id", starResponse.user_id);
+        
+      if (studyGuidesError) {
+        console.warn(`[evaluate-star-response] Error fetching study guides: ${studyGuidesError.message}`);
+      } else if (studyGuides && studyGuides.length > 0) {
+        // Look through all questions in all study guides for this user
+        for (const guide of studyGuides) {
+          if (guide.questions && Array.isArray(guide.questions)) {
+            const matchingQuestion = guide.questions.find(q => q.id === starResponse.question_id);
+            if (matchingQuestion) {
+              console.log(`[evaluate-star-response] Found matching question in study guide`);
+              questionData = matchingQuestion;
+              questionText = matchingQuestion.question || questionText;
+              targetCompetency = matchingQuestion.targetCompetency || targetCompetency;
+              isAssessmentQuestion = matchingQuestion.isAssessmentQuestion || false;
+              assessmentArea = matchingQuestion.assessmentArea;
+              break;
+            }
+          }
+        }
+      }
+
+      if (!questionData) {
+        console.warn(`[evaluate-star-response] Could not find question in study guides, using defaults`);
+      }
+    }
+
+    // Get rubric criteria if it's an assessment question
+    let rubricCriteria = [];
+    if (isAssessmentQuestion && assessmentArea) {
+      console.log(`[evaluate-star-response] Fetching rubric criteria for assessment area: ${assessmentArea}`);
+      const { data: rubric, error: rubricError } = await supabase
+        .from('assesment_rubric')
+        .select('*')
+        .eq('assessment_area', assessmentArea);
+        
+      if (rubricError) {
+        console.warn(`[evaluate-star-response] Error fetching rubric: ${rubricError.message}`);
+      } else {
+        rubricCriteria = rubric || [];
+        console.log(`[evaluate-star-response] Found ${rubricCriteria.length} rubric criteria`);
+      }
+    }
+
+    // Create the appropriate evaluation prompt
+    const evaluationPrompt = isAssessmentQuestion ? 
+      createAssessmentEvaluationPrompt(starResponse, questionData, assessmentArea, rubricCriteria) :
+      createStandardEvaluationPrompt(starResponse, questionData);
+      
+    console.log(`[evaluate-star-response] Using ${isAssessmentQuestion ? 'assessment' : 'standard'} evaluation prompt`);
+
+    // Call the AI model to evaluate the STAR response
+    console.log(`[evaluate-star-response] Calling AI API to evaluate STAR response`);
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${GROQ}`,//${GROQ}`,//${TOGETHER_API_KEY}`,
+        Authorization: `Bearer ${GROQ}`,
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",//"meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",//"llama3-8b-8192", //"meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
+        model: "llama3-8b-8192",
         messages: [
           {
             role: "system",
-            content: `You are an interview coach specializing in evaluating STAR (Situation, Task, Action, Result) responses. Provide detailed, objective feedback on interview responses.`
+            content: isAssessmentQuestion ? 
+              `You are an expert behavioral interviewer specializing in evaluating responses against specific assessment competencies. You understand the nuanced behavioral indicators that distinguish different performance levels.` :
+              `You are an interview coach specializing in evaluating STAR (Situation, Task, Action, Result) responses. Provide detailed, objective feedback on interview responses.`
           },
           {
             role: "user",
-            content: promptContent
+            content: evaluationPrompt
           }
         ],
         temperature: 0.3,
@@ -162,12 +237,10 @@ Return ONLY the JSON object with no additional explanation or text.`;
       throw new Error(`AI API error: ${response.status}`);
     }
 
-    console.log(`[evaluate-star-response] Together AI API response received with status: ${response.status}`);
+    console.log(`[evaluate-star-response] AI API response received successfully`);
 
     // Parse the AI response
     const result = await response.json();
-    console.log(`[evaluate-star-response] AI response parsed successfully, model used: ${result.model || 'unknown'}`);
-    console.log(`[evaluate-star-response] AI response:`, result);
     const content = result.choices[0].message.content;
     console.log(`[evaluate-star-response] Retrieved content length: ${content?.length || 0}`);
 
@@ -181,18 +254,40 @@ Return ONLY the JSON object with no additional explanation or text.`;
     
     const feedbackData = parsedResult.data;
 
-    console.log(`[evaluate-star-response] Feedback data structure:`, {
+    // Convert 5-point scale to 10-point scale if it's an assessment question
+    if (isAssessmentQuestion && feedbackData.scores) {
+      console.log(`[evaluate-star-response] Converting scores from 5-point to 10-point scale`);
+      feedbackData.scores = {
+        situation: (feedbackData.scores.situation || 0) * 2,
+        task: (feedbackData.scores.task || 0) * 2, 
+        action: (feedbackData.scores.action || 0) * 2,
+        result: (feedbackData.scores.result || 0) * 2,
+        overall: (feedbackData.scores.overall || 0) * 2
+      };
+      
+      // Add assessment-specific scoring
+      if (feedbackData.assessment_evaluation) {
+        feedbackData.assessment_evaluation.performance_score = feedbackData.assessment_evaluation.performance_score * 2;
+      }
+    }
+
+    console.log(`[evaluate-star-response] Feedback data structure validated:`, {
       has_scores: !!feedbackData?.scores,
       has_analysis: !!feedbackData?.analysis,
       has_feedback: !!feedbackData?.feedback,
-      overall_score: feedbackData?.scores?.overall
+      overall_score: feedbackData?.scores?.overall,
+      is_assessment: isAssessmentQuestion
     });
 
     // Update the STAR response with the feedback
     console.log(`[evaluate-star-response] Updating STAR response with feedback`);
     const { data: updatedResponse, error: updateError } = await supabase
       .from("star_responses")
-      .update({ ai_feedback: feedbackData })
+      .update({ 
+        ai_feedback: feedbackData,
+        assessment_area: assessmentArea,
+        is_assessment_question: isAssessmentQuestion
+      })
       .eq("id", responseId)
       .select()
       .single();
@@ -251,8 +346,6 @@ serve(async (req) => {
     
   } catch (error) {
     console.error(`[evaluate-star-response] Error in edge function:`, error);
-
-    
     
     return new Response(
       JSON.stringify({ error: error.message || "Failed to evaluate STAR response" }),
@@ -262,5 +355,4 @@ serve(async (req) => {
       }
     );
   }
-  
 });
