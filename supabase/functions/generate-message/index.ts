@@ -2,7 +2,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const togetherApiKey = Deno.env.get('TOGETHER_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,8 +18,8 @@ serve(async (req) => {
   try {
     const { conversationHistory, messageType } = await req.json();
 
-    if (!openAIApiKey) {
-      throw new Error('OpenAI API key not configured');
+    if (!togetherApiKey) {
+      throw new Error('Together API key not configured');
     }
 
     // Build context based on conversation history
@@ -32,25 +32,28 @@ serve(async (req) => {
       systemPrompt += ' Generate a friendly conversation starter message.';
     }
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Prepare messages for Together API
+    const messages = [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: 'Generate a brief, friendly message for this conversation context.' }
+    ];
+
+    const response = await fetch('https://api.together.xyz/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
+        'Authorization': `Bearer ${togetherApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: 'Generate a brief, friendly message for this conversation context.' }
-        ],
+        model: 'meta-llama/Llama-3.3-70B-Instruct-Turbo-Free',
+        messages: messages,
         max_tokens: 100,
         temperature: 0.7,
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+      throw new Error(`Together API error: ${response.status}`);
     }
 
     const data = await response.json();
