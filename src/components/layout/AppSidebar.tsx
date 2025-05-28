@@ -25,7 +25,7 @@ const AppSidebar = () => {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources' && !location.pathname.includes('/admin/resources')
+    active: location.pathname === '/resources'
   }, {
     title: "Resume Analyzer",
     url: "/resume",
@@ -111,7 +111,7 @@ const AppSidebar = () => {
     active: location.pathname === '/profile'
   }];
 
-  // Define admin menu items
+  // Define admin menu items - removed Manage Resources
   const adminMenuItems = [{
     title: "Admin Dashboard",
     url: "/admin",
@@ -132,11 +132,6 @@ const AppSidebar = () => {
     url: "/admin/forms",
     icon: FormInput,
     active: location.pathname === '/admin/forms'
-  }, {
-    title: "Manage Resources",
-    url: "/admin/resources",
-    icon: FileText,
-    active: location.pathname === '/admin/resources'
   }, {
     title: "Manage Blog",
     url: "/admin/blog-posts",

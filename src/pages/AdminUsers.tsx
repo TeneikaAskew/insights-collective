@@ -10,16 +10,12 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
-  Search, MoreHorizontal, Filter, Download, Eye, PenSquare, KeyRound, Trash2, Loader2
+  Search, MoreHorizontal, Filter, Download, Eye, PenSquare, Loader2
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { 
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle 
-} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminUsers } from '@/hooks/useAdminUsers';
 
@@ -32,7 +28,6 @@ interface UserData {
   avatar_url?: string;
   role?: string;
   roles?: string[];
-  providers?: string[];
   created_at?: string;
   last_sign_in_at?: string;
 }
@@ -41,8 +36,6 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
-  const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
-  const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [updatedRoles, setUpdatedRoles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('all');
@@ -53,12 +46,9 @@ const AdminUsers = () => {
     loading, 
     error,
     fetchUsers, 
-    updateUserRole, 
-    deleteUser: deleteUserFn, 
-    resetUserPassword 
+    updateUserRole
   } = useAdminUsers();
   
-  // Add debugging logs
   useEffect(() => {
     console.log('[AdminUsers] Component mounted, fetching users...');
     fetchUsers();
@@ -91,7 +81,7 @@ const AdminUsers = () => {
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     const matchesSearch = 
       fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (activeTab === 'all') return matchesSearch;
     return matchesSearch && user.role === activeTab;
@@ -106,40 +96,6 @@ const AdminUsers = () => {
     setSelectedUser(user);
     setUpdatedRoles(user.roles || ['student']);
     setIsEditUserOpen(true);
-  };
-  
-  const handleOpenResetPassword = (user: UserData) => {
-    setSelectedUser(user);
-    setIsResetPasswordOpen(true);
-  };
-  
-  const handleOpenDeleteUser = (user: UserData) => {
-    setSelectedUser(user);
-    setIsDeleteUserOpen(true);
-  };
-  
-  const handleDeleteUser = async () => {
-    if (!selectedUser) return;
-    
-    try {
-      const result = await deleteUserFn(selectedUser.id);
-      
-      if (!result.success) throw new Error(result.error);
-      
-      setIsDeleteUserOpen(false);
-      
-      toast({
-        title: 'User Deleted',
-        description: `User has been removed from the system.`,
-      });
-    } catch (error: any) {
-      console.error('Error deleting user:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to delete user.',
-        variant: 'destructive'
-      });
-    }
   };
   
   const handleUpdateUserRoles = async () => {
@@ -165,30 +121,6 @@ const AdminUsers = () => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to update user roles.',
-        variant: 'destructive'
-      });
-    }
-  };
-  
-  const handleResetPassword = async () => {
-    if (!selectedUser) return;
-    
-    try {
-      const result = await resetUserPassword(selectedUser.email);
-      
-      if (!result.success) throw new Error(result.error);
-      
-      setIsResetPasswordOpen(false);
-      
-      toast({
-        title: 'Password Reset Email Sent',
-        description: `A password reset link has been sent to ${selectedUser.email}.`,
-      });
-    } catch (error: any) {
-      console.error('Error sending password reset:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to send password reset email.',
         variant: 'destructive'
       });
     }
@@ -315,18 +247,15 @@ const AdminUsers = () => {
                           <Checkbox />
                         </TableHead>
                         <TableHead>Name</TableHead>
-                        <TableHead>Email</TableHead>
                         <TableHead>Role</TableHead>
                         <TableHead>Joined</TableHead>
-                        <TableHead>Last Login</TableHead>
-                        <TableHead>Provider</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filteredUsers.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} className="h-24 text-center">
+                          <TableCell colSpan={5} className="h-24 text-center">
                             {users.length === 0 ? 'No users found.' : 'No users match your search criteria.'}
                           </TableCell>
                         </TableRow>
@@ -339,7 +268,6 @@ const AdminUsers = () => {
                                 <Checkbox />
                               </TableCell>
                               <TableCell className="font-medium">{name || 'Unnamed User'}</TableCell>
-                              <TableCell>{user.email}</TableCell>
                               <TableCell>
                                 <Badge variant={getRoleBadgeVariant(user.role || 'student')}>
                                   {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || 'Student'}
@@ -352,16 +280,6 @@ const AdminUsers = () => {
                               </TableCell>
                               <TableCell>
                                 {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
-                              </TableCell>
-                              <TableCell>
-                                {user.last_sign_in_at 
-                                  ? new Date(user.last_sign_in_at).toLocaleDateString() 
-                                  : 'Never'}
-                              </TableCell>
-                              <TableCell>
-                                {user.providers && user.providers.length > 0
-                                  ? user.providers.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')
-                                  : 'Email'}
                               </TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>
@@ -379,17 +297,6 @@ const AdminUsers = () => {
                                     <DropdownMenuItem onClick={() => handleOpenEditUser(user)}>
                                       <PenSquare className="mr-2 h-4 w-4" />
                                       Edit Roles
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleOpenResetPassword(user)}>
-                                      <KeyRound className="mr-2 h-4 w-4" />
-                                      Reset Password
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem 
-                                      className="text-destructive focus:text-destructive"
-                                      onClick={() => handleOpenDeleteUser(user)}
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete User
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -425,10 +332,6 @@ const AdminUsers = () => {
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right font-medium">Email:</Label>
-                <div className="col-span-3">{selectedUser.email}</div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
                 <Label className="text-right font-medium">Roles:</Label>
                 <div className="col-span-3">
                   {selectedUser.roles?.map(role => (
@@ -442,12 +345,6 @@ const AdminUsers = () => {
                 <Label className="text-right font-medium">Created:</Label>
                 <div className="col-span-3">
                   {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleString() : 'Unknown'}
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right font-medium">Last Login:</Label>
-                <div className="col-span-3">
-                  {selectedUser.last_sign_in_at ? new Date(selectedUser.last_sign_in_at).toLocaleString() : 'Never'}
                 </div>
               </div>
             </div>
@@ -505,45 +402,6 @@ const AdminUsers = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Reset Password Dialog */}
-      <AlertDialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset Password</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will send a password reset email to {selectedUser?.email}. The user will receive instructions to create a new password.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleResetPassword}>
-              Send Reset Email
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Delete User Dialog */}
-      <AlertDialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete User</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the user account for {selectedUser?.email}. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={handleDeleteUser}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete User
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </AppLayout>
   );
 };
