@@ -24,13 +24,24 @@ export function useUsers() {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, first_name, last_name, avatar_url, role')
+          .select('id, first_name, last_name, avatar_url, role, bio, roles')
           .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%`)
           .limit(20);
 
         if (error) throw error;
 
-        setUsers(data || []);
+        // Transform the data to match Profile type, providing defaults for missing fields
+        const transformedData: Profile[] = (data || []).map(user => ({
+          id: user.id,
+          first_name: user.first_name,
+          last_name: user.last_name,
+          avatar_url: user.avatar_url,
+          role: user.role,
+          bio: user.bio || '',
+          roles: user.roles || ['student']
+        }));
+
+        setUsers(transformedData);
       } catch (error) {
         console.error('Error searching users:', error);
         toast({
