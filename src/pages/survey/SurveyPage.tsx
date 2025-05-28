@@ -15,6 +15,9 @@ import { createFellowshipForm } from '@/components/forms/builder';
 
 export default function SurveyPage() {
   const { slug } = useParams<{ slug: string }>();
+  // Fix: Use surveySlug to match the route parameter name
+  const { surveySlug } = useParams<{ surveySlug: string }>();
+  const actualSlug = slug || surveySlug;
   const [formData, setFormData] = useState<FormData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -32,15 +35,15 @@ export default function SurveyPage() {
   // Load form data
   useEffect(() => {
     const fetchForm = async () => {
-      if (!slug) return;
+      if (!actualSlug) return;
 
       try {
-        console.log("Fetching form with slug:", slug);
+        console.log("Fetching form with slug:", actualSlug);
         // Try to fetch the existing form
         const { data, error } = await supabase
           .from('forms')
           .select('*')
-          .eq('slug', slug)
+          .eq('slug', actualSlug)
           .eq('status', true) // Only fetch active forms
           .single();
 
@@ -204,7 +207,7 @@ export default function SurveyPage() {
       }
       
       // Redirect to confirmation page
-      navigate(`/survey-confirmation/${slug}`);
+      navigate(`/survey-confirmation/${actualSlug}`);
       
     } catch (error) {
       console.error('Error submitting form:', error);

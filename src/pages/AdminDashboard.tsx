@@ -1036,6 +1036,146 @@ const AdminDashboard = () => {
           </TabsContent>
           
           <TabsContent value="resources" className="space-y-6 mt-6">
+            <div className="grid gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Configure Resources Page</CardTitle>
+                  <CardDescription>
+                    Manage the content and resources displayed on the public resources page
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg">Featured Resources</CardTitle>
+                        <CardDescription>
+                          Manage which resources are highlighted on the resources page
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">Data Science Bootcamp</p>
+                              <p className="text-sm text-muted-foreground">Training • Featured</p>
+                            </div>
+                            <Button variant="outline" size="sm">Edit</Button>
+                          </div>
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">ML Conference 2025</p>
+                              <p className="text-sm text-muted-foreground">Event • Featured</p>
+                            </div>
+                            <Button variant="outline" size="sm">Edit</Button>
+                          </div>
+                          <Button className="w-full" variant="outline">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Featured Resource
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-lg">Resource Categories</CardTitle>
+                        <CardDescription>
+                          Configure available categories for resource organization
+                        </CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">Training Programs</p>
+                              <p className="text-sm text-muted-foreground">12 resources</p>
+                            </div>
+                            <Button variant="outline" size="sm">Manage</Button>
+                          </div>
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">Events & Conferences</p>
+                              <p className="text-sm text-muted-foreground">8 resources</p>
+                            </div>
+                            <Button variant="outline" size="sm">Manage</Button>
+                          </div>
+                          <div className="flex items-center justify-between p-3 border rounded-lg">
+                            <div>
+                              <p className="font-medium">Career Opportunities</p>
+                              <p className="text-sm text-muted-foreground">15 resources</p>
+                            </div>
+                            <Button variant="outline" size="sm">Manage</Button>
+                          </div>
+                          <Button className="w-full" variant="outline">
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Category
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Page Settings</CardTitle>
+                      <CardDescription>
+                        Configure the appearance and behavior of the resources page
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label htmlFor="page-title" className="text-sm font-medium">Page Title</label>
+                          <Input id="page-title" defaultValue="Resources & Opportunities" />
+                        </div>
+                        <div className="space-y-2">
+                          <label htmlFor="page-subtitle" className="text-sm font-medium">Page Subtitle</label>
+                          <Input id="page-subtitle" defaultValue="Discover training programs, events, and career opportunities" />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label htmlFor="page-description" className="text-sm font-medium">Page Description</label>
+                        <textarea 
+                          id="page-description" 
+                          className="min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                          defaultValue="Explore our curated collection of data science resources, training programs, industry events, and career opportunities to advance your data science journey."
+                        />
+                      </div>
+                      <div className="flex justify-end space-x-2">
+                        <Button variant="outline">Preview Changes</Button>
+                        <Button>Save Settings</Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Quick Actions</CardTitle>
+                      <CardDescription>
+                        Common resource management tasks
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <Button className="w-full" variant="outline">
+                          <BarChart className="h-4 w-4 mr-2" />
+                          View Analytics
+                        </Button>
+                        <Button className="w-full" variant="outline">
+                          <Download className="h-4 w-4 mr-2" />
+                          Export Resources
+                        </Button>
+                        <Button className="w-full" variant="outline">
+                          <Plus className="h-4 w-4 mr-2" />
+                          Bulk Import
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CardContent>
+              </Card>
+            </div>
             <div className="flex items-center justify-between">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

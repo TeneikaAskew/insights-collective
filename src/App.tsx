@@ -62,7 +62,7 @@ import AdminUsers from '@/pages/AdminUsers';
 import AdminCourses from '@/pages/AdminCourses';
 import AdminEvents from '@/pages/AdminEvents';
 import AdminBlogPosts from '@/pages/AdminBlogPosts';
-import AdminResources from '@/pages/AdminResources';
+
 import AdminForms from '@/pages/AdminForms';
 import AdminActivity from '@/pages/AdminActivity';
 import AdminCertificates from '@/pages/AdminCertificates';
@@ -614,14 +614,7 @@ function App() {
                       </AdminGuard>
                     }
                   />
-                  <Route
-                    path="/admin/resources"
-                    element={
-                      <AdminGuard>
-                        <AdminResources />
-                      </AdminGuard>
-                    }
-                  />
+                  
                   <Route
                     path="/admin/forms"
                     element={

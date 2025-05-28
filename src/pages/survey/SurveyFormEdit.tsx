@@ -16,6 +16,9 @@ import { createFellowshipForm } from '@/components/forms/builder';
 export default function SurveyFormEdit() {
   const { user, isAdmin } = useAuth();
   const { slug } = useParams<{ slug: string }>();
+  // Fix: Use surveySlug to match the route parameter name
+  const { surveySlug } = useParams<{ surveySlug: string }>();
+  const actualSlug = slug || surveySlug;
   const location = useLocation();
   const [formData, setFormData] = useState<{
     id: string;
@@ -40,25 +43,25 @@ export default function SurveyFormEdit() {
     }
 
     const fetchForm = async () => {
-      if (!slug) {
+      if (!actualSlug) {
         setError("No form slug provided");
         setLoading(false);
         return;
       }
 
       try {
-        console.log("Fetching form data for slug:", slug);
+        console.log("Fetching form data for slug:", actualSlug);
         const { data, error: fetchError } = await supabase
           .from('forms')
           .select('*')
-          .eq('slug', slug)
+          .eq('slug', actualSlug)
           .single();
 
         if (fetchError) {
           console.error("Supabase error:", fetchError);
           
           // If the form doesn't exist and the slug is ai-fellowship, create it
-          if (fetchError.code === 'PGRST116' && slug === 'ai-fellowship') {
+          if (fetchError.code === 'PGRST116' && actualSlug === 'ai-fellowship') {
             console.log("Creating fellowship form...");
             const fellowshipForm = createFellowshipForm();
             
@@ -104,8 +107,8 @@ export default function SurveyFormEdit() {
         }
 
         if (!data) {
-          console.error("No data returned for slug:", slug);
-          setError(`Form with slug "${slug}" not found`);
+          console.error("No data returned for slug:", actualSlug);
+          setError(`Form with slug "${actualSlug}" not found`);
           setLoading(false);
           return;
         }
@@ -139,7 +142,7 @@ export default function SurveyFormEdit() {
     };
 
     fetchForm();
-  }, [slug, toast, user, isAdmin]);
+  }, [actualSlug, toast, user, isAdmin]);
 
   // Only allow admin users to access this page, but don't redirect immediately
   // to allow the auth system to properly store the redirect path
@@ -191,10 +194,7 @@ export default function SurveyFormEdit() {
   return (
     <AppLayout>
       <div className="container py-8">
-        {/* Debug info */}
-        <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
-          <strong>Debug:</strong> viewMode = {isSubmissionsView.toString()}, hasFormData = {!!formData}, formSections = {formData?.form_structure?.sections?.length || 0}
-        </div>
+        
         <FormBuilder 
           initialFormData={formData} 
           viewMode={isSubmissionsView}
