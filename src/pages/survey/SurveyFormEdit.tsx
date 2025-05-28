@@ -30,8 +30,8 @@ export default function SurveyFormEdit() {
   const { toast } = useToast();
   
   // Check if we're viewing submissions based on the URL query parameters
-  const searchParams = new URLSearchParams(location.search);
-  const isSubmissionsView = searchParams.get('view') === 'submissions';
+    const searchParams = new URLSearchParams(location.search);
+    const isSubmissionsView = searchParams.get('view') === 'submissions';
 
   useEffect(() => {
     // If user is not admin, we'll let the ProtectedRoute handle the redirect
@@ -191,6 +191,10 @@ export default function SurveyFormEdit() {
   return (
     <AppLayout>
       <div className="container py-8">
+        {/* Debug info */}
+        <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded text-sm">
+          <strong>Debug:</strong> viewMode = {isSubmissionsView.toString()}, hasFormData = {!!formData}, formSections = {formData?.form_structure?.sections?.length || 0}
+        </div>
         <FormBuilder 
           initialFormData={formData} 
           viewMode={isSubmissionsView}
