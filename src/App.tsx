@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 // import { QueryClient } from 'react-query';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
@@ -317,21 +316,21 @@ function App() {
                     }
                   />
                   <Route
-                    path="/survey/edit/:surveyId"
+                    path="/survey/:surveySlug"
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
-                          <SurveyFormEdit />
+                          <SurveyPage />
                         </PageVisibilityGuard>
                       </ProtectedRoute>
                     }
                   />
                   <Route
-                    path="/survey/:surveyId"
+                    path="/survey/:surveySlug/edit"
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
-                          <SurveyPage />
+                          <SurveyFormEdit />
                         </PageVisibilityGuard>
                       </ProtectedRoute>
                     }
@@ -625,6 +624,14 @@ function App() {
                   />
                   <Route
                     path="/admin/forms"
+                    element={
+                      <AdminGuard>
+                        <UnifiedFormManagement />
+                      </AdminGuard>
+                    }
+                  />
+                  <Route
+                    path="/admin/legacy-forms"
                     element={
                       <AdminGuard>
                         <AdminForms />
