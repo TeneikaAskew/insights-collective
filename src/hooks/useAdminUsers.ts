@@ -29,21 +29,29 @@ export function useAdminUsers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { session } = useAuth();
+  const { session, user } = useAuth();
 
   const fetchUsers = async () => {
+    console.log('[useAdminUsers] Starting fetchUsers...');
     setLoading(true);
     setError(null);
     
     try {
-      // Ensure we have a valid session
+      // Check authentication first
       if (!session || !session.access_token) {
+        console.error('[useAdminUsers] No valid session or access token');
         throw new Error("Authentication required to access admin functions");
       }
-      
-      if (process.env.NODE_ENV === "development") {
-        console.log('Fetching admin users with access token:', !!session.access_token);
+
+      // Check if user is admin
+      if (!user?.roles?.includes('admin')) {
+        console.error('[useAdminUsers] User is not an admin:', user?.roles);
+        throw new Error("Admin privileges required");
       }
+      
+      console.log('[useAdminUsers] Making request to admin-users function...');
+      console.log('[useAdminUsers] Session token available:', !!session.access_token);
+      console.log('[useAdminUsers] User roles:', user?.roles);
       
       const { data, error } = await supabase.functions.invoke('admin-users', {
         body: { action: 'listUsers' },
@@ -53,22 +61,31 @@ export function useAdminUsers() {
       });
 
       if (error) {
-        console.error('Error details:', error);
+        console.error('[useAdminUsers] Edge function error:', error);
         throw error;
       }
       
-      const response = data as AdminUsersResponse;
-      setUsers(response.users || []);
+      console.log('[useAdminUsers] Raw response data:', data);
       
-      if (process.env.NODE_ENV === "development") {
-        console.log('Admin users loaded:', response.users?.length || 0);
+      const response = data as AdminUsersResponse;
+      const usersList = response.users || [];
+      
+      console.log('[useAdminUsers] Processed users list:', usersList.length, 'users');
+      
+      setUsers(usersList);
+      
+      if (usersList.length === 0) {
+        console.warn('[useAdminUsers] No users returned from API');
       }
+      
     } catch (err: any) {
-      console.error('Error fetching users:', err);
-      setError(err.message || 'Failed to load users');
+      console.error('[useAdminUsers] Error fetching users:', err);
+      const errorMessage = err.message || 'Failed to load users';
+      setError(errorMessage);
+      
       toast({
         title: 'Error',
-        description: 'Could not load user list. Please try again.',
+        description: 'Could not load user list. Please check your admin permissions and try again.',
         variant: 'destructive',
       });
     } finally {
@@ -81,6 +98,8 @@ export function useAdminUsers() {
       if (!session?.access_token) {
         throw new Error("Authentication required");
       }
+      
+      console.log('[useAdminUsers] Updating user role:', userId, roles);
       
       const { data, error } = await supabase.functions.invoke('admin-users', {
         body: { action: 'updateUserRole', userId, data: { roles } },
@@ -102,7 +121,7 @@ export function useAdminUsers() {
       
       return { success: true };
     } catch (err: any) {
-      console.error('Error updating user role:', err);
+      console.error('[useAdminUsers] Error updating user role:', err);
       toast({
         title: 'Error',
         description: 'Failed to update user role. Please try again.',
@@ -118,6 +137,8 @@ export function useAdminUsers() {
         throw new Error("Authentication required");
       }
       
+      console.log('[useAdminUsers] Deleting user:', userId);
+      
       const { data, error } = await supabase.functions.invoke('admin-users', {
         body: { action: 'deleteUser', userId },
         headers: {
@@ -132,7 +153,7 @@ export function useAdminUsers() {
       
       return { success: true };
     } catch (err: any) {
-      console.error('Error deleting user:', err);
+      console.error('[useAdminUsers] Error deleting user:', err);
       toast({
         title: 'Error',
         description: 'Failed to delete user. Please try again.',
@@ -148,6 +169,8 @@ export function useAdminUsers() {
         throw new Error("Authentication required");
       }
       
+      console.log('[useAdminUsers] Resetting password for:', email);
+      
       const { data, error } = await supabase.functions.invoke('admin-users', {
         body: { action: 'resetPassword', data: { email } },
         headers: {
@@ -159,7 +182,7 @@ export function useAdminUsers() {
       
       return { success: true };
     } catch (err: any) {
-      console.error('Error resetting password:', err);
+      console.error('[useAdminUsers] Error resetting password:', err);
       toast({
         title: 'Error',
         description: 'Failed to send password reset. Please try again.',

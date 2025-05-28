@@ -10,6 +10,8 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  console.log('[admin-users] Request received:', req.method, req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -21,7 +23,10 @@ serve(async (req) => {
   try {
     // Create a Supabase client with the Auth context of the logged-in user
     const authHeader = req.headers.get('Authorization')
+    console.log('[admin-users] Auth header present:', !!authHeader);
+    
     if (!authHeader) {
+      console.error('[admin-users] No authorization header provided');
       return new Response(JSON.stringify({ error: 'Not authorized' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -31,6 +36,8 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || ''
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+    console.log('[admin-users] Environment variables loaded');
 
     // Create admin client with service role key
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
@@ -45,44 +52,70 @@ serve(async (req) => {
     })
 
     // Verify user has admin access
+    console.log('[admin-users] Verifying user authentication...');
     const {
       data: { user },
     } = await supabaseClient.auth.getUser()
 
     if (!user) {
+      console.error('[admin-users] No authenticated user found');
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
+    console.log('[admin-users] User authenticated:', user.id);
+
     // Check if user is an admin
+    console.log('[admin-users] Checking user profile for admin role...');
     const { data: profileData, error: profileError } = await supabaseClient
       .from('profiles')
-      .select('role')
+      .select('role, roles')
       .eq('id', user.id)
       .single()
 
-    if (profileError || profileData?.role !== 'admin') {
-      console.error('User not admin or profile error:', profileError)
+    console.log('[admin-users] Profile data:', profileData);
+    console.log('[admin-users] Profile error:', profileError);
+
+    if (profileError) {
+      console.error('[admin-users] Profile query error:', profileError);
+      return new Response(JSON.stringify({ error: 'Failed to verify user permissions' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    // Check both role and roles array for admin access
+    const isAdmin = profileData?.role === 'admin' || profileData?.roles?.includes('admin');
+    
+    if (!isAdmin) {
+      console.error('[admin-users] User not admin. Role:', profileData?.role, 'Roles:', profileData?.roles);
       return new Response(JSON.stringify({ error: 'Insufficient permissions' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
+    console.log('[admin-users] Admin access verified');
+
     // Get the action from the request body
     const { action, userId, data: actionData } = await req.json()
+    console.log('[admin-users] Action requested:', action);
 
     switch (action) {
       case 'listUsers': {
+        console.log('[admin-users] Fetching all users...');
+        
         // Get all users using the admin client
         const { data: authUsers, error: authError } = await supabaseAdmin.auth.admin.listUsers()
         
         if (authError) {
-          console.error('Error fetching auth users:', authError)
+          console.error('[admin-users] Error fetching auth users:', authError)
           throw authError
         }
+
+        console.log('[admin-users] Auth users fetched:', authUsers.users.length);
 
         // Get profiles data to merge with auth data
         const { data: profiles, error: profilesError } = await supabaseAdmin
@@ -90,9 +123,11 @@ serve(async (req) => {
           .select('*')
 
         if (profilesError) {
-          console.error('Error fetching profiles:', profilesError)
+          console.error('[admin-users] Error fetching profiles:', profilesError)
           throw profilesError
         }
+
+        console.log('[admin-users] Profiles fetched:', profiles?.length || 0);
 
         // Merge auth users with profile data
         const users = authUsers.users.map((authUser) => {
@@ -100,8 +135,13 @@ serve(async (req) => {
           return {
             ...authUser,
             ...profile,
+            providers: authUser.app_metadata?.providers || ['email'],
+            role: profile.role || getHighestRole(profile.roles || ['student']),
+            roles: profile.roles || ['student']
           }
         })
+
+        console.log('[admin-users] Merged users prepared:', users.length);
 
         return new Response(JSON.stringify({ users }), {
           status: 200,
@@ -116,6 +156,8 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           })
         }
+
+        console.log('[admin-users] Updating user role:', userId, actionData.roles);
 
         // Determine the highest role for the role field
         const highestRole = getHighestRole(actionData.roles)
@@ -132,9 +174,11 @@ serve(async (req) => {
           .single()
 
         if (error) {
-          console.error('Error updating user role:', error)
+          console.error('[admin-users] Error updating user role:', error)
           throw error
         }
+
+        console.log('[admin-users] User role updated successfully');
 
         return new Response(JSON.stringify({ data }), {
           status: 200,
@@ -150,13 +194,17 @@ serve(async (req) => {
           })
         }
 
+        console.log('[admin-users] Deleting user:', userId);
+
         // Delete the user - this will cascade to the profile due to foreign key constraints
         const { error } = await supabaseAdmin.auth.admin.deleteUser(userId)
 
         if (error) {
-          console.error('Error deleting user:', error)
+          console.error('[admin-users] Error deleting user:', error)
           throw error
         }
+
+        console.log('[admin-users] User deleted successfully');
 
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
@@ -172,13 +220,17 @@ serve(async (req) => {
           })
         }
 
+        console.log('[admin-users] Sending password reset for:', actionData.email);
+
         // Send password reset email
         const { error } = await supabaseAdmin.auth.admin.sendPasswordResetEmail(actionData.email)
 
         if (error) {
-          console.error('Error sending password reset:', error)
+          console.error('[admin-users] Error sending password reset:', error)
           throw error
         }
+
+        console.log('[admin-users] Password reset sent successfully');
 
         return new Response(JSON.stringify({ success: true }), {
           status: 200,
@@ -187,6 +239,7 @@ serve(async (req) => {
       }
 
       default: {
+        console.error('[admin-users] Unknown action:', action);
         return new Response(JSON.stringify({ error: 'Unknown action' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -194,7 +247,7 @@ serve(async (req) => {
       }
     }
   } catch (error) {
-    console.error('Edge function error:', error)
+    console.error('[admin-users] Edge function error:', error)
     return new Response(JSON.stringify({ error: error.message || 'An error occurred' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

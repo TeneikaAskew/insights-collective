@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
-  Search, MoreHorizontal, Filter, UserPlus, Download, Eye, PenSquare, KeyRound, Trash2, Loader2
+  Search, MoreHorizontal, Filter, Download, Eye, PenSquare, KeyRound, Trash2, Loader2
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
@@ -39,17 +39,11 @@ interface UserData {
 
 const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [isAddUserOpen, setIsAddUserOpen] = useState(false);
   const [isViewDetailsOpen, setIsViewDetailsOpen] = useState(false);
   const [isEditUserOpen, setIsEditUserOpen] = useState(false);
   const [isResetPasswordOpen, setIsResetPasswordOpen] = useState(false);
   const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
-  const [newUser, setNewUser] = useState({
-    name: '',
-    email: '',
-    roles: ['student'] as string[]
-  });
   const [updatedRoles, setUpdatedRoles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('all');
   const { toast } = useToast();
@@ -57,15 +51,24 @@ const AdminUsers = () => {
   const { 
     users, 
     loading, 
+    error,
     fetchUsers, 
     updateUserRole, 
     deleteUser: deleteUserFn, 
     resetUserPassword 
   } = useAdminUsers();
   
+  // Add debugging logs
   useEffect(() => {
+    console.log('[AdminUsers] Component mounted, fetching users...');
     fetchUsers();
   }, []);
+
+  useEffect(() => {
+    console.log('[AdminUsers] Users state updated:', users);
+    console.log('[AdminUsers] Loading state:', loading);
+    console.log('[AdminUsers] Error state:', error);
+  }, [users, loading, error]);
   
   const getHighestRole = (roles: string[] = ['student']): string => {
     if (roles.includes('admin')) return 'admin';
@@ -134,25 +137,6 @@ const AdminUsers = () => {
       toast({
         title: 'Error',
         description: error.message || 'Failed to delete user.',
-        variant: 'destructive'
-      });
-    }
-  };
-  
-  const handleAddUser = async () => {
-    try {
-      setIsAddUserOpen(false);
-      
-      toast({
-        title: 'Add User Not Implemented',
-        description: `Creating users through the admin panel isn't supported. Users must register through the sign-up page.`,
-        variant: 'destructive'
-      });
-    } catch (error: any) {
-      console.error('Error adding user:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to add user.',
         variant: 'destructive'
       });
     }
@@ -261,52 +245,8 @@ const AdminUsers = () => {
       }
     });
   };
-  
-  const toggleNewUserRole = (role: string) => {
-    if (role === 'student') return;
-    
-    setNewUser(prev => {
-      const updatedRoles = prev.roles.includes(role)
-        ? prev.roles.filter(r => r !== role)
-        : [...prev.roles, role];
-      
-      return {
-        ...prev,
-        roles: updatedRoles
-      };
-    });
-  };
 
-  // Ensure admin for specific users like Teneika
-  useEffect(() => {
-    const checkAndUpdateAdmin = async () => {
-      // Find Teneika's account or any other email that should always be admin
-      const teneikaUser = users.find(user => 
-        user.email === 'teneika.askew@gmail.com' && 
-        (!user.roles?.includes('admin'))
-      );
-      
-      if (teneikaUser) {
-        console.log('Ensuring admin role for Teneika Askew');
-        
-        const updatedRoles = [...(teneikaUser.roles || []), 'admin'];
-        if (!updatedRoles.includes('student')) {
-          updatedRoles.push('student');
-        }
-        
-        await updateUserRole(teneikaUser.id, updatedRoles);
-        
-        toast({
-          title: 'Admin Role Added',
-          description: 'Teneika Askew has been granted admin privileges.',
-        });
-      }
-    };
-    
-    if (users.length > 0 && !loading) {
-      checkAndUpdateAdmin();
-    }
-  }, [users, loading]);
+  console.log('[AdminUsers] Rendering with users:', users.length, 'loading:', loading, 'error:', error);
   
   return (
     <AppLayout>
@@ -360,6 +300,13 @@ const AdminUsers = () => {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                     <span className="ml-2">Loading users...</span>
                   </div>
+                ) : error ? (
+                  <div className="flex flex-col justify-center items-center py-8">
+                    <p className="text-destructive mb-4">Error loading users: {error}</p>
+                    <Button onClick={fetchUsers} variant="outline">
+                      Retry
+                    </Button>
+                  </div>
                 ) : (
                   <Table>
                     <TableHeader>
@@ -380,7 +327,7 @@ const AdminUsers = () => {
                       {filteredUsers.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={8} className="h-24 text-center">
-                            No users found.
+                            {users.length === 0 ? 'No users found.' : 'No users match your search criteria.'}
                           </TableCell>
                         </TableRow>
                       ) : (
@@ -460,220 +407,139 @@ const AdminUsers = () => {
         </Tabs>
       </div>
 
-      <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add New User</DialogTitle>
-            <DialogDescription>
-              Enter the details for the new user.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Full Name</Label>
-              <Input 
-                id="name" 
-                value={newUser.name} 
-                onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                placeholder="John Doe"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input 
-                id="email" 
-                type="email" 
-                value={newUser.email} 
-                onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                placeholder="john.doe@example.com"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label>User Roles</Label>
-              <div className="flex flex-col space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="student-role-new" 
-                    checked={true} 
-                    disabled 
-                  />
-                  <Label htmlFor="student-role-new" className="font-normal">Student (required)</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="instructor-role-new" 
-                    checked={newUser.roles.includes('instructor')} 
-                    onCheckedChange={() => toggleNewUserRole('instructor')}
-                  />
-                  <Label htmlFor="instructor-role-new" className="font-normal">Instructor</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="admin-role-new" 
-                    checked={newUser.roles.includes('admin')} 
-                    onCheckedChange={() => toggleNewUserRole('admin')}
-                  />
-                  <Label htmlFor="admin-role-new" className="font-normal">Admin</Label>
-                </div>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Cancel</Button>
-            <Button onClick={handleAddUser}>Add User</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+      {/* View Details Dialog */}
       <Dialog open={isViewDetailsOpen} onOpenChange={setIsViewDetailsOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>User Details</DialogTitle>
+            <DialogDescription>
+              View detailed information about this user.
+            </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Name</h4>
-                  <p>{`${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || 'Not provided'}</p>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right font-medium">Name:</Label>
+                <div className="col-span-3">
+                  {`${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || 'Unnamed User'}
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Email</h4>
-                  <p>{selectedUser.email}</p>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right font-medium">Email:</Label>
+                <div className="col-span-3">{selectedUser.email}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right font-medium">Roles:</Label>
+                <div className="col-span-3">
+                  {selectedUser.roles?.map(role => (
+                    <Badge key={role} variant="outline" className="mr-1">
+                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                    </Badge>
+                  ))}
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Primary Role</h4>
-                  <Badge variant={getRoleBadgeVariant(selectedUser.role || 'student')}>
-                    {selectedUser.role?.charAt(0).toUpperCase() + selectedUser.role?.slice(1) || 'Student'}
-                  </Badge>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right font-medium">Created:</Label>
+                <div className="col-span-3">
+                  {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleString() : 'Unknown'}
                 </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">All Roles</h4>
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {selectedUser.roles?.map(role => (
-                      <Badge key={role} variant="outline" className="text-xs">
-                        {role.charAt(0).toUpperCase() + role.slice(1)}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Provider</h4>
-                  <p>
-                    {selectedUser.providers && selectedUser.providers.length > 0
-                      ? selectedUser.providers.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(', ')
-                      : 'Email'}
-                  </p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Joined</h4>
-                  <p>{selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleDateString() : 'Unknown'}</p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-muted-foreground">Last Sign-In</h4>
-                  <p>
-                    {selectedUser.last_sign_in_at 
-                      ? new Date(selectedUser.last_sign_in_at).toLocaleDateString() 
-                      : 'Never'}
-                  </p>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right font-medium">Last Login:</Label>
+                <div className="col-span-3">
+                  {selectedUser.last_sign_in_at ? new Date(selectedUser.last_sign_in_at).toLocaleString() : 'Never'}
                 </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button onClick={() => setIsViewDetailsOpen(false)}>Close</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Edit Roles Dialog */}
       <Dialog open={isEditUserOpen} onOpenChange={setIsEditUserOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit User Roles</DialogTitle>
             <DialogDescription>
-              Manage the roles assigned to {selectedUser ? `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || selectedUser.email : ''}.
+              Update the roles for this user.
             </DialogDescription>
           </DialogHeader>
-          {selectedUser && (
-            <div className="space-y-4">
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>User Roles</Label>
               <div className="flex flex-col space-y-2">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
-                    id="student-role" 
-                    checked={true} 
-                    disabled 
+                    id="student-role"
+                    checked={true}
+                    disabled={true}
                   />
-                  <Label htmlFor="student-role" className="font-normal">Student (required)</Label>
+                  <Label htmlFor="student-role">Student (required)</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox 
-                    id="instructor-role" 
-                    checked={updatedRoles.includes('instructor')} 
+                    id="instructor-role"
+                    checked={updatedRoles.includes('instructor')}
                     onCheckedChange={() => toggleRole('instructor')}
                   />
-                  <Label htmlFor="instructor-role" className="font-normal">Instructor</Label>
+                  <Label htmlFor="instructor-role">Instructor</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox 
-                    id="admin-role" 
-                    checked={updatedRoles.includes('admin')} 
+                    id="admin-role"
+                    checked={updatedRoles.includes('admin')}
                     onCheckedChange={() => toggleRole('admin')}
                   />
-                  <Label htmlFor="admin-role" className="font-normal">Admin</Label>
+                  <Label htmlFor="admin-role">Administrator</Label>
                 </div>
               </div>
-              {selectedUser.email === 'teneika.askew@gmail.com' && !updatedRoles.includes('admin') && (
-                <div className="bg-amber-50 text-amber-800 p-3 rounded-md text-sm">
-                  Warning: Teneika Askew should have admin role. Please consider keeping it enabled.
-                </div>
-              )}
             </div>
-          )}
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>Cancel</Button>
-            <Button onClick={handleUpdateUserRoles}>Update Roles</Button>
+            <Button variant="outline" onClick={() => setIsEditUserOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateUserRoles}>
+              Update Roles
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>
-              Send a password reset link to the user's email.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedUser && (
-            <div className="space-y-4">
-              <p>
-                A password reset link will be sent to <strong>{selectedUser.email}</strong>.
-              </p>
-            </div>
-          )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsResetPasswordOpen(false)}>Cancel</Button>
-            <Button onClick={handleResetPassword}>Send Reset Link</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Reset Password Dialog */}
+      <AlertDialog open={isResetPasswordOpen} onOpenChange={setIsResetPasswordOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Password</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will send a password reset email to {selectedUser?.email}. The user will receive instructions to create a new password.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleResetPassword}>
+              Send Reset Email
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
+      {/* Delete User Dialog */}
       <AlertDialog open={isDeleteUserOpen} onOpenChange={setIsDeleteUserOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the user
-              account and remove all associated data.
+              This will permanently delete the user account for {selectedUser?.email}. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={handleDeleteUser} 
-              className="bg-destructive text-destructive-foreground"
+              onClick={handleDeleteUser}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              Delete User
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
