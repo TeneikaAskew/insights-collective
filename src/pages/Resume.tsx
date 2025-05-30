@@ -14,6 +14,9 @@ import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LocalStorageUtils } from '@/utils/localStorageUtils';
 import BulletPointChart from '@/components/resume/BulletPointChart';
+import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
+import OnboardingTrigger from '@/components/onboarding/OnboardingTrigger';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const AnalysisProgress: React.FC<{
   isAnalyzing: boolean;
@@ -711,11 +714,22 @@ const Resume = () => {
     }
   };
 
+  const { completedTours, startTour } = useOnboarding();
+  
+  // Auto-start resume tour for first-time visitors
+  useEffect(() => {
+    if (isAuthenticated && user && !completedTours.includes('resume')) {
+      const timer = setTimeout(() => {
+        startTour('resume');
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, user, completedTours, startTour]);
+  
   if (!isAuthenticated) {
-    logDebug('Render', 'User not authenticated, showing login wall');
     return <ResumeLoginWall />;
   }
-  
+
   const loading = resumeLoading || isAnalyzing || isRefreshing;
   
   logDebug('Render', 'Rendering main component', {
@@ -730,61 +744,90 @@ const Resume = () => {
     hasLoadedAnalysis
   });
   
-  return <AppLayout fullWidth>
-      <div className="mx-auto py-6 space-y-6 px-6 max-w-full">
-        {/* Analysis overlay that appears during processing */}
-        <ResumeAnalysisOverlay 
-          isVisible={showAnalysisOverlay} 
-          userId={user?.id}
-          resumeId={resume?.id}
-        />
-        
-        {/* Add the new progress component */}
-        <AnalysisProgress 
+  return (
+    <AppLayout fullWidth={false}>
+      <OnboardingGuide tourId="resume" />
+      <div className="container mx-auto max-w-7xl space-y-6">
+        {/* Page Header */}
+        <div className="flex items-center justify-between" data-tour="resume-main">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Resume Analyzer</h1>
+            <p className="text-muted-foreground">
+              Get AI-powered analysis and optimization suggestions for your resume
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <OnboardingTrigger tourId="resume" variant="button" />
+            {handleRefreshData && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefreshData} 
+                disabled={isRefreshing}
+                className="whitespace-nowrap"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Analysis Progress */}
+        <AnalysisProgress
           isAnalyzing={isAnalyzing}
           isPollingForImprovements={isPollingForImprovements}
           pollingStatus={pollingStatus}
           pollingAttempt={pollingAttempt}
         />
 
-        {storageError && <Alert variant="destructive">
+        {/* Storage Error Alert */}
+        {storageError && (
+          <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Storage Error</AlertTitle>
-            <AlertDescription>
-              {storageError}
-            </AlertDescription>
-          </Alert>}
+            <AlertTitle>Storage Configuration Error</AlertTitle>
+            <AlertDescription>{storageError}</AlertDescription>
+          </Alert>
+        )}
 
-        {careerAlignments && careerAlignments.length > 0 && 
-          <div className="space-y-2">
-            {careerAlignments.map((alignment, index) => (
-              <div key={index}>{/* Alignment content would go here */}</div>
-            ))}
-          </div>
-        }
+        {/* Main Analysis Section */}
+        <div data-tour="resume-upload">
+          <ResumeAnalysisSection
+            loading={resumeLoading && !initialLoadComplete}
+            isAnalyzing={isAnalyzing}
+            analysis={analysis}
+            resume={resume}
+            handleStartCareerChat={handleStartCareerChat}
+            handleFileChange={handleFileChange}
+            hasAnalysis={!!analysis}
+            resumeFile={resumeFile}
+            pdfPreviewUrl={pdfPreviewUrl}
+            uploading={uploading}
+            handleUpload={handleUpload}
+            handleDelete={handleDelete}
+            handleDownload={handleDownload}
+            fileError={storageError}
+            showCareerChat={showCareerChat}
+            isPollingForImprovements={isPollingForImprovements}
+            handleRefreshData={handleRefreshData}
+          />
+        </div>
 
-        {/* Pass showCareerChat state and handleRefreshData to ResumeAnalysisSection */}
-        <ResumeAnalysisSection 
-          loading={loading} 
-          isAnalyzing={isAnalyzing} 
-          isPollingForImprovements={isPollingForImprovements} 
-          analysis={analysis} 
-          resume={resume} 
-          handleStartCareerChat={handleStartCareerChat} 
-          handleFileChange={handleFileChange} 
-          hasAnalysis={!!analysis} 
-          resumeFile={resumeFile} 
-          pdfPreviewUrl={pdfPreviewUrl} 
-          uploading={uploading} 
-          handleUpload={handleUpload} 
-          handleDelete={handleDelete} 
-          handleDownload={handleDownload} 
-          fileError={storageError}
-          showCareerChat={showCareerChat}
-          handleRefreshData={handleRefreshData}
+        {/* Analysis Overlay */}
+        <ResumeAnalysisOverlay 
+          isVisible={showAnalysisOverlay}
+          onClose={() => setShowAnalysisOverlay(false)}
         />
+
+        {/* Bullet Point Chart */}
+        {analysis?.bullets && analysis.bullets.length > 0 && (
+          <div className="mt-8">
+            <BulletPointChart bullets={analysis.bullets} />
+          </div>
+        )}
       </div>
-    </AppLayout>;
+    </AppLayout>
+  );
 };
 
 export default Resume;
