@@ -1,3 +1,4 @@
+
 import * as React from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar"
@@ -12,7 +13,7 @@ const careerToolsItems = [
     title: "Resume Analyzer",
     url: "/resume",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -38,7 +39,7 @@ const careerToolsItems = [
     title: "Interview Prep",
     url: "/interview-prep",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -61,7 +62,7 @@ const careerToolsItems = [
     title: "Career Agent",
     url: "/career-agent",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -92,7 +93,7 @@ const learningItems = [
     title: "Courses",
     url: "/courses",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -116,7 +117,7 @@ const learningItems = [
     title: "Career Pathway",
     url: "/career-pathway",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -140,7 +141,7 @@ const learningItems = [
     title: "Data Blueprint",
     url: "/data-blueprint",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -169,7 +170,7 @@ const portfolioItems = [
     title: "Portfolio Explorer",
     url: "/portfolio-explorer",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -194,7 +195,7 @@ const portfolioItems = [
     title: "Forums",
     url: "/forums",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -219,7 +220,7 @@ const portfolioItems = [
     title: "Community",
     url: "/community",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -248,7 +249,7 @@ const personalItems = [
     title: "Profile",
     url: "/profile",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -272,7 +273,7 @@ const personalItems = [
     title: "Settings",
     url: "/settings",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -299,7 +300,7 @@ const adminItems = [
     title: "Users",
     url: "/admin/users",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -324,7 +325,7 @@ const adminItems = [
     title: "Courses",
     url: "/admin/courses",
     icon: React.forwardRef<
-      React.SVGElement,
+      SVGSVGElement,
       React.ComponentProps<"svg">
     >(({ className, ...props }, ref) => (
       <svg
@@ -362,7 +363,7 @@ export default function AppSidebar() {
   };
 
   return (
-    <Sidebar variant="inset">
+    <Sidebar variant="inset" data-sidebar="sidebar">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>

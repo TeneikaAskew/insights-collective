@@ -28,6 +28,7 @@ interface OnboardingContextType {
   completeTour: () => void;
   resetOnboarding: () => void;
   isFirstVisit: boolean;
+  markTourAsCompleted: (tourId: string) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
