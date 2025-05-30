@@ -1,3 +1,7 @@
+
+// ABOUTME: Edge function to evaluate STAR responses using AI and provide detailed feedback
+// ABOUTME: Handles both assessment questions with rubric scoring and standard behavioral questions
+
 // Follow Deno and Edge Functions v2 URL imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
@@ -20,7 +24,7 @@ Performance Level 3: Adequate demonstration with some examples
 Performance Level 2: Limited demonstration with weak examples
 Performance Level 1: Poor demonstration with insufficient examples`;
     
-  return `Evaluate this STAR response for the Assessment Area: ${assessmentArea}
+  return `You are an expert behavioral interviewer evaluating this STAR response for: ${assessmentArea}
 
 Question: ${questionData.question}
 Assessment Area: ${assessmentArea}
@@ -34,43 +38,60 @@ Result: ${response.result}
 Evaluation Criteria:
 ${rubricText}
 
-IMPORTANT SCORING INSTRUCTIONS:
-1. Score each component (situation, task, action, result) on a 1-5 scale
-2. The overall score MUST be calculated as the mathematical average of the 4 component scores (situation + task + action + result) / 4
-3. Round the overall score to the nearest integer
+CRITICAL SCORING INSTRUCTIONS:
+1. Score each component (situation, task, action, result) individually on a 1-5 scale based on:
+   - Situation: How well context demonstrates relevance to ${assessmentArea}
+   - Task: How clearly the challenge/responsibility shows ${assessmentArea} requirements
+   - Action: How effectively specific actions demonstrate ${assessmentArea} competency
+   - Result: How well outcomes show impact and ${assessmentArea} success
+2. The overall score MUST be calculated as: (situation + task + action + result) / 4
+3. Round the overall score to the nearest integer (1-5)
 
-FEEDBACK REQUIREMENTS:
-- Strengths: Provide 3-5 SPECIFIC examples of what the candidate did well, with concrete details
-- Improvements: Provide 3-5 SPECIFIC areas that need enhancement, with clear explanations
-- Suggestions: Provide exactly 3 ACTIONABLE suggestions with detailed reasoning for each
+FEEDBACK REQUIREMENTS - BE VERY SPECIFIC:
+- Strengths: Provide exactly 3-5 SPECIFIC examples with concrete details from the response
+- Improvements: Provide exactly 3-5 SPECIFIC areas that need enhancement with clear explanations
+- Suggestions: Provide exactly 3 ACTIONABLE suggestions with detailed reasoning
 
 Return your evaluation in this exact JSON format:
 {
   "scores": {
-    "situation": number (1-5), // How well the situation demonstrates relevant context
-    "task": number (1-5), // How clearly the challenge/responsibility is explained  
-    "action": number (1-5), // How effectively specific actions are described
-    "result": number (1-5), // How well outcomes and impact are quantified
-    "overall": number (1-5) // MUST be the mathematical average of the above 4 scores
+    "situation": number (1-5),
+    "task": number (1-5),
+    "action": number (1-5),
+    "result": number (1-5),
+    "overall": number (1-5)
   },
   "assessment_evaluation": {
     "performance_level": "Exceptional|Strong|Adequate|Limited|Poor",
-    "performance_score": number (1-5), // Based on rubric criteria
-    "competency_demonstration": string, // How well they demonstrated this assessment area
-    "behavioral_indicators": [string], // Specific behaviors observed
-    "development_areas": [string] // Areas where competency could be strengthened
+    "performance_score": number (1-5),
+    "competency_demonstration": "How well they demonstrated ${assessmentArea}",
+    "behavioral_indicators": ["specific behaviors observed"],
+    "development_areas": ["specific areas where ${assessmentArea} could be strengthened"]
   },
   "analysis": {
-    "completeness": string, // Comment on whether all STAR elements show competency
-    "specificity": string, // Comment on concrete examples and details
-    "relevance": string, // Comment on relevance to the assessment area  
-    "impact": string, // Comment on impact and results achieved
-    "communication": string // Comment on clarity and structure
+    "completeness": "Comment on whether all STAR elements show ${assessmentArea} competency",
+    "specificity": "Comment on concrete examples and details related to ${assessmentArea}",
+    "relevance": "Comment on relevance to ${assessmentArea}",
+    "impact": "Comment on impact and results achieved in ${assessmentArea}",
+    "communication": "Comment on clarity and structure"
   },
   "feedback": {
-    "strengths": [string], // 3-5 SPECIFIC strengths with concrete examples (e.g., "Clearly quantified the 25% improvement in team efficiency")
-    "improvements": [string], // 3-5 SPECIFIC areas needing enhancement with clear explanations (e.g., "Task description lacks clarity about your specific role vs. team responsibilities")
-    "suggestions": [string] // Exactly 3 ACTIONABLE suggestions with detailed reasoning (e.g., "Add specific metrics to quantify your impact - instead of 'improved efficiency,' state 'reduced processing time from 4 hours to 3 hours (25% improvement)' to demonstrate measurable results")
+    "strengths": [
+      "Clearly demonstrated [specific example from response] which shows strong ${assessmentArea}",
+      "Effectively described [specific action] resulting in [specific outcome]",
+      "Provided quantifiable results such as [specific metric or achievement]"
+    ],
+    "improvements": [
+      "The situation could better establish the ${assessmentArea} context by [specific improvement]",
+      "The task description needs more clarity about your specific ${assessmentArea} responsibilities",
+      "Actions could be more detailed about how you specifically demonstrated ${assessmentArea}",
+      "Results section lacks specific metrics showing ${assessmentArea} impact"
+    ],
+    "suggestions": [
+      "Add specific metrics to quantify your ${assessmentArea} impact - instead of general statements, use concrete numbers like 'increased efficiency by 25%' or 'reduced timeline by 3 weeks'",
+      "Strengthen the action section by describing your specific ${assessmentArea} approach - explain your thought process, decision-making criteria, and how you prioritized tasks",
+      "Enhance the result section by including both immediate and long-term outcomes - mention lessons learned, process improvements, or how this experience improved your ${assessmentArea} skills"
+    ]
   }
 }
 
@@ -78,7 +99,7 @@ Return ONLY the JSON object with no additional explanation or text.`;
 }
 
 function createStandardEvaluationPrompt(response: any, questionData: any): string {
-  return `Please evaluate this STAR response for the following interview question:
+  return `You are an expert interview coach evaluating this STAR response.
 
 Question: ${questionData.question}
 Target Competency: ${questionData.targetCompetency}
@@ -89,36 +110,53 @@ Task: ${response.task}
 Action: ${response.action} 
 Result: ${response.result}
 
-IMPORTANT SCORING INSTRUCTIONS:
-1. Score each component (situation, task, action, result) on a 1-10 scale
-2. The overall score MUST be calculated as the mathematical average of the 4 component scores (situation + task + action + result) / 4
-3. Round the overall score to the nearest integer
+CRITICAL SCORING INSTRUCTIONS:
+1. Score each component (situation, task, action, result) individually on a 1-10 scale based on:
+   - Situation: How well the context is established and relevant
+   - Task: How clearly the challenge/responsibility is explained
+   - Action: How effectively specific actions are described
+   - Result: How well outcomes are quantified and demonstrate impact
+2. The overall score MUST be calculated as: (situation + task + action + result) / 4
+3. Round the overall score to the nearest integer (1-10)
 
-FEEDBACK REQUIREMENTS:
-- Strengths: Provide 3-5 SPECIFIC examples of what the candidate did well, with concrete details
-- Improvements: Provide 3-5 SPECIFIC areas that need enhancement, with clear explanations  
-- Suggestions: Provide exactly 3 ACTIONABLE suggestions with detailed reasoning for each
+FEEDBACK REQUIREMENTS - BE VERY SPECIFIC:
+- Strengths: Provide exactly 3-5 SPECIFIC examples with concrete details from the response
+- Improvements: Provide exactly 3-5 SPECIFIC areas that need enhancement with clear explanations
+- Suggestions: Provide exactly 3 ACTIONABLE suggestions with detailed reasoning
 
 Evaluate this STAR response and provide feedback in the following JSON format:
 {
   "scores": {
-    "situation": number (1-10), // How well the situation is described
-    "task": number (1-10), // How clearly the task/challenge is explained
-    "action": number (1-10), // How effectively actions are described
-    "result": number (1-10), // How well the outcomes are quantified
-    "overall": number (1-10) // MUST be the mathematical average of the above 4 scores
+    "situation": number (1-10),
+    "task": number (1-10),
+    "action": number (1-10),
+    "result": number (1-10),
+    "overall": number (1-10)
   },
   "analysis": {
-    "completeness": string, // Comment on whether all STAR elements are present
-    "specificity": string, // Comment on level of detail and concrete examples
-    "relevance": string, // Comment on relevance to the target competency
-    "impact": string, // Comment on how well the response demonstrates impact
-    "communication": string // Comment on clarity and conciseness
+    "completeness": "Comment on whether all STAR elements are present and complete",
+    "specificity": "Comment on level of detail and concrete examples provided",
+    "relevance": "Comment on relevance to the target competency",
+    "impact": "Comment on how well the response demonstrates measurable impact",
+    "communication": "Comment on clarity and logical flow of the response"
   },
   "feedback": {
-    "strengths": [string], // 3-5 SPECIFIC strengths with concrete examples (e.g., "Provided clear timeline showing project completion 2 weeks ahead of schedule")
-    "improvements": [string], // 3-5 SPECIFIC areas for improvement with clear explanations (e.g., "Action section lacks detail about your individual contributions vs. team efforts")
-    "suggestions": [string] // Exactly 3 ACTIONABLE suggestions with detailed reasoning (e.g., "Quantify your leadership impact - instead of 'led the team effectively,' specify 'led a 5-person cross-functional team, resulting in 30% faster delivery' to showcase measurable leadership outcomes")
+    "strengths": [
+      "Provided clear timeline showing [specific timeframe or milestone]",
+      "Demonstrated specific skills such as [exact skill/tool/method mentioned]",
+      "Achieved measurable results including [specific metric or outcome]"
+    ],
+    "improvements": [
+      "Situation section lacks specific context about [missing detail]",
+      "Task description needs clarification about your individual role versus team responsibilities",
+      "Action section could include more details about your specific approach and decision-making process",
+      "Results section needs quantifiable metrics to demonstrate impact"
+    ],
+    "suggestions": [
+      "Add specific metrics and timelines - instead of 'improved performance,' state 'increased team productivity by 30% over 6 months through implementation of new workflow system'",
+      "Describe your individual contributions more clearly - explain what you personally did versus what the team accomplished collectively",
+      "Include lessons learned and follow-up actions - mention what you would do differently next time or how this experience influenced future decisions"
+    ]
   }
 }
 
@@ -202,7 +240,8 @@ async function evaluateStarResponse(responseId: string) {
       const { data: rubric, error: rubricError } = await supabase
         .from('assesment_rubric')
         .select('*')
-        .eq('assessment_area', assessmentArea);
+        .eq('assessment_area', assessmentArea)
+        .order('score', { ascending: true });
         
       if (rubricError) {
         console.warn(`[evaluate-star-response] Error fetching rubric: ${rubricError.message}`);
@@ -234,8 +273,8 @@ async function evaluateStarResponse(responseId: string) {
           {
             role: "system",
             content: isAssessmentQuestion ? 
-              `You are an expert behavioral interviewer specializing in evaluating responses against specific assessment competencies. You understand the nuanced behavioral indicators that distinguish different performance levels. Always calculate the overall score as the mathematical average of the 4 component scores. Provide specific, actionable feedback with concrete examples.` :
-              `You are an interview coach specializing in evaluating STAR (Situation, Task, Action, Result) responses. Always calculate the overall score as the mathematical average of the 4 component scores. Provide detailed, objective feedback with specific examples and actionable suggestions.`
+              `You are an expert behavioral interviewer specializing in evaluating responses against specific assessment competencies. You understand the nuanced behavioral indicators that distinguish different performance levels. You MUST calculate the overall score as the exact mathematical average of the 4 component scores. Provide specific, actionable feedback with concrete examples from the actual response content.` :
+              `You are an interview coach specializing in evaluating STAR (Situation, Task, Action, Result) responses. You MUST calculate the overall score as the exact mathematical average of the 4 component scores. Provide detailed, objective feedback with specific examples from the actual response content and actionable suggestions.`
           },
           {
             role: "user",
@@ -243,7 +282,7 @@ async function evaluateStarResponse(responseId: string) {
           }
         ],
         temperature: 0.3,
-        max_tokens: 2000
+        max_tokens: 3000
       }),
     });
 
@@ -266,6 +305,7 @@ async function evaluateStarResponse(responseId: string) {
     
     if (!parsedResult.success || !parsedResult.data) {
       console.error(`[evaluate-star-response] Failed to parse AI response as JSON`);
+      console.error(`[evaluate-star-response] Raw AI response:`, content);
       throw new Error("Failed to parse AI response");
     }
     
@@ -288,13 +328,16 @@ async function evaluateStarResponse(responseId: string) {
     // Convert 5-point scale to 10-point scale if it's an assessment question
     if (isAssessmentQuestion && feedbackData.scores) {
       console.log(`[evaluate-star-response] Converting scores from 5-point to 10-point scale`);
+      const originalScores = { ...feedbackData.scores };
       feedbackData.scores = {
-        situation: (feedbackData.scores.situation || 0) * 2,
-        task: (feedbackData.scores.task || 0) * 2, 
-        action: (feedbackData.scores.action || 0) * 2,
-        result: (feedbackData.scores.result || 0) * 2,
-        overall: (feedbackData.scores.overall || 0) * 2
+        situation: originalScores.situation * 2,
+        task: originalScores.task * 2, 
+        action: originalScores.action * 2,
+        result: originalScores.result * 2,
+        overall: originalScores.overall * 2
       };
+      
+      console.log(`[evaluate-star-response] Converted scores:`, feedbackData.scores);
       
       // Add assessment-specific scoring
       if (feedbackData.assessment_evaluation) {
@@ -302,12 +345,36 @@ async function evaluateStarResponse(responseId: string) {
       }
     }
 
+    // Validate feedback structure
+    if (!feedbackData.feedback) {
+      console.error(`[evaluate-star-response] Missing feedback object in AI response`);
+      throw new Error("AI response missing feedback structure");
+    }
+
+    if (!feedbackData.feedback.strengths || !Array.isArray(feedbackData.feedback.strengths) || feedbackData.feedback.strengths.length === 0) {
+      console.error(`[evaluate-star-response] Missing or empty strengths array`);
+      throw new Error("AI response missing strengths feedback");
+    }
+
+    if (!feedbackData.feedback.improvements || !Array.isArray(feedbackData.feedback.improvements) || feedbackData.feedback.improvements.length === 0) {
+      console.error(`[evaluate-star-response] Missing or empty improvements array`);
+      throw new Error("AI response missing improvements feedback");
+    }
+
+    if (!feedbackData.feedback.suggestions || !Array.isArray(feedbackData.feedback.suggestions) || feedbackData.feedback.suggestions.length < 3) {
+      console.error(`[evaluate-star-response] Missing or insufficient suggestions array`);
+      throw new Error("AI response missing required 3 suggestions");
+    }
+
     console.log(`[evaluate-star-response] Feedback data structure validated:`, {
       has_scores: !!feedbackData?.scores,
       has_analysis: !!feedbackData?.analysis,
       has_feedback: !!feedbackData?.feedback,
       overall_score: feedbackData?.scores?.overall,
-      is_assessment: isAssessmentQuestion
+      is_assessment: isAssessmentQuestion,
+      strengths_count: feedbackData?.feedback?.strengths?.length || 0,
+      improvements_count: feedbackData?.feedback?.improvements?.length || 0,
+      suggestions_count: feedbackData?.feedback?.suggestions?.length || 0
     });
 
     // Update the STAR response with the feedback

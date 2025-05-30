@@ -37,7 +37,15 @@ export type Database = {
           score?: number
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_assessment_rubric_area"
+            columns: ["assessment_area"]
+            isOneToOne: false
+            referencedRelation: "assessment_areas"
+            referencedColumns: ["name"]
+          },
+        ]
       }
       assessment_areas: {
         Row: {
