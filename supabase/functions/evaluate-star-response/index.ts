@@ -1,4 +1,3 @@
-
 // Follow Deno and Edge Functions v2 URL imports
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
@@ -35,7 +34,15 @@ Result: ${response.result}
 Evaluation Criteria:
 ${rubricText}
 
-Evaluate this response against the assessment area of ${assessmentArea}. Provide scores on a 1-5 scale (which will be converted to 1-10 for display consistency).
+IMPORTANT SCORING INSTRUCTIONS:
+1. Score each component (situation, task, action, result) on a 1-5 scale
+2. The overall score MUST be calculated as the mathematical average of the 4 component scores (situation + task + action + result) / 4
+3. Round the overall score to the nearest integer
+
+FEEDBACK REQUIREMENTS:
+- Strengths: Provide 3-5 SPECIFIC examples of what the candidate did well, with concrete details
+- Improvements: Provide 3-5 SPECIFIC areas that need enhancement, with clear explanations
+- Suggestions: Provide exactly 3 ACTIONABLE suggestions with detailed reasoning for each
 
 Return your evaluation in this exact JSON format:
 {
@@ -44,7 +51,7 @@ Return your evaluation in this exact JSON format:
     "task": number (1-5), // How clearly the challenge/responsibility is explained  
     "action": number (1-5), // How effectively specific actions are described
     "result": number (1-5), // How well outcomes and impact are quantified
-    "overall": number (1-5) // Overall demonstration of the assessment competency
+    "overall": number (1-5) // MUST be the mathematical average of the above 4 scores
   },
   "assessment_evaluation": {
     "performance_level": "Exceptional|Strong|Adequate|Limited|Poor",
@@ -61,9 +68,9 @@ Return your evaluation in this exact JSON format:
     "communication": string // Comment on clarity and structure
   },
   "feedback": {
-    "strengths": [string], // 3-5 specific strengths demonstrated
-    "improvements": [string], // 3-5 areas to strengthen competency demonstration  
-    "suggestions": [string] // 3-5 actionable suggestions for better examples
+    "strengths": [string], // 3-5 SPECIFIC strengths with concrete examples (e.g., "Clearly quantified the 25% improvement in team efficiency")
+    "improvements": [string], // 3-5 SPECIFIC areas needing enhancement with clear explanations (e.g., "Task description lacks clarity about your specific role vs. team responsibilities")
+    "suggestions": [string] // Exactly 3 ACTIONABLE suggestions with detailed reasoning (e.g., "Add specific metrics to quantify your impact - instead of 'improved efficiency,' state 'reduced processing time from 4 hours to 3 hours (25% improvement)' to demonstrate measurable results")
   }
 }
 
@@ -82,6 +89,16 @@ Task: ${response.task}
 Action: ${response.action} 
 Result: ${response.result}
 
+IMPORTANT SCORING INSTRUCTIONS:
+1. Score each component (situation, task, action, result) on a 1-10 scale
+2. The overall score MUST be calculated as the mathematical average of the 4 component scores (situation + task + action + result) / 4
+3. Round the overall score to the nearest integer
+
+FEEDBACK REQUIREMENTS:
+- Strengths: Provide 3-5 SPECIFIC examples of what the candidate did well, with concrete details
+- Improvements: Provide 3-5 SPECIFIC areas that need enhancement, with clear explanations  
+- Suggestions: Provide exactly 3 ACTIONABLE suggestions with detailed reasoning for each
+
 Evaluate this STAR response and provide feedback in the following JSON format:
 {
   "scores": {
@@ -89,7 +106,7 @@ Evaluate this STAR response and provide feedback in the following JSON format:
     "task": number (1-10), // How clearly the task/challenge is explained
     "action": number (1-10), // How effectively actions are described
     "result": number (1-10), // How well the outcomes are quantified
-    "overall": number (1-10) // Overall score for the STAR response
+    "overall": number (1-10) // MUST be the mathematical average of the above 4 scores
   },
   "analysis": {
     "completeness": string, // Comment on whether all STAR elements are present
@@ -99,9 +116,9 @@ Evaluate this STAR response and provide feedback in the following JSON format:
     "communication": string // Comment on clarity and conciseness
   },
   "feedback": {
-    "strengths": [string], // 3-5 specific strengths of this response
-    "improvements": [string], // 3-5 specific areas for improvement
-    "suggestions": [string] // 3-5 actionable suggestions to enhance this response
+    "strengths": [string], // 3-5 SPECIFIC strengths with concrete examples (e.g., "Provided clear timeline showing project completion 2 weeks ahead of schedule")
+    "improvements": [string], // 3-5 SPECIFIC areas for improvement with clear explanations (e.g., "Action section lacks detail about your individual contributions vs. team efforts")
+    "suggestions": [string] // Exactly 3 ACTIONABLE suggestions with detailed reasoning (e.g., "Quantify your leadership impact - instead of 'led the team effectively,' specify 'led a 5-person cross-functional team, resulting in 30% faster delivery' to showcase measurable leadership outcomes")
   }
 }
 
@@ -217,8 +234,8 @@ async function evaluateStarResponse(responseId: string) {
           {
             role: "system",
             content: isAssessmentQuestion ? 
-              `You are an expert behavioral interviewer specializing in evaluating responses against specific assessment competencies. You understand the nuanced behavioral indicators that distinguish different performance levels.` :
-              `You are an interview coach specializing in evaluating STAR (Situation, Task, Action, Result) responses. Provide detailed, objective feedback on interview responses.`
+              `You are an expert behavioral interviewer specializing in evaluating responses against specific assessment competencies. You understand the nuanced behavioral indicators that distinguish different performance levels. Always calculate the overall score as the mathematical average of the 4 component scores. Provide specific, actionable feedback with concrete examples.` :
+              `You are an interview coach specializing in evaluating STAR (Situation, Task, Action, Result) responses. Always calculate the overall score as the mathematical average of the 4 component scores. Provide detailed, objective feedback with specific examples and actionable suggestions.`
           },
           {
             role: "user",
@@ -253,6 +270,20 @@ async function evaluateStarResponse(responseId: string) {
     }
     
     const feedbackData = parsedResult.data;
+
+    // Calculate and verify the overall score is the average of the 4 component scores
+    if (feedbackData.scores) {
+      const { situation, task, action, result } = feedbackData.scores;
+      const calculatedOverall = Math.round((situation + task + action + result) / 4);
+      
+      console.log(`[evaluate-star-response] Score verification: Situation=${situation}, Task=${task}, Action=${action}, Result=${result}`);
+      console.log(`[evaluate-star-response] Calculated average: ${(situation + task + action + result) / 4}, Rounded: ${calculatedOverall}`);
+      console.log(`[evaluate-star-response] AI provided overall: ${feedbackData.scores.overall}`);
+      
+      // Override the overall score with the correct calculated average
+      feedbackData.scores.overall = calculatedOverall;
+      console.log(`[evaluate-star-response] Corrected overall score to: ${calculatedOverall}`);
+    }
 
     // Convert 5-point scale to 10-point scale if it's an assessment question
     if (isAssessmentQuestion && feedbackData.scores) {
