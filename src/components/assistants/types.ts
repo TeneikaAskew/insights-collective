@@ -1,3 +1,4 @@
+
 import { ReactNode } from "react";
 import { LucideIcon } from "lucide-react";
 
@@ -84,6 +85,9 @@ export interface CareerReportData {
     description: string;
     salaryRange: string;
     matchPercentage: number;
+    focusAreas?: string[];
+    responsibilities?: string[];
+    requirements?: string[];
   }>;
   skillsAndCourses: Array<{
     skill: string;
@@ -99,6 +103,15 @@ export interface CareerReportData {
   keyTakeaways: string[];
   nextStepRecommendations: string;
   potentialRoles: string[];
+  futureCareerPath?: Array<{
+    step: string;
+    title: string;
+    action: string;
+    description: string;
+    timeline: string;
+    timeframe: string;
+    focusAreas?: string;
+  }>;
 }
 
 // Adding missing types that are imported in assistant components
