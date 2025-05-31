@@ -103,13 +103,8 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
   console.log('Fetching posts using LinkedIn Posts API...')
 
   // Use the official Posts API "Find Posts by Authors" endpoint
-  // This should work with r_member_postAnalytics scope
+  // Try with current 2025 API version (February 2025)
   let url = `https://api.linkedin.com/rest/posts?q=author&author=${encodeURIComponent(personUrn)}&sortBy=LAST_MODIFIED&count=50`
-  
-  if (sinceDate) {
-    // LinkedIn doesn't support date filtering in this endpoint, so we'll filter after retrieval
-    console.log('Note: Date filtering will be applied after retrieval')
-  }
 
   console.log('Request URL:', url)
 
@@ -119,7 +114,7 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202405' // Use a current LinkedIn API version
+      'LinkedIn-Version': '202502' // Current 2025 February version
     },
   })
 
@@ -129,20 +124,25 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
     throw new Error('Rate limit exceeded. Please wait 24 hours before trying again.')
   }
 
+  if (response.status === 426) {
+    console.log('API version not supported, trying different versions...')
+    return await fetchPostsWithDifferentVersions(accessToken, personUrn, sinceDate)
+  }
+
   if (response.status === 403) {
     const errorText = await response.text()
     console.error('Access denied error:', errorText)
     
-    // Try the alternative method with different API version
-    return await fetchPostsAlternative(accessToken, personUrn, sinceDate)
+    // If modern API fails, try legacy v2 endpoints
+    return await fetchPostsLegacyV2(accessToken, personUrn, sinceDate)
   }
 
   if (!response.ok) {
     const errorText = await response.text()
     console.error('Error response:', errorText)
     
-    // Try the alternative method before failing
-    return await fetchPostsAlternative(accessToken, personUrn, sinceDate)
+    // Try alternative approaches
+    return await fetchPostsWithDifferentVersions(accessToken, personUrn, sinceDate)
   }
 
   const data = await response.json()
@@ -163,64 +163,69 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
   return posts
 }
 
-async function fetchPostsAlternative(accessToken: string, personUrn: string, sinceDate?: string): Promise<any[]> {
-  console.log('Trying alternative approach with different API version...')
+async function fetchPostsWithDifferentVersions(accessToken: string, personUrn: string, sinceDate?: string): Promise<any[]> {
+  console.log('Trying different API versions...')
   
-  // Try with a different LinkedIn API version
-  let url = `https://api.linkedin.com/rest/posts?q=author&author=${encodeURIComponent(personUrn)}&sortBy=LAST_MODIFIED&count=50`
+  // Try different recent versions
+  const versions = ['202501', '202412', '202411', '202410']
+  
+  for (const version of versions) {
+    try {
+      console.log(`Trying LinkedIn-Version: ${version}`)
+      
+      let url = `https://api.linkedin.com/rest/posts?q=author&author=${encodeURIComponent(personUrn)}&sortBy=LAST_MODIFIED&count=50`
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'X-Restli-Protocol-Version': '2.0.0',
-      'LinkedIn-Version': '202301' // Try an earlier version
-    },
-  })
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          'X-Restli-Protocol-Version': '2.0.0',
+          'LinkedIn-Version': version
+        },
+      })
 
-  console.log('Alternative response status:', response.status)
+      console.log(`Version ${version} response status:`, response.status)
 
-  if (response.status === 429) {
-    throw new Error('Rate limit exceeded. Please wait 24 hours before trying again.')
+      if (response.ok) {
+        const data = await response.json()
+        console.log(`Version ${version} success:`, data.elements?.length || 0)
+        
+        let posts = data.elements || []
+        
+        // Apply date filtering if sinceDate is provided
+        if (sinceDate && posts.length > 0) {
+          const sinceTimestamp = new Date(sinceDate).getTime()
+          posts = posts.filter(post => {
+            const postTime = post.lastModifiedAt || post.createdAt || post.publishedAt || 0
+            return postTime >= sinceTimestamp
+          })
+          console.log(`Filtered to ${posts.length} posts since ${sinceDate}`)
+        }
+        
+        return posts
+      } else if (response.status === 403) {
+        console.log(`Version ${version} gave 403, trying next version...`)
+        continue
+      } else if (response.status === 426) {
+        console.log(`Version ${version} not supported, trying next...`)
+        continue
+      }
+    } catch (error) {
+      console.log(`Version ${version} failed:`, error)
+      continue
+    }
   }
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('Alternative error response:', errorText)
-    
-    // If this also fails, try the legacy ugcPosts endpoint
-    return await fetchPostsLegacy(accessToken, personUrn, sinceDate)
-  }
-
-  const data = await response.json()
-  console.log('Alternative posts fetched successfully:', data.elements?.length || 0)
   
-  let posts = data.elements || []
-  
-  // Apply date filtering if sinceDate is provided
-  if (sinceDate && posts.length > 0) {
-    const sinceTimestamp = new Date(sinceDate).getTime()
-    posts = posts.filter(post => {
-      const postTime = post.lastModifiedAt || post.createdAt || post.publishedAt || 0
-      return postTime >= sinceTimestamp
-    })
-    console.log(`Filtered to ${posts.length} posts since ${sinceDate}`)
-  }
-  
-  return posts
+  // If all versions fail, try legacy approach
+  return await fetchPostsLegacyV2(accessToken, personUrn, sinceDate)
 }
 
-async function fetchPostsLegacy(accessToken: string, personUrn: string, sinceDate?: string): Promise<any[]> {
-  console.log('Trying legacy ugcPosts API as final fallback...')
+async function fetchPostsLegacyV2(accessToken: string, personUrn: string, sinceDate?: string): Promise<any[]> {
+  console.log('Trying legacy v2 API as final fallback...')
   
-  // Try the legacy ugcPosts endpoint as final fallback
-  let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(${encodeURIComponent(personUrn)})&sortBy=LAST_MODIFIED&count=50`
-  
-  if (sinceDate) {
-    const sinceTimestamp = new Date(sinceDate).getTime()
-    url += `&modifiedSince=${sinceTimestamp}`
-  }
+  // Try the legacy v2 API without versioning requirements
+  let url = `https://api.linkedin.com/v2/shares?q=owners&owners=List(${encodeURIComponent(personUrn)})&sortBy=CREATED&count=50`
 
   const response = await fetch(url, {
     method: 'GET',
@@ -228,10 +233,11 @@ async function fetchPostsLegacy(accessToken: string, personUrn: string, sinceDat
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
       'X-Restli-Protocol-Version': '2.0.0'
+      // No LinkedIn-Version header for legacy v2
     },
   })
 
-  console.log('Legacy response status:', response.status)
+  console.log('Legacy v2 response status:', response.status)
 
   if (response.status === 429) {
     throw new Error('Rate limit exceeded. Please wait 24 hours before trying again.')
@@ -239,13 +245,54 @@ async function fetchPostsLegacy(accessToken: string, personUrn: string, sinceDat
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('Legacy error response:', errorText)
-    throw new Error(`All API methods failed. Last error: ${response.status} ${errorText}`)
+    console.error('Legacy v2 error response:', errorText)
+    
+    // One final attempt with different endpoint
+    return await fetchPostsBasicProfile(accessToken)
   }
 
   const data = await response.json()
-  console.log('Legacy posts fetched successfully:', data.elements?.length || 0)
+  console.log('Legacy v2 posts fetched successfully:', data.elements?.length || 0)
   return data.elements || []
+}
+
+async function fetchPostsBasicProfile(accessToken: string): Promise<any[]> {
+  console.log('Final attempt: checking what data we can access...')
+  
+  // Just verify what we can access with current permissions
+  try {
+    const profileResponse = await fetch(`https://api.linkedin.com/v2/me`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        'X-Restli-Protocol-Version': '2.0.0'
+      },
+    })
+
+    if (profileResponse.ok) {
+      const profileData = await profileResponse.json()
+      console.log('Profile data accessible:', profileData)
+    }
+  } catch (error) {
+    console.log('Profile check failed:', error)
+  }
+  
+  throw new Error(`
+    Unable to retrieve posts with r_member_postAnalytics scope using any available API endpoint.
+    
+    Attempted methods:
+    1. Modern Posts API with multiple versions (202502, 202501, 202412, etc.)
+    2. Legacy v2 shares API
+    3. Profile verification
+    
+    The scope may not actually provide post retrieval access, or additional app permissions may be required.
+    
+    Please verify in LinkedIn Developer Portal:
+    1. Your app has the correct Products enabled
+    2. The r_member_postAnalytics scope actually includes post content retrieval
+    3. Consider applying for r_member_social scope if available
+  `)
 }
 
 async function getLastScrapedDate(): Promise<string | null> {
