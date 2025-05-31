@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 import { createHmac } from "node:crypto";
 
@@ -19,6 +20,10 @@ const BASE_URL = 'https://api.twitter.com/2'
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
 function validateEnvironmentVariables() {
+  console.log('Validating environment variables...')
+  console.log('API_KEY present:', !!API_KEY)
+  console.log('API_SECRET present:', !!API_SECRET)
+  
   if (!API_KEY) {
     throw new Error('Missing TWITTER_API_KEY environment variable')
   }
@@ -35,106 +40,133 @@ function generateOAuthSignature(
   consumerSecret: string,
   tokenSecret: string = ''
 ): string {
-  const signatureBaseString = `${method}&${encodeURIComponent(
-    url
-  )}&${encodeURIComponent(
-    Object.entries(params)
-      .sort()
-      .map(([k, v]) => `${k}=${v}`)
-      .join('&')
-  )}`
+  // Create signature base string
+  const sortedParams = Object.entries(params)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+    .join('&');
   
-  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`
-  const hmacSha1 = createHmac('sha1', signingKey)
-  const signature = hmacSha1.update(signatureBaseString).digest('base64')
+  const signatureBaseString = [
+    method.toUpperCase(),
+    encodeURIComponent(url),
+    encodeURIComponent(sortedParams)
+  ].join('&');
   
-  return signature
+  console.log('Signature base string:', signatureBaseString);
+  
+  // Create signing key
+  const signingKey = `${encodeURIComponent(consumerSecret)}&${encodeURIComponent(tokenSecret)}`;
+  
+  // Generate signature
+  const hmacSha1 = createHmac('sha1', signingKey);
+  const signature = hmacSha1.update(signatureBaseString).digest('base64');
+  
+  console.log('Generated signature:', signature);
+  return signature;
 }
 
-function generateOAuthHeader(method: string, url: string, params: Record<string, string> = {}): string {
+function generateOAuthHeader(method: string, url: string, additionalParams: Record<string, string> = {}): string {
   const oauthParams = {
     oauth_consumer_key: API_KEY!,
-    oauth_nonce: Math.random().toString(36).substring(2),
+    oauth_nonce: Math.random().toString(36).substring(2, 15),
     oauth_signature_method: 'HMAC-SHA1',
     oauth_timestamp: Math.floor(Date.now() / 1000).toString(),
     oauth_version: '1.0',
-  }
+    ...additionalParams
+  };
 
-  const allParams = { ...oauthParams, ...params }
-  const signature = generateOAuthSignature(method, url, allParams, API_SECRET!)
+  const signature = generateOAuthSignature(method, url, oauthParams, API_SECRET!);
 
   const signedOAuthParams = {
     ...oauthParams,
     oauth_signature: signature,
-  }
+  };
 
-  return 'OAuth ' + Object.entries(signedOAuthParams)
-    .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([k, v]) => `${encodeURIComponent(k)}="${encodeURIComponent(v)}"`)
-    .join(', ')
+  const headerParts = Object.entries(signedOAuthParams)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, value]) => `${encodeURIComponent(key)}="${encodeURIComponent(value)}"`)
+    .join(', ');
+
+  return `OAuth ${headerParts}`;
 }
 
 async function getUserId(username: string): Promise<string> {
-  const url = `${BASE_URL}/users/by/username/${username}`
-  const method = 'GET'
-  const oauthHeader = generateOAuthHeader(method, url)
-
-  console.log(`Fetching user ID for ${username}`)
+  const url = `${BASE_URL}/users/by/username/${username}`;
+  const method = 'GET';
   
+  console.log(`Fetching user ID for ${username}`);
+  console.log('Request URL:', url);
+  
+  const oauthHeader = generateOAuthHeader(method, url);
+  console.log('OAuth header:', oauthHeader);
+
   const response = await fetch(url, {
     method,
     headers: {
-      Authorization: oauthHeader,
+      'Authorization': oauthHeader,
       'Content-Type': 'application/json',
     },
-  })
+  });
 
+  console.log('Response status:', response.status);
+  
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Failed to get user ID: ${response.status} ${error}`)
+    const errorText = await response.text();
+    console.error('Error response:', errorText);
+    throw new Error(`Failed to get user ID: ${response.status} ${errorText}`);
   }
 
-  const data = await response.json()
-  return data.data.id
+  const data = await response.json();
+  console.log('User data:', data);
+  return data.data.id;
 }
 
 async function fetchTweets(userId: string, sinceId?: string): Promise<any[]> {
+  const baseUrl = `${BASE_URL}/users/${userId}/tweets`;
   const params: Record<string, string> = {
     'tweet.fields': 'created_at,public_metrics,author_id',
     'user.fields': 'username,name',
     'expansions': 'author_id',
     'max_results': '100'
-  }
+  };
 
   if (sinceId) {
-    params.since_id = sinceId
+    params.since_id = sinceId;
   }
 
   const queryString = Object.entries(params)
     .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
-    .join('&')
+    .join('&');
 
-  const url = `${BASE_URL}/users/${userId}/tweets?${queryString}`
-  const method = 'GET'
-  const oauthHeader = generateOAuthHeader(method, url.split('?')[0], params)
+  const url = `${baseUrl}?${queryString}`;
+  const method = 'GET';
+  
+  console.log(`Fetching tweets for user ${userId}`);
+  console.log('Request URL:', url);
+  console.log('Since ID:', sinceId);
 
-  console.log(`Fetching tweets for user ${userId}`, { sinceId, url: url.split('?')[0] })
+  const oauthHeader = generateOAuthHeader(method, baseUrl, params);
+  console.log('OAuth header:', oauthHeader);
 
   const response = await fetch(url, {
     method,
     headers: {
-      Authorization: oauthHeader,
+      'Authorization': oauthHeader,
       'Content-Type': 'application/json',
     },
-  })
+  });
+
+  console.log('Response status:', response.status);
 
   if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`Failed to fetch tweets: ${response.status} ${error}`)
+    const errorText = await response.text();
+    console.error('Error response:', errorText);
+    throw new Error(`Failed to fetch tweets: ${response.status} ${errorText}`);
   }
 
-  const data = await response.json()
-  return data.data || []
+  const data = await response.json();
+  console.log('Tweets data:', data);
+  return data.data || [];
 }
 
 async function getLastScrapedTweetId(): Promise<string | null> {
@@ -142,14 +174,14 @@ async function getLastScrapedTweetId(): Promise<string | null> {
     .from('scrape_metadata')
     .select('value')
     .eq('key', 'last_scraped_tweet_id')
-    .single()
+    .single();
 
   if (error && error.code !== 'PGRST116') { // Not found error is OK
-    console.error('Error getting last scraped tweet ID:', error)
-    return null
+    console.error('Error getting last scraped tweet ID:', error);
+    return null;
   }
 
-  return data?.value || null
+  return data?.value || null;
 }
 
 async function updateLastScrapedTweetId(tweetId: string): Promise<void> {
@@ -158,18 +190,18 @@ async function updateLastScrapedTweetId(tweetId: string): Promise<void> {
     .upsert({
       key: 'last_scraped_tweet_id',
       value: tweetId
-    })
+    });
 
   if (error) {
-    console.error('Error updating last scraped tweet ID:', error)
-    throw error
+    console.error('Error updating last scraped tweet ID:', error);
+    throw error;
   }
 }
 
 async function storeTweets(tweets: any[], userInfo: any): Promise<void> {
   if (tweets.length === 0) {
-    console.log('No tweets to store')
-    return
+    console.log('No tweets to store');
+    return;
   }
 
   const tweetsToInsert = tweets.map(tweet => ({
@@ -182,70 +214,70 @@ async function storeTweets(tweets: any[], userInfo: any): Promise<void> {
     retweet_count: tweet.public_metrics?.retweet_count || 0,
     reply_count: tweet.public_metrics?.reply_count || 0,
     quote_count: tweet.public_metrics?.quote_count || 0,
-  }))
+  }));
 
-  console.log(`Storing ${tweetsToInsert.length} tweets`)
+  console.log(`Storing ${tweetsToInsert.length} tweets`);
 
   const { error } = await supabase
     .from('tweets')
     .upsert(tweetsToInsert, {
       onConflict: 'tweet_id',
       ignoreDuplicates: false
-    })
+    });
 
   if (error) {
-    console.error('Error storing tweets:', error)
-    throw error
+    console.error('Error storing tweets:', error);
+    throw error;
   }
 
-  console.log(`Successfully stored ${tweetsToInsert.length} tweets`)
+  console.log(`Successfully stored ${tweetsToInsert.length} tweets`);
 }
 
 async function scrapeTweets(): Promise<{ newTweets: number; totalTweets: number }> {
-  validateEnvironmentVariables()
+  validateEnvironmentVariables();
 
-  console.log('Starting tweet scrape for', TARGET_USERNAME)
+  console.log('Starting tweet scrape for', TARGET_USERNAME);
 
   // Get user ID
-  const userId = await getUserId(TARGET_USERNAME)
-  console.log('User ID:', userId)
+  const userId = await getUserId(TARGET_USERNAME);
+  console.log('User ID:', userId);
 
   // Get last scraped tweet ID for incremental updates
-  const lastScrapedTweetId = await getLastScrapedTweetId()
-  console.log('Last scraped tweet ID:', lastScrapedTweetId)
+  const lastScrapedTweetId = await getLastScrapedTweetId();
+  console.log('Last scraped tweet ID:', lastScrapedTweetId);
 
   // Fetch tweets
-  const tweets = await fetchTweets(userId, lastScrapedTweetId || undefined)
-  console.log(`Fetched ${tweets.length} tweets`)
+  const tweets = await fetchTweets(userId, lastScrapedTweetId || undefined);
+  console.log(`Fetched ${tweets.length} tweets`);
 
   if (tweets.length === 0) {
-    return { newTweets: 0, totalTweets: 0 }
+    return { newTweets: 0, totalTweets: 0 };
   }
 
   // Get user info for storing
   const userInfo = {
     username: TARGET_USERNAME,
-    name: 'Teneika Askew' // This could be fetched from API if needed
-  }
+    name: 'Teneika Askew'
+  };
 
   // Store tweets
-  await storeTweets(tweets, userInfo)
+  await storeTweets(tweets, userInfo);
 
   // Update last scraped tweet ID with the most recent tweet
   const mostRecentTweet = tweets.reduce((latest, current) => 
     new Date(current.created_at) > new Date(latest.created_at) ? current : latest
-  )
+  );
   
   if (mostRecentTweet) {
-    await updateLastScrapedTweetId(mostRecentTweet.id)
+    await updateLastScrapedTweetId(mostRecentTweet.id);
   }
 
   // Get total tweet count
   const { count } = await supabase
     .from('tweets')
-    .select('*', { count: 'exact', head: true })
+    .select('*', { count: 'exact', head: true });
 
-  return { newTweets: tweets.length, totalTweets: count || 0 }
+  return { newTweets: tweets.length, totalTweets: count || 0 };
 }
 
 Deno.serve(async (req) => {
@@ -255,9 +287,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log('Tweet scraping function called')
+    console.log('Tweet scraping function called');
     
-    const result = await scrapeTweets()
+    const result = await scrapeTweets();
     
     return new Response(
       JSON.stringify({
@@ -271,7 +303,7 @@ Deno.serve(async (req) => {
       }
     )
   } catch (error: any) {
-    console.error('Error in tweet scraping:', error)
+    console.error('Error in tweet scraping:', error);
     
     return new Response(
       JSON.stringify({
