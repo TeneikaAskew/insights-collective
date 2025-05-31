@@ -180,8 +180,8 @@ const CareerAgent: React.FC = () => {
           parsed = { summary: '', recommendedRoles: [], skillsAndCourses: [], nextStepRecommendations: '', potentialRoles: [], careerPathSteps: [], keyTakeaways: [], error: 'Invalid JSON from DB', raw };
         }
         setStructuredReport(parsed);
-        // Optionally keep this if you use the HTML version elsewhere:
-        setCareerAdviceReport(formatCareerPathwayReport(raw));
+        // Clear the old HTML report since we're using structured data now
+        setCareerAdviceReport('');
       }
       
       // Reconstruct chat history from answers
@@ -478,7 +478,7 @@ const CareerAgent: React.FC = () => {
         id: `bot_${Date.now()}`,
         sender: "bot",
         text: `${nextQuestion.placeholder}`,
-        // text: `Next question: ${nextQuestion.label}. ${nextQ.placeholder}`,
+        // text: `Next question: ${nextQ.label}. ${nextQ.placeholder}`,
       };
       setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
