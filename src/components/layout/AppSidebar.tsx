@@ -1,4 +1,3 @@
-
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
@@ -187,7 +186,7 @@ const AppSidebar = () => {
         <SidebarTrigger className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 absolute right-2 top-2" />
       </SidebarHeader>
       
-      <SidebarContent className="py-2 px-2 bg-gray-50 dark:bg-gray-900">
+      <SidebarContent className="py-2 px-2 bg-gray-50 dark:bg-gray-900" data-tour="sidebar-content">
         {isAuthenticated && <div className="mb-4 px-2">
             <div className="flex items-center space-x-2 mb-2">
               <Avatar className="border-2 border-[#9b87f5]/20 w-7 h-7">
@@ -208,7 +207,11 @@ const AppSidebar = () => {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {menuItems.map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
+              {/* Career Tools Section */}
+              <div data-tour="career-tools">
+                {menuItems.filter(item => 
+                  ['Resume Analyzer', 'Interview Prep', 'Career Agent'].includes(item.title)
+                ).map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
                   <SidebarMenuItem>
                     <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
                       <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
@@ -228,6 +231,135 @@ const AppSidebar = () => {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </motion.div>)}
+              </div>
+
+              {/* Learning Section */}
+              <div data-tour="learning-section">
+                {menuItems.filter(item => 
+                  ['Courses', 'Resources', 'Data Blueprint'].includes(item.title)
+                ).map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                      <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <span className="text-xs truncate">{item.title}</span>
+                        {item.highlight && !item.active && (
+                          <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
+                            New
+                          </Badge>
+                        )}
+                        {item.active && (
+                          <div className="ml-auto">
+                            <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                          </div>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </motion.div>)}
+              </div>
+
+              {/* Portfolio Section */}
+              <div data-tour="portfolio-section">
+                {menuItems.filter(item => 
+                  ['Portfolio Explorer'].includes(item.title)
+                ).map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                      <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <span className="text-xs truncate">{item.title}</span>
+                        {item.highlight && !item.active && (
+                          <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
+                            New
+                          </Badge>
+                        )}
+                        {item.active && (
+                          <div className="ml-auto">
+                            <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                          </div>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </motion.div>)}
+              </div>
+
+              {/* Community Section */}
+              <div data-tour="community-section">
+                {menuItems.filter(item => 
+                  ['Forums', 'Events', 'Messages'].includes(item.title)
+                ).map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                      <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <span className="text-xs truncate">{item.title}</span>
+                        {item.highlight && !item.active && (
+                          <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
+                            New
+                          </Badge>
+                        )}
+                        {item.active && (
+                          <div className="ml-auto">
+                            <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                          </div>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </motion.div>)}
+              </div>
+
+              {/* Personal Management Section */}
+              <div data-tour="personal-section">
+                {menuItems.filter(item => 
+                  ['Dashboard', 'Calendar', 'Notifications', 'Profile'].includes(item.title)
+                ).map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                      <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <span className="text-xs truncate">{item.title}</span>
+                        {item.highlight && !item.active && (
+                          <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
+                            New
+                          </Badge>
+                        )}
+                        {item.active && (
+                          <div className="ml-auto">
+                            <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                          </div>
+                        )}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </motion.div>)}
+              </div>
+
+              {/* Other items that don't fit in categories */}
+              {menuItems.filter(item => 
+                !['Resume Analyzer', 'Interview Prep', 'Career Agent', 'Courses', 'Resources', 'Data Blueprint', 'Portfolio Explorer', 'Forums', 'Events', 'Messages', 'Dashboard', 'Calendar', 'Notifications', 'Profile'].includes(item.title)
+              ).map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                    <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
+                      <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                      <span className="text-xs truncate">{item.title}</span>
+                      {item.highlight && !item.active && (
+                        <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
+                          New
+                        </Badge>
+                      )}
+                      {item.active && (
+                        <div className="ml-auto">
+                          <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                        </div>
+                      )}
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </motion.div>)}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

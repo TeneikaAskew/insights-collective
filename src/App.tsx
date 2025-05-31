@@ -685,6 +685,12 @@ function App() {
                   {/* Portfolio routes */}
                   {portfolioRoutes}
                   
+                  {/* Add new onboarding-enabled routes */}
+                  <Route path="/resume" element={<Resume />} />
+                  <Route path="/interview-prep" element={<InterviewPrep />} />
+                  <Route path="/career-agent" element={<CareerAgent />} />
+                  <Route path="/portfolio-explorer" element={<PortfolioExplorer />} />
+                  
                   <Route path="*" element={<NotFound />} />
                 </Routes>
                 <Toaster />
