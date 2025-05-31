@@ -18,38 +18,6 @@ const BASE_URL = 'https://api.linkedin.com/v2'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-// Rate limiting helpers
-async function checkRateLimit(): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('scrape_metadata')
-    .select('value, updated_at')
-    .eq('key', 'linkedin_rate_limit_reset')
-    .single()
-
-  if (error && error.code !== 'PGRST116') {
-    console.error('Error checking rate limit:', error)
-    return true // Assume we can proceed if we can't check
-  }
-
-  if (!data) return true
-
-  const resetTime = new Date(data.updated_at)
-  const now = new Date()
-  const hoursSinceReset = (now.getTime() - resetTime.getTime()) / (1000 * 60 * 60)
-
-  // Reset daily (24 hours)
-  return hoursSinceReset >= 24
-}
-
-async function recordRateLimit(): Promise<void> {
-  await supabase
-    .from('scrape_metadata')
-    .upsert({
-      key: 'linkedin_rate_limit_reset',
-      value: 'rate_limited',
-      updated_at: new Date().toISOString()
-    })
-}
 
 function validateEnvironmentVariables() {
   console.log('Validating environment variables...')
