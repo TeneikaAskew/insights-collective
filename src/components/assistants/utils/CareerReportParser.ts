@@ -1,4 +1,3 @@
-
 // ABOUTME: Utility functions for parsing career report data from AI responses
 // ABOUTME: Includes text processing and data structure transformation for career recommendations
 
@@ -124,23 +123,17 @@ export const formatCareerPathwayReport = (reportData: any): CareerReportData => 
 };
 
 const extractDataFromJSON = (data: any): CareerReportData => {
-  const recommendedRoles: RecommendedRole[] = (data.recommended_roles || data.recommendedRoles || []).map((role: any) => ({
+  const recommendedRoles = (data.recommended_roles || data.recommendedRoles || []).map((role: any) => ({
     title: role.title || role.role || 'Unknown Role',
     description: role.description || '',
     salaryRange: role.salary_range || role.salaryRange || role.salary || 'Not specified',
     focusAreas: cleanFocusAreas(role.focus_areas || role.focusAreas || []),
     responsibilities: role.responsibilities || [],
-    requirements: role.requirements || []
+    requirements: role.requirements || [],
+    matchPercentage: role.matchPercentage || role.match_percentage || 0
   }));
 
-  const potentialRoles: RecommendedRole[] = (data.potential_roles || data.potentialRoles || []).map((role: any) => ({
-    title: role.title || role.role || 'Unknown Role',
-    description: role.description || '',
-    salaryRange: role.salary_range || role.salaryRange || role.salary || 'Not specified',
-    focusAreas: cleanFocusAreas(role.focus_areas || role.focusAreas || []),
-    responsibilities: role.responsibilities || [],
-    requirements: role.requirements || []
-  }));
+  const potentialRoles = (data.potential_roles || data.potentialRoles || []).map((role: string) => role);
 
   return {
     userName: data.user_name || data.userName || 'there',
@@ -150,7 +143,8 @@ const extractDataFromJSON = (data: any): CareerReportData => {
     careerPathSteps: data.career_path_steps || data.careerPathSteps || [],
     keyTakeaways: data.key_takeaways || data.keyTakeaways || [],
     nextStepRecommendations: data.next_step_recommendations || data.nextStepRecommendations || '',
-    potentialRoles
+    potentialRoles,
+    futureCareerPath: data.future_career_path || data.futureCareerPath || []
   };
 };
 
