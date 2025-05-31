@@ -27,7 +27,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
-import { usePortfolio } from '@/hooks/usePortfolio';
 
 interface CourseData {
   title: string;
@@ -104,7 +103,6 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { addProject } = usePortfolio();
 
   // Effect to update internal state when the prop changes
   useEffect(() => {
@@ -200,54 +198,70 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     }
   };
 
+  // Function to add items to portfolio using direct Supabase call
   const handleAddToPortfolio = async (type: 'project' | 'content' | 'milestone', data: any, timeframe: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to add items to your portfolio.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       let projectData;
       
       switch(type) {
         case 'project':
           projectData = {
+            user_id: user.id,
             title: data.title,
             description: data.description,
             required_skills: [],
             effort_level: 'Medium',
-            status: 'Idea',
-            type: 'project',
-            timeframe: timeframe
+            status: 'Idea'
           };
           break;
         
         case 'content':
           projectData = {
+            user_id: user.id,
             title: `Content: ${data.platform}`,
             description: `Create content about: ${data.topics.join(', ')}`,
             required_skills: data.topics,
             effort_level: 'Low',
-            status: 'Idea',
-            type: 'content',
-            timeframe: timeframe
+            status: 'Idea'
           };
           break;
         
         case 'milestone':
           projectData = {
+            user_id: user.id,
             title: `Milestone: ${data}`,
             description: `Career milestone to achieve: ${data}`,
             required_skills: [],
             effort_level: 'Medium',
-            status: 'Idea',
-            type: 'milestone',
-            timeframe: timeframe
+            status: 'Idea'
           };
           break;
       }
 
-      await addProject.mutateAsync(projectData);
-      
+      // Add project directly to Supabase
+      const { data: insertedProject, error } = await supabase
+        .from('portfolio_projects')
+        .insert(projectData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
       toast({
         title: "Added to Portfolio",
-        description: `${type.charAt(0).toUpperCase() + type.slice(1)} has been added to your portfolio.`,
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} has been added to your portfolio tracker.`,
       });
+
+      console.log('Successfully added to portfolio:', insertedProject);
     } catch (error) {
       console.error('Error adding to portfolio:', error);
       toast({
