@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +12,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { useToast } from '@/hooks/use-toast';
 import { format, parseISO } from 'date-fns';
 import { CalendarIcon, SearchIcon, RefreshCw, ExternalLink, Heart, Repeat, MessageCircle } from 'lucide-react';
+import type { DateRange } from 'react-day-picker';
 
 interface Tweet {
   id: string;
@@ -28,7 +30,7 @@ interface Tweet {
 
 const TeneikaTweets = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [isScrapingModalOpen, setIsScrapingModalOpen] = useState(false);
   const { toast } = useToast();
 
@@ -48,10 +50,10 @@ const TeneikaTweets = () => {
       }
 
       // Apply date range filter
-      if (dateRange.from) {
+      if (dateRange?.from) {
         query = query.gte('tweeted_at', dateRange.from.toISOString());
       }
-      if (dateRange.to) {
+      if (dateRange?.to) {
         const toDate = new Date(dateRange.to);
         toDate.setHours(23, 59, 59, 999);
         query = query.lte('tweeted_at', toDate.toISOString());
@@ -99,7 +101,7 @@ const TeneikaTweets = () => {
 
   const clearFilters = () => {
     setSearchTerm('');
-    setDateRange({});
+    setDateRange(undefined);
   };
 
   const formatTweetDate = (dateString: string) => {
@@ -176,7 +178,7 @@ const TeneikaTweets = () => {
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="justify-start text-left font-normal">
                       <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateRange.from ? (
+                      {dateRange?.from ? (
                         dateRange.to ? (
                           <>
                             {format(dateRange.from, 'LLL dd, y')} -{' '}
@@ -194,13 +196,13 @@ const TeneikaTweets = () => {
                     <Calendar
                       mode="range"
                       selected={dateRange}
-                      onSelect={(range) => setDateRange(range || {})}
+                      onSelect={setDateRange}
                       numberOfMonths={2}
                     />
                   </PopoverContent>
                 </Popover>
 
-                {(searchTerm || dateRange.from || dateRange.to) && (
+                {(searchTerm || dateRange?.from || dateRange?.to) && (
                   <Button variant="outline" onClick={clearFilters}>
                     Clear
                   </Button>
@@ -214,7 +216,7 @@ const TeneikaTweets = () => {
         {tweets.length > 0 && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{tweets.length} tweets found</span>
-            {(searchTerm || dateRange.from || dateRange.to) && (
+            {(searchTerm || dateRange?.from || dateRange?.to) && (
               <Badge variant="secondary">Filtered</Badge>
             )}
           </div>
@@ -234,11 +236,11 @@ const TeneikaTweets = () => {
               <Card>
                 <CardContent className="py-12 text-center">
                   <p className="text-muted-foreground mb-4">
-                    {searchTerm || dateRange.from || dateRange.to
+                    {searchTerm || dateRange?.from || dateRange?.to
                       ? 'No tweets found matching your filters.'
                       : 'No tweets available. Try refreshing to scrape new tweets.'}
                   </p>
-                  {!searchTerm && !dateRange.from && !dateRange.to && (
+                  {!searchTerm && !dateRange?.from && !dateRange?.to && (
                     <Button onClick={triggerScrape}>
                       Scrape Tweets
                     </Button>
