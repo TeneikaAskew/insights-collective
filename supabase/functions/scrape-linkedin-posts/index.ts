@@ -75,8 +75,8 @@ async function getValidAccessToken(): Promise<string> {
   let accessToken = LINKEDIN_ACCESS_TOKEN!
   
   try {
-    // Test the token with a simple API call
-    const testResponse = await fetch(`${BASE_URL}/people/~?projection=(id)`, {
+    // Test the token with a simple API call that doesn't require problematic fields
+    const testResponse = await fetch(`${BASE_URL}/people/~?projection=(localizedFirstName)`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -97,10 +97,10 @@ async function getValidAccessToken(): Promise<string> {
   }
 }
 
-async function getPersonId(accessToken: string): Promise<string> {
-  const url = `${BASE_URL}/people/~?projection=(id)`
+async function getUserProfile(accessToken: string): Promise<any> {
+  const url = `${BASE_URL}/people/~?projection=(localizedFirstName,localizedLastName)`
   
-  console.log('Fetching person ID')
+  console.log('Fetching user profile')
 
   const response = await fetch(url, {
     method: 'GET',
@@ -115,23 +115,25 @@ async function getPersonId(accessToken: string): Promise<string> {
   if (!response.ok) {
     const errorText = await response.text()
     console.error('Error response:', errorText)
-    throw new Error(`Failed to get person ID: ${response.status} ${errorText}`)
+    throw new Error(`Failed to get user profile: ${response.status} ${errorText}`)
   }
 
   const data = await response.json()
-  console.log('Person data:', data)
-  return data.id
+  console.log('User profile data:', data)
+  return data
 }
 
-async function fetchPosts(accessToken: string, personId: string, sinceDate?: string): Promise<any[]> {
-  let url = `${BASE_URL}/shares?q=owners&owners=urn:li:person:${personId}&sharesPerOwner=50&sortBy=CREATED&projection=(elements*(id,text,createdTime,distribution,content,commentary,activity))`
+async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[]> {
+  // Use the newer UGC Posts API instead of shares
+  let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(urn:li:person:~)&sortBy=CREATED_TIME&count=50&projection=(elements*(id,specificContent,lifecycleState,lastModified,created,ugcPostHeader,author))`
   
   if (sinceDate) {
     // Add date filter if available
-    url += `&createdTimeRange.start=${new Date(sinceDate).getTime()}`
+    const sinceTimestamp = new Date(sinceDate).getTime()
+    url += `&createdTimeRange.start=${sinceTimestamp}`
   }
 
-  console.log(`Fetching LinkedIn posts for person ${personId}`)
+  console.log('Fetching LinkedIn posts using UGC Posts API')
   console.log('Request URL:', url)
   console.log('Since date:', sinceDate)
 
@@ -148,11 +150,47 @@ async function fetchPosts(accessToken: string, personId: string, sinceDate?: str
   if (!response.ok) {
     const errorText = await response.text()
     console.error('Error response:', errorText)
-    throw new Error(`Failed to fetch posts: ${response.status} ${errorText}`)
+    
+    // Fallback to simplified shares endpoint if UGC Posts fails
+    console.log('UGC Posts failed, trying simplified shares endpoint...')
+    return await fetchPostsSimplified(accessToken, sinceDate)
   }
 
   const data = await response.json()
   console.log('Posts data:', data)
+  return data.elements || []
+}
+
+async function fetchPostsSimplified(accessToken: string, sinceDate?: string): Promise<any[]> {
+  // Use simplified shares endpoint without person ID requirement
+  let url = `${BASE_URL}/shares?q=owners&owners=List(urn:li:person:~)&sharesPerOwner=50&sortBy=CREATED&projection=(elements*(id,text,createdTime,content,commentary))`
+  
+  if (sinceDate) {
+    const sinceTimestamp = new Date(sinceDate).getTime()
+    url += `&createdTimeRange.start=${sinceTimestamp}`
+  }
+
+  console.log('Fetching LinkedIn posts using simplified shares API')
+  console.log('Request URL:', url)
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+  })
+
+  console.log('Simplified shares response status:', response.status)
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Simplified shares error response:', errorText)
+    throw new Error(`Failed to fetch posts: ${response.status} ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('Simplified shares posts data:', data)
   return data.elements || []
 }
 
@@ -192,9 +230,21 @@ async function storePosts(posts: any[], userInfo: any): Promise<void> {
   }
 
   const postsToInsert = posts.map(post => {
-    // Extract content from LinkedIn post structure
-    const content = post.commentary || post.text || ''
-    const createdTime = new Date(post.createdTime || Date.now())
+    // Extract content from different LinkedIn post structures
+    let content = ''
+    let createdTime = new Date()
+    
+    // Handle UGC Posts API response structure
+    if (post.specificContent && post.specificContent['com.linkedin.ugc.ShareContent']) {
+      const shareContent = post.specificContent['com.linkedin.ugc.ShareContent']
+      content = shareContent.shareCommentary?.text || ''
+      createdTime = new Date(post.created?.time || post.lastModified?.time || Date.now())
+    }
+    // Handle traditional shares API response structure
+    else {
+      content = post.commentary || post.text || ''
+      createdTime = new Date(post.createdTime || Date.now())
+    }
     
     return {
       post_id: post.id,
@@ -236,16 +286,16 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
     // Get valid access token (refresh if needed)
     const accessToken = await getValidAccessToken()
     
-    // Get person ID
-    const personId = await getPersonId(accessToken)
-    console.log('Person ID:', personId)
+    // Get user profile info (instead of problematic person ID)
+    const userProfile = await getUserProfile(accessToken)
+    console.log('User profile retrieved')
 
     // Get last scraped date for incremental updates
     const lastScrapedDate = await getLastScrapedDate()
     console.log('Last scraped date:', lastScrapedDate)
 
-    // Fetch posts
-    const posts = await fetchPosts(accessToken, personId, lastScrapedDate || undefined)
+    // Fetch posts (no longer requires person ID)
+    const posts = await fetchPosts(accessToken, lastScrapedDate || undefined)
     console.log(`Fetched ${posts.length} posts`)
 
     if (posts.length === 0) {
@@ -255,19 +305,24 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
     // Get user info for storing
     const userInfo = {
       username: 'teneikaaskew',
-      name: 'Teneika Askew'
+      name: userProfile.localizedFirstName && userProfile.localizedLastName 
+        ? `${userProfile.localizedFirstName} ${userProfile.localizedLastName}`
+        : 'Teneika Askew'
     }
 
     // Store posts
     await storePosts(posts, userInfo)
 
     // Update last scraped date with the most recent post
-    const mostRecentPost = posts.reduce((latest, current) => 
-      new Date(current.createdTime) > new Date(latest.createdTime) ? current : latest
-    )
+    const mostRecentPost = posts.reduce((latest, current) => {
+      const currentTime = current.created?.time || current.createdTime || 0
+      const latestTime = latest.created?.time || latest.createdTime || 0
+      return new Date(currentTime) > new Date(latestTime) ? current : latest
+    })
     
     if (mostRecentPost) {
-      await updateLastScrapedDate(new Date(mostRecentPost.createdTime).toISOString())
+      const mostRecentTime = mostRecentPost.created?.time || mostRecentPost.createdTime
+      await updateLastScrapedDate(new Date(mostRecentTime).toISOString())
     }
 
     // Get total post count
