@@ -11,10 +11,11 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 const LINKEDIN_CLIENT_ID = Deno.env.get('LINKEDIN_CLIENT_ID')?.trim()
 const LINKEDIN_CLIENT_SECRET = Deno.env.get('LINKEDIN_CLIENT_SECRET')?.trim()
+const LINKEDIN_ACCESS_TOKEN = Deno.env.get('LINKEDIN_ACCESS_TOKEN')?.trim()
+const LINKEDIN_REFRESH_TOKEN = Deno.env.get('LINKEDIN_REFRESH_TOKEN')?.trim()
 
 // LinkedIn API configuration
 const BASE_URL = 'https://api.linkedin.com/v2'
-const TARGET_USER_URN = 'urn:li:person:teneikaaskew' // This will need to be the actual LinkedIn URN
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -22,6 +23,8 @@ function validateEnvironmentVariables() {
   console.log('Validating environment variables...')
   console.log('LINKEDIN_CLIENT_ID present:', !!LINKEDIN_CLIENT_ID)
   console.log('LINKEDIN_CLIENT_SECRET present:', !!LINKEDIN_CLIENT_SECRET)
+  console.log('LINKEDIN_ACCESS_TOKEN present:', !!LINKEDIN_ACCESS_TOKEN)
+  console.log('LINKEDIN_REFRESH_TOKEN present:', !!LINKEDIN_REFRESH_TOKEN)
   
   if (!LINKEDIN_CLIENT_ID) {
     throw new Error('Missing LINKEDIN_CLIENT_ID environment variable')
@@ -30,25 +33,74 @@ function validateEnvironmentVariables() {
   if (!LINKEDIN_CLIENT_SECRET) {
     throw new Error('Missing LINKEDIN_CLIENT_SECRET environment variable')
   }
+
+  if (!LINKEDIN_ACCESS_TOKEN) {
+    throw new Error('Missing LINKEDIN_ACCESS_TOKEN environment variable')
+  }
+
+  if (!LINKEDIN_REFRESH_TOKEN) {
+    throw new Error('Missing LINKEDIN_REFRESH_TOKEN environment variable')
+  }
 }
 
-// For now, we'll need to implement OAuth flow to get access token
-// This is a simplified version that assumes we have a valid access token
-async function getAccessToken(): Promise<string> {
-  // In a production environment, you would:
-  // 1. Implement OAuth 2.0 flow to get initial token
-  // 2. Store refresh token in database
-  // 3. Refresh token when needed
+async function refreshAccessToken(): Promise<string> {
+  console.log('Refreshing LinkedIn access token...')
   
-  // For now, we'll return a placeholder - this needs OAuth implementation
-  throw new Error('OAuth implementation required - please implement LinkedIn OAuth flow first')
+  const response = await fetch('https://www.linkedin.com/oauth/v2/accessToken', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      grant_type: 'refresh_token',
+      refresh_token: LINKEDIN_REFRESH_TOKEN!,
+      client_id: LINKEDIN_CLIENT_ID!,
+      client_secret: LINKEDIN_CLIENT_SECRET!,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Failed to refresh token:', errorText)
+    throw new Error(`Failed to refresh LinkedIn access token: ${response.status} ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('Token refreshed successfully')
+  return data.access_token
+}
+
+async function getValidAccessToken(): Promise<string> {
+  // Try the existing access token first
+  let accessToken = LINKEDIN_ACCESS_TOKEN!
+  
+  try {
+    // Test the token with a simple API call
+    const testResponse = await fetch(`${BASE_URL}/people/~?projection=(id)`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (testResponse.ok) {
+      console.log('Existing access token is valid')
+      return accessToken
+    } else {
+      console.log('Access token expired, refreshing...')
+      return await refreshAccessToken()
+    }
+  } catch (error) {
+    console.log('Error testing access token, attempting refresh:', error)
+    return await refreshAccessToken()
+  }
 }
 
 async function getPersonId(accessToken: string): Promise<string> {
   const url = `${BASE_URL}/people/~?projection=(id)`
   
   console.log('Fetching person ID')
-  console.log('Request URL:', url)
 
   const response = await fetch(url, {
     method: 'GET',
@@ -56,7 +108,7 @@ async function getPersonId(accessToken: string): Promise<string> {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-  });
+  })
 
   console.log('Response status:', response.status)
   
@@ -72,7 +124,7 @@ async function getPersonId(accessToken: string): Promise<string> {
 }
 
 async function fetchPosts(accessToken: string, personId: string, sinceDate?: string): Promise<any[]> {
-  let url = `${BASE_URL}/shares?q=owners&owners=${personId}&sharesPerOwner=50&sortBy=CREATED&projection=(elements*(id,text,createdTime,distribution,content,commentary,activity))`
+  let url = `${BASE_URL}/shares?q=owners&owners=urn:li:person:${personId}&sharesPerOwner=50&sortBy=CREATED&projection=(elements*(id,text,createdTime,distribution,content,commentary,activity))`
   
   if (sinceDate) {
     // Add date filter if available
@@ -89,7 +141,7 @@ async function fetchPosts(accessToken: string, personId: string, sinceDate?: str
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
     },
-  });
+  })
 
   console.log('Response status:', response.status)
 
@@ -181,18 +233,8 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
 
     console.log('Starting LinkedIn post scrape')
 
-    // Note: This requires OAuth implementation
-    // For now, we'll return an informative error
-    return {
-      newPosts: 0,
-      totalPosts: 0,
-      error: 'LinkedIn OAuth implementation required. Please set up OAuth 2.0 flow to obtain access tokens.'
-    }
-
-    // Uncomment and modify the code below once OAuth is implemented:
-    /*
-    // Get access token (requires OAuth implementation)
-    const accessToken = await getAccessToken()
+    // Get valid access token (refresh if needed)
+    const accessToken = await getValidAccessToken()
     
     // Get person ID
     const personId = await getPersonId(accessToken)
@@ -234,7 +276,6 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
       .select('*', { count: 'exact', head: true })
 
     return { newPosts: posts.length, totalPosts: count || 0 }
-    */
   } catch (error: any) {
     console.error('Error in scraping process:', error)
     return {
