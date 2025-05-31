@@ -99,6 +99,10 @@ export interface CareerReportData {
     title: string;
     description: string;
     timeframe?: string;
+    step?: string;
+    action?: string;
+    timeline?: string;
+    focusAreas?: string;
   }>;
   keyTakeaways: string[];
   nextStepRecommendations: string;

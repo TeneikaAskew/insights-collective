@@ -1,3 +1,4 @@
+
 // ABOUTME: Utility functions for parsing career report data from AI responses
 // ABOUTME: Includes text processing and data structure transformation for career recommendations
 
@@ -117,7 +118,7 @@ export const parseCareerReport = (reportText: string): CareerReportData => {
   }
 };
 
-// Export the missing function
+// Export the function for formatting career pathway reports
 export const formatCareerPathwayReport = (reportData: any): CareerReportData => {
   return parseCareerReport(JSON.stringify(reportData));
 };
