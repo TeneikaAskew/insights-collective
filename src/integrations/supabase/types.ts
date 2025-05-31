@@ -982,6 +982,57 @@ export type Database = {
           },
         ]
       }
+      linkedin_posts: {
+        Row: {
+          author_display_name: string | null
+          author_username: string
+          comment_count: number | null
+          content: string
+          created_at: string
+          id: string
+          like_count: number | null
+          media_urls: string[] | null
+          post_id: string
+          post_url: string | null
+          posted_at: string
+          scraped_at: string
+          share_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          author_display_name?: string | null
+          author_username?: string
+          comment_count?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          media_urls?: string[] | null
+          post_id: string
+          post_url?: string | null
+          posted_at: string
+          scraped_at?: string
+          share_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          author_display_name?: string | null
+          author_username?: string
+          comment_count?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          media_urls?: string[] | null
+          post_id?: string
+          post_url?: string | null
+          posted_at?: string
+          scraped_at?: string
+          share_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           attachment_url: string | null

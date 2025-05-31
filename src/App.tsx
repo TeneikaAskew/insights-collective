@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 // import { QueryClient } from 'react-query';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
@@ -41,6 +40,7 @@ import StarPractice from '@/pages/interview-prep/StarPractice';
 import CodePracticeInterview from '@/pages/interview-prep/CodePractice';
 import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
 import TeneikaTweets from '@/pages/TeneikaTweets';
+import TeneikaLinkedIn from '@/pages/TeneikaLinkedIn';
 
 import Survey from '@/pages/Survey';
 import Notifications from '@/pages/Notifications';
@@ -570,6 +570,18 @@ function App() {
                       <ProtectedRoute>
                         <PageVisibilityGuard>
                           <CareerAgent />
+                        </PageVisibilityGuard>
+                      </ProtectedRoute>
+                    }
+                  />
+                  
+                  {/* Teneika LinkedIn route */}
+                  <Route
+                    path="/teneika-linkedin"
+                    element={
+                      <ProtectedRoute>
+                        <PageVisibilityGuard>
+                          <TeneikaLinkedIn />
                         </PageVisibilityGuard>
                       </ProtectedRoute>
                     }
