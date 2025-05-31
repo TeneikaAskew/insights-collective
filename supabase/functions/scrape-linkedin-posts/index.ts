@@ -18,6 +18,8 @@ const BASE_URL = 'https://api.linkedin.com/v2'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+// Your LinkedIn user ID
+const LINKEDIN_USER_ID = '8WyM7mYjqF'
 
 function validateEnvironmentVariables() {
   console.log('Validating environment variables...')
@@ -62,8 +64,8 @@ async function getValidAccessToken(): Promise<string> {
   let accessToken = LINKEDIN_ACCESS_TOKEN!
   
   try {
-    // Use the r_basicprofile scope to test token validity
-    const testResponse = await fetch(`${BASE_URL}/people/~:(id,localizedFirstName)`, {
+    // Use the /me endpoint to test token validity and get user info
+    const testResponse = await fetch(`${BASE_URL}/me`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -73,7 +75,8 @@ async function getValidAccessToken(): Promise<string> {
     })
 
     if (testResponse.ok) {
-      console.log('Existing access token is valid')
+      const userData = await testResponse.json()
+      console.log('Existing access token is valid for user:', userData.id)
       return accessToken
     } else if (testResponse.status === 401) {
       console.log('Access token expired, refreshing...')
@@ -93,34 +96,20 @@ async function getValidAccessToken(): Promise<string> {
 }
 
 async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[]> {
-  // First, get the user's profile to get their person URN
-  const profileResponse = await fetch(`${BASE_URL}/people/~:(id)`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'X-Restli-Protocol-Version': '2.0.0'
-    },
-  })
-
-  if (!profileResponse.ok) {
-    throw new Error(`Failed to get profile: ${profileResponse.status}`)
-  }
-
-  const profileData = await profileResponse.json()
-  const personUrn = `urn:li:person:${profileData.id}`
+  // Use your specific LinkedIn user ID
+  const personUrn = `urn:li:person:${LINKEDIN_USER_ID}`
   
-  console.log('User person URN:', personUrn)
+  console.log('Using person URN:', personUrn)
 
-  // Use the Social Actions API with postAnalytics scope
-  let url = `${BASE_URL}/socialActions?q=roleAssignee&roleAssignee=${encodeURIComponent(personUrn)}&start=0&count=50`
+  // Try UGC Posts API first - this should work with r_member_postAnalytics
+  let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(${encodeURIComponent(personUrn)})&sortBy=LAST_MODIFIED&count=50`
   
   if (sinceDate) {
     const sinceTimestamp = new Date(sinceDate).getTime()
-    url += `&createdAfter=${sinceTimestamp}`
+    url += `&modifiedSince=${sinceTimestamp}`
   }
 
-  console.log('Fetching LinkedIn posts using Social Actions API')
+  console.log('Fetching LinkedIn posts using UGC Posts API')
   console.log('Request URL:', url)
 
   const response = await fetch(url, {
@@ -135,7 +124,6 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
   console.log('Response status:', response.status)
 
   if (response.status === 429) {
-    await recordRateLimit()
     throw new Error('Rate limit exceeded. Please wait 24 hours before trying again.')
   }
 
@@ -147,7 +135,8 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
   if (!response.ok) {
     const errorText = await response.text()
     console.error('Error response:', errorText)
-    throw new Error(`Failed to fetch posts: ${response.status} ${errorText}`)
+    // Try alternative method before failing
+    return await fetchPostsAlternative(accessToken, personUrn, sinceDate)
   }
 
   const data = await response.json()
@@ -156,15 +145,15 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
 }
 
 async function fetchPostsAlternative(accessToken: string, personUrn: string, sinceDate?: string): Promise<any[]> {
-  // Alternative: Use UGC Posts API which works with r_member_postAnalytics
-  let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(${encodeURIComponent(personUrn)})&sortBy=LAST_MODIFIED&count=50`
+  // Alternative: Try the shares endpoint
+  let url = `${BASE_URL}/shares?q=owners&owners=List(${encodeURIComponent(personUrn)})&sortBy=CREATED&count=50`
   
   if (sinceDate) {
     const sinceTimestamp = new Date(sinceDate).getTime()
-    url += `&modifiedSince=${sinceTimestamp}`
+    url += `&createdAfter=${sinceTimestamp}`
   }
 
-  console.log('Trying UGC Posts API as alternative')
+  console.log('Trying shares API as alternative')
   console.log('Request URL:', url)
 
   const response = await fetch(url, {
@@ -179,14 +168,13 @@ async function fetchPostsAlternative(accessToken: string, personUrn: string, sin
   console.log('Alternative response status:', response.status)
 
   if (response.status === 429) {
-    await recordRateLimit()
     throw new Error('Rate limit exceeded. Please wait 24 hours before trying again.')
   }
 
   if (!response.ok) {
     const errorText = await response.text()
     console.error('Alternative error response:', errorText)
-    throw new Error(`Failed to fetch posts with alternative method: ${response.status} ${errorText}`)
+    throw new Error(`Failed to fetch posts with all available methods: ${response.status} ${errorText}`)
   }
 
   const data = await response.json()
