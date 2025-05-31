@@ -1,3 +1,4 @@
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
@@ -70,11 +71,11 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 async function getValidAccessToken(): Promise<string> {
-  // Try the existing access token first
+  // Try the existing access token first with a simple, safe API call
   let accessToken = LINKEDIN_ACCESS_TOKEN!
   
   try {
-    // Test the token with a simple API call that doesn't require problematic fields
+    // Test the token with the most basic profile call - only first name
     const testResponse = await fetch(`${BASE_URL}/people/~?projection=(localizedFirstName)`, {
       method: 'GET',
       headers: {
@@ -96,34 +97,8 @@ async function getValidAccessToken(): Promise<string> {
   }
 }
 
-async function getUserProfile(accessToken: string): Promise<any> {
-  const url = `${BASE_URL}/people/~?projection=(localizedFirstName,localizedLastName)`
-  
-  console.log('Fetching user profile')
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  })
-
-  console.log('Response status:', response.status)
-  
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('Error response:', errorText)
-    throw new Error(`Failed to get user profile: ${response.status} ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log('User profile data:', data)
-  return data
-}
-
 async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[]> {
-  // Use the newer UGC Posts API instead of shares
+  // Use the UGC Posts API directly without needing person ID
   let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(urn:li:person:~)&sortBy=CREATED_TIME&count=50&projection=(elements*(id,specificContent,lifecycleState,lastModified,created,ugcPostHeader,author))`
   
   if (sinceDate) {
@@ -222,7 +197,7 @@ async function updateLastScrapedDate(date: string): Promise<void> {
   }
 }
 
-async function storePosts(posts: any[], userInfo: any): Promise<void> {
+async function storePosts(posts: any[]): Promise<void> {
   if (posts.length === 0) {
     console.log('No posts to store')
     return
@@ -248,8 +223,8 @@ async function storePosts(posts: any[], userInfo: any): Promise<void> {
     return {
       post_id: post.id,
       content: content,
-      author_username: userInfo.username || 'teneikaaskew',
-      author_display_name: userInfo.name || 'Teneika Askew',
+      author_username: 'teneikaaskew',
+      author_display_name: 'Teneika Askew',
       posted_at: createdTime.toISOString(),
       like_count: 0, // LinkedIn API doesn't provide engagement metrics in basic plan
       comment_count: 0,
@@ -284,16 +259,13 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
 
     // Get valid access token (refresh if needed)
     const accessToken = await getValidAccessToken()
-    
-    // Get user profile info (instead of problematic person ID)
-    const userProfile = await getUserProfile(accessToken)
-    console.log('User profile retrieved')
+    console.log('Access token validated successfully')
 
     // Get last scraped date for incremental updates
     const lastScrapedDate = await getLastScrapedDate()
     console.log('Last scraped date:', lastScrapedDate)
 
-    // Fetch posts (no longer requires person ID)
+    // Fetch posts directly - no need for person ID
     const posts = await fetchPosts(accessToken, lastScrapedDate || undefined)
     console.log(`Fetched ${posts.length} posts`)
 
@@ -301,16 +273,8 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
       return { newPosts: 0, totalPosts: 0 }
     }
 
-    // Get user info for storing
-    const userInfo = {
-      username: 'teneikaaskew',
-      name: userProfile.localizedFirstName && userProfile.localizedLastName 
-        ? `${userProfile.localizedFirstName} ${userProfile.localizedLastName}`
-        : 'Teneika Askew'
-    }
-
     // Store posts
-    await storePosts(posts, userInfo)
+    await storePosts(posts)
 
     // Update last scraped date with the most recent post
     const mostRecentPost = posts.reduce((latest, current) => {
