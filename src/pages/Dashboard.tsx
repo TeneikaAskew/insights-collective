@@ -13,16 +13,12 @@ import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
 import { mockService } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
-import OnboardingGuide from '@/components/onboarding/OnboardingGuide';
-import OnboardingTrigger from '@/components/onboarding/OnboardingTrigger';
-import { useOnboarding } from '@/contexts/OnboardingContext';
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const { navigateWithAuth } = useAuthenticatedNavigation();
   const { toast } = useToast();
-  const { completedTours, startTour } = useOnboarding();
   
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -206,33 +202,19 @@ const Dashboard = () => {
     setActiveTab(tab);
   };
   
-  // Auto-start dashboard tour for first-time visitors
-  useEffect(() => {
-    if (isAuthenticated && user && !completedTours.includes('dashboard')) {
-      const timer = setTimeout(() => {
-        startTour('dashboard');
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated, user, completedTours, startTour]);
-  
   if (!user) return null;
   
   return (
     <AppLayout>
-      <OnboardingGuide tourId="dashboard" />
-      <div className="space-y-6" data-tour="dashboard-overview">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Welcome back, {user.name}! Here's an overview of your learning progress.
-            </p>
-          </div>
-          <OnboardingTrigger tourId="dashboard" variant="button" />
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {user.name}! Here's an overview of your learning progress.
+          </p>
         </div>
         
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4" data-tour="quick-actions">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card 
             className="cursor-pointer hover:bg-accent/50 transition-colors" 
             onClick={() => handleMetricClick('courses')}

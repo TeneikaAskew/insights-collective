@@ -105,7 +105,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            {analysis && (
+            {analysis && ( // Show award badge only if analysis is available
               <div className="flex items-center bg-[#9b87f5]/10 rounded-full px-4 py-1">
                 <span className="text-sm font-medium text-[#9b87f5]">Industry-Leading Analysis</span>
               </div>
@@ -127,7 +127,7 @@ const ResumeAnalysisSection: React.FC<ResumeAnalysisSectionProps> = ({
       </CardHeader>
       <CardContent className="flex flex-col">
         {showTabs ? (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-grow" data-tour="analysis-tabs">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex flex-col flex-grow">
             <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6">
               <TabsTrigger value="overview" className="flex items-center gap-2">
                 <ChartBar className="h-4 w-4" />

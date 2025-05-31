@@ -1,577 +1,284 @@
 
-import * as React from "react"
-import { Link, useLocation, useNavigate } from "react-router-dom"
-import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { LogIn, LogOut, Settings, ChevronsUpDown, Brain, BadgeCheck } from "lucide-react"
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb } from 'lucide-react';
+import { useLocation, Link } from 'react-router-dom';
+import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
+import { useAuth } from '@/contexts/AuthContext';
+import { motion } from 'framer-motion';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
-import { useAuth } from "@/contexts/AuthContext"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupAction, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInput, SidebarInset, SidebarMenu, SidebarMenuAction, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarMenuSkeleton, SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem, SidebarProvider, SidebarRail, SidebarSeparator, SidebarTrigger, useSidebar } from "@/components/ui/sidebar"
+const AppSidebar = () => {
+  const location = useLocation();
+  const {
+    user,
+    isAuthenticated
+  } = useAuth();
 
-const careerToolsItems = [
-  {
+  // Define public menu items with corrected routes
+  const publicMenuItems = [{
+    title: "Dashboard",
+    url: "/dashboard",
+    icon: Home,
+    active: location.pathname === '/dashboard'
+  }, {
+    title: "Resources",
+    url: "/resources",
+    icon: FileText,
+    active: location.pathname === '/resources'
+  }, {
     title: "Resume Analyzer",
     url: "/resume",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M2.5 2v20l4.7-3 4.8 3 4.8-3 4.7 3V2" />
-        <line x1="7" x2="17" y1="8" y2="8" />
-        <line x1="7" x2="17" y1="12" y2="12" />
-        <line x1="7" x2="13" y1="16" y2="16" />
-      </svg>
-    )),
-  },
-  {
+    icon: FileUp,
+    active: location.pathname === '/resume',
+    highlight: true
+  }, {
     title: "Interview Prep",
     url: "/interview-prep",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M19 5v9M5 5v9M7 15H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0-2 2h-2" />
-      </svg>
-    )),
-  },
-  {
+    icon: Lightbulb,
+    active: location.pathname.startsWith('/interview-prep'),
+    highlight: true
+  }, {
     title: "Career Agent",
     url: "/career-agent",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M16 18a4 4 0 0 0-8 0" />
-        <circle cx="12" cy="11" r="3" />
-        <path d="M2 21a8 8 0 0 1 2-5.5M20 21a8 8 0 0 0-2-5.5" />
-        <line x1="22" x2="2" y1="11" y2="11" />
-        <line x1="22" x2="2" y1="5" y2="5" />
-        <circle cx="12" cy="5" r="3" />
-      </svg>
-    )),
-  },
-]
-
-const learningItems = [
-  {
-    title: "Courses",
-    url: "/courses",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-      </svg>
-    )),
-  },
-  {
+    icon: Bot,
+    active: location.pathname === '/career-agent'
+  }, {
     title: "Career Pathway",
     url: "/career-pathway",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M2 3h6a4 4 0 0 1 4 4v14a2 2 0 0 0-2-2H2z" />
-        <path d="M22 3h-6a4 4 0 0 0-4 4v14a2 2 0 0 1 2-2h6z" />
-      </svg>
-    )),
-  },
-  {
-    title: "Data Blueprint",
-    url: "/data-blueprint",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <rect width="7" height="7" x="2" y="2" rx="1" />
-        <rect width="7" height="7" x="15" y="2" rx="1" />
-        <rect width="7" height="7" x="2" y="15" rx="1" />
-        <path d="M15 15h7v7h-7z" />
-      </svg>
-    )),
-  },
-]
-
-const portfolioItems = [
-  {
+    icon: Briefcase,
+    active: location.pathname === '/career-pathway'
+  }, {
     title: "Portfolio Explorer",
     url: "/portfolio-explorer",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <rect width="13" height="13" x="3" y="3" rx="2" ry="2" />
-        <path d="m7 7v1m0 4v1m4-5v1m0 4v1" />
-        <path d="M22 18H10V5h12z" />
-      </svg>
-    )),
-  },
-  {
+    icon: Award,
+    active: location.pathname === '/portfolio-explorer',
+    highlight: true
+  }, {
+    title: "Courses",
+    url: "/courses",
+    icon: BookOpen,
+    active: location.pathname.startsWith('/course') && !location.pathname.includes('/forums')
+  }, {
+    title: "Data Blueprint",
+    url: "/data-blueprint",
+    icon: FileText,
+    active: location.pathname === '/data-blueprint'
+  }, {
+    title: "AI & Automation Fellowship",
+    url: "/survey",
+    icon: FileCheck,
+    active: location.pathname === '/survey' || location.pathname === '/survey/confirmation'
+  }, {
     title: "Forums",
     url: "/forums",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        <path d="M7 9h8" />
-        <path d="M7 12h5" />
-      </svg>
-    )),
-  },
-  {
-    title: "Community",
-    url: "/community",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <line x1="22" x2="14" y1="11" y2="11" />
-        <path d="M18 16v-2a2 2 0 0 0-2-2H3" />
-      </svg>
-    )),
-  },
-]
-
-const personalItems = [
-  {
+    icon: MessageSquare,
+    active: location.pathname === '/forums' || location.pathname.includes('/forums/') || location.pathname.includes('/thread/')
+  }, {
+    title: "Events",
+    url: "/events",
+    icon: Calendar,
+    active: location.pathname === '/events' && !location.pathname.includes('/admin/events')
+  }, {
+    title: "Assistants",
+    url: "/assistants",
+    icon: Bot,
+    active: location.pathname === '/assistants' || location.pathname.startsWith('/assistant/')
+  }, {
+    title: "Messages",
+    url: "/messages",
+    icon: MessageSquare,
+    active: location.pathname.startsWith('/messages')
+  }, {
+    title: "Blog",
+    url: "/blog",
+    icon: Newspaper,
+    active: location.pathname.startsWith('/blog')
+  }, {
+    title: "Calendar",
+    url: "/calendar",
+    icon: Calendar,
+    active: location.pathname === '/calendar'
+  }, {
+    title: "Notifications",
+    url: "/notifications",
+    icon: Bell,
+    active: location.pathname === '/notifications'
+  }, {
     title: "Profile",
     url: "/profile",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    )),
-  },
-  {
-    title: "Settings",
-    url: "/settings",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M12.22 2.16l-.41.2a5 5 0 0 0-1.08.5A5 5 0 0 0 8 5h-1a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h1a5 5 0 0 0 0 2h-1a2 2 0 0 0-2 2v1a2 2 0 0 0 2 2h1a5 5 0 0 0 1.08.5 5 5 0 0 0 1.08.5l.41.2" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-    )),
-  },
-]
+    icon: UserCircle,
+    active: location.pathname === '/profile'
+  }];
 
-const adminItems = [
-  {
-    title: "Users",
-    url: "/admin/users",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="8.5" cy="7" r="4" />
-        <line x1="22" x2="16" y1="11" y2="11" />
-      </svg>
-    )),
-  },
-  {
-    title: "Courses",
+  // Define admin menu items - removed Manage Resources
+  const adminMenuItems = [{
+    title: "Admin Dashboard",
+    url: "/admin",
+    icon: BarChart2,
+    active: location.pathname === '/admin' || location.pathname === '/admin/activity'
+  }, {
+    title: "Manage Courses",
     url: "/admin/courses",
-    icon: React.forwardRef<
-      SVGSVGElement,
-      React.ComponentProps<"svg">
-    >(({ className, ...props }, ref) => (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        className={className}
-        ref={ref}
-        {...props}
-      >
-        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-        <line x1="9" x2="15" y1="9" y2="9" />
-        <line x1="9" x2="15" y1="15" y2="15" />
-      </svg>
-    )),
-  },
-]
+    icon: GraduationCap,
+    active: location.pathname === '/admin/courses'
+  }, {
+    title: "Manage Users",
+    url: "/admin/users",
+    icon: Users,
+    active: location.pathname === '/admin/users'
+  }, {
+    title: "Manage Forms",
+    url: "/admin/forms",
+    icon: FormInput,
+    active: location.pathname === '/admin/forms'
+  }, {
+    title: "Manage Blog",
+    url: "/admin/blog-posts",
+    icon: Newspaper,
+    active: location.pathname === '/admin/blog-posts'
+  }, {
+    title: "Manage Events",
+    url: "/admin/events",
+    icon: Calendar,
+    active: location.pathname === '/admin/events'
+  }, {
+    title: "Page Visibility",
+    url: "/admin/page-visibility",
+    icon: Eye,
+    active: location.pathname === '/admin/page-visibility'
+  }, {
+    title: "Debug Tools",
+    url: "/admin/localstorage-debug",
+    icon: Bug,
+    active: location.pathname.includes('/admin/debug') || location.pathname.includes('/admin/localstorage')
+  }];
 
-export default function AppSidebar() {
-  const { user, logout, isAdmin } = useAuth();
-  const location = useLocation();
-  const navigate = useNavigate();
+  const isAdmin = user?.roles?.includes('admin');
+  const isInstructor = user?.roles?.includes('instructor');
+  const menuItems = [...publicMenuItems];
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      navigate('/login');
-    } catch (error) {
-      console.error("Logout failed:", error);
-    }
+  const menuItemVariants = {
+    hidden: {
+      opacity: 0,
+      x: -20
+    },
+    visible: (i: number) => ({
+      opacity: 1,
+      x: 0,
+      transition: {
+        delay: i * 0.05,
+        duration: 0.3
+      }
+    })
   };
 
   return (
-    <Sidebar variant="inset" data-sidebar="sidebar">
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link to="/">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                  <Brain className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">Insights Collective</span>
-                  <span className="truncate text-xs">Data Career Platform</span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+    <Sidebar className="border-r border-gray-200 dark:border-gray-800 text-gray-800 dark:text-gray-200">
+      <SidebarHeader className="border-b border-gray-200 dark:border-gray-800 px-2 bg-gray-100">
+        <div className="flex items-center space-x-2 p-2">
+          <Link to="/" className="flex items-center space-x-2">
+            <div className="relative w-7 h-7 flex items-center justify-center rounded-md bg-gradient-to-tr from-[#9b87f5] to-[#7E69AB]">
+              <GraduationCap className="h-4 w-4 text-white" />
+            </div>
+            <span className="font-bold text-base">Insights Collective</span>
+          </Link>
+        </div>
+        <SidebarTrigger className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 absolute right-2 top-2" />
       </SidebarHeader>
-
-      <SidebarContent>
-        {/* Career Tools Section */}
-        <SidebarGroup data-tour="career-tools">
-          <SidebarGroupLabel>Career Tools</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {careerToolsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.url}
-                  >
-                    <Link to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Learning Resources Section */}
-        <SidebarGroup data-tour="learning-resources">
-          <SidebarGroupLabel>Learning Resources</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {learningItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.url}
-                  >
-                    <Link to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Portfolio & Community Section */}
-        <SidebarGroup data-tour="portfolio-community">
-          <SidebarGroupLabel>Portfolio & Community</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {portfolioItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.url}
-                  >
-                    <Link to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Personal Management Section */}
+      
+      <SidebarContent className="py-2 px-2 bg-gray-50 dark:bg-gray-900">
+        {isAuthenticated && <div className="mb-4 px-2">
+            <div className="flex items-center space-x-2 mb-2">
+              <Avatar className="border-2 border-[#9b87f5]/20 w-7 h-7">
+                <AvatarImage src={user?.avatar} alt="User avatar" />
+                <AvatarFallback className="bg-[#9b87f5]/10 text-[#9b87f5] text-xs">
+                  {user?.email?.charAt(0).toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-medium text-xs truncate max-w-[140px]">
+                  {user?.name || user?.email?.split('@')[0] || 'User'}
+                </p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">{isAdmin ? 'Administrator' : isInstructor ? 'Instructor' : 'Member'}</p>
+              </div>
+            </div>
+          </div>}
+      
         <SidebarGroup>
-          <SidebarGroupLabel>Personal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {personalItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location.pathname === item.url}
-                  >
-                    <Link to={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Admin Section */}
-        {isAdmin && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Admin</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {adminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={location.pathname === item.url}
-                    >
-                      <Link to={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
+              {menuItems.map((item, index) => <motion.div key={item.title} custom={index} initial="hidden" animate="visible" variants={menuItemVariants}>
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-300 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                      <Link to={item.url} className={`flex items-center space-x-2 rounded-md px-2 py-1.5 ${item.highlight ? 'bg-[#9b87f5]/5 border border-[#9b87f5]/20' : ''}`}>
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500 dark:text-gray-400'}`} />
+                        <span className="text-xs truncate">{item.title}</span>
+                        {item.highlight && !item.active && (
+                          <Badge className="ml-auto h-4 text-[10px] bg-[#9b87f5]/20 text-[#9b87f5] hover:bg-[#9b87f5]/30">
+                            New
+                          </Badge>
+                        )}
+                        {item.active && (
+                          <div className="ml-auto">
+                            <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                          </div>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
-                ))}
+                </motion.div>)}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        
+        {isAuthenticated && (isAdmin || isInstructor) && <SidebarGroup className="mt-4">
+            <SidebarGroupLabel className="text-gray-500 dark:text-gray-400 font-medium px-2 py-1 text-[10px] uppercase tracking-wider">
+              {isAdmin ? 'Administration' : 'Instructor Tools'}
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {isAdmin && adminMenuItems.map(item => <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={item.active} className={`transition-all duration-200 ${item.active ? 'bg-[#9b87f5]/10 text-[#9b87f5] font-medium' : 'text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5'}`}>
+                      <Link to={item.url} className="flex items-center space-x-2 rounded-md px-2 py-1.5">
+                        <item.icon className={`h-3.5 w-3.5 flex-shrink-0 ${item.active ? 'text-[#9b87f5]' : 'text-gray-500'}`} />
+                        <span className="text-xs truncate">{item.title}</span>
+                        {item.active && <div className="ml-auto">
+                          <ChevronRight className="h-3 w-3 text-[#9b87f5]" />
+                        </div>}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>)}
+                
+                {isInstructor && !isAdmin && <SidebarMenuItem>
+                    <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5">
+                      <Link to="/course-management" className="flex items-center space-x-2 rounded-md px-2 py-1.5">
+                        <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+                        <span className="text-xs truncate">My Courses</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>}
               </SidebarMenu>
             </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+          </SidebarGroup>}
       </SidebarContent>
-
-      <SidebarFooter>
-        {user ? (
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <SidebarMenuButton
-                    size="lg"
-                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                  >
-                    <Avatar className="h-8 w-8 rounded-lg">
-                      <AvatarImage src={user.avatar} alt={user.name} />
-                      <AvatarFallback className="rounded-lg">
-                        {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="grid flex-1 text-left text-sm leading-tight">
-                      <span className="truncate font-semibold">{user.name}</span>
-                      <span className="truncate text-xs">{user.email}</span>
-                    </div>
-                    <ChevronsUpDown className="ml-auto size-4" />
-                  </SidebarMenuButton>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                  side="bottom"
-                  align="end"
-                  sideOffset={4}
-                >
-                  <DropdownMenuLabel className="p-0 font-normal">
-                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
-                      <Avatar className="h-8 w-8 rounded-lg">
-                        <AvatarImage src={user.avatar} alt={user.name} />
-                        <AvatarFallback className="rounded-lg">
-                          {user.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="grid flex-1 text-left text-sm leading-tight">
-                        <span className="truncate font-semibold">{user.name}</span>
-                        <span className="truncate text-xs">{user.email}</span>
-                      </div>
-                    </div>
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem onClick={() => navigate('/profile')}>
-                      <BadgeCheck />
-                      Account
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/settings')}>
-                      <Settings />
-                      Settings
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
-                    <LogOut />
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        ) : (
-          <SidebarMenu>
-            <SidebarMenuItem>
-              <SidebarMenuButton asChild>
-                <Link to="/login">
-                  <LogIn />
-                  <span>Login</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          </SidebarMenu>
-        )}
+      
+      <SidebarFooter className="border-t border-gray-200 dark:border-gray-800 mt-auto p-3 bg-gray-50 dark:bg-gray-900">
+        {!isAuthenticated ? <div className="space-y-2 px-2">
+            <Button variant="outline" asChild className="w-full justify-start text-xs h-8">
+              <Link to="/login">Sign In</Link>
+            </Button>
+            <Button asChild className="w-full justify-start bg-[#9b87f5] hover:bg-[#8B5CF6] text-white text-xs h-8">
+              <Link to="/register">Create Account</Link>
+            </Button>
+          </div> : <div className="text-[10px] text-gray-500 dark:text-gray-400 px-2">
+            <p>Insights Collective v1.0</p>
+          </div>}
       </SidebarFooter>
+      
+      <SidebarRail />
     </Sidebar>
   );
-}
+};
+
+export default AppSidebar;

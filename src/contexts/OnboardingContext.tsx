@@ -28,7 +28,6 @@ interface OnboardingContextType {
   completeTour: () => void;
   resetOnboarding: () => void;
   isFirstVisit: boolean;
-  markTourAsCompleted: (tourId: string) => void;
 }
 
 const OnboardingContext = createContext<OnboardingContextType | undefined>(undefined);
@@ -74,12 +73,6 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const startTour = (tourId: string) => {
-    // Don't start tour if already completed
-    if (completedTours.includes(tourId)) {
-      console.log(`Tour ${tourId} already completed, skipping`);
-      return;
-    }
-    
     setCurrentTour(tourId);
     setCurrentStep(0);
     setIsOnboardingActive(true);
@@ -94,10 +87,12 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const skipTour = () => {
+    // Call completeTour to properly save progress and set isFirstVisit to false
     completeTour();
   };
 
   const completeTour = () => {
+    // Always set isFirstVisit to false when completing tour
     setIsFirstVisit(false);
     
     if (currentTour && !completedTours.includes(currentTour)) {
@@ -105,6 +100,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       setCompletedTours(newCompletedTours);
       saveProgress(newCompletedTours);
     } else {
+      // Even if no tour is active, save the progress to mark as not first visit
       saveProgress(completedTours);
     }
     
@@ -122,14 +118,6 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCurrentStep(0);
   };
 
-  const markTourAsCompleted = (tourId: string) => {
-    if (!completedTours.includes(tourId)) {
-      const newCompletedTours = [...completedTours, tourId];
-      setCompletedTours(newCompletedTours);
-      saveProgress(newCompletedTours);
-    }
-  };
-
   return (
     <OnboardingContext.Provider
       value={{
@@ -144,7 +132,6 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         completeTour,
         resetOnboarding,
         isFirstVisit,
-        markTourAsCompleted,
       }}
     >
       {children}
