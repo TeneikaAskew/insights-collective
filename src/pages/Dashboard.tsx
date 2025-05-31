@@ -13,21 +13,12 @@ import { BookOpen, Bell, Calendar, ArrowRight, Clock } from 'lucide-react';
 import { mockService } from '@/lib/mockData';
 import { useToast } from '@/hooks/use-toast';
 import { Course } from '@/types';
-import { PageHeader } from '@/components/common/PageHeader';
-import { usePageOnboarding } from '@/hooks/usePageOnboarding';
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState('courses');
   const { navigateWithAuth } = useAuthenticatedNavigation();
   const { toast } = useToast();
-  
-  // Initialize page onboarding
-  usePageOnboarding({ 
-    tourId: 'dashboard', 
-    autoStart: true,
-    dependencies: ['home'] // Only start after home tour is complete
-  });
   
   const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,13 +207,14 @@ const Dashboard = () => {
   return (
     <AppLayout>
       <div className="space-y-6">
-        <PageHeader
-          title="Dashboard"
-          description={`Welcome back, ${user.name}! Here's an overview of your learning progress.`}
-          pageTourId="dashboard"
-        />
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Welcome back, {user.name}! Here's an overview of your learning progress.
+          </p>
+        </div>
         
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4" data-tour="dashboard-overview">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card 
             className="cursor-pointer hover:bg-accent/50 transition-colors" 
             onClick={() => handleMetricClick('courses')}
@@ -284,162 +276,160 @@ const Dashboard = () => {
           </Card>
         </div>
         
-        <div data-tour="quick-actions">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-            <TabsList>
-              <TabsTrigger value="courses">My Courses</TabsTrigger>
-              {teachingCourses.length > 0 && (
-                <TabsTrigger value="teaching">Teaching</TabsTrigger>
-              )}
-              <TabsTrigger value="deadlines">Upcoming Deadlines</TabsTrigger>
-              <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="courses" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">My Courses</h2>
-                <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/courses')}>
-                  Browse Courses
-                </Button>
-              </div>
-              
-              {loading ? (
-                <div className="flex justify-center p-12">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                </div>
-              ) : error ? (
-                <Card>
-                  <CardContent className="py-10 text-center">
-                    <p className="text-muted-foreground mb-4">Error loading courses: {error}</p>
-                    <Button onClick={() => window.location.reload()}>Try Again</Button>
-                  </CardContent>
-                </Card>
-              ) : enrolledCourses.length > 0 ? (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {enrolledCourses.map((course) => (
-                    <CourseCard 
-                      key={course.id} 
-                      course={course}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <Card>
-                  <CardContent className="py-10 text-center">
-                    <p className="text-muted-foreground mb-4">You haven't enrolled in any courses yet.</p>
-                    <Button onClick={() => navigateWithAuth('/courses')}>
-                      Browse Courses
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-            
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="courses">My Courses</TabsTrigger>
             {teachingCourses.length > 0 && (
-              <TabsContent value="teaching" className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-semibold">Courses You Teach</h2>
-                  <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/admin/courses')}>
-                    Manage Courses
-                  </Button>
-                </div>
-                
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                  {teachingCourses.map((course) => (
-                    <CourseCard 
-                      key={course.id} 
-                      course={course}
-                    />
-                  ))}
-                </div>
-              </TabsContent>
+              <TabsTrigger value="teaching">Teaching</TabsTrigger>
             )}
+            <TabsTrigger value="deadlines">Upcoming Deadlines</TabsTrigger>
+            <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="courses" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">My Courses</h2>
+              <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/courses')}>
+                Browse Courses
+              </Button>
+            </div>
             
-            <TabsContent value="deadlines" className="space-y-6">
+            {loading ? (
+              <div className="flex justify-center p-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              </div>
+            ) : error ? (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <p className="text-muted-foreground mb-4">Error loading courses: {error}</p>
+                  <Button onClick={() => window.location.reload()}>Try Again</Button>
+                </CardContent>
+              </Card>
+            ) : enrolledCourses.length > 0 ? (
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {enrolledCourses.map((course) => (
+                  <CourseCard 
+                    key={course.id} 
+                    course={course}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <p className="text-muted-foreground mb-4">You haven't enrolled in any courses yet.</p>
+                  <Button onClick={() => navigateWithAuth('/courses')}>
+                    Browse Courses
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+          
+          {teachingCourses.length > 0 && (
+            <TabsContent value="teaching" className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
-                <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/calendar')}>
-                  View Calendar
+                <h2 className="text-xl font-semibold">Courses You Teach</h2>
+                <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/admin/courses')}>
+                  Manage Courses
                 </Button>
               </div>
               
-              {upcomingDeadlines.length > 0 ? (
-                <div className="space-y-4">
-                  {upcomingDeadlines.map((deadline) => (
-                    <Card key={deadline.id}>
-                      <CardContent className="p-4 flex justify-between items-center">
-                        <div className="flex-1">
-                          <div className="flex items-start gap-3">
-                            <div className="mt-0.5">
-                              {deadline.type === 'assignment' ? (
-                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <BookOpen className="h-4 w-4 text-primary" />
-                                </div>
-                              ) : (
-                                <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <Clock className="h-4 w-4 text-primary" />
-                                </div>
-                              )}
-                            </div>
-                            <div>
-                              <h4 className="font-medium">{deadline.title}</h4>
-                              <p className="text-sm text-muted-foreground">{deadline.courseTitle}</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <Badge variant="outline" className="mb-1">
-                              {deadline.type === 'assignment' ? 'Assignment' : 'Quiz'}
-                            </Badge>
-                            <p className="text-sm text-muted-foreground">Due {formatDueDate(deadline.dueDate)}</p>
-                          </div>
-                          <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <Card>
-                  <CardContent className="py-10 text-center">
-                    <p className="text-muted-foreground">You don't have any upcoming deadlines.</p>
-                  </CardContent>
-                </Card>
-              )}
-            </TabsContent>
-            
-            <TabsContent value="notifications" className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Notifications</h2>
-                {notifications.some(n => !n.isRead) && (
-                  <Button variant="outline" size="sm">
-                    Mark All as Read
-                  </Button>
-                )}
+              <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {teachingCourses.map((course) => (
+                  <CourseCard 
+                    key={course.id} 
+                    course={course}
+                  />
+                ))}
               </div>
-              
-              {notifications.length > 0 ? (
-                <Card>
-                  <CardContent className="p-0 divide-y">
-                    {notifications.map((notification) => (
-                      <NotificationItem 
-                        key={notification.id} 
-                        notification={notification} 
-                      />
-                    ))}
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card>
-                  <CardContent className="py-10 text-center">
-                    <p className="text-muted-foreground">You don't have any notifications.</p>
-                  </CardContent>
-                </Card>
-              )}
             </TabsContent>
-          </Tabs>
-        </div>
+          )}
+          
+          <TabsContent value="deadlines" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Upcoming Deadlines</h2>
+              <Button variant="outline" size="sm" onClick={() => navigateWithAuth('/calendar')}>
+                View Calendar
+              </Button>
+            </div>
+            
+            {upcomingDeadlines.length > 0 ? (
+              <div className="space-y-4">
+                {upcomingDeadlines.map((deadline) => (
+                  <Card key={deadline.id}>
+                    <CardContent className="p-4 flex justify-between items-center">
+                      <div className="flex-1">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5">
+                            {deadline.type === 'assignment' ? (
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <BookOpen className="h-4 w-4 text-primary" />
+                              </div>
+                            ) : (
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Clock className="h-4 w-4 text-primary" />
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <h4 className="font-medium">{deadline.title}</h4>
+                            <p className="text-sm text-muted-foreground">{deadline.courseTitle}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="text-right">
+                          <Badge variant="outline" className="mb-1">
+                            {deadline.type === 'assignment' ? 'Assignment' : 'Quiz'}
+                          </Badge>
+                          <p className="text-sm text-muted-foreground">Due {formatDueDate(deadline.dueDate)}</p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <p className="text-muted-foreground">You don't have any upcoming deadlines.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="notifications" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Notifications</h2>
+              {notifications.some(n => !n.isRead) && (
+                <Button variant="outline" size="sm">
+                  Mark All as Read
+                </Button>
+              )}
+            </div>
+            
+            {notifications.length > 0 ? (
+              <Card>
+                <CardContent className="p-0 divide-y">
+                  {notifications.map((notification) => (
+                    <NotificationItem 
+                      key={notification.id} 
+                      notification={notification} 
+                    />
+                  ))}
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="py-10 text-center">
+                  <p className="text-muted-foreground">You don't have any notifications.</p>
+                </CardContent>
+              </Card>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </AppLayout>
   );
