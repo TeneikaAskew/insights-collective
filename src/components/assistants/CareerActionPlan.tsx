@@ -29,6 +29,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { usePortfolio } from '@/hooks/usePortfolio';
 
 interface CourseData {
   title: string;
@@ -109,6 +110,7 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { projects } = usePortfolio();
 
   // Effect to update internal state when the prop changes
   useEffect(() => {
@@ -303,11 +305,25 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     navigate('/portfolio-explorer');
   };
 
-  // Helper function to get button state
+  // Helper function to get button state - checks both local state and existing portfolio projects
   const getButtonState = (type: 'project' | 'content' | 'milestone', data: any, timeframe: string) => {
     const itemId = `${type}-${timeframe}-${typeof data === 'string' ? data : data.title}`;
     const isLoading = loadingItems.has(itemId);
-    const isAdded = addedItems.has(itemId);
+    const isLocallyAdded = addedItems.has(itemId);
+    
+    // Check if item already exists in portfolio projects
+    let isAlreadyInPortfolio = false;
+    if (projects && Array.isArray(projects)) {
+      const itemTitle = typeof data === 'string' ? `${type.charAt(0).toUpperCase() + type.slice(1)}: ${data}` : 
+                       type === 'content' ? `Content: ${data.platform}` : data.title;
+      
+      isAlreadyInPortfolio = projects.some(project => 
+        project.title === itemTitle || 
+        (project.title && itemTitle && project.title.toLowerCase().includes(itemTitle.toLowerCase()))
+      );
+    }
+    
+    const isAdded = isLocallyAdded || isAlreadyInPortfolio;
     
     return { itemId, isLoading, isAdded };
   };

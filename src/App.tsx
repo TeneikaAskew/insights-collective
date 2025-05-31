@@ -82,6 +82,8 @@ import UnifiedFormManagement from '@/pages/admin/UnifiedFormManagement';
 import SurveyFormCreate from '@/pages/survey/SurveyFormCreate';
 import SurveyFormEdit from '@/pages/survey/SurveyFormEdit';
 import SurveyPage from '@/pages/survey/SurveyPage';
+import TermsOfService from '@/pages/TermsOfService';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -707,6 +709,10 @@ function App() {
                       </AdminGuard>
                     }
                   />
+                  
+                  {/* Legal pages */}
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
                   
                   {/* Portfolio routes */}
                   {portfolioRoutes}
