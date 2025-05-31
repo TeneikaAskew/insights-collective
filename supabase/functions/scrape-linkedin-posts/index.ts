@@ -1,4 +1,3 @@
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
 const corsHeaders = {
@@ -19,6 +18,39 @@ const BASE_URL = 'https://api.linkedin.com/v2'
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+// Rate limiting helpers
+async function checkRateLimit(): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('scrape_metadata')
+    .select('value, updated_at')
+    .eq('key', 'linkedin_rate_limit_reset')
+    .single()
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('Error checking rate limit:', error)
+    return true // Assume we can proceed if we can't check
+  }
+
+  if (!data) return true
+
+  const resetTime = new Date(data.updated_at)
+  const now = new Date()
+  const hoursSinceReset = (now.getTime() - resetTime.getTime()) / (1000 * 60 * 60)
+
+  // Reset daily (24 hours)
+  return hoursSinceReset >= 24
+}
+
+async function recordRateLimit(): Promise<void> {
+  await supabase
+    .from('scrape_metadata')
+    .upsert({
+      key: 'linkedin_rate_limit_reset',
+      value: 'rate_limited',
+      updated_at: new Date().toISOString()
+    })
+}
+
 function validateEnvironmentVariables() {
   console.log('Validating environment variables...')
   console.log('LINKEDIN_CLIENT_ID present:', !!LINKEDIN_CLIENT_ID)
@@ -26,20 +58,8 @@ function validateEnvironmentVariables() {
   console.log('LINKEDIN_ACCESS_TOKEN present:', !!LINKEDIN_ACCESS_TOKEN)
   console.log('LINKEDIN_REFRESH_TOKEN present:', !!LINKEDIN_REFRESH_TOKEN)
   
-  if (!LINKEDIN_CLIENT_ID) {
-    throw new Error('Missing LINKEDIN_CLIENT_ID environment variable')
-  }
-  
-  if (!LINKEDIN_CLIENT_SECRET) {
-    throw new Error('Missing LINKEDIN_CLIENT_SECRET environment variable')
-  }
-
-  if (!LINKEDIN_ACCESS_TOKEN) {
-    throw new Error('Missing LINKEDIN_ACCESS_TOKEN environment variable')
-  }
-
-  if (!LINKEDIN_REFRESH_TOKEN) {
-    throw new Error('Missing LINKEDIN_REFRESH_TOKEN environment variable')
+  if (!LINKEDIN_CLIENT_ID || !LINKEDIN_CLIENT_SECRET || !LINKEDIN_ACCESS_TOKEN || !LINKEDIN_REFRESH_TOKEN) {
+    throw new Error('Missing required LinkedIn environment variables')
   }
 }
 
@@ -71,80 +91,112 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 async function getValidAccessToken(): Promise<string> {
-  // Try the existing access token first with a simple, safe API call
   let accessToken = LINKEDIN_ACCESS_TOKEN!
   
   try {
-    // Test the token with the most basic profile call - only first name
-    const testResponse = await fetch(`${BASE_URL}/people/~?projection=(localizedFirstName)`, {
+    // Use the r_basicprofile scope to test token validity
+    const testResponse = await fetch(`${BASE_URL}/people/~:(id,localizedFirstName)`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
+        'X-Restli-Protocol-Version': '2.0.0'
       },
     })
 
     if (testResponse.ok) {
       console.log('Existing access token is valid')
       return accessToken
-    } else {
+    } else if (testResponse.status === 401) {
       console.log('Access token expired, refreshing...')
       return await refreshAccessToken()
+    } else if (testResponse.status === 429) {
+      throw new Error('Rate limit exceeded - please wait before trying again')
+    } else {
+      throw new Error(`Token validation failed: ${testResponse.status}`)
     }
   } catch (error) {
-    console.log('Error testing access token, attempting refresh:', error)
+    console.log('Error testing access token:', error)
+    if (error.message.includes('Rate limit')) {
+      throw error
+    }
     return await refreshAccessToken()
   }
 }
 
 async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[]> {
-  // Use the UGC Posts API directly without needing person ID
-  let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(urn:li:person:~)&sortBy=CREATED_TIME&count=50&projection=(elements*(id,specificContent,lifecycleState,lastModified,created,ugcPostHeader,author))`
-  
-  if (sinceDate) {
-    // Add date filter if available
-    const sinceTimestamp = new Date(sinceDate).getTime()
-    url += `&createdTimeRange.start=${sinceTimestamp}`
+  // First, get the user's profile to get their person URN
+  const profileResponse = await fetch(`${BASE_URL}/people/~:(id)`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0'
+    },
+  })
+
+  if (!profileResponse.ok) {
+    throw new Error(`Failed to get profile: ${profileResponse.status}`)
   }
 
-  console.log('Fetching LinkedIn posts using UGC Posts API')
+  const profileData = await profileResponse.json()
+  const personUrn = `urn:li:person:${profileData.id}`
+  
+  console.log('User person URN:', personUrn)
+
+  // Use the Social Actions API with postAnalytics scope
+  let url = `${BASE_URL}/socialActions?q=roleAssignee&roleAssignee=${encodeURIComponent(personUrn)}&start=0&count=50`
+  
+  if (sinceDate) {
+    const sinceTimestamp = new Date(sinceDate).getTime()
+    url += `&createdAfter=${sinceTimestamp}`
+  }
+
+  console.log('Fetching LinkedIn posts using Social Actions API')
   console.log('Request URL:', url)
-  console.log('Since date:', sinceDate)
 
   const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0'
     },
   })
 
   console.log('Response status:', response.status)
 
+  if (response.status === 429) {
+    await recordRateLimit()
+    throw new Error('Rate limit exceeded. Please wait 24 hours before trying again.')
+  }
+
+  if (response.status === 403) {
+    console.error('Access denied - trying alternative endpoint')
+    return await fetchPostsAlternative(accessToken, personUrn, sinceDate)
+  }
+
   if (!response.ok) {
     const errorText = await response.text()
     console.error('Error response:', errorText)
-    
-    // Fallback to simplified shares endpoint if UGC Posts fails
-    console.log('UGC Posts failed, trying simplified shares endpoint...')
-    return await fetchPostsSimplified(accessToken, sinceDate)
+    throw new Error(`Failed to fetch posts: ${response.status} ${errorText}`)
   }
 
   const data = await response.json()
-  console.log('Posts data:', data)
+  console.log('Posts fetched successfully:', data.elements?.length || 0)
   return data.elements || []
 }
 
-async function fetchPostsSimplified(accessToken: string, sinceDate?: string): Promise<any[]> {
-  // Use simplified shares endpoint without person ID requirement
-  let url = `${BASE_URL}/shares?q=owners&owners=List(urn:li:person:~)&sharesPerOwner=50&sortBy=CREATED&projection=(elements*(id,text,createdTime,content,commentary))`
+async function fetchPostsAlternative(accessToken: string, personUrn: string, sinceDate?: string): Promise<any[]> {
+  // Alternative: Use UGC Posts API which works with r_member_postAnalytics
+  let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(${encodeURIComponent(personUrn)})&sortBy=LAST_MODIFIED&count=50`
   
   if (sinceDate) {
     const sinceTimestamp = new Date(sinceDate).getTime()
-    url += `&createdTimeRange.start=${sinceTimestamp}`
+    url += `&modifiedSince=${sinceTimestamp}`
   }
 
-  console.log('Fetching LinkedIn posts using simplified shares API')
+  console.log('Trying UGC Posts API as alternative')
   console.log('Request URL:', url)
 
   const response = await fetch(url, {
@@ -152,19 +204,25 @@ async function fetchPostsSimplified(accessToken: string, sinceDate?: string): Pr
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0'
     },
   })
 
-  console.log('Simplified shares response status:', response.status)
+  console.log('Alternative response status:', response.status)
+
+  if (response.status === 429) {
+    await recordRateLimit()
+    throw new Error('Rate limit exceeded. Please wait 24 hours before trying again.')
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('Simplified shares error response:', errorText)
-    throw new Error(`Failed to fetch posts: ${response.status} ${errorText}`)
+    console.error('Alternative error response:', errorText)
+    throw new Error(`Failed to fetch posts with alternative method: ${response.status} ${errorText}`)
   }
 
   const data = await response.json()
-  console.log('Simplified shares posts data:', data)
+  console.log('Alternative posts fetched successfully:', data.elements?.length || 0)
   return data.elements || []
 }
 
@@ -175,7 +233,7 @@ async function getLastScrapedDate(): Promise<string | null> {
     .eq('key', 'last_scraped_linkedin_post_date')
     .single()
 
-  if (error && error.code !== 'PGRST116') { // Not found error is OK
+  if (error && error.code !== 'PGRST116') {
     console.error('Error getting last scraped date:', error)
     return null
   }
@@ -204,33 +262,40 @@ async function storePosts(posts: any[]): Promise<void> {
   }
 
   const postsToInsert = posts.map(post => {
-    // Extract content from different LinkedIn post structures
     let content = ''
     let createdTime = new Date()
+    let postId = post.id || post.activity || ''
     
     // Handle UGC Posts API response structure
     if (post.specificContent && post.specificContent['com.linkedin.ugc.ShareContent']) {
       const shareContent = post.specificContent['com.linkedin.ugc.ShareContent']
-      content = shareContent.shareCommentary?.text || ''
+      content = shareContent.shareCommentary?.text || shareContent.shareText?.text || ''
       createdTime = new Date(post.created?.time || post.lastModified?.time || Date.now())
     }
-    // Handle traditional shares API response structure
+    // Handle Social Actions API response structure
+    else if (post.object && post.object['com.linkedin.ugc.ShareContent']) {
+      const shareContent = post.object['com.linkedin.ugc.ShareContent']
+      content = shareContent.shareCommentary?.text || shareContent.shareText?.text || ''
+      createdTime = new Date(post.created?.time || Date.now())
+    }
+    // Handle other response structures
     else {
-      content = post.commentary || post.text || ''
-      createdTime = new Date(post.createdTime || Date.now())
+      content = post.commentary || post.text || post.content?.description || ''
+      createdTime = new Date(post.createdTime || post.created?.time || post.lastModified?.time || Date.now())
     }
     
     return {
-      post_id: post.id,
+      post_id: postId,
       content: content,
       author_username: 'teneikaaskew',
       author_display_name: 'Teneika Askew',
       posted_at: createdTime.toISOString(),
-      like_count: 0, // LinkedIn API doesn't provide engagement metrics in basic plan
+      like_count: 0, // r_member_postAnalytics provides analytics data
       comment_count: 0,
       share_count: 0,
-      media_urls: [], // Extract from content if available
-      post_url: `https://www.linkedin.com/feed/update/${post.id}/`,
+      media_urls: [], 
+      post_url: `https://www.linkedin.com/feed/update/${postId}/`,
+      raw_data: JSON.stringify(post) // Store raw data for debugging
     }
   })
 
@@ -255,18 +320,20 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
   try {
     validateEnvironmentVariables()
 
+    // Check rate limiting first
+    const canProceed = await checkRateLimit()
+    if (!canProceed) {
+      throw new Error('Rate limit in effect. Please wait 24 hours since last rate limit before trying again.')
+    }
+
     console.log('Starting LinkedIn post scrape')
 
-    // Get valid access token (refresh if needed)
+    // Get valid access token
     const accessToken = await getValidAccessToken()
     console.log('Access token validated successfully')
 
-    // Get last scraped date for incremental updates
-    const lastScrapedDate = await getLastScrapedDate()
-    console.log('Last scraped date:', lastScrapedDate)
-
-    // Fetch posts directly - no need for person ID
-    const posts = await fetchPosts(accessToken, lastScrapedDate || undefined)
+    // Fetch posts
+    const posts = await fetchPosts(accessToken)
     console.log(`Fetched ${posts.length} posts`)
 
     if (posts.length === 0) {
@@ -276,16 +343,10 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
     // Store posts
     await storePosts(posts)
 
-    // Update last scraped date with the most recent post
-    const mostRecentPost = posts.reduce((latest, current) => {
-      const currentTime = current.created?.time || current.createdTime || 0
-      const latestTime = latest.created?.time || latest.createdTime || 0
-      return new Date(currentTime) > new Date(latestTime) ? current : latest
-    })
-    
-    if (mostRecentPost) {
-      const mostRecentTime = mostRecentPost.created?.time || mostRecentPost.createdTime
-      await updateLastScrapedDate(new Date(mostRecentTime).toISOString())
+    // Update last scraped date
+    if (posts.length > 0) {
+      const mostRecentTime = posts[0].createdTime || new Date().toISOString()
+      await updateLastScrapedDate(mostRecentTime)
     }
 
     // Get total post count
@@ -305,7 +366,6 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
 }
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
