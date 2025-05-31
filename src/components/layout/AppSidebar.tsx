@@ -1,5 +1,5 @@
 
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb, Twitter } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,6 +94,11 @@ const AppSidebar = () => {
     url: "/blog",
     icon: Newspaper,
     active: location.pathname.startsWith('/blog')
+  }, {
+    title: "Teneika's Tweets",
+    url: "/teneika-tweets",
+    icon: Twitter,
+    active: location.pathname === '/teneika-tweets'
   }, {
     title: "Calendar",
     url: "/calendar",
