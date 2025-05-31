@@ -1695,6 +1695,30 @@ export type Database = {
         }
         Relationships: []
       }
+      scrape_metadata: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       star_responses: {
         Row: {
           action: string | null
@@ -1921,6 +1945,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      tweets: {
+        Row: {
+          author_display_name: string | null
+          author_username: string
+          content: string
+          created_at: string
+          id: string
+          like_count: number | null
+          quote_count: number | null
+          reply_count: number | null
+          retweet_count: number | null
+          scraped_at: string
+          tweet_id: string
+          tweeted_at: string
+          updated_at: string
+        }
+        Insert: {
+          author_display_name?: string | null
+          author_username: string
+          content: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          quote_count?: number | null
+          reply_count?: number | null
+          retweet_count?: number | null
+          scraped_at?: string
+          tweet_id: string
+          tweeted_at: string
+          updated_at?: string
+        }
+        Update: {
+          author_display_name?: string | null
+          author_username?: string
+          content?: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          quote_count?: number | null
+          reply_count?: number | null
+          retweet_count?: number | null
+          scraped_at?: string
+          tweet_id?: string
+          tweeted_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_assessments: {
         Row: {
