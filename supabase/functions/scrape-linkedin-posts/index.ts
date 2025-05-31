@@ -96,20 +96,21 @@ async function getValidAccessToken(): Promise<string> {
 }
 
 async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[]> {
-  // Use your specific LinkedIn user ID
+  // Use your specific LinkedIn user ID to build the person URN
   const personUrn = `urn:li:person:${LINKEDIN_USER_ID}`
   
   console.log('Using person URN:', personUrn)
+  console.log('Fetching posts using LinkedIn Posts API...')
 
-  // Try UGC Posts API first - this should work with r_member_postAnalytics
-  let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(${encodeURIComponent(personUrn)})&sortBy=LAST_MODIFIED&count=50`
+  // Use the official Posts API "Find Posts by Authors" endpoint
+  // This should work with r_member_postAnalytics scope
+  let url = `https://api.linkedin.com/rest/posts?q=author&author=${encodeURIComponent(personUrn)}&sortBy=LAST_MODIFIED&count=50`
   
   if (sinceDate) {
-    const sinceTimestamp = new Date(sinceDate).getTime()
-    url += `&modifiedSince=${sinceTimestamp}`
+    // LinkedIn doesn't support date filtering in this endpoint, so we'll filter after retrieval
+    console.log('Note: Date filtering will be applied after retrieval')
   }
 
-  console.log('Fetching LinkedIn posts using UGC Posts API')
   console.log('Request URL:', url)
 
   const response = await fetch(url, {
@@ -117,7 +118,8 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
-      'X-Restli-Protocol-Version': '2.0.0'
+      'X-Restli-Protocol-Version': '2.0.0',
+      'LinkedIn-Version': '202405' // Use a current LinkedIn API version
     },
   })
 
@@ -128,40 +130,52 @@ async function fetchPosts(accessToken: string, sinceDate?: string): Promise<any[
   }
 
   if (response.status === 403) {
-    console.error('Access denied - trying alternative endpoint')
+    const errorText = await response.text()
+    console.error('Access denied error:', errorText)
+    
+    // Try the alternative method with different API version
     return await fetchPostsAlternative(accessToken, personUrn, sinceDate)
   }
 
   if (!response.ok) {
     const errorText = await response.text()
     console.error('Error response:', errorText)
-    // Try alternative method before failing
+    
+    // Try the alternative method before failing
     return await fetchPostsAlternative(accessToken, personUrn, sinceDate)
   }
 
   const data = await response.json()
   console.log('Posts fetched successfully:', data.elements?.length || 0)
-  return data.elements || []
+  
+  let posts = data.elements || []
+  
+  // Apply date filtering if sinceDate is provided
+  if (sinceDate && posts.length > 0) {
+    const sinceTimestamp = new Date(sinceDate).getTime()
+    posts = posts.filter(post => {
+      const postTime = post.lastModifiedAt || post.createdAt || post.publishedAt || 0
+      return postTime >= sinceTimestamp
+    })
+    console.log(`Filtered to ${posts.length} posts since ${sinceDate}`)
+  }
+  
+  return posts
 }
 
 async function fetchPostsAlternative(accessToken: string, personUrn: string, sinceDate?: string): Promise<any[]> {
-  // Alternative: Try the shares endpoint
-  let url = `${BASE_URL}/shares?q=owners&owners=List(${encodeURIComponent(personUrn)})&sortBy=CREATED&count=50`
+  console.log('Trying alternative approach with different API version...')
   
-  if (sinceDate) {
-    const sinceTimestamp = new Date(sinceDate).getTime()
-    url += `&createdAfter=${sinceTimestamp}`
-  }
-
-  console.log('Trying shares API as alternative')
-  console.log('Request URL:', url)
+  // Try with a different LinkedIn API version
+  let url = `https://api.linkedin.com/rest/posts?q=author&author=${encodeURIComponent(personUrn)}&sortBy=LAST_MODIFIED&count=50`
 
   const response = await fetch(url, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
-      'X-Restli-Protocol-Version': '2.0.0'
+      'X-Restli-Protocol-Version': '2.0.0',
+      'LinkedIn-Version': '202301' // Try an earlier version
     },
   })
 
@@ -174,11 +188,63 @@ async function fetchPostsAlternative(accessToken: string, personUrn: string, sin
   if (!response.ok) {
     const errorText = await response.text()
     console.error('Alternative error response:', errorText)
-    throw new Error(`Failed to fetch posts with all available methods: ${response.status} ${errorText}`)
+    
+    // If this also fails, try the legacy ugcPosts endpoint
+    return await fetchPostsLegacy(accessToken, personUrn, sinceDate)
   }
 
   const data = await response.json()
   console.log('Alternative posts fetched successfully:', data.elements?.length || 0)
+  
+  let posts = data.elements || []
+  
+  // Apply date filtering if sinceDate is provided
+  if (sinceDate && posts.length > 0) {
+    const sinceTimestamp = new Date(sinceDate).getTime()
+    posts = posts.filter(post => {
+      const postTime = post.lastModifiedAt || post.createdAt || post.publishedAt || 0
+      return postTime >= sinceTimestamp
+    })
+    console.log(`Filtered to ${posts.length} posts since ${sinceDate}`)
+  }
+  
+  return posts
+}
+
+async function fetchPostsLegacy(accessToken: string, personUrn: string, sinceDate?: string): Promise<any[]> {
+  console.log('Trying legacy ugcPosts API as final fallback...')
+  
+  // Try the legacy ugcPosts endpoint as final fallback
+  let url = `${BASE_URL}/ugcPosts?q=authors&authors=List(${encodeURIComponent(personUrn)})&sortBy=LAST_MODIFIED&count=50`
+  
+  if (sinceDate) {
+    const sinceTimestamp = new Date(sinceDate).getTime()
+    url += `&modifiedSince=${sinceTimestamp}`
+  }
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+      'X-Restli-Protocol-Version': '2.0.0'
+    },
+  })
+
+  console.log('Legacy response status:', response.status)
+
+  if (response.status === 429) {
+    throw new Error('Rate limit exceeded. Please wait 24 hours before trying again.')
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('Legacy error response:', errorText)
+    throw new Error(`All API methods failed. Last error: ${response.status} ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('Legacy posts fetched successfully:', data.elements?.length || 0)
   return data.elements || []
 }
 
@@ -220,24 +286,28 @@ async function storePosts(posts: any[]): Promise<void> {
   const postsToInsert = posts.map(post => {
     let content = ''
     let createdTime = new Date()
-    let postId = post.id || post.activity || ''
+    let postId = post.id || ''
     
-    // Handle UGC Posts API response structure
-    if (post.specificContent && post.specificContent['com.linkedin.ugc.ShareContent']) {
-      const shareContent = post.specificContent['com.linkedin.ugc.ShareContent']
-      content = shareContent.shareCommentary?.text || shareContent.shareText?.text || ''
-      createdTime = new Date(post.created?.time || post.lastModified?.time || Date.now())
+    // Handle LinkedIn Posts API response structure
+    if (post.commentary) {
+      content = post.commentary
+    } else if (post.text) {
+      content = post.text
     }
-    // Handle Social Actions API response structure
-    else if (post.object && post.object['com.linkedin.ugc.ShareContent']) {
-      const shareContent = post.object['com.linkedin.ugc.ShareContent']
-      content = shareContent.shareCommentary?.text || shareContent.shareText?.text || ''
-      createdTime = new Date(post.created?.time || Date.now())
+    
+    // Get the most appropriate timestamp
+    if (post.publishedAt) {
+      createdTime = new Date(post.publishedAt)
+    } else if (post.createdAt) {
+      createdTime = new Date(post.createdAt)
+    } else if (post.lastModifiedAt) {
+      createdTime = new Date(post.lastModifiedAt)
     }
-    // Handle other response structures
-    else {
-      content = post.commentary || post.text || post.content?.description || ''
-      createdTime = new Date(post.createdTime || post.created?.time || post.lastModified?.time || Date.now())
+    
+    // Extract media info if available
+    let mediaUrls = []
+    if (post.content?.media?.id) {
+      mediaUrls.push(`LinkedIn Media: ${post.content.media.id}`)
     }
     
     return {
@@ -246,10 +316,10 @@ async function storePosts(posts: any[]): Promise<void> {
       author_username: 'teneikaaskew',
       author_display_name: 'Teneika Askew',
       posted_at: createdTime.toISOString(),
-      like_count: 0, // r_member_postAnalytics provides analytics data
+      like_count: 0, // Analytics data would be separate API calls
       comment_count: 0,
       share_count: 0,
-      media_urls: [], 
+      media_urls: mediaUrls,
       post_url: `https://www.linkedin.com/feed/update/${postId}/`,
       raw_data: JSON.stringify(post) // Store raw data for debugging
     }
@@ -276,20 +346,18 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
   try {
     validateEnvironmentVariables()
 
-    // Check rate limiting first
-    const canProceed = await checkRateLimit()
-    if (!canProceed) {
-      throw new Error('Rate limit in effect. Please wait 24 hours since last rate limit before trying again.')
-    }
-
     console.log('Starting LinkedIn post scrape')
 
     // Get valid access token
     const accessToken = await getValidAccessToken()
     console.log('Access token validated successfully')
 
+    // Get last scraped date for incremental updates
+    const lastScrapedDate = await getLastScrapedDate()
+    console.log('Last scraped date:', lastScrapedDate)
+
     // Fetch posts
-    const posts = await fetchPosts(accessToken)
+    const posts = await fetchPosts(accessToken, lastScrapedDate || undefined)
     console.log(`Fetched ${posts.length} posts`)
 
     if (posts.length === 0) {
@@ -299,10 +367,16 @@ async function scrapePosts(): Promise<{ newPosts: number; totalPosts: number; er
     // Store posts
     await storePosts(posts)
 
-    // Update last scraped date
-    if (posts.length > 0) {
-      const mostRecentTime = posts[0].createdTime || new Date().toISOString()
-      await updateLastScrapedDate(mostRecentTime)
+    // Update last scraped date with the most recent post
+    const mostRecentPost = posts.reduce((latest, current) => {
+      const currentTime = current.created?.time || current.createdTime || current.lastModified?.time || 0
+      const latestTime = latest.created?.time || latest.createdTime || latest.lastModified?.time || 0
+      return new Date(currentTime) > new Date(latestTime) ? current : latest
+    })
+    
+    if (mostRecentPost) {
+      const mostRecentTime = mostRecentPost.created?.time || mostRecentPost.createdTime || mostRecentPost.lastModified?.time
+      await updateLastScrapedDate(new Date(mostRecentTime).toISOString())
     }
 
     // Get total post count
