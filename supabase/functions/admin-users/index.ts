@@ -63,10 +63,19 @@ serve(async (req) => {
 
     console.log('[admin-users] Auth error:', authError);
     console.log('[admin-users] User found:', !!user);
+    console.log('[admin-users] User ID:', user?.id);
 
-    if (authError || !user) {
-      console.error('[admin-users] Authentication failed:', authError);
-      return new Response(JSON.stringify({ error: 'Authentication required' }), {
+    if (authError) {
+      console.error('[admin-users] Authentication error:', authError);
+      return new Response(JSON.stringify({ error: 'Authentication failed', details: authError.message }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!user) {
+      console.error('[admin-users] No user found in token');
+      return new Response(JSON.stringify({ error: 'No authenticated user found' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -80,29 +89,47 @@ serve(async (req) => {
       .from('profiles')
       .select('role, roles')
       .eq('id', user.id)
-      .single()
+      .maybeSingle()
 
     console.log('[admin-users] Profile data:', profileData);
     console.log('[admin-users] Profile error:', profileError);
 
     if (profileError) {
       console.error('[admin-users] Profile query error:', profileError);
-      return new Response(JSON.stringify({ error: 'Failed to verify user permissions' }), {
-        status: 403,
+      return new Response(JSON.stringify({ error: 'Failed to verify user permissions', details: profileError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
+    if (!profileData) {
+      console.error('[admin-users] No profile found for user:', user.id);
+      return new Response(JSON.stringify({ error: 'User profile not found' }), {
+        status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     // Check both role and roles array for admin access
-    const userRoles = profileData?.roles || [];
+    // Handle both array and non-array roles
+    let userRoles = profileData?.roles || [];
+    if (typeof userRoles === 'string') {
+      userRoles = [userRoles];
+    }
+    
     const isAdmin = profileData?.role === 'admin' || userRoles.includes('admin');
     
-    console.log('[admin-users] User roles:', userRoles);
+    console.log('[admin-users] User role field:', profileData?.role);
+    console.log('[admin-users] User roles array:', userRoles);
     console.log('[admin-users] Is admin:', isAdmin);
     
     if (!isAdmin) {
-      console.error('[admin-users] User not admin. Role:', profileData?.role, 'Roles:', profileData?.roles);
-      return new Response(JSON.stringify({ error: 'Insufficient permissions' }), {
+      console.error('[admin-users] User lacks admin privileges. Role:', profileData?.role, 'Roles:', userRoles);
+      return new Response(JSON.stringify({ 
+        error: 'Admin privileges required', 
+        userRole: profileData?.role,
+        userRoles: userRoles
+      }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

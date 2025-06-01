@@ -103,12 +103,26 @@ export function useAdminUsers() {
       
     } catch (err: any) {
       console.error('[useAdminUsers] Error fetching users:', err);
-      const errorMessage = err.message || 'Failed to load users';
+      
+      let errorMessage = 'Failed to load users';
+      let toastDescription = 'Could not load user list. Please try again.';
+      
+      if (err.message?.includes('Admin privileges required')) {
+        errorMessage = 'Admin access required';
+        toastDescription = 'You need admin privileges to access user management.';
+      } else if (err.message?.includes('Authentication')) {
+        errorMessage = 'Authentication required';
+        toastDescription = 'Please log in to access this feature.';
+      } else if (err.message?.includes('User profile not found')) {
+        errorMessage = 'Profile not found';
+        toastDescription = 'Your user profile was not found. Please contact support.';
+      }
+      
       setError(errorMessage);
       
       toast({
         title: 'Error',
-        description: 'Could not load user list. Please check your admin permissions and try again.',
+        description: toastDescription,
         variant: 'destructive',
       });
     } finally {
