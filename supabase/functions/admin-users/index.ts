@@ -24,6 +24,7 @@ serve(async (req) => {
     // Create a Supabase client with the Auth context of the logged-in user
     const authHeader = req.headers.get('Authorization')
     console.log('[admin-users] Auth header present:', !!authHeader);
+    console.log('[admin-users] Auth header value:', authHeader?.substring(0, 20) + '...');
     
     if (!authHeader) {
       console.error('[admin-users] No authorization header provided');
@@ -38,15 +39,17 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 
     console.log('[admin-users] Environment variables loaded');
+    console.log('[admin-users] Supabase URL:', supabaseUrl);
 
     // Create admin client with service role key
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey)
 
-    // Create client with user's token
+    // Create client with user's token - fix the authorization header format
+    const token = authHeader.replace('Bearer ', '');
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
-          Authorization: authHeader,
+          Authorization: `Bearer ${token}`,
         },
       },
     })
@@ -55,10 +58,14 @@ serve(async (req) => {
     console.log('[admin-users] Verifying user authentication...');
     const {
       data: { user },
+      error: authError
     } = await supabaseClient.auth.getUser()
 
-    if (!user) {
-      console.error('[admin-users] No authenticated user found');
+    console.log('[admin-users] Auth error:', authError);
+    console.log('[admin-users] User found:', !!user);
+
+    if (authError || !user) {
+      console.error('[admin-users] Authentication failed:', authError);
       return new Response(JSON.stringify({ error: 'Authentication required' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -87,7 +94,11 @@ serve(async (req) => {
     }
 
     // Check both role and roles array for admin access
-    const isAdmin = profileData?.role === 'admin' || profileData?.roles?.includes('admin');
+    const userRoles = profileData?.roles || [];
+    const isAdmin = profileData?.role === 'admin' || userRoles.includes('admin');
+    
+    console.log('[admin-users] User roles:', userRoles);
+    console.log('[admin-users] Is admin:', isAdmin);
     
     if (!isAdmin) {
       console.error('[admin-users] User not admin. Role:', profileData?.role, 'Roles:', profileData?.roles);
@@ -131,13 +142,26 @@ serve(async (req) => {
 
         // Merge auth users with profile data
         const users = authUsers.users.map((authUser) => {
-          const profile = profiles.find((p) => p.id === authUser.id) || {}
+          const profile = profiles?.find((p) => p.id === authUser.id) || {}
+          
+          // Ensure roles is always an array
+          let roles = profile.roles || ['student'];
+          if (typeof roles === 'string') {
+            roles = [roles];
+          }
+          
+          // Clean and validate roles array
+          roles = roles.filter((role: string) => role && typeof role === 'string');
+          if (roles.length === 0) {
+            roles = ['student'];
+          }
+
           return {
             ...authUser,
             ...profile,
             providers: authUser.app_metadata?.providers || ['email'],
-            role: profile.role || getHighestRole(profile.roles || ['student']),
-            roles: profile.roles || ['student']
+            role: profile.role || getHighestRole(roles),
+            roles: roles
           }
         })
 
@@ -159,15 +183,21 @@ serve(async (req) => {
 
         console.log('[admin-users] Updating user role:', userId, actionData.roles);
 
+        // Ensure student role is always included
+        const updatedRoles = Array.isArray(actionData.roles) ? actionData.roles : [actionData.roles];
+        if (!updatedRoles.includes('student')) {
+          updatedRoles.push('student');
+        }
+
         // Determine the highest role for the role field
-        const highestRole = getHighestRole(actionData.roles)
+        const highestRole = getHighestRole(updatedRoles)
 
         // Update the user's profile
         const { data, error } = await supabaseAdmin
           .from('profiles')
           .update({ 
             role: highestRole,
-            roles: actionData.roles 
+            roles: updatedRoles 
           })
           .eq('id', userId)
           .select()

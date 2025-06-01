@@ -36,16 +36,29 @@ export function useAdminUsers() {
         throw new Error("Admin privileges required");
       }
 
-      console.log('[useAdminUsers] Calling admin-users edge function...');
+      console.log('[useAdminUsers] User has admin role, proceeding...');
+      
+      // Get current session to ensure we have a valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('[useAdminUsers] Session error:', sessionError);
+        throw new Error('Authentication session required');
+      }
+
+      console.log('[useAdminUsers] Valid session found, calling admin-users edge function...');
       
       // Call the edge function to get all users with auth data
       const { data, error: functionError } = await supabase.functions.invoke('admin-users', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        },
         body: { action: 'listUsers' }
       });
 
       if (functionError) {
         console.error('[useAdminUsers] Edge function error:', functionError);
-        throw functionError;
+        throw new Error(functionError.message || 'Failed to fetch users');
       }
 
       if (!data || !data.users) {
@@ -107,25 +120,41 @@ export function useAdminUsers() {
     try {
       console.log('[useAdminUsers] Updating user role:', userId, roles);
       
+      // Ensure student role is always included
+      const updatedRoles = [...roles];
+      if (!updatedRoles.includes('student')) {
+        updatedRoles.push('student');
+      }
+      
       // Determine the highest role for the role field
-      const highestRole = getHighestRole(roles);
+      const highestRole = getHighestRole(updatedRoles);
+
+      // Get current session for authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('Authentication session required');
+      }
 
       // Call the edge function to update user roles
       const { data, error } = await supabase.functions.invoke('admin-users', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        },
         body: { 
           action: 'updateUserRole',
           userId,
-          data: { roles }
+          data: { roles: updatedRoles }
         }
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || 'Failed to update user role');
       
       // Update local state
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.id === userId 
-            ? { ...user, roles, role: highestRole } 
+            ? { ...user, roles: updatedRoles, role: highestRole } 
             : user
         )
       );
@@ -140,7 +169,7 @@ export function useAdminUsers() {
       console.error('[useAdminUsers] Error updating user role:', err);
       toast({
         title: 'Error',
-        description: 'Failed to update user role. Please try again.',
+        description: err.message || 'Failed to update user role. Please try again.',
         variant: 'destructive',
       });
       return { success: false, error: err.message };
