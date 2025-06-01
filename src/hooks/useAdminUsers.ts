@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/utils/profileUtils';
 
 interface AdminUserResponse {
   id: string;
@@ -31,8 +32,8 @@ export function useAdminUsers() {
     setError(null);
     
     try {
-      // Check if user is admin
-      if (!user?.roles?.includes('admin')) {
+      // Check if user is admin using the utility function
+      if (!isAdmin(user?.roles)) {
         throw new Error("Admin privileges required");
       }
 
@@ -76,7 +77,7 @@ export function useAdminUsers() {
         // Handle PostgreSQL array format like "{admin,student}"
         if (typeof roles === 'string') {
           if (roles.startsWith('{') && roles.endsWith('}')) {
-            roles = roles.slice(1, -1).split(',').filter(role => role.trim());
+            roles = roles.slice(1, -1).split(',').filter((role: string) => role.trim());
           } else {
             roles = [roles];
           }
@@ -98,7 +99,7 @@ export function useAdminUsers() {
           last_name: user.last_name || '',
           avatar_url: user.avatar_url,
           bio: user.bio,
-          role: user.role || getHighestRole(roles),
+          role: getHighestRole(roles),
           roles: roles
         };
       });
