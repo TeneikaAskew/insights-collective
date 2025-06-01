@@ -49,9 +49,13 @@ serve(async (req) => {
     const supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
       global: {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: authHeader,
         },
       },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      }
     })
 
     // Verify user has admin access
@@ -59,7 +63,7 @@ serve(async (req) => {
     const {
       data: { user },
       error: authError
-    } = await supabaseClient.auth.getUser()
+    } = await supabaseClient.auth.getUser(token)
 
     console.log('[admin-users] Auth error:', authError);
     console.log('[admin-users] User found:', !!user);
@@ -171,14 +175,20 @@ serve(async (req) => {
         const users = authUsers.users.map((authUser) => {
           const profile = profiles?.find((p) => p.id === authUser.id) || {}
           
-          // Ensure roles is always an array
+          // Ensure roles is always an array and handle PostgreSQL array format
           let roles = profile.roles || ['student'];
+          
+          // Handle PostgreSQL array format like "{admin,student}"
           if (typeof roles === 'string') {
-            roles = [roles];
+            if (roles.startsWith('{') && roles.endsWith('}')) {
+              roles = roles.slice(1, -1).split(',').filter(role => role.trim());
+            } else {
+              roles = [roles];
+            }
           }
           
           // Clean and validate roles array
-          roles = roles.filter((role: string) => role && typeof role === 'string');
+          roles = roles.filter((role: string) => role && typeof role === 'string' && role.trim() !== '');
           if (roles.length === 0) {
             roles = ['student'];
           }

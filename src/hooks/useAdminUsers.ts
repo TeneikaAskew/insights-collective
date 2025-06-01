@@ -70,14 +70,20 @@ export function useAdminUsers() {
 
       // Transform the data to match the expected format
       const transformedUsers = data.users.map((user: any) => {
-        // Ensure roles is always an array
+        // Ensure roles is always an array and handle PostgreSQL array format
         let roles = user.roles || ['student'];
+        
+        // Handle PostgreSQL array format like "{admin,student}"
         if (typeof roles === 'string') {
-          roles = [roles];
+          if (roles.startsWith('{') && roles.endsWith('}')) {
+            roles = roles.slice(1, -1).split(',').filter(role => role.trim());
+          } else {
+            roles = [roles];
+          }
         }
         
         // Clean and validate roles array
-        roles = roles.filter((role: string) => role && typeof role === 'string');
+        roles = roles.filter((role: string) => role && typeof role === 'string' && role.trim() !== '');
         if (roles.length === 0) {
           roles = ['student'];
         }
