@@ -36,37 +36,56 @@ export function useAdminUsers() {
         throw new Error("Admin privileges required");
       }
 
-      console.log('[useAdminUsers] Fetching profiles...');
+      console.log('[useAdminUsers] Calling admin-users edge function...');
       
-      // Fetch all user profiles directly from Supabase
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
+      // Call the edge function to get all users with auth data
+      const { data, error: functionError } = await supabase.functions.invoke('admin-users', {
+        body: { action: 'listUsers' }
+      });
 
-      if (profilesError) {
-        console.error('[useAdminUsers] Profiles error:', profilesError);
-        throw profilesError;
+      if (functionError) {
+        console.error('[useAdminUsers] Edge function error:', functionError);
+        throw functionError;
       }
 
-      console.log('[useAdminUsers] Profiles fetched:', profiles?.length || 0);
+      if (!data || !data.users) {
+        console.error('[useAdminUsers] No users data received from edge function');
+        throw new Error('No users data received');
+      }
+
+      console.log('[useAdminUsers] Raw users from edge function:', data.users.length);
 
       // Transform the data to match the expected format
-      const transformedUsers = profiles?.map((profile) => ({
-        id: profile.id,
-        email: '', // We'll need to get this from auth if needed
-        phone: '',
-        created_at: profile.created_at,
-        last_sign_in_at: null,
-        first_name: profile.first_name || '',
-        last_name: profile.last_name || '',
-        avatar_url: profile.avatar_url,
-        bio: profile.bio,
-        role: profile.role || getHighestRole(profile.roles || ['student']),
-        roles: profile.roles || ['student']
-      })) || [];
+      const transformedUsers = data.users.map((user: any) => {
+        // Ensure roles is always an array
+        let roles = user.roles || ['student'];
+        if (typeof roles === 'string') {
+          roles = [roles];
+        }
+        
+        // Clean and validate roles array
+        roles = roles.filter((role: string) => role && typeof role === 'string');
+        if (roles.length === 0) {
+          roles = ['student'];
+        }
+
+        return {
+          id: user.id,
+          email: user.email || '',
+          phone: user.phone || '',
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+          first_name: user.first_name || '',
+          last_name: user.last_name || '',
+          avatar_url: user.avatar_url,
+          bio: user.bio,
+          role: user.role || getHighestRole(roles),
+          roles: roles
+        };
+      });
 
       console.log('[useAdminUsers] Transformed users:', transformedUsers.length);
+      console.log('[useAdminUsers] Sample user:', transformedUsers[0]);
       setUsers(transformedUsers);
       
     } catch (err: any) {
@@ -91,13 +110,14 @@ export function useAdminUsers() {
       // Determine the highest role for the role field
       const highestRole = getHighestRole(roles);
 
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          role: highestRole,
-          roles: roles 
-        })
-        .eq('id', userId);
+      // Call the edge function to update user roles
+      const { data, error } = await supabase.functions.invoke('admin-users', {
+        body: { 
+          action: 'updateUserRole',
+          userId,
+          data: { roles }
+        }
+      });
 
       if (error) throw error;
       

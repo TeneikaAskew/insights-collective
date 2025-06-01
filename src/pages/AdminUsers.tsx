@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { 
-  Search, MoreHorizontal, Filter, Download, Eye, PenSquare, Loader2
+  Search, MoreHorizontal, Filter, Download, Eye, PenSquare, Loader2, Trash2, UserX
 } from 'lucide-react';
 import { 
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle 
@@ -39,6 +39,7 @@ const AdminUsers = () => {
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
   const [updatedRoles, setUpdatedRoles] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState('all');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const { toast } = useToast();
   
   const { 
@@ -77,6 +78,7 @@ const AdminUsers = () => {
     }
   };
   
+  // Improved filtering logic that checks if user has any of the roles for the current tab
   const filteredUsers = users.filter(user => {
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     const matchesSearch = 
@@ -84,7 +86,10 @@ const AdminUsers = () => {
       user.email?.toLowerCase().includes(searchTerm.toLowerCase());
     
     if (activeTab === 'all') return matchesSearch;
-    return matchesSearch && user.role === activeTab;
+    
+    // Check if user has the role for the current tab
+    const userRoles = user.roles || ['student'];
+    return matchesSearch && userRoles.includes(activeTab);
   });
   
   const handleOpenUserDetails = (user: UserData) => {
@@ -129,12 +134,13 @@ const AdminUsers = () => {
   const handleExportUsers = () => {
     try {
       // Create CSV string
-      const headers = "ID,Name,Email,Role,Created At,Last Sign In\n";
+      const headers = "ID,Name,Email,Roles,Created At,Last Sign In\n";
       const csvData = filteredUsers.map(user => {
         const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+        const roles = (user.roles || ['student']).join(';');
         const createdAt = user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A';
         const lastSignIn = user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleDateString() : 'N/A';
-        return `"${user.id}","${name}","${user.email}","${user.role}","${createdAt}","${lastSignIn}"`;
+        return `"${user.id}","${name}","${user.email}","${roles}","${createdAt}","${lastSignIn}"`;
       }).join('\n');
       
       const csvContent = `data:text/csv;charset=utf-8,${headers}${csvData}`;
@@ -164,6 +170,7 @@ const AdminUsers = () => {
   
   const handleTabChange = (value: string) => {
     setActiveTab(value);
+    setSelectedUsers([]); // Clear selections when switching tabs
   };
   
   const toggleRole = (role: string) => {
@@ -178,6 +185,46 @@ const AdminUsers = () => {
     });
   };
 
+  const handleSelectUser = (userId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedUsers(prev => [...prev, userId]);
+    } else {
+      setSelectedUsers(prev => prev.filter(id => id !== userId));
+    }
+  };
+
+  const handleSelectAllUsers = (checked: boolean) => {
+    if (checked) {
+      setSelectedUsers(filteredUsers.map(user => user.id));
+    } else {
+      setSelectedUsers([]);
+    }
+  };
+
+  const handleBulkDelete = () => {
+    // Add bulk delete functionality
+    console.log('Bulk delete users:', selectedUsers);
+    toast({
+      title: 'Bulk Delete',
+      description: `Would delete ${selectedUsers.length} users`,
+    });
+  };
+
+  const handleBulkRoleUpdate = () => {
+    // Add bulk role update functionality
+    console.log('Bulk role update for users:', selectedUsers);
+    toast({
+      title: 'Bulk Role Update',
+      description: `Would update roles for ${selectedUsers.length} users`,
+    });
+  };
+
+  // Get counts for each tab
+  const allUsersCount = users.length;
+  const studentsCount = users.filter(u => (u.roles || ['student']).includes('student')).length;
+  const instructorsCount = users.filter(u => (u.roles || []).includes('instructor')).length;
+  const adminsCount = users.filter(u => (u.roles || []).includes('admin')).length;
+
   console.log('[AdminUsers] Rendering with users:', users.length, 'loading:', loading, 'error:', error);
   
   return (
@@ -186,6 +233,18 @@ const AdminUsers = () => {
         <div className="flex justify-between items-center">
           <h1 className="text-3xl font-bold tracking-tight">User Management</h1>
           <div className="flex gap-2">
+            {selectedUsers.length > 0 && (
+              <>
+                <Button variant="outline" size="sm" onClick={handleBulkRoleUpdate}>
+                  <PenSquare className="h-4 w-4 mr-2" />
+                  Update Roles ({selectedUsers.length})
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleBulkDelete}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete ({selectedUsers.length})
+                </Button>
+              </>
+            )}
             <Button variant="outline" size="sm" onClick={handleExportUsers}>
               <Download className="h-4 w-4 mr-2" />
               Export
@@ -212,10 +271,10 @@ const AdminUsers = () => {
         
         <Tabs defaultValue="all" value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="all">All Users</TabsTrigger>
-            <TabsTrigger value="student">Students</TabsTrigger>
-            <TabsTrigger value="instructor">Instructors</TabsTrigger>
-            <TabsTrigger value="admin">Admins</TabsTrigger>
+            <TabsTrigger value="all">All Users ({allUsersCount})</TabsTrigger>
+            <TabsTrigger value="student">Students ({studentsCount})</TabsTrigger>
+            <TabsTrigger value="instructor">Instructors ({instructorsCount})</TabsTrigger>
+            <TabsTrigger value="admin">Admins ({adminsCount})</TabsTrigger>
           </TabsList>
           
           <TabsContent value={activeTab} className="space-y-4">
@@ -244,10 +303,13 @@ const AdminUsers = () => {
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-12">
-                          <Checkbox />
+                          <Checkbox 
+                            checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                            onCheckedChange={handleSelectAllUsers}
+                          />
                         </TableHead>
                         <TableHead>Name</TableHead>
-                        <TableHead>Role</TableHead>
+                        <TableHead>Roles</TableHead>
                         <TableHead>Joined</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -262,21 +324,24 @@ const AdminUsers = () => {
                       ) : (
                         filteredUsers.map((user) => {
                           const name = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+                          const userRoles = user.roles || ['student'];
                           return (
                             <TableRow key={user.id}>
                               <TableCell>
-                                <Checkbox />
+                                <Checkbox 
+                                  checked={selectedUsers.includes(user.id)}
+                                  onCheckedChange={(checked) => handleSelectUser(user.id, checked as boolean)}
+                                />
                               </TableCell>
                               <TableCell className="font-medium">{name || 'Unnamed User'}</TableCell>
                               <TableCell>
-                                <Badge variant={getRoleBadgeVariant(user.role || 'student')}>
-                                  {user.role?.charAt(0).toUpperCase() + user.role?.slice(1) || 'Student'}
-                                </Badge>
-                                {user.roles && user.roles.length > 1 && (
-                                  <span className="ml-2 text-xs text-muted-foreground">
-                                    +{user.roles.length - 1} more
-                                  </span>
-                                )}
+                                <div className="flex flex-wrap gap-1">
+                                  {userRoles.map(role => (
+                                    <Badge key={role} variant={getRoleBadgeVariant(role)}>
+                                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                                    </Badge>
+                                  ))}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
@@ -332,10 +397,16 @@ const AdminUsers = () => {
                 </div>
               </div>
               <div className="grid grid-cols-4 items-center gap-4">
-                <Label className="text-right font-medium">Roles:</Label>
+                <Label className="text-right font-medium">Email:</Label>
                 <div className="col-span-3">
-                  {selectedUser.roles?.map(role => (
-                    <Badge key={role} variant="outline" className="mr-1">
+                  {selectedUser.email || 'No email'}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right font-medium">Roles:</Label>
+                <div className="col-span-3 flex flex-wrap gap-1">
+                  {(selectedUser.roles || ['student']).map(role => (
+                    <Badge key={role} variant="outline">
                       {role.charAt(0).toUpperCase() + role.slice(1)}
                     </Badge>
                   ))}
@@ -345,6 +416,12 @@ const AdminUsers = () => {
                 <Label className="text-right font-medium">Created:</Label>
                 <div className="col-span-3">
                   {selectedUser.created_at ? new Date(selectedUser.created_at).toLocaleString() : 'Unknown'}
+                </div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right font-medium">Last Sign In:</Label>
+                <div className="col-span-3">
+                  {selectedUser.last_sign_in_at ? new Date(selectedUser.last_sign_in_at).toLocaleString() : 'Never'}
                 </div>
               </div>
             </div>
