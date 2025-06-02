@@ -12,7 +12,7 @@ export function useAllTweetsData() {
   const { toast } = useToast();
 
   const fetchAllTweets = async (): Promise<Resource[]> => {
-    console.log('Fetching all tweets data from API');
+    console.log('Fetching all tweets data from Resources Table');
     const { data, error } = await supabase
       .from('resources')
       .select('*')
