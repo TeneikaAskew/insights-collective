@@ -90,6 +90,7 @@ const Index = () => {
         <div 
           key={id} 
           ref={ref} 
+          data-tour={id}
           className={`transition-opacity duration-700 ${inView ? 'opacity-100' : 'opacity-0'}`}
         >
           <Component />

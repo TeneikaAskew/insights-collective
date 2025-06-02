@@ -65,6 +65,10 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
     }
   };
 
+  const handleSkip = () => {
+    skipTour();
+  };
+
   const handlePrevious = () => {
     if (currentStep > 0) {
       prevStep();
@@ -126,7 +130,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/50 z-[1000]"
-        onClick={skipTour}
+        onClick={handleSkip}
       />
 
       {/* Highlight overlay for target element */}
