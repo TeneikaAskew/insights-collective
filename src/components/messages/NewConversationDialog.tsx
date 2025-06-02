@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -39,48 +40,9 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
     }
   }, [open, updateSearchQuery]);
 
-  const handleSelectUser = (user: Profile) => {
-    setSelectedUser(user);
+  const handleSelectUser = (selectedProfile: Profile) => {
+    setSelectedUser(selectedProfile);
   };
-
-  // const handleStartConversation = async () => {
-  //   if (!selectedUser || !user) {
-  //     toast({
-  //       title: 'Error',
-  //       description: 'Please select a user to start a conversation with.',
-  //       variant: 'destructive',
-  //     });
-  //     return;
-  //   }
-
-  //   try {
-  //     setIsCreating(true);
-  //     console.log("Starting or finding conversation with:", selectedUser.id);
-      
-  //     // Use getOrCreateOneOnOneConversation to avoid duplicates
-  //     const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
-      
-  //     if (conversationId) {
-  //       // Close dialog and navigate to the conversation
-  //       onOpenChange(false);
-  //       navigate(`/messages/${conversationId}`);
-        
-  //       toast({
-  //         title: 'Success',
-  //         description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name}.`,
-  //       });
-  //     }
-  //   } catch (error) {
-  //     console.error('Error starting conversation:', error);
-  //     toast({
-  //       title: 'Error',
-  //       description: 'Failed to start conversation. Please try again.',
-  //       variant: 'destructive',
-  //     });
-  //   } finally {
-  //     setIsCreating(false);
-  //   }
-  // };
 
   const handleStartConversation = async () => {
     if (!selectedUser || !user) {
@@ -91,12 +53,12 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
       });
       return;
     }
-  
+
     try {
       setIsCreating(true);
       console.log("Getting or creating conversation with:", selectedUser.id);
       
-      // Use getOrCreateOneOnOneConversation instead of createNewConversation
+      // Use getOrCreateOneOnOneConversation to avoid duplicates
       const conversationId = await getOrCreateOneOnOneConversation(user.id, selectedUser.id);
       
       if (conversationId) {
@@ -106,8 +68,10 @@ export function NewConversationDialog({ open, onOpenChange }: NewConversationDia
         
         toast({
           title: 'Success',
-          description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name}.`,
+          description: `Conversation with ${selectedUser.first_name} ${selectedUser.last_name} opened.`,
         });
+      } else {
+        throw new Error('Failed to create or find conversation');
       }
     } catch (error) {
       console.error('Error starting conversation:', error);

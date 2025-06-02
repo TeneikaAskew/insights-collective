@@ -9,6 +9,136 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      assesment_rubric: {
+        Row: {
+          assessment_area: string
+          created_at: string | null
+          criteria_description: string
+          id: string
+          performance_level: string
+          score: number
+          updated_at: string | null
+        }
+        Insert: {
+          assessment_area: string
+          created_at?: string | null
+          criteria_description: string
+          id?: string
+          performance_level: string
+          score: number
+          updated_at?: string | null
+        }
+        Update: {
+          assessment_area?: string
+          created_at?: string | null
+          criteria_description?: string
+          id?: string
+          performance_level?: string
+          score?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_assessment_rubric_area"
+            columns: ["assessment_area"]
+            isOneToOne: false
+            referencedRelation: "assessment_areas"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      assessment_areas: {
+        Row: {
+          created_at: string | null
+          definition: string
+          key_focus_areas: string
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          definition: string
+          key_focus_areas: string
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          definition?: string
+          key_focus_areas?: string
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      assessment_questions: {
+        Row: {
+          assessment_area: string
+          created_at: string | null
+          id: string
+          question_id: string
+          question_text: string
+          question_type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assessment_area: string
+          created_at?: string | null
+          id?: string
+          question_id?: string
+          question_text: string
+          question_type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assessment_area?: string
+          created_at?: string | null
+          id?: string
+          question_id?: string
+          question_text?: string
+          question_type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_assessment_area"
+            columns: ["assessment_area"]
+            isOneToOne: false
+            referencedRelation: "assessment_areas"
+            referencedColumns: ["name"]
+          },
+        ]
+      }
+      assessment_sessions: {
+        Row: {
+          end_time: string | null
+          id: string
+          overall_score: number | null
+          session_name: string | null
+          start_time: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          end_time?: string | null
+          id?: string
+          overall_score?: number | null
+          session_name?: string | null
+          start_time?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          end_time?: string | null
+          id?: string
+          overall_score?: number | null
+          session_name?: string | null
+          start_time?: string | null
+          status?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       assistant_conversations: {
         Row: {
           created_at: string | null
@@ -697,6 +827,7 @@ export type Database = {
           created_at: string
           deadline: string | null
           description: string | null
+          featured: boolean
           form_data: Json | null
           form_link: string
           form_structure: Json | null
@@ -710,6 +841,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           description?: string | null
+          featured?: boolean
           form_data?: Json | null
           form_link: string
           form_structure?: Json | null
@@ -723,6 +855,7 @@ export type Database = {
           created_at?: string
           deadline?: string | null
           description?: string | null
+          featured?: boolean
           form_data?: Json | null
           form_link?: string
           form_structure?: Json | null
@@ -848,6 +981,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      linkedin_posts: {
+        Row: {
+          author_display_name: string | null
+          author_username: string
+          comment_count: number | null
+          content: string
+          created_at: string
+          id: string
+          like_count: number | null
+          media_urls: string[] | null
+          post_id: string
+          post_url: string | null
+          posted_at: string
+          scraped_at: string
+          share_count: number | null
+          updated_at: string
+        }
+        Insert: {
+          author_display_name?: string | null
+          author_username?: string
+          comment_count?: number | null
+          content: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          media_urls?: string[] | null
+          post_id: string
+          post_url?: string | null
+          posted_at: string
+          scraped_at?: string
+          share_count?: number | null
+          updated_at?: string
+        }
+        Update: {
+          author_display_name?: string | null
+          author_username?: string
+          comment_count?: number | null
+          content?: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          media_urls?: string[] | null
+          post_id?: string
+          post_url?: string | null
+          posted_at?: string
+          scraped_at?: string
+          share_count?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -1562,11 +1746,37 @@ export type Database = {
         }
         Relationships: []
       }
+      scrape_metadata: {
+        Row: {
+          created_at: string
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       star_responses: {
         Row: {
           action: string | null
           ai_feedback: Json | null
+          assessment_area: string | null
           id: string
+          is_assessment_question: boolean | null
           question_id: string
           result: string | null
           situation: string | null
@@ -1577,7 +1787,9 @@ export type Database = {
         Insert: {
           action?: string | null
           ai_feedback?: Json | null
+          assessment_area?: string | null
           id?: string
+          is_assessment_question?: boolean | null
           question_id: string
           result?: string | null
           situation?: string | null
@@ -1588,7 +1800,9 @@ export type Database = {
         Update: {
           action?: string | null
           ai_feedback?: Json | null
+          assessment_area?: string | null
           id?: string
+          is_assessment_question?: boolean | null
           question_id?: string
           result?: string | null
           situation?: string | null
@@ -1600,28 +1814,34 @@ export type Database = {
       }
       study_guides: {
         Row: {
+          assessment_areas: Json | null
           competencies: Json
           created_at: string
           id: string
           job_description_id: string
+          leadership_areas: Json | null
           questions: Json
           technical_checklist: Json
           user_id: string
         }
         Insert: {
+          assessment_areas?: Json | null
           competencies?: Json
           created_at?: string
           id?: string
           job_description_id: string
+          leadership_areas?: Json | null
           questions?: Json
           technical_checklist?: Json
           user_id: string
         }
         Update: {
+          assessment_areas?: Json | null
           competencies?: Json
           created_at?: string
           id?: string
           job_description_id?: string
+          leadership_areas?: Json | null
           questions?: Json
           technical_checklist?: Json
           user_id?: string
@@ -1774,6 +1994,98 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "forums"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      tweets: {
+        Row: {
+          author_display_name: string | null
+          author_username: string
+          content: string
+          created_at: string
+          id: string
+          like_count: number | null
+          quote_count: number | null
+          reply_count: number | null
+          retweet_count: number | null
+          scraped_at: string
+          tweet_id: string
+          tweeted_at: string
+          updated_at: string
+        }
+        Insert: {
+          author_display_name?: string | null
+          author_username: string
+          content: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          quote_count?: number | null
+          reply_count?: number | null
+          retweet_count?: number | null
+          scraped_at?: string
+          tweet_id: string
+          tweeted_at: string
+          updated_at?: string
+        }
+        Update: {
+          author_display_name?: string | null
+          author_username?: string
+          content?: string
+          created_at?: string
+          id?: string
+          like_count?: number | null
+          quote_count?: number | null
+          reply_count?: number | null
+          retweet_count?: number | null
+          scraped_at?: string
+          tweet_id?: string
+          tweeted_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_assessments: {
+        Row: {
+          assessment_area: string
+          assessment_date: string | null
+          assessor_notes: string | null
+          id: string
+          performance_level: string | null
+          question_id: string
+          response: string | null
+          score: number | null
+          user_id: string
+        }
+        Insert: {
+          assessment_area: string
+          assessment_date?: string | null
+          assessor_notes?: string | null
+          id?: string
+          performance_level?: string | null
+          question_id: string
+          response?: string | null
+          score?: number | null
+          user_id: string
+        }
+        Update: {
+          assessment_area?: string
+          assessment_date?: string | null
+          assessor_notes?: string | null
+          id?: string
+          performance_level?: string | null
+          question_id?: string
+          response?: string | null
+          score?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_assessments_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "assessment_questions"
+            referencedColumns: ["question_id"]
           },
         ]
       }

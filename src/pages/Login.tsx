@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,9 +15,9 @@ const Login = () => {
     googleSignIn,
     githubSignIn,
     twitterSignIn,
-    isAuthenticated,
-    handleRedirectAfterLogin
+    isAuthenticated
   } = useAuth();
+  const navigate = useNavigate();
   const {
     toast
   } = useToast();
@@ -41,12 +41,15 @@ const Login = () => {
   }, [redirectParam]);
   useEffect(() => {
     if (isAuthenticated) {
-      console.log('[Login] isAuthenticated true. Calling handleRedirectAfterLogin...');
-      handleRedirectAfterLogin();
-    } else {
-      console.log('[Login] Not authenticated');
+      console.log('[Login] User authenticated, redirecting...');
+      // Direct navigation instead of relying on handleRedirectAfterLogin
+      const storedPath = localStorage.getItem('redirectAfterLogin');
+      const redirectTo = storedPath || '/dashboard';
+      console.log('[Login] Redirecting to:', redirectTo);
+      localStorage.removeItem('redirectAfterLogin');
+      navigate(redirectTo, { replace: true });
     }
-  }, [isAuthenticated, handleRedirectAfterLogin]);
+  }, [isAuthenticated, navigate]);
   const handleUserLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);

@@ -1,4 +1,4 @@
-import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb } from 'lucide-react';
+import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb, Twitter } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
 import { useAuth } from '@/contexts/AuthContext';
@@ -14,7 +14,7 @@ const AppSidebar = () => {
     isAuthenticated
   } = useAuth();
 
-  // Define public menu items in the requested order
+  // Define public menu items with corrected routes
   const publicMenuItems = [{
     title: "Dashboard",
     url: "/dashboard",
@@ -24,7 +24,7 @@ const AppSidebar = () => {
     title: "Resources",
     url: "/resources",
     icon: FileText,
-    active: location.pathname === '/resources' && !location.pathname.includes('/admin/resources')
+    active: location.pathname === '/resources'
   }, {
     title: "Resume Analyzer",
     url: "/resume",
@@ -57,7 +57,7 @@ const AppSidebar = () => {
     title: "Courses",
     url: "/courses",
     icon: BookOpen,
-    active: location.pathname.startsWith('/courses') && !location.pathname.includes('/forums')
+    active: location.pathname.startsWith('/course') && !location.pathname.includes('/forums')
   }, {
     title: "Data Blueprint",
     url: "/data-blueprint",
@@ -67,12 +67,12 @@ const AppSidebar = () => {
     title: "AI & Automation Fellowship",
     url: "/survey",
     icon: FileCheck,
-    active: location.pathname === '/survey' || location.pathname === '/survey-confirmation'
+    active: location.pathname === '/survey' || location.pathname === '/survey/confirmation'
   }, {
     title: "Forums",
     url: "/forums",
     icon: MessageSquare,
-    active: location.pathname === '/forums' || location.pathname.includes('/forums/') || location.pathname.includes('/threads/')
+    active: location.pathname === '/forums' || location.pathname.includes('/forums/') || location.pathname.includes('/thread/')
   }, {
     title: "Events",
     url: "/events",
@@ -89,6 +89,26 @@ const AppSidebar = () => {
     icon: MessageSquare,
     active: location.pathname.startsWith('/messages')
   }, {
+    title: "Blog",
+    url: "/blog",
+    icon: Newspaper,
+    active: location.pathname.startsWith('/blog')
+  }, {
+    title: "Teneika's LinkedIn",
+    url: "/teneika-linkedin",
+    icon: Briefcase,
+    active: location.pathname === '/teneika-linkedin'
+  }, {
+    title: "Teneika's Tweets",
+    url: "/teneika-tweets",
+    icon: Twitter,
+    active: location.pathname === '/teneika-tweets'
+  }, {
+    title: "Calendar",
+    url: "/calendar",
+    icon: Calendar,
+    active: location.pathname === '/calendar'
+  }, {
     title: "Notifications",
     url: "/notifications",
     icon: Bell,
@@ -100,7 +120,7 @@ const AppSidebar = () => {
     active: location.pathname === '/profile'
   }];
 
-  // Define admin menu items with the new blog management item
+  // Define admin menu items - removed Manage Resources
   const adminMenuItems = [{
     title: "Admin Dashboard",
     url: "/admin",
@@ -122,25 +142,10 @@ const AppSidebar = () => {
     icon: FormInput,
     active: location.pathname === '/admin/forms'
   }, {
-    title: "Manage Enrollments",
-    url: "/admin/enrollments",
-    icon: FileText,
-    active: location.pathname === '/admin/enrollments'
-  }, {
-    title: "Manage Certificates",
-    url: "/admin/certificates",
-    icon: Award,
-    active: location.pathname === '/admin/certificates'
-  }, {
-    title: "Manage Resources",
-    url: "/admin/resources",
-    icon: FileText,
-    active: location.pathname === '/admin/resources'
-  }, {
     title: "Manage Blog",
-    url: "/admin/blog",
+    url: "/admin/blog-posts",
     icon: Newspaper,
-    active: location.pathname === '/admin/blog' || location.pathname.includes('/admin/blog/')
+    active: location.pathname === '/admin/blog-posts'
   }, {
     title: "Manage Events",
     url: "/admin/events",
@@ -152,15 +157,10 @@ const AppSidebar = () => {
     icon: Eye,
     active: location.pathname === '/admin/page-visibility'
   }, {
-    title: "Settings",
-    url: "/admin/settings",
-    icon: Settings,
-    active: location.pathname === '/admin/settings'
-  }, {
-    title: "Debugging",
-    url: "/admin/debug",
+    title: "Debug Tools",
+    url: "/admin/localstorage-debug",
     icon: Bug,
-    active: location.pathname === '/admin/debug'
+    active: location.pathname.includes('/admin/debug') || location.pathname.includes('/admin/localstorage')
   }];
 
   const isAdmin = user?.roles?.includes('admin');
@@ -261,7 +261,7 @@ const AppSidebar = () => {
                 
                 {isInstructor && !isAdmin && <SidebarMenuItem>
                     <SidebarMenuButton asChild className="text-gray-700 dark:text-gray-400 hover:text-[#9b87f5] hover:bg-[#9b87f5]/5">
-                      <Link to="/instructor/courses" className="flex items-center space-x-2 rounded-md px-2 py-1.5">
+                      <Link to="/course-management" className="flex items-center space-x-2 rounded-md px-2 py-1.5">
                         <BookOpen className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
                         <span className="text-xs truncate">My Courses</span>
                       </Link>

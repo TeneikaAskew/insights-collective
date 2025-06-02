@@ -46,7 +46,10 @@ export function useUserProfile(user: User | null) {
           .single();
 
         if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Error fetching profile:', profileError);
+          // Only log error if it's not a "no profile found" error
+          if (profileError.code !== 'PGRST116') {
+            console.error('Error fetching profile:', profileError);
+          }
           throw profileError;
         }
 

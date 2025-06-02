@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 // import { QueryClient } from 'react-query';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
@@ -40,7 +39,9 @@ import JobDescription from '@/pages/interview-prep/JobDescription';
 import StarPractice from '@/pages/interview-prep/StarPractice';
 import CodePracticeInterview from '@/pages/interview-prep/CodePractice';
 import MockInterviewRoom from '@/pages/interview-prep/MockInterviewRoom';
-import DataBlueprint from '@/pages/DataBlueprint';
+import TeneikaTweets from '@/pages/TeneikaTweets';
+import TeneikaLinkedIn from '@/pages/TeneikaLinkedIn';
+
 import Survey from '@/pages/Survey';
 import Notifications from '@/pages/Notifications';
 
@@ -48,6 +49,7 @@ import Notifications from '@/pages/Notifications';
 import AuthCallback from '@/pages/AuthCallback';
 import CreateBlogPost from '@/pages/CreateBlogPost';
 import EditBlogPost from '@/pages/EditBlogPost';
+import ResetPassword from '@/pages/ResetPassword';
 import ExploreDataCareers from '@/pages/ExploreDataCareers';
 import UserDashboard from '@/pages/UserDashboard';
 import ThreadDetail from '@/pages/ThreadDetail';
@@ -62,11 +64,11 @@ import AdminUsers from '@/pages/AdminUsers';
 import AdminCourses from '@/pages/AdminCourses';
 import AdminEvents from '@/pages/AdminEvents';
 import AdminBlogPosts from '@/pages/AdminBlogPosts';
-import AdminResources from '@/pages/AdminResources';
+
 import AdminForms from '@/pages/AdminForms';
 import AdminActivity from '@/pages/AdminActivity';
-import AdminCertificates from '@/pages/AdminCertificates';
-import AdminEnrollments from '@/pages/AdminEnrollments';
+
+
 import AdminCourseEdit from '@/pages/AdminCourseEdit';
 import AdminPageVisibility from '@/pages/AdminPageVisibility';
 import AdminGuard from '@/components/admin/AdminGuard';
@@ -80,6 +82,8 @@ import UnifiedFormManagement from '@/pages/admin/UnifiedFormManagement';
 import SurveyFormCreate from '@/pages/survey/SurveyFormCreate';
 import SurveyFormEdit from '@/pages/survey/SurveyFormEdit';
 import SurveyPage from '@/pages/survey/SurveyPage';
+import TermsOfService from '@/pages/TermsOfService';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
 
 // Create a client
 const queryClient = new QueryClient({
@@ -110,6 +114,7 @@ function App() {
                   <Route path="/" element={<Index />} />
                   <Route path="/login" element={<Login />} />
                   <Route path="/register" element={<Register />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   
                   {/* Blog routes - some public, some protected */}
@@ -207,7 +212,7 @@ function App() {
                   />
                   
                   <Route
-                    path="/course/:courseId"
+                    path="/courses/:courseId"
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
@@ -267,7 +272,7 @@ function App() {
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
-                          <DataBlueprint />
+                          <DataBlueprintSeries />
                         </PageVisibilityGuard>
                       </ProtectedRoute>
                     }
@@ -315,21 +320,21 @@ function App() {
                     }
                   />
                   <Route
-                    path="/survey/edit/:surveyId"
+                    path="/survey/:surveySlug"
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
-                          <SurveyFormEdit />
+                          <SurveyPage />
                         </PageVisibilityGuard>
                       </ProtectedRoute>
                     }
                   />
                   <Route
-                    path="/survey/:surveyId"
+                    path="/survey/:surveySlug/edit"
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
-                          <SurveyPage />
+                          <SurveyFormEdit />
                         </PageVisibilityGuard>
                       </ProtectedRoute>
                     }
@@ -485,6 +490,16 @@ function App() {
                       </ProtectedRoute>
                     }
                   />
+                  <Route
+                    path="/messages/:conversationId"
+                    element={
+                      <ProtectedRoute>
+                        <PageVisibilityGuard>
+                          <Messages />
+                        </PageVisibilityGuard>
+                      </ProtectedRoute>
+                    }
+                  />
                   
                   {/* Forum routes */}
                   <Route
@@ -562,6 +577,30 @@ function App() {
                     }
                   />
                   
+                  {/* Teneika LinkedIn route */}
+                  <Route
+                    path="/teneika-linkedin"
+                    element={
+                      <ProtectedRoute>
+                        <PageVisibilityGuard>
+                          <TeneikaLinkedIn />
+                        </PageVisibilityGuard>
+                      </ProtectedRoute>
+                    }
+                  />
+                  
+                  {/* Teneika Tweets route */}
+                  <Route
+                    path="/teneika-tweets"
+                    element={
+                      <ProtectedRoute>
+                        <PageVisibilityGuard>
+                          <TeneikaTweets />
+                        </PageVisibilityGuard>
+                      </ProtectedRoute>
+                    }
+                  />
+                  
                   {/* Admin routes - no need for PageVisibilityGuard because AdminGuard handles access */}
                   <Route
                     path="/admin"
@@ -603,16 +642,17 @@ function App() {
                       </AdminGuard>
                     }
                   />
+                  
                   <Route
-                    path="/admin/resources"
+                    path="/admin/forms"
                     element={
                       <AdminGuard>
-                        <AdminResources />
+                        <UnifiedFormManagement />
                       </AdminGuard>
                     }
                   />
                   <Route
-                    path="/admin/forms"
+                    path="/admin/legacy-forms"
                     element={
                       <AdminGuard>
                         <AdminForms />
@@ -651,24 +691,10 @@ function App() {
                       </AdminGuard>
                     }
                   />
+                  
+                  
                   <Route
-                    path="/admin/certificates"
-                    element={
-                      <AdminGuard>
-                        <AdminCertificates />
-                      </AdminGuard>
-                    }
-                  />
-                  <Route
-                    path="/admin/enrollments"
-                    element={
-                      <AdminGuard>
-                        <AdminEnrollments />
-                      </AdminGuard>
-                    }
-                  />
-                  <Route
-                    path="/admin/course/:courseId/edit"
+                    path="/admin/courses/:courseId/edit"
                     element={
                       <AdminGuard>
                         <AdminCourseEdit />
@@ -683,6 +709,10 @@ function App() {
                       </AdminGuard>
                     }
                   />
+                  
+                  {/* Legal pages */}
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
                   
                   {/* Portfolio routes */}
                   {portfolioRoutes}

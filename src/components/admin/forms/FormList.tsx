@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
@@ -5,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil, Eye, Trash2, FileText, BarChart } from 'lucide-react';
+import { Pencil, Eye, Trash2, FileText, BarChart, Star } from 'lucide-react';
 import { FormData } from '@/types/forms';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -161,6 +162,34 @@ export function FormList({ searchTerm }: FormListProps) {
     setDeleteDialogOpen(true);
   };
 
+  const toggleFeatured = async (form: FormData) => {
+    try {
+      const { error } = await supabase
+        .from('forms')
+        .update({ featured: !form.featured })
+        .eq('id', form.id);
+
+      if (error) throw error;
+
+      // Update the forms list
+      setForms(forms.map(f => 
+        f.id === form.id ? { ...f, featured: !f.featured } : f
+      ));
+      
+      toast({
+        title: "Success",
+        description: form.featured ? "Form unfeatured successfully" : "Form featured successfully"
+      });
+    } catch (error) {
+      console.error('Error toggling featured status:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update featured status",
+        variant: "destructive"
+      });
+    }
+  };
+
   const handleEditForm = (form: FormData) => {
     const editUrl = `/survey/${form.slug}/edit`;
     
@@ -249,6 +278,17 @@ export function FormList({ searchTerm }: FormListProps) {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
+                    <Button 
+                      variant={form.featured ? "default" : "outline"} 
+                      size="sm" 
+                      onClick={() => toggleFeatured(form)}
+                      className="flex items-center gap-1"
+                    >
+                      <Star className={`h-4 w-4 ${form.featured ? 'fill-current' : ''}`} />
+                      <span className="sr-only sm:not-sr-only sm:inline-block">
+                        {form.featured ? 'Unfeature' : 'Feature'}
+                      </span>
+                    </Button>
                     <Button 
                       variant="outline" 
                       size="sm" 

@@ -46,6 +46,11 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
 
         // Scroll element into view
         element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Execute the step action if it exists
+        if (currentStepData.action) {
+          setTimeout(() => currentStepData.action?.(), 500);
+        }
       }
     } else {
       setTargetElement(null);
@@ -58,6 +63,10 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
     } else {
       completeTour();
     }
+  };
+
+  const handleSkip = () => {
+    skipTour();
   };
 
   const handlePrevious = () => {
@@ -121,7 +130,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 bg-black/50 z-[1000]"
-        onClick={skipTour}
+        onClick={handleSkip}
       />
 
       {/* Highlight overlay for target element */}

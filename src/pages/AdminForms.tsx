@@ -105,8 +105,8 @@ const AdminForms = () => {
             <h1 className="text-3xl font-bold tracking-tight">Legacy Forms Management</h1>
             <p className="text-muted-foreground mt-2">
               Create, edit, and manage your forms. 
-              <Button variant="link" className="p-0 h-auto" onClick={() => navigate('/admin/forms')}>
-                Switch to new forms interface
+              <Button variant="link" className="p-0 h-auto ml-1" onClick={() => navigate('/admin/forms')}>
+                Switch to unified forms interface
               </Button>
             </p>
           </div>

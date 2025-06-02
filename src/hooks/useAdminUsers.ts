@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/utils/profileUtils';
 
 interface AdminUserResponse {
   id: string;
@@ -10,18 +11,12 @@ interface AdminUserResponse {
   phone?: string;
   created_at: string;
   last_sign_in_at?: string;
-  providers: string[];
   first_name: string;
   last_name: string;
   avatar_url?: string;
   bio?: string;
   role: string;
   roles: string[];
-  user_metadata?: Record<string, any>;
-}
-
-interface AdminUsersResponse {
-  users: AdminUserResponse[];
 }
 
 export function useAdminUsers() {
@@ -29,46 +24,112 @@ export function useAdminUsers() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { session } = useAuth();
+  const { user } = useAuth();
 
   const fetchUsers = async () => {
+    console.log('[useAdminUsers] Starting fetchUsers...');
     setLoading(true);
     setError(null);
     
     try {
-      // Ensure we have a valid session
-      if (!session || !session.access_token) {
-        throw new Error("Authentication required to access admin functions");
+      // Check if user is admin using the utility function
+      if (!isAdmin(user?.roles)) {
+        throw new Error("Admin privileges required");
       }
+
+      console.log('[useAdminUsers] User has admin role, proceeding...');
       
-      if (process.env.NODE_ENV === "development") {
-        console.log('Fetching admin users with access token:', !!session.access_token);
+      // Get current session to ensure we have a valid token
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        console.error('[useAdminUsers] Session error:', sessionError);
+        throw new Error('Authentication session required');
       }
+
+      console.log('[useAdminUsers] Valid session found, calling admin-users edge function...');
       
-      const { data, error } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'listUsers' },
+      // Call the edge function to get all users with auth data
+      const { data, error: functionError } = await supabase.functions.invoke('admin-users', {
         headers: {
           Authorization: `Bearer ${session.access_token}`
-        }
+        },
+        body: { action: 'listUsers' }
       });
 
-      if (error) {
-        console.error('Error details:', error);
-        throw error;
+      if (functionError) {
+        console.error('[useAdminUsers] Edge function error:', functionError);
+        throw new Error(functionError.message || 'Failed to fetch users');
       }
-      
-      const response = data as AdminUsersResponse;
-      setUsers(response.users || []);
-      
-      if (process.env.NODE_ENV === "development") {
-        console.log('Admin users loaded:', response.users?.length || 0);
+
+      if (!data || !data.users) {
+        console.error('[useAdminUsers] No users data received from edge function');
+        throw new Error('No users data received');
       }
+
+      console.log('[useAdminUsers] Raw users from edge function:', data.users.length);
+
+      // Transform the data to match the expected format
+      const transformedUsers = data.users.map((user: any) => {
+        // Ensure roles is always an array and handle PostgreSQL array format
+        let roles = user.roles || ['student'];
+        
+        // Handle PostgreSQL array format like "{admin,student}"
+        if (typeof roles === 'string') {
+          if (roles.startsWith('{') && roles.endsWith('}')) {
+            roles = roles.slice(1, -1).split(',').filter((role: string) => role.trim());
+          } else {
+            roles = [roles];
+          }
+        }
+        
+        // Clean and validate roles array
+        roles = roles.filter((role: string) => role && typeof role === 'string' && role.trim() !== '');
+        if (roles.length === 0) {
+          roles = ['student'];
+        }
+
+        return {
+          id: user.id,
+          email: user.email || '',
+          phone: user.phone || '',
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+          first_name: user.first_name || '',
+          last_name: user.last_name || '',
+          avatar_url: user.avatar_url,
+          bio: user.bio,
+          role: getHighestRole(roles),
+          roles: roles
+        };
+      });
+
+      console.log('[useAdminUsers] Transformed users:', transformedUsers.length);
+      console.log('[useAdminUsers] Sample user:', transformedUsers[0]);
+      setUsers(transformedUsers);
+      
     } catch (err: any) {
-      console.error('Error fetching users:', err);
-      setError(err.message || 'Failed to load users');
+      console.error('[useAdminUsers] Error fetching users:', err);
+      
+      let errorMessage = 'Failed to load users';
+      let toastDescription = 'Could not load user list. Please try again.';
+      
+      if (err.message?.includes('Admin privileges required')) {
+        errorMessage = 'Admin access required';
+        toastDescription = 'You need admin privileges to access user management.';
+      } else if (err.message?.includes('Authentication')) {
+        errorMessage = 'Authentication required';
+        toastDescription = 'Please log in to access this feature.';
+      } else if (err.message?.includes('User profile not found')) {
+        errorMessage = 'Profile not found';
+        toastDescription = 'Your user profile was not found. Please contact support.';
+      }
+      
+      setError(errorMessage);
+      
       toast({
         title: 'Error',
-        description: 'Could not load user list. Please try again.',
+        description: toastDescription,
         variant: 'destructive',
       });
     } finally {
@@ -78,91 +139,58 @@ export function useAdminUsers() {
 
   const updateUserRole = async (userId: string, roles: string[]) => {
     try {
-      if (!session?.access_token) {
-        throw new Error("Authentication required");
+      console.log('[useAdminUsers] Updating user role:', userId, roles);
+      
+      // Ensure student role is always included
+      const updatedRoles = [...roles];
+      if (!updatedRoles.includes('student')) {
+        updatedRoles.push('student');
       }
       
+      // Determine the highest role for the role field
+      const highestRole = getHighestRole(updatedRoles);
+
+      // Get current session for authentication
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError || !session) {
+        throw new Error('Authentication session required');
+      }
+
+      // Call the edge function to update user roles
       const { data, error } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'updateUserRole', userId, data: { roles } },
         headers: {
           Authorization: `Bearer ${session.access_token}`
+        },
+        body: { 
+          action: 'updateUserRole',
+          userId,
+          data: { roles: updatedRoles }
         }
       });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || 'Failed to update user role');
       
       // Update local state
       setUsers(prevUsers => 
         prevUsers.map(user => 
           user.id === userId 
-            ? { ...user, roles, role: getHighestRole(roles) } 
+            ? { ...user, roles: updatedRoles, role: highestRole } 
             : user
         )
       );
       
-      return { success: true };
-    } catch (err: any) {
-      console.error('Error updating user role:', err);
       toast({
-        title: 'Error',
-        description: 'Failed to update user role. Please try again.',
-        variant: 'destructive',
+        title: 'Success',
+        description: 'User role updated successfully.',
       });
-      return { success: false, error: err.message };
-    }
-  };
-
-  const deleteUser = async (userId: string) => {
-    try {
-      if (!session?.access_token) {
-        throw new Error("Authentication required");
-      }
-      
-      const { data, error } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'deleteUser', userId },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      });
-
-      if (error) throw error;
-      
-      // Update local state
-      setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));
       
       return { success: true };
     } catch (err: any) {
-      console.error('Error deleting user:', err);
+      console.error('[useAdminUsers] Error updating user role:', err);
       toast({
         title: 'Error',
-        description: 'Failed to delete user. Please try again.',
-        variant: 'destructive',
-      });
-      return { success: false, error: err.message };
-    }
-  };
-
-  const resetUserPassword = async (email: string) => {
-    try {
-      if (!session?.access_token) {
-        throw new Error("Authentication required");
-      }
-      
-      const { data, error } = await supabase.functions.invoke('admin-users', {
-        body: { action: 'resetPassword', data: { email } },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`
-        }
-      });
-
-      if (error) throw error;
-      
-      return { success: true };
-    } catch (err: any) {
-      console.error('Error resetting password:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to send password reset. Please try again.',
+        description: err.message || 'Failed to update user role. Please try again.',
         variant: 'destructive',
       });
       return { success: false, error: err.message };
@@ -181,8 +209,6 @@ export function useAdminUsers() {
     loading, 
     error, 
     fetchUsers, 
-    updateUserRole, 
-    deleteUser, 
-    resetUserPassword 
+    updateUserRole
   };
 }

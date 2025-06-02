@@ -74,6 +74,7 @@ const CareerPathway: React.FC = () => {
   const {
     toast
   } = useToast();
+  const { completedTours, startTour } = useOnboarding();
   const timeframeLabels = {
     "6_weeks": "6 Weeks",
     "9_weeks": "9 Weeks",
@@ -88,6 +89,16 @@ const CareerPathway: React.FC = () => {
       setActionPlan(data.actionPlan);
     }
   }, [data]);
+
+  // Auto-start tour for first-time visitors to this page
+  useEffect(() => {
+    if (data?.report && Object.keys(data.report).length > 0 && !completedTours.includes('career-pathway')) {
+      const timer = setTimeout(() => {
+        startTour('career-pathway');
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [data?.report, completedTours, startTour]);
 
   // Get user name from available properties
   const userName = (user as any)?.first_name || (user as any)?.user_metadata?.first_name || user?.email?.split('@')[0] || 'there';
@@ -232,17 +243,6 @@ const CareerPathway: React.FC = () => {
         </motion.div>
       </AppLayout>;
   }
-  const { completedTours, startTour } = useOnboarding();
-
-  // Auto-start tour for first-time visitors to this page
-  useEffect(() => {
-    if (data?.report && Object.keys(data.report).length > 0 && !completedTours.includes('career-pathway')) {
-      const timer = setTimeout(() => {
-        startTour('career-pathway');
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [data?.report, completedTours, startTour]);
 
   return <AppLayout>
       

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import {
   Card,
@@ -21,7 +22,8 @@ import {
   MessageSquare,
   Target,
   Loader2,
-  ArrowRightCircle
+  ArrowRightCircle,
+  Check
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -101,10 +103,14 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeTimeframe, setActiveTimeframe] = useState<keyof ActionPlan>("6_weeks");
   
+  // Track added items to manage button states
+  const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+  const [loadingItems, setLoadingItems] = useState<Set<string>>(new Set());
+  
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
-  const { addProject } = usePortfolio();
+  const { projects } = usePortfolio();
 
   // Effect to update internal state when the prop changes
   useEffect(() => {
@@ -200,54 +206,84 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
     }
   };
 
+  // Function to add items to portfolio using direct Supabase call
   const handleAddToPortfolio = async (type: 'project' | 'content' | 'milestone', data: any, timeframe: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to add items to your portfolio.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Create unique identifier for this item
+    const itemId = `${type}-${timeframe}-${typeof data === 'string' ? data : data.title}`;
+    
+    // Check if already added
+    if (addedItems.has(itemId)) {
+      return;
+    }
+
+    // Set loading state
+    setLoadingItems(prev => new Set(prev).add(itemId));
+
     try {
       let projectData;
       
       switch(type) {
         case 'project':
           projectData = {
+            user_id: user.id,
             title: data.title,
             description: data.description,
             required_skills: [],
             effort_level: 'Medium',
-            status: 'Idea',
-            type: 'project',
-            timeframe: timeframe
+            status: 'Idea'
           };
           break;
         
         case 'content':
           projectData = {
+            user_id: user.id,
             title: `Content: ${data.platform}`,
             description: `Create content about: ${data.topics.join(', ')}`,
             required_skills: data.topics,
             effort_level: 'Low',
-            status: 'Idea',
-            type: 'content',
-            timeframe: timeframe
+            status: 'Idea'
           };
           break;
         
         case 'milestone':
           projectData = {
+            user_id: user.id,
             title: `Milestone: ${data}`,
             description: `Career milestone to achieve: ${data}`,
             required_skills: [],
             effort_level: 'Medium',
-            status: 'Idea',
-            type: 'milestone',
-            timeframe: timeframe
+            status: 'Idea'
           };
           break;
       }
 
-      await addProject.mutateAsync(projectData);
-      
+      // Add project directly to Supabase
+      const { data: insertedProject, error } = await supabase
+        .from('portfolio_projects')
+        .insert(projectData)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Mark as added
+      setAddedItems(prev => new Set(prev).add(itemId));
+
       toast({
         title: "Added to Portfolio",
-        description: `${type.charAt(0).toUpperCase() + type.slice(1)} has been added to your portfolio.`,
+        description: `${type.charAt(0).toUpperCase() + type.slice(1)} has been added to your portfolio tracker.`,
       });
+
+      console.log('Successfully added to portfolio:', insertedProject);
     } catch (error) {
       console.error('Error adding to portfolio:', error);
       toast({
@@ -255,11 +291,41 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
         description: "Failed to add item to portfolio. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      // Remove loading state
+      setLoadingItems(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(itemId);
+        return newSet;
+      });
     }
   };
 
   const handlePortfolioAction = () => {
     navigate('/portfolio-explorer');
+  };
+
+  // Helper function to get button state - checks both local state and existing portfolio projects
+  const getButtonState = (type: 'project' | 'content' | 'milestone', data: any, timeframe: string) => {
+    const itemId = `${type}-${timeframe}-${typeof data === 'string' ? data : data.title}`;
+    const isLoading = loadingItems.has(itemId);
+    const isLocallyAdded = addedItems.has(itemId);
+    
+    // Check if item already exists in portfolio projects
+    let isAlreadyInPortfolio = false;
+    if (projects && Array.isArray(projects)) {
+      const itemTitle = typeof data === 'string' ? `${type.charAt(0).toUpperCase() + type.slice(1)}: ${data}` : 
+                       type === 'content' ? `Content: ${data.platform}` : data.title;
+      
+      isAlreadyInPortfolio = projects.some(project => 
+        project.title === itemTitle || 
+        (project.title && itemTitle && project.title.toLowerCase().includes(itemTitle.toLowerCase()))
+      );
+    }
+    
+    const isAdded = isLocallyAdded || isAlreadyInPortfolio;
+    
+    return { itemId, isLoading, isAdded };
   };
 
   // Render generate button if no plan
@@ -394,21 +460,38 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {Array.isArray(timeframeData.projects) && timeframeData.projects.length > 0 ? (
-                          timeframeData.projects.map((project, idx) => (
-                            <div key={`project-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
-                              <div>
-                                <h4 className="font-semibold">{project.title}</h4>
-                                <p className="text-sm text-muted-foreground">{project.description}</p>
+                          timeframeData.projects.map((project, idx) => {
+                            const { isLoading, isAdded } = getButtonState('project', project, timeframeLabels[timeframeKey]);
+                            
+                            return (
+                              <div key={`project-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
+                                <div>
+                                  <h4 className="font-semibold">{project.title}</h4>
+                                  <p className="text-sm text-muted-foreground">{project.description}</p>
+                                </div>
+                                <Button
+                                  variant={isAdded ? "secondary" : "outline"}
+                                  size="sm"
+                                  disabled={isLoading || isAdded}
+                                  onClick={() => handleAddToPortfolio('project', project, timeframeLabels[timeframeKey])}
+                                >
+                                  {isLoading ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Adding...
+                                    </>
+                                  ) : isAdded ? (
+                                    <>
+                                      <Check className="mr-2 h-4 w-4" />
+                                      Added
+                                    </>
+                                  ) : (
+                                    "Add to Portfolio"
+                                  )}
+                                </Button>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAddToPortfolio('project', project, timeframeLabels[timeframeKey])}
-                              >
-                                Add to Portfolio
-                              </Button>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground">No projects defined for this timeframe.</p>
                         )}
@@ -427,25 +510,42 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {Array.isArray(timeframeData.content) && timeframeData.content.length > 0 ? (
-                          timeframeData.content.map((contentItem, idx) => (
-                            <div key={`content-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
-                              <div>
-                                <h4 className="font-semibold">{contentItem.platform}</h4>
-                                <ul className="list-disc pl-5 mt-2">
-                                  {contentItem.topics.map((topic, topicIdx) => (
-                                    <li key={topicIdx} className="text-sm">{topic}</li>
-                                  ))}
-                                </ul>
+                          timeframeData.content.map((contentItem, idx) => {
+                            const { isLoading, isAdded } = getButtonState('content', contentItem, timeframeLabels[timeframeKey]);
+                            
+                            return (
+                              <div key={`content-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
+                                <div>
+                                  <h4 className="font-semibold">{contentItem.platform}</h4>
+                                  <ul className="list-disc pl-5 mt-2">
+                                    {contentItem.topics.map((topic, topicIdx) => (
+                                      <li key={topicIdx} className="text-sm">{topic}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                                <Button
+                                  variant={isAdded ? "secondary" : "outline"}
+                                  size="sm"
+                                  disabled={isLoading || isAdded}
+                                  onClick={() => handleAddToPortfolio('content', contentItem, timeframeLabels[timeframeKey])}
+                                >
+                                  {isLoading ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Adding...
+                                    </>
+                                  ) : isAdded ? (
+                                    <>
+                                      <Check className="mr-2 h-4 w-4" />
+                                      Added
+                                    </>
+                                  ) : (
+                                    "Add to Portfolio"
+                                  )}
+                                </Button>
                               </div>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAddToPortfolio('content', contentItem, timeframeLabels[timeframeKey])}
-                              >
-                                Add to Portfolio
-                              </Button>
-                            </div>
-                          ))
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground">No content sharing goals defined for this timeframe.</p>
                         )}
@@ -464,18 +564,35 @@ const CareerActionPlan: React.FC<CareerActionPlanProps> = ({ initialActionPlan }
                     <AccordionContent>
                       <div className="space-y-4 pl-8 pt-2">
                         {Array.isArray(timeframeData.milestones) && timeframeData.milestones.length > 0 ? (
-                          timeframeData.milestones.map((milestone, idx) => (
-                            <div key={`milestone-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
-                              <p className="text-sm">{milestone}</p>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleAddToPortfolio('milestone', milestone, timeframeLabels[timeframeKey])}
-                              >
-                                Add to Portfolio
-                              </Button>
-                            </div>
-                          ))
+                          timeframeData.milestones.map((milestone, idx) => {
+                            const { isLoading, isAdded } = getButtonState('milestone', milestone, timeframeLabels[timeframeKey]);
+                            
+                            return (
+                              <div key={`milestone-${timeframeKey}-${idx}`} className="flex justify-between items-start pb-4 border-b border-border/30 last:border-b-0">
+                                <p className="text-sm">{milestone}</p>
+                                <Button
+                                  variant={isAdded ? "secondary" : "outline"}
+                                  size="sm"
+                                  disabled={isLoading || isAdded}
+                                  onClick={() => handleAddToPortfolio('milestone', milestone, timeframeLabels[timeframeKey])}
+                                >
+                                  {isLoading ? (
+                                    <>
+                                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                      Adding...
+                                    </>
+                                  ) : isAdded ? (
+                                    <>
+                                      <Check className="mr-2 h-4 w-4" />
+                                      Added
+                                    </>
+                                  ) : (
+                                    "Add to Portfolio"
+                                  )}
+                                </Button>
+                              </div>
+                            );
+                          })
                         ) : (
                           <p className="text-muted-foreground">No milestones defined for this timeframe.</p>
                         )}

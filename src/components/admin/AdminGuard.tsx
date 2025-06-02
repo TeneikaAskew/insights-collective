@@ -3,6 +3,7 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAdmin } from '@/utils/profileUtils';
 
 interface AdminGuardProps {
   children: React.ReactNode;
@@ -20,7 +21,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
   const { isAuthenticated, user } = useAuth();
   const location = useLocation();
 
-  const isAdmin = user?.roles?.includes('admin');
+  const userIsAdmin = isAdmin(user?.roles);
 
   if (isAuthenticated === undefined) {
     return (
@@ -35,7 +36,7 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (!isAdmin) {
+  if (!userIsAdmin) {
     return <Navigate to="/dashboard" state={{ message: "You don't have admin access." }} replace />;
   }
 
