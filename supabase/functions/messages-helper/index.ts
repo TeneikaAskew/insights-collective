@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
@@ -84,26 +83,31 @@ serve(async (req) => {
 async function getConversations(supabaseAdmin: any, userId: string) {
   console.log(`[messages-helper/getConversations] Starting for user: ${userId}`);
   
-  // Get all conversation participants for this user where they're not archived or deleted
-  const { data: participantData, error: participantError } = await supabaseAdmin
-    .from('conversation_participants')
-    .select('conversation_id')
-    .eq('user_id', userId)
-    .eq('archived', false)
-    .is('deleted_at', null);
+  // Use the new secure function instead of the removed view
+  const { data: conversationIds, error: conversationIdsError } = await supabaseAdmin
+    .rpc('get_user_conversations_secure', { user_id_param: userId });
 
-  if (participantError) {
-    throw new Error(`Failed to fetch participant records: ${participantError.message}`);
+  if (conversationIdsError) {
+    console.error('[messages-helper/getConversations] Error fetching conversation IDs:', conversationIdsError);
+    throw new Error(`Failed to fetch conversation IDs: ${conversationIdsError.message}`);
   }
 
-  console.log(`[messages-helper/getConversations] Found ${participantData?.length || 0} active participation records.`);
+  console.log(`[messages-helper/getConversations] Found ${conversationIds?.length || 0} conversations.`);
 
-  if (!participantData || participantData.length === 0) {
+  if (!conversationIds || conversationIds.length === 0) {
     return { conversations: [] };
   }
 
-  const conversationIds = participantData.map(p => p.conversation_id);
-  console.log(`[messages-helper/getConversations] Fetching details for conversation IDs:`, conversationIds);
+  // Extract just the conversation IDs
+  const activeConversationIds = conversationIds
+    .filter((conv: any) => !conv.archived)
+    .map((conv: any) => conv.id);
+
+  if (activeConversationIds.length === 0) {
+    return { conversations: [] };
+  }
+
+  console.log(`[messages-helper/getConversations] Fetching details for conversation IDs:`, activeConversationIds);
 
   // Fetch conversation details with participants and latest messages
   const { data: conversationData, error: conversationError } = await supabaseAdmin
@@ -138,7 +142,7 @@ async function getConversations(supabaseAdmin: any, userId: string) {
         sender_id
       )
     `)
-    .in('id', conversationIds)
+    .in('id', activeConversationIds)
     .is('deleted_at', null)
     .order('created_at', { ascending: false, foreignTable: 'messages' })
     .limit(1, { foreignTable: 'messages' });
@@ -184,6 +188,21 @@ async function getConversations(supabaseAdmin: any, userId: string) {
 async function getArchivedConversations(supabaseAdmin: any, userId: string) {
   console.log(`[messages-helper/getArchivedConversations] Starting for user: ${userId}`);
   
+  // Use the new secure function instead of the removed view
+  const { data: conversationIds, error: conversationIdsError } = await supabaseAdmin
+    .rpc('get_user_conversations_secure', { user_id_param: userId });
+
+  if (conversationIdsError) {
+    console.error('[messages-helper/getArchivedConversations] Error fetching conversation IDs:', conversationIdsError);
+    throw new Error(`Failed to fetch conversation IDs: ${conversationIdsError.message}`);
+  }
+
+  console.log(`[messages-helper/getArchivedConversations] Found ${conversationIds?.length || 0} conversations.`);
+
+  if (!conversationIds || conversationIds.length === 0) {
+    return { conversations: [] };
+  }
+
   // Get conversation participants for this user that are archived but not deleted
   const { data: participantData, error: participantError } = await supabaseAdmin
     .from('conversation_participants')
@@ -202,8 +221,8 @@ async function getArchivedConversations(supabaseAdmin: any, userId: string) {
     return { conversations: [] };
   }
 
-  const conversationIds = participantData.map(p => p.conversation_id);
-  console.log(`[messages-helper/getArchivedConversations] Fetching details for conversation IDs:`, conversationIds);
+  const archivedConversationIds = participantData.map(p => p.conversation_id);
+  console.log(`[messages-helper/getArchivedConversations] Fetching details for conversation IDs:`, archivedConversationIds);
 
   // Fetch conversation details
   const { data: conversationData, error: conversationError } = await supabaseAdmin
@@ -238,7 +257,7 @@ async function getArchivedConversations(supabaseAdmin: any, userId: string) {
         sender_id
       )
     `)
-    .in('id', conversationIds)
+    .in('id', archivedConversationIds)
     .is('deleted_at', null)
     .order('created_at', { ascending: false, foreignTable: 'messages' })
     .limit(1, { foreignTable: 'messages' });
