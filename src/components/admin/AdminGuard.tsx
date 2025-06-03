@@ -4,25 +4,22 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/profileUtils';
+import { validateSessionIntegrity } from '@/utils/securityUtils';
 
 interface AdminGuardProps {
   children: React.ReactNode;
 }
 
 /**
- * Updated AdminGuard to rely on ProtectedRoute instead for redirect and storeRedirectPath logic.
- * This component only shows loading while auth state is undefined,
- * and denies access to non-admin users, redirecting them elsewhere.
- * 
- * (You can replace this component entirely with ProtectedRoute with requireAdmin=true,
- * but we keep it for backward compatibility if still used.)
+ * Enhanced AdminGuard with improved security checks
  */
 const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, session } = useAuth();
   const location = useLocation();
 
   const userIsAdmin = isAdmin(user?.roles);
 
+  // Enhanced security checks
   if (isAuthenticated === undefined) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
@@ -32,12 +29,26 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     );
   }
 
+  // Check session integrity
+  if (isAuthenticated && session && !validateSessionIntegrity(session)) {
+    console.warn('[AdminGuard] Invalid session detected, redirecting to login');
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  // Enhanced admin role verification
   if (!userIsAdmin) {
-    return <Navigate to="/dashboard" state={{ message: "You don't have admin access." }} replace />;
+    console.warn('[AdminGuard] Non-admin user attempted to access admin area:', user?.id);
+    return <Navigate to="/dashboard" state={{ message: "Access denied. Admin privileges required." }} replace />;
+  }
+
+  // Additional security check for critical admin roles
+  if (!user?.roles?.includes('admin')) {
+    console.error('[AdminGuard] User roles do not contain admin:', user?.roles);
+    return <Navigate to="/dashboard" state={{ message: "Invalid admin access." }} replace />;
   }
 
   return <>{children}</>;

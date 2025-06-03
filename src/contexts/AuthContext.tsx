@@ -1,15 +1,33 @@
 
 import React, { createContext, useContext, useEffect } from 'react';
 import { useAuthProvider, AuthContextType } from '@/hooks/useAuth';
+import { validateSessionIntegrity } from '@/utils/securityUtils';
 
 // Create context
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// ✅ AuthProvider wraps your app and manages session state
+// Enhanced AuthProvider with security monitoring
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const auth = useAuthProvider();
 
-  // Remove automatic redirect from context - only handle redirects manually
+  // Monitor session integrity
+  useEffect(() => {
+    if (auth.session && !validateSessionIntegrity(auth.session)) {
+      console.warn('[AuthProvider] Invalid session detected, signing out user');
+      auth.logout();
+    }
+  }, [auth.session]);
+
+  // Security event logging
+  useEffect(() => {
+    if (auth.isAuthenticated) {
+      console.log('[AuthProvider] User authenticated:', {
+        userId: auth.user?.id,
+        roles: auth.user?.roles,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [auth.isAuthenticated, auth.user]);
 
   return (
     <AuthContext.Provider value={auth}>
@@ -18,7 +36,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-// ✅ Named hook — use this everywhere to access auth
+// Enhanced hook with security checks
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/utils/profileUtils';
+import { createRateLimiter, validateSessionIntegrity } from '@/utils/securityUtils';
 
 interface AdminUserResponse {
   id: string;
@@ -19,12 +20,15 @@ interface AdminUserResponse {
   roles: string[];
 }
 
+// Create rate limiter for admin operations (5 requests per minute)
+const adminRateLimiter = createRateLimiter(5, 60000);
+
 export function useAdminUsers() {
   const [users, setUsers] = useState<AdminUserResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
 
   const fetchUsers = async () => {
     console.log('[useAdminUsers] Starting fetchUsers...');
@@ -32,24 +36,25 @@ export function useAdminUsers() {
     setError(null);
     
     try {
-      // Check if user is admin using the utility function
+      // Enhanced admin privilege checking
       if (!isAdmin(user?.roles)) {
         throw new Error("Admin privileges required");
       }
 
-      console.log('[useAdminUsers] User has admin role, proceeding...');
-      
-      // Get current session to ensure we have a valid token
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        console.error('[useAdminUsers] Session error:', sessionError);
-        throw new Error('Authentication session required');
+      // Rate limiting check
+      const userIdentifier = user?.id || 'anonymous';
+      if (!adminRateLimiter(userIdentifier)) {
+        throw new Error("Too many requests. Please wait before trying again.");
       }
 
-      console.log('[useAdminUsers] Valid session found, calling admin-users edge function...');
+      // Enhanced session validation
+      if (!session || !validateSessionIntegrity(session)) {
+        throw new Error('Invalid or expired session');
+      }
+
+      console.log('[useAdminUsers] Enhanced security checks passed, calling admin-users edge function...');
       
-      // Call the edge function to get all users with auth data
+      // Call the edge function with enhanced error handling
       const { data, error: functionError } = await supabase.functions.invoke('admin-users', {
         headers: {
           Authorization: `Bearer ${session.access_token}`
@@ -69,8 +74,14 @@ export function useAdminUsers() {
 
       console.log('[useAdminUsers] Raw users from edge function:', data.users.length);
 
-      // Transform the data to match the expected format
+      // Enhanced data transformation with validation
       const transformedUsers = data.users.map((user: any) => {
+        // Validate and sanitize user data
+        if (!user.id || !user.email) {
+          console.warn('[useAdminUsers] Invalid user data detected:', user);
+          throw new Error('Invalid user data received');
+        }
+
         // Ensure roles is always an array and handle PostgreSQL array format
         let roles = user.roles || ['student'];
         
@@ -105,7 +116,6 @@ export function useAdminUsers() {
       });
 
       console.log('[useAdminUsers] Transformed users:', transformedUsers.length);
-      console.log('[useAdminUsers] Sample user:', transformedUsers[0]);
       setUsers(transformedUsers);
       
     } catch (err: any) {
@@ -117,9 +127,12 @@ export function useAdminUsers() {
       if (err.message?.includes('Admin privileges required')) {
         errorMessage = 'Admin access required';
         toastDescription = 'You need admin privileges to access user management.';
-      } else if (err.message?.includes('Authentication')) {
-        errorMessage = 'Authentication required';
-        toastDescription = 'Please log in to access this feature.';
+      } else if (err.message?.includes('Too many requests')) {
+        errorMessage = 'Rate limit exceeded';
+        toastDescription = 'Too many requests. Please wait before trying again.';
+      } else if (err.message?.includes('session')) {
+        errorMessage = 'Session invalid';
+        toastDescription = 'Your session is invalid. Please log in again.';
       } else if (err.message?.includes('User profile not found')) {
         errorMessage = 'Profile not found';
         toastDescription = 'Your user profile was not found. Please contact support.';
@@ -141,6 +154,22 @@ export function useAdminUsers() {
     try {
       console.log('[useAdminUsers] Updating user role:', userId, roles);
       
+      // Enhanced validation
+      if (!userId || !Array.isArray(roles)) {
+        throw new Error('Invalid parameters provided');
+      }
+
+      // Rate limiting check
+      const userIdentifier = user?.id || 'anonymous';
+      if (!adminRateLimiter(userIdentifier)) {
+        throw new Error("Too many requests. Please wait before trying again.");
+      }
+
+      // Enhanced session validation
+      if (!session || !validateSessionIntegrity(session)) {
+        throw new Error('Invalid or expired session');
+      }
+      
       // Ensure student role is always included
       const updatedRoles = [...roles];
       if (!updatedRoles.includes('student')) {
@@ -149,13 +178,6 @@ export function useAdminUsers() {
       
       // Determine the highest role for the role field
       const highestRole = getHighestRole(updatedRoles);
-
-      // Get current session for authentication
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError || !session) {
-        throw new Error('Authentication session required');
-      }
 
       // Call the edge function to update user roles
       const { data, error } = await supabase.functions.invoke('admin-users', {
