@@ -1,3 +1,4 @@
+
 import React from 'react';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
@@ -60,7 +61,7 @@ const Index = () => {
   // Create refs for sections
   const sectionRefs = sections.map(section => {
     const { ref, inView } = useInView({
-      triggerOnce: true,
+      triggerOnce: !isOnboardingActive, // Don't trigger once during tour
       threshold: section.threshold,
       rootMargin: '-50px 0px',
     });
@@ -91,9 +92,8 @@ const Index = () => {
       <OnboardingGuide tourId="home" />
       
       {sectionRefs.map(({ id, ref, inView, Component }) => {
-        // Force visibility if this section is being targeted by onboarding
-        const isTargetedByTour = isOnboardingActive && currentTour === 'home';
-        const shouldBeVisible = inView || isTargetedByTour;
+        // Force visibility during active tour to ensure all sections are visible
+        const shouldBeVisible = inView || isOnboardingActive;
         
         return (
           <div 
