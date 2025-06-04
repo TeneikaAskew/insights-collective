@@ -1,4 +1,3 @@
-
 import React from 'react';
 import HeroSection from '@/components/home/HeroSection';
 import BlueprintBanner from '@/components/home/BlueprintBanner';
@@ -32,13 +31,14 @@ const Index = () => {
     const hasNotCompletedTour = !completedTours.includes(homeTourId);
     const hasNotDismissedTour = !dismissedTours.includes(homeTourId);
     
-    if (!isFirstVisit && hasNotCompletedTour && hasNotDismissedTour) {
+    // Only auto-start if not first visit, tour not completed/dismissed, AND no tour is currently active
+    if (!isFirstVisit && hasNotCompletedTour && hasNotDismissedTour && !isOnboardingActive) {
       const timer = setTimeout(() => {
         startTour(homeTourId);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [isFirstVisit, completedTours, dismissedTours, startTour]);
+  }, [isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive]);
 
   // Create sections array with reordered sections - career quiz before personalized pathway
   const sections = [
