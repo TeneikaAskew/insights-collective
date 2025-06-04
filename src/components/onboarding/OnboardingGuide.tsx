@@ -41,8 +41,17 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
         const element = document.querySelector(currentStepData.target) as HTMLElement;
         console.log(`Onboarding: Looking for element "${currentStepData.target}"`, element);
         
+        // Debug: Check all available data-tour elements
+        const allTourElements = document.querySelectorAll('[data-tour]');
+        console.log('Onboarding: All available data-tour elements:', Array.from(allTourElements).map(el => el.getAttribute('data-tour')));
+        
         if (element) {
           setTargetElement(element);
+          
+          // Check if element is visible
+          const rect = element.getBoundingClientRect();
+          const isVisible = rect.width > 0 && rect.height > 0;
+          console.log(`Onboarding: Element visibility check`, { isVisible, rect });
           
           // Scroll element into view first
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -50,15 +59,15 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
           // Wait for scroll to complete before positioning
           setTimeout(() => {
             try {
-              const rect = element.getBoundingClientRect();
+              const newRect = element.getBoundingClientRect();
               const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
               const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
               
-              console.log(`Onboarding: Positioning element for step ${currentStep + 1}`, { rect, scrollTop, scrollLeft });
+              console.log(`Onboarding: Positioning element for step ${currentStep + 1}`, { newRect, scrollTop, scrollLeft });
               
               setOverlayPosition({
-                top: rect.top + scrollTop,
-                left: rect.left + scrollLeft,
+                top: newRect.top + scrollTop,
+                left: newRect.left + scrollLeft,
               });
               
               // Execute the step action if it exists
