@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Users, TrendingUp, BookOpen, X } from 'lucide-react';
@@ -12,7 +11,12 @@ const WelcomeModal: React.FC = () => {
   const navigate = useNavigate();
 
   const handleStartTour = () => {
-    startTour('home');
+    // First close the welcome modal by marking it as dismissed
+    skipTour();
+    // Then start the tour with a small delay to ensure the modal closes first
+    setTimeout(() => {
+      startTour('home');
+    }, 100);
   };
 
   const handleSkip = () => {
