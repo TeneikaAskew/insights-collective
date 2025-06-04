@@ -1,3 +1,4 @@
+
 import { BookOpen, Home, BarChart2, UserCircle, GraduationCap, Settings, Calendar, Bell, Users, FileText, Briefcase, Award, ChevronRight, Bot, MessageSquare, FileUp, Eye, Compass, FileCheck, FormInput, Newspaper, Bug, Lightbulb, Twitter } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 import { Sidebar, SidebarContent, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarHeader, SidebarTrigger, SidebarFooter, SidebarRail } from '@/components/ui/sidebar';
@@ -41,12 +42,14 @@ const AppSidebar = () => {
     title: "Career Agent",
     url: "/career-agent",
     icon: Bot,
-    active: location.pathname === '/career-agent'
+    active: location.pathname === '/career-agent',
+    highlight: true
   }, {
     title: "Career Pathway",
     url: "/career-pathway",
     icon: Briefcase,
-    active: location.pathname === '/career-pathway'
+    active: location.pathname === '/career-pathway',
+    highlight: true
   }, {
     title: "Portfolio Explorer",
     url: "/portfolio-explorer",
