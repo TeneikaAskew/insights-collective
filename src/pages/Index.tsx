@@ -24,17 +24,21 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
   const upcomingEvents = mockService.getEvents().slice(0, 3);
-  const { isFirstVisit, completedTours, startTour } = useOnboarding();
+  const { isFirstVisit, completedTours, dismissedTours, startTour } = useOnboarding();
   
-  // Auto-start home tour for returning users who haven't completed it
+  // Auto-start home tour for returning users who haven't completed it or dismissed it
   useEffect(() => {
-    if (!isFirstVisit && !completedTours.includes('home')) {
+    const homeTourId = 'home';
+    const hasNotCompletedTour = !completedTours.includes(homeTourId);
+    const hasNotDismissedTour = !dismissedTours.includes(homeTourId);
+    
+    if (!isFirstVisit && hasNotCompletedTour && hasNotDismissedTour) {
       const timer = setTimeout(() => {
-        startTour('home');
+        startTour(homeTourId);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [isFirstVisit, completedTours, startTour]);
+  }, [isFirstVisit, completedTours, dismissedTours, startTour]);
 
   // Create sections array with reordered sections - career quiz before personalized pathway
   const sections = [

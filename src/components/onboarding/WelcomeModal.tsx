@@ -8,7 +8,7 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 import { useNavigate } from 'react-router-dom';
 
 const WelcomeModal: React.FC = () => {
-  const { isFirstVisit, startTour, completeTour } = useOnboarding();
+  const { isFirstVisit, startTour, skipTour } = useOnboarding();
   const navigate = useNavigate();
 
   const handleStartTour = () => {
@@ -16,11 +16,11 @@ const WelcomeModal: React.FC = () => {
   };
 
   const handleSkip = () => {
-    completeTour();
+    skipTour();
   };
 
   const handleGetStarted = (path: string) => {
-    completeTour();
+    skipTour(); // Mark as dismissed since user is choosing to skip the modal
     navigate(path);
   };
 

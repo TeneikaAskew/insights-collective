@@ -21,6 +21,7 @@ interface OnboardingContextType {
   currentTour: string | null;
   currentStep: number;
   completedTours: string[];
+  dismissedTours: string[];
   startTour: (tourId: string) => void;
   nextStep: () => void;
   prevStep: () => void;
@@ -47,6 +48,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const [currentTour, setCurrentTour] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [completedTours, setCompletedTours] = useState<string[]>([]);
+  const [dismissedTours, setDismissedTours] = useState<string[]>([]);
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
   useEffect(() => {
@@ -55,6 +57,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       try {
         const progress = JSON.parse(savedProgress);
         setCompletedTours(progress.completedTours || []);
+        setDismissedTours(progress.dismissedTours || []);
         setIsFirstVisit(false);
       } catch (error) {
         console.error('Failed to parse onboarding progress:', error);
@@ -65,14 +68,20 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     }
   }, []);
 
-  const saveProgress = (tours: string[]) => {
+  const saveProgress = (completed: string[], dismissed: string[]) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ 
-      completedTours: tours,
+      completedTours: completed,
+      dismissedTours: dismissed,
       lastUpdated: Date.now()
     }));
   };
 
   const startTour = (tourId: string) => {
+    // Don't start if tour was already completed or dismissed
+    if (completedTours.includes(tourId) || dismissedTours.includes(tourId)) {
+      return;
+    }
+    
     setCurrentTour(tourId);
     setCurrentStep(0);
     setIsOnboardingActive(true);
@@ -88,30 +97,35 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const skipTour = () => {
     console.log('[OnboardingContext] skipTour called');
-    // Always set isFirstVisit to false when skipping tour
     setIsFirstVisit(false);
     setIsOnboardingActive(false);
+    
+    if (currentTour && !dismissedTours.includes(currentTour)) {
+      const newDismissedTours = [...dismissedTours, currentTour];
+      setDismissedTours(newDismissedTours);
+      saveProgress(completedTours, newDismissedTours);
+    } else {
+      // Even if no tour is active, save the progress to mark as not first visit
+      saveProgress(completedTours, dismissedTours);
+    }
+    
     setCurrentTour(null);
     setCurrentStep(0);
-    
-    // Save progress to mark as not first visit
-    saveProgress(completedTours);
   };
 
   const completeTour = () => {
-    // Always set isFirstVisit to false when completing tour
     setIsFirstVisit(false);
+    setIsOnboardingActive(false);
     
     if (currentTour && !completedTours.includes(currentTour)) {
       const newCompletedTours = [...completedTours, currentTour];
       setCompletedTours(newCompletedTours);
-      saveProgress(newCompletedTours);
+      saveProgress(newCompletedTours, dismissedTours);
     } else {
       // Even if no tour is active, save the progress to mark as not first visit
-      saveProgress(completedTours);
+      saveProgress(completedTours, dismissedTours);
     }
     
-    setIsOnboardingActive(false);
     setCurrentTour(null);
     setCurrentStep(0);
   };
@@ -119,6 +133,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const resetOnboarding = () => {
     localStorage.removeItem(STORAGE_KEY);
     setCompletedTours([]);
+    setDismissedTours([]);
     setIsFirstVisit(true);
     setIsOnboardingActive(false);
     setCurrentTour(null);
@@ -132,6 +147,7 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         currentTour,
         currentStep,
         completedTours,
+        dismissedTours,
         startTour,
         nextStep,
         prevStep,

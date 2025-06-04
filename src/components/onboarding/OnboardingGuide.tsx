@@ -61,6 +61,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
     if (currentStep < tour.steps.length - 1) {
       nextStep();
     } else {
+      // Complete the tour when we reach the last step
       completeTour();
     }
   };
@@ -171,7 +172,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={skipTour}
+                onClick={handleSkip}
                 className="h-6 w-6 p-0 hover:bg-destructive hover:text-destructive-foreground"
               >
                 <X className="h-3 w-3" />
@@ -186,7 +187,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={skipTour}
+                  onClick={handleSkip}
                   className="gap-1"
                 >
                   <SkipForward className="h-3 w-3" />
@@ -219,7 +220,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
                   ) : (
                     <>
                       <Check className="h-3 w-3" />
-                      I Understand
+                      Complete Tour
                     </>
                   )}
                 </Button>
