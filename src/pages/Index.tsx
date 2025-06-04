@@ -24,7 +24,7 @@ import { useOnboarding } from '@/contexts/OnboardingContext';
 const Index = () => {
   const featuredCourses = mockService.getAllCourses().slice(0, 3);
   const upcomingEvents = mockService.getEvents().slice(0, 3);
-  const { isFirstVisit, completedTours, dismissedTours, startTour } = useOnboarding();
+  const { isFirstVisit, completedTours, dismissedTours, startTour, isOnboardingActive, currentTour } = useOnboarding();
   
   // Auto-start home tour for returning users who haven't completed it or dismissed it
   useEffect(() => {
@@ -90,16 +90,22 @@ const Index = () => {
       <WelcomeModal />
       <OnboardingGuide tourId="home" />
       
-      {sectionRefs.map(({ id, ref, inView, Component }) => (
-        <div 
-          key={id} 
-          ref={ref} 
-          data-tour={id}
-          className={`transition-opacity duration-700 ${inView ? 'opacity-100' : 'opacity-0'}`}
-        >
-          <Component />
-        </div>
-      ))}
+      {sectionRefs.map(({ id, ref, inView, Component }) => {
+        // Force visibility if this section is being targeted by onboarding
+        const isTargetedByTour = isOnboardingActive && currentTour === 'home';
+        const shouldBeVisible = inView || isTargetedByTour;
+        
+        return (
+          <div 
+            key={id} 
+            ref={ref} 
+            data-tour={id}
+            className={`transition-opacity duration-700 ${shouldBeVisible ? 'opacity-100' : 'opacity-0'}`}
+          >
+            <Component />
+          </div>
+        );
+      })}
       <Footer />
     </div>
   );

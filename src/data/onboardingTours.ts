@@ -25,11 +25,7 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         description: 'Your AI-powered platform for data career success. Let\'s explore the key features.',
         target: '[data-tour="hero"]',
         position: 'bottom',
-        highlight: true,
-        action: () => {
-          const element = document.querySelector('[data-tour="hero"]');
-          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        highlight: true
       },
       {
         id: 'career-quiz',
@@ -37,11 +33,7 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         description: 'Take our interactive quiz to discover which data career path aligns with your skills and interests.',
         target: '[data-tour="quiz"]',
         position: 'top',
-        highlight: true,
-        action: () => {
-          const element = document.querySelector('[data-tour="quiz"]');
-          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        highlight: true
       },
       {
         id: 'personalized-pathway',
@@ -49,11 +41,7 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         description: 'Get customized recommendations based on your quiz results and career goals.',
         target: '[data-tour="personalizedPathway"]',
         position: 'top',
-        highlight: true,
-        action: () => {
-          const element = document.querySelector('[data-tour="personalizedPathway"]');
-          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        highlight: true
       },
       {
         id: 'features',
@@ -61,11 +49,7 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         description: 'Explore our comprehensive suite of tools designed to accelerate your data career.',
         target: '[data-tour="features"]',
         position: 'top',
-        highlight: true,
-        action: () => {
-          const element = document.querySelector('[data-tour="features"]');
-          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        highlight: true
       },
       {
         id: 'courses',
@@ -73,11 +57,7 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         description: 'Access curated courses and learning materials to build your data skills.',
         target: '[data-tour="courses"]',
         position: 'top',
-        highlight: true,
-        action: () => {
-          const element = document.querySelector('[data-tour="courses"]');
-          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        highlight: true
       },
       {
         id: 'tools',
@@ -85,11 +65,7 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         description: 'Use our AI-powered tools for resume analysis, interview prep, and career guidance.',
         target: '[data-tour="tools"]',
         position: 'top',
-        highlight: true,
-        action: () => {
-          const element = document.querySelector('[data-tour="tools"]');
-          element?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
+        highlight: true
       }
     ]
   },
