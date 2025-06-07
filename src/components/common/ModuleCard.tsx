@@ -1,22 +1,24 @@
+
 import { Module } from '@/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle, Clock, BookOpen, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
+
 interface ModuleCardProps {
   courseId: string;
   module: Module;
 }
-const ModuleCard = ({
-  courseId,
-  module
-}: ModuleCardProps) => {
+
+const ModuleCard = ({ courseId, module }: ModuleCardProps) => {
   // Add null checks for all potential undefined properties
   const lessons = module.lessons || [];
   const assignments = module.assignments || [];
   const quizzes = module.quizzes || [];
   const totalItems = lessons.length + assignments.length + quizzes.length;
-  return <Link to={`/courses/${courseId}/modules/${module.id}`}>
+  
+  return (
+    <Link to={`/courses/${courseId}/modules/${module.id}`}>
       <Card className="h-full hover:shadow-md transition-all duration-200">
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start gap-2">
@@ -37,17 +39,17 @@ const ModuleCard = ({
             <Progress value={module.completionStatus || 0} className="h-2" />
             
             <div className="grid grid-cols-3 gap-2 mt-2">
-              <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
+              <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
                 <BookOpen className="h-4 w-4 mb-1" />
                 <span className="text-xs">{lessons.length} Lessons</span>
               </div>
               
-              <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
+              <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400">
                 <FileText className="h-4 w-4 mb-1" />
                 <span className="text-xs">{assignments.length} Assignments</span>
               </div>
               
-              <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-amber-500">
+              <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400">
                 <Clock className="h-4 w-4 mb-1" />
                 <span className="text-xs">{quizzes.length} Quizzes</span>
               </div>
@@ -56,14 +58,20 @@ const ModuleCard = ({
         </CardContent>
         
         <CardFooter className="pt-0 flex justify-between items-center">
-          {(module.completionStatus || 0) === 100 ? <div className="flex items-center text-green-500 text-sm">
+          {(module.completionStatus || 0) === 100 ? (
+            <div className="flex items-center text-green-500 text-sm">
               <CheckCircle className="h-4 w-4 mr-1" />
               <span>Completed</span>
-            </div> : <div className="text-muted-foreground text-sm">
+            </div>
+          ) : (
+            <div className="text-muted-foreground text-sm">
               {totalItems} items total
-            </div>}
+            </div>
+          )}
         </CardFooter>
       </Card>
-    </Link>;
+    </Link>
+  );
 };
+
 export default ModuleCard;
