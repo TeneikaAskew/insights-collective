@@ -21,6 +21,9 @@ import AssignmentDetail from "./pages/AssignmentDetail";
 import Messages from "./pages/Messages";
 import Events from "./pages/Events";
 import Resume from "./pages/Resume";
+import Assistants from "./pages/Assistants";
+import AssistantInterface from "./pages/AssistantInterface";
+import PortfolioExplorer from "./pages/PortfolioExplorer";
 import Forums from "./pages/Forums";
 import ForumDetail from "./pages/ForumDetail";
 import ThreadDetail from "./pages/ThreadDetail";
@@ -75,6 +78,24 @@ function App() {
                   <Route path="/resume" element={
                     <ProtectedRoute>
                       <Resume />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/assistants" element={
+                    <ProtectedRoute>
+                      <Assistants />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/assistants/:conversationId" element={
+                    <ProtectedRoute>
+                      <AssistantInterface />
+                    </ProtectedRoute>
+                  } />
+                  
+                  <Route path="/portfolio" element={
+                    <ProtectedRoute>
+                      <PortfolioExplorer />
                     </ProtectedRoute>
                   } />
                   
