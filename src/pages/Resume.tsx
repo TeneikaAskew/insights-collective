@@ -172,7 +172,7 @@ const Resume = () => {
 
   // Update the useEffect that controls overlay visibility
   useEffect(() => {
-    // Only show overlay during initial analysis, not during bullet improvements
+    // Show overlay during initial analysis (when first analyzing resume text)
     if (isAnalyzing && !hasLoadedAnalysis) {
       setShowAnalysisOverlay(true);
     } else {
@@ -737,6 +737,7 @@ const Resume = () => {
           isVisible={showAnalysisOverlay} 
           userId={user?.id}
           resumeId={resume?.id}
+          analysisType={hasLoadedAnalysis ? 'bullets' : 'initial'}
         />
         
         {/* Add the new progress component */}

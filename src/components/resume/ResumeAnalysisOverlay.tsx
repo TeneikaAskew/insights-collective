@@ -17,9 +17,10 @@ interface ResumeAnalysisOverlayProps {
   onClose?: () => void;
   userId: string | undefined;
   resumeId: string | undefined;
+  analysisType?: 'initial' | 'bullets';
 }
 
-const ANALYSIS_STAGES: AnalysisStage[] = [
+const INITIAL_ANALYSIS_STAGES: AnalysisStage[] = [
   { id: 'extract', message: 'Extracting resume content...', duration: 2500 },
   { id: 'parse', message: 'Parsing resume structure...', duration: 2000 },
   { id: 'bullets', message: 'Analyzing resume bullets...', duration: 3000 },
@@ -32,11 +33,22 @@ const ANALYSIS_STAGES: AnalysisStage[] = [
   { id: 'finalizing', message: 'Finalizing analysis results...', duration: 2000 },
 ];
 
+const BULLET_ANALYSIS_STAGES: AnalysisStage[] = [
+  { id: 'extract-bullets', message: 'Extracting resume bullet points...', duration: 2000 },
+  { id: 'analyze-structure', message: 'Analyzing bullet point structure...', duration: 3000 },
+  { id: 'enhance-metrics', message: 'Enhancing metrics and achievements...', duration: 4000 },
+  { id: 'improve-action-words', message: 'Improving action verbs and language...', duration: 3000 },
+  { id: 'xyz-optimization', message: 'Optimizing XYZ format structure...', duration: 4000 },
+  { id: 'impact-enhancement', message: 'Enhancing impact and clarity...', duration: 3000 },
+  { id: 'final-polish', message: 'Applying final polish and improvements...', duration: 3000 },
+];
+
 export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({ 
   isVisible, 
   onClose,
   userId,
-  resumeId
+  resumeId,
+  analysisType = 'initial'
 }) => {
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [careerGoals, setCareerGoals] = useState<string>('');
@@ -44,6 +56,12 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
   const [savedLocally, setSavedLocally] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { user } = useAuth();
+
+  const stages = analysisType === 'bullets' ? BULLET_ANALYSIS_STAGES : INITIAL_ANALYSIS_STAGES;
+  const title = analysisType === 'bullets' ? 'Analyzing Resume Bullets' : 'Analyzing Your Resume';
+  const description = analysisType === 'bullets' 
+    ? 'We\'re enhancing your resume bullets with AI improvements...' 
+    : 'Analysis typically takes 60-90 seconds to complete';
 
   // Load career goals from localStorage on mount
   useEffect(() => {
@@ -63,17 +81,17 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
       return;
     }
 
-    if (currentStageIndex < ANALYSIS_STAGES.length - 1) {
-      const currentStage = ANALYSIS_STAGES[currentStageIndex];
+    if (currentStageIndex < stages.length - 1) {
+      const currentStage = stages[currentStageIndex];
       
       timerRef.current = setTimeout(() => {
         setCurrentStageIndex(prev => prev + 1);
       }, currentStage.duration);
-    } else if (currentStageIndex === ANALYSIS_STAGES.length - 1) {
+    } else if (currentStageIndex === stages.length - 1) {
       // Loop back to first stage when we reach the end
       timerRef.current = setTimeout(() => {
         setCurrentStageIndex(0);
-      }, ANALYSIS_STAGES[currentStageIndex].duration);
+      }, stages[currentStageIndex].duration);
     }
 
     return () => {
@@ -81,7 +99,7 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
         clearTimeout(timerRef.current);
       }
     };
-  }, [isVisible, currentStageIndex]);
+  }, [isVisible, currentStageIndex, stages]);
 
   // Save career goals to localStorage
   const saveGoalsLocally = () => {
@@ -132,7 +150,7 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
 
   if (!isVisible) return null;
 
-  const currentStage = ANALYSIS_STAGES[currentStageIndex];
+  const currentStage = stages[currentStageIndex];
 
   return (
     <div className="fixed inset-0 bg-background/90 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -141,7 +159,7 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
           <div className="flex flex-col items-center text-center space-y-4">
             <Spinner size="lg" className="text-primary" />
             <h2 className="text-2xl font-semibold text-foreground">
-              Analyzing Your Resume
+              {title}
             </h2>
             <p className="text-muted-foreground animate-pulse">
               {currentStage.message}
@@ -150,40 +168,42 @@ export const ResumeAnalysisOverlay: React.FC<ResumeAnalysisOverlayProps> = ({
               <div 
                 className="bg-primary rounded-full h-2 transition-all" 
                 style={{ 
-                  width: `${((currentStageIndex + 1) / ANALYSIS_STAGES.length) * 100}%`,
+                  width: `${((currentStageIndex + 1) / stages.length) * 100}%`,
                 }}
               />
             </div>
           </div>
 
-          <div className="bg-muted/50 rounded-lg p-4 space-y-4">
-            <h3 className="text-lg font-medium">
-              While we analyze your resume, tell us about your career goals:
-            </h3>
-            <Textarea
-              placeholder="What are your career aspirations? What roles are you targeting next? What skills are you looking to develop?"
-              className="min-h-[120px] resize-none"
-              value={careerGoals}
-              onChange={(e) => setCareerGoals(e.target.value)}
-            />
-            <div className="flex justify-between items-center">
-              <div className="text-sm text-muted-foreground">
-                {savedLocally ? 'Saved Goals' : ''}
+          {analysisType === 'initial' && (
+            <div className="bg-muted/50 rounded-lg p-4 space-y-4">
+              <h3 className="text-lg font-medium">
+                While we analyze your resume, tell us about your career goals:
+              </h3>
+              <Textarea
+                placeholder="What are your career aspirations? What roles are you targeting next? What skills are you looking to develop?"
+                className="min-h-[120px] resize-none"
+                value={careerGoals}
+                onChange={(e) => setCareerGoals(e.target.value)}
+              />
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  {savedLocally ? 'Saved Goals' : ''}
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={saveGoalsToDatabase}
+                  disabled={isSaving || !careerGoals}
+                >
+                  {isSaving ? <Spinner size="sm" className="mr-2" /> : null}
+                  Save Goals
+                </Button>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={saveGoalsToDatabase}
-                disabled={isSaving || !careerGoals}
-              >
-                {isSaving ? <Spinner size="sm" className="mr-2" /> : null}
-                Save Goals
-              </Button>
             </div>
-          </div>
+          )}
           
           <div className="text-center text-sm text-muted-foreground">
-            <p>Analysis typically takes 60-90 seconds to complete</p>
+            <p>{description}</p>
           </div>
         </div>
       </div>
