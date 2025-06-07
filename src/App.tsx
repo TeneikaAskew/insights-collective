@@ -14,19 +14,13 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
-import Courses from "./pages/Courses";
 import CourseDetail from "./pages/CourseDetail";
 import ModuleDetail from "./pages/ModuleDetail";
 import LessonDetail from "./pages/LessonDetail";
 import AssignmentDetail from "./pages/AssignmentDetail";
 import Messages from "./pages/Messages";
 import Events from "./pages/Events";
-import Portfolio from "./pages/Portfolio";
-import PortfolioEditor from "./pages/PortfolioEditor";
-import PortfolioView from "./pages/PortfolioView";
 import Resume from "./pages/Resume";
-import Assistants from "./pages/Assistants";
-import AssistantChat from "./pages/AssistantChat";
 import Forums from "./pages/Forums";
 import ForumDetail from "./pages/ForumDetail";
 import ThreadDetail from "./pages/ThreadDetail";
@@ -62,7 +56,6 @@ function App() {
                     </ProtectedRoute>
                   } />
                   
-                  <Route path="/courses" element={<Courses />} />
                   <Route path="/courses/:courseId" element={<CourseDetail />} />
                   <Route path="/courses/:courseId/modules/:moduleId" element={<ModuleDetail />} />
                   <Route path="/courses/:courseId/modules/:moduleId/lessons/:lessonId" element={<LessonDetail />} />
@@ -79,35 +72,9 @@ function App() {
                   
                   <Route path="/events" element={<Events />} />
                   
-                  <Route path="/portfolio" element={
-                    <ProtectedRoute>
-                      <Portfolio />
-                    </ProtectedRoute>
-                  } />
-                  
-                  <Route path="/portfolio/editor" element={
-                    <ProtectedRoute>
-                      <PortfolioEditor />
-                    </ProtectedRoute>
-                  } />
-                  
-                  <Route path="/portfolio/:userId" element={<PortfolioView />} />
-                  
                   <Route path="/resume" element={
                     <ProtectedRoute>
                       <Resume />
-                    </ProtectedRoute>
-                  } />
-                  
-                  <Route path="/assistants" element={
-                    <ProtectedRoute>
-                      <Assistants />
-                    </ProtectedRoute>
-                  } />
-                  
-                  <Route path="/assistants/:conversationId" element={
-                    <ProtectedRoute>
-                      <AssistantChat />
                     </ProtectedRoute>
                   } />
                   
