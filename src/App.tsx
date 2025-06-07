@@ -35,6 +35,8 @@ import CareerAgent from '@/pages/CareerAgent';
 import Calendar from '@/pages/Calendar';
 import CourseDetail from '@/pages/CourseDetail';
 import ModuleDetail from '@/pages/ModuleDetail';
+import LessonDetail from '@/pages/LessonDetail';
+import AssignmentDetail from '@/pages/AssignmentDetail';
 import JobDescription from '@/pages/interview-prep/JobDescription';
 import StarPractice from '@/pages/interview-prep/StarPractice';
 import CodePracticeInterview from '@/pages/interview-prep/CodePractice';
@@ -245,11 +247,33 @@ function App() {
                   />
                   
                   <Route
-                    path="/module/:moduleId"
+                    path="/courses/:courseId/modules/:moduleId"
                     element={
                       <ProtectedRoute>
                         <PageVisibilityGuard>
                           <ModuleDetail />
+                        </PageVisibilityGuard>
+                      </ProtectedRoute>
+                    }
+                  />
+                  
+                  <Route
+                    path="/courses/:courseId/modules/:moduleId/lessons/:lessonId"
+                    element={
+                      <ProtectedRoute>
+                        <PageVisibilityGuard>
+                          <LessonDetail />
+                        </PageVisibilityGuard>
+                      </ProtectedRoute>
+                    }
+                  />
+                  
+                  <Route
+                    path="/courses/:courseId/modules/:moduleId/assignments/:assignmentId"
+                    element={
+                      <ProtectedRoute>
+                        <PageVisibilityGuard>
+                          <AssignmentDetail />
                         </PageVisibilityGuard>
                       </ProtectedRoute>
                     }

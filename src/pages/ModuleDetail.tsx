@@ -189,12 +189,9 @@ const ModuleDetail = () => {
                 <div>
                   <h3 className="text-lg font-semibold mb-4">All Lessons</h3>
                   <div className="space-y-3">
-                    {module.lessons.map((lesson) => (
-                      <Card 
-                        key={lesson.id} 
-                        className={`cursor-pointer ${activeLesson === lesson.id ? 'border-primary' : ''}`}
-                        onClick={() => setActiveLesson(lesson.id)}
-                      >
+                     {module.lessons.map((lesson) => (
+                       <Link key={lesson.id} to={`/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`}>
+                         <Card className="cursor-pointer hover:shadow-md transition-all duration-200">
                         <CardContent className="p-4 flex justify-between items-center">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary text-foreground">
@@ -217,9 +214,10 @@ const ModuleDetail = () => {
                           ) : (
                             <Badge variant="outline">Not Completed</Badge>
                           )}
-                        </CardContent>
-                      </Card>
-                    ))}
+                         </CardContent>
+                       </Card>
+                       </Link>
+                     ))}
                   </div>
                 </div>
               </TabsContent>
@@ -230,8 +228,9 @@ const ModuleDetail = () => {
                   
                   {module.assignments.length > 0 ? (
                     <div className="space-y-6">
-                      {module.assignments.map((assignment) => (
-                        <Card key={assignment.id}>
+                     {module.assignments.map((assignment) => (
+                       <Link key={assignment.id} to={`/courses/${courseId}/modules/${moduleId}/assignments/${assignment.id}`}>
+                         <Card className="cursor-pointer hover:shadow-md transition-all duration-200">
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <CardTitle className="text-xl">{assignment.title}</CardTitle>
@@ -299,9 +298,10 @@ const ModuleDetail = () => {
                                 </div>
                               </div>
                             )}
-                          </CardContent>
-                        </Card>
-                      ))}
+                           </CardContent>
+                         </Card>
+                       </Link>
+                       ))}
                     </div>
                   ) : (
                     <Card>
