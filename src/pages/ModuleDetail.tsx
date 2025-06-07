@@ -122,40 +122,103 @@ const ModuleDetail = () => {
               </TabsList>
               
               <TabsContent value="lessons" className="space-y-6 mt-6">
+                {activeLesson && getActiveLesson() ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-xl">{getActiveLesson()?.title}</CardTitle>
+                      <div className="flex items-center text-sm text-muted-foreground">
+                        <Clock className="h-4 w-4 mr-1" />
+                        <span>{getActiveLesson()?.duration}</span>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="aspect-video bg-black rounded-lg mb-6 flex items-center justify-center text-white">
+                        <div className="text-center p-4">
+                          <Clock className="h-16 w-16 mx-auto mb-2 opacity-50" />
+                          <p>Video player would be embedded here</p>
+                          <p className="text-sm opacity-70 mt-1">Lesson: {getActiveLesson()?.title}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="prose max-w-none">
+                        <h3 className="text-lg font-semibold mb-2">Lesson Description</h3>
+                        <p>{getActiveLesson()?.description}</p>
+                        
+                        <h3 className="text-lg font-semibold mt-6 mb-2">Lesson Content</h3>
+                        <p>{getActiveLesson()?.content}</p>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="justify-between">
+                      <div>
+                        {module.lessons.indexOf(getActiveLesson()!) > 0 && (
+                          <Button 
+                            variant="outline" 
+                            onClick={() => setActiveLesson(module.lessons[module.lessons.indexOf(getActiveLesson()!) - 1].id)}
+                          >
+                            Previous Lesson
+                          </Button>
+                        )}
+                      </div>
+                      <div className="space-x-2">
+                        {!getActiveLesson()?.completed && (
+                          <Button onClick={() => handleMarkComplete(getActiveLesson()!.id)}>
+                            <CheckCircle className="h-4 w-4 mr-2" />
+                            Mark as Complete
+                          </Button>
+                        )}
+                        
+                        {module.lessons.indexOf(getActiveLesson()!) < module.lessons.length - 1 && (
+                          <Button 
+                            variant={getActiveLesson()?.completed ? "default" : "secondary"}
+                            onClick={() => setActiveLesson(module.lessons[module.lessons.indexOf(getActiveLesson()!) + 1].id)}
+                          >
+                            Next Lesson
+                          </Button>
+                        )}
+                      </div>
+                    </CardFooter>
+                  </Card>
+                ) : (
+                  <Card>
+                    <CardContent className="py-10 text-center">
+                      <p className="text-muted-foreground">No lessons available in this module.</p>
+                    </CardContent>
+                  </Card>
+                )}
+                
                 <div>
-                  <h3 className="text-lg font-semibold mb-4">Module Lessons</h3>
+                  <h3 className="text-lg font-semibold mb-4">All Lessons</h3>
                   <div className="space-y-3">
                     {module.lessons.map((lesson) => (
-                      <Link 
+                      <Card 
                         key={lesson.id} 
-                        to={`/courses/${courseId}/modules/${moduleId}/lessons/${lesson.id}`}
+                        className={`cursor-pointer ${activeLesson === lesson.id ? 'border-primary' : ''}`}
+                        onClick={() => setActiveLesson(lesson.id)}
                       >
-                        <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                          <CardContent className="p-4 flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
-                                <Book className="h-5 w-5" />
-                              </div>
-                              <div>
-                                <h4 className="font-medium">{lesson.title}</h4>
-                                <div className="flex items-center text-sm text-muted-foreground">
-                                  <Clock className="h-3 w-3 mr-1" />
-                                  <span>{lesson.duration}</span>
-                                </div>
+                        <CardContent className="p-4 flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-secondary text-foreground">
+                              <Book className="h-5 w-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-medium">{lesson.title}</h4>
+                              <div className="flex items-center text-sm text-muted-foreground">
+                                <Clock className="h-3 w-3 mr-1" />
+                                <span>{lesson.duration}</span>
                               </div>
                             </div>
-                            
-                            {lesson.completed ? (
-                              <Badge className="bg-green-500 text-white hover:bg-green-600">
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Completed
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline">Not Completed</Badge>
-                            )}
-                          </CardContent>
-                        </Card>
-                      </Link>
+                          </div>
+                          
+                          {lesson.completed ? (
+                            <Badge className="bg-green-500 text-white hover:bg-green-600">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Completed
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">Not Completed</Badge>
+                          )}
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 </div>
@@ -168,38 +231,76 @@ const ModuleDetail = () => {
                   {module.assignments.length > 0 ? (
                     <div className="space-y-6">
                       {module.assignments.map((assignment) => (
-                        <Link 
-                          key={assignment.id} 
-                          to={`/courses/${courseId}/modules/${moduleId}/assignments/${assignment.id}`}
-                        >
-                          <Card className="hover:bg-muted/50 transition-colors cursor-pointer">
-                            <CardHeader>
-                              <div className="flex items-center justify-between">
-                                <CardTitle className="text-xl">{assignment.title}</CardTitle>
-                                <Badge variant={
-                                  assignment.status === 'Graded' ? 'default' :
-                                  assignment.status === 'Submitted' ? 'secondary' :
-                                  assignment.status === 'In Progress' ? 'outline' : 'outline'
-                                }>
-                                  {assignment.status}
-                                </Badge>
+                        <Card key={assignment.id}>
+                          <CardHeader>
+                            <div className="flex items-center justify-between">
+                              <CardTitle className="text-xl">{assignment.title}</CardTitle>
+                              <Badge variant={
+                                assignment.status === 'Graded' ? 'default' :
+                                assignment.status === 'Submitted' ? 'secondary' :
+                                assignment.status === 'In Progress' ? 'outline' : 'outline'
+                              }>
+                                {assignment.status}
+                              </Badge>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-4">
+                            <div>
+                              <h4 className="font-medium mb-1">Assignment Description</h4>
+                              <p className="text-muted-foreground">{assignment.description}</p>
+                            </div>
+                            
+                            <div className="flex items-center justify-between text-sm">
+                              <div className="flex items-center">
+                                <Clock className="h-4 w-4 mr-1" />
+                                <span>Due: {new Date(assignment.dueDate || '').toLocaleDateString()}</span>
                               </div>
-                            </CardHeader>
-                            <CardContent>
-                              <p className="text-muted-foreground mb-4">{assignment.description}</p>
-                              
-                              <div className="flex items-center justify-between text-sm">
-                                <div className="flex items-center">
-                                  <Clock className="h-4 w-4 mr-1" />
-                                  <span>Due: {new Date(assignment.dueDate || '').toLocaleDateString()}</span>
-                                </div>
-                                <div>
-                                  <span>Points: {assignment.points}</span>
+                              <div>
+                                <span>Points: {assignment.points}</span>
+                              </div>
+                            </div>
+                            
+                            {assignment.status === 'Graded' || assignment.status === 'Submitted' ? (
+                              <div className="bg-secondary p-4 rounded-lg">
+                                <h4 className="font-medium mb-2">Your Submission</h4>
+                                <p className="text-sm">{assignment.submission?.content}</p>
+                                
+                                {assignment.status === 'Graded' && (
+                                  <div className="mt-4 pt-4 border-t">
+                                    <div className="flex justify-between mb-2">
+                                      <h4 className="font-medium">Feedback</h4>
+                                      <span className="font-medium">{assignment.submission?.grade} / {assignment.points}</span>
+                                    </div>
+                                    <p className="text-sm">{assignment.submission?.feedback}</p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="space-y-3">
+                                <Textarea 
+                                  placeholder="Enter your submission here..." 
+                                  className="min-h-[150px]"
+                                  value={assignmentSubmission}
+                                  onChange={(e) => setAssignmentSubmission(e.target.value)}
+                                />
+                                
+                                <div className="flex items-center gap-2">
+                                  <Button variant="outline" className="flex-1">
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Attach Files
+                                  </Button>
+                                  <Button 
+                                    className="flex-1"
+                                    onClick={() => handleSubmitAssignment(assignment.id)}
+                                    disabled={submitting}
+                                  >
+                                    {submitting ? "Submitting..." : "Submit Assignment"}
+                                  </Button>
                                 </div>
                               </div>
-                            </CardContent>
-                          </Card>
-                        </Link>
+                            )}
+                          </CardContent>
+                        </Card>
                       ))}
                     </div>
                   ) : (
