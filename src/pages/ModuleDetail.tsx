@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import AppLayout from '@/components/layout/AppLayout';
-import { mockService } from '@/lib/mockData';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,10 +18,80 @@ const ModuleDetail = () => {
   const [activeLesson, setActiveLesson] = useState<string | null>(null);
   const [assignmentSubmission, setAssignmentSubmission] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [course, setCourse] = useState<any>(null);
+  const [module, setModule] = useState<any>(null);
+  const [modules, setModules] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!courseId || !moduleId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Fetch course data
+        const { data: courseData, error: courseError } = await supabase
+          .from('courses')
+          .select('*')
+          .eq('id', courseId)
+          .single();
+
+        if (courseError) throw courseError;
+
+        // Fetch module data
+        const { data: moduleData, error: moduleError } = await supabase
+          .from('modules')
+          .select('*')
+          .eq('id', moduleId)
+          .single();
+
+        if (moduleError) throw moduleError;
+
+        // Fetch all modules for navigation
+        const { data: modulesData, error: modulesError } = await supabase
+          .from('modules')
+          .select('*')
+          .eq('course_id', courseId)
+          .order('week', { ascending: true });
+
+        if (modulesError) throw modulesError;
+
+        setCourse(courseData);
+        setModules(modulesData || []);
+        setModule({
+          ...moduleData,
+          lessons: [], // Mock data for now
+          assignments: [], // Mock data for now
+          quizzes: [], // Mock data for now
+          completionStatus: 0
+        });
+      } catch (error) {
+        console.error('Error fetching data:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load module data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [courseId, moduleId, toast]);
   
-  const course = mockService.getCourseById(courseId || '');
-  const module = mockService.getModuleById(moduleId || '');
-  
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </AppLayout>
+    );
+  }
+
   if (!course || !module) {
     return (
       <AppLayout>
@@ -497,19 +567,19 @@ const ModuleDetail = () => {
               <CardHeader>
                 <CardTitle className="text-lg">Course Navigation</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <h3 className="font-medium text-sm mb-2">Course Modules</h3>
-                {course.modules.map((m) => (
-                  <Link key={m.id} to={`/courses/${courseId}/modules/${m.id}`}>
-                    <div className={`flex items-center justify-between p-2 rounded-md text-sm hover:bg-secondary ${m.id === moduleId ? 'bg-secondary' : ''}`}>
-                      <span>{m.title}</span>
-                      <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                        {m.week}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </CardContent>
+               <CardContent className="space-y-3">
+                 <h3 className="font-medium text-sm mb-2">Course Modules</h3>
+                 {modules.map((m) => (
+                   <Link key={m.id} to={`/courses/${courseId}/modules/${m.id}`}>
+                     <div className={`flex items-center justify-between p-2 rounded-md text-sm hover:bg-secondary ${m.id === moduleId ? 'bg-secondary' : ''}`}>
+                       <span>{m.title}</span>
+                       <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                         {m.week}
+                       </div>
+                     </div>
+                   </Link>
+                 ))}
+               </CardContent>
             </Card>
           </div>
         </div>
