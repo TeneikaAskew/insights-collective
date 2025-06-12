@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Check, SkipForward } from 'lucide-react';
@@ -25,85 +24,73 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
 
   const [targetElement, setTargetElement] = useState<HTMLElement | null>(null);
   const [overlayPosition, setOverlayPosition] = useState({ top: 0, left: 0 });
+  const [elementNotFound, setElementNotFound] = useState(false);
 
   const tour = onboardingTours[tourId];
   const currentStepData = tour?.steps[currentStep];
   
-  // Debug logging
-  console.log(`Onboarding: Render - Tour: ${currentTour}, Step: ${currentStep}/${tour?.steps.length}, Active: ${isOnboardingActive}`);
-
   useEffect(() => {
-    console.log(`Onboarding: useEffect triggered - Step: ${currentStep}, Target: ${currentStepData?.target}, Active: ${isOnboardingActive}, Tour: ${currentTour}`);
-    
     if (currentStepData?.target && isOnboardingActive && currentTour === tourId) {
-      // Add a small delay to ensure DOM elements are ready
-      const timer = setTimeout(() => {
+      let retryCount = 0;
+      const maxRetries = 5;
+      
+      const findElement = () => {
         const element = document.querySelector(currentStepData.target) as HTMLElement;
-        console.log(`Onboarding: Looking for element "${currentStepData.target}"`, element);
-        
-        // Debug: Check all available data-tour elements
-        const allTourElements = document.querySelectorAll('[data-tour]');
-        console.log('Onboarding: All available data-tour elements:', Array.from(allTourElements).map(el => el.getAttribute('data-tour')));
         
         if (element) {
           setTargetElement(element);
+          setElementNotFound(false);
           
-          // Check if element is visible
-          const rect = element.getBoundingClientRect();
-          const isVisible = rect.width > 0 && rect.height > 0;
-          console.log(`Onboarding: Element visibility check`, { isVisible, rect });
-          
-          // Scroll element into view first
+          // Scroll element into view
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
           
-          // Wait for scroll to complete before positioning
+          // Position overlay after scroll
           setTimeout(() => {
             try {
-              const newRect = element.getBoundingClientRect();
+              const rect = element.getBoundingClientRect();
               const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
               const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
               
-              console.log(`Onboarding: Positioning element for step ${currentStep + 1}`, { newRect, scrollTop, scrollLeft });
-              
               setOverlayPosition({
-                top: newRect.top + scrollTop,
-                left: newRect.left + scrollLeft,
+                top: rect.top + scrollTop,
+                left: rect.left + scrollLeft,
               });
               
-              // Execute the step action if it exists
+              // Execute step action if exists
               if (currentStepData.action) {
                 currentStepData.action();
               }
             } catch (error) {
               console.error('Onboarding: Error positioning element', error);
             }
-          }, 800); // Increased wait time for scroll completion
+          }, 800);
         } else {
-          console.warn(`Onboarding: Element not found for selector "${currentStepData.target}"`);
-          setTargetElement(null);
+          retryCount++;
+          if (retryCount < maxRetries) {
+            // Retry after a delay
+            setTimeout(findElement, 500);
+          } else {
+            console.warn(`Onboarding: Element not found after ${maxRetries} attempts: "${currentStepData.target}"`);
+            setElementNotFound(true);
+            setTargetElement(null);
+          }
         }
-      }, 200); // Slightly longer initial delay
+      };
       
-      return () => clearTimeout(timer);
+      // Initial delay to allow DOM to render
+      setTimeout(findElement, 200);
     } else {
-      console.log('Onboarding: Clearing target element');
       setTargetElement(null);
+      setElementNotFound(false);
     }
   }, [currentStep, currentStepData, isOnboardingActive, currentTour, tourId]);
 
   const handleNext = () => {
-    console.log(`Onboarding: handleNext called. Current step: ${currentStep}, Total steps: ${tour?.steps.length}`);
-    
-    if (!tour) {
-      console.error('Onboarding: No tour found');
-      return;
-    }
+    if (!tour) return;
     
     if (currentStep < tour.steps.length - 1) {
-      console.log(`Onboarding: Moving to next step: ${currentStep + 1}`);
       nextStep();
     } else {
-      console.log('Onboarding: Completing tour');
       completeTour();
     }
   };
@@ -119,8 +106,8 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
   };
 
   const getTooltipPosition = () => {
-    // Always show tooltip in center if no target element or position
-    if (!targetElement || !currentStepData?.position) {
+    // Show tooltip in center if no target element or position
+    if (!targetElement || !currentStepData?.position || elementNotFound) {
       return { 
         top: '50%', 
         left: '50%', 
@@ -135,7 +122,6 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
     const viewportHeight = window.innerHeight;
     const viewportWidth = window.innerWidth;
     
-    // Calculate base position
     let position: any = {};
 
     switch (currentStepData.position) {
@@ -175,7 +161,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
         };
     }
 
-    // Ensure tooltip stays within viewport bounds
+    // Keep tooltip within viewport bounds
     if (position.left < 0) position.left = 20;
     if (position.left > viewportWidth - 400) position.left = viewportWidth - 420;
     if (position.top < 0) position.top = 20;
@@ -199,7 +185,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
       />
 
       {/* Highlight overlay for target element */}
-      {targetElement && currentStepData.highlight && (
+      {targetElement && currentStepData.highlight && !elementNotFound && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -245,6 +231,12 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ tourId }) => {
 
             <h3 className="font-semibold text-sm mb-2">{currentStepData.title}</h3>
             <p className="text-sm text-muted-foreground mb-4">{currentStepData.description}</p>
+
+            {elementNotFound && (
+              <div className="mb-4 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs text-yellow-800">
+                Section not currently visible. You can continue the tour or skip to explore on your own.
+              </div>
+            )}
 
             <div className="flex items-center justify-between gap-2">
               <div className="flex gap-1">

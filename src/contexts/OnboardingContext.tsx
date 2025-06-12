@@ -96,7 +96,6 @@ export const OnboardingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const skipTour = () => {
-    console.log('[OnboardingContext] skipTour called');
     setIsFirstVisit(false);
     setIsOnboardingActive(false);
     

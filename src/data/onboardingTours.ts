@@ -1,3 +1,4 @@
+
 export interface OnboardingStep {
   id: string;
   title: string;
@@ -44,10 +45,34 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         highlight: true
       },
       {
+        id: 'interactive-showcase',
+        title: 'Interactive Learning Experience',
+        description: 'Explore our hands-on learning approach with interactive content and real-world projects.',
+        target: '[data-tour="interactiveShowcase"]',
+        position: 'top',
+        highlight: true
+      },
+      {
         id: 'features',
         title: 'Platform Features',
         description: 'Explore our comprehensive suite of tools designed to accelerate your data career.',
         target: '[data-tour="features"]',
+        position: 'top',
+        highlight: true
+      },
+      {
+        id: 'blueprint',
+        title: 'Data Blueprint Series',
+        description: 'Follow our structured learning path with our comprehensive data science blueprint.',
+        target: '[data-tour="blueprint"]',
+        position: 'top',
+        highlight: true
+      },
+      {
+        id: 'learning-journey',
+        title: 'Your Learning Journey',
+        description: 'Track your progress and see how far you\'ve come in your data science career.',
+        target: '[data-tour="journey"]',
         position: 'top',
         highlight: true
       },
@@ -64,6 +89,38 @@ export const onboardingTours: Record<string, OnboardingTour> = {
         title: 'Career Tools',
         description: 'Use our AI-powered tools for resume analysis, interview prep, and career guidance.',
         target: '[data-tour="tools"]',
+        position: 'top',
+        highlight: true
+      },
+      {
+        id: 'analytics',
+        title: 'Progress Analytics',
+        description: 'Monitor your learning progress with detailed analytics and insights.',
+        target: '[data-tour="analytics"]',
+        position: 'top',
+        highlight: true
+      },
+      {
+        id: 'community',
+        title: 'Join Our Community',
+        description: 'Connect with other data professionals and learn from their experiences.',
+        target: '[data-tour="communityShowcase"]',
+        position: 'top',
+        highlight: true
+      },
+      {
+        id: 'events',
+        title: 'Upcoming Events',
+        description: 'Stay updated with workshops, webinars, and networking events in the data community.',
+        target: '[data-tour="events"]',
+        position: 'top',
+        highlight: true
+      },
+      {
+        id: 'get-started',
+        title: 'Ready to Begin?',
+        description: 'Take the first step towards your data career transformation. Click below to get started!',
+        target: '[data-tour="cta"]',
         position: 'top',
         highlight: true
       }
