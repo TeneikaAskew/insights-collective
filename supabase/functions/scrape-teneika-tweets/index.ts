@@ -71,25 +71,60 @@ async function fetchTweets(userId: string, sinceId?: string): Promise<any[]> {
   console.log('Request URL:', url)
   console.log('Since ID:', sinceId)
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${BEARER_TOKEN}`,
-      'Content-Type': 'application/json',
-    },
-  });
+  let retries = 0
+  const maxRetries = 3
+  
+  while (retries < maxRetries) {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${BEARER_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+      });
 
-  console.log('Response status:', response.status)
+      console.log('Response status:', response.status)
 
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('Error response:', errorText)
-    throw new Error(`Failed to fetch tweets: ${response.status} ${errorText}`)
+      if (response.status === 429) {
+        // Rate limited - wait and retry
+        const retryAfter = parseInt(response.headers.get('x-rate-limit-reset') || '900')
+        console.log(`Rate limited. Retrying after ${retryAfter} seconds`)
+        await new Promise(resolve => setTimeout(resolve, Math.min(retryAfter * 1000, 60000))) // Max 1 minute wait
+        retries++
+        continue
+      }
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        
+        if (retries < maxRetries - 1) {
+          console.log(`Retrying... Attempt ${retries + 1}/${maxRetries}`)
+          retries++
+          await new Promise(resolve => setTimeout(resolve, 2000 * (retries))) // Exponential backoff
+          continue
+        }
+        
+        throw new Error(`Failed to fetch tweets: ${response.status} ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log('Tweets data:', data)
+      return data.data || []
+      
+    } catch (error) {
+      if (retries < maxRetries - 1) {
+        console.log(`Request failed, retrying... Attempt ${retries + 1}/${maxRetries}`, error)
+        retries++
+        await new Promise(resolve => setTimeout(resolve, 2000 * retries))
+        continue
+      }
+      throw error
+    }
   }
-
-  const data = await response.json()
-  console.log('Tweets data:', data)
-  return data.data || []
+  
+  return []
 }
 
 async function getLastScrapedTweetId(): Promise<string | null> {
@@ -97,7 +132,7 @@ async function getLastScrapedTweetId(): Promise<string | null> {
     .from('scrape_metadata')
     .select('value')
     .eq('key', 'last_scraped_tweet_id')
-    .single()
+    .maybeSingle()
 
   if (error && error.code !== 'PGRST116') { // Not found error is OK
     console.error('Error getting last scraped tweet ID:', error)
@@ -108,17 +143,51 @@ async function getLastScrapedTweetId(): Promise<string | null> {
 }
 
 async function updateLastScrapedTweetId(tweetId: string): Promise<void> {
-  const { error } = await supabase
+  console.log(`Updating last scraped tweet ID to: ${tweetId}`)
+  
+  // First try to update existing record
+  const { data: updateData, error: updateError } = await supabase
     .from('scrape_metadata')
-    .upsert({
-      key: 'last_scraped_tweet_id',
-      value: tweetId
-    })
+    .update({ value: tweetId, updated_at: new Date().toISOString() })
+    .eq('key', 'last_scraped_tweet_id')
+    .select()
 
-  if (error) {
-    console.error('Error updating last scraped tweet ID:', error)
-    throw error
+  if (updateError) {
+    console.error('Error updating last scraped tweet ID:', updateError)
+    throw updateError
   }
+
+  // If no rows were updated, insert a new record
+  if (!updateData || updateData.length === 0) {
+    console.log('No existing record found, inserting new one')
+    const { error: insertError } = await supabase
+      .from('scrape_metadata')
+      .insert({
+        key: 'last_scraped_tweet_id',
+        value: tweetId
+      })
+
+    if (insertError) {
+      // Check if it's a duplicate key error (race condition)
+      if (insertError.code === '23505') {
+        console.log('Duplicate key detected during insert, trying update again')
+        const { error: retryUpdateError } = await supabase
+          .from('scrape_metadata')
+          .update({ value: tweetId, updated_at: new Date().toISOString() })
+          .eq('key', 'last_scraped_tweet_id')
+        
+        if (retryUpdateError) {
+          console.error('Error on retry update:', retryUpdateError)
+          throw retryUpdateError
+        }
+      } else {
+        console.error('Error inserting last scraped tweet ID:', insertError)
+        throw insertError
+      }
+    }
+  }
+  
+  console.log('Successfully updated last scraped tweet ID')
 }
 
 async function storeTweets(tweets: any[], userInfo: any): Promise<void> {
@@ -156,10 +225,25 @@ async function storeTweets(tweets: any[], userInfo: any): Promise<void> {
   console.log(`Successfully stored ${tweetsToInsert.length} tweets`)
 }
 
-async function scrapeTweets(): Promise<{ newTweets: number; totalTweets: number }> {
+async function logCronExecution(jobName: string, success: boolean, responseData?: any, errorMessage?: string): Promise<void> {
+  try {
+    await supabase
+      .from('cron_job_logs')
+      .insert({
+        job_name: jobName,
+        success,
+        response_data: responseData || null,
+        error_message: errorMessage || null
+      })
+  } catch (error) {
+    console.error('Failed to log cron execution:', error)
+  }
+}
+
+async function scrapeTweets(isAutomated = false, source = 'manual'): Promise<{ newTweets: number; totalTweets: number }> {
   validateEnvironmentVariables()
 
-  console.log('Starting tweet scrape for', TARGET_USERNAME)
+  console.log(`Starting tweet scrape for ${TARGET_USERNAME} (${isAutomated ? 'automated' : 'manual'} - ${source})`)
 
   // Get user ID
   const userId = await getUserId(TARGET_USERNAME)
@@ -174,6 +258,7 @@ async function scrapeTweets(): Promise<{ newTweets: number; totalTweets: number 
   console.log(`Fetched ${tweets.length} tweets`)
 
   if (tweets.length === 0) {
+    console.log('No new tweets found')
     return { newTweets: 0, totalTweets: 0 }
   }
 
@@ -212,13 +297,24 @@ Deno.serve(async (req) => {
   try {
     console.log('Tweet scraping function called')
     
-    const result = await scrapeTweets()
+    const body = await req.json().catch(() => ({}))
+    const isAutomated = body.automated || false
+    const source = body.source || 'manual'
+    
+    const result = await scrapeTweets(isAutomated, source)
+    
+    // Log cron execution if automated
+    if (isAutomated) {
+      await logCronExecution('daily-tweet-scraper', true, result)
+    }
     
     return new Response(
       JSON.stringify({
         success: true,
         message: `Scraped ${result.newTweets} new tweets. Total tweets: ${result.totalTweets}`,
-        data: result
+        data: result,
+        automated: isAutomated,
+        source: source
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -228,11 +324,19 @@ Deno.serve(async (req) => {
   } catch (error: any) {
     console.error('Error in tweet scraping:', error)
     
+    // Log cron execution failure if automated
+    const body = await req.json().catch(() => ({}))
+    if (body.automated) {
+      await logCronExecution('daily-tweet-scraper', false, null, error.message)
+    }
+    
     return new Response(
       JSON.stringify({
         success: false,
         error: error.message,
-        details: error.stack
+        details: error.stack,
+        automated: body.automated || false,
+        source: body.source || 'manual'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
