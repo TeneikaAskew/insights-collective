@@ -1,103 +1,65 @@
 
-import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Table,
   TableBody,
-  TableCaption,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Search, Pencil, Plus } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { Course } from '@/types';
+import { useCoursesManagement } from '@/hooks/useCoursesManagement';
 import AppLayout from '@/components/layout/AppLayout';
+import { Spinner } from '@/components/ui/spinner';
+import { useState } from 'react';
 
 const CourseManagementDashboard = () => {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const { courses, loading } = useCoursesManagement();
   const [searchQuery, setSearchQuery] = useState('');
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('courses')
-          .select(`
-            *,
-            instructor:profiles(
-              id,
-              first_name,
-              last_name
-            )
-          `)
-          .order('created_at', { ascending: false });
-
-        if (error) {
-          console.error('Error fetching courses:', error);
-          return;
-        }
-
-        // Transform database fields (snake_case) to frontend model (camelCase)
-        const transformedCourses = data.map(course => ({
-          ...course,
-          id: course.id,
-          title: course.title,
-          description: course.description,
-          category: course.category,
-          level: course.level,
-          imageUrl: course.image_url,
-          published: course.published,
-          instructor: course.instructor ? {
-            id: course.instructor.id,
-            firstName: course.instructor.first_name,
-            lastName: course.instructor.last_name,
-            name: `${course.instructor.first_name || ''} ${course.instructor.last_name || ''}`.trim(),
-          } : null,
-          createdAt: course.created_at,
-          // Add other fields as needed
-        }));
-
-        setCourses(transformedCourses);
-      } catch (error) {
-        console.error('Error fetching courses:', error);
-      }
-    };
-
-    fetchCourses();
-  }, []);
 
   const filteredCourses = courses.filter((course) =>
     course.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  if (loading) {
+    return (
+      <AppLayout>
+        <div className="flex justify-center items-center h-[50vh]">
+          <Spinner size="lg" />
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Courses</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Course Management</h1>
             <p className="text-muted-foreground">Manage your courses here.</p>
           </div>
-          <Button onClick={() => navigate('/admin/courses/new')}>
+          <Button onClick={() => navigate('/admin/courses')}>
             <Plus className="h-4 w-4 mr-2" />
-            Create Course
+            View All Courses
           </Button>
         </div>
 
         <div>
-          <Input
-            placeholder="Search courses..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="max-w-sm"
-          />
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search courses..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
         </div>
 
         <div className="rounded-md border">
@@ -108,6 +70,7 @@ const CourseManagementDashboard = () => {
                 <TableHead>Category</TableHead>
                 <TableHead>Level</TableHead>
                 <TableHead>Instructor</TableHead>
+                <TableHead>Students</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -116,23 +79,24 @@ const CourseManagementDashboard = () => {
             <TableBody>
               {filteredCourses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                  <TableCell colSpan={8} className="text-center py-4 text-muted-foreground">
                     No courses found.
                   </TableCell>
                 </TableRow>
               ) : (
                 filteredCourses.map((course) => (
                   <TableRow key={course.id}>
-                    <TableCell>{course.title}</TableCell>
+                    <TableCell className="font-medium">{course.title}</TableCell>
                     <TableCell>{course.category}</TableCell>
                     <TableCell>{course.level}</TableCell>
                     <TableCell>
                       {course.instructor ? (
-                        <span>{course.instructor.firstName} {course.instructor.lastName}</span>
+                        <span>{course.instructor.name}</span>
                       ) : (
                         <span className="text-muted-foreground">Unassigned</span>
                       )}
                     </TableCell>
+                    <TableCell>{course.enrollmentCount || 0}</TableCell>
                     <TableCell>
                       {course.published ? (
                         <Badge>Published</Badge>
@@ -140,15 +104,15 @@ const CourseManagementDashboard = () => {
                         <Badge variant="secondary">Draft</Badge>
                       )}
                     </TableCell>
-                    <TableCell>{new Date(course.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(course.created_at).toLocaleDateString()}</TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => navigate(`/admin/courses/${course.id}/edit`)}
+                        onClick={() => navigate(`/course-management?courseId=${course.id}`)}
                       >
                         <Pencil className="h-4 w-4 mr-2" />
-                        Edit
+                        Manage
                       </Button>
                     </TableCell>
                   </TableRow>

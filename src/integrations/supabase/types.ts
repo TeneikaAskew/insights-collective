@@ -574,6 +574,38 @@ export type Database = {
           },
         ]
       }
+      course_instructors: {
+        Row: {
+          course_id: string | null
+          created_at: string | null
+          id: string
+          role: string | null
+          user_id: string
+        }
+        Insert: {
+          course_id?: string | null
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          user_id: string
+        }
+        Update: {
+          course_id?: string | null
+          created_at?: string | null
+          id?: string
+          role?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "course_instructors_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       course_wishlists: {
         Row: {
           course_id: string
@@ -609,12 +641,14 @@ export type Database = {
           created_at: string | null
           description: string
           duration: string | null
+          enrollment_count: number | null
           enrollment_status: string | null
           id: string
           image_url: string | null
           instructor_id: string | null
           level: string
           published: boolean | null
+          status: string | null
           tags: string[] | null
           thumbnail: string | null
           title: string
@@ -625,12 +659,14 @@ export type Database = {
           created_at?: string | null
           description: string
           duration?: string | null
+          enrollment_count?: number | null
           enrollment_status?: string | null
           id?: string
           image_url?: string | null
           instructor_id?: string | null
           level: string
           published?: boolean | null
+          status?: string | null
           tags?: string[] | null
           thumbnail?: string | null
           title: string
@@ -641,12 +677,14 @@ export type Database = {
           created_at?: string | null
           description?: string
           duration?: string | null
+          enrollment_count?: number | null
           enrollment_status?: string | null
           id?: string
           image_url?: string | null
           instructor_id?: string | null
           level?: string
           published?: boolean | null
+          status?: string | null
           tags?: string[] | null
           thumbnail?: string | null
           title?: string
@@ -2152,6 +2190,13 @@ export type Database = {
       generate_initial_assistant_message: {
         Args: { quiz_attempt_id: string }
         Returns: string
+      }
+      get_course_stats: {
+        Args: { course_id_param: string }
+        Returns: {
+          enrollment_count: number
+          completion_rate: number
+        }[]
       }
       get_user_conversations: {
         Args: { user_id_param: string }
