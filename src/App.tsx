@@ -379,11 +379,9 @@ function App() {
                   <Route
                     path="/resources"
                     element={
-                      <ProtectedRoute>
-                        <PageVisibilityGuard>
-                          <Resources />
-                        </PageVisibilityGuard>
-                      </ProtectedRoute>
+                      <PageVisibilityGuard>
+                        <Resources />
+                      </PageVisibilityGuard>
                     }
                   />
                   
