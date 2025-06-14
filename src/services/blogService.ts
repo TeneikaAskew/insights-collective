@@ -1,20 +1,41 @@
+
 import { BlogPost, BlogFormData, BlogCategory, BlogAnalytics } from '@/types/blog';
 import { supabase } from '@/integrations/supabase/client';
 
-// Import the BlueprintEntries as initial data
-import { getBlueprintEntries } from './blueprintService';
-
+// Get all blog posts with real data from Supabase
 export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
   try {
-    // Use the blueprint entries instead of querying a non-existent table
-    const blueprintEntries = getBlueprintEntries();
-    
-    // Add status field to existing entries if not present
-    return blueprintEntries.map(entry => ({
-      ...entry,
-      status: entry.status || 'published',
-      views: entry.views || Math.floor(Math.random() * 500) + 50, // Mock data
-      readTime: entry.readTime || calculateReadTime(entry.content)
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select(`
+        *,
+        blog_categories!blog_posts_category_id_fkey(name),
+        blog_post_tags(tag_name),
+        profiles!blog_posts_author_id_fkey(first_name, last_name)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map(post => ({
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      excerpt: post.excerpt,
+      slug: post.slug,
+      publishedAt: post.published_at || post.created_at,
+      updatedAt: post.updated_at,
+      authorId: post.author_id,
+      authorName: post.profiles ? `${post.profiles.first_name} ${post.profiles.last_name}`.trim() : 'Unknown Author',
+      imageUrl: post.image_url,
+      tags: post.blog_post_tags?.map((tag: any) => tag.tag_name) || [],
+      category: post.blog_categories?.name || 'Uncategorized',
+      status: post.status as 'draft' | 'published' | 'archived',
+      featured: post.featured,
+      seoTitle: post.seo_title,
+      seoDescription: post.seo_description,
+      views: post.view_count,
+      readTime: post.read_time
     }));
   } catch (error) {
     console.error('Error fetching blog posts:', error);
@@ -22,91 +43,326 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
   }
 };
 
+// Get blog post by slug with real data
 export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> => {
   try {
-    // Use the blueprint entries
-    const blueprintEntries = getBlueprintEntries();
-    const blueprintPost = blueprintEntries.find(post => post.slug === slug);
+    const { data, error } = await supabase
+      .rpc('get_blog_post_with_tags', { post_slug: slug })
+      .single();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    // Get author information
+    const { data: authorData } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', data.author_id)
+      .single();
+
+    const post: BlogPost = {
+      id: data.id,
+      title: data.title,
+      content: data.content,
+      excerpt: data.excerpt,
+      slug: data.slug,
+      publishedAt: data.published_at || data.created_at,
+      updatedAt: data.updated_at,
+      authorId: data.author_id,
+      authorName: authorData ? `${authorData.first_name} ${authorData.last_name}`.trim() : 'Unknown Author',
+      imageUrl: data.image_url,
+      tags: data.tags || [],
+      category: data.category_name || 'Uncategorized',
+      status: data.status as 'draft' | 'published' | 'archived',
+      featured: data.featured,
+      seoTitle: data.seo_title,
+      seoDescription: data.seo_description,
+      views: data.view_count,
+      readTime: data.read_time
+    };
+
+    // Record a view for this post
+    recordBlogPostView(post.id, post.slug);
     
-    if (blueprintPost) {
-      // Add status field and other new fields if not present
-      const post = {
-        ...blueprintPost,
-        status: blueprintPost.status || 'published',
-        views: blueprintPost.views || Math.floor(Math.random() * 500) + 50, // Mock data
-        readTime: blueprintPost.readTime || calculateReadTime(blueprintPost.content)
-      };
-      
-      // Record a view for this post
-      recordBlogPostView(post.id, post.slug);
-      
-      return post;
-    }
-    
-    return null;
+    return post;
   } catch (error) {
     console.error(`Error fetching blog post with slug ${slug}:`, error);
     return null;
   }
 };
 
+// Create a new blog post
+export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost | null> => {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // Get category ID if category is provided
+    let categoryId = null;
+    if (blogPost.category) {
+      const { data: categoryData } = await supabase
+        .from('blog_categories')
+        .select('id')
+        .eq('name', blogPost.category)
+        .single();
+      categoryId = categoryData?.id;
+    }
+
+    // Calculate read time
+    const readTime = calculateReadTime(blogPost.content);
+
+    // Set published_at if status is published
+    const publishedAt = blogPost.status === 'published' ? new Date().toISOString() : null;
+
+    // Insert blog post
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .insert({
+        title: blogPost.title,
+        content: blogPost.content,
+        excerpt: blogPost.excerpt,
+        slug: blogPost.slug,
+        author_id: user.id,
+        image_url: blogPost.imageUrl,
+        status: blogPost.status || 'draft',
+        featured: blogPost.featured || false,
+        seo_title: blogPost.seoTitle,
+        seo_description: blogPost.seoDescription,
+        category_id: categoryId,
+        read_time: readTime,
+        published_at: publishedAt
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Insert tags if provided
+    if (blogPost.tags && blogPost.tags.length > 0) {
+      const tagInserts = blogPost.tags.map(tag => ({
+        blog_post_id: data.id,
+        tag_name: tag
+      }));
+
+      await supabase
+        .from('blog_post_tags')
+        .insert(tagInserts);
+    }
+
+    // Get author information for return
+    const { data: authorData } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', user.id)
+      .single();
+
+    return {
+      id: data.id,
+      title: data.title,
+      content: data.content,
+      excerpt: data.excerpt,
+      slug: data.slug,
+      publishedAt: data.published_at || data.created_at,
+      updatedAt: data.updated_at,
+      authorId: data.author_id,
+      authorName: authorData ? `${authorData.first_name} ${authorData.last_name}`.trim() : 'Unknown Author',
+      imageUrl: data.image_url,
+      tags: blogPost.tags || [],
+      category: blogPost.category || 'Uncategorized',
+      status: data.status as 'draft' | 'published' | 'archived',
+      featured: data.featured,
+      seoTitle: data.seo_title,
+      seoDescription: data.seo_description,
+      views: data.view_count,
+      readTime: data.read_time
+    };
+  } catch (error) {
+    console.error('Error creating blog post:', error);
+    return null;
+  }
+};
+
+// Update blog post
+export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Promise<BlogPost | null> => {
+  try {
+    // Get the existing post
+    const { data: existingPost, error: fetchError } = await supabase
+      .from('blog_posts')
+      .select('id, author_id, status')
+      .eq('slug', slug)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!existingPost) return null;
+
+    // Get category ID if category is provided
+    let categoryId = null;
+    if (blogPost.category) {
+      const { data: categoryData } = await supabase
+        .from('blog_categories')
+        .select('id')
+        .eq('name', blogPost.category)
+        .single();
+      categoryId = categoryData?.id;
+    }
+
+    // Calculate read time
+    const readTime = calculateReadTime(blogPost.content);
+
+    // Set published_at if status changed to published
+    let publishedAt = undefined;
+    if (blogPost.status === 'published' && existingPost.status !== 'published') {
+      publishedAt = new Date().toISOString();
+    }
+
+    // Update blog post
+    const updateData: any = {
+      title: blogPost.title,
+      content: blogPost.content,
+      excerpt: blogPost.excerpt,
+      slug: blogPost.slug,
+      image_url: blogPost.imageUrl,
+      status: blogPost.status || 'draft',
+      featured: blogPost.featured || false,
+      seo_title: blogPost.seoTitle,
+      seo_description: blogPost.seoDescription,
+      category_id: categoryId,
+      read_time: readTime
+    };
+
+    if (publishedAt) {
+      updateData.published_at = publishedAt;
+    }
+
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .update(updateData)
+      .eq('id', existingPost.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Update tags - delete existing and insert new ones
+    await supabase
+      .from('blog_post_tags')
+      .delete()
+      .eq('blog_post_id', existingPost.id);
+
+    if (blogPost.tags && blogPost.tags.length > 0) {
+      const tagInserts = blogPost.tags.map(tag => ({
+        blog_post_id: existingPost.id,
+        tag_name: tag
+      }));
+
+      await supabase
+        .from('blog_post_tags')
+        .insert(tagInserts);
+    }
+
+    // Get author information for return
+    const { data: authorData } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('id', data.author_id)
+      .single();
+
+    return {
+      id: data.id,
+      title: data.title,
+      content: data.content,
+      excerpt: data.excerpt,
+      slug: data.slug,
+      publishedAt: data.published_at || data.created_at,
+      updatedAt: data.updated_at,
+      authorId: data.author_id,
+      authorName: authorData ? `${authorData.first_name} ${authorData.last_name}`.trim() : 'Unknown Author',
+      imageUrl: data.image_url,
+      tags: blogPost.tags || [],
+      category: blogPost.category || 'Uncategorized',
+      status: data.status as 'draft' | 'published' | 'archived',
+      featured: data.featured,
+      seoTitle: data.seo_title,
+      seoDescription: data.seo_description,
+      views: data.view_count,
+      readTime: data.read_time
+    };
+  } catch (error) {
+    console.error('Error updating blog post:', error);
+    return null;
+  }
+};
+
+// Delete blog post
+export const deleteBlogPost = async (slug: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('blog_posts')
+      .delete()
+      .eq('slug', slug);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Error deleting blog post:', error);
+    return false;
+  }
+};
+
+// Get blog categories
+export const getBlogCategories = async (): Promise<BlogCategory[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('blog_categories')
+      .select(`
+        *,
+        blog_posts(count)
+      `)
+      .order('name');
+
+    if (error) throw error;
+
+    return (data || []).map(category => ({
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      count: category.blog_posts?.length || 0
+    }));
+  } catch (error) {
+    console.error('Error fetching blog categories:', error);
+    return [];
+  }
+};
+
 // Record a view for a blog post
 export const recordBlogPostView = async (postId: string, slug: string) => {
   try {
-    // Get client IP (or a hash) to count unique visitors
-    // In a real implementation, you'd use something like a hashed session ID
-    const visitorId = crypto.randomUUID(); // Mock unique visitor ID
+    const visitorId = crypto.randomUUID();
     
-    // Record the analytics event
     const { error } = await supabase
       .from('blog_post_views')
       .insert({
         post_id: postId,
         post_slug: slug,
         visitor_id: visitorId,
-        view_duration: 0, // This would be updated later
+        view_duration: 0,
         view_date: new Date().toISOString()
       });
     
     if (error) {
       console.error('Error recording blog post view:', error);
     }
+
+    // Update view count on the post
+    await supabase.rpc('increment', {
+      table_name: 'blog_posts',
+      row_id: postId,
+      column_name: 'view_count'
+    });
     
   } catch (error) {
     console.error('Error recording blog post view:', error);
   }
-};
-
-// Update the view duration - would be called when user leaves page
-export const updateViewDuration = async (viewId: string, durationSeconds: number) => {
-  try {
-    const { error } = await supabase
-      .from('blog_post_views')
-      .update({ view_duration: durationSeconds })
-      .eq('id', viewId);
-      
-    if (error) {
-      console.error('Error updating view duration:', error);
-    }
-  } catch (error) {
-    console.error('Error updating view duration:', error);
-  }
-};
-
-// Helper function to generate sample trend data
-const generateTrendData = (value: number, min: number, max: number, isPositiveBetter = true) => {
-  const percentChange = Math.random() * 20 - 10; // Random percent between -10% and +10%
-  const direction: 'up' | 'down' | 'neutral' = 
-    percentChange > 1 ? 'up' :
-    percentChange < -1 ? 'down' : 'neutral';
-  
-  const isGood = (direction === 'up' && isPositiveBetter) || (direction === 'down' && !isPositiveBetter);
-  
-  return {
-    direction,
-    value: `${Math.abs(percentChange).toFixed(1)}% from last period`,
-    isPositive: isGood
-  };
 };
 
 // Get blog post analytics
@@ -115,40 +371,56 @@ export const getBlogPostAnalytics = async (
   timeframe: '7d' | '30d' | '90d' | 'all' = '30d'
 ): Promise<BlogAnalytics> => {
   try {
-    // In a real implementation, this would fetch actual data from the database
-    // For now, generate sample data
+    let query = supabase
+      .from('blog_post_views')
+      .select('*');
+
+    if (slug) {
+      query = query.eq('post_slug', slug);
+    }
+
+    // Apply timeframe filter
+    const now = new Date();
+    let startDate: Date;
     
-    // Sample analytics data
-    const baseViews = slug ? Math.floor(Math.random() * 2000) + 100 : Math.floor(Math.random() * 10000) + 1000;
-    const baseVisitors = Math.floor(baseViews * (0.6 + Math.random() * 0.3)); // 60-90% of views
-    const baseTimeOnPage = Math.floor(Math.random() * 120) + 30; // 30-150 seconds
-    const baseConversionRate = Math.random() * 5 + 1; // 1-6%
-    const baseBounceRate = Math.random() * 30 + 30; // 30-60%
-    
-    // Apply timeframe factor
-    const timeframeFactor = timeframe === '7d' ? 0.3 : 
-                           timeframe === '30d' ? 1 : 
-                           timeframe === '90d' ? 2.5 : 3.5;
-    
-    const analytics: BlogAnalytics = {
-      views: Math.floor(baseViews * timeframeFactor),
-      uniqueVisitors: Math.floor(baseVisitors * timeframeFactor),
-      averageTimeOnPage: baseTimeOnPage,
-      bounceRate: baseBounceRate,
-      conversionRate: baseConversionRate,
-      // Add trend data
-      viewsTrend: generateTrendData(baseViews, 500, 10000, true),
-      visitorsTrend: generateTrendData(baseVisitors, 300, 7000, true),
-      timeTrend: generateTrendData(baseTimeOnPage, 30, 150, true),
-      conversionTrend: generateTrendData(baseConversionRate, 1, 6, true),
-      bounceTrend: generateTrendData(baseBounceRate, 30, 60, false),
+    switch (timeframe) {
+      case '7d':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case '30d':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      case '90d':
+        startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(0); // All time
+    }
+
+    if (timeframe !== 'all') {
+      query = query.gte('view_date', startDate.toISOString());
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    const views = data?.length || 0;
+    const uniqueVisitors = new Set(data?.map(view => view.visitor_id)).size;
+    const averageTimeOnPage = data?.length > 0 
+      ? data.reduce((sum, view) => sum + (view.view_duration || 0), 0) / data.length 
+      : 0;
+
+    return {
+      views,
+      uniqueVisitors,
+      averageTimeOnPage,
+      bounceRate: Math.random() * 30 + 30, // Mock data for now
+      conversionRate: Math.random() * 5 + 1, // Mock data for now
     };
-    
-    return analytics;
   } catch (error) {
     console.error('Error fetching blog post analytics:', error);
     
-    // Return default values if there's an error
     return {
       views: 0,
       uniqueVisitors: 0,
@@ -159,132 +431,26 @@ export const getBlogPostAnalytics = async (
   }
 };
 
-export const createBlogPost = async (blogPost: BlogFormData): Promise<BlogPost | null> => {
-  try {
-    // Generate a mock ID
-    const mockId = `temp-${Date.now()}`;
-    
-    // Calculate read time
-    const readTime = calculateReadTime(blogPost.content);
-    
-    // Return the created post with the mock ID
-    const newPost: BlogPost = {
-      id: mockId,
-      publishedAt: new Date().toISOString(),
-      views: 0,
-      readTime,
-      ...blogPost,
-      status: blogPost.status || 'draft'
-    };
-    
-    console.log('Creating blog post:', newPost);
-    return newPost;
-  } catch (error) {
-    console.error('Error creating blog post:', error);
-    return null;
-  }
-};
-
-export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Promise<BlogPost | null> => {
-  try {
-    // Get the existing post
-    const existingPost = await getBlogPostBySlug(slug);
-    
-    if (!existingPost) {
-      console.error(`Blog post with slug ${slug} not found`);
-      return null;
-    }
-    
-    // Update the blog post
-    const updatedPost: BlogPost = {
-      ...existingPost,
-      ...blogPost,
-      updatedAt: new Date().toISOString(),
-      readTime: calculateReadTime(blogPost.content)
-    };
-    
-    console.log('Updating blog post:', updatedPost);
-    return updatedPost;
-  } catch (error) {
-    console.error('Error updating blog post:', error);
-    return null;
-  }
-};
-
-export const deleteBlogPost = async (slug: string): Promise<boolean> => {
-  try {
-    // In a real implementation, this would delete from the database
-    console.log(`Deleting blog post with slug: ${slug}`);
-    return true;
-  } catch (error) {
-    console.error('Error deleting blog post:', error);
-    return false;
-  }
-};
-
-export const getBlogCategories = async (): Promise<BlogCategory[]> => {
-  try {
-    const posts = await getAllBlogPosts();
-    
-    // Extract unique categories
-    const categoriesMap = posts.reduce((acc, post) => {
-      const category = post.category || 'Uncategorized';
-      
-      if (!acc[category]) {
-        acc[category] = {
-          name: category,
-          slug: category.toLowerCase().replace(/\s+/g, '-'),
-          count: 1
-        };
-      } else {
-        acc[category].count = (acc[category].count || 0) + 1;
-      }
-      
-      return acc;
-    }, {} as Record<string, BlogCategory>);
-    
-    return Object.values(categoriesMap);
-  } catch (error) {
-    console.error('Error fetching blog categories:', error);
-    return [];
-  }
-};
-
+// Helper functions
 export const getBlogPostsByCategory = async (category: string): Promise<BlogPost[]> => {
-  try {
-    const posts = await getAllBlogPosts();
-    return posts.filter(post => 
-      (post.category || 'Uncategorized').toLowerCase() === category.toLowerCase()
-    );
-  } catch (error) {
-    console.error(`Error fetching blog posts for category ${category}:`, error);
-    return [];
-  }
+  const posts = await getAllBlogPosts();
+  return posts.filter(post => 
+    post.category?.toLowerCase() === category.toLowerCase()
+  );
 };
 
 export const getBlogPostsByTag = async (tag: string): Promise<BlogPost[]> => {
-  try {
-    const posts = await getAllBlogPosts();
-    return posts.filter(post => 
-      post.tags && post.tags.some(t => t.toLowerCase() === tag.toLowerCase())
-    );
-  } catch (error) {
-    console.error(`Error fetching blog posts for tag ${tag}:`, error);
-    return [];
-  }
+  const posts = await getAllBlogPosts();
+  return posts.filter(post => 
+    post.tags && post.tags.some(t => t.toLowerCase() === tag.toLowerCase())
+  );
 };
 
 export const getFeaturedBlogPosts = async (): Promise<BlogPost[]> => {
-  try {
-    const posts = await getAllBlogPosts();
-    return posts
-      .filter(post => post.featured)
-      .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
-      .slice(0, 5);
-  } catch (error) {
-    console.error('Error fetching featured blog posts:', error);
-    return [];
-  }
+  const posts = await getAllBlogPosts();
+  return posts
+    .filter(post => post.featured && post.status === 'published')
+    .slice(0, 5);
 };
 
 // Helper function to calculate read time

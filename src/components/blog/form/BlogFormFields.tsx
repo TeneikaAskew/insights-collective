@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,6 +9,8 @@ import { UseFormReturn } from 'react-hook-form';
 import { BlogFormData } from '@/types/blog';
 import { TagInput } from './TagInput';
 import { ImageUploader } from './ImageUploader';
+import { ModernEditor } from '@/components/ui/modern-editor';
+import { getBlogCategories } from '@/services/blogService';
 
 interface BlogFormFieldsProps {
   form: UseFormReturn<BlogFormData>;
@@ -23,6 +25,21 @@ export function BlogFormFields({
   toggleImagePreview, 
   generateSlug 
 }: BlogFormFieldsProps) {
+  const [categories, setCategories] = useState<Array<{ name: string }>>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categoryData = await getBlogCategories();
+        setCategories(categoryData);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
   return (
     <div className="space-y-6">
       <FormField
@@ -51,8 +68,8 @@ export function BlogFormFields({
             <FormLabel>Excerpt</FormLabel>
             <FormControl>
               <Textarea 
-                placeholder="Write a brief summary of your blog post" 
-                rows={2}
+                placeholder="Write a brief summary of your blog post"
+                rows={3}
                 {...field} 
               />
             </FormControl>
@@ -66,12 +83,13 @@ export function BlogFormFields({
         name="content"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Content (Markdown)</FormLabel>
+            <FormLabel>Content</FormLabel>
             <FormControl>
-              <Textarea 
-                placeholder="Write your blog post content in Markdown format" 
-                className="min-h-[300px] font-mono"
-                {...field} 
+              <ModernEditor
+                value={field.value}
+                onChange={field.onChange}
+                placeholder="Start writing your blog post content..."
+                minHeight="500px"
               />
             </FormControl>
             <FormMessage />
@@ -125,13 +143,11 @@ export function BlogFormFields({
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent>
-                    <SelectItem value="Fundamentals">Fundamentals</SelectItem>
-                    <SelectItem value="Career">Career</SelectItem>
-                    <SelectItem value="Technical">Technical</SelectItem>
-                    <SelectItem value="Industry">Industry</SelectItem>
-                    <SelectItem value="Case Studies">Case Studies</SelectItem>
-                    <SelectItem value="Tools">Tools</SelectItem>
-                    <SelectItem value="Ethics">Ethics</SelectItem>
+                    {categories.map((category) => (
+                      <SelectItem key={category.name} value={category.name}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <FormMessage />

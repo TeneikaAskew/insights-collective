@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -28,9 +29,8 @@ import {
 import { toast } from '@/hooks/use-toast';
 import AppLayout from '@/components/layout/AppLayout';
 import { BlogPost } from '@/types/blog';
-import { getAllBlogPosts, deleteBlogPost, getBlogPostAnalytics } from '@/services/blogService';
+import { getAllBlogPosts, deleteBlogPost, getBlogCategories } from '@/services/blogService';
 import { format } from 'date-fns';
-import { BlogAnalyticsOverview } from '@/components/blog/analytics/BlogPostMetrics';
 
 const AdminBlogPosts = () => {
   const [blogPosts, setBlogPosts] = useState<BlogPost[]>([]);
@@ -42,6 +42,7 @@ const AdminBlogPosts = () => {
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [postToDelete, setPostToDelete] = useState<BlogPost | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [categories, setCategories] = useState<string[]>([]);
   
   // Analytics overview data
   const [analyticsData, setAnalyticsData] = useState({
@@ -56,6 +57,7 @@ const AdminBlogPosts = () => {
 
   useEffect(() => {
     fetchBlogPosts();
+    fetchCategories();
   }, []);
 
   const fetchBlogPosts = async () => {
@@ -92,6 +94,15 @@ const AdminBlogPosts = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchCategories = async () => {
+    try {
+      const categoryData = await getBlogCategories();
+      setCategories(['all', ...categoryData.map(cat => cat.name)]);
+    } catch (error) {
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -134,38 +145,6 @@ const AdminBlogPosts = () => {
   const handleDeleteClick = (post: BlogPost) => {
     setPostToDelete(post);
     setShowDeleteDialog(true);
-  };
-
-  const handleToggleFeatured = (post: BlogPost) => {
-    const updatedPosts = blogPosts.map(p => {
-      if (p.id === post.id) {
-        return { ...p, featured: !p.featured };
-      }
-      return p;
-    });
-    
-    setBlogPosts(updatedPosts);
-    
-    toast({
-      title: "Success",
-      description: `"${post.title}" has been ${post.featured ? 'removed from' : 'marked as'} featured.`,
-    });
-  };
-
-  const handleStatusChange = (post: BlogPost, status: 'draft' | 'published' | 'archived') => {
-    const updatedPosts = blogPosts.map(p => {
-      if (p.id === post.id) {
-        return { ...p, status };
-      }
-      return p;
-    });
-    
-    setBlogPosts(updatedPosts);
-    
-    toast({
-      title: "Status Changed",
-      description: `"${post.title}" is now ${status}.`,
-    });
   };
 
   // Apply all filters and sorting
@@ -212,13 +191,10 @@ const AdminBlogPosts = () => {
     }
   };
 
-  // Get unique categories for filter
-  const categories = ['all', ...new Set(blogPosts.map(post => post.category || 'Uncategorized'))];
-
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'published':
-        return <Badge variant="success" className="bg-green-600">Published</Badge>;
+        return <Badge className="bg-green-600">Published</Badge>;
       case 'draft':
         return <Badge variant="outline">Draft</Badge>;
       case 'archived':
@@ -233,9 +209,9 @@ const AdminBlogPosts = () => {
       <div className="container mx-auto py-8 px-4">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold">Blog Posts</h1>
+            <h1 className="text-3xl font-bold">Blog Management</h1>
             <p className="text-muted-foreground mt-1">
-              Manage your blog content
+              Create, edit, and manage your blog content
             </p>
           </div>
           
@@ -245,11 +221,6 @@ const AdminBlogPosts = () => {
               New Post
             </Button>
           </Link>
-        </div>
-
-        {/* Blog Analytics Overview */}
-        <div className="mb-8">
-          <BlogAnalyticsOverview />
         </div>
 
         {/* Analytics Overview Cards */}
@@ -392,7 +363,7 @@ const AdminBlogPosts = () => {
                         className="p-0 font-semibold hover:bg-transparent"
                         onClick={() => handleSort('publishedAt')}
                       >
-                        Published
+                        Date
                         <ArrowUpDown className={`ml-2 h-4 w-4 ${sortField === 'publishedAt' ? 'opacity-100' : 'opacity-30'}`} />
                       </Button>
                     </TableHead>
@@ -429,7 +400,7 @@ const AdminBlogPosts = () => {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>{getStatusBadge(post.status || 'published')}</TableCell>
+                        <TableCell>{getStatusBadge(post.status || 'draft')}</TableCell>
                         <TableCell>{post.category || 'Uncategorized'}</TableCell>
                         <TableCell>{post.views?.toLocaleString() || '0'}</TableCell>
                         <TableCell className="flex items-center text-muted-foreground">
@@ -458,38 +429,6 @@ const AdminBlogPosts = () => {
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleToggleFeatured(post)}>
-                                {post.featured ? (
-                                  <>
-                                    <StarOff className="mr-2 h-4 w-4" />
-                                    Unmark as Featured
-                                  </>
-                                ) : (
-                                  <>
-                                    <Star className="mr-2 h-4 w-4" />
-                                    Mark as Featured
-                                  </>
-                                )}
-                              </DropdownMenuItem>
-                              {post.status !== 'published' && (
-                                <DropdownMenuItem onClick={() => handleStatusChange(post, 'published')}>
-                                  <FileCheck className="mr-2 h-4 w-4" />
-                                  Publish
-                                </DropdownMenuItem>
-                              )}
-                              {post.status !== 'draft' && (
-                                <DropdownMenuItem onClick={() => handleStatusChange(post, 'draft')}>
-                                  <FileX className="mr-2 h-4 w-4" />
-                                  Save as Draft
-                                </DropdownMenuItem>
-                              )}
-                              {post.status !== 'archived' && (
-                                <DropdownMenuItem onClick={() => handleStatusChange(post, 'archived')}>
-                                  <Archive className="mr-2 h-4 w-4" />
-                                  Archive
-                                </DropdownMenuItem>
-                              )}
-                              <DropdownMenuSeparator />
                               <DropdownMenuItem 
                                 onClick={() => handleDeleteClick(post)}
                                 className="text-destructive"
@@ -506,6 +445,11 @@ const AdminBlogPosts = () => {
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-8">
                         <p className="text-muted-foreground">No blog posts found</p>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          <Link to="/admin/blog/create" className="text-primary hover:underline">
+                            Create your first blog post
+                          </Link>
+                        </p>
                       </TableCell>
                     </TableRow>
                   )}
