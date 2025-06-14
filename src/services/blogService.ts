@@ -47,18 +47,18 @@ export const getAllBlogPosts = async (): Promise<BlogPost[]> => {
 export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> => {
   try {
     const { data, error } = await supabase
-      .rpc('get_blog_post_with_tags', { post_slug: slug })
+      .from('blog_posts')
+      .select(`
+        *,
+        blog_categories!blog_posts_category_id_fkey(name),
+        blog_post_tags(tag_name),
+        profiles!blog_posts_author_id_fkey(first_name, last_name)
+      `)
+      .eq('slug', slug)
       .single();
 
     if (error) throw error;
     if (!data) return null;
-
-    // Get author information
-    const { data: authorData } = await supabase
-      .from('profiles')
-      .select('first_name, last_name')
-      .eq('id', data.author_id)
-      .single();
 
     const post: BlogPost = {
       id: data.id,
@@ -69,10 +69,10 @@ export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | null> 
       publishedAt: data.published_at || data.created_at,
       updatedAt: data.updated_at,
       authorId: data.author_id,
-      authorName: authorData ? `${authorData.first_name} ${authorData.last_name}`.trim() : 'Unknown Author',
+      authorName: data.profiles ? `${data.profiles.first_name} ${data.profiles.last_name}`.trim() : 'Unknown Author',
       imageUrl: data.image_url,
-      tags: data.tags || [],
-      category: data.category_name || 'Uncategorized',
+      tags: data.blog_post_tags?.map((tag: any) => tag.tag_name) || [],
+      category: data.blog_categories?.name || 'Uncategorized',
       status: data.status as 'draft' | 'published' | 'archived',
       featured: data.featured,
       seoTitle: data.seo_title,
@@ -260,7 +260,7 @@ export const updateBlogPost = async (slug: string, blogPost: BlogFormData): Prom
         .insert(tagInserts);
     }
 
-    // Get author information for return
+    // Get author information for return  
     const { data: authorData } = await supabase
       .from('profiles')
       .select('first_name, last_name')
