@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { OnboardingProvider } from '@/contexts/OnboardingContext';
@@ -19,11 +19,20 @@ import CareerPathway from '@/pages/CareerPathway';
 import Resources from '@/pages/Resources';
 import AdminDashboard from '@/pages/AdminDashboard';
 import BlogAdmin from '@/pages/admin/BlogAdmin';
+import PageVisibility from '@/pages/admin/PageVisibility';
 import Blog from '@/pages/Blog';
 import BlogPost from '@/pages/BlogPost';
 import CodePractice from '@/pages/CodePractice';
 import Forum from '@/pages/ForumList';
 import ThreadDetail from '@/pages/ThreadDetail';
+
+// Portfolio related imports
+import { EnhancedPortfolioEditor } from '@/components/portfolio/EnhancedPortfolioEditor';
+import { PublicPortfolioView } from '@/components/portfolio/PublicPortfolioView';
+import { usePortfolioPages } from '@/hooks/usePortfolioPages';
+import { Spinner } from '@/components/ui/spinner';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import PageVisibilityGuard from '@/components/PageVisibilityGuard';
 
 // Import Index as the home page and Dashboard as authenticated page
 import Index from '@/pages/Index';
@@ -39,6 +48,36 @@ const queryClient = new QueryClient({
     },
   },
 });
+
+// Portfolio Editor Wrapper Component
+function PortfolioEditorWrapper() {
+  const { pageId } = useParams<{ pageId: string }>();
+  const { usePortfolioPageWithProjects } = usePortfolioPages();
+  const { data: portfolioPage, isLoading } = usePortfolioPageWithProjects(pageId);
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-96">
+        <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!portfolioPage) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-muted-foreground">Portfolio page not found</p>
+      </div>
+    );
+  }
+
+  return <EnhancedPortfolioEditor portfolioPage={portfolioPage} />;
+}
+
+// Public Portfolio View Wrapper Component
+function PublicPortfolioWrapper() {
+  return <PublicPortfolioView />;
+}
 
 function App() {
   return (
@@ -58,7 +97,21 @@ function App() {
                 <Route path="/messages" element={<Messages />} />
                 <Route path="/interview-prep" element={<InterviewPrep />} />
                 <Route path="/code-practice" element={<CodePractice />} />
-                <Route path="/portfolio-explorer" element={<PortfolioExplorer />} />
+                <Route path="/portfolio-explorer" element={
+                  <ProtectedRoute>
+                    <PageVisibilityGuard>
+                      <PortfolioExplorer />
+                    </PageVisibilityGuard>
+                  </ProtectedRoute>
+                } />
+                <Route path="/portfolio-editor/:pageId" element={
+                  <ProtectedRoute>
+                    <PageVisibilityGuard>
+                      <PortfolioEditorWrapper />
+                    </PageVisibilityGuard>
+                  </ProtectedRoute>
+                } />
+                <Route path="/portfolio/:customUrl" element={<PublicPortfolioWrapper />} />
                 <Route path="/career-pathway" element={<CareerPathway />} />
                 <Route path="/resources" element={<Resources />} />
                 <Route path="/blog" element={<Blog />} />
@@ -70,6 +123,7 @@ function App() {
                 {/* Admin Routes */}
                 <Route path="/admin" element={<AdminDashboard />} />
                 <Route path="/admin/blog/*" element={<BlogAdmin />} />
+                <Route path="/admin/page-visibility" element={<PageVisibility />} />
               </Routes>
               <Toaster />
               <WelcomeModal />
