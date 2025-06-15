@@ -40,7 +40,7 @@ serve(async (req)=>{
     1. Key strengths & interests (extracted from their information)
     2. A skill inventory (list all skills you identify)
     3. Top 2-3 target roles that match their profile
-    4. For each role, suggest 3-5 portfolio project ideas with:
+    4. For each role, suggest 3-5 portfolio project ideas basedon role and/or hobbies with:
        - Project name and description
        - Required skills & tools
        - Estimated effort level (Low: <10 hrs, Medium: 10-30 hrs, High: >30 hrs)
