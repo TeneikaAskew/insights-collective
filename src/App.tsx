@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { OnboardingProvider } from '@/contexts/OnboardingContext';
 import { Toaster } from '@/components/ui/toaster';
 import WelcomeModal from '@/components/onboarding/WelcomeModal';
 
@@ -43,34 +44,36 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <Router>
         <AuthProvider>
-          <div className="min-h-screen bg-gray-50">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/profile" element={<Profile />} />
-              <Route path="/courses" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/courses/:id" element={<CourseDetail />} />
-              <Route path="/events" element={<Events />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/interview-prep" element={<InterviewPrep />} />
-              <Route path="/code-practice" element={<CodePractice />} />
-              <Route path="/portfolio-explorer" element={<PortfolioExplorer />} />
-              <Route path="/career-pathway" element={<CareerPathway />} />
-              <Route path="/resources" element={<Resources />} />
-              <Route path="/blog" element={<Blog />} />
-              <Route path="/blog/:slug" element={<BlogPost />} />
-              <Route path="/data-blueprint-series" element={<Navigate to="/blog" replace />} />
-              <Route path="/forum" element={<Forum />} />
-              <Route path="/thread/:threadId" element={<ThreadDetail />} />
+          <OnboardingProvider>
+            <div className="min-h-screen bg-gray-50">
+              <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/profile" element={<Profile />} />
+                <Route path="/courses" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/courses/:id" element={<CourseDetail />} />
+                <Route path="/events" element={<Events />} />
+                <Route path="/messages" element={<Messages />} />
+                <Route path="/interview-prep" element={<InterviewPrep />} />
+                <Route path="/code-practice" element={<CodePractice />} />
+                <Route path="/portfolio-explorer" element={<PortfolioExplorer />} />
+                <Route path="/career-pathway" element={<CareerPathway />} />
+                <Route path="/resources" element={<Resources />} />
+                <Route path="/blog" element={<Blog />} />
+                <Route path="/blog/:slug" element={<BlogPost />} />
+                <Route path="/data-blueprint-series" element={<Navigate to="/blog" replace />} />
+                <Route path="/forum" element={<Forum />} />
+                <Route path="/thread/:threadId" element={<ThreadDetail />} />
 
-              {/* Admin Routes */}
-              <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/admin/blog/*" element={<BlogAdmin />} />
-            </Routes>
-            <Toaster />
-            <WelcomeModal />
-          </div>
+                {/* Admin Routes */}
+                <Route path="/admin" element={<AdminDashboard />} />
+                <Route path="/admin/blog/*" element={<BlogAdmin />} />
+              </Routes>
+              <Toaster />
+              <WelcomeModal />
+            </div>
+          </OnboardingProvider>
         </AuthProvider>
       </Router>
     </QueryClientProvider>
